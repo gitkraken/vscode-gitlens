@@ -21,11 +21,21 @@ export interface ShowQuickFileHistoryCommandArgs {
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor() {
-		super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory, Commands.QuickOpenFileHistory]);
+		super([
+			Commands.OpenFileHistory,
+			Commands.OpenFolderHistory,
+			Commands.ShowQuickFileHistory,
+			Commands.QuickOpenFileHistory,
+			Commands.Deprecated_ShowFileHistoryInView,
+		]);
 	}
 
 	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
-		if (context.command === Commands.ShowFileHistoryInView) {
+		if (
+			context.command === Commands.OpenFileHistory ||
+			context.command === Commands.OpenFolderHistory ||
+			context.command === Commands.Deprecated_ShowFileHistoryInView
+		) {
 			args = { ...args };
 			args.showInSideBar = true;
 		}

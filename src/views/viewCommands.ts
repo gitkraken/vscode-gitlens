@@ -581,8 +581,14 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async stageFile(node: FileRevisionAsCommitNode | StatusFileNode) {
-		if (!(node instanceof FileRevisionAsCommitNode) && !(node instanceof StatusFileNode)) return;
+	private async stageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
+		if (
+			!(node instanceof CommitFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
+			!(node instanceof StatusFileNode)
+		) {
+			return;
+		}
 
 		void (await Container.git.stageFile(node.repoPath, node.file.fileName));
 		void node.triggerChange();
@@ -652,8 +658,14 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async unstageFile(node: FileRevisionAsCommitNode | StatusFileNode) {
-		if (!(node instanceof FileRevisionAsCommitNode) && !(node instanceof StatusFileNode)) return;
+	private async unstageFile(node: CommitFileNode | FileRevisionAsCommitNode | StatusFileNode) {
+		if (
+			!(node instanceof CommitFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
+			!(node instanceof StatusFileNode)
+		) {
+			return;
+		}
 
 		void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
 		void node.triggerChange();

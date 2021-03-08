@@ -1,6 +1,7 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
+import { FileHistoryView } from '../fileHistoryView';
 import { GitUri } from '../../git/gitUri';
 import { StashesView } from '../stashesView';
 import { Arrays } from '../../system';
@@ -15,11 +16,11 @@ export interface FileNode extends ViewNode {
 	root?: Arrays.HierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
+export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | StashesView> {
 	readonly priority: number = 1;
 
 	constructor(
-		view: ViewsWithCommits | StashesView,
+		view: ViewsWithCommits | FileHistoryView | StashesView,
 		parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly folderName: string,

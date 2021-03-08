@@ -122,12 +122,17 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setCursorFollowing(enabled: boolean) {
+		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
+
 		this._followCursor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
 
 		const root = this.ensureRoot(true);
+		if (uri != null) {
+			root.setUri(uri);
+		}
 		root.setEditorFollowing(this._followEditor);
 		void root.ensureSubscription();
 		void this.refresh(true);

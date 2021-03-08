@@ -128,6 +128,8 @@
 		"onCommand:gitlens.showCommitInView",
 		"onCommand:gitlens.showCommitsInView",
 		"onCommand:gitlens.showFileHistoryInView",
+		"onCommand:gitlens.openFileHistory",
+		"onCommand:gitlens.openFolderHistory",
 		"onCommand:gitlens.showQuickCommitDetails",
 		"onCommand:gitlens.showQuickCommitFileDetails",
 		"onCommand:gitlens.showQuickRevisionDetails",
@@ -2010,6 +2012,34 @@
 					"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _File History_ view",
 					"scope": "window"
 				},
+				"gitlens.views.fileHistory.files.compact": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _File History_ view. Only applies to folder history and when `#gitlens.views.fileHistory.files.layout#` is set to `tree` or `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.fileHistory.files.layout": {
+					"type": "string",
+					"default": "auto",
+					"enum": [
+						"auto",
+						"list",
+						"tree"
+					],
+					"enumDescriptions": [
+						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.fileHistory.files.threshold#` value and the number of files at each nesting level",
+						"Displays files as a list",
+						"Displays files as a tree"
+					],
+					"markdownDescription": "Specifies how the _File History_ view will display files when showing the history of a folder",
+					"scope": "window"
+				},
+				"gitlens.views.fileHistory.files.threshold": {
+					"type": "number",
+					"default": 5,
+					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _File History_ view. Only applies to folder history and when `#gitlens.views.fileHistory.files.layout#` is set to `auto`",
+					"scope": "window"
+				},
 				"gitlens.views.lineHistory.avatars": {
 					"type": "boolean",
 					"default": true,
@@ -3372,6 +3402,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openFileHistory",
+				"title": "Open File History",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.openFolderHistory",
+				"title": "Open Folder History",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showQuickCommitDetails",
 				"title": "Show Commit",
 				"category": "GitLens"
@@ -4508,13 +4548,15 @@
 				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
 				"title": "Toggle History by: File",
 				"category": "GitLens",
-				"icon": "$(file)"
+				"icon": "$(file)",
+				"enablement": "gitlens:views:fileHistory:editorFollowing"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
 				"title": "Toggle History by: Selected Line(s)",
 				"category": "GitLens",
-				"icon": "$(list-selection)"
+				"icon": "$(list-selection)",
+				"enablement": "gitlens:views:fileHistory:editorFollowing || gitlens:views:fileHistory:cursorFollowing"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOn",
@@ -4530,13 +4572,13 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-				"title": "Toggle Renames: Not Following",
+				"title": "Toggle Follow Renames: Off",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-				"title": "Toggle Renames: Following",
+				"title": "Toggle Follow Renames: On",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
@@ -5274,7 +5316,15 @@
 				},
 				{
 					"command": "gitlens.showFileHistoryInView",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openFileHistory",
 					"when": "gitlens:activeFileStatus =~ /tracked/"
+				},
+				{
+					"command": "gitlens.openFolderHistory",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.showQuickCommitDetails",
@@ -6354,7 +6404,7 @@
 					"alt": "gitlens.copyRemoteFileUrlFrom"
 				},
 				{
-					"command": "gitlens.showFileHistoryInView",
+					"command": "gitlens.openFileHistory",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history",
 					"group": "2_gitlens@5"
 				},
@@ -6531,7 +6581,7 @@
 					"alt": "gitlens.copyRemoteFileUrlFrom"
 				},
 				{
-					"command": "gitlens.showFileHistoryInView",
+					"command": "gitlens.openFileHistory",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
 					"group": "2_gitlens@4"
 				},
@@ -6560,7 +6610,12 @@
 					"alt": "gitlens.copyRemoteFileUrlFrom"
 				},
 				{
-					"command": "gitlens.showFileHistoryInView",
+					"command": "gitlens.openFolderHistory",
+					"when": "!explorerResourceIsRoot && explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"group": "4_timeline@2"
+				},
+				{
+					"command": "gitlens.openFileHistory",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@2"
 				},
@@ -6650,7 +6705,7 @@
 					"group": "2_gitlens@1"
 				},
 				{
-					"command": "gitlens.showFileHistoryInView",
+					"command": "gitlens.openFileHistory",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
 					"group": "4_timeline@2"
 				},
@@ -7760,7 +7815,7 @@
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
-					"command": "gitlens.showFileHistoryInView",
+					"command": "gitlens.openFileHistory",
 					"when": "view != gitlens.views.fileHistory && viewItem =~ /gitlens:file\\b/",
 					"group": "2_gitlens_quickopen@6"
 				},

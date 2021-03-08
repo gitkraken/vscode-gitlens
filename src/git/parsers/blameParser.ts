@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision } from '../git';
+import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../git';
 import { debug, Strings } from '../../system';
 
 const emptyStr = '';
@@ -35,7 +35,7 @@ export class GitBlameParser {
 		data: string,
 		repoPath: string | undefined,
 		fileName: string,
-		currentUser: { name?: string; email?: string } | undefined,
+		currentUser: GitUser | undefined,
 	): GitBlame | undefined {
 		if (!data) return undefined;
 

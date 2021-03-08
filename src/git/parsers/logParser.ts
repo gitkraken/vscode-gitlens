@@ -10,6 +10,7 @@ import {
 	GitLogCommit,
 	GitLogCommitLine,
 	GitRevision,
+	GitUser,
 } from '../git';
 import { Arrays, debug, Strings } from '../../system';
 
@@ -86,7 +87,7 @@ export class GitLogParser {
 		repoPath: string | undefined,
 		fileName: string | undefined,
 		sha: string | undefined,
-		currentUser: { name?: string; email?: string } | undefined,
+		currentUser: GitUser | undefined,
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,

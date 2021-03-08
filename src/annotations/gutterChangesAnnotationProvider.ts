@@ -100,7 +100,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					this.trackedDocument.uri.repoPath!,
 					this.trackedDocument.uri.fsPath,
 				);
-				const commits = await status?.toPsuedoCommits();
+				const commits = status?.toPsuedoCommits(
+					await Container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
+				);
 				if (commits?.length) {
 					commit = await Container.git.getCommitForFile(
 						this.trackedDocument.uri.repoPath,

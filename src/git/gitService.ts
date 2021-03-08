@@ -68,6 +68,8 @@ import {
 	GitTagParser,
 	GitTree,
 	GitTreeParser,
+	GitUser,
+	isFolderGlob,
 	maxGitCliLength,
 	PullRequest,
 	PullRequestDateFormatting,
@@ -142,7 +144,7 @@ export class GitService implements Disposable {
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
-	private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
+	private readonly _userMapCache = new Map<string, GitUser | null>();
 
 	constructor() {
 		this._repositoryTree = TernarySearchTree.forPaths();
@@ -1116,8 +1118,7 @@ export class GitService implements Disposable {
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const currentUser = await this.getCurrentUser(uri.repoPath!);
-			const blame = GitBlameParser.parse(data, uri.repoPath, fileName, currentUser);
+			const blame = GitBlameParser.parse(data, uri.repoPath, fileName, await this.getCurrentUser(uri.repoPath!));
 			if (blame == null) return undefined;
 
 			return {
@@ -1549,7 +1550,7 @@ export class GitService implements Disposable {
 
 	@log()
 	@gate()
-	async getCurrentUser(repoPath: string) {
+	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		let user = this._userMapCache.get(repoPath);
 		if (user != null) return user;
 		// If we found the repo, but no user data was found just return
@@ -2355,7 +2356,8 @@ export class GitService implements Disposable {
 			});
 			const log = GitLogParser.parse(
 				data,
-				GitCommitType.LogFile,
+				// If this is the log of a folder, parse it as a normal log rather than a file log
+				isFolderGlob(file) ? GitCommitType.Log : GitCommitType.LogFile,
 				root,
 				file,
 				ref,
@@ -3550,6 +3552,19 @@ export class GitService implements Disposable {
 		if (status == null || !status.files.length) return undefined;
 
 		return status.files[0];
+	}
+
+	@log()
+	async getStatusForFiles(repoPath: string, path: string): Promise<GitStatusFile[] | undefined> {
+		const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+
+		const data = await Git.status__file(repoPath, path, porcelainVersion, {
+			similarityThreshold: Container.config.advanced.similarityThreshold,
+		});
+		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+		if (status == null || !status.files.length) return [];
+
+		return status.files;
 	}
 
 	@log()

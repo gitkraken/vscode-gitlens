@@ -871,7 +871,8 @@ export namespace Git {
 
 		if (format !== 'refs') {
 			if (startLine == null) {
-				if (format === 'simple') {
+				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
+				if (format === 'simple' || isFolderGlob(file)) {
 					params.push('--name-status');
 				} else {
 					params.push('--numstat', '--summary');
@@ -1461,4 +1462,12 @@ export namespace Git {
 			return undefined;
 		}
 	}
+}
+
+export function isFolderGlob(path: string) {
+	return paths.basename(path) === '*';
+}
+
+export function toFolderGlob(fsPath: string) {
+	return paths.join(fsPath, '*');
 }

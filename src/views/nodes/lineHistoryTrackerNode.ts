@@ -48,6 +48,22 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				return [];
 			}
 
+			if (this._selection == null) {
+				this.view.description = undefined;
+
+				this.view.message = 'There was no selection provided for line history.';
+				this.view.description = `${this.uri.fileName}${
+					this.uri.sha
+						? ` ${
+								this.uri.sha === GitRevision.deletedOrMissing
+									? this.uri.shortSha
+									: `(${this.uri.shortSha})`
+						  }`
+						: ''
+				}${!this.followingEditor ? ' (pinned)' : ''}`;
+				return [];
+			}
+
 			this.view.message = undefined;
 
 			const commitish: GitCommitish = {
@@ -65,7 +81,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 					filter: b => b.name === commitish.sha,
 				});
 			}
-			this._child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection!, this._editorContents);
+			this._child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection, this._editorContents);
 		}
 
 		return this._child.getChildren();
@@ -221,7 +237,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		void this.triggerChange();
 	}
 
-	private setUri(uri?: GitUri) {
+	setUri(uri?: GitUri) {
 		this._uri = uri ?? unknownGitUri;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}

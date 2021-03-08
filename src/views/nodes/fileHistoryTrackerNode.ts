@@ -1,6 +1,7 @@
 'use strict';
-import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
+import { ContextKeys, setContext } from '../../constants';
 import { Container } from '../../container';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
@@ -10,7 +11,6 @@ import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
-import { ContextKeys, setContext } from '../../constants';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
@@ -53,6 +53,16 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			};
 			const fileUri = new GitUri(this.uri, commitish);
 
+			let folder = false;
+			try {
+				const stat = await workspace.fs.stat(this.uri);
+				if (stat.type === FileType.Directory) {
+					folder = true;
+				}
+			} catch {}
+
+			this.view.title = folder ? 'Folder History' : 'File History';
+
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await Container.git.getBranch(this.uri.repoPath);
@@ -61,7 +71,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 					filter: b => b.name === commitish.sha,
 				});
 			}
-			this._child = new FileHistoryNode(fileUri, this.view, this, branch);
+			this._child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
 
 		return this._child.getChildren();
@@ -188,6 +198,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		}
 
 		this.canSubscribe = enabled;
+		if (!enabled) {
+			void this.triggerChange();
+		}
 	}
 
 	@log()
@@ -208,7 +221,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		void this.triggerChange();
 	}
 
-	private setUri(uri?: GitUri) {
+	setUri(uri?: GitUri) {
 		this._uri = uri ?? unknownGitUri;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}

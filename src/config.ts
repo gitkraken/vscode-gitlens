@@ -553,6 +553,7 @@ export interface ContributorsViewConfig {
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
+	files: ViewsFilesConfig;
 }
 
 export interface LineHistoryViewConfig {

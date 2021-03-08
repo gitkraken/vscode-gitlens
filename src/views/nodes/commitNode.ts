@@ -6,6 +6,7 @@ import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { FileHistoryView } from '../fileHistoryView';
 import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
 import { PullRequestNode } from './pullRequestNode';
@@ -14,9 +15,9 @@ import { TagsView } from '../tagsView';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
-export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReference> {
+export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference> {
 	constructor(
-		view: ViewsWithCommits,
+		view: ViewsWithCommits | FileHistoryView,
 		parent: ViewNode,
 		public readonly commit: GitLogCommit,
 		private readonly unpublished?: boolean,
@@ -89,7 +90,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReferen
 			);
 		}
 
-		if (!(this.view instanceof TagsView)) {
+		if (!(this.view instanceof TagsView) && !(this.view instanceof FileHistoryView)) {
 			if (this.view.config.pullRequests.enabled && this.view.config.pullRequests.showForCommits) {
 				const pr = await commit.getAssociatedPullRequest();
 				if (pr != null) {

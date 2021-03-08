@@ -82,11 +82,13 @@ export enum Commands {
 	OpenChangedFiles = 'gitlens.openChangedFiles',
 	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
 	OpenComparisonOnRemote = 'gitlens.openComparisonOnRemote',
+	OpenFileHistory = 'gitlens.openFileHistory',
 	OpenFileFromRemote = 'gitlens.openFileFromRemote',
 	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	OpenFileOnRemoteFrom = 'gitlens.openFileOnRemoteFrom',
 	OpenFileAtRevision = 'gitlens.openFileRevision',
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
+	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
 	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
 	OpenAssociatedPullRequestOnRemote = 'gitlens.openAssociatedPullRequestOnRemote',
@@ -114,7 +116,6 @@ export enum Commands {
 	ShowCommitsView = 'gitlens.showCommitsView',
 	ShowContributorsView = 'gitlens.showContributorsView',
 	ShowFileHistoryView = 'gitlens.showFileHistoryView',
-	ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
@@ -174,6 +175,7 @@ export enum Commands {
 	Deprecated_OpenFileInRemote = 'gitlens.openFileInRemote',
 	Deprecated_OpenInRemote = 'gitlens.openInRemote',
 	Deprecated_OpenRepoInRemote = 'gitlens.openRepoInRemote',
+	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
 export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {

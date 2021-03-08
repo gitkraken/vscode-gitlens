@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds _Open Folder History_ command to folders in the _Explorer_ view to show the folder's history in the _File History_ view
+
 ### Fixed
 
 - Fixes [1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree

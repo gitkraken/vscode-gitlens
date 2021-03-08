@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
 import { GitUri } from '../gitUri';
-import { GitCommitType, GitLogCommit, GitRemote, GitRevision } from './models';
+import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from './models';
 import { memoize, Strings } from '../../system';
 
 export interface ComputedWorkingTreeGitStatus {
@@ -406,11 +406,10 @@ export class GitStatusFile implements GitFile {
 		return GitFile.getStatusText(this.status);
 	}
 
-	async toPsuedoCommits(): Promise<GitLogCommit[]> {
+	toPsuedoCommits(user: GitUser | undefined): GitLogCommit[] {
 		const commits: GitLogCommit[] = [];
 
 		if (this.conflictStatus != null) {
-			const user = await Container.git.getCurrentUser(this.repoPath);
 			commits.push(
 				new GitLogCommit(
 					GitCommitType.LogFile,
@@ -434,7 +433,6 @@ export class GitStatusFile implements GitFile {
 
 		if (this.workingTreeStatus == null && this.indexStatus == null) return commits;
 
-		const user = await Container.git.getCurrentUser(this.repoPath);
 		if (this.workingTreeStatus != null && this.indexStatus != null) {
 			commits.push(
 				new GitLogCommit(
