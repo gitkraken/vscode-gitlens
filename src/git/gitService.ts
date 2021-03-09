@@ -4122,18 +4122,30 @@ export class GitService implements Disposable {
 
 	@log()
 	static async getOrOpenBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
-		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi?.openRepository != null) {
-			return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
-		}
+		const cc = Logger.getCorrelationContext();
+		try {
+			const gitApi = await GitService.getBuiltInGitApi();
+			if (gitApi?.openRepository != null) {
+				return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+			}
 
-		return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			return undefined;
+		}
 	}
 
 	@log()
 	static async openBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
-		const gitApi = await GitService.getBuiltInGitApi();
-		return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+		const cc = Logger.getCorrelationContext();
+		try {
+			const gitApi = await GitService.getBuiltInGitApi();
+			return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			return undefined;
+		}
 	}
 
 	static getEncoding(repoPath: string, fileName: string): string;
