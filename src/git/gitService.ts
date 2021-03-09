@@ -483,37 +483,42 @@ export class GitService implements Disposable {
 		const hasRepository = repositoryTree.any();
 		await setEnabled(hasRepository);
 
-		let hasRemotes = false;
-		let hasRichRemotes = false;
-		let hasConnectedRemotes = false;
-		if (hasRepository) {
-			for (const repo of repositoryTree.values()) {
-				if (!hasConnectedRemotes) {
-					hasConnectedRemotes = await repo.hasRichRemote(true);
+		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
+		async function updateRemoteContext() {
+			let hasRemotes = false;
+			let hasRichRemotes = false;
+			let hasConnectedRemotes = false;
+			if (hasRepository) {
+				for (const repo of repositoryTree.values()) {
+					if (!hasConnectedRemotes) {
+						hasConnectedRemotes = await repo.hasRichRemote(true);
 
-					if (hasConnectedRemotes) {
-						hasRichRemotes = true;
-						hasRemotes = true;
+						if (hasConnectedRemotes) {
+							hasRichRemotes = true;
+							hasRemotes = true;
+						}
 					}
-				}
 
-				if (!hasRichRemotes) {
-					hasRichRemotes = await repo.hasRichRemote();
-				}
+					if (!hasRichRemotes) {
+						hasRichRemotes = await repo.hasRichRemote();
+					}
 
-				if (!hasRemotes) {
-					hasRemotes = await repo.hasRemotes();
-				}
+					if (!hasRemotes) {
+						hasRemotes = await repo.hasRemotes();
+					}
 
-				if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
+					if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
+				}
 			}
+
+			await Promise.all([
+				setContext(ContextKeys.HasRemotes, hasRemotes),
+				setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
+				setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
+			]);
 		}
 
-		await Promise.all([
-			setContext(ContextKeys.HasRemotes, hasRemotes),
-			setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
-			setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
-		]);
+		void updateRemoteContext();
 
 		// If we have no repositories setup a watcher in case one is initialized
 		if (!hasRepository) {
@@ -3138,23 +3143,41 @@ export class GitService implements Disposable {
 			: remotesOrRepoPath
 		).filter(r => r.provider != null);
 
+		if (remotes.length === 0) return undefined;
+
 		let remote;
 		if (remotes.length === 1) {
 			remote = remotes[0];
 		} else {
-			let originRemote;
+			const weightedRemotes = new Map<string, number>([
+				['upstream', 15],
+				['origin', 10],
+			]);
+
+			const branch = await this.getBranch(remotes[0].repoPath);
+			const branchRemote = branch?.getRemoteName();
+
+			if (branchRemote != null) {
+				weightedRemotes.set(branchRemote, 100);
+			}
+
+			let bestRemote;
+			let weight = 0;
 			for (const r of remotes) {
 				if (r.default) {
-					remote = r;
+					bestRemote = r;
 					break;
 				}
 
-				if (r.name === 'origin') {
-					originRemote = r;
+				// Don't choose a remote unless its weighted above
+				const matchedWeight = weightedRemotes.get(r.name) ?? -1;
+				if (matchedWeight > weight) {
+					bestRemote = r;
+					weight = matchedWeight;
 				}
 			}
 
-			remote = remote ?? originRemote ?? null;
+			remote = bestRemote ?? null;
 		}
 
 		if (!remote?.provider?.hasApi()) {
