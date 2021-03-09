@@ -25,9 +25,17 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			// Register the current branch decorator separately (since we can only have 2 char's per decoration)
 			window.registerFileDecorationProvider({
 				provideFileDecoration: (uri, token) => {
-					if (uri.scheme !== 'gitlens-view' || uri.authority !== 'branch') return undefined;
+					if (uri.scheme !== 'gitlens-view') return undefined;
 
-					return this.provideBranchCurrentDecoration(uri, token);
+					if (uri.authority === 'branch') {
+						return this.provideBranchCurrentDecoration(uri, token);
+					}
+
+					if (uri.authority === 'remote') {
+						return this.provideRemoteDefaultDecoration(uri, token);
+					}
+
+					return undefined;
 				},
 			}),
 			window.registerFileDecorationProvider(this),
@@ -169,6 +177,17 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			badge: GlyphChars.Check,
 			color: color,
 			tooltip: 'Current Branch',
+		};
+	}
+
+	provideRemoteDefaultDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
+		const [, isDefault] = uri.path.split('/');
+
+		if (!isDefault) return undefined;
+
+		return {
+			badge: GlyphChars.Check,
+			tooltip: 'Default Remote',
 		};
 	}
 }

@@ -1,5 +1,5 @@
 'use strict';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
@@ -106,10 +106,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			arrows = GlyphChars.Dash;
 		}
 
-		const item = new TreeItem(
-			`${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
-			TreeItemCollapsibleState.Collapsed,
-		);
+		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
 
 		if (this.remote.provider != null) {
 			const { provider } = this.remote;
@@ -123,7 +120,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			if (provider.hasApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
-				item.contextValue += `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
+				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
 				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
 					connected ? 'connected' : 'not connected'
 				})\n${provider.displayPath}\n`;
@@ -144,6 +141,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 		if (this.remote.default) {
 			item.contextValue += '+default';
+			item.resourceUri = Uri.parse('gitlens-view://remote/default');
 		}
 
 		item.id = this.id;
