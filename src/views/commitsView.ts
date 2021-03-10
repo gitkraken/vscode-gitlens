@@ -55,6 +55,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			this.child = new BranchNode(this.uri, this.view, this, branch, true, {
 				expanded: true,
+				limitCommits: !this.splatted,
 				showComparison: this.view.config.showBranchComparison,
 				showCurrent: false,
 				showTracking: true,

@@ -40,6 +40,7 @@ export class BranchNode
 	private _children: ViewNode[] | undefined;
 	private readonly options: {
 		expanded: boolean;
+		limitCommits: boolean;
 		showAsCommits: boolean;
 		showComparison: false | ViewShowBranchComparison;
 		showCurrent: boolean;
@@ -59,6 +60,7 @@ export class BranchNode
 
 		options?: {
 			expanded?: boolean;
+			limitCommits?: boolean;
 			showAsCommits?: boolean;
 			showComparison?: false | ViewShowBranchComparison;
 			showCurrent?: boolean;
@@ -71,6 +73,7 @@ export class BranchNode
 
 		this.options = {
 			expanded: false,
+			limitCommits: false,
 			showAsCommits: false,
 			showComparison: false,
 			// Hide the current branch checkmark when the node is displayed as a root
@@ -437,7 +440,11 @@ export class BranchNode
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			let limit = this.limit ?? (this.root ? this.view.config.pageItemLimit : this.view.config.defaultItemLimit);
+			let limit =
+				this.limit ??
+				(this.root && !this.options.limitCommits
+					? this.view.config.pageItemLimit
+					: this.view.config.defaultItemLimit);
 			// Try to show more commits if they are unpublished
 			if (limit !== 0 && this.branch.state.ahead > limit) {
 				limit = Math.min(this.branch.state.ahead + 1, limit * 2);
