@@ -344,8 +344,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private fetch(node: RemoteNode | RepositoryNode | BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof RepositoryNode) return GitActions.fetch(node.repo);
+	private fetch(node: RemoteNode | RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
+		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) return GitActions.fetch(node.repo);
 		if (node instanceof RemoteNode) return GitActions.Remote.fetch(node.remote.repoPath, node.remote.name);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			return GitActions.fetch(node.repoPath, node.root ? undefined : node.branch);
@@ -459,8 +459,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof RepositoryNode) return GitActions.pull(node.repo);
+	private pull(node: RepositoryNode | RepositoryFolderNode | BranchNode | BranchTrackingStatusNode) {
+		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) return GitActions.pull(node.repo);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			return GitActions.pull(node.repoPath, node.root ? undefined : node.branch);
 		}
@@ -470,13 +470,23 @@ export class ViewCommands {
 
 	@debug()
 	private push(
-		node: RepositoryNode | BranchNode | BranchTrackingStatusNode | CommitNode | FileRevisionAsCommitNode,
+		node:
+			| RepositoryNode
+			| RepositoryFolderNode
+			| BranchNode
+			| BranchTrackingStatusNode
+			| CommitNode
+			| FileRevisionAsCommitNode,
 		force?: boolean,
 	) {
-		if (node instanceof RepositoryNode) return GitActions.push(node.repo, force);
+		if (node instanceof RepositoryNode || node instanceof RepositoryFolderNode) {
+			return GitActions.push(node.repo, force);
+		}
+
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			return GitActions.push(node.repoPath, undefined, node.root ? undefined : node.branch);
 		}
+
 		if (node instanceof CommitNode || node instanceof FileRevisionAsCommitNode) {
 			if (node.isTip) {
 				return GitActions.push(node.repoPath, force);

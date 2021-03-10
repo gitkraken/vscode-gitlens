@@ -1,10 +1,19 @@
 'use strict';
-import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
+import {
+	Command,
+	Disposable,
+	Event,
+	MarkdownString,
+	TreeItem,
+	TreeItemCollapsibleState,
+	TreeViewVisibilityChangeEvent,
+} from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitFile,
 	GitReference,
+	GitRemote,
 	GitRevisionReference,
 	Repository,
 	RepositoryChange,
@@ -319,7 +328,14 @@ export abstract class RepositoryFolderNode<
 	protected splatted = true;
 	protected child: TChild | undefined;
 
-	constructor(uri: GitUri, view: TView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
+	constructor(
+		uri: GitUri,
+		view: TView,
+		parent: ViewNode,
+		public readonly repo: Repository,
+		splatted: boolean,
+		private readonly options?: { showBranchAndLastFetched?: boolean },
+	) {
 		super(uri, view, parent);
 
 		this.splatted = splatted;
@@ -337,8 +353,16 @@ export abstract class RepositoryFolderNode<
 		this.splatted = false;
 
 		let expand = this.repo.starred;
-		if (!expand) {
-			expand = await Container.git.isActiveRepoPath(this.uri.repoPath);
+		const [active, branch] = await Promise.all([
+			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
+			this.repo.getBranch(),
+		]);
+
+		const ahead = (branch?.state.ahead ?? 0) > 0;
+		const behind = (branch?.state.behind ?? 0) > 0;
+
+		if (!expand && (active || ahead || behind)) {
+			expand = true;
 		}
 
 		const item = new TreeItem(
@@ -346,14 +370,73 @@ export abstract class RepositoryFolderNode<
 			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
-		item.description = this.repo.supportsChangeEvents ? undefined : Strings.pad(GlyphChars.Warning, 1, 0);
-		item.tooltip = `${
-			this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
-		}${
-			this.repo.supportsChangeEvents
-				? ''
-				: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
-		}`;
+		if (ahead) {
+			item.contextValue += '+ahead';
+		}
+		if (behind) {
+			item.contextValue += '+behind';
+		}
+
+		if (branch != null && this.options?.showBranchAndLastFetched) {
+			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
+
+			const status = branch.getTrackingStatus();
+			item.description = `${this.repo.supportsChangeEvents ? '' : Strings.pad(GlyphChars.Warning, 1, 2)}${
+				status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''
+			}${branch.name}${
+				lastFetched
+					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					: ''
+			}`;
+
+			let providerName;
+			if (branch.tracking != null) {
+				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
+				providerName = providers?.length ? providers[0].name : undefined;
+			} else {
+				const remote = await branch.getRemote();
+				providerName = remote?.provider?.name;
+			}
+
+			item.tooltip = new MarkdownString(
+				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+					lastFetched
+						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+								lastFetched,
+								false,
+						  )}`
+						: ''
+				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
+					branch.name
+				}${
+					branch.tracking
+						? ` is ${branch.getTrackingStatus({
+								empty: `up to date with $(git-branch) ${branch.tracking}${
+									providerName ? ` on ${providerName}` : ''
+								}`,
+								expand: true,
+								icons: true,
+								separator: ', ',
+								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
+						  })}`
+						: `hasn't been published to ${providerName ?? 'a remote'}`
+				}${
+					this.repo.supportsChangeEvents
+						? ''
+						: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
+				}`,
+				true,
+			);
+		} else {
+			item.description = this.repo.supportsChangeEvents ? undefined : Strings.pad(GlyphChars.Warning, 1, 0);
+			item.tooltip = `${
+				this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
+			}${
+				this.repo.supportsChangeEvents
+					? ''
+					: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
+			}`;
+		}
 
 		return item;
 	}

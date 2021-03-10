@@ -4,7 +4,6 @@ import {
 	commands,
 	ConfigurationChangeEvent,
 	Disposable,
-	MarkdownString,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -16,7 +15,6 @@ import { Container } from '../container';
 import {
 	GitLogCommit,
 	GitReference,
-	GitRemote,
 	GitRevisionReference,
 	Repository,
 	RepositoryChange,
@@ -27,7 +25,6 @@ import { GitUri } from '../git/gitUri';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
-	ContextValues,
 	RepositoryFolderNode,
 	RepositoryNode,
 	unknownGitUri,
@@ -66,79 +63,6 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		}
 
 		return this.child.getChildren();
-	}
-
-	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
-		let expand = this.repo.starred;
-		const [active, branch] = await Promise.all([
-			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
-			this.repo.getBranch(),
-		]);
-		if (!expand && (active || (branch?.state.ahead ?? 0) > 0 || (branch?.state.behind ?? 0) > 0)) {
-			expand = true;
-		}
-
-		const item = new TreeItem(
-			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
-		);
-		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
-
-		if (branch != null) {
-			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
-
-			const status = branch?.getTrackingStatus();
-			item.description = `${this.repo.supportsChangeEvents ? '' : Strings.pad(GlyphChars.Warning, 1, 2)}${
-				status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''
-			}${branch.name}${
-				lastFetched
-					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
-					: ''
-			}`;
-
-			let providerName;
-			if (branch.tracking != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
-				providerName = providers?.length ? providers[0].name : undefined;
-			} else {
-				const remote = await branch.getRemote();
-				providerName = remote?.provider?.name;
-			}
-
-			item.tooltip = new MarkdownString(
-				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
-					lastFetched
-						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-								lastFetched,
-								false,
-						  )}`
-						: ''
-				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
-					branch.name
-				}${
-					branch.tracking
-						? ` is ${branch.getTrackingStatus({
-								empty: `up to date with $(git-branch) ${branch.tracking}${
-									providerName ? ` on ${providerName}` : ''
-								}`,
-								expand: true,
-								icons: true,
-								separator: ', ',
-								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
-						  })}`
-						: `hasn't been published to ${providerName ?? 'a remote'}`
-				}${
-					this.repo.supportsChangeEvents
-						? ''
-						: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
-				}`,
-				true,
-			);
-		}
-
-		return item;
 	}
 
 	@gate()
@@ -213,7 +137,10 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r =>
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat, {
+						showBranchAndLastFetched: true,
+					}),
 			);
 		}
 

@@ -8053,6 +8053,22 @@
 					"group": "8_gitlens_actions_@2"
 				},
 				{
+					"command": "gitlens.views.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"group": "inline@96",
+					"alt": "gitlens.views.pushWithForce"
+				},
+				{
+					"command": "gitlens.views.pull",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+behind\\b)/",
+					"group": "inline@97"
+				},
+				{
+					"command": "gitlens.views.fetch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.views.star",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/",
 					"group": "inline@99"
@@ -8061,6 +8077,26 @@
 					"command": "gitlens.views.unstar",
 					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/",
 					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.fetch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.pull",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.pushWithForce",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.openInTerminal",
@@ -8072,6 +8108,21 @@
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen@2",
 					"alt": "gitlens.copyRemoteRepositoryUrl"
+				},
+				{
+					"command": "gitlens.showCommitSearch",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "3_gitlens_explore@1"
+				},
+				{
+					"command": "gitlens.stashSave",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions_1@1"
+				},
+				{
+					"command": "gitlens.stashApply",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.views.star",
