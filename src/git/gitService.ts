@@ -1217,7 +1217,7 @@ export class GitService implements Disposable {
 
 		const data = await Git.rev_parse__currentBranch(
 			repoPath,
-			Container.config.advanced.useTopologicalCommitOrdering,
+			Container.config.advanced.commitOrdering,
 		);
 		if (data == null) return undefined;
 
@@ -1225,7 +1225,7 @@ export class GitService implements Disposable {
 		if (GitBranch.isDetached(name)) {
 			const [rebaseStatus, committerDate] = await Promise.all([
 				this.getRebaseStatus(repoPath),
-				Git.log__recent_committerdate(repoPath, Container.config.advanced.useTopologicalCommitOrdering),
+				Git.log__recent_committerdate(repoPath, Container.config.advanced.commitOrdering),
 			]);
 
 			branch = new GitBranch(
@@ -1305,13 +1305,13 @@ export class GitService implements Disposable {
 
 				const data = await Git.rev_parse__currentBranch(
 					repoPath,
-					Container.config.advanced.useTopologicalCommitOrdering,
+					Container.config.advanced.commitOrdering,
 				);
 				if (data != null) {
 					const [name, tracking] = data[0].split('\n');
 					const [rebaseStatus, committerDate] = await Promise.all([
 						GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath) : undefined,
-						Git.log__recent_committerdate(repoPath, Container.config.advanced.useTopologicalCommitOrdering),
+						Git.log__recent_committerdate(repoPath, Container.config.advanced.commitOrdering),
 					]);
 
 					current = new GitBranch(
@@ -1505,7 +1505,7 @@ export class GitService implements Disposable {
 		const data = await Git.log__file(repoPath, fileName, '@{push}..', {
 			format: 'refs',
 			renames: true,
-			topological: Container.config.advanced.useTopologicalCommitOrdering,
+			ordering: Container.config.advanced.commitOrdering,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -1898,7 +1898,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -1952,7 +1952,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			const commits = GitLogParser.parseRefsOnly(data);
 			return new Set(commits);
@@ -2110,7 +2110,7 @@ export class GitService implements Disposable {
 			const data = await Git.log__search(repoPath, args, {
 				...options,
 				limit: limit,
-				topo: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 				useShow: useShow,
 			});
 			const log = GitLogParser.parse(
@@ -2372,7 +2372,7 @@ export class GitService implements Disposable {
 				firstParent: options.renames,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -2688,7 +2688,7 @@ export class GitService implements Disposable {
 			// startLine: editorLine != null ? editorLine + 1 : undefined,
 			reverse: true,
 			format: 'simple',
-			topological: Container.config.advanced.useTopologicalCommitOrdering,
+			ordering: Container.config.advanced.commitOrdering,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -2700,7 +2700,7 @@ export class GitService implements Disposable {
 				limit: 1,
 				// startLine: editorLine != null ? editorLine + 1 : undefined
 				format: 'simple',
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			if (data == null || data.length === 0) {
 				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
@@ -2939,7 +2939,7 @@ export class GitService implements Disposable {
 				firstParent: firstParent,
 				format: 'simple',
 				startLine: editorLine != null ? editorLine + 1 : undefined,
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? emptyStr;
@@ -2955,7 +2955,7 @@ export class GitService implements Disposable {
 				ref = await Git.log__file_recent(
 					repoPath,
 					fileName,
-					Container.config.advanced.useTopologicalCommitOrdering,
+					Container.config.advanced.commitOrdering,
 				);
 				return GitUri.fromFile(fileName, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
@@ -3088,7 +3088,7 @@ export class GitService implements Disposable {
 			const data = await Git.reflog(repoPath, {
 				...options,
 				limit: limit * 100,
-				topo: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			if (data == null) return undefined;
 
@@ -3749,7 +3749,7 @@ export class GitService implements Disposable {
 			ref = await Git.log__file_recent(
 				repoPath,
 				fileName,
-				Container.config.advanced.useTopologicalCommitOrdering,
+				Container.config.advanced.commitOrdering,
 				{
 					similarityThreshold: Container.config.advanced.similarityThreshold,
 				},
@@ -3761,7 +3761,7 @@ export class GitService implements Disposable {
 				filters: ['R', 'C', 'D'],
 				limit: 1,
 				format: 'simple',
-				topological: Container.config.advanced.useTopologicalCommitOrdering,
+				ordering: Container.config.advanced.commitOrdering,
 			});
 			if (data == null || data.length === 0) break;
 
@@ -4048,7 +4048,7 @@ export class GitService implements Disposable {
 			repoPath,
 			blob,
 			ref,
-			Container.config.advanced.useTopologicalCommitOrdering,
+			Container.config.advanced.commitOrdering,
 			fileName,
 		);
 		if (options?.timeout != null) {

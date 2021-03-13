@@ -748,7 +748,7 @@ export namespace Git {
 			reverse,
 			similarityThreshold,
 			since,
-			topological,
+			ordering,
 		}: {
 			authors?: string[];
 			format?: 'refs' | 'default';
@@ -757,7 +757,7 @@ export namespace Git {
 			reverse?: boolean;
 			similarityThreshold?: number | null;
 			since?: string;
-			topological?: boolean;
+			ordering?: string | null;
 		},
 	) {
 		const params = [
@@ -772,8 +772,8 @@ export namespace Git {
 			params.push('--name-status');
 		}
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
 		if (limit && !reverse) {
@@ -824,7 +824,7 @@ export namespace Git {
 			skip,
 			startLine,
 			endLine,
-			topological,
+			ordering,
 		}: {
 			all?: boolean;
 			filters?: GitDiffFilter[];
@@ -837,7 +837,7 @@ export namespace Git {
 			skip?: number;
 			startLine?: number;
 			endLine?: number;
-			topological?: boolean;
+			ordering?: string | null;
 		} = {},
 	) {
 		const [file, root] = Git.splitPath(fileName, repoPath);
@@ -847,8 +847,8 @@ export namespace Git {
 			`--format=${format === 'default' ? GitLogParser.defaultFormat : GitLogParser.simpleFormat}`,
 		];
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
 		if (limit && !reverse) {
@@ -915,7 +915,7 @@ export namespace Git {
 	export async function log__file_recent(
 		repoPath: string,
 		fileName: string,
-		topological: boolean,
+		ordering: string | null,
 		{ ref, similarityThreshold }: { ref?: string; similarityThreshold?: number | null } = {},
 	) {
 		const params = [
@@ -925,8 +925,8 @@ export namespace Git {
 			'--format=%H',
 		];
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
 		if (ref) {
@@ -946,13 +946,13 @@ export namespace Git {
 		repoPath: string,
 		objectId: string,
 		ref: string,
-		topological: boolean,
+		ordering: string | null,
 		file?: string,
 	) {
 		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
 		if (file) {
@@ -966,30 +966,26 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent(repoPath: string, topological: boolean) {
+	export async function log__recent(repoPath: string, ordering: string | null) {
 		const params = ['log', '-n1', '--format=%H'];
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
-		params.push('--');
-
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
+		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--');
 
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent_committerdate(repoPath: string, topological: boolean) {
+	export async function log__recent_committerdate(repoPath: string, ordering: string | null) {
 		const params = ['log', '-n1', '--format=%ct'];
 
-		if (topological) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 
-		params.push('--');
-
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
+		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--');
 
 		return data.length === 0 ? undefined : data.trim();
 	}
@@ -997,7 +993,7 @@ export namespace Git {
 	export function log__search(
 		repoPath: string,
 		search: string[] = emptyArray,
-		{ limit, skip, topo, useShow }: { limit?: number; skip?: number; topo?: boolean; useShow?: boolean } = {},
+		{ limit, skip, ordering, useShow }: { limit?: number; skip?: number; ordering?: string | null; useShow?: boolean } = {},
 	) {
 		const params = [
 			useShow ? 'show' : 'log',
@@ -1012,8 +1008,8 @@ export namespace Git {
 		if (skip && !useShow) {
 			params.push(`--skip=${skip}`);
 		}
-		if (topo && !useShow) {
-			params.push('--topo-order');
+		if (ordering && !useShow) {
+			params.push(`--${ordering}-order`);
 		}
 
 		return git<string>(
@@ -1081,13 +1077,13 @@ export namespace Git {
 			branch,
 			limit,
 			skip,
-			topo,
-		}: { all?: boolean; branch?: string; limit?: number; skip?: number; topo?: boolean } = {},
+			ordering,
+		}: { all?: boolean; branch?: string; limit?: number; skip?: number; ordering?: string | null } = {},
 	): Promise<string> {
 		const params = ['log', '--walk-reflogs', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
 
-		if (topo) {
-			params.push('--topo-order');
+		if (ordering) {
+			params.push(`--${ordering}-order`);
 		}
 		if (all) {
 			params.push('--all');
@@ -1170,7 +1166,7 @@ export namespace Git {
 
 	export async function rev_parse__currentBranch(
 		repoPath: string,
-		topo: boolean,
+		ordering: string | null,
 	): Promise<[string, string | undefined] | undefined> {
 		try {
 			const data = await git<string>(
@@ -1213,7 +1209,7 @@ export namespace Git {
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
-				const sha = await log__recent(repoPath, topo);
+				const sha = await log__recent(repoPath, ordering);
 				if (sha === undefined) return undefined;
 
 				return [`(HEAD detached at ${GitRevision.shorten(sha)})`, sha];
