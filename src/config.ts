@@ -308,6 +308,7 @@ export interface AdvancedConfig {
 	caching: {
 		enabled: boolean;
 	};
+	commitOrdering: string | null;
 	externalDiffTool: string | null;
 	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;

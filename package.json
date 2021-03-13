@@ -2520,6 +2520,27 @@
 					"markdownDescription": "Specifies whether git output will be cached — changing the default is not recommended",
 					"scope": "window"
 				},
+				"gitlens.advanced.commitOrdering": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"enum": [
+						null,
+						"date",
+						"author-date",
+						"topo"
+					],
+					"enumDescriptions": [
+						"",
+						"Show no parents before all of its children are shown, but otherwise show commits in the commit timestamp order",
+						"Show no parents before all of its children are shown, but otherwise show commits in the author timestamp order",
+						"Show no parents before all of its children are shown, and avoid showing commits on multiple lines of history intermixed"
+					],
+					"markdownDescription": "Specifies the order by which to list commits",
+					"scope": "window"
+				},
 				"gitlens.advanced.externalDiffTool": {
 					"type": [
 						"string",
