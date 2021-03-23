@@ -132,15 +132,15 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		let line;
 		if (range != null) {
 			if (range.start.line === range.end.line) {
-				line = `&line=${range.start.line}`;
+				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
 			} else {
-				line = `&line=${range.start.line}&lineEnd=${range.end.line}`;
+				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
 			}
 		} else {
 			line = '';
 		}
 
-		if (sha) return this.encodeUrl(`${this.baseUrl}/commit/${sha}/?_a=contents&path=/${fileName}${line}`);
+		if (sha) return this.encodeUrl(`${this.baseUrl}?path=${fileName}&version=GC${sha}${line}&_a=contents`);
 		if (branch) return this.encodeUrl(`${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`);
 		return this.encodeUrl(`${this.baseUrl}?path=/${fileName}${line}`);
 	}
