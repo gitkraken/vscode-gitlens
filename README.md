@@ -87,6 +87,8 @@ Here are just some of the **features** that GitLens provides,
 - Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithRevisionFrom`) to compare the current file or revision with another revision of the same file on the selected reference
 - Adds an _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file or revision with another revision of the same file
 
+The default added icons to the editor action toolbar can be hidden as described [here](https://github.com/eamodio/vscode-gitlens/issues/669#issuecomment-467531508).
+
 ## Current Line Blame [#](#current-line-blame- 'Current Line Blame')
 
 <p align="center">
