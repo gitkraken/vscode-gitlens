@@ -3351,6 +3351,46 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.branch",
+				"title": "Git Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.cherryPick",
+				"title": "Git Cherry Pick...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.merge",
+				"title": "Git Merge...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.rebase",
+				"title": "Git Rebase...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.reset",
+				"title": "Git Reset...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.revert",
+				"title": "Git Revert...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.switch",
+				"title": "Git Switch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.tag",
+				"title": "Git Tag...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.switchMode",
 				"title": "Switch Mode",
 				"category": "GitLens"
@@ -5280,6 +5320,42 @@
 				},
 				{
 					"command": "gitlens.gitCommands",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.branch",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.cherryPick",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.merge",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.rebase",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.reset",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.revert",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.show",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.switch",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
+					"command": "gitlens.gitCommands.tag",
 					"when": "!gitlens:disabled && !gitlens:readonly"
 				},
 				{

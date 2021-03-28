@@ -1,6 +1,6 @@
 'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
-import { command, Command, Commands } from './common';
+import { command, Command, CommandContext, Commands } from './common';
 import { configuration, GitCommandSorting } from '../configuration';
 import { Usage, WorkspaceState } from '../constants';
 import { Container } from '../container';
@@ -79,7 +79,48 @@ export class GitCommandsCommand extends Command {
 	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor() {
-		super(Commands.GitCommands);
+		super([
+			Commands.GitCommands,
+			Commands.GitCommandsBranch,
+			Commands.GitCommandsCherryPick,
+			Commands.GitCommandsMerge,
+			Commands.GitCommandsRebase,
+			Commands.GitCommandsReset,
+			Commands.GitCommandsRevert,
+			Commands.GitCommandsSwitch,
+			Commands.GitCommandsTag,
+		]);
+	}
+
+	protected preExecute(context: CommandContext, args?: GitCommandsCommandArgs) {
+		switch (context.command) {
+			case Commands.GitCommandsBranch:
+				args = { command: 'branch' };
+				break;
+			case Commands.GitCommandsCherryPick:
+				args = { command: 'cherry-pick' };
+				break;
+			case Commands.GitCommandsMerge:
+				args = { command: 'merge' };
+				break;
+			case Commands.GitCommandsRebase:
+				args = { command: 'rebase' };
+				break;
+			case Commands.GitCommandsReset:
+				args = { command: 'reset' };
+				break;
+			case Commands.GitCommandsRevert:
+				args = { command: 'revert' };
+				break;
+			case Commands.GitCommandsSwitch:
+				args = { command: 'switch' };
+				break;
+			case Commands.GitCommandsTag:
+				args = { command: 'tag' };
+				break;
+		}
+
+		return this.execute(args);
 	}
 
 	@log({ args: false, correlate: true, singleLine: true, timed: false })
