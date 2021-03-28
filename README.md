@@ -619,7 +619,6 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 
 - Adds an _Open Changes (difftool)_ command (`gitlens.externalDiff`) to open the changes of a file or set of files with the configured git difftool
 - Adds an _Open All Changes (difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
-
 - Adds an _Open Directory Compare (difftool)_ command (`gitlens.diffDirectoryWithHead`) to compare the working tree with HEAD with the configured Git difftool
 - Adds an _Open Directory Compare (difftool) with..._ command (`gitlens.diffDirectory`) to compare the working tree with the selected reference with the configured Git difftool
 
@@ -1036,6 +1035,7 @@ A big thanks to the people that have contributed to this project:
 - Brian Bolte ([@bolte-17](https://github.com/bolte-17)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bolte-17)
 - Zach Boyle ([@zaboyle](https://github.com/zaboyle)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zaboyle)
 - Tony Brix ([@UziTech](https://github.com/UziTech)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=UziTech)
+- Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=MeltingMosaic)
 - Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron)
 - Martin Campbell ([@martin-css](https://github.com/martin-css)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=martin-css)
 - Brett Cannon ([@brettcannon](https://github.com/brettcannon)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=brettcannon)

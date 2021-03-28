@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
+- Fixes [1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
 - Fixes [1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
 
 ## [11.3.0] - 2021-03-05
