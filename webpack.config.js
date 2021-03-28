@@ -12,7 +12,7 @@ const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
-const { ESBuildPlugin, ESBuildMinifyPlugin } = require('esbuild-loader');
+const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
@@ -102,10 +102,6 @@ function getExtensionConfig(mode, env) {
 			formatter: 'basic',
 		}),
 	];
-
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
 
 	if (env.analyzeDeps) {
 		plugins.push(
@@ -397,10 +393,6 @@ function getWebviewsConfig(mode, env) {
 			},
 		}),
 	];
-
-	if (env.esbuild) {
-		plugins.push(new ESBuildPlugin());
-	}
 
 	return {
 		name: 'webviews',

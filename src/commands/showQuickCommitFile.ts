@@ -134,6 +134,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 			const fileName = args.commit.fileName;
 			if (args.commit instanceof GitBlameCommit) {
+				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 				args.commit = (await Container.git.getCommit(args.commit.repoPath, args.commit.ref))!;
 			}
 
