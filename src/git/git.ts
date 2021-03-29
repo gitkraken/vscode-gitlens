@@ -745,19 +745,19 @@ export namespace Git {
 			format = 'default',
 			limit,
 			merges,
+			ordering,
 			reverse,
 			similarityThreshold,
 			since,
-			ordering,
 		}: {
 			authors?: string[];
 			format?: 'refs' | 'default';
 			limit?: number;
 			merges?: boolean;
+			ordering?: string | null;
 			reverse?: boolean;
 			similarityThreshold?: number | null;
 			since?: string;
-			ordering?: string | null;
 		},
 	) {
 		const params = [
@@ -818,26 +818,26 @@ export namespace Git {
 			firstParent = false,
 			format = 'default',
 			limit,
+			ordering,
 			renames = true,
 			reverse = false,
 			since,
 			skip,
 			startLine,
 			endLine,
-			ordering,
 		}: {
 			all?: boolean;
 			filters?: GitDiffFilter[];
 			firstParent?: boolean;
 			format?: 'refs' | 'simple' | 'default';
 			limit?: number;
+			ordering?: string | null;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
 			skip?: number;
 			startLine?: number;
 			endLine?: number;
-			ordering?: string | null;
 		} = {},
 	) {
 		const [file, root] = Git.splitPath(fileName, repoPath);
@@ -915,8 +915,11 @@ export namespace Git {
 	export async function log__file_recent(
 		repoPath: string,
 		fileName: string,
-		ordering: string | null,
-		{ ref, similarityThreshold }: { ref?: string; similarityThreshold?: number | null } = {},
+		{
+			ordering,
+			ref,
+			similarityThreshold,
+		}: { ordering?: string | null; ref?: string; similarityThreshold?: number | null } = {},
 	) {
 		const params = [
 			'log',
@@ -966,7 +969,7 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent(repoPath: string, ordering: string | null) {
+	export async function log__recent(repoPath: string, ordering?: string | null) {
 		const params = ['log', '-n1', '--format=%H'];
 
 		if (ordering) {
@@ -982,7 +985,7 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent_committerdate(repoPath: string, ordering: string | null) {
+	export async function log__recent_committerdate(repoPath: string, ordering?: string | null) {
 		const params = ['log', '-n1', '--format=%ct'];
 
 		if (ordering) {
@@ -1003,10 +1006,10 @@ export namespace Git {
 		search: string[] = emptyArray,
 		{
 			limit,
-			skip,
 			ordering,
+			skip,
 			useShow,
-		}: { limit?: number; skip?: number; ordering?: string | null; useShow?: boolean } = {},
+		}: { limit?: number; ordering?: string | null; skip?: number; useShow?: boolean } = {},
 	) {
 		const params = [
 			useShow ? 'show' : 'log',
@@ -1018,9 +1021,11 @@ export namespace Git {
 		if (limit && !useShow) {
 			params.push(`-n${limit + 1}`);
 		}
+
 		if (skip && !useShow) {
 			params.push(`--skip=${skip}`);
 		}
+
 		if (ordering && !useShow) {
 			params.push(`--${ordering}-order`);
 		}
@@ -1089,24 +1094,28 @@ export namespace Git {
 			all,
 			branch,
 			limit,
-			skip,
 			ordering,
-		}: { all?: boolean; branch?: string; limit?: number; skip?: number; ordering?: string | null } = {},
+			skip,
+		}: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number } = {},
 	): Promise<string> {
 		const params = ['log', '--walk-reflogs', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
 		}
+
 		if (all) {
 			params.push('--all');
 		}
+
 		if (limit) {
 			params.push(`-n${limit}`);
 		}
+
 		if (skip) {
 			params.push(`--skip=${skip}`);
 		}
+
 		if (branch) {
 			params.push(branch);
 		}

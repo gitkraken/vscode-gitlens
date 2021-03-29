@@ -1215,10 +1215,7 @@ export class GitService implements Disposable {
 		let [branch] = await this.getBranches(repoPath, { filter: b => b.current });
 		if (branch != null) return branch;
 
-		const data = await Git.rev_parse__currentBranch(
-			repoPath,
-			Container.config.advanced.commitOrdering,
-		);
+		const data = await Git.rev_parse__currentBranch(repoPath, Container.config.advanced.commitOrdering);
 		if (data == null) return undefined;
 
 		const [name, tracking] = data[0].split('\n');
@@ -1303,10 +1300,7 @@ export class GitService implements Disposable {
 			if (data == null || data.length === 0) {
 				let current;
 
-				const data = await Git.rev_parse__currentBranch(
-					repoPath,
-					Container.config.advanced.commitOrdering,
-				);
+				const data = await Git.rev_parse__currentBranch(repoPath, Container.config.advanced.commitOrdering);
 				if (data != null) {
 					const [name, tracking] = data[0].split('\n');
 					const [rebaseStatus, committerDate] = await Promise.all([
@@ -1504,8 +1498,8 @@ export class GitService implements Disposable {
 	async getOldestUnpushedRefForFile(repoPath: string, fileName: string): Promise<string | undefined> {
 		const data = await Git.log__file(repoPath, fileName, '@{push}..', {
 			format: 'refs',
-			renames: true,
 			ordering: Container.config.advanced.commitOrdering,
+			renames: true,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -1883,6 +1877,7 @@ export class GitService implements Disposable {
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
+			ordering?: string | null;
 			ref?: string;
 			reverse?: boolean;
 			since?: string;
@@ -1895,10 +1890,10 @@ export class GitService implements Disposable {
 				authors: options.authors,
 				limit: limit,
 				merges: options.merges == null ? true : options.merges,
+				ordering: options.ordering ?? Container.config.advanced.commitOrdering,
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
-				ordering: Container.config.advanced.commitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -1936,6 +1931,7 @@ export class GitService implements Disposable {
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
+			ordering?: string | null;
 			ref?: string;
 			reverse?: boolean;
 			since?: string;
@@ -1952,7 +1948,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
-				ordering: Container.config.advanced.commitOrdering,
+				ordering: options.ordering ?? Container.config.advanced.commitOrdering,
 			});
 			const commits = GitLogParser.parseRefsOnly(data);
 			return new Set(commits);
@@ -1963,7 +1959,14 @@ export class GitService implements Disposable {
 
 	private getLogMoreFn(
 		log: GitLog,
-		options: { authors?: string[]; limit?: number; merges?: boolean; ref?: string; reverse?: boolean },
+		options: {
+			authors?: string[];
+			limit?: number;
+			merges?: boolean;
+			ordering?: string | null;
+			ref?: string;
+			reverse?: boolean;
+		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
@@ -2030,7 +2033,7 @@ export class GitService implements Disposable {
 	async getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		options: { limit?: number; skip?: number } = {},
+		options: { limit?: number; ordering?: string | null; skip?: number } = {},
 	): Promise<GitLog | undefined> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -2108,9 +2111,9 @@ export class GitService implements Disposable {
 			}
 
 			const data = await Git.log__search(repoPath, args, {
+				ordering: Container.config.advanced.commitOrdering,
 				...options,
 				limit: limit,
-				ordering: Container.config.advanced.commitOrdering,
 				useShow: useShow,
 			});
 			const log = GitLogParser.parse(
@@ -2142,7 +2145,7 @@ export class GitService implements Disposable {
 	private getLogForSearchMoreFn(
 		log: GitLog,
 		search: SearchPattern,
-		options: { limit?: number },
+		options: { limit?: number; ordering?: string | null },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? Container.config.advanced.maxSearchItems ?? 0;
@@ -2194,6 +2197,7 @@ export class GitService implements Disposable {
 		options: {
 			all?: boolean;
 			limit?: number;
+			ordering?: string | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2344,6 +2348,7 @@ export class GitService implements Disposable {
 		}: {
 			all?: boolean;
 			limit?: number;
+			ordering?: string | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2368,11 +2373,11 @@ export class GitService implements Disposable {
 			}
 
 			const data = await Git.log__file(root, file, ref, {
+				ordering: Container.config.advanced.commitOrdering,
 				...options,
 				firstParent: options.renames,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
-				ordering: Container.config.advanced.commitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -2419,7 +2424,15 @@ export class GitService implements Disposable {
 	private getLogForFileMoreFn(
 		log: GitLog,
 		fileName: string,
-		options: { all?: boolean; limit?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean },
+		options: {
+			all?: boolean;
+			limit?: number;
+			ordering?: string | null;
+			range?: Range;
+			ref?: string;
+			renames?: boolean;
+			reverse?: boolean;
+		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
@@ -2684,11 +2697,11 @@ export class GitService implements Disposable {
 		const fileName = GitUri.relativeTo(uri, repoPath);
 		let data = await Git.log__file(repoPath, fileName, ref, {
 			filters: filters,
-			limit: skip + 1,
-			// startLine: editorLine != null ? editorLine + 1 : undefined,
-			reverse: true,
 			format: 'simple',
+			limit: skip + 1,
 			ordering: Container.config.advanced.commitOrdering,
+			reverse: true,
+			// startLine: editorLine != null ? editorLine + 1 : undefined,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -2697,10 +2710,10 @@ export class GitService implements Disposable {
 		if (status === 'D') {
 			data = await Git.log__file(repoPath, '.', nextRef, {
 				filters: ['R', 'C'],
-				limit: 1,
-				// startLine: editorLine != null ? editorLine + 1 : undefined
 				format: 'simple',
+				limit: 1,
 				ordering: Container.config.advanced.commitOrdering,
+				// startLine: editorLine != null ? editorLine + 1 : undefined
 			});
 			if (data == null || data.length === 0) {
 				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
@@ -2935,11 +2948,11 @@ export class GitService implements Disposable {
 		let data;
 		try {
 			data = await Git.log__file(repoPath, fileName, ref, {
-				limit: skip + 2,
 				firstParent: firstParent,
 				format: 'simple',
-				startLine: editorLine != null ? editorLine + 1 : undefined,
+				limit: skip + 2,
 				ordering: Container.config.advanced.commitOrdering,
+				startLine: editorLine != null ? editorLine + 1 : undefined,
 			});
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? emptyStr;
@@ -2952,11 +2965,9 @@ export class GitService implements Disposable {
 					}
 				}
 
-				ref = await Git.log__file_recent(
-					repoPath,
-					fileName,
-					Container.config.advanced.commitOrdering,
-				);
+				ref = await Git.log__file_recent(repoPath, fileName, {
+					ordering: Container.config.advanced.commitOrdering,
+				});
 				return GitUri.fromFile(fileName, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
@@ -3078,7 +3089,10 @@ export class GitService implements Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string,
-		{ limit, ...options }: { all?: boolean; branch?: string; limit?: number; skip?: number } = {},
+		{
+			limit,
+			...options
+		}: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number } = {},
 	): Promise<GitReflog | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -3086,9 +3100,9 @@ export class GitService implements Disposable {
 		try {
 			// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
 			const data = await Git.reflog(repoPath, {
+				ordering: Container.config.advanced.commitOrdering,
 				...options,
 				limit: limit * 100,
-				ordering: Container.config.advanced.commitOrdering,
 			});
 			if (data == null) return undefined;
 
@@ -3106,7 +3120,7 @@ export class GitService implements Disposable {
 
 	private getReflogMoreFn(
 		reflog: GitReflog,
-		options: { all?: boolean; branch?: string; limit?: number; skip?: number },
+		options: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? Container.config.advanced.maxSearchItems ?? 0;
@@ -3746,21 +3760,17 @@ export class GitService implements Disposable {
 
 			// TODO: Add caching
 			// Get the most recent commit for this file name
-			ref = await Git.log__file_recent(
-				repoPath,
-				fileName,
-				Container.config.advanced.commitOrdering,
-				{
-					similarityThreshold: Container.config.advanced.similarityThreshold,
-				},
-			);
+			ref = await Git.log__file_recent(repoPath, fileName, {
+				ordering: Container.config.advanced.commitOrdering,
+				similarityThreshold: Container.config.advanced.similarityThreshold,
+			});
 			if (ref == null) return undefined;
 
 			// Now check if that commit had any renames
 			data = await Git.log__file(repoPath, '.', ref, {
 				filters: ['R', 'C', 'D'],
-				limit: 1,
 				format: 'simple',
+				limit: 1,
 				ordering: Container.config.advanced.commitOrdering,
 			});
 			if (data == null || data.length === 0) break;
