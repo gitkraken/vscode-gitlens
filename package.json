@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.54.0-insiders"
+		"vscode": "^1.55.0-insiders"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
@@ -5347,10 +5347,6 @@
 					"when": "!gitlens:disabled && !gitlens:readonly"
 				},
 				{
-					"command": "gitlens.gitCommands.show",
-					"when": "!gitlens:disabled && !gitlens:readonly"
-				},
-				{
 					"command": "gitlens.gitCommands.switch",
 					"when": "!gitlens:disabled && !gitlens:readonly"
 				},
@@ -6493,11 +6489,33 @@
 					"submenu": "gitlens/editor/annotations",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.blame",
 					"group": "2_gitlens_1@5"
+				}
+			],
+			"editor/context/copy": [
+				{
+					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "1_gitlens@1"
 				},
 				{
-					"submenu": "gitlens/editor/context/copy",
+					"command": "gitlens.copyRemoteFileUrlFrom",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-					"group": "9_cutcopypaste@3"
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.copyRemoteCommitUrl",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyMessageToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "2_gitlens@2"
 				}
 			],
 			"editor/title": [
@@ -6723,6 +6741,18 @@
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scm.authors",
 					"group": "4_gitlens@1"
+				}
+			],
+			"menuBar/edit/copy": [
+				{
+					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlFrom",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "1_gitlens@2"
 				}
 			],
 			"scm/resourceGroup/context": [
@@ -8725,28 +8755,6 @@
 					"group": "2_gitlens@3"
 				}
 			],
-			"gitlens/editor/context/copy": [
-				{
-					"command": "gitlens.copyShaToClipboard",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.copyMessageToClipboard",
-					"group": "1_gitlens@2"
-				},
-				{
-					"command": "gitlens.copyRemoteCommitUrl",
-					"group": "2_gitlens@3"
-				},
-				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
-					"group": "2_gitlens@4"
-				},
-				{
-					"command": "gitlens.copyRemoteFileUrlFrom",
-					"group": "2_gitlens@5"
-				}
-			],
 			"gitlens/editor/context/openChanges": [
 				{
 					"command": "gitlens.diffWithPrevious",
@@ -8961,7 +8969,7 @@
 			},
 			{
 				"id": "gitlens/commit/copy",
-				"label": "Copy as"
+				"label": "Copy As"
 			},
 			{
 				"id": "gitlens/commit/openChanges",
@@ -8969,7 +8977,7 @@
 			},
 			{
 				"id": "gitlens/commit/file/copy",
-				"label": "Copy as"
+				"label": "Copy As"
 			},
 			{
 				"id": "gitlens/commit/file/commit",
@@ -8986,10 +8994,6 @@
 					"dark": "images/dark/icon-git.svg",
 					"light": "images/light/icon-git.svg"
 				}
-			},
-			{
-				"id": "gitlens/editor/context/copy",
-				"label": "Copy as"
 			},
 			{
 				"id": "gitlens/editor/context/openChanges",

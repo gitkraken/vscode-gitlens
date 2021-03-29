@@ -89,6 +89,8 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 		if (context.command === Commands.OpenFileOnRemoteFrom || context.command === Commands.CopyRemoteFileUrlFrom) {
 			args = { ...args, pickBranchOrTag: true, range: false };
+		} else if (context.command === Commands.CopyRemoteFileUrl && context.type === 'unknown') {
+			args = { ...args, range: false };
 		}
 
 		return this.execute(context.editor, uri, args);
