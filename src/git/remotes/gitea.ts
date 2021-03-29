@@ -123,7 +123,7 @@ export class GiteaRemote extends RemoteProvider {
 		return `${this.baseUrl}/commit/${sha}`;
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string {
+	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
 		return `${this.baseUrl}/compare/${ref1}...${ref2}`;
 	}
 
