@@ -2520,6 +2520,27 @@
 					"markdownDescription": "Specifies whether git output will be cached — changing the default is not recommended",
 					"scope": "window"
 				},
+				"gitlens.advanced.commitOrdering": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"enum": [
+						null,
+						"date",
+						"author-date",
+						"topo"
+					],
+					"enumDescriptions": [
+						"Shows commits in reverse chronological order",
+						"Shows commits in reverse chronological order of the commit timestamp",
+						"Shows commits in reverse chronological order of the author timestamp",
+						"Shows commits in reverse chronological order of the commit timestamp, but avoids intermixing multiple lines of history"
+					],
+					"markdownDescription": "Specifies the order by which commits will be shown. If unspecified, commits will be shown in reverse chronological order",
+					"scope": "window"
+				},
 				"gitlens.advanced.externalDiffTool": {
 					"type": [
 						"string",
