@@ -9547,7 +9547,7 @@
 		"@types/lodash-es": "4.17.4",
 		"@types/node": "12.12.70",
 		"@types/sortablejs": "1.10.6",
-		"@types/vscode": "1.53.0",
+		"@types/vscode": "1.54.0",
 		"@typescript-eslint/eslint-plugin": "4.19.0",
 		"@typescript-eslint/parser": "4.19.0",
 		"circular-dependency-plugin": "5.2.2",
