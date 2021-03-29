@@ -209,6 +209,7 @@ export enum CustomRemoteType {
 	Bitbucket = 'Bitbucket',
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',
+	Gitea = 'Gitea',
 	GitHub = 'GitHub',
 	GitLab = 'GitLab',
 }
