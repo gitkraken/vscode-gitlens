@@ -1253,9 +1253,10 @@ export namespace Git {
 			// Keep trailing spaces which are part of the directory name
 			return data.length === 0 ? undefined : Strings.normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
 		} catch (ex) {
-			if (ex.code === 'ENOENT') {
+			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
+			if (inDotGit || ex.code === 'ENOENT') {
 				// If the `cwd` doesn't exist, walk backward to see if any parent folder exists
-				let exists = await fsExists(cwd);
+				let exists = inDotGit ? false : await fsExists(cwd);
 				if (!exists) {
 					do {
 						const parent = paths.dirname(cwd);

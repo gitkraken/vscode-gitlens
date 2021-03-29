@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [1442](https://github.com/eamodio/vscode-gitlens/issues/1442) - Interactive Rebase Editor not opened but plain text file when called from terminal
 - Fixes [1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
 - Fixes [1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
 - Fixes [1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
@@ -115,7 +116,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes `gitlens.statusBar.reduceFlicker` to be on by default and improves it's display &mdash; closes [#1353](https://github.com/eamodio/vscode-gitlens/issues/1353)
+- Changes `gitlens.statusBar.reduceFlicker` to be on by default and improves its display &mdash; closes [#1353](https://github.com/eamodio/vscode-gitlens/issues/1353)
 - Changes the _Interactive Rebase Editor_ to abort the rebase if you just close it without choosing an action
 - Changes _Push to Commit..._ on the HEAD commit to be _Push_ instead as there is no need for a commit specific push in that case
 - Renames _Browse from Here_ command to _Browse Repository from Here_ in the command palette and quick pick menus
@@ -177,7 +178,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Refines the _Repositories_ view to better align its features with all the new views
-  - Adds menu toggles and the settings below to allow for far greater customization of the sections in the _Repositories_ view
+  - Adds menu toggles, and the settings below to allow for far greater customization of the sections in the _Repositories_ view
   - Adds a `gitlens.views.repositories.branches.showBranchComparison` setting to specify whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under under each branch in the _Repositories_ view
   - Adds a `gitlens.views.repositories.showBranches` setting to specify whether to show the branches for each repository
   - Adds a `gitlens.views.repositories.showCommits` setting to specify whether to show the commits on the current branch for each repository
@@ -187,7 +188,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.views.repositories.showStashes` setting to specify whether to show the stashes for each repository
   - Adds a `gitlens.views.repositories.showTags` setting to specify whether to show the tags for each repository
   - Adds a `gitlens.views.repositories.showUpstreamStatus` setting to specify whether to show the upstream status of the current branch for each repository
-  - Adds all of the settings above to the _Repositories_ view section in the GitLens Interactive Settings
+  - Adds all the settings above to the _Repositories_ view section in the GitLens Interactive Settings
 - Adds better visibility to the, hidden by default, _Repositories_ and _Line History_ views
   - Adds a _Repositories_ view toggle command to the _Commits_ view's context menu
   - Adds a _Line History_ view toggle command to the _File History_ view's context menu
@@ -481,7 +482,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes all comparisons results to be split into ahead and behind groups
 - Changes _Git Code Lens_ to be less intrusive when they are unavailable because of unsaved changes, via new defaults for the `gitlens.strings.codeLens.unsavedChanges.*` settings
-- Refines all of the GitLens contributed menus to reduce noise and improve usability
+- Refines all the GitLens contributed menus to reduce noise and improve usability
 - Changes to use VS Code's built-in icons (codicons) where possible &mdash; closes [#985](https://github.com/eamodio/vscode-gitlens/issues/985)
 - Changes to use codicons in hovers &mdash; closes [#954](https://github.com/eamodio/vscode-gitlens/issues/954)
 - Changes revision navigation icons to better match VS Code
@@ -493,7 +494,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Open Settings_ and _Welcome_ pages to open beside the active editor
 - Changes the default sorting of branches so that _main_, _master_, and _develop_ are first
 - Changes the sorting of branches in the _Git Commands Palette_ and other quick pick menus to be by date descending
-- Changes the default sorting of remotes so that _origin_ is first &mdash; closes [#924](https://github.com/eamodio/vscode-gitlens/issues/924) &mdash; thanks to [PR #925](https://github.com/eamodio/vscode-gitlens/pull/925) by Connor Peet ([@connor4312](https://github.com/connor4312))
+- Changes the default sorting of remotes, so that _origin_ is first &mdash; closes [#924](https://github.com/eamodio/vscode-gitlens/issues/924) &mdash; thanks to [PR #925](https://github.com/eamodio/vscode-gitlens/pull/925) by Connor Peet ([@connor4312](https://github.com/connor4312))
 - Changes the default sorting of tags to be by date descending
 - Changes to limit `scm/resourceGroup/context` and `scm/resourceState/context` menu contributions
 - Changes to support latest emojis in commit messages
@@ -1021,7 +1022,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#740](https://github.com/eamodio/vscode-gitlens/issues/740) - Opening untracked files from "files changed" section fails
-- Fixes issue where the _Open Changes with Previous Revision_ command would compare the working file with HEAD even if there no working file changes (now it will compare HEAD with the previous commit)
+- Fixes issue where the _Open Changes with Previous Revision_ command would compare the working file with HEAD even if there were no working file changes (now it will compare HEAD with the previous commit)
 - Fixes issue where the _Open Changes_, _Open Changes with Working File_, and _Open Revision_ commands on files in the "files changed" section of the _Repositories_ view would either fail or do nothing
 
 ## [9.7.2] - 2019-05-10
@@ -2436,7 +2437,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 
-- Removes `gitlens.advanced.gitignore.enabled` setting since it usage has been replaced by a tracked file cache
+- Removes `gitlens.advanced.gitignore.enabled` setting since its usage has been replaced by a tracked file cache
 
 ### Fixed
 
@@ -2871,7 +2872,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds all-new recent changes annotations of the whole-file - annotates and highlights all of lines changed in the most recent commit
+- Adds all-new recent changes annotations of the whole-file - annotates and highlights all the lines changed in the most recent commit
   - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
 - Adds _Toggle Recent File Changes Annotations_ command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Adds ability to press `Escape` to quickly toggle any whole-file annotations off
