@@ -336,9 +336,10 @@ export class BranchGitCommand extends QuickCommand<State> {
 				context.title = getTitle('Branches', state.subcommand);
 
 				const result = yield* pickBranchesStep(state, context, {
-					filterBranches: b => !b.current,
+					filter: b => !b.current,
 					picked: state.references?.map(r => r.ref),
 					placeholder: 'Choose branches to delete',
+					sort: { current: false, missingUpstream: true },
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -430,7 +431,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchStep(state, context, {
-					filterBranches: b => !b.remote,
+					filter: b => !b.remote,
 					picked: state.reference?.ref,
 					placeholder: 'Choose a branch to rename',
 				});

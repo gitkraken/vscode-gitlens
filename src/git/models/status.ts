@@ -249,11 +249,15 @@ export class GitStatus {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
+		return GitStatus.getUpstreamStatus(
+			this.upstream ? { name: this.upstream, missing: false } : undefined,
+			this.state,
+			options,
+		);
 	}
 
 	static getUpstreamStatus(
-		upstream: string | undefined,
+		upstream: { name: string; missing: boolean } | undefined,
 		state: { ahead: number; behind: number },
 		options: {
 			count?: boolean;
@@ -270,25 +274,33 @@ export class GitStatus {
 
 		if (expand) {
 			let status = '';
-			if (state.behind) {
-				status += `${Strings.pluralize('commit', state.behind, {
-					infix: icons ? '$(arrow-down) ' : undefined,
-				})} behind`;
-			}
-			if (state.ahead) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
-					infix: icons ? '$(arrow-up) ' : undefined,
-				})} ahead`;
-				if (suffix.startsWith(` ${upstream.split('/')[0]}`)) {
-					status += ' of';
+			if (upstream.missing) {
+				status = 'missing';
+			} else {
+				if (state.behind) {
+					status += `${Strings.pluralize('commit', state.behind, {
+						infix: icons ? '$(arrow-down) ' : undefined,
+					})} behind`;
+				}
+				if (state.ahead) {
+					status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
+						infix: icons ? '$(arrow-up) ' : undefined,
+					})} ahead`;
+					if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
+						status += ' of';
+					}
 				}
 			}
 			return `${prefix}${status}${suffix}`;
 		}
 
-		return `${prefix}${count ? state.behind : ''}${
-			count || state.behind !== 0 ? GlyphChars.ArrowDown : ''
-		}${separator}${count ? state.ahead : ''}${count || state.ahead !== 0 ? GlyphChars.ArrowUp : ''}${suffix}`;
+		const showCounts = count && !upstream.missing;
+
+		return `${prefix}${showCounts ? state.behind : ''}${
+			showCounts || state.behind !== 0 ? GlyphChars.ArrowDown : ''
+		}${separator}${showCounts ? state.ahead : ''}${
+			showCounts || state.ahead !== 0 ? GlyphChars.ArrowUp : ''
+		}${suffix}`;
 	}
 }
 

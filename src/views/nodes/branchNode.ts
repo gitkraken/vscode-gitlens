@@ -151,7 +151,7 @@ export class BranchNode
 				this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
-				(this.branch.upstream || this.branch.remote)
+				(this.branch.upstream != null || this.branch.remote)
 					? this.branch.getAssociatedPullRequest(
 							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
 					  )
@@ -213,10 +213,10 @@ export class BranchNode
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
 					state: this.branch.state,
-					upstream: this.branch.upstream,
+					upstream: this.branch.upstream?.name,
 				};
 
-				if (this.branch.upstream) {
+				if (this.branch.upstream != null) {
 					if (this.root && !status.state.behind && !status.state.ahead) {
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
@@ -293,7 +293,7 @@ export class BranchNode
 		if (this.branch.starred) {
 			contextValue += '+starred';
 		}
-		if (this.branch.upstream) {
+		if (this.branch.upstream != null && !this.branch.upstream.missing) {
 			contextValue += '+tracking';
 		}
 		if (this.options.showAsCommits) {
@@ -308,28 +308,32 @@ export class BranchNode
 				let arrows = GlyphChars.Dash;
 
 				const remote = await this.branch.getRemote();
-				if (remote != null) {
-					let left;
-					let right;
-					for (const { type } of remote.urls) {
-						if (type === GitRemoteType.Fetch) {
-							left = true;
+				if (!this.branch.upstream.missing) {
+					if (remote != null) {
+						let left;
+						let right;
+						for (const { type } of remote.urls) {
+							if (type === GitRemoteType.Fetch) {
+								left = true;
 
-							if (right) break;
-						} else if (type === GitRemoteType.Push) {
-							right = true;
+								if (right) break;
+							} else if (type === GitRemoteType.Push) {
+								right = true;
 
-							if (left) break;
+								if (left) break;
+							}
+						}
+
+						if (left && right) {
+							arrows = GlyphChars.ArrowsRightLeft;
+						} else if (right) {
+							arrows = GlyphChars.ArrowRight;
+						} else if (left) {
+							arrows = GlyphChars.ArrowLeft;
 						}
 					}
-
-					if (left && right) {
-						arrows = GlyphChars.ArrowsRightLeft;
-					} else if (right) {
-						arrows = GlyphChars.ArrowRight;
-					} else if (left) {
-						arrows = GlyphChars.ArrowLeft;
-					}
+				} else {
+					arrows = GlyphChars.Warning;
 				}
 
 				description = this.options.showAsCommits
@@ -339,19 +343,21 @@ export class BranchNode
 							arrows,
 							2,
 							2,
-					  )}${this.branch.upstream}`
+					  )}${this.branch.upstream.name}`
 					: `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
 							GlyphChars.Space
-					  } ${this.branch.upstream}`;
+					  } ${this.branch.upstream.name}`;
 
 				tooltip += ` is ${this.branch.getTrackingStatus({
-					empty: `up to date with $(git-branch) ${this.branch.upstream}${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-					}`,
+					empty: this.branch.upstream.missing
+						? `missing upstream $(git-branch) ${this.branch.upstream.name}`
+						: `up to date with $(git-branch)  ${this.branch.upstream.name}${
+								remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+						  }`,
 					expand: true,
 					icons: true,
 					separator: ', ',
-					suffix: ` $(git-branch) ${this.branch.upstream}${
+					suffix: ` $(git-branch) ${this.branch.upstream.name}${
 						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 					}`,
 				})}`;

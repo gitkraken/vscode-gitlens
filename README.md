@@ -384,6 +384,7 @@ The _Branches_ view lists all of the local branches, and additionally provides,
   - `⮟` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
   - `⮟⮝` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
   - `⮙+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
+  - `!` + dark red colorization &mdash; indicates that the branch has a missing upstream (e.g. the upstream branch was deleted)
 - a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings- 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the behind commits

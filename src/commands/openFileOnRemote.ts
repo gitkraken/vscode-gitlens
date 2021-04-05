@@ -160,13 +160,16 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 					if (pick.refType === 'branch') {
 						if (pick.remote) {
+							args.branchOrTag = GitBranch.getNameWithoutRemote(pick.name);
+
 							const remoteName = GitBranch.getRemote(pick.name);
 							const remote = remotes.find(r => r.name === remoteName);
 							if (remote != null) {
 								remotes = [remote];
 							}
+						} else {
+							args.branchOrTag = pick.name;
 						}
-						args.branchOrTag = pick.remote ? GitBranch.getNameWithoutRemote(pick.name) : pick.name;
 						sha = undefined;
 					} else if (pick.refType === 'tag') {
 						args.branchOrTag = pick.ref;

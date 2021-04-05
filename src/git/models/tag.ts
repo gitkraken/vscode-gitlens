@@ -13,6 +13,11 @@ export const TagDateFormatting = {
 	},
 };
 
+export interface TagSortOptions {
+	current?: boolean;
+	orderBy?: TagSorting;
+}
+
 export class GitTag implements GitTagReference {
 	static is(tag: any): tag is GitTag {
 		return tag instanceof GitTag;
@@ -22,7 +27,7 @@ export class GitTag implements GitTagReference {
 		return tag?.refType === 'tag';
 	}
 
-	static sort(tags: GitTag[], options?: { orderBy?: TagSorting }) {
+	static sort(tags: GitTag[], options?: TagSortOptions) {
 		options = { orderBy: configuration.get('sortTagsBy'), ...options };
 
 		switch (options.orderBy) {

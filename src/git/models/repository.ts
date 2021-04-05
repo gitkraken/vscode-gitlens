@@ -15,7 +15,7 @@ import {
 } from 'vscode';
 import { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
-import { BranchSorting, configuration, TagSorting } from '../../configuration';
+import { configuration } from '../../configuration';
 import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import {
@@ -33,6 +33,7 @@ import { GitUri } from '../gitUri';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import {
+	BranchSortOptions,
 	GitBranchReference,
 	GitLog,
 	GitLogCommit,
@@ -40,6 +41,7 @@ import {
 	GitRebaseStatus,
 	GitReference,
 	GitTagReference,
+	TagSortOptions,
 } from './models';
 import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
@@ -445,14 +447,16 @@ export class Repository implements Disposable {
 			if (remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
 				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b => GitBranch.getRemote(b.upstream!));
+					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b =>
+						GitBranch.getRemote(b.upstream!.name),
+					);
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
 						this.runTerminalCommand(
 							'push',
 							'-d',
 							remote,
-							...branches.map(b => GitBranch.getNameWithoutRemote(b.upstream!)),
+							...branches.map(b => GitBranch.getNameWithoutRemote(b.upstream!.name)),
 						);
 					}
 				}
@@ -543,7 +547,7 @@ export class Repository implements Disposable {
 	getBranches(
 		options: {
 			filter?: (b: GitBranch) => boolean;
-			sort?: boolean | { current?: boolean; orderBy?: BranchSorting };
+			sort?: boolean | BranchSortOptions;
 		} = {},
 	): Promise<GitBranch[]> {
 		return Container.git.getBranches(this.path, options);
@@ -553,9 +557,7 @@ export class Repository implements Disposable {
 		options: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 			include?: 'all' | 'branches' | 'tags';
-			sort?:
-				| boolean
-				| { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
+			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 		} = {},
 	) {
 		return Container.git.getBranchesAndOrTags(this.path, options);
@@ -646,10 +648,7 @@ export class Repository implements Disposable {
 		return Container.git.getStatusForRepo(this.path);
 	}
 
-	getTags(options?: {
-		filter?: (t: GitTag) => boolean;
-		sort?: boolean | { orderBy?: TagSorting };
-	}): Promise<GitTag[]> {
+	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }): Promise<GitTag[]> {
 		return Container.git.getTags(this.path, options);
 	}
 
@@ -760,7 +759,7 @@ export class Repository implements Disposable {
 			branch: {
 				name: branch.name,
 				isRemote: branch.remote,
-				upstream: branch.upstream,
+				upstream: branch.upstream?.name,
 			},
 		});
 	}

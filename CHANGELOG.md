@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a branch indicator to show when a branch is missing its upstream, both in views and quick pick menus
 - Adds _Open Folder History_ command to folders in the _Explorer_ view to show the folder's history in the _File History_ view
 - Adds Gitea remote provider support &mdash; closes [#1379](https://github.com/eamodio/vscode-gitlens/issues/1379) thanks to [PR #1396](https://github.com/eamodio/vscode-gitlens/pull/1396) by Nils K ([septatrix](https://github.com/septatrix))
 - Adds a `gitlens.advanced.commitOrdering` setting to specify the order by which commits will be shown. If unspecified, commits will be shown in reverse chronological order &mdash; closes [#1257](https://github.com/eamodio/vscode-gitlens/issues/1257) thanks to [PR #1344](https://github.com/eamodio/vscode-gitlens/pull/1344) by Andy Tang ([thewindsofwinter](https://github.com/thewindsofwinter)) and Shashank Shastri ([Shashank-Shastri](https://github.com/Shashank-Shastri))

@@ -2,11 +2,10 @@
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitReference, GitTag } from '../git/git';
+import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/git';
 import { KeyboardScope, Keys } from '../keyboard';
 import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
-import { BranchSorting, TagSorting } from '../configuration';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -27,7 +26,7 @@ export interface ReferencesQuickPickOptions {
 	include?: ReferencesQuickPickIncludes;
 	keys?: Keys[];
 	onDidPressKey?(key: Keys, quickpick: QuickPick<ReferencesQuickPickItem>): void | Promise<void>;
-	sort?: boolean | { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
+	sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 }
 
 export namespace ReferencePicker {

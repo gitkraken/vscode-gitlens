@@ -132,6 +132,12 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor'),
 					tooltip: 'Diverged',
 				};
+			case GitBranchStatus.MissingUpstream:
+				return {
+					badge: '!',
+					color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor'),
+					tooltip: 'Missing Upstream',
+				};
 			case GitBranchStatus.UpToDate:
 				return {
 					badge: '',

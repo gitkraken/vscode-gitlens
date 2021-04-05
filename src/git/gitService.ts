@@ -22,13 +22,14 @@ import {
 } from 'vscode';
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { resetAvatarCache } from '../avatars';
-import { BranchSorting, configuration, TagSorting } from '../configuration';
+import { configuration } from '../configuration';
 import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import { setEnabled } from '../extension';
 import {
 	Authentication,
 	BranchDateFormatting,
+	BranchSortOptions,
 	CommitDateFormatting,
 	Git,
 	GitAuthor,
@@ -79,6 +80,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	SearchPattern,
+	TagSortOptions,
 } from './git';
 import { GitUri } from './gitUri';
 import { LogCorrelationContext, Logger } from '../logger';
@@ -1232,7 +1234,7 @@ export class GitService implements Disposable {
 				true,
 				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 				data[1],
-				upstream,
+				upstream ? { name: upstream, missing: false } : undefined,
 				undefined,
 				undefined,
 				undefined,
@@ -1250,7 +1252,7 @@ export class GitService implements Disposable {
 	})
 	async getBranchAheadRange(branch: GitBranch) {
 		if (branch.state.ahead > 0) {
-			return GitRevision.createRange(branch.upstream, branch.ref);
+			return GitRevision.createRange(branch.upstream?.name, branch.ref);
 		}
 
 		if (branch.upstream == null) {
@@ -1269,7 +1271,7 @@ export class GitService implements Disposable {
 					if (weightedBranch.weight === maxDefaultBranchWeight) break;
 				}
 
-				const possibleBranch = weightedBranch!.branch.upstream ?? weightedBranch!.branch.ref;
+				const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
 				if (possibleBranch !== branch.ref) {
 					return GitRevision.createRange(possibleBranch, branch.ref);
 				}
@@ -1288,7 +1290,7 @@ export class GitService implements Disposable {
 		repoPath: string | undefined,
 		options: {
 			filter?: (b: GitBranch) => boolean;
-			sort?: boolean | { current?: boolean; orderBy?: BranchSorting };
+			sort?: boolean | BranchSortOptions;
 		} = {},
 	): Promise<GitBranch[]> {
 		if (repoPath == null) return [];
@@ -1315,7 +1317,7 @@ export class GitService implements Disposable {
 						true,
 						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 						data[1],
-						upstream,
+						{ name: upstream, missing: false },
 						undefined,
 						undefined,
 						undefined,
@@ -1363,9 +1365,7 @@ export class GitService implements Disposable {
 		}: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 			include?: 'all' | 'branches' | 'tags';
-			sort?:
-				| boolean
-				| { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
+			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 		} = {},
 	) {
 		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
@@ -3665,7 +3665,7 @@ export class GitService implements Disposable {
 	})
 	async getTags(
 		repoPath: string | undefined,
-		options: { filter?: (t: GitTag) => boolean; sort?: boolean | { orderBy?: TagSorting } } = {},
+		options: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions } = {},
 	): Promise<GitTag[]> {
 		if (repoPath == null) return [];
 

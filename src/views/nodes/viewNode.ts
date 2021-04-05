@@ -409,15 +409,19 @@ export abstract class RepositoryFolderNode<
 				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
 					branch.name
 				}${
-					branch.upstream
+					branch.upstream != null
 						? ` is ${branch.getTrackingStatus({
-								empty: `up to date with $(git-branch) ${branch.upstream}${
-									providerName ? ` on ${providerName}` : ''
-								}`,
+								empty: branch.upstream.missing
+									? `missing upstream $(git-branch) ${branch.upstream.name}`
+									: `up to date with $(git-branch) ${branch.upstream.name}${
+											providerName ? ` on ${providerName}` : ''
+									  }`,
 								expand: true,
 								icons: true,
 								separator: ', ',
-								suffix: ` $(git-branch) ${branch.upstream}${providerName ? ` on ${providerName}` : ''}`,
+								suffix: ` $(git-branch) ${branch.upstream.name}${
+									providerName ? ` on ${providerName}` : ''
+								}`,
 						  })}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
 				}${

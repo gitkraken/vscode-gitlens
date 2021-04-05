@@ -30,9 +30,16 @@ export enum GitBranchStatus {
 	Behind = 'behind',
 	Diverged = 'diverged',
 	Local = 'local',
+	MissingUpstream = 'missingUpstream',
 	Remote = 'remote',
 	UpToDate = 'upToDate',
 	Unpublished = 'unpublished',
+}
+
+export interface BranchSortOptions {
+	current?: boolean;
+	missingUpstream?: boolean;
+	orderBy?: BranchSorting;
 }
 
 export class GitBranch implements GitBranchReference {
@@ -44,13 +51,16 @@ export class GitBranch implements GitBranchReference {
 		return branch?.refType === 'branch';
 	}
 
-	static sort(branches: GitBranch[], options?: { current?: boolean; orderBy?: BranchSorting }) {
+	static sort(branches: GitBranch[], options?: BranchSortOptions) {
 		options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
 
 		switch (options.orderBy) {
 			case BranchSorting.DateAsc:
 				return branches.sort(
 					(a, b) =>
+						(options!.missingUpstream
+							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
+							: 0) ||
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
@@ -59,6 +69,9 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.DateDesc:
 				return branches.sort(
 					(a, b) =>
+						(options!.missingUpstream
+							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
+							: 0) ||
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
@@ -67,6 +80,9 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.NameAsc:
 				return branches.sort(
 					(a, b) =>
+						(options!.missingUpstream
+							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
+							: 0) ||
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -78,6 +94,9 @@ export class GitBranch implements GitBranchReference {
 			default:
 				return branches.sort(
 					(a, b) =>
+						(options!.missingUpstream
+							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
+							: 0) ||
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
@@ -92,7 +111,7 @@ export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
-	readonly upstream?: string;
+	readonly upstream?: { name: string; missing: boolean };
 	readonly state: GitTrackingState;
 
 	constructor(
@@ -102,7 +121,7 @@ export class GitBranch implements GitBranchReference {
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
-		upstream?: string,
+		upstream?: { name: string; missing: boolean },
 		ahead: number = 0,
 		behind: number = 0,
 		detached: boolean = false,
@@ -115,7 +134,7 @@ export class GitBranch implements GitBranchReference {
 			this.name = GitBranch.formatDetached(this.sha!);
 		}
 
-		this.upstream = upstream == null || upstream.length === 0 ? undefined : upstream;
+		this.upstream = upstream == null || upstream.name.length === 0 ? undefined : upstream;
 		this.state = {
 			ahead: ahead,
 			behind: behind,
@@ -177,7 +196,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	getTrackingWithoutRemote(): string | undefined {
-		return this.upstream?.substring(this.upstream.indexOf('/') + 1);
+		return this.upstream?.name.substring(this.upstream.name.indexOf('/') + 1);
 	}
 
 	@memoize()
@@ -194,7 +213,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	getRemoteName(): string | undefined {
 		if (this.remote) return GitBranch.getRemote(this.name);
-		if (this.upstream != null) return GitBranch.getRemote(this.upstream);
+		if (this.upstream != null) return GitBranch.getRemote(this.upstream.name);
 
 		return undefined;
 	}
@@ -203,7 +222,8 @@ export class GitBranch implements GitBranchReference {
 	async getStatus(): Promise<GitBranchStatus> {
 		if (this.remote) return GitBranchStatus.Remote;
 
-		if (this.upstream) {
+		if (this.upstream != null) {
+			if (this.upstream.missing) return GitBranchStatus.MissingUpstream;
 			if (this.state.ahead && this.state.behind) return GitBranchStatus.Diverged;
 			if (this.state.ahead) return GitBranchStatus.Ahead;
 			if (this.state.behind) return GitBranchStatus.Behind;

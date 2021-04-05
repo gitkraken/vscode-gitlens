@@ -2968,6 +2968,15 @@
 					"light": "#35b15e",
 					"highContrast": "#4dff88"
 				}
+			},
+			{
+				"id": "gitlens.decorations.branchMissingUpstreamForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that have a missing upstream",
+				"defaults": {
+					"light": "#ad0707",
+					"dark": "#c74e39",
+					"highContrast": "#c74e39"
+				}
 			}
 		],
 		"commands": [
