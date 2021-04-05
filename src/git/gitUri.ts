@@ -481,7 +481,6 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 			ref = uriOrRef.sha;
 			shortSha = uriOrRef.shortSha;
-			// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 			repoPath = uriOrRef.repoPath!;
 		}
 

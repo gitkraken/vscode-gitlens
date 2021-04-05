@@ -68,7 +68,6 @@ export class ConnectRemoteProviderCommand extends Command {
 				if (pick?.item == null) return undefined;
 
 				repoPath = pick.repoPath;
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 				remote = repos.get(pick.item)!;
 			}
 		} else if (args?.remote == null) {
@@ -157,7 +156,6 @@ export class DisconnectRemoteProviderCommand extends Command {
 				if (pick?.item == null) return undefined;
 
 				repoPath = pick.repoPath;
-				// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 				remote = repos.get(pick.item)!;
 			}
 		} else if (args?.remote == null) {
