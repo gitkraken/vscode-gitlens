@@ -716,7 +716,7 @@ export class GitService implements Disposable {
 		if (GitReference.isBranch(branchRef)) {
 			const repo = await this.getRepository(repoPath);
 			const branch = await repo?.getBranch(branchRef?.name);
-			if (!branch?.remote && branch?.tracking == null) return undefined;
+			if (!branch?.remote && branch?.upstream == null) return undefined;
 
 			return Git.fetch(repoPath, {
 				branch: branch.getNameWithoutRemote(),
@@ -1218,7 +1218,7 @@ export class GitService implements Disposable {
 		const data = await Git.rev_parse__currentBranch(repoPath, Container.config.advanced.commitOrdering);
 		if (data == null) return undefined;
 
-		const [name, tracking] = data[0].split('\n');
+		const [name, upstream] = data[0].split('\n');
 		if (GitBranch.isDetached(name)) {
 			const [rebaseStatus, committerDate] = await Promise.all([
 				this.getRebaseStatus(repoPath),
@@ -1232,7 +1232,7 @@ export class GitService implements Disposable {
 				true,
 				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 				data[1],
-				tracking,
+				upstream,
 				undefined,
 				undefined,
 				undefined,
@@ -1250,11 +1250,11 @@ export class GitService implements Disposable {
 	})
 	async getBranchAheadRange(branch: GitBranch) {
 		if (branch.state.ahead > 0) {
-			return GitRevision.createRange(branch.tracking, branch.ref);
+			return GitRevision.createRange(branch.upstream, branch.ref);
 		}
 
-		if (!branch.tracking) {
-			// If we have no tracking branch, try to find a best guess branch to use as the "base"
+		if (branch.upstream == null) {
+			// If we have no upstream branch, try to find a best guess branch to use as the "base"
 			const branches = await this.getBranches(branch.repoPath, {
 				filter: b => weightedDefaultBranches.has(b.name),
 			});
@@ -1269,7 +1269,7 @@ export class GitService implements Disposable {
 					if (weightedBranch.weight === maxDefaultBranchWeight) break;
 				}
 
-				const possibleBranch = weightedBranch!.branch.tracking ?? weightedBranch!.branch.ref;
+				const possibleBranch = weightedBranch!.branch.upstream ?? weightedBranch!.branch.ref;
 				if (possibleBranch !== branch.ref) {
 					return GitRevision.createRange(possibleBranch, branch.ref);
 				}
@@ -1302,7 +1302,7 @@ export class GitService implements Disposable {
 
 				const data = await Git.rev_parse__currentBranch(repoPath, Container.config.advanced.commitOrdering);
 				if (data != null) {
-					const [name, tracking] = data[0].split('\n');
+					const [name, upstream] = data[0].split('\n');
 					const [rebaseStatus, committerDate] = await Promise.all([
 						GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath) : undefined,
 						Git.log__recent_committerdate(repoPath, Container.config.advanced.commitOrdering),
@@ -1315,7 +1315,7 @@ export class GitService implements Disposable {
 						true,
 						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 						data[1],
-						tracking,
+						upstream,
 						undefined,
 						undefined,
 						undefined,
@@ -3826,7 +3826,7 @@ export class GitService implements Disposable {
 		const repository = await this.getRepository(repoPath);
 		if (repository == null) return false;
 
-		return repository.hasTrackingBranch();
+		return repository.hasUpstreamBranch();
 	}
 
 	@log({

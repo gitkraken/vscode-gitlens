@@ -63,7 +63,7 @@ export namespace BranchQuickPickItem {
 			description = 'current branch';
 		}
 
-		if (options.status && !branch.remote && branch.tracking !== undefined) {
+		if (options.status && !branch.remote && branch.upstream !== undefined) {
 			let arrows = GlyphChars.Dash;
 
 			const remote = await branch.getRemote();
@@ -93,7 +93,7 @@ export namespace BranchQuickPickItem {
 
 			const status = `${branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
 				GlyphChars.Space
-			} ${branch.tracking}`;
+			} ${branch.upstream}`;
 			description = `${description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status}`;
 		}
 

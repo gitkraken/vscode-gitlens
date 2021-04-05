@@ -26,7 +26,7 @@ export class GitBranchParser {
 
 		let current;
 		let name;
-		let tracking;
+		let upstream;
 		let ahead;
 		let behind;
 		let ref;
@@ -39,7 +39,7 @@ export class GitBranchParser {
 			match = branchWithTrackingRegex.exec(data);
 			if (match == null) break;
 
-			[, current, name, tracking, ahead, behind, ref, date] = match;
+			[, current, name, upstream, ahead, behind, ref, date] = match;
 
 			if (name.startsWith('refs/remotes/')) {
 				// Strip off refs/remotes/
@@ -63,7 +63,7 @@ export class GitBranchParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					tracking == null || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
+					upstream == null || upstream.length === 0 ? undefined : ` ${upstream}`.substr(1),
 					Number(ahead) || 0,
 					Number(behind) || 0,
 				),

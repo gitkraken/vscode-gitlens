@@ -92,7 +92,7 @@ export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
-	readonly tracking?: string;
+	readonly upstream?: string;
 	readonly state: GitTrackingState;
 
 	constructor(
@@ -102,7 +102,7 @@ export class GitBranch implements GitBranchReference {
 		public readonly current: boolean,
 		public readonly date: Date | undefined,
 		public readonly sha?: string,
-		tracking?: string,
+		upstream?: string,
 		ahead: number = 0,
 		behind: number = 0,
 		detached: boolean = false,
@@ -115,7 +115,7 @@ export class GitBranch implements GitBranchReference {
 			this.name = GitBranch.formatDetached(this.sha!);
 		}
 
-		this.tracking = tracking == null || tracking.length === 0 ? undefined : tracking;
+		this.upstream = upstream == null || upstream.length === 0 ? undefined : upstream;
 		this.state = {
 			ahead: ahead,
 			behind: behind,
@@ -177,7 +177,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	getTrackingWithoutRemote(): string | undefined {
-		return this.tracking?.substring(this.tracking.indexOf('/') + 1);
+		return this.upstream?.substring(this.upstream.indexOf('/') + 1);
 	}
 
 	@memoize()
@@ -194,7 +194,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	getRemoteName(): string | undefined {
 		if (this.remote) return GitBranch.getRemote(this.name);
-		if (this.tracking != null) return GitBranch.getRemote(this.tracking);
+		if (this.upstream != null) return GitBranch.getRemote(this.upstream);
 
 		return undefined;
 	}
@@ -203,7 +203,7 @@ export class GitBranch implements GitBranchReference {
 	async getStatus(): Promise<GitBranchStatus> {
 		if (this.remote) return GitBranchStatus.Remote;
 
-		if (this.tracking) {
+		if (this.upstream) {
 			if (this.state.ahead && this.state.behind) return GitBranchStatus.Diverged;
 			if (this.state.ahead) return GitBranchStatus.Ahead;
 			if (this.state.behind) return GitBranchStatus.Behind;
@@ -225,7 +225,7 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.tracking, this.state, options);
+		return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
 	}
 
 	get starred() {

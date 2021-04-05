@@ -67,7 +67,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 					{
 						autoPick: true,
 						// checkmarks: false,
-						filter: { branches: b => b.tracking != null },
+						filter: { branches: b => b.upstream != null },
 						include: ReferencesQuickPickIncludes.Branches,
 						sort: { branches: { current: true }, tags: {} },
 					},

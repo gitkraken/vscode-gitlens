@@ -151,7 +151,7 @@ export class BranchNode
 				this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
-				(this.branch.tracking || this.branch.remote)
+				(this.branch.upstream || this.branch.remote)
 					? this.branch.getAssociatedPullRequest(
 							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
 					  )
@@ -213,10 +213,10 @@ export class BranchNode
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
 					state: this.branch.state,
-					upstream: this.branch.tracking,
+					upstream: this.branch.upstream,
 				};
 
-				if (this.branch.tracking) {
+				if (this.branch.upstream) {
 					if (this.root && !status.state.behind && !status.state.ahead) {
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
@@ -293,7 +293,7 @@ export class BranchNode
 		if (this.branch.starred) {
 			contextValue += '+starred';
 		}
-		if (this.branch.tracking) {
+		if (this.branch.upstream) {
 			contextValue += '+tracking';
 		}
 		if (this.options.showAsCommits) {
@@ -304,7 +304,7 @@ export class BranchNode
 		let description;
 		let iconSuffix = '';
 		if (!this.branch.remote) {
-			if (this.branch.tracking != null) {
+			if (this.branch.upstream != null) {
 				let arrows = GlyphChars.Dash;
 
 				const remote = await this.branch.getRemote();
@@ -339,19 +339,19 @@ export class BranchNode
 							arrows,
 							2,
 							2,
-					  )}${this.branch.tracking}`
+					  )}${this.branch.upstream}`
 					: `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
 							GlyphChars.Space
-					  } ${this.branch.tracking}`;
+					  } ${this.branch.upstream}`;
 
 				tooltip += ` is ${this.branch.getTrackingStatus({
-					empty: `up to date with $(git-branch) ${this.branch.tracking}${
+					empty: `up to date with $(git-branch) ${this.branch.upstream}${
 						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 					}`,
 					expand: true,
 					icons: true,
 					separator: ', ',
-					suffix: ` $(git-branch) ${this.branch.tracking}${
+					suffix: ` $(git-branch) ${this.branch.upstream}${
 						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 					}`,
 				})}`;

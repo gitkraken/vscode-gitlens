@@ -137,7 +137,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					branch = await Container.git.getBranch(gitUri.repoPath);
 				}
 
-				if (branch?.tracking == null) {
+				if (branch?.upstream == null) {
 					const pick = await ReferencePicker.show(
 						gitUri.repoPath,
 						args.clipboard
@@ -148,7 +148,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 							allowEnteringRefs: true,
 							autoPick: true,
 							// checkmarks: false,
-							filter: { branches: b => b.remote || b.tracking != null },
+							filter: { branches: b => b.remote || b.upstream != null },
 							picked: args.branchOrTag,
 							sort: {
 								branches: { current: true, orderBy: BranchSorting.DateDesc },

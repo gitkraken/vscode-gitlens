@@ -311,7 +311,7 @@ export class ViewCommands {
 					: undefined,
 			branch: {
 				name: node.branch.name,
-				upstream: node.branch.tracking,
+				upstream: node.branch.upstream,
 				isRemote: node.branch.remote,
 			},
 		});
@@ -516,7 +516,7 @@ export class ViewCommands {
 	private rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
 		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return Promise.resolve();
 
-		const upstream = node instanceof BranchNode ? node.branch.tracking : node.status.upstream;
+		const upstream = node instanceof BranchNode ? node.branch.upstream : node.status.upstream;
 		if (upstream == null) return Promise.resolve();
 
 		return GitActions.rebase(
@@ -712,9 +712,9 @@ export class ViewCommands {
 	@debug()
 	private compareWithUpstream(node: BranchNode) {
 		if (!(node instanceof BranchNode)) return Promise.resolve();
-		if (!node.branch.tracking) return Promise.resolve();
+		if (!node.branch.upstream) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, node.branch.tracking, node.ref);
+		return Container.searchAndCompareView.compare(node.repoPath, node.branch.upstream, node.ref);
 	}
 
 	@debug()

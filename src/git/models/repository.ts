@@ -443,16 +443,16 @@ export class Repository implements Disposable {
 			this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
 
 			if (remote) {
-				const trackingBranches = localBranches.filter(b => b.tracking != null);
+				const trackingBranches = localBranches.filter(b => b.upstream != null);
 				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b => GitBranch.getRemote(b.tracking!));
+					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b => GitBranch.getRemote(b.upstream!));
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
 						this.runTerminalCommand(
 							'push',
 							'-d',
 							remote,
-							...branches.map(b => GitBranch.getNameWithoutRemote(b.tracking!)),
+							...branches.map(b => GitBranch.getNameWithoutRemote(b.upstream!)),
 						);
 					}
 				}
@@ -663,9 +663,9 @@ export class Repository implements Disposable {
 		return remote?.provider != null;
 	}
 
-	async hasTrackingBranch(): Promise<boolean> {
+	async hasUpstreamBranch(): Promise<boolean> {
 		const branch = await this.getBranch();
-		return branch?.tracking != null;
+		return branch?.upstream != null;
 	}
 
 	@gate(() => '')
@@ -691,8 +691,8 @@ export class Repository implements Disposable {
 
 	private async pullCore(options: { rebase?: boolean } = {}) {
 		try {
-			const tracking = await this.hasTrackingBranch();
-			if (tracking) {
+			const upstream = await this.hasUpstreamBranch();
+			if (upstream) {
 				void (await commands.executeCommand(
 					options.rebase ? BuiltInGitCommands.PullRebase : BuiltInGitCommands.Pull,
 					this.path,
@@ -760,7 +760,7 @@ export class Repository implements Disposable {
 			branch: {
 				name: branch.name,
 				isRemote: branch.remote,
-				upstream: branch.tracking,
+				upstream: branch.upstream,
 			},
 		});
 	}

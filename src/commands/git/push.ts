@@ -188,7 +188,7 @@ export class PushGitCommand extends QuickCommand<State> {
 				} else {
 					const branch = await repo.getBranch(state.reference.name);
 
-					if (branch != null && branch?.tracking == null) {
+					if (branch != null && branch?.upstream == null) {
 						for (const remote of await repo.getRemotes()) {
 							items.push(
 								FlagsQuickPickItem.create<Flags>(

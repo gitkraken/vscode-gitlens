@@ -165,7 +165,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				const [repo] = state.repos;
 				const branch = await repo.getBranch(state.reference.name);
 
-				if (branch?.tracking == null) {
+				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
 						appendReposToTitle(`Confirm ${context.title}`, state, context),
 						[],

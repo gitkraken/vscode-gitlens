@@ -390,7 +390,7 @@ export abstract class RepositoryFolderNode<
 			}`;
 
 			let providerName;
-			if (branch.tracking != null) {
+			if (branch.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -409,15 +409,15 @@ export abstract class RepositoryFolderNode<
 				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
 					branch.name
 				}${
-					branch.tracking
+					branch.upstream
 						? ` is ${branch.getTrackingStatus({
-								empty: `up to date with $(git-branch) ${branch.tracking}${
+								empty: `up to date with $(git-branch) ${branch.upstream}${
 									providerName ? ` on ${providerName}` : ''
 								}`,
 								expand: true,
 								icons: true,
 								separator: ', ',
-								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
+								suffix: ` $(git-branch) ${branch.upstream}${providerName ? ` on ${providerName}` : ''}`,
 						  })}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
 				}${

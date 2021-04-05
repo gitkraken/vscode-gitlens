@@ -110,7 +110,7 @@ export interface GitBranchReference {
 	name: string;
 	ref: string;
 	readonly remote: boolean;
-	readonly tracking?: string;
+	readonly upstream?: string;
 	repoPath: string;
 }
 
@@ -147,7 +147,7 @@ export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
-		options: { refType: 'branch'; name: string; remote: boolean; tracking?: string },
+		options: { refType: 'branch'; name: string; remote: boolean; upstream?: string },
 	): GitBranchReference;
 	export function create(
 		ref: string,
@@ -211,7 +211,7 @@ export namespace GitReference {
 			refType: branch.refType,
 			name: branch.name,
 			remote: branch.remote,
-			tracking: branch.tracking,
+			upstream: branch.upstream,
 		});
 	}
 

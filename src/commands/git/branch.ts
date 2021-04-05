@@ -389,7 +389,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 				}),
 			);
 
-			if (state.references.some(b => b.tracking != null)) {
+			if (state.references.some(b => b.upstream != null)) {
 				confirmations.push(
 					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--remotes'], {
 						label: `${context.title} & Remote${

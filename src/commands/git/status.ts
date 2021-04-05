@@ -91,7 +91,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 					refType: 'branch',
 					name: context.status.branch,
 					remote: false,
-					tracking: context.status.upstream,
+					upstream: context.status.upstream,
 				}),
 				{ icon: false },
 			)}`;
