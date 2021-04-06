@@ -70,12 +70,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			const { branchOrTag } = resource;
 			const branchesOrTags = await Container.git.getBranchesAndOrTags(this.remote.repoPath, {
 				filter: {
-					branches: b => b.name === branchOrTag,
+					branches: b => b.name === branchOrTag || GitBranch.getNameWithoutRemote(b.name) === branchOrTag,
 					tags: b => b.name === branchOrTag,
 				},
 			});
 
-			const sha = branchesOrTags?.[0].sha;
+			const sha = branchesOrTags?.[0]?.sha;
 			if (sha) {
 				resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
 			}
@@ -176,7 +176,7 @@ export namespace RemoteProviderPicker {
 			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
 			placeHolder = 'No auto-detected or configured remote providers found';
 		} else {
-			if (autoPick === 'default') {
+			if (autoPick === 'default' && remotes.length > 1) {
 				// If there is a default just execute it directly
 				const remote = remotes.find(r => r.default);
 				if (remote != null) {
