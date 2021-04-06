@@ -79,8 +79,9 @@ export class CustomRemote extends RemoteProvider {
 			url = Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
 		}
 
+		const decodeHash = url.includes('#');
 		url = this.encodeUrl(url);
-		if (line.includes('#')) {
+		if (decodeHash) {
 			const index = url.lastIndexOf('%23');
 			if (index !== -1) {
 				url = `${url.substring(0, index)}#${url.substring(index + 3)}`;
