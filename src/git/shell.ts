@@ -114,10 +114,10 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 	return { cmd: exe, args: args };
 }
 
-export interface RunOptions {
+export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	cwd?: string;
 	readonly env?: Record<string, any>;
-	readonly encoding?: BufferEncoding | 'buffer';
+	readonly encoding?: TEncoding;
 	/**
 	 * The size the output buffer to allocate to the spawned process. Set this
 	 * if you are anticipating a large amount of output.
@@ -174,7 +174,7 @@ export class RunError extends Error {
 export function run<TOut extends string | Buffer>(
 	command: string,
 	args: any[],
-	encoding: BufferEncoding | 'buffer',
+	encoding: BufferEncoding | 'buffer' | string,
 	options: RunOptions = {},
 ): Promise<TOut> {
 	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };

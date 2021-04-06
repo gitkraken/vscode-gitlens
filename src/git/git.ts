@@ -63,7 +63,7 @@ export enum GitErrorHandling {
 	Throw = 'throw',
 }
 
-export interface GitCommandOptions extends RunOptions {
+export interface GitCommandOptions extends RunOptions<BufferEncoding | 'buffer' | string> {
 	configs?: string[];
 	readonly correlationKey?: string;
 	errors?: GitErrorHandling;
@@ -89,12 +89,11 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 
 	const start = process.hrtime();
 
-	const { configs, correlationKey, errors: errorHandling, ...opts } = options;
+	const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
 
-	const encoding = options.encoding ?? 'utf8';
 	const runOpts: RunOptions = {
 		...opts,
-		encoding: encoding === 'utf8' ? 'utf8' : encoding === 'buffer' ? 'buffer' : 'binary',
+		encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
 		// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
 		// Shouldn't *really* be needed but better safe than sorry
 		env: {
@@ -131,7 +130,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			args.splice(0, 0, '-c', 'core.longpaths=true');
 		}
 
-		promise = run<TOut>(gitInfo.path, args, encoding, runOpts);
+		promise = run<TOut>(gitInfo.path, args, encoding ?? 'utf8', runOpts);
 
 		pendingCommands.set(command, promise);
 	} else {
@@ -525,7 +524,7 @@ export namespace Git {
 				{
 					cwd: repoPath,
 					configs: ['-c', 'color.diff=false'],
-					encoding: options.encoding === 'utf8' ? 'utf8' : 'binary',
+					encoding: options.encoding,
 				},
 				...params,
 				'--',
@@ -578,7 +577,7 @@ export namespace Git {
 				{
 					cwd: repoPath,
 					configs: ['-c', 'color.diff=false'],
-					encoding: options.encoding === 'utf8' ? 'utf8' : 'binary',
+					encoding: options.encoding,
 					stdin: contents,
 				},
 				...params,
