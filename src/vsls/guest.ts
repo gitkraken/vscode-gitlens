@@ -54,7 +54,7 @@ export class VslsGuestService implements Disposable {
 		const response = await this.sendRequest(GitCommandRequestType, { options: options, args: args });
 
 		if (response.isBuffer) {
-			return new Buffer(response.data, 'binary') as TOut;
+			return Buffer.from(response.data, 'binary') as TOut;
 		}
 		return response.data as TOut;
 	}
