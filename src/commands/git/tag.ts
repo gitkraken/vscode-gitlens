@@ -261,7 +261,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 			void state.repo.tag(
 				...state.flags,
-				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
+				...(state.message.length !== 0 ? ['-m', `"${state.message}"`] : []),
 				state.name,
 				state.reference.ref,
 			);

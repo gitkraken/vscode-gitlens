@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [1423](https://github.com/eamodio/vscode-gitlens/issues/1423) - Create tag with message fails
 - Fixes [1428](https://github.com/eamodio/vscode-gitlens/issues/1428) - Incorrect branch name when no commits exist on new repo
 - Fixes [1444](https://github.com/eamodio/vscode-gitlens/issues/1444) - File history view "Open Changes with Working File" does not work for the very first commit
 - Fixes [1448](https://github.com/eamodio/vscode-gitlens/issues/1448) - Hashes (#) are percent encoded in custom remote urls
