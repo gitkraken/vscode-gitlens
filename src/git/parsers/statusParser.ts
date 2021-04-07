@@ -109,7 +109,7 @@ export class GitStatusParser {
 						files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(10).join(' ')));
 						break;
 					case '?': // untracked
-						files.push(this.parseStatusFile(repoPath, ' ?', lineParts.slice(1).join(' ')));
+						files.push(this.parseStatusFile(repoPath, '??', lineParts.slice(1).join(' ')));
 						break;
 				}
 			}
