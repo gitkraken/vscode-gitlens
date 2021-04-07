@@ -435,7 +435,7 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (file.status === 'A' || file.status === 'D') return;
+			if (file.status === 'D') return;
 
 			let ref;
 			if (GitLogCommit.is(commitOrRef)) {
