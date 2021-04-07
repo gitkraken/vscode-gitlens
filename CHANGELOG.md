@@ -18,15 +18,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [1423](https://github.com/eamodio/vscode-gitlens/issues/1423) - Create tag with message fails
-- Fixes [1428](https://github.com/eamodio/vscode-gitlens/issues/1428) - Incorrect branch name when no commits exist on new repo
-- Fixes [1444](https://github.com/eamodio/vscode-gitlens/issues/1444) - File history view "Open Changes with Working File" does not work for the very first commit
-- Fixes [1448](https://github.com/eamodio/vscode-gitlens/issues/1448) - Hashes (#) are percent encoded in custom remote urls
-- Fixes [1447](https://github.com/eamodio/vscode-gitlens/issues/1447) - _Open File on Remote From..._ is missing remote branches
-- Fixes [1442](https://github.com/eamodio/vscode-gitlens/issues/1442) - Interactive Rebase Editor not opened but plain text file when called from terminal
-- Fixes [1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
-- Fixes [1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
-- Fixes [1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
+- Fixes [#1423](https://github.com/eamodio/vscode-gitlens/issues/1423) - Create tag with message fails
+- Fixes [#1428](https://github.com/eamodio/vscode-gitlens/issues/1428) - Incorrect branch name when no commits exist on new repo
+- Fixes [#1444](https://github.com/eamodio/vscode-gitlens/issues/1444) - File history view "Open Changes with Working File" does not work for the very first commit
+- Fixes [#1448](https://github.com/eamodio/vscode-gitlens/issues/1448) - Hashes (#) are percent encoded in custom remote urls
+- Fixes [#1447](https://github.com/eamodio/vscode-gitlens/issues/1447) - _Open File on Remote From..._ is missing remote branches
+- Fixes [#1442](https://github.com/eamodio/vscode-gitlens/issues/1442) - Interactive Rebase Editor not opened but plain text file when called from terminal
+- Fixes [#1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
+- Fixes [#1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
+- Fixes [#1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
+- Fixes an issue where the _Changes to pull from \*_'s _\* files changed_ was always 0
 
 ## [11.3.0] - 2021-03-05
 
@@ -71,13 +72,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [1438](https://github.com/eamodio/vscode-gitlens/issues/1438) - Messages in hovers wrong encoding using non UTF-8
-- Fixes [1372](https://github.com/eamodio/vscode-gitlens/issues/1372) - Unexpected repository detection on editor startup after recent updates
-- Fixes [1394](https://github.com/eamodio/vscode-gitlens/issues/1394) - Repository view settings appear disabled
-- Fixes [1391](https://github.com/eamodio/vscode-gitlens/issues/1391) - Branch names are not properly escaped in git commands
-- Fixes [1336](https://github.com/eamodio/vscode-gitlens/issues/1336) - Need to allow GitLens to connect to GitHub in every Codespace (requires VS Code v1.54-insiders or later)
-- Fixes [1363](https://github.com/eamodio/vscode-gitlens/issues/1363) - Error 'Unable to open compare', when git setting log.showsignature is active
-- Fixes [1368](https://github.com/eamodio/vscode-gitlens/issues/1368) - Suppress message "GitLens was unable to find Git"
+- Fixes [#1438](https://github.com/eamodio/vscode-gitlens/issues/1438) - Messages in hovers wrong encoding using non UTF-8
+- Fixes [#1372](https://github.com/eamodio/vscode-gitlens/issues/1372) - Unexpected repository detection on editor startup after recent updates
+- Fixes [#1394](https://github.com/eamodio/vscode-gitlens/issues/1394) - Repository view settings appear disabled
+- Fixes [#1391](https://github.com/eamodio/vscode-gitlens/issues/1391) - Branch names are not properly escaped in git commands
+- Fixes [#1336](https://github.com/eamodio/vscode-gitlens/issues/1336) - Need to allow GitLens to connect to GitHub in every Codespace (requires VS Code v1.54-insiders or later)
+- Fixes [#1363](https://github.com/eamodio/vscode-gitlens/issues/1363) - Error 'Unable to open compare', when git setting log.showsignature is active
+- Fixes [#1368](https://github.com/eamodio/vscode-gitlens/issues/1368) - Suppress message "GitLens was unable to find Git"
 - Fixes an issue where the rebase status in the views could get "stuck" after a rebase completed
 - Fixes typo in README &mdash; thanks to [PR #1374](https://github.com/eamodio/vscode-gitlens/pull/1374) by David Rees ([@studgeek](https://github.com/studgeek))
 
