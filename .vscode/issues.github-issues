@@ -1,0 +1,97 @@
+[
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues=repo:eamodio/vscode-gitlens is:open\n$prs=repo:eamodio/vscode-gitlens is:open is:pr"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Triage"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Inbox"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues label:\"triage\" sort:updated-desc"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Needs More Information"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues label:\"needs-more-info\" sort:updated-desc"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Milestones"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Soon™"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "#### Open"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues milestone:Soon™"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "#### Verification Needed"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues milestone:Soon™ is:closed label:\"needs-verification\" -label:\"verified ✔\""
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "#### Done"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues milestone:Soon™ is:closed -label:\"pending-release\""
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues milestone:Soon™ is:closed label:\"pending-release\""
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Soonish™"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues milestone:Soonish™"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Pull Requests"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$prs"
+  }
+]
