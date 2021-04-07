@@ -1062,6 +1062,14 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
+	export function ls_remote(repoPath: string, remote: string, ref?: string) {
+		return git<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
+	}
+
+	export function ls_remote__HEAD(repoPath: string, remote: string) {
+		return git<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+	}
+
 	export async function ls_tree(repoPath: string, ref: string, { fileName }: { fileName?: string } = {}) {
 		const params = ['ls-tree'];
 		if (fileName) {
@@ -1205,6 +1213,29 @@ export namespace Git {
 			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
 				if (ex.stdout != null && ex.stdout.length !== 0) {
 					return [ex.stdout, undefined];
+				}
+
+				try {
+					const data = await symbolic_ref(repoPath, 'HEAD');
+					if (data != null) return [data.trim(), undefined];
+				} catch {}
+
+				try {
+					const data = await symbolic_ref(repoPath, 'refs/remotes/origin/HEAD');
+					if (data != null) return [data.trim().substr('origin/'.length), undefined];
+				} catch (ex) {
+					if (/is not a symbolic ref/.test(ex.stderr)) {
+						try {
+							const data = await ls_remote__HEAD(repoPath, 'origin');
+							if (data != null) {
+								const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+								if (match != null) {
+									const [, branch] = match;
+									return [branch.substr('refs/heads/'.length), undefined];
+								}
+							}
+						} catch {}
+					}
 				}
 
 				const defaultBranch = (await config__get('init.defaultBranch', repoPath, { local: true })) ?? 'main';
@@ -1491,6 +1522,10 @@ export namespace Git {
 			'--',
 			file,
 		);
+	}
+
+	export function symbolic_ref(repoPath: string, ref: string) {
+		return git<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
 	}
 
 	export function tag(repoPath: string) {

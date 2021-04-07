@@ -1609,6 +1609,43 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	async getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined> {
+		if (repoPath == null) return undefined;
+
+		if (!remote) {
+			try {
+				const data = await Git.symbolic_ref(repoPath, 'HEAD');
+				if (data != null) return data.trim();
+			} catch {}
+		}
+
+		remote = remote ?? 'origin';
+		try {
+			const data = await Git.symbolic_ref(repoPath, `refs/remotes/${remote}/HEAD`);
+			if (data == null) return undefined;
+
+			return data.trim().substr(`${remote}/`.length);
+		} catch (ex) {
+			if (/is not a symbolic ref/.test(ex.stderr)) {
+				try {
+					const data = await Git.ls_remote__HEAD(repoPath, remote);
+					if (data == null) return undefined;
+
+					const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+					if (match == null) return undefined;
+
+					const [, branch] = match;
+					return branch.substr('refs/heads/'.length);
+				} catch {
+					return undefined;
+				}
+			}
+
+			return undefined;
+		}
+	}
+
+	@log()
 	async getDiffForFile(
 		uri: GitUri,
 		ref1: string | undefined,
