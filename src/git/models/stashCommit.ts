@@ -66,7 +66,7 @@ export class GitStashCommit extends GitLogCommit {
 					status: GitFileWorkingTreeStatus.Untracked,
 					conflictStatus: undefined,
 					indexStatus: undefined,
-					workingTreeStatus: GitFileWorkingTreeStatus.Untracked,
+					workingTreeStatus: undefined,
 				}));
 
 				this.files.push(...files);
