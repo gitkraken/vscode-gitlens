@@ -320,6 +320,7 @@ export interface AdvancedConfig {
 		suppressCommitHasNoPreviousCommitWarning: boolean;
 		suppressCommitNotFoundWarning: boolean;
 		suppressCreatePullRequestPrompt: boolean;
+		suppressDebugLoggingWarning: boolean;
 		suppressFileNotUnderSourceControlWarning: boolean;
 		suppressGitDisabledWarning: boolean;
 		suppressGitMissingWarning: boolean;

@@ -8,6 +8,7 @@ export enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
 	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
 	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
+	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
 	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
 	GitDisabledWarning = 'suppressGitDisabledWarning',
 	GitMissingWarning = 'suppressGitMissingWarning',
@@ -52,6 +53,19 @@ export class Messages {
 			create,
 		);
 		return result === create;
+	}
+
+	static async showDebugLoggingWarningMessage(): Promise<boolean> {
+		const disable = { title: 'Disable Debug Logging' };
+		const result = await Messages.showMessage(
+			'warn',
+			'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+			SuppressedMessages.SuppressDebugLoggingWarning,
+			{ title: "Don't Show Again" },
+			disable,
+		);
+
+		return result === disable;
 	}
 
 	static async showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {

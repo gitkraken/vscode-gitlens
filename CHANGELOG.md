@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds Gitea remote provider support &mdash; closes [#1379](https://github.com/eamodio/vscode-gitlens/issues/1379) thanks to [PR #1396](https://github.com/eamodio/vscode-gitlens/pull/1396) by Nils K ([septatrix](https://github.com/septatrix))
 - Adds a `gitlens.advanced.commitOrdering` setting to specify the order by which commits will be shown. If unspecified, commits will be shown in reverse chronological order &mdash; closes [#1257](https://github.com/eamodio/vscode-gitlens/issues/1257) thanks to [PR #1344](https://github.com/eamodio/vscode-gitlens/pull/1344) by Andy Tang ([thewindsofwinter](https://github.com/thewindsofwinter)) and Shashank Shastri ([Shashank-Shastri](https://github.com/Shashank-Shastri))
 - Adds [documentation](https://github.com/eamodio/vscode-gitlens#side-bar-views-) for the _GitLens: Set Views Layout_ command &mdash; thanks to [PR #1404](https://github.com/eamodio/vscode-gitlens/pull/1404) by Asif Kamran Malick ([@akmalick](https://github.com/akmalick))
+- Adds an _Enable Debug Logging_ command (`gitlens.enableDebugLogging`) to enable debug logging to the GitLens output channel
+- Adds a _Disable Debug Logging_ command (`gitlens.disableDebugLogging`) to disable debug logging to the GitLens output channel
 
 ### Fixed
 

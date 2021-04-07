@@ -641,6 +641,9 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 - Adds a _Open Changed Files_ command (`gitlens.openChangedFiles`) to open any files with working tree changes
 - Adds a _Close Unchanged Files_ command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes
 
+- Adds an _Enable Debug Logging_ command (`gitlens.enableDebugLogging`) to enable debug logging to the GitLens output channel
+- Adds a _Disable Debug Logging_ command (`gitlens.disableDebugLogging`) to disable debug logging to the GitLens output channel
+
 ## Menus & Toolbars [#](#menus- 'Menus & Toolbars')
 
 <p align="center">

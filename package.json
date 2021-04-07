@@ -2590,6 +2590,7 @@
 						"suppressCommitHasNoPreviousCommitWarning": false,
 						"suppressCommitNotFoundWarning": false,
 						"suppressCreatePullRequestPrompt": false,
+						"suppressDebugLoggingWarning": false,
 						"suppressFileNotUnderSourceControlWarning": false,
 						"suppressGitDisabledWarning": false,
 						"suppressGitMissingWarning": false,
@@ -2609,6 +2610,10 @@
 							"default": false
 						},
 						"suppressCreatePullRequestPrompt": {
+							"type": "boolean",
+							"default": false
+						},
+						"suppressDebugLoggingWarning": {
 							"type": "boolean",
 							"default": false
 						},
@@ -5113,6 +5118,16 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.enableDebugLogging",
+				"title": "Enable Debug Logging",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.disableDebugLogging",
+				"title": "Disable Debug Logging",
+				"category": "GitLens"
 			}
 		],
 		"menus": {
@@ -6480,6 +6495,14 @@
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.enableDebugLogging",
+					"when": "config.gitlens.outputLevel != debug"
+				},
+				{
+					"command": "gitlens.disableDebugLogging",
+					"when": "config.gitlens.outputLevel != errors"
 				}
 			],
 			"editor/context": [

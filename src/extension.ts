@@ -5,7 +5,7 @@ import { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContex
 import { Api } from './api/api';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
-import { configuration, Configuration } from './configuration';
+import { configuration, Configuration, TraceLevel } from './configuration';
 import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
 import { Container } from './container';
 import { Git, GitBranch, GitCommit } from './git/git';
@@ -156,6 +156,16 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	// Only update our synced version if the new version is greater
 	if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
 		void context.globalState.update(SyncedState.Version, gitlensVersion);
+	}
+
+	if (cfg.outputLevel === TraceLevel.Debug) {
+		setTimeout(async () => {
+			if (cfg.outputLevel !== TraceLevel.Debug) return;
+
+			if (await Messages.showDebugLoggingWarningMessage()) {
+				void commands.executeCommand(Commands.DisableDebugLogging);
+			}
+		}, 60000);
 	}
 
 	Logger.log(
