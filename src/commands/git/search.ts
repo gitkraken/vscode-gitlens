@@ -340,7 +340,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				if (quickpick.value.length === 0) {
 					quickpick.items = items;
 				} else {
-					// If something was typed/selected, keep the quick pick open on focus lossrop
+					// If something was typed/selected, keep the quick pick open on focus loss
 					quickpick.ignoreFocusOut = true;
 					step.ignoreFocusOut = true;
 
