@@ -25,7 +25,11 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		view: ContributorsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly contributor: GitContributor,
-		private readonly _presenceMap: Map<string, ContactPresence> | undefined,
+		private readonly _options?: {
+			all?: boolean;
+			ref?: string;
+			presence: Map<string, ContactPresence> | undefined;
+		},
 	) {
 		super(uri, view, parent);
 	}
@@ -60,7 +64,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const presence = this._presenceMap?.get(this.contributor.email);
+		const presence = this._options?.presence?.get(this.contributor.email);
 
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
@@ -77,7 +81,10 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		}${this.contributor.email}`;
 		item.tooltip = `${this.contributor.name}${presence != null ? ` (${presence.statusText})` : ''}\n${
 			this.contributor.email
-		}\n${Strings.pluralize('commit', this.contributor.count)}`;
+		}\n${Strings.pluralize(
+			'commit',
+			this.contributor.count,
+		)}\nLast commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})`;
 
 		if (this.view.config.avatars) {
 			item.iconPath = await this.contributor.getAvatarUri({
@@ -100,6 +107,8 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	private async getLog() {
 		if (this._log == null) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
+				all: this._options?.all,
+				ref: this._options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
 			});

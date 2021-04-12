@@ -241,6 +241,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortBranchesBy') &&
+			!configuration.changed(e, 'sortContributorsBy') &&
 			!configuration.changed(e, 'sortTagsBy')
 		) {
 			return false;

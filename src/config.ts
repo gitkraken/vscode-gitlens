@@ -122,6 +122,7 @@ export interface Config {
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
 	sortBranchesBy: BranchSorting;
+	sortContributorsBy: ContributorSorting;
 	sortTagsBy: TagSorting;
 	statusBar: {
 		alignment: 'left' | 'right';
@@ -170,10 +171,10 @@ export enum BlameHighlightLocations {
 }
 
 export enum BranchSorting {
-	NameDesc = 'name:desc',
-	NameAsc = 'name:asc',
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
 }
 
 export enum ChangesLocations {
@@ -203,6 +204,15 @@ export enum CodeLensScopes {
 	Document = 'document',
 	Containers = 'containers',
 	Blocks = 'blocks',
+}
+
+export enum ContributorSorting {
+	CountDesc = 'count:desc',
+	CountAsc = 'count:asc',
+	DateDesc = 'date:desc',
+	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
 }
 
 export enum CustomRemoteType {
@@ -276,10 +286,10 @@ export enum StatusBarCommand {
 }
 
 export enum TagSorting {
-	NameDesc = 'name:desc',
-	NameAsc = 'name:asc',
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
 }
 
 export enum ViewBranchesLayout {
@@ -552,6 +562,7 @@ export interface ContributorsViewConfig {
 		enabled: boolean;
 		showForCommits: boolean;
 	};
+	showAllBranches: boolean;
 }
 
 export interface FileHistoryViewConfig {

@@ -36,13 +36,28 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const contributors = await this.repo.getContributors();
+			const all = Container.config.views.contributors.showAllBranches;
+
+			let ref: string | undefined;
+			// If we aren't getting all branches, get the upstream of the current branch if there is one
+			if (!all) {
+				try {
+					const branch = await Container.git.getBranch(this.uri.repoPath);
+					if (branch?.upstream?.name != null && !branch.upstream.missing) {
+						ref = '@{u}';
+					}
+				} catch {}
+			}
+
+			const contributors = await this.repo.getContributors({ all: all, ref: ref });
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
 			const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
 
-			this._children = contributors.map(c => new ContributorNode(this.uri, this.view, this, c, presenceMap));
+			this._children = contributors.map(
+				c => new ContributorNode(this.uri, this.view, this, c, { all: all, ref: ref, presence: presenceMap }),
+			);
 		}
 
 		return this._children;

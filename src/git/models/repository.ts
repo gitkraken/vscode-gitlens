@@ -571,8 +571,8 @@ export class Repository implements Disposable {
 		return Container.git.getCommit(this.path, ref);
 	}
 
-	getContributors(): Promise<GitContributor[]> {
-		return Container.git.getContributors(this.path);
+	getContributors(options?: { all?: boolean; ref?: string }): Promise<GitContributor[]> {
+		return Container.git.getContributors(this.path, options);
 	}
 
 	private _lastFetched: number | undefined;

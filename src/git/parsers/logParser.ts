@@ -80,6 +80,8 @@ export class GitLogParser {
 	static simpleRefs = `${lb}r${rb}${sp}%H`;
 	static simpleFormat = `${lb}r${rb}${sp}%H`;
 
+	static shortlog = '%H%x00%aN%x00%aE%x00%at';
+
 	@debug({ args: false })
 	static parse(
 		data: string,

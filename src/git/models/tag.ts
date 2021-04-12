@@ -33,16 +33,17 @@ export class GitTag implements GitTagReference {
 		switch (options.orderBy) {
 			case TagSorting.DateAsc:
 				return tags.sort((a, b) => a.date.getTime() - b.date.getTime());
-			case TagSorting.DateDesc:
-				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 			case TagSorting.NameAsc:
 				return tags.sort((a, b) =>
 					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
-			default:
+			case TagSorting.NameDesc:
 				return tags.sort((a, b) =>
 					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
+			case TagSorting.DateDesc:
+			default:
+				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 		}
 	}
 

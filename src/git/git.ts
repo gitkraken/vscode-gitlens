@@ -740,6 +740,7 @@ export namespace Git {
 		repoPath: string,
 		ref: string | undefined,
 		{
+			all,
 			authors,
 			format = 'default',
 			limit,
@@ -749,8 +750,9 @@ export namespace Git {
 			similarityThreshold,
 			since,
 		}: {
+			all?: boolean;
 			authors?: string[];
-			format?: 'refs' | 'default';
+			format?: 'default' | 'refs' | 'shortlog';
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -761,13 +763,19 @@ export namespace Git {
 	) {
 		const params = [
 			'log',
-			`--format=${format === 'refs' ? GitLogParser.simpleRefs : GitLogParser.defaultFormat}`,
+			`--format=${
+				format === 'refs'
+					? GitLogParser.simpleRefs
+					: format === 'shortlog'
+					? GitLogParser.shortlog
+					: GitLogParser.defaultFormat
+			}`,
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'-m',
 		];
 
-		if (format !== 'refs') {
+		if (format === 'default') {
 			params.push('--name-status');
 		}
 
@@ -789,6 +797,12 @@ export namespace Git {
 
 		if (authors != null && authors.length !== 0) {
 			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
+		} else if (format === 'shortlog') {
+			params.push('--use-mailmap');
+		}
+
+		if (all) {
+			params.push('--all');
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
@@ -828,7 +842,7 @@ export namespace Git {
 			all?: boolean;
 			filters?: GitDiffFilter[];
 			firstParent?: boolean;
-			format?: 'refs' | 'simple' | 'default';
+			format?: 'default' | 'refs' | 'simple';
 			limit?: number;
 			ordering?: string | null;
 			renames?: boolean;

@@ -263,10 +263,10 @@ export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
 }
 
-export function* lines(s: string): IterableIterator<string> {
+export function* lines(s: string, char: string = '\n'): IterableIterator<string> {
 	let i = 0;
 	while (i < s.length) {
-		let j = s.indexOf('\n', i);
+		let j = s.indexOf(char, i);
 		if (j === -1) {
 			j = s.length;
 		}

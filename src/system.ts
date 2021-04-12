@@ -29,5 +29,6 @@ export * as Iterables from './system/iterable';
 export * as Objects from './system/object';
 export * as Promises from './system/promise';
 export * from './system/searchTree';
+export * from './system/stopwatch';
 export * as Strings from './system/string';
 export * as Versions from './system/version';

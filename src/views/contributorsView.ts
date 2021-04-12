@@ -70,7 +70,20 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
 			}
 
-			const contributors = await child.repo.getContributors();
+			const all = Container.config.views.contributors.showAllBranches;
+
+			let ref: string | undefined;
+			// If we aren't getting all branches, get the upstream of the current branch if there is one
+			if (!all) {
+				try {
+					const branch = await Container.git.getBranch(this.uri.repoPath);
+					if (branch?.upstream?.name != null && !branch.upstream.missing) {
+						ref = '@{u}';
+					}
+				} catch {}
+			}
+
+			const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (contributors.length === 0) {
 				this.view.message = 'No contributors could be found.';
 				this.view.title = 'Contributors';
@@ -156,6 +169,18 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
 			this,
 		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowAllBranchesOn'),
+			() => this.setShowAllBranches(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowAllBranchesOff'),
+			() => this.setShowAllBranches(false),
+			this,
+		);
+
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
@@ -169,7 +194,8 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortContributorsBy')
 		) {
 			return false;
 		}
@@ -179,6 +205,10 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+	}
+
+	private setShowAllBranches(enabled: boolean) {
+		return configuration.updateEffective('views', this.configKey, 'showAllBranches', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

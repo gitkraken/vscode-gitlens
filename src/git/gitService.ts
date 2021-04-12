@@ -248,6 +248,10 @@ export class GitService implements Disposable {
 			CommitDateFormatting.reset();
 			PullRequestDateFormatting.reset();
 		}
+
+		if (configuration.changed(e, 'views', 'contributors', 'showAllBranches')) {
+			this._contributorsCache.clear();
+		}
 	}
 
 	@debug()
@@ -1512,35 +1516,17 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	async getContributors(repoPath: string): Promise<GitContributor[]> {
+	async getContributors(repoPath: string, options?: { all?: boolean; ref?: string }): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
 		let contributors = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
 		if (contributors == null) {
 			try {
-				const data = await Git.shortlog(repoPath);
-				const shortlog = GitShortLogParser.parse(data, repoPath);
-				if (shortlog != null) {
-					// Mark the current user
-					const currentUser = await this.getCurrentUser(repoPath);
-					if (currentUser != null) {
-						const index = shortlog.contributors.findIndex(
-							c => currentUser.email === c.email && currentUser.name === c.name,
-						);
-						if (index !== -1) {
-							const c = shortlog.contributors[index];
-							shortlog.contributors.splice(
-								index,
-								1,
-								new GitContributor(c.repoPath, c.name, c.email, c.count, true),
-							);
-						}
-					}
+				const currentUser = await this.getCurrentUser(repoPath);
 
-					contributors = shortlog.contributors;
-				} else {
-					contributors = [];
-				}
+				const data = await Git.log(repoPath, options?.ref, { all: options?.all, format: 'shortlog' });
+				const shortlog = GitShortLogParser.parseFromLog(data, repoPath, currentUser);
+				contributors = shortlog != null ? shortlog.contributors : [];
 
 				const repo = await this.getRepository(repoPath);
 				if (repo?.supportsChangeEvents) {
@@ -1911,6 +1897,7 @@ export class GitService implements Disposable {
 			ref,
 			...options
 		}: {
+			all?: boolean;
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
@@ -1924,13 +1911,11 @@ export class GitService implements Disposable {
 
 		try {
 			const data = await Git.log(repoPath, ref, {
-				authors: options.authors,
+				...options,
 				limit: limit,
 				merges: options.merges == null ? true : options.merges,
 				ordering: options.ordering ?? Container.config.advanced.commitOrdering,
-				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
-				since: options.since,
 			});
 			const log = GitLogParser.parse(
 				data,

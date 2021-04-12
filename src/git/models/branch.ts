@@ -66,17 +66,6 @@ export class GitBranch implements GitBranchReference {
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
 				);
-			case BranchSorting.DateDesc:
-				return branches.sort(
-					(a, b) =>
-						(options!.missingUpstream
-							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
-							: 0) ||
-						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
-				);
 			case BranchSorting.NameAsc:
 				return branches.sort(
 					(a, b) =>
@@ -91,7 +80,7 @@ export class GitBranch implements GitBranchReference {
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
-			default:
+			case BranchSorting.NameDesc:
 				return branches.sort(
 					(a, b) =>
 						(options!.missingUpstream
@@ -104,6 +93,18 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
+				);
+			case BranchSorting.DateDesc:
+			default:
+				return branches.sort(
+					(a, b) =>
+						(options!.missingUpstream
+							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
+							: 0) ||
+						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+						(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
 				);
 		}
 	}
