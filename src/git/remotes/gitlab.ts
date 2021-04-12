@@ -1,17 +1,36 @@
 'use strict';
-import { Range, Uri } from 'vscode';
+import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/models';
+import { Container } from '../../container';
+import { GitLabMergeRequest } from '../../gitlab/merge-request';
+import {
+	Account,
+	DefaultBranch,
+	GitRevision,
+	IssueOrPullRequest,
+	PullRequest,
+	PullRequestState,
+} from '../models/models';
 import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import { RichRemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
-export class GitLabRemote extends RemoteProvider {
+const authProvider = Object.freeze({ id: 'gitlab', scopes: ['repo'] });
+
+export class GitLabRemote extends RichRemoteProvider {
+	protected get authProvider() {
+		return authProvider;
+	}
+
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
 		super(domain, path, protocol, name, custom);
+	}
+
+	get apiBaseUrl() {
+		return this.custom ? `${this.protocol}://${this.domain}/api` : `https://${this.domain}/api`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -133,5 +152,80 @@ export class GitLabRemote extends RemoteProvider {
 		if (sha) return `${this.encodeUrl(`${this.baseUrl}/blob/${sha}/${fileName}`)}${line}`;
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
+	}
+
+	protected async getProviderAccountForCommit(
+		{ accessToken }: AuthenticationSession,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderAccountForEmail(
+		{ accessToken }: AuthenticationSession,
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderDefaultBranch({
+		accessToken,
+	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderIssueOrPullRequest(
+		{ accessToken }: AuthenticationSession,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderPullRequestForBranch(
+		{ accessToken }: AuthenticationSession,
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+		},
+	): Promise<PullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		const { include, ...opts } = options ?? {};
+
+		return (await Container.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
+			...opts,
+			include: include?.map(s => GitLabMergeRequest.toState(s)),
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderPullRequestForCommit(
+		{ accessToken }: AuthenticationSession,
+		ref: string,
+	): Promise<PullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 }

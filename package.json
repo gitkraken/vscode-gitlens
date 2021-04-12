@@ -1507,6 +1507,11 @@
 								"default": "https",
 								"description": "Specifies an optional url protocol for the custom remote service"
 							},
+							"ignoreCertErrors": {
+								"type": "boolean",
+								"default": false,
+								"description": "When connecting to the remote API, true will ignore any invalid certificate errors"
+							},
 							"urls": {
 								"type": "object",
 								"required": [

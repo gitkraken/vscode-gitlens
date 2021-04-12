@@ -14,6 +14,7 @@ import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
+import { debug, gate, log, Promises } from '../../system';
 import {
 	Account,
 	DefaultBranch,
@@ -24,7 +25,6 @@ import {
 	RemoteProviderReference,
 	Repository,
 } from '../models/models';
-import { debug, gate, log, Promises } from '../../system';
 
 export enum RemoteResourceType {
 	Branch = 'branch',
@@ -578,11 +578,24 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			return undefined;
 		}
 
-		let session;
+		let session: AuthenticationSession | undefined | null;
 		try {
-			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-				createIfNone: createIfNeeded,
-			});
+			//TODO: Remove 'if' block when VSCode auth provider api can work with personal tokens or 'gitlab'
+			if (this.authProvider.id === 'gitlab') {
+				session = (await (await Container.gitlab)?.authService.askForToken().then((token: string | void) => ({
+					id: 'gitlab',
+					accessToken: token,
+					account: {
+						id: '',
+						label: '',
+					},
+					scopes: ['repo'],
+				}))) as AuthenticationSession;
+			} else {
+				session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+					createIfNone: createIfNeeded,
+				});
+			}
 		} catch (ex) {
 			await Container.context.workspaceState.update(this.connectedKey, undefined);
 
