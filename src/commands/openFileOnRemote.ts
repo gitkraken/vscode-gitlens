@@ -37,6 +37,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			Commands.OpenFileOnRemote,
 			Commands.Deprecated_OpenFileInRemote,
 			Commands.CopyRemoteFileUrl,
+			Commands.CopyRemoteFileUrlWithoutRange,
 			Commands.OpenFileOnRemoteFrom,
 			Commands.CopyRemoteFileUrlFrom,
 		]);
@@ -45,12 +46,18 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	protected async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
 		let uri = context.uri;
 
-		if (context.type === 'uris' || context.type === 'scm-states') {
+		if (context.command === Commands.CopyRemoteFileUrlWithoutRange) {
 			args = { ...args, range: false };
-		} else if (isCommandContextViewNodeHasCommit(context)) {
+		}
+
+		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args, range: false };
 
-			if (context.command === Commands.CopyRemoteFileUrl || context.command === Commands.CopyRemoteFileUrlFrom) {
+			if (
+				context.command === Commands.CopyRemoteFileUrl ||
+				context.command === Commands.CopyRemoteFileUrlWithoutRange ||
+				context.command === Commands.CopyRemoteFileUrlFrom
+			) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
 			} else if (isCommandContextViewNodeHasBranch(context)) {
@@ -64,7 +71,11 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			uri = context.node.uri ?? context.uri;
 		}
 
-		if (context.command === Commands.CopyRemoteFileUrl || context.command === Commands.CopyRemoteFileUrlFrom) {
+		if (
+			context.command === Commands.CopyRemoteFileUrl ||
+			context.command === Commands.CopyRemoteFileUrlWithoutRange ||
+			context.command === Commands.CopyRemoteFileUrlFrom
+		) {
 			args = { ...args, clipboard: true };
 			if (args.sha == null) {
 				const uri = getCommandUri(context.uri, context.editor);
@@ -89,8 +100,6 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 		if (context.command === Commands.OpenFileOnRemoteFrom || context.command === Commands.CopyRemoteFileUrlFrom) {
 			args = { ...args, pickBranchOrTag: true, range: false };
-		} else if (context.command === Commands.CopyRemoteFileUrl && context.type === 'unknown') {
-			args = { ...args, range: false };
 		}
 
 		return this.execute(context.editor, uri, args);

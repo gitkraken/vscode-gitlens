@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds an alternate _Copy Remote File Url_ command (`gitlens.copyRemoteFileUrlWithoutRange`) to copy the remote url of the file without including any line range
+
+### Fixed
+
+- Fixes [#1458](https://github.com/eamodio/vscode-gitlens/issues/1458) - "Copy Remote File Url" not showing line ranges
+
 ## [11.4.0] - 2021-04-08
 
 ### Added

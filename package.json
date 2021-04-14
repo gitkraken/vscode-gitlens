@@ -160,6 +160,7 @@
 		"onCommand:gitlens.openFileFromRemote",
 		"onCommand:gitlens.openFileOnRemote",
 		"onCommand:gitlens.copyRemoteFileUrlToClipboard",
+		"onCommand:gitlens.copyRemoteFileUrlWithoutRange",
 		"onCommand:gitlens.openFileOnRemoteFrom",
 		"onCommand:gitlens.copyRemoteFileUrlFrom",
 		"onCommand:gitlens.openBlamePriorToChange",
@@ -3727,6 +3728,15 @@
 				}
 			},
 			{
+				"command": "gitlens.copyRemoteFileUrlWithoutRange",
+				"title": "Copy Remote File Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
+			},
+			{
 				"command": "gitlens.openFileOnRemoteFrom",
 				"title": "Open File on Remote From...",
 				"category": "GitLens",
@@ -5615,6 +5625,10 @@
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
 				},
 				{
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openFileOnRemoteFrom",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
 				},
@@ -6748,7 +6762,7 @@
 			],
 			"editor/title/context": [
 				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.clipboard",
 					"group": "1_cutcopypaste@100"
 				},
@@ -6766,7 +6780,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
 					"group": "2_gitlens@2",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.openFileOnRemoteFrom",
@@ -6795,7 +6809,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
 					"group": "4_gitlens@1",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.openFileOnRemoteFrom",
@@ -6819,7 +6833,7 @@
 					"group": "4_timeline@3"
 				},
 				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.clipboard",
 					"group": "6_copypath@100"
 				}
@@ -6892,7 +6906,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
 					"group": "navigation@96",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.openFileOnRemoteFrom",
@@ -6906,7 +6920,7 @@
 					"group": "1_modification@2"
 				},
 				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.clipboard",
 					"group": "2_gitlens@1"
 				},
@@ -7982,7 +7996,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/ && gitlens:hasRemotes",
 					"group": "inline@99",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"submenu": "gitlens/commit/file/commit",
@@ -8028,7 +8042,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen@5",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.openFileHistory",
@@ -8075,7 +8089,7 @@
 					"command": "gitlens.openFileOnRemote",
 					"when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
 					"group": "5_gitlens_open@2",
-					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.views.openPullRequest",
@@ -8719,7 +8733,7 @@
 					"group": "2_gitlens@1"
 				},
 				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
 					"group": "2_gitlens@2"
 				}

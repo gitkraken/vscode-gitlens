@@ -48,6 +48,7 @@ export enum Commands {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteComparisonUrl = 'gitlens.copyRemoteComparisonUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
+	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
 	CopyRemoteFileUrlFrom = 'gitlens.copyRemoteFileUrlFrom',
 	CopyRemotePullRequestUrl = 'gitlens.copyRemotePullRequestUrl',
 	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
