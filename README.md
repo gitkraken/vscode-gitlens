@@ -68,7 +68,7 @@ Here are just some of the **features** that GitLens provides,
   - rich hover information provided for linked issues and pull requests (GitHub only)
   - associates pull requests with branches and commits (GitHub only)
 - many [**powerful commands**](#powerful-commands- 'Jump to Powerful Commands') for navigating and comparing revisions and more
-- customizable [**menus & toolbars**](#menus- 'Jump to Menus & Toolbars') for control over where menu and toolbar items are shown
+- customizable [**menus & toolbars**](#menus--toolbars- 'Jump to Menus & Toolbars') for control over where menu and toolbar items are shown
 - user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
@@ -644,7 +644,7 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 - Adds an _Enable Debug Logging_ command (`gitlens.enableDebugLogging`) to enable debug logging to the GitLens output channel
 - Adds a _Disable Debug Logging_ command (`gitlens.disableDebugLogging`) to disable debug logging to the GitLens output channel
 
-## Menus & Toolbars [#](#menus- 'Menus & Toolbars')
+## Menus & Toolbars [#](#menus--toolbars- 'Menus & Toolbars')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menus.png" alt="Menus &amp; Toolbars" />
