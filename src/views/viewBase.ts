@@ -3,12 +3,10 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
-	ConfigurationTarget,
 	Disposable,
 	Event,
 	EventEmitter,
 	MarkdownString,
-	MessageItem,
 	TreeDataProvider,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -46,7 +44,7 @@ import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
-import { debug, Functions, log, Promises, Strings } from '../system';
+import { debug, Functions, log, Promises } from '../system';
 import { TagsView } from './tagsView';
 
 export type View =
@@ -161,9 +159,9 @@ export abstract class ViewBase<
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'views')) return false;
 
-		if (configuration.changed(e, 'views', this.configKey)) return true;
+		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
 		for (const key of viewsCommonConfigKeys) {
-			if (configuration.changed(e, 'views', key)) return true;
+			if (configuration.changed(e, `views.${key}` as const)) return true;
 		}
 
 		return false;
@@ -502,23 +500,6 @@ export abstract class ViewBase<
 			void (await commands.executeCommand(`${this.id}.focus`));
 		} catch (ex) {
 			Logger.error(ex);
-
-			const section = Strings.splitSingle(this.id, '.')[1];
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-			if (!configuration.get(section as any, 'enabled')) {
-				const actions: MessageItem[] = [{ title: 'Enable' }, { title: 'Cancel', isCloseAffordance: true }];
-
-				const result = await window.showErrorMessage(
-					`Unable to show the ${this.name} view since it's currently disabled. Would you like to enable it?`,
-					...actions,
-				);
-
-				if (result === actions[0]) {
-					await configuration.update(section as any, 'enabled', true, ConfigurationTarget.Global);
-
-					void (await commands.executeCommand(`${this.id}.focus`));
-				}
-			}
 		}
 	}
 

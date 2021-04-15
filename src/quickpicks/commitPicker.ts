@@ -71,7 +71,7 @@ export namespace CommitPicker {
 			quickpick.enabled = false;
 
 			try {
-				log = await (await log)?.more?.(configuration.get('advanced', 'maxListItems'));
+				log = await (await log)?.more?.(configuration.get('advanced.maxListItems'));
 				const items = getItems(log);
 
 				let activeIndex = -1;

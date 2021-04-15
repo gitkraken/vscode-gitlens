@@ -333,28 +333,26 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
-			'views',
-			this.configKey,
-			'showBranchComparison',
+			`views.${this.configKey}.showBranchComparison` as const,
 			enabled ? ViewShowBranchComparison.Branch : false,
 		);
 	}
 
 	private async setShowBranchPullRequest(enabled: boolean) {
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'showForBranches', enabled);
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'enabled', enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
 	}
 }

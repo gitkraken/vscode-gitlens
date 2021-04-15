@@ -249,7 +249,7 @@ export class GitService implements Disposable {
 			PullRequestDateFormatting.reset();
 		}
 
-		if (configuration.changed(e, 'views', 'contributors', 'showAllBranches')) {
+		if (configuration.changed(e, 'views.contributors.showAllBranches')) {
 			this._contributorsCache.clear();
 		}
 	}
@@ -369,7 +369,7 @@ export class GitService implements Disposable {
 	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
 		const cc = Logger.getCorrelationContext();
 		const { uri } = folder;
-		const depth = configuration.get('advanced', 'repositorySearchDepth', uri);
+		const depth = configuration.get('advanced.repositorySearchDepth', uri);
 
 		Logger.log(cc, `searching (depth=${depth})...`);
 

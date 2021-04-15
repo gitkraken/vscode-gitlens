@@ -185,7 +185,7 @@ export class Messages {
 	): Promise<MessageItem | undefined> {
 		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
 
-		if (suppressionKey !== undefined && configuration.get('advanced', 'messages', suppressionKey)) {
+		if (suppressionKey !== undefined && configuration.get(`advanced.messages.${suppressionKey}` as const)) {
 			Logger.log(
 				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`,
 			);
@@ -231,16 +231,16 @@ export class Messages {
 	}
 
 	private static suppressedMessage(suppressionKey: SuppressedMessages) {
-		const messages: Record<string, boolean | undefined> = configuration.get('advanced', 'messages');
+		const messages = configuration.get('advanced.messages');
 
 		messages[suppressionKey] = true;
 
 		for (const [key, value] of Object.entries(messages)) {
 			if (value !== true) {
-				messages[key] = undefined;
+				delete messages[key as keyof typeof messages];
 			}
 		}
 
-		return configuration.update('advanced', 'messages', messages as any, ConfigurationTarget.Global);
+		return configuration.update('advanced.messages', messages, ConfigurationTarget.Global);
 	}
 }

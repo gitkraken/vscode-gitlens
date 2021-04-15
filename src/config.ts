@@ -109,7 +109,7 @@ export interface Config {
 			alignment: 'left' | 'right';
 		};
 	};
-	modes: Record<string, ModeConfig>;
+	modes: Record<string, ModeConfig> | null;
 	outputLevel: TraceLevel;
 	partners: Record<
 		string,

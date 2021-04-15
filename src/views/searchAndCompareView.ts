@@ -466,7 +466,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setKeepResults(enabled: boolean) {
@@ -475,7 +475,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
 	private pin(node: CompareResultsNode | SearchResultsNode) {

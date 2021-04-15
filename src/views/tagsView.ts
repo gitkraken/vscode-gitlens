@@ -240,14 +240,14 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

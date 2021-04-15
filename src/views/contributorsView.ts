@@ -204,14 +204,14 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAllBranches(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'showAllBranches', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.showAllBranches` as const, enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

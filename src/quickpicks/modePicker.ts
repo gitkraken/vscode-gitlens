@@ -9,13 +9,16 @@ export interface ModesQuickPickItem extends QuickPickItem {
 
 export namespace ModePicker {
 	export async function show(): Promise<ModesQuickPickItem | undefined> {
-		const modes = Object.keys(Container.config.modes);
-		if (modes.length === 0) return undefined;
+		if (Container.config.modes == null) return undefined;
+
+		const modes = Container.config.modes;
+		const modeKeys = Object.keys(modes);
+		if (modeKeys.length === 0) return undefined;
 
 		const mode = Container.config.mode.active;
 
-		const items = modes.map(key => {
-			const modeCfg = Container.config.modes[key];
+		const items = modeKeys.map(key => {
+			const modeCfg = modes[key];
 			const item: ModesQuickPickItem = {
 				label: `${mode === key ? '$(check)\u00a0\u00a0' : '\u00a0\u00a0\u00a0\u00a0\u00a0'}${
 					modeCfg.name
@@ -28,7 +31,7 @@ export namespace ModePicker {
 
 		if (mode) {
 			items.splice(0, 0, {
-				label: `Exit ${Container.config.modes[mode].name} mode`,
+				label: `Exit ${modes[mode].name} mode`,
 				key: undefined,
 			});
 		}

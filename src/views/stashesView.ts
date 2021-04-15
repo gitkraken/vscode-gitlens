@@ -219,6 +219,6 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 }

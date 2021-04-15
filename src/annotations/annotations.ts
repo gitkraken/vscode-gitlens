@@ -83,9 +83,9 @@ export async function getHeatmapColors() {
 
 		const disposable = configuration.onDidChange(e => {
 			if (
-				configuration.changed(e, 'heatmap', 'ageThreshold') ||
-				configuration.changed(e, 'heatmap', 'hotColor') ||
-				configuration.changed(e, 'heatmap', 'coldColor')
+				configuration.changed(e, 'heatmap.ageThreshold') ||
+				configuration.changed(e, 'heatmap.hotColor') ||
+				configuration.changed(e, 'heatmap.coldColor')
 			) {
 				disposable.dispose();
 				heatmapColors = undefined;

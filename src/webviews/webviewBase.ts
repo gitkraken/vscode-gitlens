@@ -212,10 +212,10 @@ export abstract class WebviewBase implements Disposable {
 
 							let includePullRequest = false;
 							switch (params.key) {
-								case configuration.name('currentLine', 'format'):
+								case configuration.name('currentLine.format'):
 									includePullRequest = Container.config.currentLine.pullRequests.enabled;
 									break;
-								case configuration.name('statusBar', 'format'):
+								case configuration.name('statusBar.format'):
 									includePullRequest = Container.config.statusBar.pullRequests.enabled;
 									break;
 							}

@@ -151,7 +151,7 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				!configuration.get('views', branch.remote ? 'remotes' : 'branches', 'reveal') ||
+				!configuration.get(`views.${branch.remote ? 'remotes' : 'branches'}.reveal` as const) ||
 				(Container.repositoriesView.visible &&
 					!(branch.remote ? Container.remotesView.visible : Container.branchesView.visible))
 			) {
@@ -647,7 +647,7 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				!configuration.get('views', 'commits', 'reveal') ||
+				!configuration.get('views.commits.reveal') ||
 				(Container.repositoriesView.visible && !Container.commitsView.visible)
 			) {
 				return Container.repositoriesView.revealCommit(commit, options);
@@ -710,7 +710,7 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				!configuration.get('views', 'tags', 'reveal') ||
+				!configuration.get('views.tags.reveal') ||
 				(Container.repositoriesView.visible && !Container.tagsView.visible)
 			) {
 				return Container.repositoriesView.revealTag(tag, options);
@@ -780,7 +780,7 @@ export namespace GitActions {
 			},
 		) {
 			// if (
-			// 	configuration.get('views', 'repositories', 'enabled') &&
+			// 	configuration.get('views.repositories.enabled') &&
 			// 	(Container.repositoriesView.visible || !Container.remotesView.visible)
 			// ) {
 			// 	return Container.repositoriesView.revealRemote(remote, options);
@@ -835,7 +835,7 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				!configuration.get('views', 'stashes', 'reveal') ||
+				!configuration.get('views.stashes.reveal') ||
 				(Container.repositoriesView.visible && !Container.stashesView.visible)
 			) {
 				return Container.repositoriesView.revealStash(stash, options);

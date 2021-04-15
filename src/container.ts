@@ -94,7 +94,7 @@ export class Container {
 
 		context.subscriptions.push(
 			configuration.onDidChange(e => {
-				if (!configuration.changed(e, 'terminalLinks', 'enabled')) return;
+				if (!configuration.changed(e, 'terminalLinks.enabled')) return;
 
 				this._terminalLinks?.dispose();
 				if (Container.config.terminalLinks.enabled) {
@@ -356,7 +356,7 @@ export class Container {
 	private static applyMode(config: Config) {
 		if (!config.mode.active) return config;
 
-		const mode = config.modes[config.mode.active];
+		const mode = config.modes?.[config.mode.active];
 		if (mode == null) return config;
 
 		if (mode.annotations != null) {
@@ -410,11 +410,11 @@ export class Container {
 			this._configsAffectedByMode = [
 				`gitlens.${configuration.name('mode')}`,
 				`gitlens.${configuration.name('modes')}`,
-				`gitlens.${configuration.name('blame', 'toggleMode')}`,
-				`gitlens.${configuration.name('changes', 'toggleMode')}`,
+				`gitlens.${configuration.name('blame.toggleMode')}`,
+				`gitlens.${configuration.name('changes.toggleMode')}`,
 				`gitlens.${configuration.name('codeLens')}`,
 				`gitlens.${configuration.name('currentLine')}`,
-				`gitlens.${configuration.name('heatmap', 'toggleMode')}`,
+				`gitlens.${configuration.name('heatmap.toggleMode')}`,
 				`gitlens.${configuration.name('hovers')}`,
 				`gitlens.${configuration.name('statusBar')}`,
 			];

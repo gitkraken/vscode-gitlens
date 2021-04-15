@@ -250,7 +250,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return true;
 	}
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views', this.configKey, 'autoRefresh')) {
+		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
 			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
 		}
 
@@ -670,32 +670,27 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 
 	private setBranchesLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
-			'views',
-			this.configKey,
-			'showBranchComparison',
+			`views.${this.configKey}.showBranchComparison` as const,
 			enabled ? ViewShowBranchComparison.Working : false,
 		);
 	}
 
 	private setBranchShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
-			'views',
-			this.configKey,
-			'branches',
-			'showBranchComparison',
+			`views.${this.configKey}.branches.showBranchComparison` as const,
 			enabled ? ViewShowBranchComparison.Branch : false,
 		);
 	}
@@ -712,7 +707,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			| 'showUpstreamStatus',
 		enabled: boolean,
 	) {
-		return configuration.updateEffective('views', this.configKey, key, enabled);
+		return configuration.updateEffective(`views.${this.configKey}.${key}` as const, enabled);
 	}
 
 	toggleSectionByNode(
@@ -729,15 +724,15 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		enabled: boolean,
 	) {
 		if (node instanceof BranchesNode) {
-			return configuration.updateEffective('views', this.configKey, 'showBranches', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showBranches` as const, enabled);
 		}
 
 		if (node instanceof BranchNode) {
-			return configuration.updateEffective('views', this.configKey, 'showCommits', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showCommits` as const, enabled);
 		}
 
 		if (node instanceof BranchTrackingStatusNode) {
-			return configuration.updateEffective('views', this.configKey, 'showUpstreamStatus', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showUpstreamStatus` as const, enabled);
 		}
 
 		if (node instanceof CompareBranchNode) {
@@ -745,23 +740,23 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		}
 
 		if (node instanceof ContributorsNode) {
-			return configuration.updateEffective('views', this.configKey, 'showContributors', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showContributors` as const, enabled);
 		}
 
 		if (node instanceof ReflogNode) {
-			return configuration.updateEffective('views', this.configKey, 'showIncomingActivity', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showIncomingActivity` as const, enabled);
 		}
 
 		if (node instanceof RemotesNode) {
-			return configuration.updateEffective('views', this.configKey, 'showRemotes', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showRemotes` as const, enabled);
 		}
 
 		if (node instanceof StashesNode) {
-			return configuration.updateEffective('views', this.configKey, 'showStashes', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showStashes` as const, enabled);
 		}
 
 		if (node instanceof TagsNode) {
-			return configuration.updateEffective('views', this.configKey, 'showTags', enabled);
+			return configuration.updateEffective(`views.${this.configKey}.showTags` as const, enabled);
 		}
 
 		return Promise.resolve();

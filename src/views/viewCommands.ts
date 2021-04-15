@@ -587,7 +587,7 @@ export class ViewCommands {
 
 	@debug()
 	private setShowRelativeDateMarkers(enabled: boolean) {
-		return configuration.updateEffective('views', 'showRelativeDateMarkers', enabled);
+		return configuration.updateEffective('views.showRelativeDateMarkers', enabled);
 	}
 
 	@debug()

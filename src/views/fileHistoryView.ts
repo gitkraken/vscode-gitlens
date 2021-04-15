@@ -94,8 +94,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryShowAllBranches')
+			!configuration.changed(e, 'advanced.fileHistoryFollowsRenames') &&
+			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches')
 		) {
 			return false;
 		}
@@ -162,14 +162,14 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setRenameFollowing(enabled: boolean) {
-		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
+		return configuration.updateEffective('advanced.fileHistoryFollowsRenames', enabled);
 	}
 
 	private setShowAllBranches(enabled: boolean) {
-		return configuration.updateEffective('advanced', 'fileHistoryShowAllBranches', enabled);
+		return configuration.updateEffective('advanced.fileHistoryShowAllBranches', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

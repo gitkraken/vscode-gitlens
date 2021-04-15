@@ -102,7 +102,7 @@ export class FileAnnotationController implements Disposable {
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		const cfg = Container.config;
 
-		if (configuration.changed(e, 'blame', 'highlight')) {
+		if (configuration.changed(e, 'blame.highlight')) {
 			Decorations.gutterBlameHighlight?.dispose();
 			Decorations.gutterBlameHighlight = undefined;
 
@@ -136,7 +136,7 @@ export class FileAnnotationController implements Disposable {
 			}
 		}
 
-		if (configuration.changed(e, 'changes', 'locations')) {
+		if (configuration.changed(e, 'changes.locations')) {
 			Decorations.changesLineAddedAnnotation?.dispose();
 			Decorations.changesLineChangedAnnotation?.dispose();
 			Decorations.changesLineDeletedAnnotation?.dispose();
@@ -191,21 +191,21 @@ export class FileAnnotationController implements Disposable {
 
 		const initializing = configuration.initializing(e);
 
-		if (configuration.changed(e, 'blame', 'toggleMode')) {
+		if (configuration.changed(e, 'blame.toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
 			if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
-		if (configuration.changed(e, 'changes', 'toggleMode')) {
+		if (configuration.changed(e, 'changes.toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Changes, cfg.changes.toggleMode);
 			if (!initializing && cfg.changes.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
-		if (configuration.changed(e, 'heatmap', 'toggleMode')) {
+		if (configuration.changed(e, 'heatmap.toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
 			if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();

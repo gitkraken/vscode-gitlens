@@ -44,7 +44,7 @@ export class StatusBarController implements Disposable {
 		if (configuration.changed(e, 'mode')) {
 			const mode =
 				Container.config.mode.active && Container.config.mode.statusBar.enabled
-					? Container.config.modes[Container.config.mode.active]
+					? Container.config.modes?.[Container.config.mode.active]
 					: undefined;
 			if (mode?.statusBarItemName) {
 				const alignment =
@@ -52,7 +52,7 @@ export class StatusBarController implements Disposable {
 						? StatusBarAlignment.Right
 						: StatusBarAlignment.Left;
 
-				if (configuration.changed(e, 'mode', 'statusBar', 'alignment')) {
+				if (configuration.changed(e, 'mode.statusBar.alignment')) {
 					if (this._statusBarMode?.alignment !== alignment) {
 						this._statusBarMode?.dispose();
 						this._statusBarMode = undefined;
@@ -78,7 +78,7 @@ export class StatusBarController implements Disposable {
 			const alignment =
 				Container.config.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
 
-			if (configuration.changed(e, 'statusBar', 'alignment')) {
+			if (configuration.changed(e, 'statusBar.alignment')) {
 				if (this._statusBarBlame?.alignment !== alignment) {
 					this._statusBarBlame?.dispose();
 					this._statusBarBlame = undefined;
@@ -90,13 +90,13 @@ export class StatusBarController implements Disposable {
 				window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
 			this._statusBarBlame.command = Container.config.statusBar.command;
 
-			if (configuration.changed(e, 'statusBar', 'enabled')) {
+			if (configuration.changed(e, 'statusBar.enabled')) {
 				Container.lineTracker.start(
 					this,
 					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
-		} else if (configuration.changed(e, 'statusBar', 'enabled')) {
+		} else if (configuration.changed(e, 'statusBar.enabled')) {
 			Container.lineTracker.stop(this);
 
 			this._statusBarBlame?.dispose();

@@ -207,7 +207,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'integrations', 'enabled') &&
+			!configuration.changed(e, 'integrations.enabled') &&
 			!configuration.changed(e, 'sortBranchesBy')
 		) {
 			return false;
@@ -378,19 +378,19 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
 	private async setShowBranchPullRequest(enabled: boolean) {
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'showForBranches', enabled);
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'enabled', enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
 	}
 }

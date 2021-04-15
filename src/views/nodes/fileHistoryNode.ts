@@ -163,7 +163,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
 			repo.startWatchingFileSystem(),
 			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')) {
+				if (configuration.changed(e, 'advanced.fileHistoryFollowsRenames')) {
 					this.view.resetNodeLastKnownLimit(this);
 				}
 			}),

@@ -805,7 +805,7 @@ export async function* pickCommitStep<
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
 		items: showInSideBarCommand != null ? [showInSideBarCommand, ...getItems(log)] : getItems(log),
 		onDidLoadMore: async quickpick => {
-			log = await log?.more?.(configuration.get('advanced', 'maxListItems'));
+			log = await log?.more?.(configuration.get('advanced.maxListItems'));
 			onDidLoadMore?.(log);
 			if (typeof placeholder !== 'string') {
 				quickpick.placeholder = placeholder(context, log);
@@ -949,7 +949,7 @@ export function* pickCommitsStep<
 		matchOnDetail: true,
 		items: getItems(log),
 		onDidLoadMore: async quickpick => {
-			log = await log?.more?.(configuration.get('advanced', 'maxListItems'));
+			log = await log?.more?.(configuration.get('advanced.maxListItems'));
 			onDidLoadMore?.(log);
 			if (typeof placeholder !== 'string') {
 				quickpick.placeholder = placeholder(context, log);

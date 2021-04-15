@@ -238,7 +238,7 @@ export class GitCommandsCommand extends Command {
 				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async () => {
 					if (command?.skipConfirmKey == null) return;
 
-					const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') ?? [];
+					const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
 
 					const index = skipConfirmations.indexOf(command.skipConfirmKey);
 					if (index !== -1) {
@@ -247,7 +247,7 @@ export class GitCommandsCommand extends Command {
 						skipConfirmations.push(command.skipConfirmKey);
 					}
 
-					void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
+					void (await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations));
 				});
 				buttons.push(willConfirmToggle);
 			} else {
@@ -284,9 +284,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
-			? true
-			: step.ignoreFocusOut ?? false;
+		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut') ? true : step.ignoreFocusOut ?? false;
 
 		const disposables: Disposable[] = [];
 
@@ -398,7 +396,7 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
-		const originalIgnoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
+		const originalIgnoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
 			: step.ignoreFocusOut ?? false;
 		const originalStepIgnoreFocusOut = step.ignoreFocusOut;

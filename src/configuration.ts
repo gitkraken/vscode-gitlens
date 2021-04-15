@@ -8,7 +8,6 @@ import {
 	Event,
 	EventEmitter,
 	ExtensionContext,
-	Uri,
 	workspace,
 } from 'vscode';
 import { Config } from './config';
@@ -74,68 +73,23 @@ export class Configuration {
 	readonly initializingChangeEvent: ConfigurationChangeEvent = { affectsConfiguration: () => true };
 
 	get(): Config;
-	get<S1 extends keyof Config>(s1: S1, scope?: ConfigurationScope | null, defaultValue?: Config[S1]): Config[S1];
-	get<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		s1: S1,
-		s2: S2,
+	get<T extends ConfigPath>(
+		section: T,
 		scope?: ConfigurationScope | null,
-		defaultValue?: Config[S1][S2],
-	): Config[S1][S2];
-	get<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
+		defaultValue?: ConfigPathValue<T>,
+	): ConfigPathValue<T>;
+	get<T extends ConfigPath>(
+		section?: T,
 		scope?: ConfigurationScope | null,
-		defaultValue?: Config[S1][S2][S3],
-	): Config[S1][S2][S3];
-	get<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		s4: S4,
-		scope?: ConfigurationScope | null,
-		defaultValue?: Config[S1][S2][S3][S4],
-	): Config[S1][S2][S3][S4];
-	get<T>(...args: any[]): T {
-		let section: string | undefined;
-		let scope: ConfigurationScope | null | undefined;
-		let defaultValue: T | undefined;
-		if (args.length > 0) {
-			section = args[0];
-			if (typeof args[1] === 'string') {
-				section += `.${args[1]}`;
-				if (typeof args[2] === 'string') {
-					section += `.${args[2]}`;
-					if (typeof args[3] === 'string') {
-						section += `.${args[3]}`;
-						scope = args[4];
-						defaultValue = args[5];
-					} else {
-						scope = args[3];
-						defaultValue = args[4];
-					}
-				} else {
-					scope = args[2];
-					defaultValue = args[3];
-				}
-			} else {
-				scope = args[1];
-				defaultValue = args[2];
-			}
-		}
-
+		defaultValue?: ConfigPathValue<T>,
+	): Config | ConfigPathValue<T> {
 		return defaultValue === undefined
 			? workspace
 					.getConfiguration(section === undefined ? undefined : extensionId, scope)
-					.get<T>(section === undefined ? extensionId : section)!
+					.get<ConfigPathValue<T>>(section === undefined ? extensionId : section)!
 			: workspace
 					.getConfiguration(section === undefined ? undefined : extensionId, scope)
-					.get<T>(section === undefined ? extensionId : section, defaultValue)!;
+					.get<ConfigPathValue<T>>(section === undefined ? extensionId : section, defaultValue)!;
 	}
 
 	getAny<T>(section: string, scope?: ConfigurationScope | null): T | undefined;
@@ -146,46 +100,11 @@ export class Configuration {
 			: workspace.getConfiguration(undefined, scope).get<T>(section, defaultValue);
 	}
 
-	changed<S1 extends keyof Config>(e: ConfigurationChangeEvent, s1: S1, scope?: ConfigurationScope | null): boolean;
-	changed<S1 extends keyof Config, S2 extends keyof Config[S1]>(
+	changed<T extends ConfigPath>(
 		e: ConfigurationChangeEvent,
-		s1: S1,
-		s2: S2,
-		scope?: ConfigurationScope | null,
-	): boolean;
-	changed<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		e: ConfigurationChangeEvent,
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		scope?: ConfigurationScope | null,
-	): boolean;
-	changed<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(e: ConfigurationChangeEvent, s1: S1, s2: S2, s3: S3, s4: S4, scope?: ConfigurationScope | null): boolean;
-	changed(e: ConfigurationChangeEvent, ...args: any[]) {
-		let section: string = args[0];
-		let scope: ConfigurationScope | null | undefined;
-		if (typeof args[1] === 'string') {
-			section += `.${args[1]}`;
-			if (typeof args[2] === 'string') {
-				section += `.${args[2]}`;
-				if (typeof args[3] === 'string') {
-					section += args[3];
-					scope = args[4];
-				} else {
-					scope = args[3];
-				}
-			} else {
-				scope = args[2];
-			}
-		} else {
-			scope = args[1];
-		}
-
+		section: T,
+		scope?: ConfigurationScope | null | undefined,
+	): boolean {
 		return e.affectsConfiguration(`${extensionId}.${section}`, scope!);
 	}
 
@@ -193,55 +112,12 @@ export class Configuration {
 		return e === this.initializingChangeEvent;
 	}
 
-	inspect<S1 extends keyof Config>(
-		s1: S1,
+	inspect<T extends ConfigPath>(
+		section: T,
 		scope?: ConfigurationScope | null,
-	): ConfigInspection<Config[S1]> | undefined;
-	inspect<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		s1: S1,
-		s2: S2,
-		scope?: ConfigurationScope | null,
-	): ConfigInspection<Config[S1][S2]> | undefined;
-	inspect<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		scope?: ConfigurationScope | null,
-	): ConfigInspection<Config[S1][S2][S3]> | undefined;
-	inspect<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		s4: S4,
-		scope?: ConfigurationScope | null,
-	): ConfigInspection<Config[S1][S2][S3][S4]> | undefined;
-	inspect(...args: any[]) {
-		let section: string = args[0];
-		let resource: Uri | null | undefined;
-		if (typeof args[1] === 'string') {
-			section += `.${args[1]}`;
-			if (typeof args[2] === 'string') {
-				section += `.${args[2]}`;
-				if (typeof args[3] === 'string') {
-					section += args[3];
-					resource = args[4];
-				} else {
-					resource = args[3];
-				}
-			} else {
-				resource = args[2];
-			}
-		} else {
-			resource = args[1];
-		}
-
+	): ConfigInspection<ConfigPathValue<T>> | undefined {
 		return workspace
-			.getConfiguration(section === undefined ? undefined : extensionId, resource)
+			.getConfiguration(section === undefined ? undefined : extensionId, scope)
 			.inspect(section === undefined ? extensionId : section);
 	}
 
@@ -249,68 +125,18 @@ export class Configuration {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
 	}
 
-	migrate<S1 extends keyof Config>(
+	async migrate<T extends ConfigPath>(
 		from: string,
-		to1: S1,
-		options: { fallbackValue?: Config[S1]; migrationFn?(value: any): Config[S1] },
-	): Promise<boolean>;
-	migrate<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		options: { fallbackValue?: Config[S1][S2]; migrationFn?(value: any): Config[S1][S2] },
-	): Promise<boolean>;
-	migrate<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		to3: S3,
-		options: { fallbackValue?: Config[S1][S2][S3]; migrationFn?(value: any): Config[S1][S2][S3] },
-	): Promise<boolean>;
-	migrate<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		to3: S3,
-		to4: S4,
-		options: { fallbackValue?: Config[S1][S2][S3][S4]; migrationFn?(value: any): Config[S1][S2][S3][S4] },
-	): Promise<boolean>;
-	async migrate(from: string, ...args: any[]): Promise<boolean> {
-		let to: string = args[0];
-		let options: { fallbackValue?: any; migrationFn?(value: any): any } | undefined;
-		if (typeof args[1] === 'string' && args.length > 3) {
-			to += `.${args[1]}`;
-			if (typeof args[2] === 'string' && args.length > 4) {
-				to += `.${args[2]}`;
-				if (typeof args[3] === 'string' && args.length > 5) {
-					to += `.${args[3]}`;
-					options = args[4];
-				} else {
-					options = args[3];
-				}
-			} else {
-				options = args[2];
-			}
-		} else {
-			options = args[1];
-		}
-
-		if (options === undefined) {
-			options = {};
-		}
-
+		to: T,
+		options: { fallbackValue?: ConfigPathValue<T>; migrationFn?(value: any): ConfigPathValue<T> },
+	): Promise<boolean> {
 		const inspection = configuration.inspect(from as any);
 		if (inspection === undefined) return false;
 
 		let migrated = false;
 		if (inspection.globalValue !== undefined) {
 			await this.update(
-				to as any,
+				to,
 				options.migrationFn != null ? options.migrationFn(inspection.globalValue) : inspection.globalValue,
 				ConfigurationTarget.Global,
 			);
@@ -326,7 +152,7 @@ export class Configuration {
 
 		if (inspection.workspaceValue !== undefined) {
 			await this.update(
-				to as any,
+				to,
 				options.migrationFn != null
 					? options.migrationFn(inspection.workspaceValue)
 					: inspection.workspaceValue,
@@ -344,7 +170,7 @@ export class Configuration {
 
 		if (inspection.workspaceFolderValue !== undefined) {
 			await this.update(
-				to as any,
+				to,
 				options.migrationFn != null
 					? options.migrationFn(inspection.workspaceFolderValue)
 					: inspection.workspaceFolderValue,
@@ -361,77 +187,26 @@ export class Configuration {
 		}
 
 		if (!migrated && options.fallbackValue !== undefined) {
-			await this.update(to as any, options.fallbackValue, ConfigurationTarget.Global);
+			await this.update(to, options.fallbackValue, ConfigurationTarget.Global);
 			migrated = true;
 		}
 
 		return migrated;
 	}
 
-	migrateIfMissing<S1 extends keyof Config>(
+	async migrateIfMissing<T extends ConfigPath>(
 		from: string,
-		to1: S1,
-		options: { migrationFn?(value: any): Config[S1] },
-	): Promise<void>;
-	migrateIfMissing<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		options: { migrationFn?(value: any): Config[S1][S2] },
-	): Promise<void>;
-	migrateIfMissing<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		to3: S3,
-		options: { migrationFn?(value: any): Config[S1][S2][S3] },
-	): Promise<void>;
-	migrateIfMissing<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(
-		from: string,
-		to1: S1,
-		to2: S2,
-		to3: S3,
-		to4: S4,
-		options: { migrationFn?(value: any): Config[S1][S2][S3][S4] },
-	): Promise<void>;
-	async migrateIfMissing(from: string, ...args: any[]): Promise<void> {
-		let to: string = args[0];
-		let options: { migrationFn?(value: any): any } | undefined;
-		if (typeof args[1] === 'string' && args.length > 3) {
-			to += `.${args[1]}`;
-			if (typeof args[2] === 'string' && args.length > 4) {
-				to += `.${args[2]}`;
-				if (typeof args[3] === 'string' && args.length > 5) {
-					to += `.${args[3]}`;
-					options = args[4];
-				} else {
-					options = args[3];
-				}
-			} else {
-				options = args[2];
-			}
-		} else {
-			options = args[1];
-		}
-
-		if (options === undefined) {
-			options = {};
-		}
-
-		// async migrateIfMissing<TFrom, TTo>(from: string, to: string, options: { migrationFn?(value: TFrom): TTo } = {}) {
+		to: T,
+		options: { migrationFn?(value: any): ConfigPathValue<T> },
+	): Promise<void> {
 		const fromInspection = configuration.inspect(from as any);
 		if (fromInspection === undefined) return;
 
-		const toInspection = configuration.inspect(to as any);
+		const toInspection = configuration.inspect(to);
 		if (fromInspection.globalValue !== undefined) {
 			if (toInspection === undefined || toInspection.globalValue === undefined) {
 				await this.update(
-					to as any,
+					to,
 					options.migrationFn != null
 						? options.migrationFn(fromInspection.globalValue)
 						: fromInspection.globalValue,
@@ -450,7 +225,7 @@ export class Configuration {
 		if (fromInspection.workspaceValue !== undefined) {
 			if (toInspection === undefined || toInspection.workspaceValue === undefined) {
 				await this.update(
-					to as any,
+					to,
 					options.migrationFn != null
 						? options.migrationFn(fromInspection.workspaceValue)
 						: fromInspection.workspaceValue,
@@ -469,7 +244,7 @@ export class Configuration {
 		if (fromInspection.workspaceFolderValue !== undefined) {
 			if (toInspection === undefined || toInspection.workspaceFolderValue === undefined) {
 				await this.update(
-					to as any,
+					to,
 					options.migrationFn != null
 						? options.migrationFn(fromInspection.workspaceFolderValue)
 						: fromInspection.workspaceFolderValue,
@@ -486,76 +261,15 @@ export class Configuration {
 		}
 	}
 
-	name<S1 extends keyof Config>(s1: S1): string;
-	name<S1 extends keyof Config, S2 extends keyof Config[S1]>(s1: S1, s2: S2): string;
-	name<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-	): string;
-	name<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(s1: S1, s2: S2, s3: S3, s4: S4): string;
-	name(...args: string[]) {
-		return args.join('.');
+	name<T extends ConfigPath>(section: T): string {
+		return section;
 	}
 
-	update<S1 extends keyof Config>(s1: S1, value: Config[S1] | undefined, target: ConfigurationTarget): Thenable<void>;
-	update<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		s1: S1,
-		s2: S2,
-		value: Config[S1][S2] | undefined,
+	update<T extends ConfigPath>(
+		section: T,
+		value: ConfigPathValue<T> | undefined,
 		target: ConfigurationTarget,
-	): Thenable<void>;
-
-	update<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		value: Config[S1][S2][S3] | undefined,
-		target: ConfigurationTarget,
-	): Thenable<void>;
-	update<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		s4: S4,
-		value: Config[S1][S2][S3][S4] | undefined,
-		target: ConfigurationTarget,
-	): Thenable<void>;
-	update(...args: any[]) {
-		let section: string = args[0];
-		let value;
-		let target: ConfigurationTarget;
-		if (typeof args[1] === 'string' && args.length > 3) {
-			section += `.${args[1]}`;
-			if (typeof args[2] === 'string' && args.length > 4) {
-				section += `.${args[2]}`;
-				if (typeof args[3] === 'string' && args.length > 5) {
-					section += `.${args[3]}`;
-					value = args[4];
-					target = args[5];
-				} else {
-					value = args[3];
-					target = args[4];
-				}
-			} else {
-				value = args[2];
-				target = args[3];
-			}
-		} else {
-			value = args[1];
-			target = args[2];
-		}
-
+	): Thenable<void> {
 		return workspace.getConfiguration(extensionId).update(section, value, target);
 	}
 
@@ -565,55 +279,18 @@ export class Configuration {
 			.update(section, value, target);
 	}
 
-	updateEffective<S1 extends keyof Config>(s1: S1, value: Config[S1]): Thenable<void>;
-	updateEffective<S1 extends keyof Config, S2 extends keyof Config[S1]>(
-		s1: S1,
-		s2: S2,
-		value: Config[S1][S2],
-	): Thenable<void>;
-	updateEffective<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
-		s1: S1,
-		s2: S2,
-		s3: S3,
-		value: Config[S1][S2][S3],
-	): Thenable<void>;
-	updateEffective<
-		S1 extends keyof Config,
-		S2 extends keyof Config[S1],
-		S3 extends keyof Config[S1][S2],
-		S4 extends keyof Config[S1][S2][S3]
-	>(s1: S1, s2: S2, s3: S3, s4: S4, value: Config[S1][S2][S3][S4]): Thenable<void>;
-	updateEffective(...args: any[]) {
-		let section: string = args[0];
-		let value;
-		if (typeof args[1] === 'string' && args.length > 2) {
-			section += `.${args[1]}`;
-			if (typeof args[2] === 'string' && args.length > 3) {
-				section += `.${args[2]}`;
-				if (typeof args[3] === 'string' && args.length > 4) {
-					section += `.${args[3]}`;
-					value = args[4];
-				} else {
-					value = args[3];
-				}
-			} else {
-				value = args[2];
-			}
-		} else {
-			value = args[1];
-		}
-
-		const inspect = configuration.inspect(section as any)!;
+	updateEffective<T extends ConfigPath>(section: T, value: ConfigPathValue<T> | undefined): Thenable<void> {
+		const inspect = configuration.inspect(section)!;
 		if (inspect.workspaceFolderValue !== undefined) {
 			if (value === inspect.workspaceFolderValue) return Promise.resolve(undefined);
 
-			return configuration.update(section as any, value, ConfigurationTarget.WorkspaceFolder);
+			return configuration.update(section, value, ConfigurationTarget.WorkspaceFolder);
 		}
 
 		if (inspect.workspaceValue !== undefined) {
 			if (value === inspect.workspaceValue) return Promise.resolve(undefined);
 
-			return configuration.update(section as any, value, ConfigurationTarget.Workspace);
+			return configuration.update(section, value, ConfigurationTarget.Workspace);
 		}
 
 		if (inspect.globalValue === value || (inspect.globalValue === undefined && value === inspect.defaultValue)) {
@@ -621,7 +298,7 @@ export class Configuration {
 		}
 
 		return configuration.update(
-			section as any,
+			section,
 			Objects.areEquivalent(value, inspect.defaultValue) ? undefined : value,
 			ConfigurationTarget.Global,
 		);
@@ -629,3 +306,28 @@ export class Configuration {
 }
 
 export const configuration = new Configuration();
+
+type PathImpl<T, Key extends keyof T> = Key extends string
+	? T[Key] extends Record<string, any>
+		?
+				| `${Key}.${PathImpl<T[Key], Exclude<keyof T[Key], keyof any[]>> & string}`
+				| `${Key}.${Exclude<keyof T[Key], keyof any[]> & string}`
+		: never
+	: never;
+
+type PathImpl2<T> = PathImpl<T, keyof T> | keyof T;
+
+type Path<T> = PathImpl2<T> extends string | keyof T ? PathImpl2<T> : keyof T;
+
+type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
+	? Key extends keyof T
+		? Rest extends Path<T[Key]>
+			? PathValue<T[Key], Rest>
+			: never
+		: never
+	: P extends keyof T
+	? T[P]
+	: never;
+
+type ConfigPath = Path<Config>;
+type ConfigPathValue<P extends ConfigPath> = PathValue<Config, P>;

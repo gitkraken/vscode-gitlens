@@ -93,6 +93,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }
