@@ -388,49 +388,45 @@
 					"scope": "window"
 				},
 				"gitlens.codeLens.authors.command": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"gitlens.toggleFileBlame",
-								"gitlens.toggleFileHeatmap",
-								"gitlens.toggleFileChanges",
-								"gitlens.toggleFileChangesOnly",
-								"gitlens.diffWithPrevious",
-								"gitlens.revealCommitInView",
-								"gitlens.showCommitsInView",
-								"gitlens.showQuickCommitDetails",
-								"gitlens.showQuickCommitFileDetails",
-								"gitlens.showQuickFileHistory",
-								"gitlens.showQuickRepoHistory",
-								"gitlens.openCommitOnRemote",
-								"gitlens.copyRemoteCommitUrl",
-								"gitlens.openFileOnRemote",
-								"gitlens.copyRemoteFileUrl"
-							],
-							"enumDescriptions": [
-								"Toggles file blame",
-								"Toggles file heatmap",
-								"Toggles file changes since before the commit",
-								"Toggles file changes from the commit",
-								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the Side Bar",
-								"Searches for commits within the range",
-								"Shows a commit details quick pick menu",
-								"Shows a commit file details quick pick menu",
-								"Shows a file history quick pick menu",
-								"Shows a branch history quick pick menu",
-								"Opens the commit on the remote service (when available)",
-								"Copies the remote commit url to the clipboard (when available)",
-								"Opens the file revision on the remote service (when available)",
-								"Copies the remote file url to the clipboard (when available)"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"gitlens.toggleFileBlame",
+						"gitlens.toggleFileHeatmap",
+						"gitlens.toggleFileChanges",
+						"gitlens.toggleFileChangesOnly",
+						"gitlens.diffWithPrevious",
+						"gitlens.revealCommitInView",
+						"gitlens.showCommitsInView",
+						"gitlens.showQuickCommitDetails",
+						"gitlens.showQuickCommitFileDetails",
+						"gitlens.showQuickFileHistory",
+						"gitlens.showQuickRepoHistory",
+						"gitlens.openCommitOnRemote",
+						"gitlens.copyRemoteCommitUrl",
+						"gitlens.openFileOnRemote",
+						"gitlens.copyRemoteFileUrl"
+					],
+					"enumDescriptions": [
+						"Disables click interaction",
+						"Toggles file blame",
+						"Toggles file heatmap",
+						"Toggles file changes since before the commit",
+						"Toggles file changes from the commit",
+						"Compares the current committed file with the previous commit",
+						"Reveals the commit in the Side Bar",
+						"Searches for commits within the range",
+						"Shows a commit details quick pick menu",
+						"Shows a commit file details quick pick menu",
+						"Shows a file history quick pick menu",
+						"Shows a branch history quick pick menu",
+						"Opens the commit on the remote service (when available)",
+						"Copies the remote commit url to the clipboard (when available)",
+						"Opens the file revision on the remote service (when available)",
+						"Copies the remote file url to the clipboard (when available)"
 					],
 					"default": "gitlens.toggleFileBlame",
 					"markdownDescription": "Specifies the command to be executed when an _authors_ code lens is clicked",
@@ -455,49 +451,45 @@
 					"scope": "window"
 				},
 				"gitlens.codeLens.recentChange.command": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"gitlens.toggleFileBlame",
-								"gitlens.toggleFileHeatmap",
-								"gitlens.toggleFileChanges",
-								"gitlens.toggleFileChangesOnly",
-								"gitlens.diffWithPrevious",
-								"gitlens.revealCommitInView",
-								"gitlens.showCommitsInView",
-								"gitlens.showQuickCommitDetails",
-								"gitlens.showQuickCommitFileDetails",
-								"gitlens.showQuickFileHistory",
-								"gitlens.showQuickRepoHistory",
-								"gitlens.openCommitOnRemote",
-								"gitlens.copyRemoteCommitUrl",
-								"gitlens.openFileOnRemote",
-								"gitlens.copyRemoteFileUrl"
-							],
-							"enumDescriptions": [
-								"Toggles file blame",
-								"Toggles file heatmap",
-								"Toggles file changes since before the commit",
-								"Toggles file changes from the commit",
-								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the Side Bar",
-								"Searches for the commit",
-								"Shows a commit details quick pick menu",
-								"Shows a commit file details quick pick menu",
-								"Shows a file history quick pick menu",
-								"Shows a branch history quick pick menu",
-								"Opens the commit on the remote service (when available)",
-								"Copies the remote commit url to the clipboard (when available)",
-								"Opens the file revision on the remote service (when available)",
-								"Copies the remote file url to the clipboard (when available)"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"gitlens.toggleFileBlame",
+						"gitlens.toggleFileHeatmap",
+						"gitlens.toggleFileChanges",
+						"gitlens.toggleFileChangesOnly",
+						"gitlens.diffWithPrevious",
+						"gitlens.revealCommitInView",
+						"gitlens.showCommitsInView",
+						"gitlens.showQuickCommitDetails",
+						"gitlens.showQuickCommitFileDetails",
+						"gitlens.showQuickFileHistory",
+						"gitlens.showQuickRepoHistory",
+						"gitlens.openCommitOnRemote",
+						"gitlens.copyRemoteCommitUrl",
+						"gitlens.openFileOnRemote",
+						"gitlens.copyRemoteFileUrl"
+					],
+					"enumDescriptions": [
+						"Disables click interaction",
+						"Toggles file blame",
+						"Toggles file heatmap",
+						"Toggles file changes since before the commit",
+						"Toggles file changes from the commit",
+						"Compares the current committed file with the previous commit",
+						"Reveals the commit in the Side Bar",
+						"Searches for the commit",
+						"Shows a commit details quick pick menu",
+						"Shows a commit file details quick pick menu",
+						"Shows a file history quick pick menu",
+						"Shows a branch history quick pick menu",
+						"Opens the commit on the remote service (when available)",
+						"Copies the remote commit url to the clipboard (when available)",
+						"Opens the file revision on the remote service (when available)",
+						"Copies the remote file url to the clipboard (when available)"
 					],
 					"default": "gitlens.showQuickCommitFileDetails",
 					"markdownDescription": "Specifies the command to be executed when a _recent change_ code lens is clicked",
@@ -1825,21 +1817,17 @@
 					"scope": "window"
 				},
 				"gitlens.views.branches.showBranchComparison": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"branch"
-							],
-							"enumDescriptions": [
-								"Compares the branch with a user-selected reference"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"branch"
+					],
+					"enumDescriptions": [
+						"Hides the branch comparison",
+						"Compares the branch with a user-selected reference"
 					],
 					"default": "branch",
 					"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) in the _Branches_ view",
@@ -1920,23 +1908,19 @@
 					"scope": "window"
 				},
 				"gitlens.views.commits.showBranchComparison": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"branch",
-								"working"
-							],
-							"enumDescriptions": [
-								"Compares the current branch with a user-selected reference",
-								"Compares the working tree with a user-selected reference"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"branch",
+						"working"
+					],
+					"enumDescriptions": [
+						"Hides the branch comparison",
+						"Compares the current branch with a user-selected reference",
+						"Compares the working tree with a user-selected reference"
 					],
 					"default": "working",
 					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view",
@@ -2191,21 +2175,17 @@
 					"scope": "window"
 				},
 				"gitlens.views.repositories.branches.showBranchComparison": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"branch"
-							],
-							"enumDescriptions": [
-								"Compares the branch with a user-selected reference"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"branch"
+					],
+					"enumDescriptions": [
+						"Hides the branch comparison",
+						"Compares the branch with a user-selected reference"
 					],
 					"default": "branch",
 					"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under each branch in the _Repositories_ view",
@@ -2274,23 +2254,19 @@
 					"scope": "window"
 				},
 				"gitlens.views.repositories.showBranchComparison": {
-					"anyOf": [
-						{
-							"enum": [
-								false
-							]
-						},
-						{
-							"type": "string",
-							"enum": [
-								"branch",
-								"working"
-							],
-							"enumDescriptions": [
-								"Compares the current branch with a user-selected reference",
-								"Compares the working tree with a user-selected reference"
-							]
-						}
+					"type": [
+						"boolean",
+						"string"
+					],
+					"enum": [
+						false,
+						"branch",
+						"working"
+					],
+					"enumDescriptions": [
+						"Hides the branch comparison",
+						"Compares the current branch with a user-selected reference",
+						"Compares the working tree with a user-selected reference"
 					],
 					"default": "working",
 					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Repositories_ view",
