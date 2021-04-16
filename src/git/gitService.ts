@@ -95,7 +95,6 @@ import {
 	gate,
 	Iterables,
 	log,
-	Objects,
 	Promises,
 	Strings,
 	TernarySearchTree,
@@ -391,7 +390,7 @@ export class GitService implements Disposable {
 		};
 
 		const excludedPaths = [
-			...Iterables.filterMap(Objects.entries(excludes), ([key, value]) => {
+			...Iterables.filterMap(Object.entries(excludes), ([key, value]) => {
 				if (!value) return undefined;
 				if (key.startsWith('**/')) return key.substring(3);
 				return key;

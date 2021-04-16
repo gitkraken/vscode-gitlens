@@ -14,7 +14,7 @@ import {
 	GitTrackingState,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { Arrays, Iterables, Objects, Strings } from '../../system';
+import { Arrays, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
@@ -97,19 +97,16 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		const groups = Arrays.groupBy(files, s => s.fileName);
 
-		let children: FileNode[] = [
-			...Iterables.map(
-				Objects.values(groups),
-				files =>
-					new StatusFileNode(
-						this.view,
-						this,
-						repoPath,
-						files[files.length - 1],
-						files.map(s => s.commit),
-					),
-			),
-		];
+		let children: FileNode[] = Object.values(groups).map(
+			files =>
+				new StatusFileNode(
+					this.view,
+					this,
+					repoPath,
+					files[files.length - 1],
+					files.map(s => s.commit),
+				),
+		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(

@@ -16,7 +16,7 @@ import { Config, configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
-import { Objects, Strings } from '../system';
+import { Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
@@ -171,7 +171,7 @@ export class Annotations {
 	): RenderOptions {
 		// Get the character count of all the tokens, assuming there there is a cap (bail if not)
 		let chars = 0;
-		for (const token of Objects.values(options.tokenOptions!)) {
+		for (const token of Object.values(options.tokenOptions!)) {
 			if (token === undefined) continue;
 
 			// If any token is uncapped, kick out and set no max

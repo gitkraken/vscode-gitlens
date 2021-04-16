@@ -7,7 +7,7 @@ import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Objects, Strings } from '../system';
+import { Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { fsExists, run, RunError, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
@@ -182,7 +182,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
 	const msg = ex.message || ex.toString();
 	if (msg != null && msg.length !== 0) {
-		for (const warning of Objects.values(GitWarnings)) {
+		for (const warning of Object.values(GitWarnings)) {
 			if (warning.test(msg)) {
 				const duration = start !== undefined ? `${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
 				Logger.warn(

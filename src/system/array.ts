@@ -1,10 +1,6 @@
 'use strict';
-import {
-	findLastIndex as _findLastIndex,
-	intersectionWith as _intersectionWith,
-	isEqual as _isEqual,
-	xor as _xor,
-} from 'lodash-es';
+
+export { findLastIndex, intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
@@ -62,8 +58,6 @@ export function filterMapAsync<T, TMapped>(
 	}, [] as any);
 }
 
-export const findLastIndex = _findLastIndex;
-
 export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Record<string, T[]> {
 	return source.reduce((groupings, current) => {
 		const value = groupingKey(current);
@@ -108,13 +102,6 @@ export function groupByFilterMap<TKey, TValue, TMapped>(
 		}
 		return groupings;
 	}, new Map<TKey, TMapped[]>());
-}
-
-export const intersection = _intersectionWith;
-export const isEqual = _isEqual;
-
-export function areEquivalent<T>(value: T[], other: T[]) {
-	return _xor(value, other).length === 0;
 }
 
 export function isStringArray<T extends any[]>(array: string[] | T): array is string[] {

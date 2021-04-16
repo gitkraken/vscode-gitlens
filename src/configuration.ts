@@ -299,7 +299,7 @@ export class Configuration {
 
 		return configuration.update(
 			section,
-			Objects.areEquivalent(value, inspect.defaultValue) ? undefined : value,
+			Objects.areEqual(value, inspect.defaultValue) ? undefined : value,
 			ConfigurationTarget.Global,
 		);
 	}
