@@ -149,7 +149,7 @@ export abstract class ViewBase<
 
 		this.initialize({ showCollapseAll: this.showCollapseAll });
 
-		setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
+		setImmediate(() => this.onConfigurationChanged());
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -210,8 +210,8 @@ export abstract class ViewBase<
 
 	protected abstract getRoot(): RootNode;
 	protected abstract registerCommands(): void;
-	protected onConfigurationChanged(e: ConfigurationChangeEvent): void {
-		if (!configuration.initializing(e) && this.root != null) {
+	protected onConfigurationChanged(e?: ConfigurationChangeEvent): void {
+		if (e != null && this.root != null) {
 			void this.refresh(true);
 		}
 	}

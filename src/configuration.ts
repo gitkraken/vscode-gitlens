@@ -13,15 +13,7 @@ import {
 import { Config } from './config';
 import { Objects } from './system';
 
-const extensionId = 'gitlens';
-
-type ConfigInspection<T> = {
-	key: string;
-	defaultValue?: T;
-	globalValue?: T;
-	workspaceValue?: T;
-	workspaceFolderValue?: T;
-};
+const configPrefix = 'gitlens';
 
 export interface ConfigurationWillChangeEvent {
 	change: ConfigurationChangeEvent;
@@ -29,7 +21,7 @@ export interface ConfigurationWillChangeEvent {
 }
 
 export class Configuration {
-	static configure(context: ExtensionContext) {
+	static configure(context: ExtensionContext): void {
 		context.subscriptions.push(
 			workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration),
 		);
@@ -51,7 +43,7 @@ export class Configuration {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (!e.affectsConfiguration(extensionId)) {
+		if (!e.affectsConfiguration(configPrefix)) {
 			this._onDidChangeAny.fire(e);
 
 			return;
@@ -70,8 +62,6 @@ export class Configuration {
 		this._onDidChange.fire(e);
 	}
 
-	readonly initializingChangeEvent: ConfigurationChangeEvent = { affectsConfiguration: () => true };
-
 	get(): Config;
 	get<T extends ConfigPath>(
 		section: T,
@@ -85,40 +75,33 @@ export class Configuration {
 	): Config | ConfigPathValue<T> {
 		return defaultValue === undefined
 			? workspace
-					.getConfiguration(section === undefined ? undefined : extensionId, scope)
-					.get<ConfigPathValue<T>>(section === undefined ? extensionId : section)!
+					.getConfiguration(section === undefined ? undefined : configPrefix, scope)
+					.get<ConfigPathValue<T>>(section === undefined ? configPrefix : section)!
 			: workspace
-					.getConfiguration(section === undefined ? undefined : extensionId, scope)
-					.get<ConfigPathValue<T>>(section === undefined ? extensionId : section, defaultValue)!;
+					.getConfiguration(section === undefined ? undefined : configPrefix, scope)
+					.get<ConfigPathValue<T>>(section === undefined ? configPrefix : section, defaultValue)!;
 	}
 
 	getAny<T>(section: string, scope?: ConfigurationScope | null): T | undefined;
 	getAny<T>(section: string, scope: ConfigurationScope | null | undefined, defaultValue: T): T;
-	getAny<T>(section: string, scope?: ConfigurationScope | null, defaultValue?: T) {
+	getAny<T>(section: string, scope?: ConfigurationScope | null, defaultValue?: T): T | undefined {
 		return defaultValue === undefined
 			? workspace.getConfiguration(undefined, scope).get<T>(section)
 			: workspace.getConfiguration(undefined, scope).get<T>(section, defaultValue);
 	}
 
 	changed<T extends ConfigPath>(
-		e: ConfigurationChangeEvent,
+		e: ConfigurationChangeEvent | undefined,
 		section: T,
 		scope?: ConfigurationScope | null | undefined,
 	): boolean {
-		return e.affectsConfiguration(`${extensionId}.${section}`, scope!);
+		return e?.affectsConfiguration(`${configPrefix}.${section}`, scope!) ?? true;
 	}
 
-	initializing(e: ConfigurationChangeEvent) {
-		return e === this.initializingChangeEvent;
-	}
-
-	inspect<T extends ConfigPath>(
-		section: T,
-		scope?: ConfigurationScope | null,
-	): ConfigInspection<ConfigPathValue<T>> | undefined {
+	inspect<T extends ConfigPath, V extends ConfigPathValue<T>>(section: T, scope?: ConfigurationScope | null) {
 		return workspace
-			.getConfiguration(section === undefined ? undefined : extensionId, scope)
-			.inspect(section === undefined ? extensionId : section);
+			.getConfiguration(section === undefined ? undefined : configPrefix, scope)
+			.inspect<V>(section === undefined ? configPrefix : section);
 	}
 
 	inspectAny<T>(section: string, scope?: ConfigurationScope | null) {
@@ -270,10 +253,15 @@ export class Configuration {
 		value: ConfigPathValue<T> | undefined,
 		target: ConfigurationTarget,
 	): Thenable<void> {
-		return workspace.getConfiguration(extensionId).update(section, value, target);
+		return workspace.getConfiguration(configPrefix).update(section, value, target);
 	}
 
-	updateAny(section: string, value: any, target: ConfigurationTarget, scope?: ConfigurationScope | null) {
+	updateAny(
+		section: string,
+		value: any,
+		target: ConfigurationTarget,
+		scope?: ConfigurationScope | null,
+	): Thenable<void> {
 		return workspace
 			.getConfiguration(undefined, target === ConfigurationTarget.Global ? undefined : scope!)
 			.update(section, value, target);
@@ -307,17 +295,15 @@ export class Configuration {
 
 export const configuration = new Configuration();
 
-type PathImpl<T, Key extends keyof T> = Key extends string
+type SubPath<T, Key extends keyof T> = Key extends string
 	? T[Key] extends Record<string, any>
 		?
-				| `${Key}.${PathImpl<T[Key], Exclude<keyof T[Key], keyof any[]>> & string}`
+				| `${Key}.${SubPath<T[Key], Exclude<keyof T[Key], keyof any[]>> & string}`
 				| `${Key}.${Exclude<keyof T[Key], keyof any[]> & string}`
 		: never
 	: never;
 
-type PathImpl2<T> = PathImpl<T, keyof T> | keyof T;
-
-type Path<T> = PathImpl2<T> extends string | keyof T ? PathImpl2<T> : keyof T;
+type Path<T> = SubPath<T, keyof T> | keyof T extends string | keyof T ? SubPath<T, keyof T> | keyof T : keyof T;
 
 type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
 	? Key extends keyof T

@@ -19,7 +19,7 @@ export class GitCodeLensController implements Disposable {
 
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -27,14 +27,14 @@ export class GitCodeLensController implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, 'codeLens') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateSource') ||
 			configuration.changed(e, 'defaultDateStyle')
 		) {
-			if (!configuration.initializing(e)) {
+			if (e != null) {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');
 			}
 

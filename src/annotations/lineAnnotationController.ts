@@ -40,7 +40,7 @@ export class LineAnnotationController implements Disposable {
 			Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
 			Authentication.onDidChange(() => void this.refresh(window.activeTextEditor)),
 		);
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -50,7 +50,7 @@ export class LineAnnotationController implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'currentLine')) return;
 
 		if (configuration.changed(e, 'currentLine.enabled')) {

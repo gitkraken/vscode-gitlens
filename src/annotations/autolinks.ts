@@ -34,14 +34,14 @@ export class Autolinks implements Disposable {
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
 		this._disposable?.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
 			this._references = Container.config.autolinks ?? [];
 		}

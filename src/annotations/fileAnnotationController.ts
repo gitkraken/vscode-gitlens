@@ -83,7 +83,7 @@ export class FileAnnotationController implements Disposable {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -99,7 +99,7 @@ export class FileAnnotationController implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		const cfg = Container.config;
 
 		if (configuration.changed(e, 'blame.highlight')) {
@@ -189,7 +189,7 @@ export class FileAnnotationController implements Disposable {
 			});
 		}
 
-		const initializing = configuration.initializing(e);
+		const initializing = e == null;
 
 		if (configuration.changed(e, 'blame.toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);

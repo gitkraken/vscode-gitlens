@@ -27,7 +27,7 @@ export class StatusBarController implements Disposable {
 
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -40,7 +40,7 @@ export class StatusBarController implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'mode')) {
 			const mode =
 				Container.config.mode.active && Container.config.mode.statusBar.enabled

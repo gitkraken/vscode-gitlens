@@ -265,7 +265,7 @@ export class Repository implements Disposable {
 			watcher.onDidDelete(this.onRepositoryChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 
 		if (!this.supportsChangeEvents) {
 			void this.tryWatchingForChangesViaBuiltInApi();
@@ -307,11 +307,11 @@ export class Repository implements Disposable {
 		return this._updatedAt;
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'remotes', this.folder.uri)) {
 			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
 
-			if (!configuration.initializing(e)) {
+			if (e != null) {
 				this.resetCaches('remotes');
 				this.fireChange(RepositoryChange.Remotes);
 			}

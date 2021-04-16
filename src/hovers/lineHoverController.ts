@@ -26,7 +26,7 @@ export class LineHoverController implements Disposable {
 
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -36,7 +36,7 @@ export class LineHoverController implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'hovers.enabled') && !configuration.changed(e, 'hovers.currentLine.enabled')) {
 			return;
 		}

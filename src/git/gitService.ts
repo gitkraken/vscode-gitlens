@@ -162,7 +162,7 @@ export class GitService implements Disposable {
 				void this.updateContext(this._repositoryTree);
 			}),
 		);
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 
 		this._repositoriesLoadingPromise = this.onWorkspaceFoldersChanged();
 	}
@@ -237,7 +237,7 @@ export class GitService implements Disposable {
 		}
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateSource') ||
