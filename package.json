@@ -8032,6 +8032,16 @@
 					"group": "3_gitlens_explore@1"
 				},
 				{
+					"command": "gitlens.views.compareWithHead",
+					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "4_gitlens_compare@2"
+				},
+				{
+					"command": "gitlens.views.compareWithWorking",
+					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "4_gitlens_compare@3"
+				},
+				{
 					"command": "gitlens.views.applyChanges",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/",
 					"group": "1_gitlens_actions@1"
