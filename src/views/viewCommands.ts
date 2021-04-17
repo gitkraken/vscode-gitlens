@@ -176,13 +176,13 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
 
 		commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
-		commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
+		commands.registerCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
 		commands.registerCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
 		commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
 		commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
 		commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
 		commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
-		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
+		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWorkingWith, this);
 
 		commands.registerCommand(
 			'gitlens.views.setBranchComparisonToWorking',
@@ -703,10 +703,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareWithHead(node: ViewRefNode) {
+	private compareHeadWith(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, node.ref, 'HEAD');
+		return Container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
 	}
 
 	@debug()
@@ -714,14 +714,14 @@ export class ViewCommands {
 		if (!(node instanceof BranchNode)) return Promise.resolve();
 		if (node.branch.upstream == null) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, node.branch.upstream.name, node.ref);
+		return Container.searchAndCompareView.compare(node.repoPath, node.ref, node.branch.upstream.name);
 	}
 
 	@debug()
-	private compareWithWorking(node: ViewRefNode) {
+	private compareWorkingWith(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, node.ref, '');
+		return Container.searchAndCompareView.compare(node.repoPath, '', node.ref);
 	}
 
 	@debug()

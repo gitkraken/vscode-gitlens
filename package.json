@@ -5058,6 +5058,23 @@
 				}
 			},
 			{
+				"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+				"title": "Show Left-side Files Only",
+				"category": "GitLens",
+				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+				"title": "Show Right-side Files Only",
+				"category": "GitLens",
+				"enablement": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+				"title": "Clear Filter",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.stashes.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -6474,6 +6491,18 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.swapComparison",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
 					"when": "false"
 				},
 				{
@@ -8483,6 +8512,11 @@
 					"group": "inline@1"
 				},
 				{
+					"submenu": "gitlens/view/searchAndCompare/comparison/filter",
+					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)/",
+					"group": "inline@1"
+				},
+				{
 					"command": "gitlens.views.refreshNode",
 					"when": "viewItem =~ /gitlens:compare:(branch(?=.*?\\b\\+comparing\\b)|results(?!:))\\b/",
 					"group": "inline@97"
@@ -9070,6 +9104,23 @@
 					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@11"
 				}
+			],
+			"gitlens/view/searchAndCompare/comparison/filter": [
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"when1": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/",
+					"group": "navigation_1@1"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"when1": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/",
+					"group": "navigation_1@2"
+				}
 			]
 		},
 		"submenus": [
@@ -9133,6 +9184,11 @@
 				"id": "gitlens/view/searchAndCompare/new",
 				"label": "New Search or Compare",
 				"icon": "$(add)"
+			},
+			{
+				"id": "gitlens/view/searchAndCompare/comparison/filter",
+				"label": "Filter",
+				"icon": "$(filter)"
 			}
 		],
 		"keybindings": [

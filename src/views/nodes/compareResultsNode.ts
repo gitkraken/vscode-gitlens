@@ -151,7 +151,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		const item = new TreeItem(
 			`Comparing ${
 				this._ref.label ?? GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
-			} to ${
+			} with ${
 				this._compareWith.label ??
 				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,

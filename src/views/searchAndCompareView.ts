@@ -4,7 +4,14 @@ import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../c
 import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitRevision, SearchPattern } from '../git/git';
-import { CompareResultsNode, ContextValues, SearchResultsNode, unknownGitUri, ViewNode } from './nodes';
+import {
+	CompareResultsNode,
+	ContextValues,
+	ResultsFilesNode,
+	SearchResultsNode,
+	unknownGitUri,
+	ViewNode,
+} from './nodes';
 import { debug, gate, Iterables, log, Promises } from '../system';
 import { ViewBase } from './viewBase';
 import { ComparePickerNode } from './nodes/comparePickerNode';
@@ -296,6 +303,22 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this);
 		commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
 		commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setFilesFilterOnLeft'),
+			n => this.setFilesFilter(n, 'left'),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setFilesFilterOnRight'),
+			n => this.setFilesFilter(n, 'right'),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setFilesFilterOff'),
+			n => this.setFilesFilter(n, false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -482,6 +505,12 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		if (!(node instanceof CompareResultsNode) && !(node instanceof SearchResultsNode)) return undefined;
 
 		return node.pin();
+	}
+
+	private setFilesFilter(node: ResultsFilesNode, filter: 'left' | 'right' | false) {
+		if (!(node instanceof ResultsFilesNode)) return;
+
+		node.filter = filter;
 	}
 
 	private swapComparison(node: CompareResultsNode) {

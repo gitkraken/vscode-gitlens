@@ -1,7 +1,8 @@
 'use strict';
 import * as paths from 'path';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
+import { Container } from '../../container';
 import { GitFile } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
@@ -13,6 +14,10 @@ import { ContextValues, ViewNode } from './viewNode';
 export interface FilesQueryResults {
 	label: string;
 	files: GitFile[] | undefined;
+	filtered?: {
+		filter: 'left' | 'right';
+		files: GitFile[];
+	};
 }
 
 export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
@@ -37,8 +42,30 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		return `${this.parent!.id}:results:files`;
 	}
 
+	private _filter: 'left' | 'right' | false = false;
+	get filter(): 'left' | 'right' | false {
+		return this._filter;
+	}
+	set filter(value: 'left' | 'right' | false) {
+		if (this._filter === value) return;
+
+		this._filter = value;
+		this._filterResults = undefined;
+
+		void this.triggerChange(false);
+	}
+
+	get filterable(): boolean {
+		return this.filtered || (this.ref1 !== this.ref2 && this.direction === undefined);
+	}
+
+	get filtered(): boolean {
+		return Boolean(this.filter);
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
-		const { files } = await this.getFilesQueryResults();
+		const results = await this.getFilesQueryResults();
+		const files = (this.filtered ? results.filtered?.files : undefined) ?? results.files;
 		if (files == null) return [];
 
 		let children: FileNode[] = [
@@ -71,11 +98,20 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let label;
-		let files;
+		let icon;
+		let files: GitFile[] | undefined;
 		let state;
 
 		try {
-			({ label, files } = await Promises.cancellable(this.getFilesQueryResults(), 100));
+			const results = await Promises.cancellable(this.getFilesQueryResults(), 100);
+			label = results.label;
+			files = (this.filtered ? results.filtered?.files : undefined) ?? results.files;
+
+			if (this.filtered && results.filtered == null) {
+				label = 'files changed';
+				icon = new ThemeIcon('ellipsis');
+			}
+
 			state =
 				files == null || files.length === 0
 					? TreeItemCollapsibleState.None
@@ -84,16 +120,24 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
-				ex.promise.then(() => this.triggerChange(false));
+				ex.promise.then(() => setTimeout(() => this.triggerChange(false), 0));
 			}
 
+			label = 'files changed';
+			icon = new ThemeIcon('ellipsis');
 			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 			// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
-		const item = new TreeItem(label ?? 'files changed', state);
-		item.contextValue = ContextValues.ResultsFiles;
+		const item = new TreeItem(
+			`${this.filtered && files != null ? `Showing ${files.length} of ` : ''}${label}`,
+			state,
+		);
+		item.iconPath = icon;
+		item.contextValue = `${ContextValues.ResultsFiles}${this.filterable ? '+filterable' : ''}${
+			this.filtered ? `+filtered~${this.filter}` : ''
+		}`;
 		item.id = this.id;
 
 		return item;
@@ -104,16 +148,60 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	refresh(reset: boolean = false) {
 		if (!reset) return;
 
+		this._filterResults = undefined;
 		this._filesQueryResults = this._filesQuery();
 	}
 
 	private _filesQueryResults: Promise<FilesQueryResults> | undefined;
+	private _filterResults: Promise<void> | undefined;
 
-	getFilesQueryResults() {
+	async getFilesQueryResults() {
 		if (this._filesQueryResults === undefined) {
 			this._filesQueryResults = this._filesQuery();
 		}
 
-		return this._filesQueryResults;
+		const results = await this._filesQueryResults;
+		if (
+			results.files == null ||
+			!this.filterable ||
+			this.filter === false ||
+			results.filtered?.filter === this.filter
+		) {
+			return results;
+		}
+
+		if (this._filterResults === undefined) {
+			this._filterResults = this.filterResults(this.filter, results);
+		}
+
+		await this._filterResults;
+
+		return results;
+	}
+
+	private async filterResults(filter: 'left' | 'right', results: FilesQueryResults) {
+		let filterTo: Set<string> | undefined;
+
+		const ref = this.filter === 'left' ? this.ref2 : this.ref1;
+
+		const mergeBase = await Container.git.getMergeBase(this.repoPath, this.ref1 || 'HEAD', this.ref2 || 'HEAD');
+		if (mergeBase != null) {
+			const files = await Container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
+			if (files != null) {
+				filterTo = new Set<string>(files.map(f => f.fileName));
+			}
+		} else {
+			const commit = await Container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			if (commit?.files != null) {
+				filterTo = new Set<string>(commit.files.map(f => f.fileName));
+			}
+		}
+
+		if (filterTo == null) return;
+
+		results.filtered = {
+			filter: filter,
+			files: results.files!.filter(f => filterTo!.has(f.fileName)),
+		};
 	}
 }

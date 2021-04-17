@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds the ability to filter comparisons to show only either the left-side or right-side file differences
+
+### Changed
+
+- Reverses the resulting comparison of the _Compare with HEAD_, _Compare with Working_, and _Compare with Upstream_ commands in the views
+
 ## [11.4.1] - 2021-04-14
 
 ### Added

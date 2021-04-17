@@ -140,14 +140,19 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		let state: TreeItemCollapsibleState;
 		let label;
 		let description;
+		let tooltip;
 		if (this._compareWith == null) {
-			label = `Compare ${this.branch.name}${
-				this.compareWithWorkingTree ? ' (working)' : ''
+			label = `Compare ${
+				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
 			} with <branch, tag, or ref>`;
 			state = TreeItemCollapsibleState.None;
+			tooltip = `Click to compare ${
+				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
+			} with a branch, tag, or ref`;
 		} else {
-			label = `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''}`;
-			description = `with ${GitRevision.shorten(this._compareWith.ref, {
+			label = `Compare ${
+				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
+			} with ${GitRevision.shorten(this._compareWith.ref, {
 				strings: { working: 'Working Tree' },
 			})}`;
 			state = TreeItemCollapsibleState.Collapsed;
@@ -169,9 +174,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		item.description = description;
 		item.iconPath = new ThemeIcon('git-compare');
 		item.id = this.id;
-		item.tooltip = `Click to compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
-			GlyphChars.Ellipsis
-		}`;
+		item.tooltip = tooltip;
 
 		return item;
 	}
