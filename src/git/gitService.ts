@@ -137,13 +137,13 @@ export class GitService implements Disposable {
 	private readonly _repositoryTree: TernarySearchTree<string, Repository>;
 	private _repositoriesLoadingPromise: Promise<void> | undefined;
 
-	private readonly _branchesCache = new Map<string, GitBranch[]>();
-	private readonly _contributorsCache = new Map<string, GitContributor[]>();
+	private readonly _branchesCache = new Map<string, Promise<GitBranch[]>>();
+	private readonly _contributorsCache = new Map<string, Promise<GitContributor[]>>();
 	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
 	private readonly _rebaseStatusCache = new Map<string, GitRebaseStatus | null>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
-	private readonly _tagsCache = new Map<string, GitTag[]>();
+	private readonly _tagsCache = new Map<string, Promise<GitTag[]>>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
@@ -1298,49 +1298,64 @@ export class GitService implements Disposable {
 	): Promise<GitBranch[]> {
 		if (repoPath == null) return [];
 
-		let branches = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
-		if (branches == null) {
-			const data = await Git.for_each_ref__branch(repoPath, { all: true });
-			// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-			if (data == null || data.length === 0) {
-				let current;
+		let branchesPromise = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
+		if (branchesPromise == null) {
+			async function load(this: GitService) {
+				try {
+					const data = await Git.for_each_ref__branch(repoPath!, { all: true });
+					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
+					if (data == null || data.length === 0) {
+						let current;
 
-				const data = await Git.rev_parse__currentBranch(repoPath, Container.config.advanced.commitOrdering);
-				if (data != null) {
-					const [name, upstream] = data[0].split('\n');
-					const [rebaseStatus, committerDate] = await Promise.all([
-						GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath) : undefined,
-						Git.log__recent_committerdate(repoPath, Container.config.advanced.commitOrdering),
-					]);
+						const data = await Git.rev_parse__currentBranch(
+							repoPath!,
+							Container.config.advanced.commitOrdering,
+						);
+						if (data != null) {
+							const [name, upstream] = data[0].split('\n');
+							const [rebaseStatus, committerDate] = await Promise.all([
+								GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath!) : undefined,
+								Git.log__recent_committerdate(repoPath!, Container.config.advanced.commitOrdering),
+							]);
 
-					current = new GitBranch(
-						repoPath,
-						rebaseStatus?.incoming.name ?? name,
-						false,
-						true,
-						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
-						data[1],
-						{ name: upstream, missing: false },
-						undefined,
-						undefined,
-						undefined,
-						rebaseStatus != null,
-					);
+							current = new GitBranch(
+								repoPath!,
+								rebaseStatus?.incoming.name ?? name,
+								false,
+								true,
+								committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
+								data[1],
+								{ name: upstream, missing: false },
+								undefined,
+								undefined,
+								undefined,
+								rebaseStatus != null,
+							);
+						}
+
+						return current != null ? [current] : [];
+					}
+
+					return GitBranchParser.parse(data, repoPath!);
+				} catch (ex) {
+					this._branchesCache.delete(repoPath!);
+
+					return [];
 				}
-
-				branches = current != null ? [current] : [];
-			} else {
-				branches = GitBranchParser.parse(data, repoPath);
 			}
 
+			branchesPromise = load.call(this);
+
 			if (this.useCaching) {
-				const repo = await this.getRepository(repoPath);
-				if (repo?.supportsChangeEvents) {
-					this._branchesCache.set(repoPath, branches);
+				this._branchesCache.set(repoPath, branchesPromise);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._branchesCache.delete(repoPath);
 				}
 			}
 		}
 
+		let branches = await branchesPromise;
 		if (options.filter != null) {
 			branches = branches.filter(options.filter);
 		}
@@ -1520,19 +1535,29 @@ export class GitService implements Disposable {
 
 		let contributors = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
 		if (contributors == null) {
-			try {
-				const currentUser = await this.getCurrentUser(repoPath);
+			async function load(this: GitService) {
+				try {
+					const currentUser = await this.getCurrentUser(repoPath);
 
-				const data = await Git.log(repoPath, options?.ref, { all: options?.all, format: 'shortlog' });
-				const shortlog = GitShortLogParser.parseFromLog(data, repoPath, currentUser);
-				contributors = shortlog != null ? shortlog.contributors : [];
+					const data = await Git.log(repoPath, options?.ref, { all: options?.all, format: 'shortlog' });
+					const shortlog = GitShortLogParser.parseFromLog(data, repoPath, currentUser);
 
-				const repo = await this.getRepository(repoPath);
-				if (repo?.supportsChangeEvents) {
-					this._contributorsCache.set(repoPath, contributors);
+					return shortlog != null ? shortlog.contributors : [];
+				} catch (ex) {
+					this._contributorsCache.delete(repoPath);
+
+					return [];
 				}
-			} catch (ex) {
-				return [];
+			}
+
+			contributors = load.call(this);
+
+			if (this.useCaching) {
+				this._contributorsCache.set(repoPath, contributors);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._contributorsCache.delete(repoPath);
+				}
 			}
 		}
 
@@ -2564,9 +2589,12 @@ export class GitService implements Disposable {
 				};
 			}
 
-			const repo = await this.getRepository(repoPath);
-			if (repo?.supportsChangeEvents) {
+			if (this.useCaching) {
 				this._mergeStatusCache.set(repoPath, status ?? null);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._mergeStatusCache.delete(repoPath);
+				}
 			}
 		}
 
@@ -2641,9 +2669,12 @@ export class GitService implements Disposable {
 				};
 			}
 
-			const repo = await this.getRepository(repoPath);
-			if (repo?.supportsChangeEvents) {
+			if (this.useCaching) {
 				this._rebaseStatusCache.set(repoPath, status ?? null);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._rebaseStatusCache.delete(repoPath);
+				}
 			}
 		}
 
@@ -3605,6 +3636,7 @@ export class GitService implements Disposable {
 		return repositoryTree.count();
 	}
 
+	@gate()
 	@log()
 	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
@@ -3616,9 +3648,12 @@ export class GitService implements Disposable {
 			});
 			stash = GitStashParser.parse(data, repoPath);
 
-			const repo = await this.getRepository(repoPath);
-			if (repo?.supportsChangeEvents) {
+			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._stashesCache.delete(repoPath);
+				}
 			}
 		}
 
@@ -3690,17 +3725,31 @@ export class GitService implements Disposable {
 	): Promise<GitTag[]> {
 		if (repoPath == null) return [];
 
-		let tags = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
-		if (tags == null) {
-			const data = await Git.tag(repoPath);
-			tags = GitTagParser.parse(data, repoPath) ?? [];
+		let tagsPromise = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
+		if (tagsPromise == null) {
+			async function load(this: GitService) {
+				try {
+					const data = await Git.tag(repoPath!);
+					return GitTagParser.parse(data, repoPath!) ?? [];
+				} catch (ex) {
+					this._tagsCache.delete(repoPath!);
 
-			const repo = await this.getRepository(repoPath);
-			if (repo?.supportsChangeEvents) {
-				this._tagsCache.set(repoPath, tags);
+					return [];
+				}
+			}
+
+			tagsPromise = load.call(this);
+
+			if (this.useCaching) {
+				this._tagsCache.set(repoPath, tagsPromise);
+
+				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
+					this._tagsCache.delete(repoPath);
+				}
 			}
 		}
 
+		let tags = await tagsPromise;
 		if (options.filter != null) {
 			tags = tags.filter(options.filter);
 		}
