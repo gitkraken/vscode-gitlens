@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Reverses the resulting comparison of the _Compare with HEAD_, _Compare with Working_, and _Compare with Upstream_ commands in the views
 
+### Fixed
+
+- Fixes [#1402](https://github.com/eamodio/vscode-gitlens/issues/1402) - File history missing commits from other branches
+
 ## [11.4.1] - 2021-04-14
 
 ### Added
