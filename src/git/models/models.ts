@@ -321,7 +321,7 @@ export namespace GitReference {
 				}
 			}
 
-			return options.capitalize && options.expand
+			return options.capitalize && options.expand && options.label !== false
 				? `${result[0].toLocaleUpperCase()}${result.substring(1)}`
 				: result;
 		}

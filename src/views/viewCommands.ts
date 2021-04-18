@@ -280,8 +280,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private createBranch(node?: ViewRefNode | BranchesNode) {
-		return GitActions.Branch.create(node?.repoPath, node instanceof ViewRefNode ? node?.ref : undefined);
+	private async createBranch(node?: ViewRefNode | BranchesNode) {
+		let from = node instanceof ViewRefNode ? node?.ref : undefined;
+		if (from == null) {
+			const branch = await Container.git.getBranch(node?.repoPath ?? (await Container.git.getActiveRepoPath()));
+			from = branch;
+		}
+		return GitActions.Branch.create(node?.repoPath, from);
 	}
 
 	@debug()

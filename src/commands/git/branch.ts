@@ -256,6 +256,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new branch from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
+					titleContext: ' from',
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -267,7 +268,11 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+					titleContext: ` from ${GitReference.toString(state.reference, {
+						capitalize: true,
+						icon: false,
+						label: state.reference.refType !== 'branch',
+					})}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;
