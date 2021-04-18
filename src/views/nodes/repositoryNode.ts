@@ -257,6 +257,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
 			lastFetched
@@ -267,7 +268,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
 			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
-		item.id = this.id;
 		item.tooltip = new MarkdownString(tooltip, true);
 
 		return item;

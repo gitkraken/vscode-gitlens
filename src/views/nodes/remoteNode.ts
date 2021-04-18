@@ -107,6 +107,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		}
 
 		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+		item.id = this.id;
 
 		if (this.remote.provider != null) {
 			const { provider } = this.remote;
@@ -143,8 +144,6 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			item.contextValue += '+default';
 			item.resourceUri = Uri.parse('gitlens-view://remote/default');
 		}
-
-		item.id = this.id;
 
 		for (const { type, url } of this.remote.urls) {
 			item.tooltip += `\n${url} (${type})`;

@@ -157,6 +157,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			}`,
 			TreeItemCollapsibleState.Collapsed,
 		);
+		item.id = this.id;
 		item.contextValue = `${ContextValues.CompareResults}${this._pinned ? '+pinned' : ''}`;
 		item.description = description;
 		if (this._pinned) {

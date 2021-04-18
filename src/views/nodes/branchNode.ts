@@ -403,15 +403,15 @@ export class BranchNode
 			this.label,
 			this.options.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
+		item.id = this.id;
+		item.contextValue = contextValue;
+		item.description = description;
 		item.iconPath = this.options.showAsCommits
 			? new ThemeIcon('git-commit', color)
 			: {
 					dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
 					light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
 			  };
-		item.contextValue = contextValue;
-		item.description = description;
-		item.id = this.id;
 		item.tooltip = tooltip;
 		item.resourceUri = Uri.parse(
 			`gitlens-view://branch/status/${await this.branch.getStatus()}${

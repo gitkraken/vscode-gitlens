@@ -130,6 +130,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 
 	async getTreeItem(): Promise<TreeItem> {
 		const item = await this.ensureResults().getTreeItem();
+		item.id = this.id;
 		item.contextValue = `${ContextValues.SearchResults}${this._pinned ? '+pinned' : ''}`;
 		if ((await Container.git.getRepositoryCount()) > 1) {
 			const repo = await Container.git.getRepository(this.repoPath);

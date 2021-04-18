@@ -139,10 +139,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		}
 
 		const item = new TreeItem(label ?? this._label, state);
+		item.id = this.id;
 		item.contextValue =
 			this._results.comparison != null ? ContextValues.CompareResultsCommits : ContextValues.SearchResultsCommits;
 		item.description = this._options.description;
-		item.id = this.id;
 
 		return item;
 	}

@@ -43,6 +43,7 @@ export class PullRequestNode extends ViewNode<
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(`#${this.pullRequest.id}: ${this.pullRequest.title}`, TreeItemCollapsibleState.None);
+		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
 		item.iconPath = new ThemeIcon(
@@ -55,7 +56,6 @@ export class PullRequestNode extends ViewNode<
 					: Colors.OpenPullRequestIconColor,
 			),
 		);
-		item.id = this.id;
 		item.tooltip = `${this.pullRequest.title}\n#${this.pullRequest.id} by ${this.pullRequest.author.name} was ${
 			this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()
 		} ${this.pullRequest.formatDateFromNow()}`;

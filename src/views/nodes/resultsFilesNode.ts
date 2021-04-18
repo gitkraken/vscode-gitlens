@@ -134,11 +134,11 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			`${this.filtered && files != null ? `Showing ${files.length} of ` : ''}${label}`,
 			state,
 		);
+		item.id = this.id;
 		item.iconPath = icon;
 		item.contextValue = `${ContextValues.ResultsFiles}${this.filterable ? '+filterable' : ''}${
 			this.filtered ? `+filtered~${this.filter}` : ''
 		}`;
-		item.id = this.id;
 
 		return item;
 	}
