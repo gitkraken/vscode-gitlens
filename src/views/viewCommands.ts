@@ -280,8 +280,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async createBranch(node?: ViewRefNode | BranchesNode) {
-		let from = node instanceof ViewRefNode ? node?.ref : undefined;
+	private async createBranch(node?: ViewRefNode | BranchesNode | BranchTrackingStatusNode) {
+		let from =
+			node instanceof ViewRefNode
+				? node?.ref
+				: node instanceof BranchTrackingStatusNode
+				? node.branch
+				: undefined;
 		if (from == null) {
 			const branch = await Container.git.getBranch(node?.repoPath ?? (await Container.git.getActiveRepoPath()));
 			from = branch;
@@ -323,8 +328,18 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private createTag(node?: ViewRefNode | TagsNode) {
-		return GitActions.Tag.create(node?.repoPath, node instanceof ViewRefNode ? node?.ref : undefined);
+	private async createTag(node?: ViewRefNode | TagsNode | BranchTrackingStatusNode) {
+		let from =
+			node instanceof ViewRefNode
+				? node?.ref
+				: node instanceof BranchTrackingStatusNode
+				? node.branch
+				: undefined;
+		if (from == null) {
+			const branch = await Container.git.getBranch(node?.repoPath ?? (await Container.git.getActiveRepoPath()));
+			from = branch;
+		}
+		return GitActions.Tag.create(node?.repoPath, from);
 	}
 
 	@debug()
