@@ -3045,7 +3045,12 @@ export class GitService implements Disposable {
 		provider: RichRemoteProvider,
 		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
 	): Promise<PullRequest | undefined>;
-	@gate()
+	@gate<GitService['getPullRequestForBranch']>((ref, remoteOrProvider, options) => {
+		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
+		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}${
+			options != null ? `|${options.limit ?? -1}:${options.include?.join(',')}` : ''
+		}`;
+	})
 	@debug<GitService['getPullRequestForBranch']>({
 		args: {
 			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
@@ -3097,8 +3102,11 @@ export class GitService implements Disposable {
 		provider: RichRemoteProvider,
 		options?: { timeout?: number },
 	): Promise<PullRequest | undefined>;
-	@gate()
-	@debug({
+	@gate<GitService['getPullRequestForCommit']>((ref, remoteOrProvider) => {
+		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
+		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}`;
+	})
+	@debug<GitService['getPullRequestForCommit']>({
 		args: {
 			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
 		},

@@ -147,11 +147,11 @@ export abstract class GitCommit implements GitRevisionReference {
 	}
 
 	@memoize()
-	async getAssociatedPullRequest(): Promise<PullRequest | undefined> {
+	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
 		const remote = await Container.git.getRichRemoteProvider(this.repoPath);
 		if (remote?.provider == null) return undefined;
 
-		return Container.git.getPullRequestForCommit(this.ref, remote);
+		return Container.git.getPullRequestForCommit(this.ref, remote, options);
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
