@@ -6824,7 +6824,7 @@
 				},
 				{
 					"command": "gitlens.openFolderHistory",
-					"when": "!explorerResourceIsRoot && explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"when": "explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@2"
 				},
 				{

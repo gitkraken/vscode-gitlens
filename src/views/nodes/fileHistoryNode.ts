@@ -1,4 +1,5 @@
 'use strict';
+import * as paths from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CommitNode } from './commitNode';
@@ -146,6 +147,15 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	}
 
 	get label() {
+		// Check if this is a base folder
+		if (this.uri.fileName === '') {
+			return `${paths.basename(this.uri.fsPath)}${
+				this.uri.sha
+					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+					: ''
+			}`;
+		}
+
 		return `${this.uri.fileName}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`

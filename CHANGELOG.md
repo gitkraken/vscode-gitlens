@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds the ability to filter comparisons to show only either the left-side or right-side file differences
+- Adds the _Open Folder History_ command to root folders &mdash; closes [#1505](https://github.com/eamodio/vscode-gitlens/issues/1505)
 
 ### Changed
 
