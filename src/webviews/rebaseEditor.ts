@@ -114,13 +114,18 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	get enabled(): boolean {
 		const associations =
-			configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
+			configuration.inspectAny<{ [key: string]: string } | { viewType: string; filenamePattern: string }[]>(
 				'workbench.editorAssociations',
 			)?.globalValue;
 		if (associations == null || associations.length === 0) return true;
 
-		const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
-		return association != null ? association.viewType === 'gitlens.rebase' : true;
+		if (Array.isArray(associations)) {
+			const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
+			return association != null ? association.viewType === 'gitlens.rebase' : true;
+		}
+
+		const association = associations['git-rebase-todo'];
+		return association != null ? association === 'gitlens.rebase' : true;
 	}
 
 	private _disableAfterNextUse: boolean = false;
@@ -135,36 +140,26 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disableAfterNextUse = false;
 
 		const inspection =
-			configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>('workbench.editorAssociations');
+			configuration.inspectAny<{ [key: string]: string } | { viewType: string; filenamePattern: string }[]>(
+				'workbench.editorAssociations',
+			);
 
 		let associations = inspection?.globalValue;
-		if (associations == null || associations.length === 0) {
+		if (Array.isArray(associations)) {
+			associations = associations.reduce((accumulator, current) => {
+				accumulator[current.filenamePattern] = current.viewType;
+				return accumulator;
+			}, Object.create(null) as Record<string, string>);
+		}
+
+		if (associations == null) {
 			if (enabled) return;
 
-			associations = [
-				{
-					viewType: 'default',
-					filenamePattern: 'git-rebase-todo',
-				},
-			];
+			associations = {
+				'git-rebase-todo': 'default',
+			};
 		} else {
-			const index = associations.findIndex(a => a.filenamePattern === 'git-rebase-todo');
-			if (index !== -1) {
-				if (enabled) {
-					if (associations.length === 1) {
-						associations = undefined;
-					} else {
-						associations.splice(index, 1);
-					}
-				} else {
-					associations[index].viewType = 'default';
-				}
-			} else if (!enabled) {
-				associations.push({
-					viewType: 'default',
-					filenamePattern: 'git-rebase-todo',
-				});
-			}
+			associations['git-rebase-todo'] = enabled ? 'gitlens.rebase' : 'default';
 		}
 
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
