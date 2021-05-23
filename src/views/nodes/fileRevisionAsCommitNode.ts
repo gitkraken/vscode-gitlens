@@ -35,7 +35,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		let message = this.commit.message;
 		const index = message.indexOf('\n');
 		if (index !== -1) {
@@ -159,7 +159,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			: `${ContextValues.File}+unstaged`;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		let line;
 		if (this.commit.line !== undefined) {
 			line = this.commit.line.to.line - 1;

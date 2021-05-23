@@ -32,7 +32,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		super(Commands.ConnectRemoteProvider);
 	}
 
-	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}
@@ -121,7 +121,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		super(Commands.DisconnectRemoteProvider);
 	}
 
-	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}

@@ -56,7 +56,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 }
 
 export class RemotesViewNode extends ViewNode<RemotesView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: RemotesRepositoryNode[] | undefined;
 
 	constructor(view: RemotesView) {
@@ -111,7 +111,7 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -121,7 +121,7 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -197,7 +197,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

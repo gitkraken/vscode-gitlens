@@ -31,7 +31,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffDirectoryWithHead:
 				args = { ...args };

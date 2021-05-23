@@ -68,7 +68,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 

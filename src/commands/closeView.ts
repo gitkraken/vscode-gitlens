@@ -9,7 +9,7 @@ export class CloseViewCommand extends Command {
 		super([Commands.CloseWelcomeView, Commands.CloseUpdatesView]);
 	}
 
-	protected preExecute(context: CommandContext) {
+	protected override preExecute(context: CommandContext) {
 		return this.execute(context.command as Commands);
 	}
 

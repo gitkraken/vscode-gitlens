@@ -49,7 +49,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		super([Commands.OpenFileAtRevision, Commands.OpenBlamePriorToChange]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
 		if (context.command === Commands.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: FileAnnotationType.Blame };
 			if (args.revisionUri == null && context.editor != null) {

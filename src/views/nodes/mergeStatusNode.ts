@@ -29,7 +29,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		super(GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return MergeStatusNode.getId(this.mergeStatus.repoPath, this.mergeStatus.current.name, this.root);
 	}
 

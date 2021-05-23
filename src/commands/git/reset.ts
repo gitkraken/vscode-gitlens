@@ -61,7 +61,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	private _canSkipConfirm: boolean = false;
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this._canSkipConfirm;
 	}
 

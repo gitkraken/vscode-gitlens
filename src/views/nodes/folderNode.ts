@@ -31,7 +31,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.folderName;
 	}
 

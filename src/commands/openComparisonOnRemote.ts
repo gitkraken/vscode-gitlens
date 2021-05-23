@@ -20,7 +20,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
 		if (context.type === 'viewItem') {
 			if (context.node instanceof ResultsCommitsNode) {
 				args = {

@@ -30,7 +30,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}

@@ -144,7 +144,7 @@ export abstract class ViewNode<TView extends View = View> {
 
 export abstract class ViewRefNode<
 	TView extends View = View,
-	TReference extends GitReference = GitReference
+	TReference extends GitReference = GitReference,
 > extends ViewNode<TView> {
 	abstract get ref(): TReference;
 
@@ -152,7 +152,7 @@ export abstract class ViewRefNode<
 		return this.uri.repoPath!;
 	}
 
-	toString(): string {
+	override toString(): string {
 		return `${super.toString()}:${GitReference.toString(this.ref, false)}`;
 	}
 }
@@ -161,7 +161,7 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
 	abstract get file(): GitFile;
 	abstract get fileName(): string;
 
-	toString(): string {
+	override toString(): string {
 		return `${super.toString()}:${this.fileName}`;
 	}
 }
@@ -223,7 +223,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 	@gate()
 	@debug()
-	async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
+	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
 		if (!this.loaded) return;
 
 		await super.triggerChange(reset, force);
@@ -318,14 +318,14 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 export abstract class RepositoryFolderNode<
 	TView extends View = View,
-	TChild extends ViewNode = ViewNode
+	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<TView> {
 	static key = ':repository';
 	static getId(repoPath: string): string {
 		return `gitlens${this.key}(${repoPath})`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 	protected child: TChild | undefined;
 
 	constructor(
@@ -341,11 +341,11 @@ export abstract class RepositoryFolderNode<
 		this.splatted = splatted;
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RepositoryFolderNode.getId(this.repo.path);
 	}
 
@@ -445,7 +445,7 @@ export abstract class RepositoryFolderNode<
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.child == null) {
 			await this.getChildren();
 		}
@@ -455,7 +455,7 @@ export abstract class RepositoryFolderNode<
 
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		await this.child?.triggerChange(reset, false, this);
 
 		await this.ensureSubscription();
@@ -478,7 +478,7 @@ export abstract class RepositoryFolderNode<
 		return this.repo.onDidChange(this.onRepositoryChanged, this);
 	}
 
-	protected get requiresResetOnVisible(): boolean {
+	protected override get requiresResetOnVisible(): boolean {
 		return this._repoUpdatedAt !== this.repo.updatedAt;
 	}
 

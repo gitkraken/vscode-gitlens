@@ -62,7 +62,7 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 }
 
 export class BranchesViewNode extends ViewNode<BranchesView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: BranchesRepositoryNode[] | undefined;
 
 	constructor(view: BranchesView) {
@@ -117,7 +117,7 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -127,7 +127,7 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -213,7 +213,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

@@ -29,7 +29,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchesNode.getId(this.repo.path);
 	}
 
@@ -98,7 +98,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

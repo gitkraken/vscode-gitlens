@@ -31,7 +31,8 @@ import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNo
 
 export class BranchNode
 	extends ViewRefNode<BranchesView | CommitsView | RemotesView | RepositoriesView, GitBranchReference>
-	implements PageableViewNode {
+	implements PageableViewNode
+{
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
@@ -48,7 +49,7 @@ export class BranchNode
 		showTracking: boolean;
 		authors?: string[];
 	};
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -86,11 +87,11 @@ export class BranchNode
 		};
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.branch.name;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
 	}
 
@@ -131,38 +132,31 @@ export class BranchNode
 			const children = [];
 
 			const range = await Container.git.getBranchAheadRange(this.branch);
-			const [
-				log,
-				getBranchAndTagTips,
-				status,
-				mergeStatus,
-				rebaseStatus,
-				pr,
-				unpublishedCommits,
-			] = await Promise.all([
-				this.getLog(),
-				Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
-				this.options.showStatus && this.branch.current
-					? Container.git.getStatusForRepo(this.uri.repoPath)
-					: undefined,
-				this.options.showStatus && this.branch.current
-					? Container.git.getMergeStatus(this.uri.repoPath!)
-					: undefined,
-				this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
-				this.view.config.pullRequests.enabled &&
-				this.view.config.pullRequests.showForBranches &&
-				(this.branch.upstream != null || this.branch.remote)
-					? this.branch.getAssociatedPullRequest(
-							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
-					  )
-					: undefined,
-				range && !this.branch.remote
-					? Container.git.getLogRefsOnly(this.uri.repoPath!, {
-							limit: 0,
-							ref: range,
-					  })
-					: undefined,
-			]);
+			const [log, getBranchAndTagTips, status, mergeStatus, rebaseStatus, pr, unpublishedCommits] =
+				await Promise.all([
+					this.getLog(),
+					Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
+					this.options.showStatus && this.branch.current
+						? Container.git.getStatusForRepo(this.uri.repoPath)
+						: undefined,
+					this.options.showStatus && this.branch.current
+						? Container.git.getMergeStatus(this.uri.repoPath!)
+						: undefined,
+					this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
+					this.view.config.pullRequests.enabled &&
+					this.view.config.pullRequests.showForBranches &&
+					(this.branch.upstream != null || this.branch.remote)
+						? this.branch.getAssociatedPullRequest(
+								this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+						  )
+						: undefined,
+					range && !this.branch.remote
+						? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+								limit: 0,
+								ref: range,
+						  })
+						: undefined,
+				]);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 			if (this.options.showComparison !== false && !(this.view instanceof RemotesView)) {
@@ -436,7 +430,7 @@ export class BranchNode
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		this._children = undefined;
 		if (reset) {
 			this._log = undefined;

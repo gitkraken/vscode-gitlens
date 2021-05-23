@@ -34,7 +34,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		this.repoPath = status.repoPath;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchTrackingStatusFilesNode.getId(
 			this.status.repoPath,
 			this.status.ref,

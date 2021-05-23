@@ -20,7 +20,7 @@ export class SearchCommitsCommand extends Command {
 		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
 	}
 
-	protected preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			args.showResultsInSideBar = true;

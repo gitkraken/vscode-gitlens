@@ -21,7 +21,7 @@ export class GitLineState {
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
-	protected async fireLinesChanged(e: LinesChangeEvent) {
+	protected override async fireLinesChanged(e: LinesChangeEvent) {
 		this.reset();
 
 		let updated = false;
@@ -34,7 +34,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 	private _subscriptionOnlyWhenActive: Disposable | undefined;
 
-	protected onStart(): Disposable | undefined {
+	protected override onStart(): Disposable | undefined {
 		this.onResume();
 
 		return Disposable.from(
@@ -45,13 +45,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		);
 	}
 
-	protected onResume(): void {
+	protected override onResume(): void {
 		if (this._subscriptionOnlyWhenActive == null) {
 			this._subscriptionOnlyWhenActive = Container.tracker.onDidChangeContent(this.onContentChanged, this);
 		}
 	}
 
-	protected onSuspend(): void {
+	protected override onSuspend(): void {
 		this._subscriptionOnlyWhenActive?.dispose();
 		this._subscriptionOnlyWhenActive = undefined;
 	}

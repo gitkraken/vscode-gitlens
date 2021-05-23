@@ -27,7 +27,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		super(Commands.CopyMessageToClipboard);
 	}
 
-	protected preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;

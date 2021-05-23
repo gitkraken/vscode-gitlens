@@ -27,7 +27,8 @@ export interface AnnotationContext {
 export type TextEditorCorrelationKey = string;
 
 export abstract class AnnotationProviderBase<TContext extends AnnotationContext = AnnotationContext>
-	implements Disposable {
+	implements Disposable
+{
 	static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
 		return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
 	}

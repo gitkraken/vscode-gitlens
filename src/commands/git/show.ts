@@ -60,11 +60,11 @@ export class ShowGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm() {
+	override get canConfirm() {
 		return false;
 	}
 
-	protected getStepState(limitBackNavigation: boolean): PartialStepState<State> {
+	protected override getStepState(limitBackNavigation: boolean): PartialStepState<State> {
 		// This command is special since we want to allow backing up all the way to the commit,
 		// so ensure the startingStep is at most 1
 		const state = super.getStepState(limitBackNavigation);

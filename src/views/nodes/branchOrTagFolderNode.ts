@@ -29,11 +29,11 @@ export class BranchOrTagFolderNode extends ViewNode {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.folderName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchOrTagFolderNode.getId(this.repoPath, this._key, this.type, this.relativePath);
 	}
 

@@ -168,7 +168,7 @@ export class ActionQuickPickItem extends CommandQuickPickItem {
 		super(labelOrItem, undefined, undefined);
 	}
 
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		return this.action(options);
 	}
 }
@@ -198,7 +198,7 @@ export class RevealInSideBarQuickPickItem extends CommandQuickPickItem {
 		super(item, undefined, undefined);
 	}
 
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		if (GitStashCommit.is(this.reference)) {
 			void (await GitActions.Stash.reveal(this.reference, {
 				select: true,
@@ -225,7 +225,7 @@ export class SearchForCommitQuickPickItem extends CommandQuickPickItem {
 		super(item, undefined, undefined);
 	}
 
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		void (await Container.searchAndCompareView.search(
 			this.reference.repoPath,
 			{

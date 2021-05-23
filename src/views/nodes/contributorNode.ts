@@ -34,11 +34,11 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ContributorNode.getId(this.contributor.repoPath, this.contributor.name, this.contributor.email);
 	}
 
@@ -97,7 +97,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

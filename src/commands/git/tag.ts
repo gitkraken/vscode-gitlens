@@ -113,15 +113,15 @@ export class TagGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return this.subcommand != null;
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this.subcommand === 'delete' ? false : super.canSkipConfirm;
 	}
 
-	get skipConfirmKey() {
+	override get skipConfirmKey() {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

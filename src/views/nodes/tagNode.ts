@@ -25,11 +25,11 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.tag.name;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return TagNode.getId(this.tag.repoPath, this.tag.name);
 	}
 
@@ -86,7 +86,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

@@ -20,7 +20,8 @@ export interface CommitsQueryResults {
 
 export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
 	extends ViewNode<View>
-	implements PageableViewNode {
+	implements PageableViewNode
+{
 	constructor(
 		view: View,
 		parent: ViewNode,
@@ -60,7 +61,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this._results.comparison?.ref2;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return `${this.parent!.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
@@ -149,7 +150,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset) {
 			this._commitsQueryResults = undefined;
 			void this.getCommitsQueryResults();

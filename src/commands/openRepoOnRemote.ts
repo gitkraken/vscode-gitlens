@@ -26,7 +26,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}

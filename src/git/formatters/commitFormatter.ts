@@ -605,7 +605,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return super.fromTemplateCoreAsync(this, template, commit, dateFormatOrOptions);
 	}
 
-	static has(template: string, ...tokens: (keyof NonNullable<CommitFormatOptions['tokenOptions']>)[]): boolean {
+	static override has(template: string, ...tokens: (keyof NonNullable<CommitFormatOptions['tokenOptions']>)[]): boolean {
 		return super.has<CommitFormatOptions>(template, ...tokens);
 	}
 }

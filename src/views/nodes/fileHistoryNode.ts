@@ -30,7 +30,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri})`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -42,11 +42,11 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.uri.fileName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return FileHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true));
 	}
 
@@ -172,7 +172,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		return subscription;
 	}
 
-	protected get requiresResetOnVisible(): boolean {
+	protected override get requiresResetOnVisible(): boolean {
 		return true;
 	}
 
@@ -209,7 +209,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

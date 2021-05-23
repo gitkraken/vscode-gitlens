@@ -130,15 +130,15 @@ export class StashGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return this.subcommand != null && this.subcommand !== 'list';
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this.subcommand === 'drop' ? false : super.canSkipConfirm;
 	}
 
-	get skipConfirmKey() {
+	override get skipConfirmKey() {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

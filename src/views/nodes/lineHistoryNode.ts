@@ -28,7 +28,8 @@ import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
-	implements PageableViewNode {
+	implements PageableViewNode
+{
 	static key = ':history:line';
 	static getId(repoPath: string, uri: string, selection: Selection): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
@@ -36,7 +37,7 @@ export class LineHistoryNode
 		}-${selection.end.line},${selection.end.character}])`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -49,11 +50,11 @@ export class LineHistoryNode
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.uri.fileName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return LineHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true), this.selection);
 	}
 
@@ -270,7 +271,7 @@ export class LineHistoryNode
 		return subscription;
 	}
 
-	protected get requiresResetOnVisible(): boolean {
+	protected override get requiresResetOnVisible(): boolean {
 		return true;
 	}
 
@@ -303,7 +304,7 @@ export class LineHistoryNode
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

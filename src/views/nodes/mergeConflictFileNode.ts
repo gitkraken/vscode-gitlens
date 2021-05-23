@@ -20,7 +20,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -110,7 +110,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		this._description = undefined;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		return {
 			title: 'Open File',
 			command: BuiltInCommands.Open,

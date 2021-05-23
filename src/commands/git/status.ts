@@ -49,7 +49,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm() {
+	override get canConfirm() {
 		return false;
 	}
 

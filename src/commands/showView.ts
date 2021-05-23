@@ -22,7 +22,7 @@ export class ShowViewCommand extends Command {
 		]);
 	}
 
-	protected preExecute(context: CommandContext) {
+	protected override preExecute(context: CommandContext) {
 		return this.execute(context.command as Commands);
 	}
 

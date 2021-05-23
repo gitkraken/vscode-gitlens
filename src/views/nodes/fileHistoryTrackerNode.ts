@@ -15,13 +15,13 @@ import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from '.
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
 	private _child: FileHistoryNode | undefined;
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
 		super(unknownGitUri, view);
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
 
 		this.resetChild();
@@ -126,7 +126,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@debug({
 		exit: r => `returned ${r}`,
 	})
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
 
 		if (!this.canSubscribe) return false;

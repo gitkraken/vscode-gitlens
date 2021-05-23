@@ -23,7 +23,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StashesNode.getId(this.repo.path);
 	}
 
@@ -53,7 +53,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

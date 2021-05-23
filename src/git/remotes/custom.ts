@@ -28,7 +28,7 @@ export class CustomRemote extends RemoteProvider {
 		return Promise.resolve(undefined);
 	}
 
-	protected getUrlForRepository(): string {
+	protected override getUrlForRepository(): string {
 		return this.encodeUrl(Strings.interpolate(this.urls.repository, this.getContext()));
 	}
 
@@ -44,7 +44,7 @@ export class CustomRemote extends RemoteProvider {
 		return this.encodeUrl(Strings.interpolate(this.urls.commit, this.getContext({ id: sha })));
 	}
 
-	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
+	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
 		return this.encodeUrl(

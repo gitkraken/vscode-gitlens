@@ -45,7 +45,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 }
 
 export class TagsViewNode extends ViewNode<TagsView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: TagsRepositoryNode[] | undefined;
 
 	constructor(view: TagsView) {
@@ -100,7 +100,7 @@ export class TagsViewNode extends ViewNode<TagsView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -110,7 +110,7 @@ export class TagsViewNode extends ViewNode<TagsView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -176,7 +176,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

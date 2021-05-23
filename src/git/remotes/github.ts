@@ -35,7 +35,7 @@ export class GitHubRemote extends RichRemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
@@ -61,7 +61,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'github';
 	}
 
@@ -147,11 +147,11 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
 		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
 	}
 
-	protected getUrlForCreatePullRequest(
+	protected override getUrlForCreatePullRequest(
 		base: { branch?: string; remote: { path: string; url: string } },
 		compare: { branch: string; remote: { path: string; url: string } },
 	): string | undefined {

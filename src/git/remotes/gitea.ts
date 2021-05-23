@@ -15,7 +15,7 @@ export class GiteaRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
@@ -28,7 +28,7 @@ export class GiteaRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'gitea';
 	}
 
@@ -123,7 +123,7 @@ export class GiteaRemote extends RemoteProvider {
 		return `${this.baseUrl}/commit/${sha}`;
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
 		return `${this.baseUrl}/compare/${ref1}...${ref2}`;
 	}
 

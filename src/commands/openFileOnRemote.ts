@@ -43,7 +43,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
 		let uri = context.uri;
 
 		if (context.command === Commands.CopyRemoteFileUrlWithoutRange) {

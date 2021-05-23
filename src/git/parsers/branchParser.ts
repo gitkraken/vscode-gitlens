@@ -2,7 +2,8 @@
 import { GitBranch } from '../models/branch';
 import { debug } from '../../system';
 
-const branchWithTrackingRegex = /^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;
+const branchWithTrackingRegex =
+	/^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;

@@ -22,7 +22,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -104,7 +104,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		return 0;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: this.ref1,

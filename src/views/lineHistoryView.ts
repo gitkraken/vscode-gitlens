@@ -17,7 +17,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}
 
-	protected get showCollapseAll(): boolean {
+	protected override get showCollapseAll(): boolean {
 		return false;
 	}
 
@@ -49,7 +49,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

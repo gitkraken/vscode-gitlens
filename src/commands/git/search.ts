@@ -77,15 +77,15 @@ export class SearchGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
-	isMatch(key: string) {
+	override isMatch(key: string) {
 		return super.isMatch(key) || key === 'grep';
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'grep';
 	}
 

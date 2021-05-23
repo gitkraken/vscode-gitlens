@@ -30,7 +30,7 @@ interface DeprecatedPinnedComparisons {
 }
 
 export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
@@ -117,7 +117,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	@gate()
 	@debug()
-	async refresh() {
+	override async refresh() {
 		if (this.children.length === 0) return;
 
 		const promises: Promise<any>[] = [
@@ -321,7 +321,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

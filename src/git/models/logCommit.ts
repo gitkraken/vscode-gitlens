@@ -24,11 +24,11 @@ export interface GitLogCommitLine {
 }
 
 export class GitLogCommit extends GitCommit {
-	static isOfRefType(commit: GitReference | undefined) {
+	static override isOfRefType(commit: GitReference | undefined) {
 		return commit?.refType === 'revision';
 	}
 
-	static is(commit: any): commit is GitLogCommit {
+	static override is(commit: any): commit is GitLogCommit {
 		return (
 			commit instanceof GitLogCommit
 			// || (commit.repoPath !== undefined &&
@@ -81,7 +81,7 @@ export class GitLogCommit extends GitCommit {
 	}
 
 	@memoize()
-	get hasConflicts() {
+	override get hasConflicts() {
 		return this.files.some(f => f.conflictStatus != null);
 	}
 
@@ -93,7 +93,7 @@ export class GitLogCommit extends GitCommit {
 		return this.nextFileName ? GitUri.resolveToUri(this.nextFileName, this.repoPath) : this.uri;
 	}
 
-	get previousFileSha(): string {
+	override get previousFileSha(): string {
 		return this.isFile ? this.previousSha! : `${this.sha}^`;
 	}
 

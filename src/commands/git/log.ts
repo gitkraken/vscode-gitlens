@@ -66,11 +66,11 @@ export class LogGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return false;
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'log';
 	}
 
@@ -134,11 +134,10 @@ export class LogGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = state.reference;
 			}
 
-			context.title = `${this.title}${Strings.pad(
-				GlyphChars.Dot,
-				2,
-				2,
-			)}${GitReference.toString(context.selectedBranchOrTag, { icon: false })}`;
+			context.title = `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
+				context.selectedBranchOrTag,
+				{ icon: false },
+			)}`;
 
 			if (state.fileName) {
 				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName, {

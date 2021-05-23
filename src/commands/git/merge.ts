@@ -66,7 +66,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 

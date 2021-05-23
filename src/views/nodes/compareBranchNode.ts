@@ -52,7 +52,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		};
 	}
 
-	get id(): string {
+	override get id(): string {
 		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
 	}
 
@@ -197,7 +197,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 		this.loadCompareWith();
 	}

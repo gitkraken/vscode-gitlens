@@ -22,7 +22,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
 	}
 
-	protected get showCollapseAll(): boolean {
+	protected override get showCollapseAll(): boolean {
 		return false;
 	}
 
@@ -84,7 +84,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

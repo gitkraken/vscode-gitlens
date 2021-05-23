@@ -265,7 +265,7 @@ export class ClientError extends Error {
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RichRemoteProvider extends RemoteProvider {
-	readonly type: 'simple' | 'rich' = 'rich';
+	override readonly type: 'simple' | 'rich' = 'rich';
 
 	static is(provider: RemoteProvider | undefined): provider is RichRemoteProvider {
 		return provider?.type === 'rich';

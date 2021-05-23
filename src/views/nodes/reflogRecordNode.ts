@@ -30,7 +30,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 		super(GitUri.fromRepoPath(record.repoPath), view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ReflogRecordNode.getId(
 			this.uri.repoPath!,
 			this.record.sha,
@@ -80,7 +80,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

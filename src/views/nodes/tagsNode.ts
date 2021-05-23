@@ -24,7 +24,7 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return TagsNode.getId(this.repo.path);
 	}
 
@@ -75,7 +75,7 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

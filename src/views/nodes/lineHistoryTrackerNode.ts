@@ -19,13 +19,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	private _child: LineHistoryNode | undefined;
 	private _editorContents: string | undefined;
 	private _selection: Selection | undefined;
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
 		super(unknownGitUri, view);
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
 
 		this.resetChild();
@@ -138,7 +138,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@debug({
 		exit: r => `returned ${r}`,
 	})
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
 
 		if (!this.canSubscribe) return false;

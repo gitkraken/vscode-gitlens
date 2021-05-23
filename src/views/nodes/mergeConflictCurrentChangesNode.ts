@@ -61,7 +61,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		if (this.status.mergeBase == null) {
 			return {
 				title: 'Open Revision',

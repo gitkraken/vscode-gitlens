@@ -30,11 +30,11 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.remote.name;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RemoteNode.getId(this.remote.repoPath, this.remote.name, this.remote.id);
 	}
 

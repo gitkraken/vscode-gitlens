@@ -194,7 +194,7 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 }
 
 export function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
-	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}` as Commands, {
+	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}`, {
 		...args,
 		type: action,
 	});
@@ -351,9 +351,7 @@ export function isCommandContextViewNodeHasFileCommit(
 	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
-export function isCommandContextViewNodeHasFileRefs(
-	context: CommandContext,
-): context is CommandViewNodeContext & {
+export function isCommandContextViewNodeHasFileRefs(context: CommandContext): context is CommandViewNodeContext & {
 	node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
 	if (context.type !== 'viewItem') return false;
@@ -450,7 +448,10 @@ function isGitTimelineItem(item: any): item is GitTimelineItem {
 }
 
 export abstract class Command implements Disposable {
-	static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
+	static getMarkdownCommandArgsCore<T>(
+		command: Commands | `${Commands.ActionPrefix}${ActionContext['type']}`,
+		args: T,
+	): string {
 		return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
 	}
 
@@ -579,21 +580,21 @@ export abstract class Command implements Disposable {
 }
 
 export abstract class ActiveEditorCommand extends Command {
-	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
+	protected override readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
 	constructor(command: Commands | Commands[]) {
 		super(command);
 	}
 
-	protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
 		return this.execute(context.editor, context.uri, ...args);
 	}
 
-	protected _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: string, ...args: any[]): any {
 		return super._execute(command, undefined, ...args);
 	}
 
-	abstract execute(editor?: TextEditor, ...args: any[]): any;
+	abstract override execute(editor?: TextEditor, ...args: any[]): any;
 }
 
 let lastCommand: { command: string; args: any[] } | undefined = undefined;
@@ -606,7 +607,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 		super(command);
 	}
 
-	protected _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: string, ...args: any[]): any {
 		lastCommand = {
 			command: command,
 			args: args,
@@ -614,7 +615,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 		return super._execute(command, ...args);
 	}
 
-	abstract execute(editor: TextEditor, ...args: any[]): any;
+	abstract override execute(editor: TextEditor, ...args: any[]): any;
 }
 
 export abstract class EditorCommand implements Disposable {

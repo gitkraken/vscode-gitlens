@@ -45,11 +45,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		this._status = this.repo.getStatus();
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RepositoryNode.getId(this.repo.path);
 	}
 
@@ -290,7 +290,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		if (reset) {
 			this._status = this.repo.getStatus();
 
@@ -346,7 +346,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...disposables);
 	}
 
-	protected get requiresResetOnVisible(): boolean {
+	protected override get requiresResetOnVisible(): boolean {
 		return this._repoUpdatedAt !== this.repo.updatedAt;
 	}
 

@@ -18,7 +18,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 		super([Commands.ShowQuickBranchHistory, Commands.ShowQuickCurrentBranchHistory]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
 		if (context.command === Commands.ShowQuickCurrentBranchHistory) {
 			args = { ...args };
 			args.branch = 'HEAD';

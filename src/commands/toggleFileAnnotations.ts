@@ -121,9 +121,7 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 	}
 
 	try {
-		if (args.type == null) {
-			args = { ...args, type: FileAnnotationType.Blame };
-		}
+		args = { type: FileAnnotationType.Blame, ...(args as any) };
 
 		void (await Container.fileAnnotations.toggle(
 			editor,

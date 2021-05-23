@@ -21,7 +21,7 @@ export class WelcomeWebview extends WebviewBase {
 		return 'Welcome to GitLens';
 	}
 
-	renderEndOfBody() {
+	override renderEndOfBody() {
 		const bootstrap: WelcomeState = {
 			config: Container.config,
 		};

@@ -9,11 +9,11 @@ import { gate, memoize } from '../../system';
 const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitStashCommit extends GitLogCommit {
-	static isOfRefType(commit: GitReference | undefined) {
+	static override isOfRefType(commit: GitReference | undefined) {
 		return commit?.refType === 'stash';
 	}
 
-	static is(commit: any): commit is GitStashCommit {
+	static override is(commit: any): commit is GitStashCommit {
 		return (
 			commit instanceof GitStashCommit
 			// || (commit.repoPath !== undefined &&
@@ -22,7 +22,7 @@ export class GitStashCommit extends GitLogCommit {
 		);
 	}
 
-	readonly refType = 'stash';
+	override readonly refType = 'stash';
 
 	constructor(
 		type: GitCommitType,
@@ -46,7 +46,7 @@ export class GitStashCommit extends GitLogCommit {
 		return match[1];
 	}
 
-	get shortSha() {
+	override get shortSha() {
 		return this.stashName;
 	}
 
@@ -74,7 +74,7 @@ export class GitStashCommit extends GitLogCommit {
 		}
 	}
 
-	with(changes: {
+	override with(changes: {
 		type?: GitCommitType;
 		sha?: string | null;
 		fileName?: string;

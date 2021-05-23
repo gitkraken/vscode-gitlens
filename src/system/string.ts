@@ -438,12 +438,13 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 }
 
-// Lifted from https://github.com/chalk/ansi-regex
-// eslint-disable-next-line no-control-regex
-const ansiRegex = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
+// See chalk/ansi-regex
+const ansiRegex =
+	// eslint-disable-next-line no-control-regex
+	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
-// Originally from https://github.com/sindresorhus/string-width
+// See sindresorhus/string-width
 export function getWidth(s: string): number {
 	if (s == null || s.length === 0) return 0;
 
@@ -466,7 +467,6 @@ export function getWidth(s: string): number {
 		// Ignore combining characters
 		if (code >= 0x300 && code <= 0x36f) continue;
 
-		// https://stackoverflow.com/questions/30757193/find-out-if-character-in-string-is-emoji
 		if (
 			(code >= 0x1f600 && code <= 0x1f64f) || // Emoticons
 			(code >= 0x1f300 && code <= 0x1f5ff) || // Misc Symbols and Pictographs
@@ -507,7 +507,7 @@ export function getWidth(s: string): number {
 	return count;
 }
 
-// Originally from https://github.com/sindresorhus/is-fullwidth-code-point
+// See sindresorhus/is-fullwidth-code-point
 function isFullwidthCodePoint(cp: number) {
 	// code points are derived from:
 	// http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt

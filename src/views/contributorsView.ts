@@ -20,7 +20,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	@debug()
-	protected async subscribe() {
+	protected override async subscribe() {
 		return Disposable.from(
 			await super.subscribe(),
 			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
@@ -39,7 +39,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 }
 
 export class ContributorsViewNode extends ViewNode<ContributorsView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: ContributorsRepositoryNode[] | undefined;
 
 	constructor(view: ContributorsView) {
@@ -107,7 +107,7 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -117,7 +117,7 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -185,7 +185,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

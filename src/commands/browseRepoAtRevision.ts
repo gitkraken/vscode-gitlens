@@ -27,7 +27,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
 		switch (context.command) {
 			case Commands.BrowseRepoAtRevisionInNewWindow:
 				args = { ...args, before: false, openInNewWindow: true };

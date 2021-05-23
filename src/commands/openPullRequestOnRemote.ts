@@ -17,7 +17,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		super([Commands.OpenPullRequestOnRemote, Commands.CopyRemotePullRequestUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
 		if (context.type === 'viewItem' && context.node instanceof PullRequestNode) {
 			args = {
 				...args,

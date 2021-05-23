@@ -9,6 +9,7 @@
 		"module": "esnext",
 		"moduleResolution": "node",
 		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
 		"noImplicitReturns": true,
 		"noUnusedLocals": false,
 		"outDir": "dist",

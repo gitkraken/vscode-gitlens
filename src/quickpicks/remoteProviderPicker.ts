@@ -19,7 +19,7 @@ export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQu
 		super({ label: 'See how to configure a custom remote provider...' });
 	}
 
-	async execute(): Promise<void> {
+	override async execute(): Promise<void> {
 		await env.openExternal(
 			Uri.parse('https://github.com/eamodio/vscode-gitlens#remote-provider-integration-settings-'),
 		);
@@ -38,7 +38,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 		});
 	}
 
-	async execute(): Promise<void> {
+	override async execute(): Promise<void> {
 		let resource = this.resource;
 		if (resource.type === RemoteResourceType.Comparison) {
 			if (GitBranch.getRemote(resource.base) === this.remote.name) {
@@ -102,7 +102,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 		);
 	}
 
-	async onDidPressKey(key: Keys): Promise<void> {
+	override async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
 		void window.showInformationMessage('Url copied to the clipboard');
 	}
@@ -133,7 +133,7 @@ export class SetADefaultRemoteCommandQuickPickItem extends CommandQuickPickItem 
 		super({ label: 'Set a Default Remote...' });
 	}
 
-	async execute(): Promise<GitRemote<RemoteProvider> | undefined> {
+	override async execute(): Promise<GitRemote<RemoteProvider> | undefined> {
 		return RemoteProviderPicker.setADefaultRemote(this.remotes);
 	}
 }
@@ -146,7 +146,7 @@ export class SetRemoteAsDefaultCommandQuickPickItem extends CommandQuickPickItem
 		});
 	}
 
-	async execute(): Promise<GitRemote<RemoteProvider>> {
+	override async execute(): Promise<GitRemote<RemoteProvider>> {
 		void (await this.remote.setAsDefault(true));
 		return this.remote;
 	}
@@ -193,11 +193,12 @@ export namespace RemoteProviderPicker {
 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (autoPick && remotes.length === 1) return items[0];
 
-		const quickpick = window.createQuickPick<
-			| ConfigureCustomRemoteProviderCommandQuickPickItem
-			| CopyOrOpenRemoteCommandQuickPickItem
-			| SetADefaultRemoteCommandQuickPickItem
-		>();
+		const quickpick =
+			window.createQuickPick<
+				| ConfigureCustomRemoteProviderCommandQuickPickItem
+				| CopyOrOpenRemoteCommandQuickPickItem
+				| SetADefaultRemoteCommandQuickPickItem
+			>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		const disposables: Disposable[] = [];

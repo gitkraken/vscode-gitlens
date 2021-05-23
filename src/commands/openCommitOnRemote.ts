@@ -35,7 +35,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
 		let uri = context.uri;
 
 		if (isCommandContextViewNodeHasCommit(context)) {

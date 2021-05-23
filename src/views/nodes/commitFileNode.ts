@@ -24,7 +24,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -132,7 +132,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		);
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		let line;
 		if (this.commit.line !== undefined) {
 			line = this.commit.line.to.line - 1;

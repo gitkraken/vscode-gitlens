@@ -44,14 +44,14 @@ class RebaseEditor extends App<RebaseState> {
 		(window as any).bootstrap = undefined;
 	}
 
-	protected onInitialize() {
+	protected override onInitialize() {
 		this.state = this.getState() ?? this.state;
 		if (this.state != null) {
 			this.refresh(this.state);
 		}
 	}
 
-	protected onBind() {
+	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -252,7 +252,7 @@ class RebaseEditor extends App<RebaseState> {
 		this.sendCommand(RebaseDidSwitchCommandType, {});
 	}
 
-	protected onMessageReceived(e: MessageEvent) {
+	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data;
 
 		switch (msg.method) {

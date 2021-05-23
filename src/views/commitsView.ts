@@ -68,7 +68,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		if (reset) {
 			this.child = undefined;
 		} else {
@@ -79,7 +79,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	@debug()
-	protected async subscribe() {
+	protected override async subscribe() {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
@@ -118,7 +118,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 }
 
 export class CommitsViewNode extends ViewNode<CommitsView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: CommitsRepositoryNode[] | undefined;
 
 	constructor(view: CommitsView) {
@@ -177,7 +177,7 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -187,7 +187,7 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -282,7 +282,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

@@ -78,11 +78,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		));
 	}
 
-	isMatch(key: string) {
+	override isMatch(key: string) {
 		return super.isMatch(key) || key === 'checkout';
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'checkout';
 	}
 

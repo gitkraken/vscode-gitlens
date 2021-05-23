@@ -105,9 +105,7 @@ export async function raceAll<TPromise, T>(
 ) {
 	let promises;
 	if (timeoutOrFn != null && typeof timeoutOrFn !== 'number') {
-		promises = new Map(
-			map<T, [T, Promise<TPromise>]>(promisesOrIds as Iterable<T>, id => [id, timeoutOrFn(id)]),
-		);
+		promises = new Map(map<T, [T, Promise<TPromise>]>(promisesOrIds as Iterable<T>, id => [id, timeoutOrFn(id)]));
 	} else {
 		timeout = timeoutOrFn;
 		promises = promisesOrIds as Promise<TPromise>[] | Map<T, Promise<TPromise>>;

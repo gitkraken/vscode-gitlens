@@ -49,10 +49,10 @@ export function debounce<T extends (...args: any[]) => any>(
 	let pending = false;
 
 	const debounced = _debounce(
-		(function (this: any, ...args: any[]) {
+		function (this: any, ...args: any[]) {
 			pending = false;
 			return fn.apply(this, args);
-		} as any) as T,
+		} as any as T,
 		wait,
 		options,
 	);

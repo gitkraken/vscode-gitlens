@@ -46,7 +46,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		this.repoPath = status.repoPath;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StatusFilesNode.getId(this.repoPath);
 	}
 

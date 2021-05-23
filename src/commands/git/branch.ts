@@ -134,15 +134,15 @@ export class BranchGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return this.subcommand != null;
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this.subcommand === 'delete' || this.subcommand === 'rename' ? false : super.canSkipConfirm;
 	}
 
-	get skipConfirmKey() {
+	override get skipConfirmKey() {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 

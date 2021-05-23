@@ -4,7 +4,8 @@ import { GitFile, GitFileStatus } from '../models/file';
 import { debug, Strings } from '../../system';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
-const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
+const shortStatDiffRegex =
+	/^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {

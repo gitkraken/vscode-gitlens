@@ -30,7 +30,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		}
 	}
 
-	clear() {
+	override clear() {
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();
 			this.hoverProviderDisposable = undefined;

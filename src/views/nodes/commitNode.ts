@@ -28,7 +28,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		super(commit.toGitUri(), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		let message = this.commit.message;
 		const index = message.indexOf('\n');
 		if (index !== -1) {
@@ -132,7 +132,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			uri: this.uri,

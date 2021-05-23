@@ -22,7 +22,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ReflogNode.getId(this.repo.path);
 	}
 
@@ -61,7 +61,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		this._children = undefined;
 		if (reset) {
 			this._reflog = undefined;

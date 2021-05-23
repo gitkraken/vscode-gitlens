@@ -38,7 +38,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 }
 
 export class StashesViewNode extends ViewNode<StashesView> {
-	protected splatted = true;
+	protected override splatted = true;
 	private children: StashesRepositoryNode[] | undefined;
 
 	constructor(view: StashesView) {
@@ -93,7 +93,7 @@ export class StashesViewNode extends ViewNode<StashesView> {
 		return item;
 	}
 
-	async getSplattedChild() {
+	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
 		}
@@ -103,7 +103,7 @@ export class StashesViewNode extends ViewNode<StashesView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (reset && this.children != null) {
 			for (const child of this.children) {
 				child.dispose();
@@ -157,7 +157,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&

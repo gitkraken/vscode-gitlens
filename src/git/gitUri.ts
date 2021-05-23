@@ -18,7 +18,6 @@ export interface GitCommitish {
 	versionedPath?: string;
 }
 
-// Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L331-L337
 interface UriComponents {
 	scheme: string;
 	authority: string;
@@ -34,7 +33,7 @@ interface UriEx {
 	new (components: UriComponents): Uri;
 }
 
-export class GitUri extends ((Uri as any) as UriEx) {
+export class GitUri extends (Uri as any as UriEx) {
 	static is(uri: any): uri is GitUri {
 		return uri instanceof GitUri;
 	}
@@ -199,9 +198,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
 	}
 
 	private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
-		// Taken from https://github.com/Microsoft/vscode/blob/e444eaa768a1e8bd8315f2cee265d725e96a8162/src/vs/base/common/uri.ts#L300-L325
-		// check for authority as used in UNC shares or use the path as given
-		if (fsPath.startsWith(slash) && fsPath[1] === slash) {
+		// Check for authority as used in UNC shares or use the path as given
+		if (fsPath[0] === slash && fsPath[1] === slash) {
 			const index = fsPath.indexOf(slash, 2);
 			if (index === -1) {
 				authority = fsPath.substring(2);

@@ -55,7 +55,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm() {
+	override get canConfirm() {
 		return false;
 	}
 

@@ -113,9 +113,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	get enabled(): boolean {
-		const associations = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
-			'workbench.editorAssociations',
-		)?.globalValue;
+		const associations =
+			configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
+				'workbench.editorAssociations',
+			)?.globalValue;
 		if (associations == null || associations.length === 0) return true;
 
 		const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
@@ -133,9 +134,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	async setEnabled(enabled: boolean): Promise<void> {
 		this._disableAfterNextUse = false;
 
-		const inspection = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
-			'workbench.editorAssociations',
-		);
+		const inspection =
+			configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>('workbench.editorAssociations');
 
 		let associations = inspection?.globalValue;
 		if (associations == null || associations.length === 0) {

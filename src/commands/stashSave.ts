@@ -32,7 +32,7 @@ export class StashSaveCommand extends Command {
 		super([Commands.StashSave, Commands.StashSaveFiles]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
 		if (isCommandContextViewNodeHasFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath ?? context.node.repoPath;

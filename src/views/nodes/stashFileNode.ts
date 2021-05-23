@@ -10,7 +10,7 @@ export class StashFileNode extends CommitFileNode<StashesView | RepositoriesView
 		super(view, parent, file, commit);
 	}
 
-	protected get contextValue(): string {
+	protected override get contextValue(): string {
 		return `${ContextValues.File}+stashed`;
 	}
 }

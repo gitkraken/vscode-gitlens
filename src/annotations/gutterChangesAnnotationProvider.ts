@@ -36,11 +36,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		super(FileAnnotationType.Changes, editor, trackedDocument);
 	}
 
-	mustReopen(context?: ChangesAnnotationContext): boolean {
+	override mustReopen(context?: ChangesAnnotationContext): boolean {
 		return this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only;
 	}
 
-	clear() {
+	override clear() {
 		this.state = undefined;
 		if (this.hoverProviderDisposable != null) {
 			this.hoverProviderDisposable.dispose();

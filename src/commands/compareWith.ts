@@ -29,7 +29,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
 		switch (context.command) {
 			case Commands.CompareWith:
 				args = { ...args };

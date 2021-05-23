@@ -30,7 +30,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
 		if (
 			context.command === Commands.OpenFileHistory ||
 			context.command === Commands.OpenFolderHistory ||

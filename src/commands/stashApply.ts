@@ -25,7 +25,7 @@ export class StashApplyCommand extends Command {
 		super(Commands.StashApply);
 	}
 
-	protected preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
 		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
 			args = { ...args, stashItem: context.node.commit };
 		} else if (isCommandContextViewNodeHasRepository(context)) {

@@ -37,7 +37,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
 		if (context.editor != null && context.command.startsWith(Commands.ShowQuickCommitRevision)) {
 			args = { ...args };
 

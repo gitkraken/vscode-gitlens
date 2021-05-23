@@ -65,7 +65,7 @@ export class ExternalDiffCommand extends Command {
 		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {

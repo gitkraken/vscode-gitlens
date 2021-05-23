@@ -22,7 +22,7 @@ export { RunError } from './shell';
 
 export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';
 
-const emptyArray = (Object.freeze([]) as any) as any[];
+const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
 const emptyStr = '';
 export const maxGitCliLength = 30000;
@@ -50,7 +50,8 @@ const GitWarnings = {
 	foundButNotInRevision: /Path '.*?' exists on disk, but not in/i,
 	headNotABranch: /HEAD does not point to a branch/i,
 	noUpstream: /no upstream configured for branch '(.*?)'/i,
-	unknownRevision: /ambiguous argument '.*?': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
+	unknownRevision:
+		/ambiguous argument '.*?': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
 	mustRunInWorkTree: /this operation must be run in a work tree/i,
 	patchWithConflicts: /Applied patch to '.*?' with conflicts/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,

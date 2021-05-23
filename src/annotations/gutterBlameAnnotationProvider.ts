@@ -18,7 +18,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		super(FileAnnotationType.Blame, editor, trackedDocument);
 	}
 
-	clear() {
+	override clear() {
 		super.clear();
 
 		if (Decorations.gutterBlameHighlight != null) {

@@ -28,7 +28,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenBranchOnRemote, Commands.Deprecated_OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasBranch(context)) {
 			args = {
 				...args,

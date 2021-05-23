@@ -23,7 +23,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft, Commands.DiffWithNextInDiffRight]);
 	}
 
-	protected preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
 		if (context.command === Commands.DiffWithNextInDiffLeft) {
 			args = { ...args, inDiffLeftEditor: true };
 		}

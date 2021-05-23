@@ -92,7 +92,7 @@ export class GitCommandsCommand extends Command {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: GitCommandsCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgs) {
 		switch (context.command) {
 			case Commands.GitCommandsBranch:
 				args = { command: 'branch' };

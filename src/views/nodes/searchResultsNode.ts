@@ -31,7 +31,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		return Strings.sha1(`${repoPath}|${SearchPattern.toKey(search)}`);
 	}
 
-	static is(node: any): node is SearchResultsNode {
+	static override is(node: any): node is SearchResultsNode {
 		return node instanceof SearchResultsNode;
 	}
 
@@ -65,7 +65,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		this._order = Date.now();
 	}
 
-	get id(): string {
+	override get id(): string {
 		return SearchResultsNode.getId(this.repoPath, this.search, this._instanceId);
 	}
 
@@ -199,7 +199,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		this._resultsNode?.refresh(reset);
 	}
 

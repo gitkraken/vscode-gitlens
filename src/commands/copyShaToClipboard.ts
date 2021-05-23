@@ -26,7 +26,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		super(Commands.CopyShaToClipboard);
 	}
 
-	protected preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = Container.config.advanced.abbreviateShaOnCopy

@@ -19,11 +19,11 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		super(commit.toGitUri(), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.commit.stashName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 

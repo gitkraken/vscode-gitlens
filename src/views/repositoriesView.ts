@@ -230,7 +230,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		);
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -249,7 +249,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 		return true;
 	}
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
 			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
 		}

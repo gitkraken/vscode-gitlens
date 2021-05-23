@@ -58,7 +58,7 @@ export class CommandMessageNode extends MessageNode {
 		super(view, parent, message, description, tooltip, iconPath);
 	}
 
-	getTreeItem(): TreeItem | Promise<TreeItem> {
+	override getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = super.getTreeItem();
 		if (item instanceof TreeItem) {
 			item.command = this._command;
@@ -73,10 +73,12 @@ export class CommandMessageNode extends MessageNode {
 }
 
 export class UpdateableMessageNode extends ViewNode {
+	override readonly id: string;
+
 	constructor(
 		view: View,
 		parent: ViewNode,
-		public readonly id: string,
+		id: string,
 		private _message: string,
 		private _tooltip?: string,
 		private _iconPath?:
@@ -89,6 +91,7 @@ export class UpdateableMessageNode extends ViewNode {
 			| ThemeIcon,
 	) {
 		super(unknownGitUri, view, parent);
+		this.id = id;
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -176,7 +179,7 @@ export abstract class PagerNode extends ViewNode {
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		return {
 			title: 'Load more',
 			command: 'gitlens.views.loadMoreChildren',

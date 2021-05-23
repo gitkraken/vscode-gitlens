@@ -22,7 +22,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RemotesNode.getId(this.repo.path);
 	}
 
@@ -54,7 +54,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

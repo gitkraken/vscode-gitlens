@@ -16,7 +16,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		super(unknownGitUri, view);
 	}
 
-	dispose() {
+	override dispose() {
 		super.dispose();
 
 		this.resetChildren();
@@ -54,7 +54,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		if (this._children === undefined) return;
 
 		if (reset) {
@@ -109,7 +109,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...subscriptions);
 	}
 
-	protected get requiresResetOnVisible(): boolean {
+	protected override get requiresResetOnVisible(): boolean {
 		return true;
 	}
 

@@ -291,9 +291,8 @@ export class GitLogParser {
 											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileIndexStatus;
 
 											renamedFileName = match[3];
-											renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
-												renamedFileName,
-											);
+											renamedMatch =
+												fileStatusAndSummaryRenamedFilePathRegex.exec(renamedFileName);
 											if (renamedMatch != null) {
 												// If there is no new path, the path part was removed so ensure we don't end up with //
 												entry.fileName =
@@ -302,9 +301,8 @@ export class GitLogParser {
 														: `${renamedMatch[1]}${renamedMatch[3]}${renamedMatch[4]}`;
 												entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${renamedMatch[4]}`;
 											} else {
-												renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(
-													renamedFileName,
-												);
+												renamedMatch =
+													fileStatusAndSummaryRenamedFileRegex.exec(renamedFileName);
 												if (renamedMatch != null) {
 													entry.fileName = renamedMatch[2];
 													entry.originalFileName = renamedMatch[1];

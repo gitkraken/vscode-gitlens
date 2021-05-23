@@ -17,7 +17,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 
 	private _children: ContributorNode[] | undefined;
 
@@ -30,7 +30,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ContributorsNode.getId(this.repo.path);
 	}
 
@@ -85,7 +85,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 

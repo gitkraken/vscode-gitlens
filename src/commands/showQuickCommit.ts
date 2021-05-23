@@ -36,7 +36,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		super([Commands.RevealCommitInView, Commands.ShowQuickCommit]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
 		if (context.command === Commands.RevealCommitInView) {
 			args = { ...args };
 			args.revealInView = true;

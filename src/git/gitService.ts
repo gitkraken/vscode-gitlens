@@ -3238,9 +3238,8 @@ export class GitService implements Disposable {
 			if (remote !== undefined) return remote ?? undefined;
 		}
 
-		const remotes = (typeof remotesOrRepoPath === 'string'
-			? await this.getRemotes(remotesOrRepoPath)
-			: remotesOrRepoPath
+		const remotes = (
+			typeof remotesOrRepoPath === 'string' ? await this.getRemotes(remotesOrRepoPath) : remotesOrRepoPath
 		).filter(r => r.provider != null);
 
 		if (remotes.length === 0) return undefined;

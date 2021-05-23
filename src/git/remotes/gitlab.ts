@@ -15,7 +15,7 @@ export class GitLabRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
@@ -28,7 +28,7 @@ export class GitLabRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'gitlab';
 	}
 
@@ -114,7 +114,7 @@ export class GitLabRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
 		return this.encodeUrl(`${this.baseUrl}/-/compare/${base}${notation}${compare}`);
 	}
 

@@ -43,7 +43,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			// Strip off any `_git` part from the repo url
 			const baseUrl = this.baseUrl.replace(gitRegex, '/');
@@ -58,7 +58,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'vsts';
 	}
 
@@ -71,7 +71,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _displayPath: string | undefined;
-	get displayPath(): string {
+	override get displayPath(): string {
 		if (this._displayPath === undefined) {
 			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		}
@@ -124,7 +124,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
 		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`);
 	}
 
@@ -132,9 +132,13 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		let line;
 		if (range != null) {
 			if (range.start.line === range.end.line) {
-				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
+				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${
+					range.end.character + 1
+				}`;
 			} else {
-				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
+				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${
+					range.start.character + 1
+				}&lineEndColumn=${range.end.character + 1}`;
 			}
 		} else {
 			line = '';

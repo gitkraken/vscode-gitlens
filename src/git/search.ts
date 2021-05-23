@@ -41,7 +41,8 @@ export namespace SearchPattern {
 
 	const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/;
 	const searchMessageValuesRegex = /(".+"|[^\b\s]+)/g;
-	const searchOperationRegex = /((?:=|message|@|author|#|commit|\?|file|~|change):)\s?(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/g;
+	const searchOperationRegex =
+		/((?:=|message|@|author|#|commit|\?|file|~|change):)\s?(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/g;
 
 	export function fromCommit(ref: string): string;
 	export function fromCommit(commit: GitRevisionReference): string;

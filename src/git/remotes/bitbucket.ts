@@ -15,7 +15,7 @@ export class BitbucketRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
@@ -33,7 +33,7 @@ export class BitbucketRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'bitbucket';
 	}
 
@@ -119,7 +119,7 @@ export class BitbucketRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commits/${sha}`);
 	}
 
-	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
 		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${compare}`).replace('%250D', '%0D');
 	}
 

@@ -50,7 +50,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RebaseStatusNode.getId(this.rebaseStatus.repoPath, this.rebaseStatus.incoming.name, this.root);
 	}
 
@@ -138,7 +138,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		super(commit.toGitUri(), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		let message = this.commit.message;
 		const index = message.indexOf('\n');
 		if (index !== -1) {
@@ -210,7 +210,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			uri: this.uri,

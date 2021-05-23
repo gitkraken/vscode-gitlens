@@ -53,7 +53,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		this.options = { showAheadCommits: false, ...options };
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchTrackingStatusNode.getId(
 			this.status.repoPath,
 			this.status.ref,
@@ -260,7 +260,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}

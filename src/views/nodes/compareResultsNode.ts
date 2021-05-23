@@ -52,7 +52,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		};
 	}
 
-	get id(): string {
+	override get id(): string {
 		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
 	}
 
@@ -185,7 +185,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (!reset) return;
 
 		this._children = undefined;

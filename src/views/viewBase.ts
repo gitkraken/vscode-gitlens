@@ -83,8 +83,9 @@ export abstract class ViewBase<
 		| RepositoriesViewConfig
 		| SearchAndCompareViewConfig
 		| StashesViewConfig
-		| TagsViewConfig
-> implements TreeDataProvider<ViewNode>, Disposable {
+		| TagsViewConfig,
+> implements TreeDataProvider<ViewNode>, Disposable
+{
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;

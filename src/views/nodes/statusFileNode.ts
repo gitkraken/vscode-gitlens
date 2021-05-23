@@ -54,7 +54,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		this._hasUnstagedChanges = hasUnstagedChanges;
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -225,7 +225,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		return changedIn.join(changedIn.length > 2 ? ', ' : ' and ');
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
 			const commandArgs: DiffWithPreviousCommandArgs = {
 				commit: this.commit,

@@ -66,7 +66,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
@@ -74,7 +74,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'cherry';
 	}
 

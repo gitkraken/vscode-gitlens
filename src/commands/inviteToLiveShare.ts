@@ -20,7 +20,7 @@ export class InviteToLiveShareCommand extends Command {
 		super(Commands.InviteToLiveShare);
 	}
 
-	protected preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
 		if (isCommandContextViewNodeHasContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;

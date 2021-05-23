@@ -38,7 +38,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		this._options = { expand: true, ..._options };
 	}
 
-	get id(): string {
+	override get id(): string {
 		return `${this.parent!.id}:results:files`;
 	}
 
@@ -145,7 +145,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 	@gate()
 	@debug()
-	refresh(reset: boolean = false) {
+	override refresh(reset: boolean = false) {
 		if (!reset) return;
 
 		this._filterResults = undefined;

@@ -29,11 +29,11 @@ export class PullRequestNode extends ViewNode<
 		super(GitUri.fromRepoPath(branchOrCommit.repoPath), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.pullRequest.url;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return PullRequestNode.getId(this.branchOrCommit.repoPath, this.pullRequest.id, this.branchOrCommit.ref);
 	}
 
