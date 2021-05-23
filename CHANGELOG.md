@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1512](https://github.com/eamodio/vscode-gitlens/issues/1512) - Git tag command can add an extra `-m`
 - Fixes [#1402](https://github.com/eamodio/vscode-gitlens/issues/1402) - File history missing commits from other branches
 
 ## [11.4.1] - 2021-04-14

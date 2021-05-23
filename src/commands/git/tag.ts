@@ -251,6 +251,10 @@ export class TagGitCommand extends QuickCommand<State> {
 				state.message = result;
 			}
 
+			if (state.message.length !== 0 && !state.flags.includes('-m')) {
+				state.flags.push('-m');
+			}
+
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.createCommandConfirmStep(state, context);
 				if (result === StepResult.Break) continue;
@@ -261,7 +265,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 			void state.repo.tag(
 				...state.flags,
-				...(state.message.length !== 0 ? ['-m', `"${state.message}"`] : []),
+				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
 				state.name,
 				state.reference.ref,
 			);
