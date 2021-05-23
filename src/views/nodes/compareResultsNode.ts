@@ -331,8 +331,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			type: 'comparison',
 			timestamp: this._pinned,
 			path: this.repoPath,
-			ref1: this._ref,
-			ref2: this._compareWith,
+			ref1: { label: this._ref.label, ref: this._ref.ref },
+			ref2: { label: this._compareWith.label, ref: this._compareWith.ref },
 		});
 	}
 }

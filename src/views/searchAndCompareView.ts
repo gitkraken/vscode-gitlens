@@ -447,7 +447,14 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
 			.map(p =>
 				p.type === 'comparison'
-					? new CompareResultsNode(this, root, p.path, p.ref1, p.ref2, p.timestamp)
+					? new CompareResultsNode(
+							this,
+							root,
+							p.path,
+							{ label: p.ref1.label, ref: p.ref1.ref ?? (p.ref1 as any).name ?? (p.ref1 as any).sha },
+							{ label: p.ref2.label, ref: p.ref2.ref ?? (p.ref2 as any).name ?? (p.ref2 as any).sha },
+							p.timestamp,
+					  )
 					: new SearchResultsNode(this, root, p.path, p.search, p.labels, undefined, p.timestamp),
 			);
 	}
