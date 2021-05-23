@@ -2,23 +2,52 @@
 import * as paths from 'path';
 import { findExecutable, run } from './shell';
 
+export class UnableToFindGitError extends Error {
+	constructor(public readonly original?: Error) {
+		super('Unable to find git');
+
+		Error.captureStackTrace(this, UnableToFindGitError);
+	}
+}
+
+export class InvalidGitConfigError extends Error {
+	constructor(public readonly original: Error) {
+		super('Invalid Git configuration');
+
+		Error.captureStackTrace(this, InvalidGitConfigError);
+	}
+}
+
 export interface GitLocation {
 	path: string;
 	version: string;
 }
 
 function parseVersion(raw: string): string {
-	return raw.replace(/^git version /, '');
+	return raw?.replace(/^git version /, '');
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-	let version = await run<string>(path, ['--version'], 'utf8');
+	let version;
+	try {
+		version = await run<string>(path, ['--version'], 'utf8');
+	} catch (ex) {
+		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
+		throw ex;
+	}
+
 	// If needed, let's update our path to avoid the search on every command
 	if (!path || path === 'git') {
 		const foundPath = findExecutable(path, ['--version']).cmd;
 
 		// Ensure that the path we found works
-		version = await run<string>(foundPath, ['--version'], 'utf8');
+		try {
+			version = await run<string>(foundPath, ['--version'], 'utf8');
+		} catch (ex) {
+			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
+			throw ex;
+		}
+
 		path = foundPath;
 	}
 
@@ -42,17 +71,21 @@ async function findGitDarwin(): Promise<GitLocation> {
 			return findSpecificGit(path);
 		} catch (ex) {
 			if (ex.code === 2) {
-				return Promise.reject(new Error('Unable to find git'));
+				return Promise.reject(new UnableToFindGitError(ex));
 			}
 			return findSpecificGit(path);
 		}
 	} catch (ex) {
-		return Promise.reject(new Error('Unable to find git'));
+		return Promise.reject(
+			ex instanceof InvalidGitConfigError || ex instanceof UnableToFindGitError
+				? ex
+				: new UnableToFindGitError(ex),
+		);
 	}
 }
 
 function findSystemGitWin32(basePath: string | null | undefined): Promise<GitLocation> {
-	if (basePath == null || basePath.length === 0) return Promise.reject(new Error('Unable to find git'));
+	if (basePath == null || basePath.length === 0) return Promise.reject(new UnableToFindGitError());
 	return findSpecificGit(paths.join(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
@@ -75,7 +108,7 @@ export async function findGitPath(paths?: string | string[]): Promise<GitLocatio
 			} catch {}
 		}
 
-		throw new Error('Unable to find git');
+		throw new UnableToFindGitError();
 	} catch {
 		try {
 			switch (process.platform) {
@@ -84,10 +117,14 @@ export async function findGitPath(paths?: string | string[]): Promise<GitLocatio
 				case 'win32':
 					return await findGitWin32();
 				default:
-					return Promise.reject('Unable to find git');
+					return Promise.reject(new UnableToFindGitError());
 			}
-		} catch {
-			return Promise.reject(new Error('Unable to find git'));
+		} catch (ex) {
+			return Promise.reject(
+				ex instanceof InvalidGitConfigError || ex instanceof UnableToFindGitError
+					? ex
+					: new UnableToFindGitError(ex),
+			);
 		}
 	}
 }

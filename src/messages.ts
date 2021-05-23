@@ -100,6 +100,13 @@ export class Messages {
 		);
 	}
 
+	static showGitInvalidConfigErrorMessage() {
+		return Messages.showMessage(
+			'error',
+			'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		);
+	}
+
 	static showGitMissingErrorMessage() {
 		return Messages.showMessage(
 			'error',

@@ -11,6 +11,7 @@ import { Container } from './container';
 import { Git, GitBranch, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
+import { InvalidGitConfigError, UnableToFindGitError } from './git/locator';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
@@ -132,9 +133,15 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
 		void setEnabled(false);
 
-		const msg: string = ex?.message ?? '';
-		if (msg.includes('Unable to find git')) {
+		if (ex instanceof InvalidGitConfigError) {
+			void Messages.showGitInvalidConfigErrorMessage();
+		} else if (ex instanceof UnableToFindGitError) {
 			void Messages.showGitMissingErrorMessage();
+		} else {
+			const msg: string = ex?.message ?? '';
+			if (msg) {
+				void window.showErrorMessage(`Unable to initialize Git; ${msg}`);
+			}
 		}
 
 		return undefined;
