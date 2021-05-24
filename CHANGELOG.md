@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the _Restore_ command title to _Restore (Checkout)_ &mdash; closes [#1493](https://github.com/eamodio/vscode-gitlens/issues/1493)
 - Reverses the resulting comparison of the _Compare with HEAD_, _Compare with Working_, and _Compare with Upstream_ commands in the views
 
 ### Fixed

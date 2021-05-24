@@ -3982,7 +3982,7 @@
 			},
 			{
 				"command": "gitlens.views.restore",
-				"title": "Restore",
+				"title": "Restore (Checkout)",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
