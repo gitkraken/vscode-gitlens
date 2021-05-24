@@ -148,7 +148,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	get label() {
 		// Check if this is a base folder
-		if (this.uri.fileName === '') {
+		if (this.folder && this.uri.fileName === '') {
 			return `${paths.basename(this.uri.fsPath)}${
 				this.uri.sha
 					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
