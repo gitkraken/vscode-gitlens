@@ -421,7 +421,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
 			if (node != null) {
 				void this.view.triggerNodeChange(node);

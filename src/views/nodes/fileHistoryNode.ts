@@ -192,6 +192,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
 				RepositoryChange.Remotes,
+				RepositoryChange.RemoteProviders,
 				RepositoryChange.Status,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,

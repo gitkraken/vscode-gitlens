@@ -49,7 +49,9 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 				} catch {}
 			}
 
-			const contributors = await this.repo.getContributors({ all: all, ref: ref });
+			const stats = Container.config.views.contributors.showStatistics;
+
+			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);

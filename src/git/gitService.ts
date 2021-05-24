@@ -201,10 +201,11 @@ export class GitService implements Disposable {
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
 			this._branchesCache.delete(repo.path);
 			this._contributorsCache.delete(repo.path);
+			this._contributorsCache.delete(`stats|${repo.path}`);
+		}
 
-			if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
-				this._remotesWithApiProviderCache.clear();
-			}
+		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+			this._remotesWithApiProviderCache.clear();
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
@@ -1530,21 +1531,29 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	async getContributors(repoPath: string, options?: { all?: boolean; ref?: string }): Promise<GitContributor[]> {
+	async getContributors(
+		repoPath: string,
+		options?: { all?: boolean; ref?: string; stats?: boolean },
+	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		let contributors = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
+		const key = options?.stats ? `stats|${repoPath}` : repoPath;
+
+		let contributors = this.useCaching ? this._contributorsCache.get(key) : undefined;
 		if (contributors == null) {
 			async function load(this: GitService) {
 				try {
 					const currentUser = await this.getCurrentUser(repoPath);
 
-					const data = await Git.log(repoPath, options?.ref, { all: options?.all, format: 'shortlog' });
+					const data = await Git.log(repoPath, options?.ref, {
+						all: options?.all,
+						format: options?.stats ? 'shortlog+stats' : 'shortlog',
+					});
 					const shortlog = GitShortLogParser.parseFromLog(data, repoPath, currentUser);
 
 					return shortlog != null ? shortlog.contributors : [];
 				} catch (ex) {
-					this._contributorsCache.delete(repoPath);
+					this._contributorsCache.delete(key);
 
 					return [];
 				}
@@ -1553,10 +1562,10 @@ export class GitService implements Disposable {
 			contributors = load.call(this);
 
 			if (this.useCaching) {
-				this._contributorsCache.set(repoPath, contributors);
+				this._contributorsCache.set(key, contributors);
 
 				if (!(await this.getRepository(repoPath))?.supportsChangeEvents) {
-					this._contributorsCache.delete(repoPath);
+					this._contributorsCache.delete(key);
 				}
 			}
 		}

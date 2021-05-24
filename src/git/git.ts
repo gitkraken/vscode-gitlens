@@ -753,7 +753,7 @@ export namespace Git {
 		}: {
 			all?: boolean;
 			authors?: string[];
-			format?: 'default' | 'refs' | 'shortlog';
+			format?: 'default' | 'refs' | 'shortlog' | 'shortlog+stats';
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -767,7 +767,7 @@ export namespace Git {
 			`--format=${
 				format === 'refs'
 					? GitLogParser.simpleRefs
-					: format === 'shortlog'
+					: format === 'shortlog' || format === 'shortlog+stats'
 					? GitLogParser.shortlog
 					: GitLogParser.defaultFormat
 			}`,
@@ -778,6 +778,8 @@ export namespace Git {
 
 		if (format === 'default') {
 			params.push('--name-status');
+		} else if (format === 'shortlog+stats') {
+			params.push('--shortstat');
 		}
 
 		if (ordering) {

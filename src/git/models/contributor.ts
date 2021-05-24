@@ -68,6 +68,11 @@ export class GitContributor {
 		public readonly email: string,
 		public readonly count: number,
 		public readonly date: Date,
+		public readonly stats?: {
+			files: number;
+			additions: number;
+			deletions: number;
+		},
 		public readonly current: boolean = false,
 	) {}
 

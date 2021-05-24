@@ -110,6 +110,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			RepositoryChange.Heads,
 			RepositoryChange.Index,
 			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
 			RepositoryChange.Status,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,

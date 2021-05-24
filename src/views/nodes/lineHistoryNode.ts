@@ -281,6 +281,7 @@ export class LineHistoryNode
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
 				RepositoryChange.Remotes,
+				RepositoryChange.RemoteProviders,
 				RepositoryChange.Status,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,

@@ -3,6 +3,8 @@ import { GitContributor, GitShortLog, GitUser } from '../git';
 import { debug } from '../../system';
 
 const shortlogRegex = /^(.*?)\t(.*?) <(.*?)>$/gm;
+const shortstatRegex =
+	/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;
 
 export class GitShortLogParser {
 	@debug({ args: false, singleLine: true })
@@ -48,12 +50,39 @@ export class GitShortLogParser {
 			email: string;
 			count: number;
 			timestamp: number;
+			stats?: {
+				files: number;
+				additions: number;
+				deletions: number;
+			};
 		};
 
 		const contributors = new Map<string, Contributor>();
 
-		for (const line of data.trim().split('\n')) {
-			const [sha, author, email, date] = line.trim().split('\0');
+		const lines = data.trim().split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			const [sha, author, email, date] = lines[i].trim().split('\0');
+
+			let stats:
+				| {
+						files: number;
+						additions: number;
+						deletions: number;
+				  }
+				| undefined;
+			if (lines[i + 1] === '') {
+				i += 2;
+				const match = shortstatRegex.exec(lines[i]);
+
+				if (match?.groups != null) {
+					const { files, additions, deletions } = match.groups;
+					stats = {
+						files: Number(files || 0),
+						additions: Number(additions || 0),
+						deletions: Number(deletions || 0),
+					};
+				}
+			}
 
 			const timestamp = Number(date);
 
@@ -65,9 +94,19 @@ export class GitShortLogParser {
 					email: email,
 					count: 1,
 					timestamp: timestamp,
+					stats: stats,
 				});
 			} else {
 				contributor.count++;
+				if (stats != null) {
+					if (contributor.stats == null) {
+						contributor.stats = stats;
+					} else {
+						contributor.stats.files += stats.files;
+						contributor.stats.additions += stats.additions;
+						contributor.stats.deletions += stats.deletions;
+					}
+				}
 				if (timestamp > contributor.timestamp) {
 					contributor.timestamp = timestamp;
 				}
@@ -88,6 +127,7 @@ export class GitShortLogParser {
 									c.email,
 									c.count,
 									new Date(Number(c.timestamp) * 1000),
+									c.stats,
 									currentUser != null
 										? currentUser.name === c.name && currentUser.email === c.email
 										: false,

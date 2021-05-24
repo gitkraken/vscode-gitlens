@@ -1978,6 +1978,12 @@
 					"markdownDescription": "Specifies whether to show commits from all branches in the _Contributors_ view",
 					"scope": "window"
 				},
+				"gitlens.views.contributors.showStatistics": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to show contributor statistics in the _Contributors_ view. This can take a while to compute depending on the repository size",
+					"scope": "window"
+				},
 				"gitlens.views.defaultItemLimit": {
 					"type": "number",
 					"default": 10,
@@ -4628,6 +4634,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.contributors.setShowStatisticsOn",
+				"title": "Show Statistics",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.contributors.setShowStatisticsOff",
+				"title": "Hide Statistics",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.fileHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
@@ -6190,6 +6206,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.contributors.setShowStatisticsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.contributors.setShowStatisticsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.changeBase",
 					"when": "false"
 				},
@@ -7163,6 +7187,16 @@
 					"command": "gitlens.views.contributors.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.contributors.setShowStatisticsOn",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && !config.gitlens.views.contributors.showStatistics",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.contributors.setShowStatisticsOff",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.showStatistics",
+					"group": "5_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",

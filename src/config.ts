@@ -563,6 +563,7 @@ export interface ContributorsViewConfig {
 		showForCommits: boolean;
 	};
 	showAllBranches: boolean;
+	showStatistics: boolean;
 }
 
 export interface FileHistoryViewConfig {

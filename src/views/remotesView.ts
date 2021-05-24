@@ -49,6 +49,7 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 		return e.changed(
 			RepositoryChange.Config,
 			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
 			RepositoryChange.Unknown,
 			RepositoryChangeComparisonMode.Any,
 		);

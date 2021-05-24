@@ -64,6 +64,7 @@ export const enum RepositoryChange {
 	Merge = 'merge',
 	Rebase = 'rebase',
 	Remotes = 'remotes',
+	RemoteProviders = 'providers',
 	Stash = 'stash',
 	/*
 	 * Union of Cherry, Merge, and Rebase
@@ -571,7 +572,7 @@ export class Repository implements Disposable {
 		return Container.git.getCommit(this.path, ref);
 	}
 
-	getContributors(options?: { all?: boolean; ref?: string }): Promise<GitContributor[]> {
+	getContributors(options?: { all?: boolean; ref?: string; stats?: boolean }): Promise<GitContributor[]> {
 		return Container.git.getContributors(this.path, options);
 	}
 
@@ -635,7 +636,7 @@ export class Repository implements Disposable {
 			...Iterables.filterMap(await remotes, r => {
 				if (!RichRemoteProvider.is(r.provider)) return undefined;
 
-				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.Remotes));
+				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.RemoteProviders));
 			}),
 		);
 	}
