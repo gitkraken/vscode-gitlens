@@ -2097,6 +2097,7 @@
 										"AzureDevOps",
 										"Bitbucket",
 										"BitbucketServer",
+										"Gerrit",
 										"Gitea",
 										"GitHub",
 										"GitLab"
