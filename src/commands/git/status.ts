@@ -2,6 +2,8 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitReference, GitStatus, Repository } from '../../git/git';
+import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import { Strings } from '../../system';
 import {
 	PartialStepState,
 	pickRepositoryStep,
@@ -11,8 +13,6 @@ import {
 	StepResult,
 	StepState,
 } from '../quickCommand';
-import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

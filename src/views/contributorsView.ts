@@ -6,8 +6,8 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { ContributorsNode, RepositoryFolderNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate, Strings } from '../system';
+import { ContributorsNode, RepositoryFolderNode, unknownGitUri, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {

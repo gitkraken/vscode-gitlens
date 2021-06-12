@@ -1,16 +1,16 @@
 'use strict';
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchNode } from './branchNode';
-import { BranchTrackingStatus } from './branchTrackingStatusNode';
 import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { FileNode, FolderNode } from './folderNode';
 import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { StatusFileNode } from './statusFileNode';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { BranchTrackingStatus } from './branchTrackingStatusNode';
+import { FileNode, FolderNode } from './folderNode';
+import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {

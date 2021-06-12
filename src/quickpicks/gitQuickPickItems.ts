@@ -14,8 +14,8 @@ import {
 	GitTag,
 	Repository,
 } from '../git/git';
-import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
 import { Dates, Strings } from '../system';
+import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);

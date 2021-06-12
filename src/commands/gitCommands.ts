@@ -1,9 +1,12 @@
 'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
-import { command, Command, CommandContext, Commands } from './common';
 import { configuration, GitCommandSorting } from '../configuration';
 import { Usage, WorkspaceState } from '../constants';
 import { Container } from '../container';
+import { KeyMapping } from '../keyboard';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { log, Promises } from '../system';
+import { command, Command, CommandContext, Commands } from './common';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -21,7 +24,6 @@ import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { StatusGitCommand, StatusGitCommandArgs } from './git/status';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { TagGitCommand, TagGitCommandArgs } from './git/tag';
-import { KeyMapping } from '../keyboard';
 import {
 	isQuickInputStep,
 	isQuickPickStep,
@@ -32,8 +34,6 @@ import {
 	StepSelection,
 } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { log, Promises } from '../system';
 
 export * from './gitCommands.actions';
 

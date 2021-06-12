@@ -1,7 +1,7 @@
 'use strict';
 import { env, Range, Uri, window } from 'vscode';
-import { command, Command, Commands, openEditor } from './common';
 import { Container } from '../container';
+import { command, Command, Commands, openEditor } from './common';
 
 @command()
 export class OpenFileFromRemoteCommand extends Command {

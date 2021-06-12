@@ -2,6 +2,8 @@
 import { QuickInputButtons, QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { GitReference, GitTagReference, Repository } from '../../git/git';
+import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
+import { Strings } from '../../system';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -18,8 +20,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

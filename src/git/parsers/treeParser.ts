@@ -1,6 +1,6 @@
 'use strict';
-import { GitTree } from '../git';
 import { debug } from '../../system';
+import { GitTree } from '../git';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;

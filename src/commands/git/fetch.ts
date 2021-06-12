@@ -2,6 +2,8 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/git';
+import { FlagsQuickPickItem } from '../../quickpicks';
+import { Arrays, Dates, Strings } from '../../system';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -14,8 +16,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

@@ -1,5 +1,8 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { RemoteResourceType } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,9 +13,6 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasRemote,
 } from './common';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {

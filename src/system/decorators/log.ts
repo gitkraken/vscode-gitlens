@@ -1,6 +1,6 @@
 'use strict';
-import { filterMap } from '../array';
 import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
+import { filterMap } from '../array';
 import { getParameters } from '../function';
 import { is as isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';

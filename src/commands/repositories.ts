@@ -1,7 +1,7 @@
 'use strict';
+import { executeGitCommand } from '../commands';
 import { Container } from '../container';
 import { command, Command, Commands } from './common';
-import { executeGitCommand } from '../commands';
 
 @command()
 export class FetchRepositoriesCommand extends Command {

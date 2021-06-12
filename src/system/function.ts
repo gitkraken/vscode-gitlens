@@ -1,6 +1,6 @@
 'use strict';
-import { Disposable } from 'vscode';
 import { debounce as _debounce, once as _once } from 'lodash-es';
+import { Disposable } from 'vscode';
 
 export interface Deferrable<T extends (...args: any[]) => any> {
 	(...args: Parameters<T>): ReturnType<T> | undefined;

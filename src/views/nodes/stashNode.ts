@@ -4,10 +4,10 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
+import { Arrays, Strings } from '../../system';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
-import { Arrays, Strings } from '../../system';
 
 export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';

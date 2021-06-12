@@ -1,18 +1,18 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode, MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
+import { TagsView } from '../tagsView';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { debug, gate, Iterables, Strings } from '../../system';
-import { TagsView } from '../tagsView';
 import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {

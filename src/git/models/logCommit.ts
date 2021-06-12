@@ -1,10 +1,10 @@
 'use strict';
 import { Uri } from 'vscode';
+import { memoize, Strings } from '../../system';
+import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
-import { GitUri } from '../gitUri';
 import { GitReference } from './models';
-import { memoize, Strings } from '../../system';
 
 const emptyStats = Object.freeze({
 	added: 0,

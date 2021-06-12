@@ -2,6 +2,8 @@
 import { env } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
+import { Strings } from '../../system';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -17,8 +19,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

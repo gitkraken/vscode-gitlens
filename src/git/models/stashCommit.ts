@@ -1,10 +1,10 @@
 'use strict';
-import { GitCommitType } from './commit';
 import { Container } from '../../container';
+import { gate, memoize } from '../../system';
+import { GitCommitType } from './commit';
 import { GitFile, GitFileWorkingTreeStatus } from './file';
 import { GitLogCommit } from './logCommit';
 import { GitReference } from './models';
-import { gate, memoize } from '../../system';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 

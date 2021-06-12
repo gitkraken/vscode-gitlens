@@ -1,13 +1,13 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
+import { executeGitCommand } from '../commands';
 import { Container } from '../container';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { SearchPattern } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { executeGitCommand } from '../commands';
+import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
-import { Logger } from '../logger';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];

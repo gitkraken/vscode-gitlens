@@ -4,6 +4,10 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitReference, GitStashCommit, GitStashReference, Repository, RunError } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { Logger } from '../../logger';
+import { Messages } from '../../messages';
+import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
+import { Strings } from '../../system';
 import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
@@ -20,10 +24,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Logger } from '../../logger';
-import { Messages } from '../../messages';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

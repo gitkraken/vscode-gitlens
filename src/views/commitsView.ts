@@ -22,6 +22,7 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { debug, Functions, gate, Strings } from '../system';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
@@ -30,7 +31,6 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, Functions, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {

@@ -1,13 +1,8 @@
 'use strict';
 import * as paths from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { LoadMoreNode, MessageNode } from './common';
-import { CommitNode } from './commitNode';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
-import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
-import { FileHistoryView } from '../fileHistoryView';
-import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import {
 	GitBranch,
 	GitLog,
@@ -19,10 +14,15 @@ import {
 	toFolderGlob,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
-import { RepositoryNode } from './repositoryNode';
 import { Arrays, debug, gate, Iterables, memoize } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
+import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { insertDateMarkers } from './helpers';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> implements PageableViewNode {

@@ -1,15 +1,15 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
 import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionCommandArgs {
 	line?: number;

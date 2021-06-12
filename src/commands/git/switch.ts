@@ -3,6 +3,7 @@ import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/git';
+import { Arrays } from '../../system';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
@@ -17,7 +18,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { Arrays } from '../../system';
 
 interface Context {
 	repos: Repository[];

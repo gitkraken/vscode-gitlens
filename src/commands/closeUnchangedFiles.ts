@@ -1,12 +1,12 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Functions } from '../system';
+import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];

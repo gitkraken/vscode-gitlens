@@ -1,9 +1,9 @@
 'use strict';
 import { Range, Uri } from 'vscode';
 import { RemotesUrlsConfig } from '../../configuration';
+import { Strings } from '../../system';
 import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
-import { Strings } from '../../system';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;

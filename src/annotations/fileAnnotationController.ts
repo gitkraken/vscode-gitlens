@@ -19,12 +19,6 @@ import {
 	workspace,
 } from 'vscode';
 import {
-	AnnotationContext,
-	AnnotationProviderBase,
-	AnnotationStatus,
-	TextEditorCorrelationKey,
-} from './annotationProvider';
-import {
 	AnnotationsToggleMode,
 	BlameHighlightLocations,
 	ChangesLocations,
@@ -33,9 +27,6 @@ import {
 } from '../configuration';
 import { Colors, ContextKeys, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
-import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
-import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
-import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
@@ -44,6 +35,15 @@ import {
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
+import {
+	AnnotationContext,
+	AnnotationProviderBase,
+	AnnotationStatus,
+	TextEditorCorrelationKey,
+} from './annotationProvider';
+import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
+import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
+import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 
 export enum AnnotationClearReason {
 	User = 'User',

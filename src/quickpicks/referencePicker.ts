@@ -1,11 +1,11 @@
 'use strict';
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
+import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/git';
 import { KeyboardScope, Keys } from '../keyboard';
 import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
-import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 

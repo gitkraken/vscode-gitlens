@@ -3,6 +3,8 @@ import { configuration } from '../../configuration';
 import { BuiltInGitConfiguration, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/git';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
+import { Arrays, Dates, Strings } from '../../system';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -17,8 +19,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

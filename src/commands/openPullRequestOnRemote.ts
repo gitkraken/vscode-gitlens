@@ -1,8 +1,8 @@
 'use strict';
 import { env, Uri } from 'vscode';
-import { Command, command, CommandContext, Commands } from './common';
 import { Container } from '../container';
 import { PullRequestNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands } from './common';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;

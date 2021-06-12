@@ -11,7 +11,6 @@ import {
 	TextEditorDecorationType,
 	window,
 } from 'vscode';
-import { Annotations } from './annotations';
 import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
@@ -19,6 +18,7 @@ import { Authentication, CommitFormatter, GitBlameCommit, PullRequest } from '..
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Iterables, log, Promises } from '../system';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
+import { Annotations } from './annotations';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {

@@ -1,18 +1,18 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchesView } from '../branchesView';
-import { CommitsView } from '../commitsView';
-import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { ViewShowBranchComparison } from '../../configuration';
+import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
+import { debug, gate, log, Strings } from '../../system';
+import { BranchesView } from '../branchesView';
+import { CommitsView } from '../commitsView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { debug, gate, log, Strings } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView> {

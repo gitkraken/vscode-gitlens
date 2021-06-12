@@ -1,7 +1,7 @@
 'use strict';
-import { GitBranch } from './branch';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { GitBranch } from './branch';
 
 const emptyStr = '';
 

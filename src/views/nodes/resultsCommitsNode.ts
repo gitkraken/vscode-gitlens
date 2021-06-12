@@ -1,14 +1,14 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode } from './common';
 import { Container } from '../../container';
 import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode } from './common';
+import { insertDateMarkers } from './helpers';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {

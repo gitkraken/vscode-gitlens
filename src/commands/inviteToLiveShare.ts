@@ -1,6 +1,6 @@
 'use strict';
-import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasContributor } from './common';
 import { Container } from '../container';
+import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasContributor } from './common';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;

@@ -1,6 +1,7 @@
 'use strict';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/git';
+import { FlagsQuickPickItem } from '../../quickpicks';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -14,7 +15,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
 
 interface Context {
 	repos: Repository[];

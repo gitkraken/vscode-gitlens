@@ -3,12 +3,12 @@ import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { FileNode } from './folderNode';
 import { GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {

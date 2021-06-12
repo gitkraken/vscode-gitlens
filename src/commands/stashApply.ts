@@ -1,5 +1,7 @@
 'use strict';
 import { GitActions } from '../commands';
+import { GitStashCommit, GitStashReference } from '../git/git';
+import { CommandQuickPickItem } from '../quickpicks';
 import {
 	command,
 	Command,
@@ -8,8 +10,6 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasRepository,
 } from './common';
-import { GitStashCommit, GitStashReference } from '../git/git';
-import { CommandQuickPickItem } from '../quickpicks';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;

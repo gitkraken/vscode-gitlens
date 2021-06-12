@@ -2,8 +2,10 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, SearchPattern } from '../../git/git';
-import { GitCommandsCommand } from '../gitCommands';
+import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
+import { Strings } from '../../system';
 import { SearchResultsNode } from '../../views/nodes';
+import { GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -17,8 +19,6 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

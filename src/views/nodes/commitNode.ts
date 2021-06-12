@@ -2,17 +2,17 @@
 import * as paths from 'path';
 import { Command, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
-import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
-import { PullRequestNode } from './pullRequestNode';
 import { Arrays, Strings } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
 import { ViewsWithCommits } from '../viewBase';
+import { CommitFileNode } from './commitFileNode';
+import { FileNode, FolderNode } from './folderNode';
+import { PullRequestNode } from './pullRequestNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference> {

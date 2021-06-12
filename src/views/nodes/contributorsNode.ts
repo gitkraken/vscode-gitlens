@@ -1,14 +1,14 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { MessageNode } from './common';
 import { Container } from '../../container';
-import { ContributorNode } from './contributorNode';
-import { ContributorsView } from '../contributorsView';
 import { GitContributor, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoryNode } from './repositoryNode';
-import { RepositoriesView } from '../repositoriesView';
 import { debug, gate, timeout } from '../../system';
+import { ContributorsView } from '../contributorsView';
+import { RepositoriesView } from '../repositoriesView';
+import { MessageNode } from './common';
+import { ContributorNode } from './contributorNode';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {

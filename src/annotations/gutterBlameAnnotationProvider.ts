@@ -1,17 +1,17 @@
 'use strict';
 import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
-import { Annotations } from './annotations';
-import { AnnotationContext } from './annotationProvider';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { Decorations } from './fileAnnotationController';
 import { CommitFormatOptions, CommitFormatter, GitBlame, GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { Arrays, Iterables, log, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
+import { AnnotationContext } from './annotationProvider';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import { Decorations } from './fileAnnotationController';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {

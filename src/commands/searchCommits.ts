@@ -1,9 +1,9 @@
 'use strict';
 import { executeGitCommand } from '../commands';
-import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 import { Container } from '../container';
 import { SearchPattern } from '../git/git';
 import { SearchResultsNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;

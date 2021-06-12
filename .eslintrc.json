@@ -112,7 +112,9 @@
 		"import/order": [
 			"warn",
 			{
-				"groups": ["builtin", "external", "internal", ["index", "sibling", "parent"]],
+				"alphabetize": { "order": "asc", "caseInsensitive": true },
+				"groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
+				// "groups": ["builtin", "external", "internal", ["index", "sibling", "parent"]],
 				"newlines-between": "never"
 			}
 		],

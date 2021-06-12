@@ -9,9 +9,9 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
-import { fsExists, run, RunError, RunOptions } from './shell';
-import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { GitRevision } from './models/models';
+import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
+import { fsExists, run, RunError, RunOptions } from './shell';
 
 export * from './models/models';
 export * from './parsers/parsers';

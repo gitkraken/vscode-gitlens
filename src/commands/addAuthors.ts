@@ -1,8 +1,8 @@
 'use strict';
 import { SourceControl } from 'vscode';
+import { Container } from '../container';
 import { command, Command, Commands } from './common';
 import { executeGitCommand } from './gitCommands';
-import { Container } from '../container';
 
 @command()
 export class AddAuthorsCommand extends Command {

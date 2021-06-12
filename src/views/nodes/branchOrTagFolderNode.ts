@@ -4,9 +4,9 @@ import { GitUri } from '../../git/gitUri';
 import { Arrays } from '../../system';
 import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
+import { RepositoryNode } from './repositoryNode';
 import { TagNode } from './tagNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
 	static getId(repoPath: string, key: string | undefined, type: string, relativePath: string | undefined): string {

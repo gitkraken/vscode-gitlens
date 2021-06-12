@@ -1,8 +1,8 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 import { Keys } from '../keyboard';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';

@@ -1,6 +1,9 @@
 'use strict';
+import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
+import { Strings } from '../../system';
 import { GitCommandsCommand } from '../gitCommands';
 import {
 	PartialStepState,
@@ -12,9 +15,6 @@ import {
 	StepResult,
 	StepState,
 } from '../quickCommand';
-import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];

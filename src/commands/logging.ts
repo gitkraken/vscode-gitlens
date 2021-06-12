@@ -1,6 +1,6 @@
 'use strict';
-import { command, Command, Commands } from './common';
 import { configuration, TraceLevel } from '../configuration';
+import { command, Command, Commands } from './common';
 
 @command()
 export class EnableDebugLoggingCommand extends Command {

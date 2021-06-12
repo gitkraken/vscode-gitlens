@@ -1,7 +1,7 @@
 'use strict';
 /*global window document*/
-import { Disposable } from './events';
 import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
+import { Disposable } from './events';
 import { initializeAndWatchThemeColors } from './theme';
 
 interface VsCodeApi {

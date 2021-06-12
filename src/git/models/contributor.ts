@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
-import { configuration, ContributorSorting, GravatarDefaultStyle } from '../../configuration';
 import { getAvatarUri } from '../../avatars';
+import { configuration, ContributorSorting, GravatarDefaultStyle } from '../../configuration';
 import { Dates, memoize } from '../../system';
 
 export interface ContributorSortOptions {

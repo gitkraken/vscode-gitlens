@@ -1,5 +1,15 @@
 'use strict';
 import { Range, TextEditor, Uri, window } from 'vscode';
+import { UriComparer } from '../comparers';
+import { BranchSorting, TagSorting } from '../configuration';
+import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitBranch, GitRevision, RemoteResourceType } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { ReferencePicker } from '../quickpicks';
+import { Strings } from '../system';
+import { StatusFileNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,17 +20,7 @@ import {
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 } from './common';
-import { UriComparer } from '../comparers';
-import { BranchSorting, TagSorting } from '../configuration';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitBranch, GitRevision, RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { ReferencePicker } from '../quickpicks';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
-import { Strings } from '../system';
-import { StatusFileNode } from '../views/nodes';
 
 export interface OpenFileOnRemoteCommandArgs {
 	branchOrTag?: string;

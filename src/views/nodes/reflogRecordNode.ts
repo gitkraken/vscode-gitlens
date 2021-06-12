@@ -1,14 +1,14 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode, MessageNode } from './common';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog, GitReflogRecord } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {

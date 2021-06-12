@@ -1,9 +1,9 @@
 'use strict';
-import { GitCommit, GitRemote, Repository, RichRemoteProvider } from '../git/git';
-import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';
 import { Container } from '../container';
+import { GitCommit, GitRemote, Repository, RichRemoteProvider } from '../git/git';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { Iterables } from '../system';
+import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;

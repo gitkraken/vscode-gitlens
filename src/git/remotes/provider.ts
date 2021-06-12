@@ -14,6 +14,7 @@ import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
+import { debug, gate, log, Promises } from '../../system';
 import {
 	Account,
 	DefaultBranch,
@@ -24,7 +25,6 @@ import {
 	RemoteProviderReference,
 	Repository,
 } from '../models/models';
-import { debug, gate, log, Promises } from '../../system';
 
 export enum RemoteResourceType {
 	Branch = 'branch',

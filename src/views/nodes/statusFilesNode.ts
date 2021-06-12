@@ -17,9 +17,9 @@ import { GitUri } from '../../git/gitUri';
 import { Arrays, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
+import { RepositoryNode } from './repositoryNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	static key = ':status-files';

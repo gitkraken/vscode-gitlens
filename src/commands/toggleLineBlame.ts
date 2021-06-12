@@ -1,7 +1,7 @@
 import { TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, command, Commands } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { ActiveEditorCommand, command, Commands } from './common';
 
 @command()
 export class ToggleLineBlameCommand extends ActiveEditorCommand {

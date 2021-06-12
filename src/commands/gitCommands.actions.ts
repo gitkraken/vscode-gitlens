@@ -27,8 +27,8 @@ import {
 	Repository,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { ResetGitCommandArgs } from './git/reset';
 import { RepositoryPicker } from '../quickpicks';
+import { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));

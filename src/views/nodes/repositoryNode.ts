@@ -15,11 +15,11 @@ import {
 import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { CompareBranchNode } from './compareBranchNode';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
+import { CompareBranchNode } from './compareBranchNode';
 import { ContributorsNode } from './contributorsNode';
 import { MergeStatusNode } from './mergeStatusNode';
 import { RebaseStatusNode } from './rebaseStatusNode';

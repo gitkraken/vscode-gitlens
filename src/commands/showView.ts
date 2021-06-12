@@ -1,8 +1,8 @@
 'use strict';
 import { commands } from 'vscode';
-import { command, Command, CommandContext, Commands } from './common';
 import { ContextKeys, setContext, SyncedState } from '../constants';
 import { Container } from '../container';
+import { command, Command, CommandContext, Commands } from './common';
 
 @command()
 export class ShowViewCommand extends Command {

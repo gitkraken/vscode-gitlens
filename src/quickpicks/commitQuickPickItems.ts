@@ -6,8 +6,8 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitStatusFile } from '../git/git';
 import { Keys } from '../keyboard';
-import { CommandQuickPickItem } from './quickPicksItems';
 import { Strings } from '../system';
+import { CommandQuickPickItem } from './quickPicksItems';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 	constructor(readonly commit: GitLogCommit, picked: boolean = true, fileName?: string) {

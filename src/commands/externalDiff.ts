@@ -1,5 +1,11 @@
 'use strict';
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
+import { Container } from '../container';
+import { GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { Arrays } from '../system';
 import {
 	command,
 	Command,
@@ -9,12 +15,6 @@ import {
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
 } from './common';
-import { Container } from '../container';
-import { GitRevision } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Arrays } from '../system';
 
 enum Status {
 	INDEX_MODIFIED,

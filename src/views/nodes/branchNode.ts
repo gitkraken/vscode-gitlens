@@ -1,11 +1,5 @@
 'use strict';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
-import { BranchesView } from '../branchesView';
-import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
-import { CommitNode } from './commitNode';
-import { CommitsView } from '../commitsView';
-import { LoadMoreNode, MessageNode } from './common';
-import { CompareBranchNode } from './compareBranchNode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
@@ -19,14 +13,20 @@ import {
 	PullRequestState,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { debug, gate, Iterables, log, Strings } from '../../system';
+import { BranchesView } from '../branchesView';
+import { CommitsView } from '../commitsView';
+import { RemotesView } from '../remotesView';
+import { RepositoriesView } from '../repositoriesView';
+import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
+import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { debug, gate, Iterables, log, Strings } from '../../system';
 import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
 export class BranchNode

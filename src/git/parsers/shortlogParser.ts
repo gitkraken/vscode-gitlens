@@ -1,6 +1,6 @@
 'use strict';
-import { GitContributor, GitShortLog, GitUser } from '../git';
 import { debug } from '../../system';
+import { GitContributor, GitShortLog, GitUser } from '../git';
 
 const shortlogRegex = /^(.*?)\t(.*?) <(.*?)>$/gm;
 const shortstatRegex =

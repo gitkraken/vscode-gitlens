@@ -19,6 +19,7 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { debug, gate, Strings } from '../system';
 import {
 	BranchOrTagFolderNode,
 	RepositoryFolderNode,
@@ -27,7 +28,6 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {

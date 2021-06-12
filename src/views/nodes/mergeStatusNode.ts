@@ -1,14 +1,14 @@
 'use strict';
 import * as paths from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchNode } from './branchNode';
 import { ViewFilesLayout } from '../../configuration';
-import { FileNode, FolderNode } from './folderNode';
 import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { FileNode, FolderNode } from './folderNode';
+import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeStatusNode extends ViewNode<ViewsWithCommits> {

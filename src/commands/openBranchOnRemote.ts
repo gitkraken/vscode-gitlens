@@ -1,5 +1,9 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { RemoteResourceType } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,11 +14,7 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasBranch,
 } from './common';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;

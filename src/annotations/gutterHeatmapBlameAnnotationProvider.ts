@@ -1,14 +1,14 @@
 'use strict';
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
-import { Annotations } from './annotations';
-import { AnnotationContext } from './annotationProvider';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
+import { AnnotationContext } from './annotationProvider';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {

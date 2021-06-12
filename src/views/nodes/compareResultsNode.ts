@@ -5,11 +5,11 @@ import { Container } from '../../container';
 import { GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, log, Strings } from '../../system';
+import { SearchAndCompareView } from '../searchAndCompareView';
+import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
-import { SearchAndCompareView } from '../searchAndCompareView';
 
 let instanceId = 0;
 

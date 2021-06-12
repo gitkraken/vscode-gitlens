@@ -3,6 +3,8 @@ import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBlameCommit, GitLogCommit } from '../git/git';
+import { Logger } from '../logger';
+import { debug } from '../system';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
@@ -11,8 +13,6 @@ import {
 	GitDocumentState,
 } from './gitDocumentTracker';
 import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
-import { Logger } from '../logger';
-import { debug } from '../system';
 
 export * from './lineTracker';
 

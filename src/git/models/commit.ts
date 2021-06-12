@@ -1,11 +1,11 @@
 'use strict';
 import { Uri } from 'vscode';
+import { getAvatarUri } from '../../avatars';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
 import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { GitUri } from '../gitUri';
-import { getAvatarUri } from '../../avatars';
 import { GitReference, GitRevision, GitRevisionReference, PullRequest } from './models';
 
 export interface GitAuthor {

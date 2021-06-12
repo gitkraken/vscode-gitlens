@@ -1,9 +1,8 @@
 'use strict';
 import { QuickInputButton, QuickPick } from 'vscode';
-import { Commands } from './common';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
-import { Container } from '../container';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Container } from '../container';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -27,17 +26,7 @@ import {
 	TagSortOptions,
 } from '../git/git';
 import { GitService } from '../git/gitService';
-import {
-	AsyncStepResultGenerator,
-	PartialStepState,
-	QuickCommand,
-	QuickCommandButtons,
-	QuickPickStep,
-	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
-} from './quickCommand';
+import { GitUri } from '../git/gitUri';
 import {
 	BranchQuickPickItem,
 	CommandQuickPickItem,
@@ -78,8 +67,19 @@ import {
 	TagQuickPickItem,
 } from '../quickpicks';
 import { Arrays, Iterables, Strings } from '../system';
-import { GitUri } from '../git/gitUri';
+import { Commands } from './common';
 import { GitActions } from './gitCommands.actions';
+import {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickCommand,
+	QuickCommandButtons,
+	QuickPickStep,
+	StepResult,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from './quickCommand';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },

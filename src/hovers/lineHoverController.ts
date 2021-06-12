@@ -12,12 +12,12 @@ import {
 	Uri,
 	window,
 } from 'vscode';
+import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { Hovers } from './hovers';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { debug } from '../system';
-import { UriComparer } from '../comparers';
+import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import { Hovers } from './hovers';
 
 export class LineHoverController implements Disposable {
 	private readonly _disposable: Disposable;

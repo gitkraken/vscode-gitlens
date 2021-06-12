@@ -1,18 +1,18 @@
 'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
+import { ContextKeys, setContext } from '../../constants';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
 import { GitReference, GitRevision } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
-import { LineHistoryView } from '../lineHistoryView';
-import { LineHistoryNode } from './lineHistoryNode';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
+import { FileHistoryView } from '../fileHistoryView';
+import { LineHistoryView } from '../lineHistoryView';
+import { LineHistoryNode } from './lineHistoryNode';
 import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
-import { ContextKeys, setContext } from '../../constants';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
 	private _base: string | undefined;

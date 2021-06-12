@@ -1,16 +1,16 @@
 'use strict';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { BranchNode } from './branchNode';
-import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode } from './common';
 import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
 import { Dates, debug, gate, Iterables, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode } from './common';
+import { insertDateMarkers } from './helpers';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {

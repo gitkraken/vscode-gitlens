@@ -19,8 +19,8 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { RepositoryFolderNode, RepositoryNode, StashesNode, StashNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate, Strings } from '../system';
+import { RepositoryFolderNode, RepositoryNode, StashesNode, StashNode, unknownGitUri, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {

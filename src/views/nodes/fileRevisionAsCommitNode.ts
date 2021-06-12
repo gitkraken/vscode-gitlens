@@ -4,7 +4,6 @@ import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibl
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
 import {
 	CommitFormatter,
 	GitBranch,
@@ -14,10 +13,11 @@ import {
 	StatusFileFormatter,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
+import { ViewsWithCommits } from '../viewBase';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {

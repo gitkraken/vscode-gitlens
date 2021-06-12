@@ -1,14 +1,14 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { MessageNode } from './common';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RemoteNode } from './remoteNode';
+import { debug, gate } from '../../system';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
+import { MessageNode } from './common';
+import { RemoteNode } from './remoteNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { debug, gate } from '../../system';
 
 export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remotes';

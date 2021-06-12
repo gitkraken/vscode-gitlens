@@ -1,9 +1,9 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
-import { Logger } from '../logger';
 import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 
 @command()

@@ -1,13 +1,13 @@
 'use strict';
+import { CustomRemoteType, RemotesConfig } from '../../configuration';
+import { Logger } from '../../logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';
-import { CustomRemoteType, RemotesConfig } from '../../configuration';
 import { CustomRemote } from './custom';
 import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
-import { Logger } from '../../logger';
 import { RemoteProvider, RichRemoteProvider } from './provider';
 
 export { RemoteProvider, RichRemoteProvider };

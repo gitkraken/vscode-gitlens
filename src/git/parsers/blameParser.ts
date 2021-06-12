@@ -1,7 +1,7 @@
 'use strict';
 import * as paths from 'path';
-import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../git';
 import { debug, Strings } from '../../system';
+import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../git';
 
 const emptyStr = '';
 const slash = '/';

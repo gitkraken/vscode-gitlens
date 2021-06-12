@@ -1,5 +1,8 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
+import { Container } from '../container';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCommand,
 	command,
@@ -8,9 +11,6 @@ import {
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
 } from './common';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;

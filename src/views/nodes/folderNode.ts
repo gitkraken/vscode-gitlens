@@ -1,10 +1,10 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
-import { FileHistoryView } from '../fileHistoryView';
 import { GitUri } from '../../git/gitUri';
-import { StashesView } from '../stashesView';
 import { Arrays } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
+import { StashesView } from '../stashesView';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 

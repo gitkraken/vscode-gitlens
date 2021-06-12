@@ -15,9 +15,9 @@ import { configuration, FileAnnotationType, StatusBarCommand } from '../configur
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
-import { debug, Promises } from '../system';
 import { LogCorrelationContext, Logger } from '../logger';
+import { debug, Promises } from '../system';
+import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
 	private _cancellation: CancellationTokenSource | undefined;

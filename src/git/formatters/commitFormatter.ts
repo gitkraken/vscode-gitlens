@@ -16,7 +16,8 @@ import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { FormatOptions, Formatter } from './formatter';
+import { Iterables, Promises, Strings } from '../../system';
+import { ContactPresence } from '../../vsls/vsls';
 import {
 	GitCommit,
 	GitLogCommit,
@@ -27,8 +28,7 @@ import {
 	RemoteProvider,
 } from '../git';
 import { GitUri } from '../gitUri';
-import { Iterables, Promises, Strings } from '../../system';
-import { ContactPresence } from '../../vsls/vsls';
+import { FormatOptions, Formatter } from './formatter';
 
 const emptyStr = '';
 

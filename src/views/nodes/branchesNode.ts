@@ -1,15 +1,15 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchesView } from '../branchesView';
-import { BranchNode } from './branchNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
 import { Arrays, debug, gate } from '../../system';
+import { BranchesView } from '../branchesView';
+import { RepositoriesView } from '../repositoriesView';
+import { BranchNode } from './branchNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
+import { MessageNode } from './common';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {

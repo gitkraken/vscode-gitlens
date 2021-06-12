@@ -1,15 +1,15 @@
 'use strict';
 import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchesView } from '../branchesView';
-import { CommitsView } from '../commitsView';
 import { Colors } from '../../constants';
-import { ContributorsView } from '../contributorsView';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { BranchesView } from '../branchesView';
+import { CommitsView } from '../commitsView';
+import { ContributorsView } from '../contributorsView';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
 import { SearchAndCompareView } from '../searchAndCompareView';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<

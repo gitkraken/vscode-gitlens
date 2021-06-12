@@ -1,6 +1,10 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { GitActions } from '../commands';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { ReferencePicker } from '../quickpicks';
+import { CompareResultsNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,10 +14,6 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasRef,
 } from './common';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
-import { CompareResultsNode } from '../views/nodes';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;

@@ -1,9 +1,9 @@
 'use strict';
 import { env, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
+import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {

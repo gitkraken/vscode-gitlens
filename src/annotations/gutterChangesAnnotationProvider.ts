@@ -13,15 +13,15 @@ import {
 	TextEditorDecorationType,
 	TextEditorRevealType,
 } from 'vscode';
-import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { Decorations } from './fileAnnotationController';
 import { GitDiff, GitLogCommit } from '../git/git';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
+import { Decorations } from './fileAnnotationController';
 
 export interface ChangesAnnotationContext extends AnnotationContext {
 	sha?: string;

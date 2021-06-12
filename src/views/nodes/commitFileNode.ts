@@ -3,9 +3,9 @@ import * as paths from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
 import { GitBranch, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 

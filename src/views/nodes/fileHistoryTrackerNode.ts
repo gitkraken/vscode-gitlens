@@ -3,13 +3,13 @@ import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, w
 import { UriComparer } from '../../comparers';
 import { ContextKeys, setContext } from '../../constants';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
-import { FileHistoryNode } from './fileHistoryNode';
 import { GitReference, GitRevision } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
+import { FileHistoryNode } from './fileHistoryNode';
 import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {

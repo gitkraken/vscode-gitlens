@@ -4,9 +4,9 @@ import { getApi, LiveShare, Role, SessionChangeEvent } from 'vsls';
 import { ContextKeys, DocumentSchemes, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { debug, timeout } from '../system';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
-import { debug, timeout } from '../system';
 
 export const vslsUriPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;
 export const vslsUriRootRegex = /^[/|\\]~(?:\d+?|external)$/;

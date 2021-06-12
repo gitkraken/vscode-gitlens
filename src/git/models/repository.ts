@@ -18,6 +18,10 @@ import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { Logger } from '../../logger';
+import { Messages } from '../../messages';
+import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
+import { runGitCommandInTerminal } from '../../terminal';
 import {
 	GitBranch,
 	GitContributor,
@@ -30,8 +34,7 @@ import {
 } from '../git';
 import { GitService } from '../gitService';
 import { GitUri } from '../gitUri';
-import { Logger } from '../../logger';
-import { Messages } from '../../messages';
+import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import {
 	BranchSortOptions,
 	GitBranchReference,
@@ -43,9 +46,6 @@ import {
 	GitTagReference,
 	TagSortOptions,
 } from './models';
-import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
-import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
-import { runGitCommandInTerminal } from '../../terminal';
 
 export const enum RepositoryChange {
 	// FileSystem = 'filesystem',

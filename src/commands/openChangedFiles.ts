@@ -1,10 +1,10 @@
 'use strict';
 import { Uri, window } from 'vscode';
-import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
+import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];

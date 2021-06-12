@@ -2,10 +2,10 @@
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { Dates, debug, memoize } from '../../system';
 import { GitRemote, GitRevision } from '../git';
 import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
 import { GitStatus } from './status';
-import { Dates, debug, memoize } from '../../system';
 
 const whitespaceRegex = /\s/;
 const detachedHEADRegex = /^(?=.*\bHEAD\b)?(?=.*\bdetached\b).*$/;

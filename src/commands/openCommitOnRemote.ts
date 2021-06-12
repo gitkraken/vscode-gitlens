@@ -1,5 +1,10 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { Container } from '../container';
+import { RemoteResourceType } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,11 +15,6 @@ import {
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
 } from './common';
-import { Container } from '../container';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {

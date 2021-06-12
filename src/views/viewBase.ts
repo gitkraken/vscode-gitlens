@@ -15,8 +15,6 @@ import {
 	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
-import { BranchesView } from './branchesView';
-import { CommitsView } from './commitsView';
 import {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -35,16 +33,18 @@ import {
 	ViewsConfigKeys,
 } from '../configuration';
 import { Container } from '../container';
+import { Logger } from '../logger';
+import { debug, Functions, log, Promises } from '../system';
+import { BranchesView } from './branchesView';
+import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
-import { Logger } from '../logger';
 import { PageableViewNode, ViewNode } from './nodes';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
-import { debug, Functions, log, Promises } from '../system';
 import { TagsView } from './tagsView';
 
 export type View =

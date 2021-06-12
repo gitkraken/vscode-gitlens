@@ -1,11 +1,11 @@
 'use strict';
 import { Range, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { Container } from '../container';
 import { GitBranch, GitLog, GitReference, GitTag } from '../git/git';
-import { executeGitCommand } from './gitCommands';
 import { GitUri } from '../git/gitUri';
 import { CommandQuickPickItem } from '../quickpicks';
+import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { executeGitCommand } from './gitCommands';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;

@@ -1,5 +1,4 @@
 'use strict';
-import { Command, command, Commands } from './common';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
@@ -11,6 +10,7 @@ import {
 	SetADefaultRemoteCommandQuickPickItem,
 } from '../quickpicks';
 import { Strings } from '../system';
+import { Command, command, Commands } from './common';
 
 export type OpenOnRemoteCommandArgs =
 	| {

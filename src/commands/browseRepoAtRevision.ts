@@ -1,13 +1,13 @@
 'use strict';
 import * as paths from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openWorkspace } from './common';
 import { BuiltInCommands } from '../constants';
+import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Container } from '../container';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openWorkspace } from './common';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;

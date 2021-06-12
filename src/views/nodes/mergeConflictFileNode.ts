@@ -2,12 +2,12 @@
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
-import { FileNode } from './folderNode';
 import { GitFile, GitMergeStatus, GitRebaseStatus, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { ViewsWithCommits } from '../viewBase';
+import { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements FileNode {

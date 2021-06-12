@@ -2,13 +2,13 @@
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { AnnotationContext } from '../annotations/annotationProvider';
 import { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { ActiveEditorCommand, command, Commands, EditorCommand } from './common';
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
 import { isTextEditor } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { ActiveEditorCommand, command, Commands, EditorCommand } from './common';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {

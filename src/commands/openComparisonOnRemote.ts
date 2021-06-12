@@ -1,10 +1,10 @@
 'use strict';
 import { window } from 'vscode';
-import { Command, command, CommandContext, Commands, executeCommand } from './common';
 import { RemoteResourceType } from '../git/git';
 import { Logger } from '../logger';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
 import { ResultsCommitsNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands, executeCommand } from './common';
+import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;

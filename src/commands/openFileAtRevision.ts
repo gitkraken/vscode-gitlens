@@ -1,16 +1,16 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { GitActions } from './gitCommands';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { GitActions } from './gitCommands';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;

@@ -16,7 +16,10 @@ import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../
 import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
+import { GitService } from '../git/gitService';
 import { GitUri } from '../git/gitUri';
+import { debug } from '../system';
+import { runGitCommandInTerminal } from '../terminal';
 import {
 	BranchesNode,
 	BranchNode,
@@ -52,9 +55,6 @@ import {
 	ViewRefFileNode,
 	ViewRefNode,
 } from './nodes';
-import { debug } from '../system';
-import { runGitCommandInTerminal } from '../terminal';
-import { GitService } from '../git/gitService';
 
 interface CompareSelectedInfo {
 	ref: string;

@@ -26,6 +26,7 @@ import {
 	GitStashReference,
 	GitTagReference,
 } from '../git/git';
+import { gate } from '../system';
 import {
 	BranchesNode,
 	BranchNode,
@@ -42,7 +43,6 @@ import {
 	StashNode,
 	TagsNode,
 } from './nodes';
-import { gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {

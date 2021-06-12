@@ -1,8 +1,8 @@
 'use strict';
-import { CommitFileNode } from './commitFileNode';
 import { GitFile, GitLogCommit } from '../../git/git';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
+import { CommitFileNode } from './commitFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode<StashesView | RepositoriesView> {

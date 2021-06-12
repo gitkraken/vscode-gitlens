@@ -1,7 +1,5 @@
 'use strict';
 import { graphql } from '@octokit/graphql';
-import { Logger } from '../logger';
-import { debug } from '../system';
 import {
 	AuthenticationError,
 	ClientError,
@@ -12,6 +10,8 @@ import {
 	RichRemoteProvider,
 } from '../git/git';
 import { Account } from '../git/models/author';
+import { Logger } from '../logger';
+import { debug } from '../system';
 
 export class GitHubApi {
 	@debug({

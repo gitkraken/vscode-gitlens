@@ -1,7 +1,5 @@
 'use strict';
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
-import { AnnotationProviderBase } from './annotationProvider';
-import { ComputedHeatmap, getHeatmapColors } from './annotations';
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
 import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
@@ -9,6 +7,8 @@ import { GitUri } from '../git/gitUri';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { AnnotationProviderBase } from './annotationProvider';
+import { ComputedHeatmap, getHeatmapColors } from './annotations';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected blame: Promise<GitBlame | undefined>;

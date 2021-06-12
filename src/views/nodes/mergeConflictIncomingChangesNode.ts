@@ -3,9 +3,9 @@ import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState 
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { BuiltInCommands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
 import { CommitFormatter, GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';

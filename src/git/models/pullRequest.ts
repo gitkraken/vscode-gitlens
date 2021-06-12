@@ -1,7 +1,7 @@
 'use strict';
 import { configuration, DateStyle } from '../../configuration';
-import { RemoteProviderReference } from './remoteProvider';
 import { Dates, memoize } from '../../system';
+import { RemoteProviderReference } from './remoteProvider';
 
 export const PullRequestDateFormatting = {
 	dateFormat: undefined! as string | null,

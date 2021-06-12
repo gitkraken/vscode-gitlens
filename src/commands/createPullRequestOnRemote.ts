@@ -1,7 +1,7 @@
 'use strict';
-import { Command, command, Commands, executeCommand } from './common';
 import { Container } from '../container';
 import { GitRemote, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
+import { Command, command, Commands, executeCommand } from './common';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {

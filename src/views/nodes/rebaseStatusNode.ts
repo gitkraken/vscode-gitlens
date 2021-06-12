@@ -10,13 +10,10 @@ import {
 	TreeItemCollapsibleState,
 	Uri,
 } from 'vscode';
-import { BranchNode } from './branchNode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { FileNode, FolderNode } from './folderNode';
 import {
 	CommitFormatter,
 	GitBranch,
@@ -27,9 +24,12 @@ import {
 	GitStatus,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { CommitFileNode } from './commitFileNode';
+import { FileNode, FolderNode } from './folderNode';
+import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {

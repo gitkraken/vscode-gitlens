@@ -1,6 +1,6 @@
 'use strict';
-import { GitBranch } from '../models/branch';
 import { debug } from '../../system';
+import { GitBranch } from '../models/branch';
 
 const branchWithTrackingRegex =
 	/^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;

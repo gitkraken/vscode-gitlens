@@ -1,6 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { Range } from 'vscode';
+import { Arrays, debug, Strings } from '../../system';
 import {
 	GitAuthor,
 	GitCommitType,
@@ -12,7 +13,6 @@ import {
 	GitRevision,
 	GitUser,
 } from '../git';
-import { Arrays, debug, Strings } from '../../system';
 
 const emptyEntry: LogEntry = {};
 const emptyStr = '';

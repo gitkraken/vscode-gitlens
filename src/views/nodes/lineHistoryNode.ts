@@ -1,9 +1,6 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
-import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import {
 	GitBranch,
 	GitCommitType,
@@ -18,12 +15,15 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
-import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import { LineHistoryView } from '../lineHistoryView';
-import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables, memoize } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
+import { LineHistoryView } from '../lineHistoryView';
+import { LoadMoreNode, MessageNode } from './common';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { insertDateMarkers } from './helpers';
+import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryNode

@@ -23,6 +23,7 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { debug, gate, Strings } from '../system';
 import {
 	BranchNode,
 	BranchOrTagFolderNode,
@@ -33,7 +34,6 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {

@@ -1,19 +1,19 @@
 'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { CommitNode } from './commitNode';
-import { LoadMoreNode, MessageNode } from './common';
+import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { ContributorsView } from '../contributorsView';
 import { GitContributor, GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
-import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables, Strings } from '../../system';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { ContactPresence } from '../../vsls/vsls';
-import { getPresenceDataUri } from '../../avatars';
+import { ContributorsView } from '../contributorsView';
+import { RepositoriesView } from '../repositoriesView';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
+import { insertDateMarkers } from './helpers';
+import { RepositoryNode } from './repositoryNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';

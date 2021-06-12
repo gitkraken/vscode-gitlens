@@ -26,6 +26,22 @@ import { configuration } from '../configuration';
 import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import { setEnabled } from '../extension';
+import { LogCorrelationContext, Logger } from '../logger';
+import { Messages } from '../messages';
+import {
+	Arrays,
+	debug,
+	Functions,
+	gate,
+	Iterables,
+	log,
+	Promises,
+	Strings,
+	TernarySearchTree,
+	Versions,
+} from '../system';
+import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
 	Authentication,
 	BranchDateFormatting,
@@ -83,25 +99,9 @@ import {
 	TagSortOptions,
 } from './git';
 import { GitUri } from './gitUri';
-import { LogCorrelationContext, Logger } from '../logger';
-import { Messages } from '../messages';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from './remotes/factory';
 import { fsExists, isWindows } from './shell';
-import {
-	Arrays,
-	debug,
-	Functions,
-	gate,
-	Iterables,
-	log,
-	Promises,
-	Strings,
-	TernarySearchTree,
-	Versions,
-} from '../system';
-import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { vslsUriPrefixRegex } from '../vsls/vsls';
 
 const emptyStr = '';
 const slash = '/';

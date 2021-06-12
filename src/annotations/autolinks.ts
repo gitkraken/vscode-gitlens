@@ -1,11 +1,11 @@
 'use strict';
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
-import { Container } from '../container';
-import { Dates, debug, Iterables, Promises, Strings } from '../system';
-import { Logger } from '../logger';
-import { GitRemote, IssueOrPullRequest } from '../git/git';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitRemote, IssueOrPullRequest } from '../git/git';
+import { Logger } from '../logger';
+import { Dates, debug, Iterables, Promises, Strings } from '../system';
 
 const numRegex = /<num>/g;
 

@@ -1,9 +1,12 @@
 'use strict';
 import { commands, ConfigurationChangeEvent, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitRevision, SearchPattern } from '../git/git';
+import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
+import { debug, gate, Iterables, log, Promises } from '../system';
 import {
 	CompareResultsNode,
 	ContextValues,
@@ -12,11 +15,8 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate, Iterables, log, Promises } from '../system';
-import { ViewBase } from './viewBase';
 import { ComparePickerNode } from './nodes/comparePickerNode';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
-import { getRepoPathOrPrompt } from '../commands';
+import { ViewBase } from './viewBase';
 
 interface DeprecatedPinnedComparison {
 	path: string;

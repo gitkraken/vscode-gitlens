@@ -1,14 +1,14 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { GitReference } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { GitActions } from './gitCommands';
+import { Messages } from '../messages';
 import { ReferencePicker } from '../quickpicks';
 import { Strings } from '../system';
-import { Messages } from '../messages';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { GitActions } from './gitCommands';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;
