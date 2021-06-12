@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1538](https://github.com/eamodio/vscode-gitlens/issues/1538) - Wrong initial keyboard focus in interactive rebase
 - Fixes [#1498](https://github.com/eamodio/vscode-gitlens/issues/1498) - "Search & Compare" broken entries
 - Fixes [#1507](https://github.com/eamodio/vscode-gitlens/issues/1507) - Communicate git error instead of "unable to find git"
 - Fixes [#1512](https://github.com/eamodio/vscode-gitlens/issues/1512) - Git tag command can add an extra `-m`
