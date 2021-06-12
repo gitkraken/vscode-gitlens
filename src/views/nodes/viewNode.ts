@@ -125,9 +125,8 @@ export abstract class ViewNode<TView extends View = View> {
 
 	refresh?(reset?: boolean): boolean | void | Promise<void> | Promise<boolean>;
 
-	@gate<RepositoryFolderNode['triggerChange']>(
-		(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode) =>
-			JSON.stringify([reset, force, avoidSelf?.toString()]),
+	@gate<ViewNode['triggerChange']>((reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode) =>
+		JSON.stringify([reset, force, avoidSelf?.toString()]),
 	)
 	@debug()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
