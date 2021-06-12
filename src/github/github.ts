@@ -33,8 +33,31 @@ export class GitHubApi {
 	): Promise<Account | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			repository:
+				| {
+						object:
+							| {
+									author?: {
+										name: string | null;
+										email: string | null;
+										avatarUrl: string;
+									};
+							  }
+							| null
+							| undefined;
+				  }
+				| null
+				| undefined;
+		}
+
 		try {
-			const query = `query ($owner: String!, $repo: String!, $ref: GitObjectID!, $avatarSize: Int) {
+			const query = `query getAccountForCommit(
+	$owner: String!
+	$repo: String!
+	$ref: GitObjectID!
+	$avatarSize: Int
+) {
 	repository(name: $repo, owner: $owner) {
 		object(oid: $ref) {
 			... on Commit {
@@ -48,28 +71,12 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{
-				repository:
-					| {
-							object:
-								| {
-										author?: {
-											name: string | null;
-											email: string | null;
-											avatarUrl: string;
-										};
-								  }
-								| null
-								| undefined;
-					  }
-					| null
-					| undefined;
-			}>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				ref: ref,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			const author = rsp?.repository?.object?.author;
@@ -111,8 +118,27 @@ export class GitHubApi {
 	): Promise<Account | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			search:
+				| {
+						nodes:
+							| {
+									name: string | null;
+									email: string | null;
+									avatarUrl: string;
+							  }[]
+							| null
+							| undefined;
+				  }
+				| null
+				| undefined;
+		}
+
 		try {
-			const query = `query ($emailQuery: String!, $avatarSize: Int) {
+			const query = `query getAccountForEmail(
+	$emailQuery: String!
+	$avatarSize: Int
+) {
 	search(type: USER, query: $emailQuery, first: 1) {
 		nodes {
 			... on User {
@@ -124,26 +150,12 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{
-				search:
-					| {
-							nodes:
-								| {
-										name: string | null;
-										email: string | null;
-										avatarUrl: string;
-								  }[]
-								| null
-								| undefined;
-					  }
-					| null
-					| undefined;
-			}>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				emailQuery: `in:email ${email}`,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			const author = rsp?.search?.nodes?.[0];
@@ -183,8 +195,19 @@ export class GitHubApi {
 	): Promise<DefaultBranch | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			repository: {
+				defaultBranchRef: {
+					name: string;
+				} | null;
+			} | null;
+		}
+
 		try {
-			const query = `query defaultBranch($owner: String!, $repo: String!) {
+			const query = `query getDefaultBranch(
+	$owner: String!
+	$repo: String!
+) {
 	repository(name: $repo, owner: $owner) {
 		defaultBranchRef {
 			name
@@ -192,17 +215,11 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{
-				repository: {
-					defaultBranchRef: {
-						name: string;
-					} | null;
-				} | null;
-			}>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			const defaultBranch = rsp?.repository?.defaultBranchRef?.name ?? undefined;
@@ -241,8 +258,16 @@ export class GitHubApi {
 	): Promise<IssueOrPullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest };
+		}
+
 		try {
-			const query = `query pr($owner: String!, $repo: String!, $number: Int!) {
+			const query = `query getIssueOrPullRequest(
+	$owner: String!
+	$repo: String!
+	$number: Int!
+) {
 	repository(name: $repo, owner: $owner) {
 		issueOrPullRequest(number: $number) {
 			__typename
@@ -262,12 +287,12 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				number: number,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			const issue = rsp?.repository?.issueOrPullRequest;
@@ -313,8 +338,30 @@ export class GitHubApi {
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			repository:
+				| {
+						refs: {
+							nodes: {
+								associatedPullRequests?: {
+									nodes?: GitHubPullRequest[];
+								};
+							}[];
+						};
+				  }
+				| null
+				| undefined;
+		}
+
 		try {
-			const query = `query pr($owner: String!, $repo: String!, $branch: String!, $limit: Int!, $include: [PullRequestState!], $avatarSize: Int) {
+			const query = `query getPullRequestForBranch(
+	$owner: String!
+	$repo: String!
+	$branch: String!
+	$limit: Int!
+	$include: [PullRequestState!]
+	$avatarSize: Int
+) {
 	repository(name: $repo, owner: $owner) {
 		refs(query: $branch, refPrefix: "refs/heads/", first: 1) {
 			nodes {
@@ -345,27 +392,14 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{
-				repository:
-					| {
-							refs: {
-								nodes: {
-									associatedPullRequests?: {
-										nodes?: GitHubPullRequest[];
-									};
-								}[];
-							};
-					  }
-					| null
-					| undefined;
-			}>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				branch: branch,
 				// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
 				limit: 10,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
@@ -414,8 +448,26 @@ export class GitHubApi {
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		interface QueryResult {
+			repository:
+				| {
+						object?: {
+							associatedPullRequests?: {
+								nodes?: GitHubPullRequest[];
+							};
+						};
+				  }
+				| null
+				| undefined;
+		}
+
 		try {
-			const query = `query pr($owner: String!, $repo: String!, $ref: GitObjectID!, $avatarSize: Int) {
+			const query = `query getPullRequestForCommit(
+	$owner: String!
+	$repo: String!
+	$ref: GitObjectID!
+	$avatarSize: Int
+) {
 	repository(name: $repo, owner: $owner) {
 		object(oid: $ref) {
 			... on Commit {
@@ -446,23 +498,12 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<{
-				repository:
-					| {
-							object?: {
-								associatedPullRequests?: {
-									nodes?: GitHubPullRequest[];
-								};
-							};
-					  }
-					| null
-					| undefined;
-			}>(query, {
+			const rsp = await graphql<QueryResult>(query, {
+				...options,
+				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				ref: ref,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
 			});
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
