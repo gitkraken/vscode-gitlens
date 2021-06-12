@@ -3110,9 +3110,11 @@ export class GitService implements Disposable {
 		provider: RichRemoteProvider,
 		options?: { timeout?: number },
 	): Promise<PullRequest | undefined>;
-	@gate<GitService['getPullRequestForCommit']>((ref, remoteOrProvider) => {
+	@gate<GitService['getPullRequestForCommit']>((ref, remoteOrProvider, options) => {
 		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
-		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}`;
+		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}|${
+			options?.timeout
+		}`;
 	})
 	@debug<GitService['getPullRequestForCommit']>({
 		args: {
