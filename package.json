@@ -9538,7 +9538,9 @@
 				"authority": "*",
 				"formatting": {
 					"label": "${path} (${authority})",
-					"separator": "/"
+					"separator": "/",
+					"workspaceSuffix": "GitLens",
+					"stripPathStartingSeparator": true
 				}
 			}
 		],
