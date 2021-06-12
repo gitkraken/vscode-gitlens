@@ -175,7 +175,6 @@ export function getTokensFromTemplate(template: string) {
 		match = tokenRegex.exec(template);
 		if (match == null) break;
 
-		// eslint-disable-next-line prefer-const
 		let [, prefix, key, truncateTo, option, suffix] = match;
 		// Check for a prefix group
 		if (prefix != null) {

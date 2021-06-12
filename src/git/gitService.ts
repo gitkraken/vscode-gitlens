@@ -2617,7 +2617,6 @@ export class GitService implements Disposable {
 		if (status === undefined) {
 			const rebase = await Git.rev_parse__verify(repoPath, 'REBASE_HEAD');
 			if (rebase != null) {
-				// eslint-disable-next-line prefer-const
 				let [mergeBase, branch, onto, stepsNumber, stepsMessage, stepsTotal] = await Promise.all([
 					this.getMergeBase(repoPath, 'REBASE_HEAD', 'HEAD'),
 					Git.readDotGitFile(repoPath, ['rebase-merge', 'head-name']),

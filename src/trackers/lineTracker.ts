@@ -132,7 +132,6 @@ export class LineTracker<T> implements Disposable {
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
-				// eslint-disable-next-line @typescript-eslint/no-empty-function
 				this.onStart?.() ?? { dispose: () => {} },
 			);
 

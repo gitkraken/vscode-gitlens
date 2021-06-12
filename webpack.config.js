@@ -1,6 +1,7 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
+/* eslint-disable import/no-dynamic-require */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
@@ -12,6 +13,7 @@ const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
+const esbuild = require('esbuild');
 const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
@@ -143,6 +145,7 @@ function getExtensionConfig(mode, env) {
 				env.esbuild
 					? new ESBuildMinifyPlugin({
 							format: 'cjs',
+							implementation: esbuild,
 							minify: true,
 							treeShaking: true,
 							// Keep the class names otherwise @log won't provide a useful name
@@ -150,6 +153,7 @@ function getExtensionConfig(mode, env) {
 							target: 'es2019',
 					  })
 					: new TerserPlugin({
+							extractComments: false,
 							parallel: true,
 							terserOptions: {
 								ecma: 2019,
@@ -178,6 +182,7 @@ function getExtensionConfig(mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									implementation: esbuild,
 									loader: 'ts',
 									target: 'es2019',
 									tsconfigRaw: require('./tsconfig.json'),
@@ -420,9 +425,9 @@ function getWebviewsConfig(mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									implementation: esbuild,
 									loader: 'ts',
 									target: 'es2019',
-									// eslint-disable-next-line import/no-dynamic-require
 									tsconfigRaw: require(path.join(basePath, 'tsconfig.json')),
 								},
 						  }

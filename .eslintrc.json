@@ -37,7 +37,6 @@
 		"no-caller": "error",
 		"no-debugger": "warn",
 		"no-dupe-class-members": "off",
-		"no-duplicate-imports": "error",
 		"no-else-return": "warn",
 		"no-empty": ["warn", { "allowEmptyCatch": true }],
 		"no-eval": "error",
@@ -73,13 +72,19 @@
 		"object-shorthand": ["error", "never"],
 		"one-var": ["error", "never"],
 		"prefer-arrow-callback": "error",
-		"prefer-const": "error",
+		"prefer-const": [
+			"error",
+			{
+				"destructuring": "all",
+				"ignoreReadBeforeAssign": false
+			}
+		],
 		"prefer-numeric-literals": "error",
 		"prefer-object-spread": "error",
 		"prefer-rest-params": "error",
 		"prefer-spread": "error",
 		"prefer-template": "error",
-		"quotes": ["error", "single", { "avoidEscape": true }],
+		"quotes": ["error", "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
 		// Turn off until fix for: https://github.com/eslint/eslint/issues/11899
 		"require-atomic-updates": "off",
 		"semi": ["error", "always"],
@@ -102,7 +107,6 @@
 		"import/no-cycle": "off",
 		"import/no-dynamic-require": "error",
 		"import/no-default-export": "error",
-		"import/no-duplicates": "error",
 		"import/no-self-import": "error",
 		"import/no-unresolved": ["warn", { "ignore": ["vscode"] }],
 		"import/order": [
@@ -205,7 +209,8 @@
 				}
 			}
 		],
-		"@typescript-eslint/no-empty-function": ["warn", { "allow": ["constructors"] }],
+		"@typescript-eslint/no-duplicate-imports": "error",
+		"@typescript-eslint/no-empty-function": "off",
 		"@typescript-eslint/no-empty-interface": "error",
 		"@typescript-eslint/no-explicit-any": "off",
 		"@typescript-eslint/no-floating-promises": "error",
@@ -215,10 +220,10 @@
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-parameter-properties": "off",
 		"@typescript-eslint/no-unnecessary-condition": "off",
-		"@typescript-eslint/no-unsafe-assignment": "off", // TODO@eamodio revisit
-		"@typescript-eslint/no-unsafe-call": "off", // TODO@eamodio revisit
-		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
-		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-assignment": "off",
+		"@typescript-eslint/no-unsafe-call": "off",
+		"@typescript-eslint/no-unsafe-member-access": "off",
+		"@typescript-eslint/no-unsafe-return": "off",
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"@typescript-eslint/no-unused-vars": [
 			"warn",

@@ -193,12 +193,11 @@ export namespace RemoteProviderPicker {
 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (autoPick && remotes.length === 1) return items[0];
 
-		const quickpick =
-			window.createQuickPick<
-				| ConfigureCustomRemoteProviderCommandQuickPickItem
-				| CopyOrOpenRemoteCommandQuickPickItem
-				| SetADefaultRemoteCommandQuickPickItem
-			>();
+		const quickpick = window.createQuickPick<
+			| ConfigureCustomRemoteProviderCommandQuickPickItem
+			| CopyOrOpenRemoteCommandQuickPickItem
+			| SetADefaultRemoteCommandQuickPickItem
+		>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		const disposables: Disposable[] = [];
