@@ -15,7 +15,7 @@ import {
 } from '../models/models';
 import { RichRemoteProvider } from './provider';
 
-const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
+const issueEnricher3rdPartyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
@@ -52,7 +52,7 @@ export class GitHubRemote extends RichRemoteProvider {
 				{
 					linkify: (text: string) =>
 						text.replace(
-							issueEnricher3rdParyRegex,
+							issueEnricher3rdPartyRegex,
 							`[$&](${this.protocol}://${this.domain}/$1/issues/$2 "Open Issue #$2 from $1 on ${this.name}")`,
 						),
 				},
