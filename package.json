@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.55.0"
+		"vscode": "^1.57.0"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
@@ -9741,7 +9741,7 @@
 		"@types/lodash-es": "4.17.4",
 		"@types/node": "12.12.70",
 		"@types/sortablejs": "1.10.6",
-		"@types/vscode": "1.55.0",
+		"@types/vscode": "1.57.0",
 		"@typescript-eslint/eslint-plugin": "4.26.1",
 		"@typescript-eslint/parser": "4.26.1",
 		"circular-dependency-plugin": "5.2.2",
@@ -9755,7 +9755,7 @@
 		"eslint": "7.28.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.3.0",
-		"eslint-plugin-import": "2.23.3",
+		"eslint-plugin-import": "2.23.4",
 		"fork-ts-checker-webpack-plugin": "6.2.10",
 		"html-loader": "2.1.2",
 		"html-webpack-plugin": "5.3.1",
