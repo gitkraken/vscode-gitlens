@@ -575,8 +575,7 @@ async function parseRebaseTodo(
 		authors: [...authors.values()],
 		commits: commits,
 		commands: {
-			// eslint-disable-next-line no-template-curly-in-string
-			commit: ShowQuickCommitCommand.getMarkdownCommandArgs('${commit}', repoPath),
+			commit: ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, repoPath),
 		},
 	};
 }

@@ -209,8 +209,7 @@ export function getTokensFromTemplate(template: string) {
 	return tokens;
 }
 
-// eslint-disable-next-line no-template-curly-in-string
-const tokenSanitizeReplacement = "$${$1=this.$1,($1 == null ? '' : $1)}";
+const tokenSanitizeReplacement = `$\${$1=this.$1,($1 == null ? '' : $1)}`;
 const interpolationMap = new Map<string, Function>();
 
 export function interpolate(template: string, context: object | undefined): string {
@@ -232,9 +231,7 @@ const AsyncFunction = Object.getPrototypeOf(async function () {
 	/* noop */
 }).constructor;
 
-const tokenSanitizeReplacementAsync =
-	// eslint-disable-next-line no-template-curly-in-string
-	"$${$1=this.$1,($1 == null ? '' : typeof $1.then === 'function' ? (($1 = await $1),$1 == null ? '' : $1) : $1)}";
+const tokenSanitizeReplacementAsync = `$\${$1=this.$1,($1 == null ? '' : typeof $1.then === 'function' ? (($1 = await $1),$1 == null ? '' : $1) : $1)}`;
 
 const interpolationAsyncMap = new Map<string, typeof AsyncFunction>();
 

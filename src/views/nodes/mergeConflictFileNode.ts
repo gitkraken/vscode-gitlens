@@ -48,8 +48,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
 		item.tooltip = StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
+			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
 			this.file,
 		);
 		// Use the file icon and decorations

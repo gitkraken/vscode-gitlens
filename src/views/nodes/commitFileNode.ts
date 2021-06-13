@@ -125,11 +125,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	private get tooltip() {
-		return StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
-			this.file,
-		);
+		return StatusFileFormatter.fromTemplate(`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`, this.file);
 	}
 
 	override getCommand(): Command | undefined {

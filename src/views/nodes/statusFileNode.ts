@@ -75,15 +75,13 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			if (this._hasStagedChanges) {
 				item.contextValue += '+staged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					// eslint-disable-next-line no-template-curly-in-string
-					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
+					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
 					this.file,
 				);
 			} else {
 				item.contextValue += '+unstaged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					// eslint-disable-next-line no-template-curly-in-string
-					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Working Tree',
+					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Working Tree`,
 					this.file,
 				);
 			}

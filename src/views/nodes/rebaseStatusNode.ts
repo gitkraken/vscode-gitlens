@@ -200,8 +200,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 		// item.contextValue = ContextValues.RebaseCommit;
 
-		// eslint-disable-next-line no-template-curly-in-string
-		item.description = CommitFormatter.fromTemplate('${message}', this.commit, {
+		item.description = CommitFormatter.fromTemplate(`\${message}`, this.commit, {
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = new ThemeIcon('git-commit');

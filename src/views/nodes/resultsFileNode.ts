@@ -43,8 +43,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		item.contextValue = ContextValues.ResultsFile;
 		item.description = this.description;
 		item.tooltip = StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
+			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`,
 			this.file,
 		);
 

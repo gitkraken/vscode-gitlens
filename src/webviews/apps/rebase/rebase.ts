@@ -36,8 +36,7 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 ]);
 
 class RebaseEditor extends App<RebaseState> {
-	// eslint-disable-next-line no-template-curly-in-string
-	private readonly commitTokenRegex = new RegExp(encodeURIComponent('${commit}'));
+	private readonly commitTokenRegex = new RegExp(encodeURIComponent(`\${commit}`));
 
 	constructor() {
 		super('RebaseEditor', (window as any).bootstrap);

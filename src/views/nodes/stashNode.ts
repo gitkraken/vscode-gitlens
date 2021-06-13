@@ -71,8 +71,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			dateFormat: Container.config.defaultDateFormat,
 		});
 		item.contextValue = ContextValues.Stash;
-		// eslint-disable-next-line no-template-curly-in-string
-		item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
+		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			// messageAutolinks: true,
 		});
