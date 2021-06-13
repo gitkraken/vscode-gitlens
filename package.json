@@ -934,7 +934,7 @@
 				},
 				"gitlens.hovers.detailsMarkdownFormat": {
 					"type": "string",
-					"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
+					"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}${\n\n---\n\nfootnotes}",
 					"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 					"scope": "window"
 				},
