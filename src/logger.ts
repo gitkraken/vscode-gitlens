@@ -5,7 +5,10 @@ import { getCorrelationContext, getNextCorrelationId } from './system';
 
 const emptyStr = '';
 const extensionOutputChannelName = 'GitLens';
-const ConsolePrefix = `[${extensionOutputChannelName}]`;
+const ConsolePrefix = '[GitLens]';
+
+const extensionGitOutputChannelName = 'GitLens (Git)';
+const GitConsolePrefix = '[GitLens (Git)]';
 
 export { TraceLevel } from './configuration';
 
@@ -270,8 +273,16 @@ export class Logger {
 	static logGitCommand(command: string, ex?: Error): void {
 		if (this.level !== TraceLevel.Debug) return;
 
+		if (Logger.isDebugging) {
+			if (ex != null) {
+				console.error(this.timestamp, GitConsolePrefix, command ?? emptyStr, ex);
+			} else {
+				console.log(this.timestamp, GitConsolePrefix, command ?? emptyStr);
+			}
+		}
+
 		if (this.gitOutput == null) {
-			this.gitOutput = window.createOutputChannel(`${extensionOutputChannelName} (Git)`);
+			this.gitOutput = window.createOutputChannel(extensionGitOutputChannelName);
 		}
 		this.gitOutput.appendLine(`${this.timestamp} ${command}${ex != null ? `\n\n${ex.toString()}` : emptyStr}`);
 	}
