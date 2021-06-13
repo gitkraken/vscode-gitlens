@@ -1422,27 +1422,41 @@ export class GitService implements Disposable {
 				if (currentName) {
 					if (bt.name === currentName) return undefined;
 					if (bt.refType === 'branch' && bt.getNameWithoutRemote() === currentName) {
-						return { name: bt.name, compactName: bt.getRemoteName() };
+						return { name: bt.name, compactName: bt.getRemoteName(), type: bt.refType };
 					}
 				}
 
-				return { name: bt.name };
+				return { name: bt.name, compactName: undefined, type: bt.refType };
 			},
 		);
 
-		return (sha: string, compact?: boolean): string | undefined => {
+		return (sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined => {
 			const branchesAndTags = branchesAndTagsBySha.get(sha);
 			if (branchesAndTags == null || branchesAndTags.length === 0) return undefined;
 
-			if (!compact) return branchesAndTags.map(bt => bt.name).join(', ');
-
-			if (branchesAndTags.length > 1) {
-				return [branchesAndTags[0], { name: GlyphChars.Ellipsis }]
-					.map(bt => bt.compactName ?? bt.name)
+			if (!options?.compact) {
+				return branchesAndTags
+					.map(
+						bt => `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${bt.name}`,
+					)
 					.join(', ');
 			}
 
-			return branchesAndTags.map(bt => bt.compactName ?? bt.name).join(', ');
+			if (branchesAndTags.length > 1) {
+				const [bt] = branchesAndTags;
+				return `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
+					bt.compactName ?? bt.name
+				}, ${GlyphChars.Ellipsis}`;
+			}
+
+			return branchesAndTags
+				.map(
+					bt =>
+						`${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
+							bt.compactName ?? bt.name
+						}`,
+				)
+				.join(', ');
 		};
 	}
 

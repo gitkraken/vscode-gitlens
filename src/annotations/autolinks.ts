@@ -167,9 +167,14 @@ export class Autolinks implements Disposable {
 			}
 
 			ref.linkify = (text: string, markdown: boolean, footnotes?: Map<number, string>) => {
+				const includeFootnotes = footnotes == null;
+				let index;
+
 				if (markdown) {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
+
+						const issueUrl = ref.url.replace(numRegex, num);
 
 						let title = '';
 						if (ref.title) {
@@ -179,23 +184,33 @@ export class Autolinks implements Disposable {
 								if (issue instanceof Promises.CancellationError) {
 									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 								} else {
-									title += `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
-										/([")\\])/g,
-										'\\$1',
-									)}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
-										issue.closedDate ?? issue.date,
-									).fromNow()}`;
+									const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
+
+									if (footnotes != null) {
+										index = footnotes.size + 1;
+										footnotes.set(
+											index,
+											`[**${
+												issue.type === 'PullRequest' ? '$(git-pull-request)' : '$(info)'
+											} ${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+												5,
+											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
+												issue.closedDate ?? issue.date,
+											).fromNow()}`,
+										);
+									}
+
+									title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+										issue.closed ? 'Closed' : 'Opened'
+									}, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`;
 								}
 							}
 							title += '"';
 						}
 
-						return `[${linkText}](${ref.url.replace(numRegex, num)}${title})`;
+						return `[${linkText}](${issueUrl}${title})`;
 					});
 				}
-
-				const includeFootnotes = footnotes == null;
-				let index;
 
 				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
 					const issue = issuesOrPullRequests?.get(num);
@@ -207,7 +222,7 @@ export class Autolinks implements Disposable {
 
 					index = footnotes.size + 1;
 					footnotes.set(
-						footnotes.size + 1,
+						index,
 						`${linkText}: ${
 							issue instanceof Promises.CancellationError
 								? 'Details timed out'

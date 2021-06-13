@@ -59,12 +59,15 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		const children: ViewNode[] = [];
 
 		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, fileStatuses, currentUser, unpublishedCommits] = await Promise.all([
+		const [log, fileStatuses, currentUser, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(),
 			this.uri.sha == null
 				? Container.git.getStatusForFiles(this.uri.repoPath!, this.getPathOrGlob())
 				: undefined,
 			this.uri.sha == null ? Container.git.getCurrentUser(this.uri.repoPath!) : undefined,
+			this.branch != null
+				? Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				: undefined,
 			range
 				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
@@ -112,6 +115,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 							  )
 							: new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
 									branch: this.branch,
+									getBranchAndTagTips: getBranchAndTagTips,
 									unpublished: unpublishedCommits?.has(c.ref),
 							  }),
 					),

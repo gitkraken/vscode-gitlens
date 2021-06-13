@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { Command, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
@@ -22,7 +22,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		public readonly commit: GitLogCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
-		private readonly getBranchAndTagTips?: (sha: string, compact?: boolean) => string | undefined,
+		private readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
 		private readonly _options: { expand?: boolean } = {},
 	) {
 		super(commit.toGitUri(), view, parent);
@@ -44,27 +44,6 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	get ref(): GitRevisionReference {
 		return this.commit;
-	}
-
-	private get tooltip() {
-		return CommitFormatter.fromTemplate(
-			this.commit.isUncommitted
-				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-				: `\${author}\${ (email)} ${GlyphChars.Dash} \${id}${
-						this.unpublished ? ' (unpublished)' : ''
-				  }\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
-						expand: true,
-						prefix: '\n\n',
-						separator: '\n',
-				  })}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
-			this.commit,
-			{
-				dateFormat: Container.config.defaultDateFormat,
-				getBranchAndTagTips: this.getBranchAndTagTips,
-				// messageAutolinks: true,
-				messageIndent: 4,
-			},
-		);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -105,7 +84,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
-			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, true),
+			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
 
@@ -120,6 +99,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
+			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
@@ -127,7 +107,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			: this.view.config.avatars
 			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
-		item.tooltip = this.tooltip;
+		// item.tooltip = this.tooltip;
 
 		return item;
 	}
@@ -147,5 +127,48 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
+	}
+
+	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+		if (item.tooltip == null) {
+			item.tooltip = await this.getTooltip();
+		}
+		return item;
+	}
+
+	private async getTooltip() {
+		const remotes = await Container.git.getRemotes(this.commit.repoPath);
+		const remote = await Container.git.getRichRemoteProvider(remotes);
+
+		let autolinkedIssuesOrPullRequests;
+		let pr;
+
+		if (remote?.provider != null) {
+			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
+				Container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
+				Container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+			]);
+		}
+
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			`\${'$(git-commit) 'id}\${' via 'pullRequest}\${ \u2022 changesDetail}\${'&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			this.commit,
+			{
+				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+				dateFormat: Container.config.defaultDateFormat,
+				getBranchAndTagTips: this.getBranchAndTagTips,
+				markdown: true,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequestOrRemote: pr,
+				remotes: remotes,
+				unpublished: this.unpublished,
+			},
+		);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 }

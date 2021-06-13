@@ -68,12 +68,15 @@ export class LineHistoryNode
 		let selection = this.selection;
 
 		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, blame, unpublishedCommits] = await Promise.all([
+		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
 			this.uri.sha == null
 				? this.editorContents
 					? await Container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await Container.git.getBlameForRange(this.uri, selection)
+				: undefined,
+			this.branch != null
+				? Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
 				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
@@ -207,6 +210,7 @@ export class LineHistoryNode
 						c =>
 							new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
 								branch: this.branch,
+								getBranchAndTagTips: getBranchAndTagTips,
 								selection: selection,
 								unpublished: unpublishedCommits?.has(c.ref),
 							}),

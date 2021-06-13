@@ -112,6 +112,7 @@ export abstract class ViewBase<
 			const getTreeItem = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
 				const item = await getTreeItem.apply(this, [node]);
+				if (node.resolveTreeItem != null) return item;
 
 				const parent = node.getParent();
 
@@ -257,6 +258,10 @@ export abstract class ViewBase<
 
 	getTreeItem(node: ViewNode): TreeItem | Promise<TreeItem> {
 		return node.getTreeItem();
+	}
+
+	resolveTreeItem(item: TreeItem, node: ViewNode): TreeItem | Promise<TreeItem> {
+		return node.resolveTreeItem(item);
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {

@@ -38,7 +38,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
-	getBranchAndTagTips?: (sha: string) => string | undefined;
+	getBranchAndTagTips?: (sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined;
 	markdown?: boolean;
 	messageAutolinks?: boolean;
 	messageIndent?: number;
@@ -48,6 +48,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	presence?: ContactPresence;
 	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
 	remotes?: GitRemote<RemoteProvider>[];
+	unpublished?: boolean;
 
 	tokenOptions?: {
 		ago?: Strings.TokenOptions;
@@ -61,6 +62,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		authorNotYou?: Strings.TokenOptions;
 		avatar?: Strings.TokenOptions;
 		changes?: Strings.TokenOptions;
+		changesDetail?: Strings.TokenOptions;
 		changesShort?: Strings.TokenOptions;
 		commands?: Strings.TokenOptions;
 		committerAgo?: Strings.TokenOptions;
@@ -248,6 +250,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
+	get changesDetail(): string {
+		return this._padOrTruncate(
+			GitLogCommit.is(this._item)
+				? this._item.getFormattedDiffStatus({ expand: true, separator: ', ' })
+				: emptyStr,
+			this._options.tokenOptions.changesDetail,
+		);
+	}
+
 	get changesShort(): string {
 		return this._padOrTruncate(
 			GitLogCommit.is(this._item)
@@ -421,18 +432,22 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			this._options.footnotes == null || this._options.footnotes.size === 0
 				? emptyStr
 				: Iterables.join(
-						Iterables.map(
-							this._options.footnotes,
-							([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`,
+						Iterables.map(this._options.footnotes, ([i, footnote]) =>
+							this._options.markdown ? footnote : `${Strings.getSuperscript(i)} ${footnote}`,
 						),
-						'\n',
+						this._options.markdown ? '\\\n' : '\n',
 				  ),
 			this._options.tokenOptions.footnotes,
 		);
 	}
 
 	get id(): string {
-		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
+		const sha = this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
+		if (this._options.markdown && this._options.unpublished) {
+			return `<span style="color:#35b15e;">${sha} (unpublished)</span>`;
+		}
+
+		return sha;
 	}
 
 	get message(): string {
@@ -485,7 +500,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			if (this._options.markdown) {
-				text = `[PR #${pr.id}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+				const prTitle = Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"').trim();
+
+				text = `PR [**#${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: { id: pr.id, url: pr.url },
@@ -494,6 +511,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
+
+				if (this._options.footnotes != null) {
+					const index = this._options.footnotes.size + 1;
+					this._options.footnotes.set(
+						index,
+						`[**$(git-pull-request) ${prTitle}**](pr.url "Open Pull Request \\#${pr.id} on ${
+							pr.provider.name
+						}")\\\n${GlyphChars.Space.repeat(4)} #${
+							pr.id
+						} ${pr.state.toLocaleLowerCase()} ${pr.formatDateFromNow()}`,
+					);
+				}
 			} else if (this._options.footnotes != null) {
 				const index = this._options.footnotes.size + 1;
 				this._options.footnotes.set(
@@ -541,7 +570,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get tips(): string {
-		const branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha);
+		let branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha, { icons: this._options.markdown });
+		if (branchAndTagTips != null && this._options.markdown) {
+			const tips = branchAndTagTips.split(', ');
+			branchAndTagTips = tips
+				.map(t => `<span style="color:#ffffff;background-color:#1d76db;">&nbsp;&nbsp;${t}&nbsp;&nbsp;</span>`)
+				.join(GlyphChars.Space.repeat(3));
+		}
 		return this._padOrTruncate(branchAndTagTips ?? emptyStr, this._options.tokenOptions.tips);
 	}
 
