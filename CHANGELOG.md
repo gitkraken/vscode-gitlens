@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes up/down order of the alternate shortcuts on the Interactive Rebase Editor
+
 ## [11.5.0] - 2021-06-14
 
 ### Added

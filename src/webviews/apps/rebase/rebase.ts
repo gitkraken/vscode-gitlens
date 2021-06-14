@@ -183,7 +183,7 @@ class RebaseEditor extends App<RebaseState> {
 
 						e.preventDefault();
 
-						let index = me.getEntryIndex(ref) + (e.key === 'k' ? 1 : -1);
+						let index = me.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
 						if (index < 0) {
 							index = me.state.entries.length - 1;
 						} else if (index === me.state.entries.length) {
@@ -199,7 +199,7 @@ class RebaseEditor extends App<RebaseState> {
 						if (ref) {
 							e.stopPropagation();
 
-							me.moveEntry(ref, e.key === 'K' ? 1 : -1, true);
+							me.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
