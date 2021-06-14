@@ -3572,10 +3572,7 @@
 				"command": "gitlens.addAuthors",
 				"title": "Add Co-authors",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-person-add.svg",
-					"light": "images/light/icon-person-add.svg"
-				}
+				"icon": "$(person-add)"
 			},
 			{
 				"command": "gitlens.connectRemoteProvider",
@@ -3596,28 +3593,19 @@
 				"command": "gitlens.copyCurrentBranch",
 				"title": "Copy Current Branch Name",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy.svg",
-					"light": "images/light/icon-copy.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyMessageToClipboard",
 				"title": "Copy Message",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-message.svg",
-					"light": "images/light/icon-copy-message.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyShaToClipboard",
 				"title": "Copy SHA",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy.svg",
-					"light": "images/light/icon-copy.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.closeUnchangedFiles",
@@ -3639,10 +3627,7 @@
 				"command": "gitlens.copyRemoteBranchesUrl",
 				"title": "Copy Remote Branches Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openBranchOnRemote",
@@ -3654,10 +3639,7 @@
 				"command": "gitlens.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openCommitOnRemote",
@@ -3669,10 +3651,7 @@
 				"command": "gitlens.copyRemoteCommitUrl",
 				"title": "Copy Remote Commit Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openComparisonOnRemote",
@@ -3684,10 +3663,7 @@
 				"command": "gitlens.copyRemoteComparisonUrl",
 				"title": "Copy Remote Comparison Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openFileFromRemote",
@@ -3704,19 +3680,13 @@
 				"command": "gitlens.copyRemoteFileUrlToClipboard",
 				"title": "Copy Remote File Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlWithoutRange",
 				"title": "Copy Remote File Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openFileOnRemoteFrom",
@@ -3728,10 +3698,7 @@
 				"command": "gitlens.copyRemoteFileUrlFrom",
 				"title": "Copy Remote File Url From...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openBlamePriorToChange",
@@ -3767,10 +3734,7 @@
 				"command": "gitlens.copyRemotePullRequestUrl",
 				"title": "Copy Pull Request Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openAssociatedPullRequestOnRemote",
@@ -3788,10 +3752,7 @@
 				"command": "gitlens.copyRemoteRepositoryUrl",
 				"title": "Copy Remote Repository Url",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy-link.svg",
-					"light": "images/light/icon-copy-link.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openRevisionFile",
@@ -4035,10 +3996,7 @@
 				"command": "gitlens.views.copy",
 				"title": "Copy",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy.svg",
-					"light": "images/light/icon-copy.svg"
-				}
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.views.pruneRemote",
@@ -4219,11 +4177,7 @@
 			{
 				"command": "gitlens.views.compareWithUpstream",
 				"title": "Compare with Upstream",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-ref-remote.svg",
-					"light": "images/light/icon-compare-ref-remote.svg"
-				}
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareWithSelected",
@@ -4258,19 +4212,13 @@
 				"command": "gitlens.views.addAuthors",
 				"title": "Add Co-authors",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-person-add.svg",
-					"light": "images/light/icon-person-add.svg"
-				}
+				"icon": "$(person-add)"
 			},
 			{
 				"command": "gitlens.views.addAuthor",
 				"title": "Add as Co-author",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-person-add.svg",
-					"light": "images/light/icon-person-add.svg"
-				}
+				"icon": "$(person-add)"
 			},
 			{
 				"command": "gitlens.views.cherryPick",
@@ -4549,7 +4497,7 @@
 				"command": "gitlens.views.commits.setMyCommitsOnlyOff",
 				"title": "Toggle Filter: Only My Commits",
 				"category": "GitLens",
-				"icon": "$(filter)"
+				"icon": "$(filter-filled)"
 			},
 			{
 				"command": "gitlens.views.commits.setShowAvatarsOn",
@@ -5068,10 +5016,7 @@
 				"command": "gitlens.views.searchAndCompare.swapComparison",
 				"title": "Swap Comparison",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-swap.svg",
-					"light": "images/light/icon-swap.svg"
-				}
+				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",

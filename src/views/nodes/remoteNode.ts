@@ -113,10 +113,13 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			const { provider } = this.remote;
 
 			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
-				light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
-			};
+			item.iconPath =
+				provider.icon === 'remote'
+					? new ThemeIcon('cloud')
+					: {
+							dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
+							light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
+					  };
 
 			if (provider.hasApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
