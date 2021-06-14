@@ -366,7 +366,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		if (Container.actionRunners.count('hover.commands') > 0) {
-			commands += `${separator}[$(feedback) Discuss / Collab${
+			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
 				GlyphChars.Ellipsis
 			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
 				repoPath: this._item.repoPath,
@@ -385,7 +385,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 								line: this._options.editor?.line,
 						  }
 						: undefined,
-			})} "Want to Discuss or Collaborate? Have Comments, Questions, or Need Help?")`;
+			})} "Show Team Actions")`;
 		}
 
 		commands += `${separator}[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs({

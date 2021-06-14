@@ -295,7 +295,7 @@ export class ActionRunners implements Disposable {
 								placeholder = 'Choose how to open the pull request';
 								break;
 							case 'hover.commands':
-								title = 'Want to Discuss or Collaborate? Have Comments, Questions, or Need Help?';
+								title = 'Need Help or Want to Collaborate?';
 								placeholder = 'Choose what you would like to do';
 								break;
 							default:
