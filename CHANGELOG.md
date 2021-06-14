@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new section for associated pull requests (when connected to GitHub) and auto-linked issues to the _Details_ hover
 - Adds the ability to filter comparisons to show only either the left-side or right-side file differences
 - Adds the _Open Folder History_ command to root folders &mdash; closes [#1505](https://github.com/eamodio/vscode-gitlens/issues/1505)
+- Adds alternate `j`/`k` and `shift+j`/`shift+k` keyboard shortcuts to the Interactive Rebase Editor &mdash; closes [#1538](https://github.com/eamodio/vscode-gitlens/issues/1538)
 - Adds the ability to show contributor statistics, files changed as well as lines added and deleted (can take a while to compute depending on the repository) &mdash; closes [#1489](https://github.com/eamodio/vscode-gitlens/issues/1489)
   - Adds a _Show Statistics_ / _Hide Statistics_ toggle to the `...` menu of the _Contributors_ view
   - Adds a `gitlens.views.contributors.showStatistics` setting to specify whether to show contributor statistics in the _Contributors_ view

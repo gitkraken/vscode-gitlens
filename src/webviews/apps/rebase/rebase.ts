@@ -174,6 +174,34 @@ class RebaseEditor extends App<RebaseState> {
 							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 						}
 					}
+				} else if (e.key === 'j' || e.key === 'k') {
+					if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+						if (me.state == null) return;
+
+						let ref = (this as HTMLLIElement).dataset.ref;
+						if (ref == null) return;
+
+						e.preventDefault();
+
+						let index = me.getEntryIndex(ref) + (e.key === 'k' ? 1 : -1);
+						if (index < 0) {
+							index = me.state.entries.length - 1;
+						} else if (index === me.state.entries.length) {
+							index = 0;
+						}
+
+						ref = me.state.entries[index].ref;
+						document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+					}
+				} else if (e.key === 'J' || e.key === 'K') {
+					if (!e.metaKey && !e.ctrlKey && !e.altKey && e.shiftKey) {
+						const ref = (this as HTMLLIElement).dataset.ref;
+						if (ref) {
+							e.stopPropagation();
+
+							me.moveEntry(ref, e.key === 'K' ? 1 : -1, true);
+						}
+					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
 					const action = rebaseActionsMap.get(e.key);
 					if (action !== undefined) {
