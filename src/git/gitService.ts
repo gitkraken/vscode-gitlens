@@ -1654,26 +1654,15 @@ export class GitService implements Disposable {
 
 		remote = remote ?? 'origin';
 		try {
-			const data = await Git.symbolic_ref(repoPath, `refs/remotes/${remote}/HEAD`);
+			const data = await Git.ls_remote__HEAD(repoPath, remote);
 			if (data == null) return undefined;
 
-			return data.trim().substr(`${remote}/`.length);
-		} catch (ex) {
-			if (/is not a symbolic ref/.test(ex.stderr)) {
-				try {
-					const data = await Git.ls_remote__HEAD(repoPath, remote);
-					if (data == null) return undefined;
+			const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
+			if (match == null) return undefined;
 
-					const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
-					if (match == null) return undefined;
-
-					const [, branch] = match;
-					return branch.substr('refs/heads/'.length);
-				} catch {
-					return undefined;
-				}
-			}
-
+			const [, branch] = match;
+			return branch.substr('refs/heads/'.length);
+		} catch {
 			return undefined;
 		}
 	}

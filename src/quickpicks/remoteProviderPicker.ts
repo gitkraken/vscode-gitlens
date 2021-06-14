@@ -50,9 +50,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			}
 		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 			let branch = resource.base.branch;
-			if (branch == null && this.remote.provider.hasApi()) {
-				const defaultBranch = await this.remote.provider.getDefaultBranch?.();
-				branch = defaultBranch?.name;
+			if (branch == null) {
+				branch = await Container.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
+				if (branch == null && this.remote.provider.hasApi()) {
+					const defaultBranch = await this.remote.provider.getDefaultBranch?.();
+					branch = defaultBranch?.name;
+				}
 			}
 
 			resource = {
