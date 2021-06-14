@@ -194,6 +194,12 @@
 		"onCommand:gitlens.pushRepositories",
 		"onStartupFinished"
 	],
+	"capabilities": {
+		"virtualWorkspaces": false,
+		"untrustedWorkspaces": {
+			"supported": "limited"
+		}
+	},
 	"contributes": {
 		"configuration": {
 			"type": "object",
@@ -7634,7 +7640,7 @@
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "inline@9"
 				},
 				{
@@ -7726,7 +7732,7 @@
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "1_gitlens_actions_@9"
 				},
 				{
@@ -8391,7 +8397,7 @@
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
 					"group": "inline@3"
 				},
 				{
@@ -8432,7 +8438,7 @@
 				},
 				{
 					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && gitlens:action:createPullRequest && viewItem =~ /gitlens:status:upstream:(?!none)/",
 					"group": "1_gitlens_secondary_actions@3"
 				},
 				{

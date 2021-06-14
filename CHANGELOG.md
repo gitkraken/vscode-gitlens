@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support for Workspace Trust
 - Adds rich hovers to commits in the views &mdash; including associated pull requests (when connected to GitHub) and auto-linked issues
 - Adds a new section for associated pull requests (when connected to GitHub) and auto-linked issues to the _Details_ hover
 - Adds the ability to filter comparisons to show only either the left-side or right-side file differences

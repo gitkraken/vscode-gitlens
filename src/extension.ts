@@ -43,6 +43,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
 	void setContext(ContextKeys.Enabled, true);
 
+	if (!workspace.isTrusted) {
+		void setContext(ContextKeys.Readonly, true);
+		context.subscriptions.push(
+			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Readonly, undefined)),
+		);
+	}
+
 	setKeysForSync();
 
 	Logger.configure(context, configuration.get('outputLevel'), o => {
