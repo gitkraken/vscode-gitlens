@@ -7633,6 +7633,11 @@
 					"group": "inline@8"
 				},
 				{
+					"command": "gitlens.views.createPullRequest",
+					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"group": "inline@9"
+				},
+				{
 					"command": "gitlens.views.undoCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
 					"group": "inline@95"
