@@ -116,19 +116,19 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		switch (status as GitBranchStatus) {
 			case GitBranchStatus.Ahead:
 				return {
-					badge: '⮝',
+					badge: '▲',
 					color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor'),
 					tooltip: 'Ahead',
 				};
 			case GitBranchStatus.Behind:
 				return {
-					badge: '⮟',
+					badge: '▼',
 					color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor'),
 					tooltip: 'Behind',
 				};
 			case GitBranchStatus.Diverged:
 				return {
-					badge: '⮟⮝',
+					badge: '▼▲',
 					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor'),
 					tooltip: 'Diverged',
 				};
@@ -146,7 +146,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 				};
 			case GitBranchStatus.Unpublished:
 				return {
-					badge: '⮙+',
+					badge: '▲+',
 					color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor'),
 					tooltip: 'Unpublished',
 				};

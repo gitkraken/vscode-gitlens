@@ -71,10 +71,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new status indicators (decorations), on the right, and themeable colorizations to branches in the views
   - `✓` &mdash; indicates that the branch is the current branch
-  - `⮝` + green colorization &mdash; indicates that the branch has unpushed changes (ahead)
-  - `⮟` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
-  - `⮟⮝` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
-  - `⮙+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
+  - `▲` + green colorization &mdash; indicates that the branch has unpushed changes (ahead)
+  - `▼` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
+  - `▼▲` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
+  - `▲+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
 - Adds new status indicators (decorations), on the right, and themeable colorizations to files in the views
   - `M` &mdash; indicates that the file is/was modified
   - `A` + green colorization &mdash; indicates that the file is/was added

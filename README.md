@@ -380,10 +380,10 @@ The _Branches_ view lists all of the local branches, and additionally provides,
   - _Yellow dot_ &mdash; both unpushed and unpulled changes
 - status indicators (decorations), on the right, and themeable colorizations
   - `✓` &mdash; indicates that the branch is the current branch
-  - `⮝` + green colorization &mdash; indicates that the branch has unpushed changes (ahead)
-  - `⮟` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
-  - `⮟⮝` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
-  - `⮙+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
+  - `▲` + green colorization &mdash; indicates that the branch has unpushed changes (ahead)
+  - `▼` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
+  - `▼▲` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
+  - `▲+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
   - `!` + dark red colorization &mdash; indicates that the branch has a missing upstream (e.g. the upstream branch was deleted)
 - a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings- 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
