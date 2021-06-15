@@ -1491,11 +1491,11 @@
 							},
 							"domain": {
 								"type": "string",
-								"description": "Specifies the domain name of the custom remote service"
+								"description": "Specifies the domain name used to match this custom configuration to a Git remote"
 							},
 							"regex": {
 								"type": "string",
-								"description": "Specifies a regular expression to capture the \"domain name\" and \"path\" of the custom remote service"
+								"description": "Specifies a regular expression used to match this custom configuration to a Git remote and capture the \"domain name\" and \"path\""
 							},
 							"name": {
 								"type": "string",
@@ -1562,7 +1562,7 @@
 						}
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
+					"markdownDescription": "Specifies custom remote services to be matched with Git remotes to detect custom domains for built-in remote services or provide support for custom remote services",
 					"scope": "resource"
 				},
 				"gitlens.showWelcomeOnInstall": {

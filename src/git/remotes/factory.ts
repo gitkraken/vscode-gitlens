@@ -61,11 +61,13 @@ const builtInProviders: RemoteProviders = [
 ];
 
 export class RemoteProviderFactory {
-	static factory(providers: RemoteProviders): (domain: string, path: string) => RemoteProvider | undefined {
-		return (domain: string, path: string) => this.create(providers, domain, path);
+	static factory(
+		providers: RemoteProviders,
+	): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+		return (url: string, domain: string, path: string) => this.create(providers, url, domain, path);
 	}
 
-	static create(providers: RemoteProviders, domain: string, path: string): RemoteProvider | undefined {
+	static create(providers: RemoteProviders, url: string, domain: string, path: string): RemoteProvider | undefined {
 		try {
 			const key = domain.toLowerCase();
 			for (const { custom, matcher, creator } of providers) {
@@ -78,7 +80,7 @@ export class RemoteProviderFactory {
 				if (matcher.test(key)) return creator(domain, path);
 				if (!custom) continue;
 
-				const match = matcher.exec(`${domain}/${path}`);
+				const match = matcher.exec(url);
 				if (match != null) {
 					return creator(match[1], match[2]);
 				}

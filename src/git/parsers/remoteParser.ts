@@ -53,7 +53,7 @@ export class GitRemoteParser {
 	static parse(
 		data: string,
 		repoPath: string,
-		providerFactory: (domain: string, path: string) => RemoteProvider | undefined,
+		providerFactory: (url: string, domain: string, path: string) => RemoteProvider | undefined,
 	): GitRemote[] | undefined {
 		if (!data) return undefined;
 
@@ -86,7 +86,7 @@ export class GitRemoteParser {
 			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
 			remote = groups[uniqueness];
 			if (remote === undefined) {
-				const provider = providerFactory(domain, path);
+				const provider = providerFactory(url, domain, path);
 
 				remote = new GitRemote(
 					repoPath,
