@@ -695,7 +695,12 @@ export class GitService implements Disposable {
 		}
 	}
 
-	@log()
+	@log({
+		args: {
+			0: (repoPath: string) => repoPath,
+			1: (uris: Uri[]) => `${uris.length}`,
+		},
+	})
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [Strings.normalizePath(u.fsPath), u]));
 
