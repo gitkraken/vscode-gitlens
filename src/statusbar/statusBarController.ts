@@ -61,7 +61,12 @@ export class StatusBarController implements Disposable {
 
 				this._statusBarMode =
 					this._statusBarMode ??
-					window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 999 : 1);
+					window.createStatusBarItem(
+						'gitlens.mode',
+						alignment,
+						alignment === StatusBarAlignment.Right ? 999 : 1,
+					);
+				this._statusBarMode.name = 'GitLens Modes';
 				this._statusBarMode.command = Commands.SwitchMode;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = 'Switch GitLens Mode';
@@ -87,7 +92,12 @@ export class StatusBarController implements Disposable {
 
 			this._statusBarBlame =
 				this._statusBarBlame ??
-				window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
+				window.createStatusBarItem(
+					'gitlens.blame',
+					alignment,
+					alignment === StatusBarAlignment.Right ? 1000 : 0,
+				);
+			this._statusBarBlame.name = 'GitLens Current Line Blame';
 			this._statusBarBlame.command = Container.config.statusBar.command;
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
