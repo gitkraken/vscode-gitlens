@@ -109,13 +109,7 @@ export abstract class ViewBase<
 
 	constructor(public readonly id: string, public readonly name: string) {
 		if (Logger.isDebugging || Container.config.debug) {
-			const getTreeItem = this.getTreeItem;
-			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
-				const item = await getTreeItem.apply(this, [node]);
-				if (node.resolveTreeItem != null) return item;
-
-				const parent = node.getParent();
-
+			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(
 						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
@@ -133,6 +127,28 @@ export abstract class ViewBase<
 						}`,
 					);
 				}
+			}
+
+			const getTreeItem = this.getTreeItem;
+			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
+				const item = await getTreeItem.apply(this, [node]);
+
+				const parent = node.getParent();
+
+				if (node.resolveTreeItem != null) {
+					const resolveTreeItem = node.resolveTreeItem;
+					node.resolveTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, item: TreeItem) {
+						const resolvedItem = await resolveTreeItem.apply(this, [item]);
+
+						addDebuggingInfo(resolvedItem, node, parent);
+
+						return resolvedItem;
+					};
+
+					return item;
+				}
+
+				addDebuggingInfo(item, node, parent);
 
 				return item;
 			};
