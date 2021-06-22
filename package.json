@@ -4125,6 +4125,11 @@
 				}
 			},
 			{
+				"command": "gitlens.views.openPreviousChangesWithWorking",
+				"title": "Open Previous Changes with Working File",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.openFile",
 				"title": "Open File",
 				"category": "GitLens",
@@ -5826,6 +5831,10 @@
 				},
 				{
 					"command": "gitlens.views.openChangesWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openPreviousChangesWithWorking",
 					"when": "false"
 				},
 				{
@@ -8835,32 +8844,37 @@
 			],
 			"gitlens/commit/file/changes": [
 				{
-					"command": "gitlens.externalDiff",
+					"command": "gitlens.views.openChangesWithWorking",
 					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.openChangesWithWorking",
-					"whsen": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/",
+					"command": "gitlens.views.openPreviousChangesWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+(conflicted|stashed|staged|unstaged)\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.diffWithRevision",
-					"group": "2_gitlens@1"
+					"group": "1_gitlens@3"
 				},
 				{
 					"command": "gitlens.diffWithRevisionFrom",
-					"group": "2_gitlens@2"
+					"group": "1_gitlens@4"
+				},
+				{
+					"command": "gitlens.externalDiff",
+					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/",
+					"group": "1_gitlens@5"
 				},
 				{
 					"command": "gitlens.views.highlightChanges",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:results)/",
-					"group": "3_gitlens@1"
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.highlightRevisionChanges",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
-					"group": "3_gitlens@2"
+					"group": "2_gitlens@2"
 				}
 			],
 			"gitlens/editor/annotations": [

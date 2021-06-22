@@ -153,6 +153,11 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
 		commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
+		commands.registerCommand(
+			'gitlens.views.openPreviousChangesWithWorking',
+			this.openPreviousChangesWithWorking,
+			this,
+		);
 		commands.registerCommand('gitlens.views.openFile', this.openFile, this);
 		commands.registerCommand('gitlens.views.openFileRevision', this.openRevision, this);
 		commands.registerCommand('gitlens.views.openChangedFiles', this.openFiles, this);
@@ -1005,6 +1010,16 @@ export class ViewCommands {
 		}
 
 		return GitActions.Commit.openChangesWithWorking(node.file, { repoPath: node.repoPath, ref: node.ref.ref });
+	}
+
+	@debug()
+	private async openPreviousChangesWithWorking(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		return GitActions.Commit.openChangesWithWorking(node.file, {
+			repoPath: node.repoPath,
+			ref: `${node.ref.ref}^`,
+		});
 	}
 
 	@debug()
