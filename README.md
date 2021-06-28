@@ -24,6 +24,8 @@
   <a title="Visit Embark Studios" href="https://embark-studios.com"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
   <a title="Visit Localize" href="https://localizejs.com"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
   <a title="Try Tabnine Autocomplete" href="http://wd5a.2.vu/GitLens"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/tabnine.png" alt="Tabnine Logo"/></a>
+<a title="Try Dendron — the IDE for General Knowledge" href="https://www.dendron.so"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/dendron.png" alt="Dendron Logo"/></a>
+<a title="Try Stepsize" href="https://marketplace.visualstudio.com/items?itemName=Stepsize.stepsize"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/stepsize.png" alt="Stepsize Logo"/></a>
 </p>
 
 If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. And if you use GitLens for work, please encourage your employer to [**sponsor**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star it on GitHub](https://github.com/eamodio/vscode-gitlens 'Star it on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
