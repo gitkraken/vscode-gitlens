@@ -10,7 +10,7 @@
   <a title="Visit Localize" href="https://localizejs.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
   <a title="Try Tabnine Autocomplete" href="http://wd5a.2.vu/GitLens"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/tabnine.png" alt="Tabnine Logo"/></a>
   <a title="Try Dendron — the IDE for General Knowledge" href="https://www.dendron.so"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/dendron.png" alt="Dendron Logo"/></a>
-  <a title="Try Stepsize" href="https://marketplace.visualstudio.com/items?itemName=Stepsize.stepsize"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/stepsize.png" alt="Stepsize Logo"/></a>
+  <a title="Try Stepsize" href="https://bit.ly/3A5zaNg"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/stepsize.png" alt="Stepsize Logo"/></a>
   <a title="Visit Crésus" href="https://cresus.ch"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
 </p>
 
