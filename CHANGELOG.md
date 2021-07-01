@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1566](https://github.com/eamodio/vscode-gitlens/issues/1566) - Bug: unable to open 'pr.url' when clicking PR link
 - Fixes [#1545](https://github.com/eamodio/vscode-gitlens/issues/1545) - Missing branch comparison controls in versions 11.5.0 and 11.5.1
 - Fixes [#1548](https://github.com/eamodio/vscode-gitlens/issues/1548) - "Don't show again" on debug log warning doesn't work
 - Fixes [#1449](https://github.com/eamodio/vscode-gitlens/issues/1449) - Configured remotes not showing up in quickpick menu when opening commit on remote

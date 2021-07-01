@@ -516,7 +516,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					const index = this._options.footnotes.size + 1;
 					this._options.footnotes.set(
 						index,
-						`[**$(git-pull-request) ${prTitle}**](pr.url "Open Pull Request \\#${pr.id} on ${
+						`[**$(git-pull-request) ${prTitle}**](${pr.url} "Open Pull Request \\#${pr.id} on ${
 							pr.provider.name
 						}")\\\n${GlyphChars.Space.repeat(4)} #${
 							pr.id
