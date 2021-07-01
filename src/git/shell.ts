@@ -213,7 +213,7 @@ export function run<TOut extends string | Buffer>(
 		});
 
 		if (stdin != null) {
-			proc.stdin?.end(stdin, stdinEncoding ?? 'utf8');
+			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
 		}
 	});
 }

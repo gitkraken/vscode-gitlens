@@ -125,7 +125,7 @@ export async function raceAll<TPromise, T>(
 									new Promise<CancellationErrorWithId<T, Promise<TPromise>>>(resolve =>
 										setTimeout(
 											() => resolve(new CancellationErrorWithId(id, promise, 'TIMED OUT')),
-											timeout!,
+											timeout,
 										),
 									),
 								]).then(p => [id, p]),
@@ -141,7 +141,7 @@ export async function raceAll<TPromise, T>(
 					Promise.race([
 						p,
 						new Promise<CancellationError<Promise<TPromise>>>(resolve =>
-							setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout!),
+							setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout),
 						),
 					]),
 			  ),

@@ -1,5 +1,5 @@
 'use strict';
-import { createHash, HexBase64Latin1Encoding } from 'crypto';
+import { BinaryToTextEncoding, createHash } from 'crypto';
 import { isWindows } from '../git/shell';
 
 const emptyStr = '';
@@ -272,7 +272,7 @@ export function* lines(s: string, char: string = '\n'): IterableIterator<string>
 	}
 }
 
-export function md5(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
+export function md5(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
 	return createHash('md5').update(s).digest(encoding);
 }
 
@@ -363,7 +363,7 @@ export function sanitizeForFileSystem(s: string, replacement: string = '_') {
 	return s.replace(illegalCharsForFSRegex, replacement);
 }
 
-export function sha1(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
+export function sha1(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
 	return createHash('sha1').update(s).digest(encoding);
 }
 
