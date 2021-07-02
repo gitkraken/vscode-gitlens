@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1562](https://github.com/eamodio/vscode-gitlens/issues/1562) - Yarn audit fails with 2 high sev vulnerabilities (dev dependencies only) &mdash; thanks to [PR #1563](https://github.com/eamodio/vscode-gitlens/pull/1563) by Ivan Volzhev ([@ivolzhevbt](https://github.com/ivolzhevbt))
 - Fixes [#1566](https://github.com/eamodio/vscode-gitlens/issues/1566) - Bug: unable to open 'pr.url' when clicking PR link
 - Fixes [#1545](https://github.com/eamodio/vscode-gitlens/issues/1545) - Missing branch comparison controls in versions 11.5.0 and 11.5.1
 - Fixes [#1548](https://github.com/eamodio/vscode-gitlens/issues/1548) - "Don't show again" on debug log warning doesn't work
