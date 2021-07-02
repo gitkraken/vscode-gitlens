@@ -49,7 +49,7 @@ export function timeout(timeoutOrTimeoutFromLastArg: number | boolean, defaultTi
 					const id = setTimeout(() => {
 						clearTimeout(id);
 						reject(new CancellationError(result, `Timed out after ${timeout} ms`));
-					}, timeout!);
+					}, timeout);
 				}),
 			]);
 		};
