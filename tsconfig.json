@@ -19,7 +19,8 @@
 		"sourceMap": true,
 		"strict": true,
 		"target": "es2019",
-		"useDefineForClassFields": true
+		"useDefineForClassFields": true,
+		"useUnknownInCatchVariables": false
 	},
 	"exclude": ["node_modules", "test", "src/webviews/apps"]
 }
