@@ -55,7 +55,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
-			const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
+			const presenceMap = await this.maybeGetPresenceMap(contributors);
 
 			this._children = contributors.map(
 				c => new ContributorNode(this.uri, this.view, this, c, { all: all, ref: ref, presence: presenceMap }),

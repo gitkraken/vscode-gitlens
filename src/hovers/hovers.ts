@@ -193,7 +193,7 @@ export namespace Hovers {
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
-			Container.vsls.maybeGetPresence(commit.email).catch(() => undefined),
+			Container.vsls.maybeGetPresence(commit.email),
 		]);
 
 		const details = await CommitFormatter.fromTemplateAsync(Container.config.hovers.detailsMarkdownFormat, commit, {
