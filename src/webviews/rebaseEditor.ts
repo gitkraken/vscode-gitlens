@@ -1,4 +1,5 @@
 'use strict';
+import { randomBytes } from 'crypto';
 import { TextDecoder } from 'util';
 import {
 	CancellationToken,
@@ -476,18 +477,34 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
-		let html = content
-			.replace(/#{cspSource}/g, context.panel.webview.cspSource)
-			.replace(/#{root}/g, context.panel.webview.asWebviewUri(Container.context.extensionUri).toString());
-
 		const bootstrap = await this.parseState(context);
+		const cspSource = context.panel.webview.cspSource;
+		const cspNonce = randomBytes(16).toString('base64');
+		const root = context.panel.webview.asWebviewUri(Container.context.extensionUri).toString();
 
-		html = html.replace(
-			/#{endOfBody}/i,
-			`<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
-				bootstrap,
-			)};</script>`,
-		);
+		const html = content
+			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+				switch (token) {
+					case 'endOfBody':
+						return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
+							bootstrap,
+						)};</script>`;
+					default:
+						return '';
+				}
+			})
+			.replace(/#{(cspSource|cspNonce|root)}/g, (substring, token) => {
+				switch (token) {
+					case 'cspSource':
+						return cspSource;
+					case 'cspNonce':
+						return cspNonce;
+					case 'root':
+						return root;
+					default:
+						return '';
+				}
+			});
 
 		return html;
 	}

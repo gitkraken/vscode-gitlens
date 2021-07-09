@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new _Open Previous Changes with Working File_ command to commit files in views &mdash; closes [#1529](https://github.com/eamodio/vscode-gitlens/issues/1529)
 - Adopts new vscode `createStatusBarItem` API to allow for independent toggling &mdash; closes [#1543](https://github.com/eamodio/vscode-gitlens/issues/1543)
 
+### Changed
+
+- Dynamically generates hashes and nonces for webview script and style tags for better
+
 ### Fixed
 
 - Fixes [#1432](https://github.com/eamodio/vscode-gitlens/issues/1432) - Unhandled Timeout Promise

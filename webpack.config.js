@@ -8,9 +8,8 @@
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use strict';
 const path = require('path');
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
+const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const esbuild = require('esbuild');
@@ -20,6 +19,7 @@ const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 class InlineChunkHtmlPlugin {
 	constructor(htmlPlugin, patterns) {
@@ -232,17 +232,32 @@ function getExtensionConfig(mode, env) {
 function getWebviewsConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
-	const cspPolicy = {
-		'default-src': "'none'",
-		'img-src': ['#{cspSource}', 'https:', 'data:'],
-		'script-src': ['#{cspSource}', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
-		'style-src': ['#{cspSource}', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
-		'font-src': ['#{cspSource}'],
-	};
-
-	if (mode !== 'production') {
-		cspPolicy['script-src'].push("'unsafe-eval'");
-	}
+	const cspHtmlPlugin = new CspHtmlPlugin(
+		{
+			'default-src': "'none'",
+			'img-src': ['#{cspSource}', 'https:', 'data:'],
+			'script-src':
+				mode !== 'production'
+					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
+					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
+			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'"],
+			'font-src': ['#{cspSource}'],
+		},
+		{
+			enabled: true,
+			hashingMethod: 'sha256',
+			hashEnabled: {
+				'script-src': true,
+				'style-src': true,
+			},
+			nonceEnabled: {
+				'script-src': true,
+				'style-src': true,
+			},
+		},
+	);
+	// Override the nonce creation so we can dynamically generate them at runtime
+	cspHtmlPlugin.createNonce = () => '#{cspNonce}';
 
 	/**
 	 * @type WebpackConfig['plugins'] | any
@@ -280,14 +295,6 @@ function getWebviewsConfig(mode, env) {
 			filename: path.join(__dirname, 'dist', 'webviews', 'rebase.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
-			cspPlugin: {
-				enabled: true,
-				policy: cspPolicy,
-				nonceEnabled: {
-					'script-src': true,
-					'style-src': true,
-				},
-			},
 			minify:
 				mode === 'production'
 					? {
@@ -308,14 +315,6 @@ function getWebviewsConfig(mode, env) {
 			filename: path.join(__dirname, 'dist', 'webviews', 'settings.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
-			cspPlugin: {
-				enabled: true,
-				policy: cspPolicy,
-				nonceEnabled: {
-					'script-src': true,
-					'style-src': true,
-				},
-			},
 			minify:
 				mode === 'production'
 					? {
@@ -336,14 +335,6 @@ function getWebviewsConfig(mode, env) {
 			filename: path.join(__dirname, 'dist', 'webviews', 'welcome.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
-			cspPlugin: {
-				enabled: true,
-				policy: cspPolicy,
-				nonceEnabled: {
-					'script-src': true,
-					'style-src': true,
-				},
-			},
 			minify:
 				mode === 'production'
 					? {
@@ -358,7 +349,7 @@ function getWebviewsConfig(mode, env) {
 					  }
 					: false,
 		}),
-		new CspHtmlPlugin(),
+		cspHtmlPlugin,
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
 			patterns: [

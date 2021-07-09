@@ -1,4 +1,5 @@
 'use strict';
+import { randomBytes } from 'crypto';
 import { TextDecoder } from 'util';
 import {
 	commands,
@@ -325,21 +326,41 @@ export abstract class WebviewBase implements Disposable {
 		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', this.filename);
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
-		let html = content
-			.replace(/#{cspSource}/g, webview.cspSource)
-			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
+		const [head, body, endOfBody] = await Promise.all([
+			this.renderHead?.(),
+			this.renderBody?.(),
+			this.renderEndOfBody?.(),
+		]);
 
-		if (this.renderHead != null) {
-			html = html.replace(/#{head}/i, await this.renderHead());
-		}
+		const cspSource = webview.cspSource;
+		const cspNonce = randomBytes(16).toString('base64');
+		const root = webview.asWebviewUri(Container.context.extensionUri).toString();
 
-		if (this.renderBody != null) {
-			html = html.replace(/#{body}/i, await this.renderBody());
-		}
-
-		if (this.renderEndOfBody != null) {
-			html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
-		}
+		const html = content
+			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+				switch (token) {
+					case 'head':
+						return head ?? '';
+					case 'body':
+						return body ?? '';
+					case 'endOfBody':
+						return endOfBody ?? '';
+					default:
+						return '';
+				}
+			})
+			.replace(/#{(cspSource|cspNonce|root)}/g, (substring, token) => {
+				switch (token) {
+					case 'cspSource':
+						return cspSource;
+					case 'cspNonce':
+						return cspNonce;
+					case 'root':
+						return root;
+					default:
+						return '';
+				}
+			});
 
 		return html;
 	}
