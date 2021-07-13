@@ -1,6 +1,6 @@
 'use strict';
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
-import { LiveShare, SharedServiceProxy } from 'vsls';
+import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { setEnabled } from '../extension';
 import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
 import { Logger } from '../logger';

@@ -8,7 +8,6 @@ import {
 	env,
 	Event,
 	EventEmitter,
-	Extension,
 	extensions,
 	ProgressLocation,
 	Range,
@@ -4275,10 +4274,9 @@ export class GitService implements Disposable {
 	@log()
 	static async getBuiltInGitApi(): Promise<BuiltInGitApi | undefined> {
 		try {
-			const extension = extensions.getExtension('vscode.git') as Extension<GitExtension>;
+			const extension = extensions.getExtension<GitExtension>('vscode.git');
 			if (extension != null) {
 				const gitExtension = extension.isActive ? extension.exports : await extension.activate();
-
 				return gitExtension.getAPI(1);
 			}
 		} catch {}

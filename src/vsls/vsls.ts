@@ -1,6 +1,6 @@
 'use strict';
-import { Disposable, workspace } from 'vscode';
-import { getApi, LiveShare, Role, SessionChangeEvent } from 'vsls';
+import { Disposable, extensions, workspace } from 'vscode';
+import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { ContextKeys, DocumentSchemes, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -40,7 +40,7 @@ export class VslsController implements Disposable {
 	private _onReady: (() => void) | undefined;
 	private _waitForReady: Promise<void> | undefined;
 
-	private _api: Promise<LiveShare | null> | undefined;
+	private _api: Promise<LiveShare | undefined> | undefined;
 
 	constructor() {
 		void this.initialize();
@@ -60,7 +60,7 @@ export class VslsController implements Disposable {
 				this._waitForReady = new Promise(resolve => (this._onReady = resolve));
 			}
 
-			this._api = getApi();
+			this._api = this.getLiveShareApi();
 			const api = await this._api;
 			if (api == null) {
 				void setContext(ContextKeys.Vsls, false);
@@ -81,6 +81,18 @@ export class VslsController implements Disposable {
 		} catch (ex) {
 			Logger.error(ex);
 		}
+	}
+
+	private async getLiveShareApi(): Promise<LiveShare | undefined> {
+		try {
+			const extension = extensions.getExtension<LiveShareExtension>('ms-vsliveshare.vsliveshare');
+			if (extension != null) {
+				const liveshareExtension = extension.isActive ? extension.exports : await extension.activate();
+				return (await liveshareExtension.getApi('1.0.3015')) ?? undefined;
+			}
+		} catch {}
+
+		return undefined;
 	}
 
 	get isMaybeGuest() {
@@ -112,7 +124,7 @@ export class VslsController implements Disposable {
 			0: (emails: string[]) => `length=${emails.length}`,
 		},
 	})
-	async getContacts(emails: string[]) {
+	private async getContacts(emails: string[]) {
 		const api = await this._api;
 		if (api == null) return undefined;
 
@@ -144,7 +156,7 @@ export class VslsController implements Disposable {
 
 	@debug()
 	@timeout(250)
-	maybeGetPresence(email: string | undefined) {
+	maybeGetPresence(email: string | undefined): Promise<ContactPresence | undefined> {
 		return Container.vsls.getContactPresence(email);
 	}
 
@@ -178,23 +190,18 @@ export class VslsController implements Disposable {
 	}
 
 	private async onLiveShareSessionChanged(api: LiveShare, e: SessionChangeEvent) {
-		if (this._host !== undefined) {
-			this._host.dispose();
-		}
-
-		if (this._guest !== undefined) {
-			this._guest.dispose();
-		}
+		this._host?.dispose();
+		this._guest?.dispose();
 
 		switch (e.session.role) {
-			case Role.Host:
+			case 1 /*Role.Host*/:
 				this.setReadonly(false);
 				void setContext(ContextKeys.Vsls, 'host');
 				if (Container.config.liveshare.allowGuestAccess) {
 					this._host = await VslsHostService.share(api);
 				}
 				break;
-			case Role.Guest:
+			case 2 /*Role.Guest*/:
 				this.setReadonly(true);
 				void setContext(ContextKeys.Vsls, 'guest');
 				this._guest = await VslsGuestService.connect(api);
