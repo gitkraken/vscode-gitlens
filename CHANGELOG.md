@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [11.6.0] - 2021-07-13
 
 ### Added
 
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Dynamically generates hashes and nonces for webview script and style tags for better
+- Dynamically generates hashes and nonces for webview `<script>` and `<style>` tags for better security
 
 ### Fixed
 
@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1449](https://github.com/eamodio/vscode-gitlens/issues/1449) - Configured remotes not showing up in quickpick menu when opening commit on remote
 - Fixes issues where auto-linking of GitHub 3rd party issue links didn't always work
 - Fixes issue with long commit messages on rebase editor
+- Fixes compatibility issue with Live Share
 
 ## [11.5.1] - 2021-06-14
 
