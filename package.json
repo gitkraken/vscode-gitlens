@@ -9694,6 +9694,7 @@
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.js",
+		"update-licenses": "node ./scripts/generateLicenses.js",
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {

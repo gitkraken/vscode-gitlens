@@ -84,7 +84,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 	async getTreeItem(): Promise<TreeItem> {
 		if (!this.commit.isFile) {
-			// See if we can get the commit directly from the multi-file commit
+			// Try to get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit == null) {
 				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
