@@ -6752,39 +6752,39 @@
 			"editor/title/context": [
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
-					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.clipboard",
+					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.clipboard && isFileSystemResource",
 					"group": "1_cutcopypaste@100"
 				},
 				{
 					"submenu": "gitlens/editor/changes",
-					"when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
+					"when": "gitlens:enabled && config.gitlens.menus.editorTab.compare && isFileSystemResource",
 					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.openWorkingFile",
-					"when": "resourceScheme == gitlens",
+					"when": "resourceScheme == gitlens && isFileSystemResource",
 					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.openFileOnRemote",
-					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
+					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote && isFileSystemResource",
 					"group": "2_gitlens@2",
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
 					"command": "gitlens.openFileOnRemoteFrom",
-					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
+					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote && isFileSystemResource",
 					"group": "2_gitlens@3",
 					"alt": "gitlens.copyRemoteFileUrlFrom"
 				},
 				{
 					"command": "gitlens.openFileHistory",
-					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
+					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && isFileSystemResource",
 					"group": "2_gitlens_1@1"
 				},
 				{
 					"command": "gitlens.quickOpenFileHistory",
-					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
+					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && isFileSystemResource",
 					"group": "2_gitlens_1@2"
 				}
 			],
