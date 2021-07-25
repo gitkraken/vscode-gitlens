@@ -146,6 +146,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	): Promise<Hover | undefined> {
 		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
+		if (this.document.uri.toString(true) !== document.uri.toString(true)) return undefined;
+
 		const blame = await this.getBlame();
 		if (blame == null) return undefined;
 
