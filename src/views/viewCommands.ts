@@ -181,13 +181,13 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
 
 		commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
-		commands.registerCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
+		commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
 		commands.registerCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
 		commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
 		commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
 		commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
 		commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
-		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWorkingWith, this);
+		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
 
 		commands.registerCommand(
 			'gitlens.views.setBranchComparisonToWorking',
@@ -728,10 +728,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareHeadWith(node: ViewRefNode) {
+	private compareWithHead(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
+		return Container.searchAndCompareView.compare(node.repoPath, node.ref, 'HEAD');
 	}
 
 	@debug()
@@ -743,10 +743,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareWorkingWith(node: ViewRefNode) {
+	private compareWithWorking(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.searchAndCompareView.compare(node.repoPath, '', node.ref);
+		return Container.searchAndCompareView.compare(node.repoPath, node.ref, '');
 	}
 
 	@debug()
