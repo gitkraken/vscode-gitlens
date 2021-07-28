@@ -168,7 +168,7 @@ function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16):
 	if (match == null) return undefined;
 
 	const [, userId, userName] = match;
-	return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size}`);
+	return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size * 2}`);
 }
 
 async function getAvatarUriFromRemoteProvider(
