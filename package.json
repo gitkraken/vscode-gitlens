@@ -3631,7 +3631,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteBranchesUrl",
-				"title": "Copy Remote Branches Url",
+				"title": "Copy Remote Branches URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3643,7 +3643,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteBranchUrl",
-				"title": "Copy Remote Branch Url",
+				"title": "Copy Remote Branch URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3655,7 +3655,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteCommitUrl",
-				"title": "Copy Remote Commit Url",
+				"title": "Copy Remote Commit URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3667,7 +3667,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteComparisonUrl",
-				"title": "Copy Remote Comparison Url",
+				"title": "Copy Remote Comparison URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3684,13 +3684,13 @@
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlToClipboard",
-				"title": "Copy Remote File Url",
+				"title": "Copy Remote File URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlWithoutRange",
-				"title": "Copy Remote File Url",
+				"title": "Copy Remote File URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3702,7 +3702,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlFrom",
-				"title": "Copy Remote File Url From...",
+				"title": "Copy Remote File URL From...",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3738,7 +3738,7 @@
 			},
 			{
 				"command": "gitlens.copyRemotePullRequestUrl",
-				"title": "Copy Pull Request Url",
+				"title": "Copy Pull Request URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -3756,7 +3756,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteRepositoryUrl",
-				"title": "Copy Remote Repository Url",
+				"title": "Copy Remote Repository URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
