@@ -197,7 +197,7 @@ export async function setEnabled(enabled: boolean): Promise<void> {
 }
 
 export function setKeysForSync(...keys: (SyncedState | string)[]) {
-	return _context?.globalState.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
+	return _context?.globalState?.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
 }
 
 export function notifyOnUnsupportedGitVersion(version: string) {
