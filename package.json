@@ -9431,6 +9431,12 @@
 				"when": "config.gitlens.keymap == chorded && !gitlens:disabled"
 			},
 			{
+				"command": "workbench.view.scm",
+				"key": "ctrl+shift+g ctrl+shift+g",
+				"mac": "ctrl+shift+g ctrl+shift+g",
+				"when": "config.gitlens.keymap == chorded && !gitlens:disabled"
+			},
+			{
 				"command": "gitlens.views.branches.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
