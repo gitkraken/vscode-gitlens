@@ -99,7 +99,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1448](https://github.com/eamodio/vscode-gitlens/issues/1448) - Hashes (#) are percent encoded in custom remote urls
 - Fixes [#1447](https://github.com/eamodio/vscode-gitlens/issues/1447) - _Open File on Remote From..._ is missing remote branches
 - Fixes [#1442](https://github.com/eamodio/vscode-gitlens/issues/1442) - Interactive Rebase Editor not opened but plain text file when called from terminal
-- Fixes [#1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
+- Fixes [#1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee Chang ([MeltingMosaic](https://github.com/MeltingMosaic))
 - Fixes [#1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
 - Fixes [#1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
 - Fixes an issue where the _Changes to pull from \*_'s _\* files changed_ was always 0
@@ -244,7 +244,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes the outdated documentation url on the _Connect Remote Provider_ quick pick menu &mdash; thanks to [PR #1300](https://github.com/eamodio/vscode-gitlens/pull/1300) by Ahmadou Waly NDIAYE ([@sir-kain](https://github.com/sir-kain))
+- Fixes the outdated documentation url on the _Connect Remote Provider_ quick pick menu &mdash; thanks to [PR #1300](https://github.com/eamodio/vscode-gitlens/pull/1300) by Ahmadou Waly Ndiaye ([@sir-kain](https://github.com/sir-kain))
 
 ## [11.1.1] - 2021-01-02
 
@@ -646,7 +646,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes directory compare from waiting for external tool to exit
 - Fixes [#996](https://github.com/eamodio/vscode-gitlens/issues/996) - Rename branch should show existing name highlighted
 - Fixes issues with folders that end with a space
-- Fixes typo in contributing search tag link &mdash; thanks to [PR #981](https://github.com/eamodio/vscode-gitlens/pull/981) by Guillem ([@guillemglez](https://github.com/guillemglez))
+- Fixes typo in contributing search tag link &mdash; thanks to [PR #981](https://github.com/eamodio/vscode-gitlens/pull/981) by Guillem González Vela ([@guillemglez](https://github.com/guillemglez))
 - Fixes [#970](https://github.com/eamodio/vscode-gitlens/issues/970) - Stashes doesn't honor files layout
 - Fixes _Load more_ in GitLens views with range notation comparisons
 - Fixes `ignoreCase` flag on autolinks
@@ -1022,7 +1022,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#776](https://github.com/eamodio/vscode-gitlens/issues/776) - File history sidebar having "Open file" instead of "Open revision"
-- Fixes [#692](https://github.com/eamodio/vscode-gitlens/issues/692) - Can't open remote on bitbucket &mdash; thanks to [PR #767](https://github.com/eamodio/vscode-gitlens/pull/767) by grozan ([@grozan](https://github.com/grozan))
+- Fixes [#692](https://github.com/eamodio/vscode-gitlens/issues/692) - Can't open remote on bitbucket &mdash; thanks to [PR #767](https://github.com/eamodio/vscode-gitlens/pull/767) by Guillaume Rozan ([@grozan](https://github.com/grozan))
 - Fixes a parsing issue with certain renamed files
 - Fixes some issues with emoji rendering
 
