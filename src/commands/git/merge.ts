@@ -29,7 +29,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--ff-only' | '--no-ff' | '--squash';
+type Flags = '--ff-only' | '--no-ff' | '--squash' | '--no-commit' ;
 
 interface State {
 	repo: string | Repository;
@@ -235,6 +235,16 @@ export class MergeGitCommand extends QuickCommand<State> {
 					label: `No Fast-forward ${this.title}`,
 					description: '--no-ff',
 					detail: `Will create a merge commit when merging ${Strings.pluralize(
+						'commit',
+						count,
+					)} from ${GitReference.toString(state.reference)} into ${GitReference.toString(
+						context.destination,
+					)}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff', '--no-commit'], {
+					label: `No Fast-forward and no commit ${this.title}`,
+					description: '--no-ff --no-commit',
+					detail: `Will stop before making commit when merging ${Strings.pluralize(
 						'commit',
 						count,
 					)} from ${GitReference.toString(state.reference)} into ${GitReference.toString(
