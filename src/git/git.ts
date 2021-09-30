@@ -1300,9 +1300,23 @@ export namespace Git {
 				'rev-parse',
 				'--show-toplevel',
 			);
+
+			if (data.length === 0)
+				return undefined;
+
+			let result;
+
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			return data.length === 0 ? undefined : Strings.normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+			result = Strings.normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+
+			// MSYS2 Git (not Git for Windows) rev-parse returns Cygwin style path. (Git for Windows returns Windows style path with rev-parse)
+			// Convert Cygwin style path -> Windows style path
+			if (process.platform === 'win32') {
+				result = result.replace(/^\/([a-z])\//, (_, letter) => `${letter.toUpperCase()}:/`);
+			}
+
+			return result;
 		} catch (ex) {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			if (inDotGit || ex.code === 'ENOENT') {
