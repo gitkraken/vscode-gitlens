@@ -1301,8 +1301,9 @@ export namespace Git {
 				'--show-toplevel',
 			);
 
-			if (data.length === 0)
+			if (data.length === 0) {
 				return undefined;
+			}
 
 			let result;
 
