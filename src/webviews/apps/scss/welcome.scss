@@ -482,18 +482,6 @@ section {
 	}
 }
 
-.sidebar__group--sponsors {
-	display: flex;
-	flex-direction: column;
-	flex-wrap: wrap;
-	align-items: center;
-
-	h2 {
-		align-self: flex-start;
-		margin: 0;
-	}
-}
-
 .sidebar__jump-link {
 	&.active {
 		font-weight: 700;
@@ -511,36 +499,6 @@ section {
 			}
 		}
 	}
-}
-
-.sponsor__image {
-	opacity: 0.8;
-	transition: opacity 250ms;
-	height: 32px;
-	margin: 0;
-
-	&:hover {
-		opacity: 1;
-	}
-}
-
-.sponsor__image-link {
-	margin: 5px;
-
-	&:first-of-type {
-		margin-top: 10px;
-	}
-
-	&:last-of-type {
-		margin-bottom: -5px;
-	}
-}
-
-.sponsor__tag {
-	font-size: 1.1rem;
-	margin: -1em 0.5em 0 0.5em;
-	opacity: 0.5;
-	text-align: center;
 }
 
 .highlight {

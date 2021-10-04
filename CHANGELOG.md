@@ -2958,7 +2958,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all the lines changed in the most recent commit
-  - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can customize the [layout](https://github.com/eamodio/vscode-gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds _Toggle Recent File Changes Annotations_ command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Adds ability to press `Escape` to quickly toggle any whole-file annotations off
 - Improves performance
@@ -2983,13 +2983,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new, beautiful, highly customizable and themable, file blame annotations
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds all-new configurability and themeability to the current line blame annotations
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#line-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#line-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds all-new configurability to the status bar blame information
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#status-bar-settings)
-- Adds all-new [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
-- Adds better [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#code-lens-settings) over where Git code lens will be shown &mdash; both by default and per language
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#status-bar-settings)
+- Adds all-new [configurability](https://github.com/eamodio/vscode-gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
+- Adds better [configurability](https://github.com/eamodio/vscode-gitlens#code-lens-settings) over where Git code lens will be shown &mdash; both by default and per language
 - Adds an all-new **changes** (diff) hover annotation to the current line - provides instant access to the line's previous version
 - Adds _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
 - Adds _Show Line Blame Annotations_ command (`gitlens.showLineBlame`) - shows the current line blame annotations
@@ -3004,7 +3004,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#extension-settings)`
+- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens#extension-settings)`
 - Changes the positioning of the Git code lens to try to be at the end of any other code lens on the same line
 - Changes the position of the _Open File in Remote_ command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
 - Changes the _Toggle Git Code Lens_ command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
@@ -3143,7 +3143,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Completely overhauls the [GitLens documentation](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
+- Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 
 ### Changed

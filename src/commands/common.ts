@@ -160,7 +160,6 @@ export enum Commands {
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
-	SupportGitLens = 'gitlens.supportGitLens',
 	SwitchMode = 'gitlens.switchMode',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',

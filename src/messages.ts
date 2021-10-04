@@ -164,22 +164,17 @@ export class Messages {
 	}
 
 	static async showWhatsNewMessage(version: string) {
-		const actions: MessageItem[] = [{ title: "What's New" }, { title: '❤ Sponsor' }];
-
+		const whatsnew = { title: "What's New" };
 		const result = await Messages.showMessage(
 			'info',
 			`GitLens has been updated to v${version} — check out what's new!`,
 			undefined,
 			null,
-			...actions,
+			whatsnew,
 		);
 
-		if (result != null) {
-			if (result === actions[0]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
-			} else if (result === actions[1]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
-			}
+		if (result === whatsnew) {
+			await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 		}
 	}
 

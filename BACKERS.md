@@ -1,6 +1,6 @@
 # Sponsors
 
-&#x1f496; To my incredible sponsors &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. If you'd like to join in sponsoring GitLens, please [click here](https://gitlens.amod.io/#sponsor).
+While GitLens is no longer accepting sponsorships, I've had some incredible sponsors over the years &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. &#x1f496;
 
 ## Corporate Sponsors
 

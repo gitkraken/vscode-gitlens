@@ -16,23 +16,9 @@
   <a title="What's New in GitLens 11" href="https://gitlens.amod.io/#whats-new"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/whats-new-button.png" alt="What's New in GitLens 11 Button" /></a>
 </p>
 
-## Sponsor GitLens
-
-<p align="center">Sponsored by</p>
-<p align="center">
-  <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE" /></a>
-  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
-  <a title="Visit Localize" href="https://localizejs.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
-  <a title="Try Tabnine Autocomplete" href="http://wd5a.2.vu/GitLens"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/tabnine.png" alt="Tabnine Logo"/></a>
-<a title="Try Dendron — the IDE for General Knowledge" href="https://www.dendron.so"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/dendron.png" alt="Dendron Logo"/></a>
-<a title="Try Stepsize" href="https://bit.ly/3A5zaNg"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/stepsize.png" alt="Stepsize Logo"/></a>
-</p>
-
-If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. And if you use GitLens for work, please encourage your employer to [**sponsor**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star it on GitHub](https://github.com/eamodio/vscode-gitlens 'Star it on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
-
 # GitLens
 
-[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created, developed, and maintained by [Eric Amodio](https://www.amod.io 'Learn more about Eric').
+[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](https://www.amod.io 'Learn more about Eric').
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 

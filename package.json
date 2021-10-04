@@ -58,7 +58,6 @@
 		"onView:gitlens.views.tags",
 		"onView:gitlens.views.contributors",
 		"onView:gitlens.views.searchAndCompare",
-		"onCommand:gitlens.supportGitLens",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#branches-view",
@@ -3000,12 +2999,6 @@
 			}
 		],
 		"commands": [
-			{
-				"command": "gitlens.supportGitLens",
-				"title": "Sponsor GitLens",
-				"category": "GitLens",
-				"icon": "$(heart)"
-			},
 			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
@@ -7540,11 +7533,6 @@
 					"command": "gitlens.showSettingsPage#tags-view",
 					"when": "view =~ /^gitlens\\.views\\.tags/",
 					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.supportGitLens",
-					"when": "view =~ /^gitlens\\.views\\.(?!(welcome|updates))/",
-					"group": "9_gitlens@-1"
 				}
 			],
 			"view/item/context": [
@@ -9514,10 +9502,6 @@
 			{
 				"view": "gitlens.views.welcome",
 				"contents": "[GitLens views](command:gitlens.showSettingsPage%23views) are shown on the Source Control side bar, by default. Run [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") from the Command Palette to switch to an alternate side bar layout, or drag & drop them."
-			},
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "[Sponsor GitLens ❤](command:gitlens.supportGitLens)\n\nIf you find GitLens useful, please consider sponsoring it."
 			},
 			{
 				"view": "gitlens.views.welcome",
