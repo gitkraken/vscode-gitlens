@@ -87,30 +87,17 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		Logger.debug(
 			`GitLens (v${gitlensVersion}): syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, ${
 				SyncedState.WelcomeViewVisible
-			}=${context.globalState.get<boolean>(SyncedState.WelcomeViewVisible)}, ${
-				SyncedState.UpdatesViewVisible
-			}=${context.globalState.get<boolean>(SyncedState.UpdatesViewVisible)}`,
+			}=${context.globalState.get<boolean>(SyncedState.WelcomeViewVisible)}`,
 		);
 	}
 
 	if (previousVersion == null) {
 		void context.globalState.update(SyncedState.WelcomeViewVisible, true);
 		void setContext(ContextKeys.ViewsWelcomeVisible, true);
-		void context.globalState.update(SyncedState.UpdatesViewVisible, false);
-		void setContext(ContextKeys.ViewsUpdatesVisible, false);
 	} else {
-		// Force Updates welcome view, since for some reason it never showed for many users
-		if (Versions.compare(previousVersion, Versions.from(11, 0, 5)) !== 1) {
-			await context.globalState.update(SyncedState.UpdatesViewVisible, true);
-		}
-
 		void setContext(
 			ContextKeys.ViewsWelcomeVisible,
 			context.globalState.get<boolean>(SyncedState.WelcomeViewVisible) ?? false,
-		);
-		void setContext(
-			ContextKeys.ViewsUpdatesVisible,
-			context.globalState.get<boolean>(SyncedState.UpdatesViewVisible) !== false,
 		);
 	}
 
@@ -210,12 +197,7 @@ export async function setEnabled(enabled: boolean): Promise<void> {
 }
 
 export function setKeysForSync(...keys: (SyncedState | string)[]) {
-	return _context?.globalState.setKeysForSync([
-		...keys,
-		SyncedState.UpdatesViewVisible,
-		SyncedState.Version,
-		SyncedState.WelcomeViewVisible,
-	]);
+	return _context?.globalState.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
 }
 
 export function notifyOnUnsupportedGitVersion(version: string) {

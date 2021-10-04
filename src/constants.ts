@@ -63,7 +63,6 @@ export enum ContextKeys {
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsUpdatesVisible = 'gitlens:views:updates:visible',
 	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
 	Vsls = 'gitlens:vsls',
 }
@@ -167,7 +166,6 @@ export const enum GlyphChars {
 }
 
 export enum SyncedState {
-	UpdatesViewVisible = 'gitlens:views:updates:visible',
 	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 
