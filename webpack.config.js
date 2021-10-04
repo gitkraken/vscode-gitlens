@@ -141,10 +141,10 @@ function getExtensionConfig(mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				// @ts-ignore
 				env.esbuild
 					? new ESBuildMinifyPlugin({
 							format: 'cjs',
+							// @ts-ignore
 							implementation: esbuild,
 							minify: true,
 							treeShaking: true,

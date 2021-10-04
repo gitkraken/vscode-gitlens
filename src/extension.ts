@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
@@ -25,16 +24,14 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	_context = context;
 
-	let extensionId = 'eamodio.gitlens';
-	if (paths.basename(context.globalStorageUri.fsPath) === 'eamodio.gitlens-insiders') {
-		extensionId = 'eamodio.gitlens-insiders';
-
+	if (context.extension.id === 'eamodio.gitlens-insiders') {
 		// Ensure that stable isn't also installed
 		const stable = extensions.getExtension('eamodio.gitlens');
 		if (stable != null) {
-			Logger.log('GitLens (Insiders) was NOT activated because GitLens is also installed');
+			Logger.log('GitLens (Insiders) was NOT activated because GitLens is also enabled');
 
-			void Messages.showInsidersErrorMessage();
+			// If we don't use a setTimeout here this notification will get lost for some reason
+			setTimeout(() => void Messages.showInsidersErrorMessage(), 0);
 
 			return undefined;
 		}
@@ -70,8 +67,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		return undefined;
 	});
 
-	const gitlens = extensions.getExtension(extensionId)!;
-	const gitlensVersion = gitlens.packageJSON.version;
+	const gitlensVersion = context.extension.packageJSON.version;
 
 	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
 	const localVersion =
@@ -154,7 +150,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		return undefined;
 	}
 
-	Container.initialize(extensionId, context, cfg);
+	Container.initialize(context, cfg);
 
 	registerCommands(context);
 	registerBuiltInActionRunners(context);

@@ -134,7 +134,7 @@ export class Messages {
 	static showInsidersErrorMessage() {
 		return Messages.showMessage(
 			'error',
-			'GitLens (Insiders) cannot be used while GitLens is also installed. Please ensure that only one version of GitLens is installed.',
+			'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
 			SuppressedMessages.GitDisabledWarning,
 		);
 	}
