@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [11.6.1] - 2021-10-08
+
+### Changed
+
+- GitLens joins forces with GitKraken! &mdash; [Learn more](https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code)
+
 ## [11.6.0] - 2021-07-13
 
 ### Added
