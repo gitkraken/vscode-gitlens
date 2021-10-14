@@ -217,6 +217,7 @@ export enum ContributorSorting {
 }
 
 export enum CustomRemoteType {
+	AzureDevOps = 'AzureDevOps',
 	Bitbucket = 'Bitbucket',
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',

@@ -1478,6 +1478,7 @@
 								"type": "string",
 								"enum": [
 									"Custom",
+									"AzureDevOps",
 									"Bitbucket",
 									"BitbucketServer",
 									"Gitea",
