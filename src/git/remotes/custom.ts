@@ -96,6 +96,9 @@ export class CustomRemote extends RemoteProvider {
 			repo: this.path,
 			repoBase: repoBase,
 			repoPath: repoPath,
+			// Use `repoLast` template parameter for last part of multi-component repository urls (eg if you need to specify only `my-repo` part from `space/project/my-repo`, in JetBrains Space, in our case).
+			// Example for `gitlens.remotes.urls.commit`: `https://my.company.com/p/project/repositories/${repoLast}/commits?commits=${id}`.
+			repoLast: repoPath.replace(/^.*?([^\/]+)*$/, '$1'),
 			...(context ?? {}),
 		};
 	}
