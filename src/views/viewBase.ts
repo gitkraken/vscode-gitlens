@@ -129,26 +129,24 @@ export abstract class ViewBase<
 				}
 			}
 
-			const getTreeItem = this.getTreeItem;
+			const getTreeItemFn = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
-				const item = await getTreeItem.apply(this, [node]);
+				const item = await getTreeItemFn.apply(this, [node]);
 
 				const parent = node.getParent();
 
 				if (node.resolveTreeItem != null) {
-					const resolveTreeItem = node.resolveTreeItem;
+					const resolveTreeItemFn = node.resolveTreeItem;
 					node.resolveTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, item: TreeItem) {
-						const resolvedItem = await resolveTreeItem.apply(this, [item]);
+						const resolvedItem = await resolveTreeItemFn.apply(this, [item]);
 
 						addDebuggingInfo(resolvedItem, node, parent);
 
 						return resolvedItem;
 					};
-
-					return item;
+				} else {
+					addDebuggingInfo(item, node, parent);
 				}
-
-				addDebuggingInfo(item, node, parent);
 
 				return item;
 			};
