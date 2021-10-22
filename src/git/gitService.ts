@@ -19,7 +19,7 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
+import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
 import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';

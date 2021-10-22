@@ -470,5 +470,8 @@ function getWebviewsConfig(mode, env) {
 			warningsCount: true,
 			timings: true,
 		},
+		infrastructureLogging: {
+			level: 'log', // enables logging required for problem matchers
+		},
 	};
 }

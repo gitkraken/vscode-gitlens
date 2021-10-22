@@ -3,7 +3,7 @@ import { Disposable } from 'vscode';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { builtInActionRunnerName } from './actionRunners';
-import { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
+import type { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {

@@ -1,6 +1,7 @@
 'use strict';
 /*global document window*/
 import '../scss/rebase.scss';
+// eslint-disable-next-line import/no-named-as-default
 import Sortable from 'sortablejs';
 import {
 	onIpcNotification,

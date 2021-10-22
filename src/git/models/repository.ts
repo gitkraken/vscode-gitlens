@@ -13,7 +13,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
-import { CreatePullRequestActionContext } from '../../api/gitlens';
+import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';

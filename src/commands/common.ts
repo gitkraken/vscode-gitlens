@@ -16,7 +16,7 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { Action, ActionContext } from '../api/gitlens';
+import type { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitCommit, GitContributor, GitFile, GitReference, GitRemote, GitTag, Repository } from '../git/git';

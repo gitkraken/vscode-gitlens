@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
+import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
