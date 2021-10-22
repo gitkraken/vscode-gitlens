@@ -361,7 +361,8 @@ function getWebviewsConfig(mode, env) {
 					from: path.posix.join(
 						__dirname.replace(/\\/g, '/'),
 						'node_modules',
-						'vscode-codicons',
+						'@vscode',
+						'codicons',
 						'dist',
 						'codicon.ttf',
 					),
