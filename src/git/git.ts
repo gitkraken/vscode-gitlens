@@ -7,7 +7,7 @@ import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Strings } from '../system';
+import { Paths, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { GitRevision } from './models/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
@@ -26,7 +26,6 @@ const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
 const emptyStr = '';
 export const maxGitCliLength = 30000;
-const slash = '/';
 
 const textDecoder = new TextDecoder('utf8');
 
@@ -235,27 +234,6 @@ export namespace Git {
 		);
 	}
 
-	export function splitPath(
-		fileName: string,
-		repoPath: string | undefined,
-		extract: boolean = true,
-	): [string, string] {
-		if (repoPath) {
-			fileName = Strings.normalizePath(fileName);
-			repoPath = Strings.normalizePath(repoPath);
-
-			const normalizedRepoPath = (repoPath.endsWith(slash) ? repoPath : `${repoPath}/`).toLowerCase();
-			if (fileName.toLowerCase().startsWith(normalizedRepoPath)) {
-				fileName = fileName.substring(normalizedRepoPath.length);
-			}
-		} else {
-			repoPath = Strings.normalizePath(extract ? paths.dirname(fileName) : repoPath!);
-			fileName = Strings.normalizePath(extract ? paths.basename(fileName) : fileName);
-		}
-
-		return [fileName, repoPath];
-	}
-
 	export function validateVersion(major: number, minor: number): boolean {
 		const [gitMajor, gitMinor] = gitInfo.version.split('.');
 		return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
@@ -283,7 +261,7 @@ export namespace Git {
 		ref?: string,
 		options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {},
 	) {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -355,7 +333,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -453,7 +431,7 @@ export namespace Git {
 			params.push(ref, '--');
 
 			if (fileName) {
-				[fileName, repoPath] = Git.splitPath(fileName, repoPath);
+				[fileName, repoPath] = Paths.splitPath(fileName, repoPath);
 
 				params.push(fileName);
 			}
@@ -856,7 +834,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = [
 			'log',
@@ -1350,7 +1328,7 @@ export namespace Git {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
 		} = {},
 	): Promise<TOut | undefined> {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			ref = ':';
@@ -1419,7 +1397,7 @@ export namespace Git {
 	}
 
 	export function stash__apply(repoPath: string, stashName: string, deleteAfter: boolean) {
-		if (!stashName) return undefined;
+		if (!stashName) return Promise.resolve(undefined);
 		return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
@@ -1530,7 +1508,7 @@ export namespace Git {
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
 	): Promise<string> {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
 		if (Git.validateVersion(2, 18)) {

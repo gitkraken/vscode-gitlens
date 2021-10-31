@@ -1,5 +1,4 @@
 'use strict';
-import * as fs from 'fs';
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';
@@ -221,13 +220,21 @@ async function getAvatarUriFromRemoteProvider(
 	}
 }
 
+const presenceStatusColorMap = new Map<ContactPresenceStatus, string>([
+	['online', '#28ca42'],
+	['away', '#cecece'],
+	['busy', '#ca5628'],
+	['dnd', '#ca5628'],
+	['offline', '#cecece'],
+]);
+
 export function getPresenceDataUri(status: ContactPresenceStatus) {
 	let dataUri = presenceCache.get(status);
 	if (dataUri == null) {
-		const contents = fs
-			.readFileSync(Container.context.asAbsolutePath(`images/dark/icon-presence-${status}.svg`))
-			.toString('base64');
-
+		const contents = Strings.base64(`<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="4" height="16" viewBox="0 0 4 16">
+	<circle cx="2" cy="14" r="2" fill="${presenceStatusColorMap.get(status)!}"/>
+</svg>`);
 		dataUri = encodeURI(`data:image/svg+xml;base64,${contents}`);
 		presenceCache.set(status, dataUri);
 	}

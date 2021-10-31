@@ -34,6 +34,7 @@ import {
 	gate,
 	Iterables,
 	log,
+	Paths,
 	Promises,
 	Strings,
 	TernarySearchTree,
@@ -928,7 +929,7 @@ export class GitService implements Disposable {
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
+		const [file, root] = Paths.splitPath(uri.fsPath, uri.repoPath, false);
 
 		try {
 			const data = await Git.blame(root, file, uri.sha, {
@@ -1011,7 +1012,7 @@ export class GitService implements Disposable {
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
+		const [file, root] = Paths.splitPath(uri.fsPath, uri.repoPath, false);
 
 		try {
 			const data = await Git.blame__contents(root, file, contents, {
@@ -1740,7 +1741,7 @@ export class GitService implements Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitDiff | undefined> {
-		const [file, root] = Git.splitPath(fileName, repoPath, false);
+		const [file, root] = Paths.splitPath(fileName, repoPath, false);
 
 		try {
 			// let data;
@@ -1846,7 +1847,7 @@ export class GitService implements Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitDiff | undefined> {
-		const [file, root] = Git.splitPath(fileName, repoPath, false);
+		const [file, root] = Paths.splitPath(fileName, repoPath, false);
 
 		try {
 			const data = await Git.diff__contents(root, file, ref, contents, {
@@ -2427,7 +2428,7 @@ export class GitService implements Disposable {
 			return emptyPromise as Promise<GitLog>;
 		}
 
-		const [file, root] = Git.splitPath(fileName, repoPath, false);
+		const [file, root] = Paths.splitPath(fileName, repoPath, false);
 
 		try {
 			if (range != null && range.start.line > range.end.line) {
@@ -3973,7 +3974,7 @@ export class GitService implements Disposable {
 		let cacheKey: string;
 		let fileName: string;
 		if (typeof fileNameOrUri === 'string') {
-			[fileName, repoPath] = Git.splitPath(fileNameOrUri, repoPath);
+			[fileName, repoPath] = Paths.splitPath(fileNameOrUri, repoPath);
 			cacheKey = GitUri.toKey(fileNameOrUri);
 		} else {
 			if (!this.isTrackable(fileNameOrUri)) return false;
@@ -4181,7 +4182,7 @@ export class GitService implements Disposable {
 	stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
 		return Git.add(
 			repoPath,
-			typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0],
+			typeof fileNameOrUri === 'string' ? fileNameOrUri : Paths.splitPath(fileNameOrUri.fsPath, repoPath)[0],
 		);
 	}
 
@@ -4191,7 +4192,7 @@ export class GitService implements Disposable {
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<string> {
 		return Git.add(
 			repoPath,
-			typeof directoryOrUri === 'string' ? directoryOrUri : Git.splitPath(directoryOrUri.fsPath, repoPath)[0],
+			typeof directoryOrUri === 'string' ? directoryOrUri : Paths.splitPath(directoryOrUri.fsPath, repoPath)[0],
 		);
 	}
 
@@ -4201,7 +4202,7 @@ export class GitService implements Disposable {
 	unStageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
 		return Git.reset(
 			repoPath,
-			typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0],
+			typeof fileNameOrUri === 'string' ? fileNameOrUri : Paths.splitPath(fileNameOrUri.fsPath, repoPath)[0],
 		);
 	}
 
@@ -4211,7 +4212,7 @@ export class GitService implements Disposable {
 	unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<string> {
 		return Git.reset(
 			repoPath,
-			typeof directoryOrUri === 'string' ? directoryOrUri : Git.splitPath(directoryOrUri.fsPath, repoPath)[0],
+			typeof directoryOrUri === 'string' ? directoryOrUri : Paths.splitPath(directoryOrUri.fsPath, repoPath)[0],
 		);
 	}
 
@@ -4240,7 +4241,7 @@ export class GitService implements Disposable {
 			' Please retry by stashing everything or install a more recent version of Git.',
 		);
 
-		const pathspecs = uris.map(u => `./${Git.splitPath(u.fsPath, repoPath)[0]}`);
+		const pathspecs = uris.map(u => `./${Paths.splitPath(u.fsPath, repoPath)[0]}`);
 
 		const stdinVersion = '2.30.0';
 		const stdin = GitService.compareGitVersion(stdinVersion) !== -1;
