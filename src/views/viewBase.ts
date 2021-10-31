@@ -66,6 +66,13 @@ export type ViewsWithCommits =
 	| RepositoriesView
 	| SearchAndCompareView
 	| TagsView;
+export type ViewsWithPullRequests =
+	| BranchesView
+	| CommitsView
+	| ContributorsView
+	| RemotesView
+	| RepositoriesView
+	| SearchAndCompareView;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;

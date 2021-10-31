@@ -3,25 +3,18 @@ import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscod
 import { Colors } from '../../constants';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { BranchesView } from '../branchesView';
-import { CommitsView } from '../commitsView';
-import { ContributorsView } from '../contributorsView';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
-import { SearchAndCompareView } from '../searchAndCompareView';
+import { ViewsWithPullRequests } from '../viewBase';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class PullRequestNode extends ViewNode<
-	BranchesView | CommitsView | ContributorsView | RemotesView | RepositoriesView | SearchAndCompareView
-> {
+export class PullRequestNode extends ViewNode<ViewsWithPullRequests> {
 	static key = ':pullrequest';
 	static getId(repoPath: string, id: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${ref}`;
 	}
 
 	constructor(
-		view: BranchesView | CommitsView | ContributorsView | RemotesView | RepositoriesView | SearchAndCompareView,
+		view: ViewsWithPullRequests,
 		parent: ViewNode,
 		public readonly pullRequest: PullRequest,
 		public readonly branchOrCommit: GitBranch | GitCommit,
