@@ -244,7 +244,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
 
 		return `${Strings.pluralize(resultsType.singular, count, {
-			number: log?.hasMore ?? false ? `${count}+` : undefined,
+			format: c => (log?.hasMore ? `${c}+` : undefined),
 			plural: resultsType.plural,
 			zero: 'No',
 		})} ${label.label}`;

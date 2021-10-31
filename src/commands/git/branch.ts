@@ -353,10 +353,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Branch', state.references.length, {
-					number: '',
-					plural: 'Branches',
-				}).trim(),
+				Strings.pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
 				state.subcommand,
 			);
 

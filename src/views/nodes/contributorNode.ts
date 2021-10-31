@@ -112,11 +112,11 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const stats =
 			this.contributor.stats != null
 				? `\\\n${Strings.pluralize('file', this.contributor.stats.files, {
-						number: numberFormatter.format(this.contributor.stats.files),
+						format: numberFormatter.format,
 				  })} changed, ${Strings.pluralize('addition', this.contributor.stats.additions, {
-						number: numberFormatter.format(this.contributor.stats.additions),
+						format: numberFormatter.format,
 				  })}, ${Strings.pluralize('deletion', this.contributor.stats.deletions, {
-						number: numberFormatter.format(this.contributor.stats.deletions),
+						format: numberFormatter.format,
 				  })}`
 				: '';
 
@@ -128,7 +128,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			})")__ \\\nLast commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\n\n${Strings.pluralize(
 				'commit',
 				this.contributor.count,
-				{ number: numberFormatter.format(this.contributor.count) },
+				{ format: numberFormatter.format },
 			)}${stats}`,
 		);
 
