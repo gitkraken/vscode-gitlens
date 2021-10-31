@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
@@ -264,61 +264,75 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		return new SearchAndCompareViewNode(this);
 	}
 
-	protected registerCommands() {
+	protected registerCommands(): Disposable[] {
 		void Container.viewCommands;
 
-		commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setKeepResultsToOff'),
-			() => this.setKeepResults(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		return [
+			commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setKeepResultsToOn'),
+				() => this.setKeepResults(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setKeepResultsToOff'),
+				() => this.setKeepResults(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
 
-		commands.registerCommand(this.getQualifiedCommand('pin'), this.pin, this);
-		commands.registerCommand(this.getQualifiedCommand('unpin'), this.unpin, this);
-		commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this);
-		commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
-		commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
+			commands.registerCommand(this.getQualifiedCommand('pin'), this.pin, this),
+			commands.registerCommand(this.getQualifiedCommand('unpin'), this.unpin, this),
+			commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
+			commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this),
+			commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesFilterOnLeft'),
-			n => this.setFilesFilter(n, 'left'),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesFilterOnRight'),
-			n => this.setFilesFilter(n, 'right'),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesFilterOff'),
-			n => this.setFilesFilter(n, false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesFilterOnLeft'),
+				n => this.setFilesFilter(n, 'left'),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesFilterOnRight'),
+				n => this.setFilesFilter(n, 'right'),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesFilterOff'),
+				n => this.setFilesFilter(n, false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

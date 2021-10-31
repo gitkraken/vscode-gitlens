@@ -218,69 +218,79 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return new CommitsViewNode(this);
 	}
 
-	protected registerCommands() {
+	protected registerCommands(): Disposable[] {
 		void Container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('branches', 'status', 'tags');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setMyCommitsOnlyOn'),
-			() => this.setMyCommitsOnly(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setMyCommitsOnlyOff'),
-			() => this.setMyCommitsOnly(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOn'),
-			() => this.setShowBranchComparison(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOff'),
-			() => this.setShowBranchComparison(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOn'),
-			() => this.setShowBranchPullRequest(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOff'),
-			() => this.setShowBranchPullRequest(false),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				async () => {
+					await Container.git.resetCaches('branches', 'status', 'tags');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setMyCommitsOnlyOn'),
+				() => this.setMyCommitsOnly(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setMyCommitsOnlyOff'),
+				() => this.setMyCommitsOnly(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOn'),
+				() => this.setShowBranchComparison(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOff'),
+				() => this.setShowBranchComparison(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOn'),
+				() => this.setShowBranchPullRequest(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOff'),
+				() => this.setShowBranchPullRequest(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

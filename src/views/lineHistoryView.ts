@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, LineHistoryViewConfig } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
@@ -25,28 +25,38 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		return new LineHistoryTrackerNode(this);
 	}
 
-	protected registerCommands() {
+	protected registerCommands(): Disposable[] {
 		void Container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOn'),
-			() => this.setEditorFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOff'),
-			() => this.setEditorFollowing(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOn'),
+				() => this.setEditorFollowing(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOff'),
+				() => this.setEditorFollowing(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

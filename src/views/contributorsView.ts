@@ -140,62 +140,72 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		return new ContributorsViewNode(this);
 	}
 
-	protected registerCommands() {
+	protected registerCommands(): Disposable[] {
 		void Container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('contributors');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				async () => {
+					await Container.git.resetCaches('contributors');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowAllBranchesOn'),
-			() => this.setShowAllBranches(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowAllBranchesOff'),
-			() => this.setShowAllBranches(false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAllBranchesOn'),
+				() => this.setShowAllBranches(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAllBranchesOff'),
+				() => this.setShowAllBranches(false),
+				this,
+			),
 
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowStatisticsOn'),
-			() => this.setShowStatistics(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowStatisticsOff'),
-			() => this.setShowStatistics(false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowStatisticsOn'),
+				() => this.setShowStatistics(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowStatisticsOff'),
+				() => this.setShowStatistics(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

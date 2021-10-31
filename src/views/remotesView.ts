@@ -3,6 +3,7 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -143,59 +144,69 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return new RemotesViewNode(this);
 	}
 
-	protected registerCommands() {
+	protected registerCommands(): Disposable[] {
 		void Container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('branches', 'remotes');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToList'),
-			() => this.setLayout(ViewBranchesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToTree'),
-			() => this.setLayout(ViewBranchesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOn'),
-			() => this.setShowBranchPullRequest(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOff'),
-			() => this.setShowBranchPullRequest(false),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				async () => {
+					await Container.git.resetCaches('branches', 'remotes');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToList'),
+				() => this.setLayout(ViewBranchesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToTree'),
+				() => this.setLayout(ViewBranchesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOn'),
+				() => this.setShowBranchPullRequest(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOff'),
+				() => this.setShowBranchPullRequest(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

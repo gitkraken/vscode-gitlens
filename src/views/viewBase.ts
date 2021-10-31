@@ -101,7 +101,7 @@ export abstract class ViewBase<
 		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
-	protected disposable: Disposable | undefined;
+	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
 
@@ -152,16 +152,7 @@ export abstract class ViewBase<
 			};
 		}
 
-		this.registerCommands();
-
-		Container.context.subscriptions.push(
-			configuration.onDidChange(e => {
-				if (!this.filterConfigurationChanged(e)) return;
-
-				this._config = undefined;
-				this.onConfigurationChanged(e);
-			}, this),
-		);
+		this.disposables.push(...this.registerCommands());
 
 		this.initialize({ showCollapseAll: this.showCollapseAll });
 
@@ -184,7 +175,7 @@ export abstract class ViewBase<
 	}
 
 	dispose() {
-		this.disposable?.dispose();
+		Disposable.from(...this.disposables).dispose();
 	}
 
 	private _title: string | undefined;
@@ -225,7 +216,7 @@ export abstract class ViewBase<
 	}
 
 	protected abstract getRoot(): RootNode;
-	protected abstract registerCommands(): void;
+	protected abstract registerCommands(): Disposable[];
 	protected onConfigurationChanged(e?: ConfigurationChangeEvent): void {
 		if (e != null && this.root != null) {
 			void this.refresh(true);
@@ -233,16 +224,17 @@ export abstract class ViewBase<
 	}
 
 	protected initialize(options: { showCollapseAll?: boolean } = {}) {
-		if (this.disposable != null) {
-			this.disposable.dispose();
-			this._onDidChangeTreeData = new EventEmitter<ViewNode>();
-		}
-
 		this.tree = window.createTreeView<ViewNode<View>>(this.id, {
 			...options,
 			treeDataProvider: this,
 		});
-		this.disposable = Disposable.from(
+		this.disposables.push(
+			configuration.onDidChange(e => {
+				if (!this.filterConfigurationChanged(e)) return;
+
+				this._config = undefined;
+				this.onConfigurationChanged(e);
+			}, this),
 			this.tree,
 			this.tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
