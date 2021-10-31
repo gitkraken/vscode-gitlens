@@ -7,7 +7,15 @@ import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openWorkspace } from './common';
+import {
+	ActiveEditorCommand,
+	command,
+	CommandContext,
+	Commands,
+	getCommandUri,
+	openWorkspace,
+	OpenWorkspaceLocation,
+} from './common';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
@@ -63,8 +71,9 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			uri = toGitLensFSUri(sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);
 
-			openWorkspace(uri, `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, {
-				openInNewWindow: args.openInNewWindow,
+			openWorkspace(uri, {
+				location: args.openInNewWindow ? OpenWorkspaceLocation.NewWindow : OpenWorkspaceLocation.AddToWorkspace,
+				name: `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
 			});
 
 			if (!args.openInNewWindow) {

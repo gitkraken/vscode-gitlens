@@ -732,16 +732,22 @@ export async function openEditor(
 	}
 }
 
-export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
-	if (options.openInNewWindow) {
-		void commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+export enum OpenWorkspaceLocation {
+	CurrentWindow = 'currentWindow',
+	NewWindow = 'newWindow',
+	AddToWorkspace = 'addToWorkspace',
+}
 
-		return true;
+export function openWorkspace(
+	uri: Uri,
+	options: { location?: OpenWorkspaceLocation; name?: string } = { location: OpenWorkspaceLocation.CurrentWindow },
+): void {
+	if (options?.location === OpenWorkspaceLocation.AddToWorkspace) {
+		const count = workspace.workspaceFolders?.length ?? 0;
+		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
-	return workspace.updateWorkspaceFolders(
-		workspace.workspaceFolders != null ? workspace.workspaceFolders.length : 0,
-		null,
-		{ uri: uri, name: name },
-	);
+	return void commands.executeCommand(BuiltInCommands.OpenFolder, uri, {
+		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
+	});
 }
