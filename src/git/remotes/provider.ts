@@ -250,7 +250,7 @@ export class AuthenticationError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace(this, AuthenticationError);
+		Error.captureStackTrace?.(this, AuthenticationError);
 	}
 }
 
@@ -258,7 +258,7 @@ export class ClientError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace(this, ClientError);
+		Error.captureStackTrace?.(this, ClientError);
 	}
 }
 

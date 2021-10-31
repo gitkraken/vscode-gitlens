@@ -151,7 +151,7 @@ export class RunError extends Error {
 
 		stdout = stdout.trim();
 		stderr = stderr.trim();
-		Error.captureStackTrace(this, RunError);
+		Error.captureStackTrace?.(this, RunError);
 	}
 
 	get cmd(): string | undefined {
