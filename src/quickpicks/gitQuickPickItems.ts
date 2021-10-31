@@ -387,13 +387,13 @@ export namespace TagQuickPickItem {
 		}
 
 		if (options.ref) {
-			description = description
-				? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitRevision.shorten(tag.sha)}`
-				: `${Strings.pad('$(git-commit)', 0, 2)}${GitRevision.shorten(tag.sha)}`;
+			description = `${description}${Strings.pad('$(git-commit)', description ? 2 : 0, 2)}${GitRevision.shorten(
+				tag.sha,
+			)}`;
 
-			description = description
-				? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${tag.formattedDate}`
-				: tag.formattedDate;
+			description = `${description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}` : ''}${
+				tag.formattedDate
+			}`;
 		}
 
 		if (options.message) {
