@@ -30,6 +30,10 @@ export function countUniques<T>(source: T[], accessor: (item: T) => string): Rec
 	return uniqueCounts;
 }
 
+export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
+	return source == null ? undefined : Array.isArray(source) ? source : [source];
+}
+
 export function filterMap<T, TMapped>(
 	source: T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
