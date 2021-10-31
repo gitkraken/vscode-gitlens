@@ -225,6 +225,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
+					titleContext: ' from',
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -349,7 +350,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Tag', state.references.length, { number: '' }).trim(),
+				Strings.pluralize('Tag', state.references.length, { only: true }),
 				state.subcommand,
 			);
 
