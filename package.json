@@ -7928,7 +7928,7 @@
 				},
 				{
 					"command": "gitlens.views.openFile",
-					"when": "view =~ /gitlens\\.views\\.(?!(fileHistory|lineHistory)\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(?!(fileHistory|lineHistory)\\b)/ && viewItem =~ /gitlens:file(:results|\\b(?=.*?\\b\\+(committed|stashed)\\b))/",
 					"group": "inline@1",
 					"alt": "gitlens.views.openFileRevision"
 				},
