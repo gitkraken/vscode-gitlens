@@ -143,6 +143,10 @@ export abstract class ViewBase<
 				const parent = node.getParent();
 
 				if (node.resolveTreeItem != null) {
+					if (item.tooltip != null) {
+						addDebuggingInfo(item, node, parent);
+					}
+
 					const resolveTreeItemFn = node.resolveTreeItem;
 					node.resolveTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, item: TreeItem) {
 						const resolvedItem = await resolveTreeItemFn.apply(this, [item]);
