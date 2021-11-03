@@ -1,5 +1,6 @@
 'use strict';
 import { BinaryToTextEncoding, createHash } from 'crypto';
+import ansiRegex from 'ansi-regex';
 import { isWindows } from '../git/shell';
 
 const emptyStr = '';
@@ -446,10 +447,7 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 }
 
-// See chalk/ansi-regex
-const ansiRegex =
-	// eslint-disable-next-line no-control-regex
-	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
+const cachedAnsiRegex = ansiRegex();
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
 // See sindresorhus/string-width
@@ -459,7 +457,7 @@ export function getWidth(s: string): number {
 	// Shortcut to avoid needless string `RegExp`s, replacements, and allocations
 	if (!containsNonAsciiRegex.test(s)) return s.length;
 
-	s = s.replace(ansiRegex, emptyStr);
+	s = s.replace(cachedAnsiRegex, emptyStr);
 
 	let count = 0;
 	let emoji = 0;

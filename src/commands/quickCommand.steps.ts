@@ -150,7 +150,7 @@ export async function getBranchesAndOrTags(
 		singleRepo = true;
 		const repo = repos instanceof Repository ? repos : repos[0];
 
-		[branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+		[branches, tags] = await Promise.all([
 			include.includes('branches')
 				? repo.getBranches({
 						filter: filter?.branches,
@@ -160,7 +160,7 @@ export async function getBranchesAndOrTags(
 			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 	} else {
-		const [branchesByRepo, tagsByRepo] = await Promise.all<GitBranch[][] | undefined, GitTag[][] | undefined>([
+		const [branchesByRepo, tagsByRepo] = await Promise.all([
 			include.includes('branches')
 				? Promise.all(
 						repos.map(r =>

@@ -1392,7 +1392,7 @@ export class GitService implements Disposable {
 			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 		} = {},
 	) {
-		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+		const [branches, tags] = await Promise.all([
 			include == null || include === 'all' || include === 'branches'
 				? this.getBranches(repoPath, {
 						...options,
@@ -3890,7 +3890,7 @@ export class GitService implements Disposable {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		} = {},
 	) {
-		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+		const [branches, tags] = await Promise.all([
 			this.getBranches(repoPath, {
 				filter: filter?.branches,
 				sort: false,
