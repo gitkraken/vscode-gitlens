@@ -37,11 +37,22 @@ export interface SearchPattern {
 }
 
 export namespace SearchPattern {
-	const emptyStr = '';
+	const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
+		['', 'message:'],
+		['=:', 'message:'],
+		['message:', 'message:'],
+		['@:', 'author:'],
+		['author:', 'author:'],
+		['#:', 'commit:'],
+		['commit:', 'commit:'],
+		['?:', 'file:'],
+		['file:', 'file:'],
+		['~:', 'change:'],
+		['change:', 'change:'],
+	]);
 
-	const searchMessageValuesRegex = /(".+"|[^\b\s]+)/g;
 	const searchOperationRegex =
-		/((?:=|message|@|author|#|commit|\?|file|~|change):)\s?(.*?)(?=\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/g;
+		/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+\b))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
 
 	export function fromCommit(ref: string): string;
 	export function fromCommit(commit: GitRevisionReference): string;
@@ -58,73 +69,34 @@ export namespace SearchPattern {
 	export function parseSearchOperations(search: string): Map<string, string[]> {
 		const operations = new Map<string, string[]>();
 
-		let op;
-		let value;
-		let freeTextTerm;
-
-		let match = searchOperationRegex.exec(search);
-
-		if (match == null || match.index > 0) {
-			freeTextTerm = search.substring(0, match?.index).trimEnd();
-		}
-
-		while (match != null) {
-			[, op, value] = match;
-
-			if (op !== undefined) {
-				op = normalizeSearchOperatorsMap.get(op as SearchOperators)!;
-				let firstMessageMatch;
-
-				if (op === 'message:') {
-					parseSearchMessageOperations(value, operations);
-				} else if (
-					!freeTextTerm &&
-					match.index + match[0].length === search.length &&
-					(firstMessageMatch = new RegExp(searchMessageValuesRegex).exec(value)) != null
-				) {
-					const [, firstMessage] = firstMessageMatch;
-					addSearchOperationValue(op, firstMessage, operations);
-					freeTextTerm = value.substring(firstMessage.length).trimStart();
-				} else {
-					addSearchOperationValue(op, value, operations);
-				}
-			}
-
-			match = searchOperationRegex.exec(search);
-		}
-
-		if (freeTextTerm) {
-			if (GitRevision.isSha(freeTextTerm)) {
-				addSearchOperationValue('commit:', freeTextTerm, operations);
-			} else {
-				parseSearchMessageOperations(freeTextTerm, operations);
-			}
-		}
-
-		return operations;
-	}
-
-	function addSearchOperationValue(op: SearchOperators, value: string, operations: Map<string, string[]>) {
-		let values = operations.get(op);
-		if (values === undefined) {
-			values = [value];
-			operations.set(op, values);
-		} else {
-			values.push(value);
-		}
-	}
-
-	function parseSearchMessageOperations(message: string, operations: Map<string, string[]>) {
-		if (message === emptyStr) {
-			addSearchOperationValue('message:', emptyStr, operations);
-			return;
-		}
+		let op: SearchOperators | undefined;
+		let value: string | undefined;
+		let text: string | undefined;
 
 		let match;
-		while ((match = searchMessageValuesRegex.exec(message)) != null) {
-			const [, value] = match;
-			addSearchOperationValue('message:', value, operations);
-		}
+		do {
+			match = searchOperationRegex.exec(search);
+			if (match?.groups == null) break;
+
+			op = normalizeSearchOperatorsMap.get(match.groups.op as SearchOperators);
+			({ value, text } = match.groups);
+
+			if (text) {
+				op = GitRevision.isSha(text) ? 'commit:' : 'message:';
+				value = text;
+			}
+
+			if (op && value) {
+				const values = operations.get(op);
+				if (values == null) {
+					operations.set(op, [value]);
+				} else {
+					values.push(value);
+				}
+			}
+		} while (match != null);
+
+		return operations;
 	}
 
 	export function toKey(search: SearchPattern) {
@@ -133,16 +105,3 @@ export namespace SearchPattern {
 		}`;
 	}
 }
-export const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
-	['', 'message:'],
-	['=:', 'message:'],
-	['message:', 'message:'],
-	['@:', 'author:'],
-	['author:', 'author:'],
-	['#:', 'commit:'],
-	['commit:', 'commit:'],
-	['?:', 'file:'],
-	['file:', 'file:'],
-	['~:', 'change:'],
-	['change:', 'change:'],
-]);
