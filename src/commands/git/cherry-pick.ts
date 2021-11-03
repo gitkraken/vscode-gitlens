@@ -26,7 +26,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--edit';
+type Flags = '--edit' | '--no-commit';
 
 interface State<Refs = GitReference | GitReference[]> {
 	repo: string | Repository;
@@ -218,6 +218,13 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
 						context.destination,
 					)}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-commit'], {
+					label: `${this.title} without Committing`,
+					description: '--no-commit',
+					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+						context.destination,
+					)} without Committing`,
 				}),
 			],
 			context,
