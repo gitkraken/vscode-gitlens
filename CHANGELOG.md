@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1583](https://github.com/eamodio/vscode-gitlens/issues/1583) - Should hide the context menu on unrelated tabs &mdash; thanks to [PR #1589](https://github.com/eamodio/vscode-gitlens/pull/1589) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
 - Fixes [#1587](https://github.com/eamodio/vscode-gitlens/issues/1587) - Hover on blame can duplicate &mdash; thanks to [PR #1588](https://github.com/eamodio/vscode-gitlens/pull/1588) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
 
 ## [11.6.1] - 2021-10-08
