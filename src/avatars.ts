@@ -73,6 +73,9 @@ export function getAvatarUri(
 ): Uri | Promise<Uri> {
 	ensureAvatarCache(avatarCache);
 
+	// Double the size to avoid blurring on the retina screen
+	size *= 2
+
 	if (email == null || email.length === 0) {
 		const avatar = createOrUpdateAvatar(
 			`${missingGravatarHash}:${size}`,
