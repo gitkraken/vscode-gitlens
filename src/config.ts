@@ -134,6 +134,7 @@ export interface Config {
 		pullRequests: {
 			enabled: boolean;
 		};
+		tooltipFormat: string;
 	};
 	strings: {
 		codeLens: {

@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a new rich commit details hover to the blame information in the status bar
+  - Adds a `gitlens.statusBar.tooltipFormat` setting to specify the format (in markdown) of hover shown over the blame information in the status bar
+- Adds a new rich hover to the GitLens mode in the status bar
 - Adds a new _Cherry Pick without Committing_ confirmation option to the _Git Command Palette_'s _cherry-pick_ command &mdash; closes [#1693](https://github.com/eamodio/vscode-gitlens/issues/1693)
 - Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/eamodio/vscode-gitlens/issues/1710)
 

@@ -138,7 +138,14 @@ export class LineHoverController implements Disposable {
 			logCommit ?? commit,
 			trackedDocument.uri,
 			editorLine,
+			Container.config.hovers.detailsMarkdownFormat,
 			Container.config.defaultDateFormat,
+			{
+				autolinks: Container.config.hovers.autolinks.enabled,
+				pullRequests: {
+					enabled: Container.config.hovers.pullRequests.enabled,
+				},
+			},
 		);
 		return new Hover(message, range);
 	}

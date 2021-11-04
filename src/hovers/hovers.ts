@@ -12,6 +12,7 @@ import {
 	GitLogCommit,
 	GitRemote,
 	GitRevision,
+	PullRequest,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -181,7 +182,19 @@ export namespace Hovers {
 		commit: GitCommit,
 		uri: GitUri,
 		editorLine: number,
+		format: string,
 		dateFormat: string | null,
+		options?: {
+			autolinks?: boolean;
+			pullRequests?: {
+				enabled: boolean;
+				pr?: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>>;
+			};
+			getBranchAndTagTips?: (
+				sha: string,
+				options?: { compact?: boolean | undefined; icons?: boolean | undefined },
+			) => string | undefined;
+		},
 	): Promise<MarkdownString> {
 		if (dateFormat === null) {
 			dateFormat = 'MMMM Do, YYYY h:mma';
@@ -192,19 +205,32 @@ export namespace Hovers {
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
-			getPullRequestForCommit(commit.ref, remotes),
+			options?.pullRequests?.pr ??
+				getPullRequestForCommit(commit.ref, remotes, {
+					pullRequests:
+						options?.pullRequests?.enabled ||
+						CommitFormatter.has(
+							format,
+							'pullRequest',
+							'pullRequestAgo',
+							'pullRequestAgoOrDate',
+							'pullRequestDate',
+							'pullRequestState',
+						),
+				}),
 			Container.vsls.maybeGetPresence(commit.email),
 		]);
 
-		const details = await CommitFormatter.fromTemplateAsync(Container.config.hovers.detailsMarkdownFormat, commit, {
+		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
 			editor: {
 				line: editorLine,
 				uri: uri,
 			},
+			getBranchAndTagTips: options?.getBranchAndTagTips,
 			markdown: true,
-			messageAutolinks: Container.config.hovers.autolinks.enabled,
+			messageAutolinks: options?.autolinks,
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
@@ -303,23 +329,19 @@ export namespace Hovers {
 		}
 	}
 
-	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+	async function getPullRequestForCommit(
+		ref: string,
+		remotes: GitRemote[],
+		options?: {
+			pullRequests?: boolean;
+		},
+	) {
 		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
 		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
 
 		const start = process.hrtime();
 
-		if (
-			!Container.config.hovers.pullRequests.enabled ||
-			!CommitFormatter.has(
-				Container.config.hovers.detailsMarkdownFormat,
-				'pullRequest',
-				'pullRequestAgo',
-				'pullRequestAgoOrDate',
-				'pullRequestDate',
-				'pullRequestState',
-			)
-		) {
+		if (!options?.pullRequests) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;

@@ -1723,6 +1723,12 @@
 					"markdownDescription": "Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar \"flashing\"",
 					"scope": "window"
 				},
+				"gitlens.statusBar.tooltipFormat": {
+					"type": "string",
+					"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}${\n\n---\n\nfootnotes}",
+					"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
 				"gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
 					"type": "string",
 					"default": "$(ellipsis)",

@@ -194,7 +194,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			logCommit ?? commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
+			Container.config.hovers.detailsMarkdownFormat,
 			Container.config.defaultDateFormat,
+			{
+				autolinks: Container.config.hovers.autolinks.enabled,
+				pullRequests: {
+					enabled: Container.config.hovers.pullRequests.enabled,
+				},
+			},
 		);
 	}
 }
