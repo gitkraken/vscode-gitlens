@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1511](https://github.com/eamodio/vscode-gitlens/issues/1511) - Avatars are blurry on retina displays &mdash; thanks to [PR #1595](https://github.com/eamodio/vscode-gitlens/pull/1595) by Adaex Yang ([@adaex](https://github.com/adaex))
 - Fixes [#1609](https://github.com/eamodio/vscode-gitlens/issues/1609) - X.globalState.setKeysForSync is not a function &mdash; thanks to [PR #1610](https://github.com/eamodio/vscode-gitlens/pull/1610) by Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky))
 - Fixes [#1131](https://github.com/eamodio/vscode-gitlens/issues/1131) - Order matters for search filters in 'search commits' &mdash; with help from [PR #1575](https://github.com/eamodio/vscode-gitlens/pull/1575) by Lior Kletter ([@Git-Lior](https://github.com/Git-Lior))
 - Fixes [#1583](https://github.com/eamodio/vscode-gitlens/issues/1583) - Should hide the context menu on unrelated tabs &mdash; thanks to [PR #1589](https://github.com/eamodio/vscode-gitlens/pull/1589) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
