@@ -1074,6 +1074,7 @@ A big thanks to the people that have contributed to this project:
 - Guillaume Rozan ([@grozan](https://github.com/grozan)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=grozan)
 - Guillem González Vela ([@guillemglez](https://github.com/guillemglez)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=guillemglez)
 - Vladislav Guleaev ([@vguleaev](https://github.com/vguleaev)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=vguleaev)
+- Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=yrtimiD)
 - Ken Hom ([@kh0m](https://github.com/kh0m)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=kh0m)
 - Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Yukaii)
 - Justin Hutchings ([@jhutchings1](https://github.com/jhutchings1)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jhutchings1)

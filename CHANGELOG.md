@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Cherry Pick without Committing_ confirmation option to the _Git Command Palette_'s _cherry-pick_ command &mdash; closes [#1693](https://github.com/eamodio/vscode-gitlens/issues/1693)
 - Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/eamodio/vscode-gitlens/issues/1710)
 - Adds commit message autolinking of merged pull requests for Azure Repos &mdash; closes [#1486](https://github.com/eamodio/vscode-gitlens/issues/1486) thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Mark Molinaro ([@markjm](https://github.com/markjm))
+- Adds a new `AzureDevOps` type to `gitlens.remotes` to better support Azure DevOps remote matching &mdash; thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD))
 
 ### Fixed
 
