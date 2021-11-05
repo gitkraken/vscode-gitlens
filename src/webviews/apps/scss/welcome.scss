@@ -141,15 +141,20 @@ header {
 	flex-wrap: nowrap;
 }
 
-.header__logo--highlight {
+.header__title {
+	font-family: 'Segoe UI Semibold', var(--font-family);
+}
+
+.header__title--highlight {
 	color: #914db3;
 }
 
 .header__subtitle {
 	color: var(--color-foreground--65);
+	font-family: 'Segoe UI Light', var(--font-family);
 	font-size: 2rem;
 	font-weight: 100;
-	margin: -0.2em 0 0 0;
+	margin: -0.5em 0 0 4px;
 	white-space: nowrap;
 }
 
