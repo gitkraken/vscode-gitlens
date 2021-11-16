@@ -112,19 +112,19 @@ export class GiteaRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/src/branch/${branch}`;
+		return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commit/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
 	protected override getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
-		return `${this.baseUrl}/compare/${ref1}...${ref2}`;
+		return this.encodeUrl(`${this.baseUrl}/compare/${ref1}...${ref2}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -139,9 +139,9 @@ export class GiteaRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.baseUrl}/src/commit/${sha}/${fileName}${line}`;
-		if (branch) return `${this.baseUrl}/src/branch/${branch}/${fileName}${line}`;
+		if (sha) return this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}${line}`);
+		if (branch) return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}${line}`);
 		// this route is deprecated but there is no alternative
-		return `${this.baseUrl}/src/${fileName}${line}`;
+		return this.encodeUrl(`${this.baseUrl}/src/${fileName}${line}`);
 	}
 }
