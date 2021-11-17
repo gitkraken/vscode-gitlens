@@ -24,6 +24,7 @@ export * from './system/decorators/gate';
 export * from './system/decorators/log';
 export * from './system/decorators/memoize';
 export * from './system/decorators/timeout';
+export * as Encoding from './system/encoding';
 export * as Functions from './system/function';
 export * as Iterables from './system/iterable';
 export * as Objects from './system/object';

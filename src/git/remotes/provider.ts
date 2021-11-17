@@ -14,7 +14,7 @@ import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, gate, log, Promises } from '../../system';
+import { debug, Encoding, gate, log, Promises } from '../../system';
 import {
 	Account,
 	DefaultBranch,
@@ -234,11 +234,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected encodeUrl(url: string): string;
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
-		if (url == null) return undefined;
-
-		// Not a fan of this, but it's hard to gauge previous encoding and this is the most common case
-		url = url.replace(/%20/g, ' ');
-		return encodeURI(url).replace(/#/g, '%23');
+		return Encoding.encodeUrl(url);
 	}
 }
 

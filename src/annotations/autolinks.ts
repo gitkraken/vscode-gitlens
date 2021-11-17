@@ -5,7 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRemote, IssueOrPullRequest } from '../git/git';
 import { Logger } from '../logger';
-import { Dates, debug, Iterables, Promises, Strings } from '../system';
+import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
 
 const numRegex = /<num>/g;
 
@@ -157,7 +157,7 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${ref.url.replace(numRegex, '$2')}${
+				const replacement = `[$1](${Encoding.encodeUrl(ref.url.replace(numRegex, '$2'))}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
@@ -174,7 +174,7 @@ export class Autolinks implements Disposable {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
 
-						const issueUrl = ref.url.replace(numRegex, num);
+						const issueUrl = Encoding.encodeUrl(ref.url.replace(numRegex, num));
 
 						let title = '';
 						if (ref.title) {
