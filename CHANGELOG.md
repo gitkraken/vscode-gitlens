@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/eamodio/vscode-gitlens/issues/1710)
 - Adds commit message autolinking of merged pull requests for Azure Repos &mdash; closes [#1486](https://github.com/eamodio/vscode-gitlens/issues/1486) thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Mark Molinaro ([@markjm](https://github.com/markjm))
 - Adds a new `AzureDevOps` type to `gitlens.remotes` to better support Azure DevOps remote matching &mdash; thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD))
+- Adds functional groupings to all GitLens settings when using the VS Code settings UI. Groups will be displayed in the table of contents in the settings UI &mdash; thanks to @rzhao271 for adding grouping support to VS Code settings UI
 
 ### Fixed
 
