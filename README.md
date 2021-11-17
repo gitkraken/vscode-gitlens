@@ -1119,6 +1119,7 @@ A big thanks to the people that have contributed to this project:
 - Alexey Svetliakov ([@asvetliakov](https://github.com/asvetliakov)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=asvetliakov)
 - Takashi Tamura ([@tamuratak](https://github.com/tamuratak)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=tamuratak)
 - Andy Tang ([@thewindsofwinter](https://github.com/thewindsofwinter)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=thewindsofwinter)
+- Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=dimaulupov)
 - Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia)
 - Ivan Volzhev ([@ivolzhevbt](https://github.com/ivolzhevbt)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ivolzhevbt)
 - x13machine ([@x13machine](https://github.com/x13machine)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=x13machine)

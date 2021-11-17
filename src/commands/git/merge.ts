@@ -29,7 +29,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--ff-only' | '--no-ff' | '--squash' | '--no-commit' ;
+type Flags = '--ff-only' | '--no-ff' | '--squash' | '--no-commit';
 
 interface State {
 	repo: string | Repository;
@@ -231,8 +231,15 @@ export class MergeGitCommand extends QuickCommand<State> {
 						state.reference,
 					)} into ${GitReference.toString(context.destination)}`,
 				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--squash'], {
+					label: `Squash ${this.title}`,
+					description: '--squash',
+					detail: `Will squash ${Strings.pluralize('commit', count)} from ${GitReference.toString(
+						state.reference,
+					)} into one when merging into ${GitReference.toString(context.destination)}`,
+				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff'], {
-					label: `No Fast-forward ${this.title}`,
+					label: `${this.title} without Fast-Forwarding`,
 					description: '--no-ff',
 					detail: `Will create a merge commit when merging ${Strings.pluralize(
 						'commit',
@@ -242,21 +249,11 @@ export class MergeGitCommand extends QuickCommand<State> {
 					)}`,
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff', '--no-commit'], {
-					label: `No Fast-forward and no commit ${this.title}`,
+					label: `${this.title} without Fast-Forwarding or Committing`,
 					description: '--no-ff --no-commit',
-					detail: `Will stop before making commit when merging ${Strings.pluralize(
-						'commit',
-						count,
-					)} from ${GitReference.toString(state.reference)} into ${GitReference.toString(
-						context.destination,
-					)}`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--squash'], {
-					label: `Squash ${this.title}`,
-					description: '--squash',
-					detail: `Will squash ${Strings.pluralize('commit', count)} from ${GitReference.toString(
+					detail: `Will merge ${Strings.pluralize('commit', count)} from ${GitReference.toString(
 						state.reference,
-					)} into one when merging into ${GitReference.toString(context.destination)}`,
+					)} into ${GitReference.toString(context.destination)} without Committing`,
 				}),
 			],
 		);
