@@ -51,6 +51,18 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 			this._observer.observe(el);
 		}
+
+		for (const el of document.querySelectorAll<HTMLInputElement>('[data-setting]')) {
+			if (!el.title && el.type === 'checkbox') {
+				el.title = `Setting name: "gitlens.${el.name}"`;
+			}
+
+			for (const label of document.querySelectorAll<HTMLLabelElement>(`label[for="${el.id}"]`)) {
+				if (!label.title) {
+					label.title = `Setting name: "gitlens.${el.name}"`;
+				}
+			}
+		}
 	}
 
 	protected override onBind() {
