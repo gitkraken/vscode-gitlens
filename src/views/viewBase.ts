@@ -349,26 +349,30 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		async function find(this: ViewBase<RootNode, ViewConfig>) {
+			try {
+				const node = await this.findNodeCoreBFS(
+					typeof predicate === 'string' ? n => n.id === predicate : predicate,
+					this.ensureRoot(),
+					allowPaging,
+					canTraverse,
+					maxDepth,
+					token,
+				);
+
+				return node;
+			} catch (ex) {
+				Logger.error(ex, cc);
+				return undefined;
+			}
+		}
+
+		if (this.root != null) return find.call(this);
+
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		if (this.root == null) {
-			await this.show();
-		}
-
-		try {
-			const node = await this.findNodeCoreBFS(
-				typeof predicate === 'string' ? n => n.id === predicate : predicate,
-				this.ensureRoot(),
-				allowPaging,
-				canTraverse,
-				maxDepth,
-				token,
-			);
-
-			return node;
-		} catch (ex) {
-			Logger.error(ex, cc);
-			return undefined;
-		}
+		await this.show();
+		// Since we have to show the view, let the callstack unwind before we try to find the node
+		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 0));
 	}
 
 	private async findNodeCoreBFS(
