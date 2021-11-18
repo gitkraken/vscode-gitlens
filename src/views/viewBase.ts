@@ -370,7 +370,7 @@ export abstract class ViewBase<
 		if (this.root != null) return find.call(this);
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		await this.show();
+		await this.show({ preserveFocus: true });
 		// Since we have to show the view, let the callstack unwind before we try to find the node
 		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 0));
 	}
@@ -522,9 +522,9 @@ export abstract class ViewBase<
 	}
 
 	@log()
-	async show() {
+	async show(options?: { preserveFocus?: boolean }) {
 		try {
-			void (await commands.executeCommand(`${this.id}.focus`));
+			void (await commands.executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
 			Logger.error(ex);
 		}
