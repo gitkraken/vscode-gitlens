@@ -109,9 +109,15 @@ export function appendReposToTitle<
 
 export async function getBranches(
 	repos: Repository | Repository[],
-	options: { filter?: (b: GitBranch) => boolean; picked?: string | string[]; sort?: BranchSortOptions } = {},
+	options: {
+		buttons?: QuickInputButton[];
+		filter?: (b: GitBranch) => boolean;
+		picked?: string | string[];
+		sort?: BranchSortOptions;
+	},
 ): Promise<BranchQuickPickItem[]> {
 	return getBranchesAndOrTags(repos, ['branches'], {
+		buttons: options?.buttons,
 		filter: options?.filter != null ? { branches: options.filter } : undefined,
 		picked: options?.picked,
 		sort: options?.sort != null ? { branches: options.sort } : true,
@@ -120,9 +126,15 @@ export async function getBranches(
 
 export async function getTags(
 	repos: Repository | Repository[],
-	options?: { filter?: (t: GitTag) => boolean; picked?: string | string[]; sort?: TagSortOptions },
+	options?: {
+		buttons?: QuickInputButton[];
+		filter?: (t: GitTag) => boolean;
+		picked?: string | string[];
+		sort?: TagSortOptions;
+	},
 ): Promise<TagQuickPickItem[]> {
 	return getBranchesAndOrTags(repos, ['tags'], {
+		buttons: options?.buttons,
 		filter: options?.filter != null ? { tags: options.filter } : undefined,
 		picked: options?.picked,
 		sort: options?.sort != null ? { tags: options.sort } : true,
@@ -133,10 +145,12 @@ export async function getBranchesAndOrTags(
 	repos: Repository | Repository[],
 	include: ('tags' | 'branches')[],
 	{
+		buttons,
 		filter,
 		picked,
 		sort,
 	}: {
+		buttons?: QuickInputButton[];
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
 		sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
@@ -200,6 +214,7 @@ export async function getBranchesAndOrTags(
 					b,
 					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
 					{
+						buttons: buttons,
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
 						status: singleRepo,
@@ -217,6 +232,7 @@ export async function getBranchesAndOrTags(
 					t,
 					picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
 					{
+						buttons: buttons,
 						message: false, //singleRepo,
 						ref: singleRepo,
 					},
@@ -233,6 +249,7 @@ export async function getBranchesAndOrTags(
 					b,
 					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
 					{
+						buttons: buttons,
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
 						status: singleRepo,
@@ -244,6 +261,7 @@ export async function getBranchesAndOrTags(
 				t,
 				picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
 				{
+					buttons: buttons,
 					message: false, //singleRepo,
 					ref: singleRepo,
 					type: true,
@@ -257,6 +275,7 @@ export async function getBranchesAndOrTags(
 					b,
 					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
 					{
+						buttons: buttons,
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
 						status: singleRepo,
@@ -267,7 +286,10 @@ export async function getBranchesAndOrTags(
 	]);
 }
 
-export function getValidateGitReferenceFn(repos: Repository | Repository[], options?: { ranges?: boolean }) {
+export function getValidateGitReferenceFn(
+	repos: Repository | Repository[],
+	options?: { buttons?: QuickInputButton[]; ranges?: boolean },
+) {
 	return async (quickpick: QuickPick<any>, value: string) => {
 		let inRefMode = false;
 		if (value.startsWith('#')) {
@@ -283,7 +305,12 @@ export function getValidateGitReferenceFn(repos: Repository | Repository[], opti
 
 		if (inRefMode && options?.ranges && GitRevision.isRange(value)) {
 			quickpick.items = [
-				RefQuickPickItem.create(value, repos.path, true, { alwaysShow: true, ref: false, icon: false }),
+				RefQuickPickItem.create(value, repos.path, true, {
+					alwaysShow: true,
+					buttons: options?.buttons,
+					ref: false,
+					icon: false,
+				}),
 			];
 			return true;
 		}
@@ -312,7 +339,14 @@ export function getValidateGitReferenceFn(repos: Repository | Repository[], opti
 		}
 
 		const commit = await Container.git.getCommit(repos.path, value);
-		quickpick.items = [CommitQuickPickItem.create(commit!, true, { alwaysShow: true, compact: true, icon: true })];
+		quickpick.items = [
+			CommitQuickPickItem.create(commit!, true, {
+				alwaysShow: true,
+				buttons: options?.buttons,
+				compact: true,
+				icon: true,
+			}),
+		];
 		return true;
 	};
 }
@@ -406,6 +440,7 @@ export async function* pickBranchStep<
 	},
 ): AsyncStepResultGenerator<GitBranchReference> {
 	const branches = await getBranches(state.repo, {
+		buttons: [QuickCommandButtons.RevealInSideBar],
 		filter: filter,
 		picked: picked,
 	});
@@ -418,19 +453,9 @@ export async function* pickBranchStep<
 			branches.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: branches,
-		additionalButtons: [QuickCommandButtons.RevealInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					void Container.repositoriesView.revealBranches(state.repo.path, {
-						select: true,
-						expand: true,
-					});
-
-					return;
-				}
-
-				void GitActions.Branch.reveal(quickpick.activeItems[0].item, {
+				void GitActions.Branch.reveal(item, {
 					select: true,
 					expand: true,
 				});
@@ -472,6 +497,7 @@ export async function* pickBranchesStep<
 	},
 ): AsyncStepResultGenerator<GitBranchReference[]> {
 	const branches = await getBranches(state.repo, {
+		buttons: [QuickCommandButtons.RevealInSideBar],
 		filter: filter,
 		picked: picked,
 		sort: sort,
@@ -486,19 +512,9 @@ export async function* pickBranchesStep<
 			branches.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: branches,
-		additionalButtons: [QuickCommandButtons.RevealInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					void Container.repositoriesView.revealBranches(state.repo.path, {
-						select: true,
-						expand: true,
-					});
-
-					return;
-				}
-
-				void GitActions.Branch.reveal(quickpick.activeItems[0].item, {
+				void GitActions.Branch.reveal(item, {
 					select: true,
 					expand: true,
 				});
@@ -549,6 +565,7 @@ export async function* pickBranchOrTagStep<
 
 	const getBranchesAndOrTagsFn = async () => {
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
+			buttons: [QuickCommandButtons.RevealInSideBar],
 			filter: filter,
 			picked: picked,
 			sort: true,
@@ -571,7 +588,18 @@ export async function* pickBranchOrTagStep<
 			branchesAndOrTags.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: branchesAndOrTags,
-		additionalButtons: [QuickCommandButtons.RevealInSideBar, ...(additionalButtons ?? []), showTagsButton],
+		additionalButtons: [...(additionalButtons ?? []), showTagsButton],
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			if (button === QuickCommandButtons.RevealInSideBar) {
+				if (GitReference.isBranch(item)) {
+					void GitActions.Branch.reveal(item, { select: true, expand: true });
+				} else if (GitReference.isTag(item)) {
+					void GitActions.Tag.reveal(item, { select: true, expand: true });
+				} else if (GitReference.isRevision(item)) {
+					void GitActions.Commit.reveal(item, { select: true, expand: true });
+				}
+			}
+		},
 		onDidClickButton: async (quickpick, button) => {
 			if (button === showTagsButton) {
 				quickpick.busy = true;
@@ -592,28 +620,6 @@ export async function* pickBranchOrTagStep<
 				} finally {
 					quickpick.busy = false;
 					quickpick.enabled = true;
-				}
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					void Container.repositoriesView.revealBranches(state.repo.path, {
-						select: true,
-						expand: true,
-					});
-
-					return;
-				}
-
-				const item = quickpick.activeItems[0].item;
-				if (GitReference.isBranch(item)) {
-					void GitActions.Branch.reveal(item, { select: true, expand: true });
-				} else if (GitReference.isTag(item)) {
-					void GitActions.Tag.reveal(item, { select: true, expand: true });
-				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, expand: true });
 				}
 			}
 		},
@@ -662,6 +668,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 
 	const getBranchesAndOrTagsFn = () => {
 		return getBranchesAndOrTags(state.repos, context.showTags ? ['branches', 'tags'] : ['branches'], {
+			buttons: [QuickCommandButtons.RevealInSideBar],
 			// Filter out remote branches if we are going to affect multiple repos
 			filter: { branches: state.repos.length === 1 ? undefined : b => !b.remote, ...filter },
 			picked: picked ?? state.reference?.ref,
@@ -685,7 +692,18 @@ export async function* pickBranchOrTagStepMultiRepo<
 			branchesAndOrTags.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: branchesAndOrTags,
-		additionalButtons: [QuickCommandButtons.RevealInSideBar, showTagsButton],
+		additionalButtons: [showTagsButton],
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			if (button === QuickCommandButtons.RevealInSideBar) {
+				if (GitReference.isBranch(item)) {
+					void GitActions.Branch.reveal(item, { select: true, expand: true });
+				} else if (GitReference.isTag(item)) {
+					void GitActions.Tag.reveal(item, { select: true, expand: true });
+				} else if (GitReference.isRevision(item)) {
+					void GitActions.Commit.reveal(item, { select: true, expand: true });
+				}
+			}
+		},
 		onDidClickButton: async (quickpick, button) => {
 			if (button === showTagsButton) {
 				quickpick.busy = true;
@@ -706,28 +724,6 @@ export async function* pickBranchOrTagStepMultiRepo<
 				} finally {
 					quickpick.busy = false;
 					quickpick.enabled = true;
-				}
-			}
-
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					if (state.repos.length === 1) {
-						void Container.repositoriesView.revealBranches(state.repos[0].path, {
-							select: true,
-							expand: true,
-						});
-					}
-
-					return;
-				}
-
-				const item = quickpick.activeItems[0].item;
-				if (GitReference.isBranch(item)) {
-					void GitActions.Branch.reveal(item, { select: true, expand: true });
-				} else if (GitReference.isTag(item)) {
-					void GitActions.Tag.reveal(item, { select: true, expand: true });
-				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, expand: true });
 				}
 			}
 		},
@@ -789,7 +785,11 @@ export async function* pickCommitStep<
 							commit,
 							picked != null &&
 								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-							{ compact: true, icon: true },
+							{
+								buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+								compact: true,
+								icon: true,
+							},
 						),
 					),
 					...(log?.hasMore ? [DirectiveQuickPickItem.create(Directive.LoadMore)] : []),
@@ -805,6 +805,7 @@ export async function* pickCommitStep<
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
 		items: showInSideBarCommand != null ? [showInSideBarCommand, ...getItems(log)] : getItems(log),
 		onDidLoadMore: async quickpick => {
+			quickpick.keepScrollPosition = true;
 			log = await log?.more?.(configuration.get('advanced.maxListItems'));
 			onDidLoadMore?.(log);
 			if (typeof placeholder !== 'string') {
@@ -813,10 +814,39 @@ export async function* pickCommitStep<
 			return getItems(log);
 		},
 		additionalButtons: [
-			QuickCommandButtons.RevealInSideBar,
-			showInSideBar?.button ?? QuickCommandButtons.SearchInSideBar,
+			...(showInSideBar?.button != null ? [showInSideBar?.button] : []),
 			...(log?.hasMore ? [QuickCommandButtons.LoadMore] : []),
 		],
+		onDidClickItemButton: (quickpick, button, item) => {
+			if (CommandQuickPickItem.is(item)) return;
+
+			switch (button) {
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Commit.reveal(item.item, {
+						select: true,
+						focus: false,
+						expand: true,
+					});
+					break;
+
+				case QuickCommandButtons.SearchInSideBar:
+					void Container.searchAndCompareView.search(
+						state.repo.path,
+						{ pattern: SearchPattern.fromCommit(item.item.ref) },
+						{
+							label: {
+								label: `for ${GitReference.toString(item.item, { icon: false })}`,
+							},
+							reveal: {
+								select: true,
+								focus: false,
+								expand: true,
+							},
+						},
+					);
+					break;
+			}
+		},
 		onDidClickButton: (quickpick, button) => {
 			if (log == null) return;
 
@@ -826,37 +856,6 @@ export async function* pickCommitStep<
 
 			if (button === showInSideBar?.button) {
 				showInSideBar.onDidClick(items);
-
-				return;
-			}
-
-			if (items.length === 0 || log == null) return;
-
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Commit.reveal(items[0].item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchAndCompareView.search(
-					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(items[0].item.ref) },
-					{
-						label: {
-							label: `for ${GitReference.toString(items[0].item, { icon: false })}`,
-						},
-						reveal: {
-							select: true,
-							focus: false,
-							expand: true,
-						},
-					},
-				);
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -889,7 +888,9 @@ export async function* pickCommitStep<
 				);
 			}
 		},
-		onValidateValue: getValidateGitReferenceFn(state.repo),
+		onValidateValue: getValidateGitReferenceFn(state.repo, {
+			buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+		}),
 	});
 	const selection: StepSelection<typeof step> = yield step;
 	if (!QuickCommand.canPickStepContinue(step, state, selection)) return StepResult.Break;
@@ -933,10 +934,14 @@ export function* pickCommitsStep<
 							commit,
 							picked != null &&
 								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-							{ compact: true, icon: true },
+							{
+								buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+								compact: true,
+								icon: true,
+							},
 						),
 					),
-					// Since this is multi-select, we can have a "Load more" item
+					// Since this is multi-select, we can't have a "Load more" item
 					// ...(log?.hasMore ? [DirectiveQuickPickItem.create(Directive.LoadMore)] : []),
 			  ];
 	}
@@ -949,6 +954,7 @@ export function* pickCommitsStep<
 		matchOnDetail: true,
 		items: getItems(log),
 		onDidLoadMore: async quickpick => {
+			quickpick.keepScrollPosition = true;
 			log = await log?.more?.(configuration.get('advanced.maxListItems'));
 			onDidLoadMore?.(log);
 			if (typeof placeholder !== 'string') {
@@ -956,39 +962,33 @@ export function* pickCommitsStep<
 			}
 			return getItems(log);
 		},
-		additionalButtons: [
-			QuickCommandButtons.RevealInSideBar,
-			QuickCommandButtons.SearchInSideBar,
-			...(log?.hasMore ? [QuickCommandButtons.LoadMore] : []),
-		],
-		onDidClickButton: (quickpick, button) => {
-			if (quickpick.activeItems.length === 0 || log == null) return;
+		additionalButtons: [...(log?.hasMore ? [QuickCommandButtons.LoadMore] : [])],
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			switch (button) {
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Commit.reveal(item, {
+						select: true,
+						focus: false,
+						expand: true,
+					});
+					break;
 
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Commit.reveal(quickpick.activeItems[0].item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchAndCompareView.search(
-					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.ref) },
-					{
-						label: {
-							label: `for ${GitReference.toString(quickpick.activeItems[0].item, { icon: false })}`,
+				case QuickCommandButtons.SearchInSideBar:
+					void Container.searchAndCompareView.search(
+						state.repo.path,
+						{ pattern: SearchPattern.fromCommit(item.ref) },
+						{
+							label: {
+								label: `for ${GitReference.toString(item, { icon: false })}`,
+							},
+							reveal: {
+								select: true,
+								focus: false,
+								expand: true,
+							},
 						},
-						reveal: {
-							select: true,
-							focus: false,
-							expand: true,
-						},
-					},
-				);
+					);
+					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -1066,17 +1066,15 @@ export async function* pickRepositoryStep<
 						context.repos.map(r =>
 							RepositoryQuickPickItem.create(r, r.id === active?.id, {
 								branch: true,
+								buttons: [QuickCommandButtons.RevealInSideBar],
 								fetched: true,
 								status: true,
 							}),
 						),
 				  ),
-		additionalButtons: [QuickCommandButtons.RevealInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) return;
-
-				void Container.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
+				void Container.repositoriesView.revealRepository(item.path, {
 					select: true,
 					expand: true,
 				});
@@ -1136,18 +1134,16 @@ export async function* pickRepositoriesStep<
 								actives.some(r => r.id === repo.id),
 								{
 									branch: true,
+									buttons: [QuickCommandButtons.RevealInSideBar],
 									fetched: true,
 									status: true,
 								},
 							),
 						),
 				  ),
-		additionalButtons: [QuickCommandButtons.RevealInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) return;
-
-				void Container.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
+				void Container.repositoriesView.revealRepository(item.path, {
 					select: true,
 					expand: true,
 				});
@@ -1203,46 +1199,21 @@ export function* pickStashStep<
 								commit,
 								picked != null &&
 									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-								{ compact: true, icon: true },
+								{
+									buttons: [QuickCommandButtons.RevealInSideBar],
+									compact: true,
+									icon: true,
+								},
 							),
 						),
 				  ],
-		additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (_quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					void Container.repositoriesView.revealStashes(state.repo.path, {
-						select: true,
-						expand: true,
-					});
-				} else {
-					void GitActions.Stash.reveal(quickpick.activeItems[0].item, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
-				}
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.SearchInSideBar) {
-				if (quickpick.activeItems.length === 0) return;
-
-				void Container.searchAndCompareView.search(
-					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.stashName) },
-					{
-						label: {
-							label: `for ${GitReference.toString(quickpick.activeItems[0].item, { icon: false })}`,
-						},
-						reveal: {
-							select: true,
-							focus: false,
-							expand: true,
-						},
-					},
-				);
+				void GitActions.Stash.reveal(item, {
+					select: true,
+					focus: false,
+					expand: true,
+				});
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -1279,6 +1250,7 @@ export async function* pickTagsStep<
 	},
 ): AsyncStepResultGenerator<GitTagReference[]> {
 	const tags = await getTags(state.repo, {
+		buttons: [QuickCommandButtons.RevealInSideBar],
 		filter: filter,
 		picked: picked,
 	});
@@ -1292,19 +1264,9 @@ export async function* pickTagsStep<
 			tags.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: tags,
-		additionalButtons: [QuickCommandButtons.RevealInSideBar],
-		onDidClickButton: (quickpick, button) => {
+		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (quickpick.activeItems.length === 0) {
-					void Container.repositoriesView.revealTags(state.repo.path, {
-						select: true,
-						expand: true,
-					});
-
-					return;
-				}
-
-				void GitActions.Tag.reveal(quickpick.activeItems[0].item, {
+				void GitActions.Tag.reveal(item, {
 					select: true,
 					expand: true,
 				});

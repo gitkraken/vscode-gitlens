@@ -403,6 +403,7 @@ export class GitCommandsCommand extends Command {
 		const originalStepIgnoreFocusOut = step.ignoreFocusOut;
 
 		const quickpick = window.createQuickPick();
+		(quickpick as any).enableProposedApi = true;
 		quickpick.ignoreFocusOut = originalIgnoreFocusOut;
 
 		const disposables: Disposable[] = [];
@@ -467,7 +468,9 @@ export class GitCommandsCommand extends Command {
 				disposables.push(
 					scope,
 					quickpick.onDidHide(() => resolve(undefined)),
-
+					quickpick.onDidTriggerItemButton(async e =>
+						step.onDidClickItemButton?.(quickpick, e.button, e.item),
+					),
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();

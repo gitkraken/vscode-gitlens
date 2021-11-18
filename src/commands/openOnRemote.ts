@@ -4,11 +4,7 @@ import { Container } from '../container';
 import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	CopyOrOpenRemoteCommandQuickPickItem,
-	RemoteProviderPicker,
-	SetADefaultRemoteCommandQuickPickItem,
-} from '../quickpicks';
+import { RemoteProviderPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { Command, command, Commands } from './common';
 
@@ -157,20 +153,6 @@ export class OpenOnRemoteCommand extends Command {
 			}
 
 			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
-
-			if (pick instanceof SetADefaultRemoteCommandQuickPickItem) {
-				const remote = await pick.execute();
-				if (remote != null) {
-					void (await new CopyOrOpenRemoteCommandQuickPickItem(
-						remote,
-						args.resource,
-						args.clipboard,
-					).execute());
-				}
-
-				return;
-			}
-
 			void (await pick?.execute());
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');

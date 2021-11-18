@@ -1,5 +1,5 @@
 'use strict';
-import { QuickPickItem } from 'vscode';
+import { QuickInputButton, QuickPickItem } from 'vscode';
 import { Commands, GitCommandsCommand, GitCommandsCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { emojify } from '../emojis';
@@ -41,6 +41,7 @@ export namespace BranchQuickPickItem {
 		picked?: boolean,
 		options: {
 			alwaysShow?: boolean;
+			buttons?: QuickInputButton[];
 			current?: boolean | 'checkmark';
 			checked?: boolean;
 			ref?: boolean;
@@ -123,6 +124,7 @@ export namespace BranchQuickPickItem {
 			}`,
 			description: description,
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked ?? branch.current,
 			item: branch,
 			current: branch.current,
@@ -145,7 +147,7 @@ export namespace CommitQuickPickItem {
 	export function create<T extends GitLogCommit = GitLogCommit>(
 		commit: T,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; compact?: boolean; icon?: boolean } = {},
+		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean } = {},
 	) {
 		if (GitStashCommit.is(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
@@ -159,6 +161,7 @@ export namespace CommitQuickPickItem {
 						2,
 					)}${commit.getFormattedDiffStatus({ compact: true })}`,
 					alwaysShow: options.alwaysShow,
+					buttons: options.buttons,
 					picked: picked,
 					item: commit,
 				};
@@ -175,6 +178,7 @@ export namespace CommitQuickPickItem {
 					2,
 				)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
+				buttons: options.buttons,
 				picked: picked,
 				item: commit,
 			};
@@ -189,6 +193,7 @@ export namespace CommitQuickPickItem {
 					commit.shortSha
 				}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
+				buttons: options.buttons,
 				picked: picked,
 				item: commit,
 			};
@@ -206,6 +211,7 @@ export namespace CommitQuickPickItem {
 				compact: true,
 			})}`,
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked,
 			item: commit,
 		};
@@ -243,13 +249,14 @@ export namespace RefQuickPickItem {
 		ref: string,
 		repoPath: string,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; ref?: boolean; icon?: boolean } = {},
+		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; ref?: boolean; icon?: boolean } = {},
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
 				label: `${options.icon ? Strings.pad('$(file-directory)', 0, 2) : ''}Working Tree`,
 				description: '',
 				alwaysShow: options.alwaysShow,
+				buttons: options.buttons,
 				picked: picked,
 				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'Working Tree' }),
 				current: false,
@@ -263,6 +270,7 @@ export namespace RefQuickPickItem {
 				label: `${options.icon ? Strings.pad('$(git-branch)', 0, 2) : ''}HEAD`,
 				description: '',
 				alwaysShow: options.alwaysShow,
+				buttons: options.buttons,
 				picked: picked,
 				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'HEAD' }),
 				current: false,
@@ -278,6 +286,7 @@ export namespace RefQuickPickItem {
 				label: `Range ${gitRef.name}`,
 				description: '',
 				alwaysShow: options.alwaysShow,
+				buttons: options.buttons,
 				picked: picked,
 				item: gitRef,
 				current: false,
@@ -290,6 +299,7 @@ export namespace RefQuickPickItem {
 			label: `Commit ${gitRef.name}`,
 			description: options.ref ? `$(git-commit) ${ref}` : '',
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked,
 			item: gitRef,
 			current: false,
@@ -309,7 +319,13 @@ export namespace RepositoryQuickPickItem {
 	export async function create(
 		repository: Repository,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; branch?: boolean; fetched?: boolean; status?: boolean } = {},
+		options: {
+			alwaysShow?: boolean;
+			branch?: boolean;
+			buttons?: QuickInputButton[];
+			fetched?: boolean;
+			status?: boolean;
+		} = {},
 	) {
 		let repoStatus;
 		if (options.branch || options.status) {
@@ -354,6 +370,7 @@ export namespace RepositoryQuickPickItem {
 			label: repository.formattedName,
 			description: description,
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked,
 			item: repository,
 			repoPath: repository.path,
@@ -375,6 +392,7 @@ export namespace TagQuickPickItem {
 		picked?: boolean,
 		options: {
 			alwaysShow?: boolean;
+			buttons?: QuickInputButton[];
 			message?: boolean;
 			checked?: boolean;
 			ref?: boolean;
@@ -407,6 +425,7 @@ export namespace TagQuickPickItem {
 			}`,
 			description: description,
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked,
 			item: tag,
 			current: false,

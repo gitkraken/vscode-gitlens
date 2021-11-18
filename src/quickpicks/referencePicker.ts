@@ -1,6 +1,7 @@
 'use strict';
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
-import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
+import { GitActions } from '../commands';
+import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/git';
@@ -37,6 +38,7 @@ export namespace ReferencePicker {
 		options: ReferencesQuickPickOptions = {},
 	): Promise<GitReference | undefined> {
 		const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
+		(quickpick as any).enableProposedApi = true;
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		quickpick.title = title;
@@ -88,6 +90,7 @@ export namespace ReferencePicker {
 		quickpick.show();
 
 		const getValidateGitReference = getValidateGitReferenceFn((await Container.git.getRepository(repoPath))!, {
+			buttons: [QuickCommandButtons.RevealInSideBar],
 			ranges:
 				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
@@ -127,6 +130,17 @@ export namespace ReferencePicker {
 							await scope.resume();
 						}
 					}),
+					quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
+						if (button === QuickCommandButtons.RevealInSideBar) {
+							if (GitReference.isBranch(item)) {
+								void GitActions.Branch.reveal(item, { select: true, expand: true });
+							} else if (GitReference.isTag(item)) {
+								void GitActions.Tag.reveal(item, { select: true, expand: true });
+							} else if (GitReference.isRevision(item)) {
+								void GitActions.Commit.reveal(item, { select: true, expand: true });
+							}
+						}
+					}),
 				);
 			});
 			if (pick == null && autoPick != null) {
@@ -157,6 +171,7 @@ export namespace ReferencePicker {
 				? ['tags']
 				: [],
 			{
+				buttons: [QuickCommandButtons.RevealInSideBar],
 				filter: filter,
 				picked: picked,
 				sort: sort ?? { branches: { current: false }, tags: {} },

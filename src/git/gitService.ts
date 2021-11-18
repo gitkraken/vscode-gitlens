@@ -19,7 +19,8 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
+// eslint-disable-next-line import/extensions
+import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/vscode.git';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
 import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
