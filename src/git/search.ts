@@ -52,7 +52,7 @@ export namespace SearchPattern {
 	]);
 
 	const searchOperationRegex =
-		/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+\b))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
+		/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+\b}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
 
 	export function fromCommit(ref: string): string;
 	export function fromCommit(commit: GitRevisionReference): string;
