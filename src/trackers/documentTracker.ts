@@ -18,6 +18,7 @@ import {
 } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
+import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Functions } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
@@ -63,11 +64,12 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private _dirtyIdleTriggerDelay!: number;
-	private readonly _disposable: Disposable | undefined;
+	private readonly _disposable: Disposable;
 	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
 
-	constructor() {
+	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
+			container.onReady(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
 			// window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
@@ -75,17 +77,16 @@ export class DocumentTracker<T> implements Disposable {
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
 		);
-
-		void this.onConfigurationChanged();
 	}
 
 	dispose() {
-		this._disposable?.dispose();
+		this._disposable.dispose();
 
 		void this.clear();
 	}
 
-	initialize() {
+	private onReady(): void {
+		void this.onConfigurationChanged();
 		void this.onActiveTextEditorChanged(window.activeTextEditor);
 	}
 
@@ -263,7 +264,7 @@ export class DocumentTracker<T> implements Disposable {
 					// If we can't find the file, assume it is because the file has been renamed or deleted at some point
 					document = new MissingRevisionTextDocument(documentOrId);
 
-					// const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
+					// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrId, undefined, ref);
 					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
 
 					// documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
@@ -296,9 +297,15 @@ export class DocumentTracker<T> implements Disposable {
 		const key = GitUri.toKey(document.uri);
 
 		// Always start out false, so we will fire the event if needed
-		const doc = TrackedDocument.create<T>(document, key, false, {
-			onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
-		});
+		const doc = TrackedDocument.create<T>(
+			document,
+			key,
+			false,
+			{
+				onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
+			},
+			this.container,
+		);
 
 		this._documentMap.set(document, doc);
 		this._documentMap.set(key, doc);

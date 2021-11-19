@@ -50,11 +50,11 @@ export namespace Hovers {
 
 			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
+			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
 			if (hunkLine == null && ref == null) {
-				hunkLine = await Container.git.getDiffForLine(
+				hunkLine = await Container.instance.git.getDiffForLine(
 					uri,
 					editorLine,
 					undefined,
@@ -200,7 +200,7 @@ export namespace Hovers {
 			dateFormat = 'MMMM Do, YYYY h:mma';
 		}
 
-		const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
+		const remotes = await Container.instance.git.getRemotes(commit.repoPath, { sort: true });
 
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
@@ -218,7 +218,7 @@ export namespace Hovers {
 							'pullRequestState',
 						),
 				}),
-			Container.vsls.maybeGetPresence(commit.email),
+			Container.instance.vsls.maybeGetPresence(commit.email),
 		]);
 
 		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
@@ -247,7 +247,7 @@ export namespace Hovers {
 	}
 
 	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
-		if (diffStyle === 'hunk' || (diffStyle == null && Container.config.hovers.changesDiff === 'hunk')) {
+		if (diffStyle === 'hunk' || (diffStyle == null && Container.instance.config.hovers.changesDiff === 'hunk')) {
 			return getDiffFromHunk(hunkLine.hunk);
 		}
 
@@ -263,16 +263,16 @@ export namespace Hovers {
 		const start = process.hrtime();
 
 		if (
-			!Container.config.hovers.autolinks.enabled ||
-			!Container.config.hovers.autolinks.enhanced ||
-			!CommitFormatter.has(Container.config.hovers.detailsMarkdownFormat, 'message')
+			!Container.instance.config.hovers.autolinks.enabled ||
+			!Container.instance.config.hovers.autolinks.enhanced ||
+			!CommitFormatter.has(Container.instance.config.hovers.detailsMarkdownFormat, 'message')
 		) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
@@ -283,7 +283,7 @@ export namespace Hovers {
 		const timeout = 250;
 
 		try {
-			const autolinks = await Container.autolinks.getIssueOrPullRequestLinks(message, remote, {
+			const autolinks = await Container.instance.autolinks.getIssueOrPullRequestLinks(message, remote, {
 				timeout: timeout,
 			});
 
@@ -347,7 +347,7 @@ export namespace Hovers {
 			return undefined;
 		}
 
-		const remote = await Container.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
+		const remote = await Container.instance.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
@@ -363,7 +363,7 @@ export namespace Hovers {
 		}
 
 		try {
-			const pr = await Container.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
+			const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 

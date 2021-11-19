@@ -48,7 +48,7 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No contributors could be found.';
 
@@ -72,13 +72,13 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 
 			const children = await child.getChildren();
 
-			// const all = Container.config.views.contributors.showAllBranches;
+			// const all = Container.instance.config.views.contributors.showAllBranches;
 
 			// let ref: string | undefined;
 			// // If we aren't getting all branches, get the upstream of the current branch if there is one
 			// if (!all) {
 			// 	try {
-			// 		const branch = await Container.git.getBranch(this.uri.repoPath);
+			// 		const branch = await Container.instance.git.getBranch(this.uri.repoPath);
 			// 		if (branch?.upstream?.name != null && !branch.upstream.missing) {
 			// 			ref = '@{u}';
 			// 		}
@@ -132,8 +132,8 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
-	constructor() {
-		super('gitlens.views.contributors', 'Contributors');
+	constructor(container: Container) {
+		super('gitlens.views.contributors', 'Contributors', container);
 	}
 
 	getRoot() {
@@ -141,7 +141,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -152,7 +152,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('contributors');
+					await this.container.git.resetCaches('contributors');
 					return this.refresh(true);
 				},
 				this,

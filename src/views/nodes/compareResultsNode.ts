@@ -74,12 +74,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await Container.git.getAheadBehindCommitCount(this.repoPath, [
+			const aheadBehindCounts = await Container.instance.git.getAheadBehindCommitCount(this.repoPath, [
 				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
 			]);
 			const mergeBase =
-				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, { forkPoint: true })) ??
-				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				(await Container.instance.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+					forkPoint: true,
+				})) ?? (await Container.instance.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
 			this._children = [
 				new ResultsCommitsNode(
@@ -143,8 +144,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let description;
-		if ((await Container.git.getRepositoryCount()) > 1) {
-			const repo = await Container.git.getRepository(this.uri.repoPath!);
+		if ((await Container.instance.git.getRepositoryCount()) > 1) {
+			const repo = await Container.instance.git.getRepository(this.uri.repoPath!);
 			description = repo?.formattedName ?? this.uri.repoPath;
 		}
 
@@ -226,13 +227,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.git.getDiffStatus(
+		let files = await Container.instance.git.getDiffStatus(
 			this.repoPath,
 			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
 		);
 
 		if (this._ref.ref === '') {
-			const workingFiles = await Container.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = await Container.instance.git.getDiffStatus(this.repoPath, 'HEAD');
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
@@ -256,13 +257,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.git.getDiffStatus(
+		let files = await Container.instance.git.getDiffStatus(
 			this.repoPath,
 			GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
 		);
 
 		if (this._compareWith.ref === '') {
-			const workingFiles = await Container.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = await Container.instance.git.getDiffStatus(this.repoPath, 'HEAD');
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
@@ -288,7 +289,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
 		const repoPath = this.repoPath;
 		return async (limit: number | undefined) => {
-			const log = await Container.git.getLog(repoPath, {
+			const log = await Container.instance.git.getLog(repoPath, {
 				limit: limit,
 				ref: range,
 			});
@@ -318,7 +319,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
 		}
 
-		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
+		const files = await Container.instance.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
 			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,

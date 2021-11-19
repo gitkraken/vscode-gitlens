@@ -147,7 +147,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 		return override != null
 			? override
-			: !Container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
+			: !Container.instance.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string) {

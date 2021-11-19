@@ -61,18 +61,18 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: Container.instance.config.defaultDateFormat,
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: Container.instance.config.defaultDateFormat,
 		});
 		item.contextValue = ContextValues.Stash;
 		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: Container.instance.config.defaultDateFormat,
 			// messageAutolinks: true,
 		});
 

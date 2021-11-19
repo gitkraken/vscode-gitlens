@@ -21,6 +21,10 @@ export class GitLineState {
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
+	constructor(private readonly container: Container) {
+		super();
+	}
+
 	protected override async fireLinesChanged(e: LinesChangeEvent) {
 		this.reset();
 
@@ -39,15 +43,15 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 		return Disposable.from(
 			{ dispose: () => this.onSuspend() },
-			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-			Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
-			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+			this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+			this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 
 	protected override onResume(): void {
 		if (this._subscriptionOnlyWhenActive == null) {
-			this._subscriptionOnlyWhenActive = Container.tracker.onDidChangeContent(this.onContentChanged, this);
+			this._subscriptionOnlyWhenActive = this.container.tracker.onDidChangeContent(this.onContentChanged, this);
 		}
 	}
 
@@ -95,7 +99,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		this.resume();
@@ -136,7 +140,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			return false;
 		}
 
-		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
@@ -147,12 +151,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 		if (selections.length === 1) {
 			const blameLine = editor.document.isDirty
-				? await Container.git.getBlameForLineContents(
+				? await this.container.git.getBlameForLineContents(
 						trackedDocument.uri,
 						selections[0].active,
 						editor.document.getText(),
 				  )
-				: await Container.git.getBlameForLine(trackedDocument.uri, selections[0].active);
+				: await this.container.git.getBlameForLine(trackedDocument.uri, selections[0].active);
 			if (blameLine === undefined) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
@@ -164,8 +168,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
 		} else {
 			const blame = editor.document.isDirty
-				? await Container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())
-				: await Container.git.getBlameForFile(trackedDocument.uri);
+				? await this.container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())
+				: await this.container.git.getBlameForFile(trackedDocument.uri);
 			if (blame === undefined) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;

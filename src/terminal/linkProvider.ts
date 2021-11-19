@@ -26,7 +26,7 @@ interface GitTerminalLink<T = object> extends TerminalLink {
 export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider<GitTerminalLink> {
 	private disposable: Disposable;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this.disposable = window.registerTerminalLinkProvider(this);
 	}
 
@@ -37,12 +37,12 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 	async provideTerminalLinks(context: TerminalLinkContext): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0) return [];
 
-		const repoPath = Container.git.getHighlanderRepoPath();
+		const repoPath = this.container.git.getHighlanderRepoPath();
 		if (repoPath == null) return [];
 
 		const links: GitTerminalLink[] = [];
 
-		const branchesAndTags = await Container.git.getBranchesAndOrTags(repoPath);
+		const branchesAndTags = await this.container.git.getBranchesAndOrTags(repoPath);
 
 		// Don't use the shared regex instance directly, because we can be called reentrantly (because of the awaits below)
 		const refRegex = new RegExp(refRegexShared, refRegexShared.flags);
@@ -134,7 +134,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (await Container.git.validateReference(repoPath, ref)) {
+			if (await this.container.git.validateReference(repoPath, ref)) {
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,

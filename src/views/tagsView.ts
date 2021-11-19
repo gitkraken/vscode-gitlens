@@ -55,7 +55,7 @@ export class TagsViewNode extends ViewNode<TagsView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No tags could be found.';
 
@@ -124,8 +124,8 @@ export class TagsViewNode extends ViewNode<TagsView> {
 export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor() {
-		super('gitlens.views.tags', 'Tags');
+	constructor(container: Container) {
+		super('gitlens.views.tags', 'Tags', container);
 	}
 
 	getRoot() {
@@ -133,7 +133,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -144,7 +144,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('tags');
+					await this.container.git.resetCaches('tags');
 					return this.refresh(true);
 				},
 				this,

@@ -47,7 +47,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			let authors;
 			if (this.view.state.myCommitsOnly) {
-				const user = await Container.git.getCurrentUser(this.repo.path);
+				const user = await Container.instance.git.getCurrentUser(this.repo.path);
 				if (user != null) {
 					authors = [`^${user.name} <${user.email}>$`];
 				}
@@ -128,7 +128,7 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No commits could be found.';
 
@@ -205,8 +205,8 @@ interface CommitsViewState {
 export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
-	constructor() {
-		super('gitlens.views.commits', 'Commits');
+	constructor(container: Container) {
+		super('gitlens.views.commits', 'Commits', container);
 	}
 
 	private readonly _state: CommitsViewState = {};
@@ -219,7 +219,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -230,7 +230,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('branches', 'status', 'tags');
+					await this.container.git.resetCaches('branches', 'status', 'tags');
 					return this.refresh(true);
 				},
 				this,
@@ -313,11 +313,13 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
-		const branch = await Container.git.getBranch(commit.repoPath);
+		const branch = await this.container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		if (!(await Container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) return undefined;
+		if (!(await this.container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) {
+			return undefined;
+		}
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,

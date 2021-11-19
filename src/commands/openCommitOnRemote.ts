@@ -72,8 +72,8 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				if (blameline < 0) return;
 
 				const blame = editor?.document.isDirty
-					? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.git.getBlameForLine(gitUri, blameline);
+					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage(
 						'Unable to open commit on remote provider',

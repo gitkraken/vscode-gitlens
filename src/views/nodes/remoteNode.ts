@@ -117,8 +117,8 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 				provider.icon === 'remote'
 					? new ThemeIcon('cloud')
 					: {
-							dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
-							light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
+							dark: Container.instance.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
+							light: Container.instance.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 					  };
 
 			if (provider.hasApi()) {

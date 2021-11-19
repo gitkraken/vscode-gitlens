@@ -73,7 +73,7 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No branches could be found.';
 
@@ -142,8 +142,8 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
-	constructor() {
-		super('gitlens.views.branches', 'Branches');
+	constructor(container: Container) {
+		super('gitlens.views.branches', 'Branches', container);
 	}
 
 	getRoot() {
@@ -151,7 +151,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -162,7 +162,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('branches');
+					await this.container.git.resetCaches('branches');
 					return this.refresh(true);
 				},
 				this,
@@ -268,7 +268,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on
-		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref);
 		if (branches.length === 0) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {

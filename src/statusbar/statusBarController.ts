@@ -30,9 +30,11 @@ export class StatusBarController implements Disposable {
 	private _statusBarBlame: StatusBarItem | undefined;
 	private _statusBarMode: StatusBarItem | undefined;
 
-	constructor() {
-		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged();
+	constructor(private readonly container: Container) {
+		this._disposable = Disposable.from(
+			container.onReady(this.onReady, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+		);
 	}
 
 	dispose() {
@@ -41,19 +43,23 @@ export class StatusBarController implements Disposable {
 		this._statusBarBlame?.dispose();
 		this._statusBarMode?.dispose();
 
-		Container.lineTracker.stop(this);
+		this.container.lineTracker.stop(this);
 		this._disposable.dispose();
+	}
+
+	private onReady(): void {
+		this.onConfigurationChanged();
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'mode')) {
 			const mode =
-				Container.config.mode.active && Container.config.mode.statusBar.enabled
-					? Container.config.modes?.[Container.config.mode.active]
+				this.container.config.mode.active && this.container.config.mode.statusBar.enabled
+					? this.container.config.modes?.[this.container.config.mode.active]
 					: undefined;
 			if (mode?.statusBarItemName) {
 				const alignment =
-					Container.config.mode.statusBar.alignment !== 'left'
+					this.container.config.mode.statusBar.alignment !== 'left'
 						? StatusBarAlignment.Right
 						: StatusBarAlignment.Left;
 
@@ -87,9 +93,11 @@ export class StatusBarController implements Disposable {
 
 		if (!configuration.changed(e, 'statusBar')) return;
 
-		if (Container.config.statusBar.enabled) {
+		if (this.container.config.statusBar.enabled) {
 			const alignment =
-				Container.config.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
+				this.container.config.statusBar.alignment !== 'left'
+					? StatusBarAlignment.Right
+					: StatusBarAlignment.Left;
 
 			if (configuration.changed(e, 'statusBar.alignment')) {
 				if (this._statusBarBlame?.alignment !== alignment) {
@@ -106,16 +114,16 @@ export class StatusBarController implements Disposable {
 					alignment === StatusBarAlignment.Right ? 1000 : 0,
 				);
 			this._statusBarBlame.name = 'GitLens Current Line Blame';
-			this._statusBarBlame.command = Container.config.statusBar.command;
+			this._statusBarBlame.command = this.container.config.statusBar.command;
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
-				Container.lineTracker.start(
+				this.container.lineTracker.start(
 					this,
-					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
+					this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 		} else if (configuration.changed(e, 'statusBar.enabled')) {
-			Container.lineTracker.stop(this);
+			this.container.lineTracker.stop(this);
 
 			this._statusBarBlame?.dispose();
 			this._statusBarBlame = undefined;
@@ -133,12 +141,12 @@ export class StatusBarController implements Disposable {
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		// If we need to reduceFlicker, don't clear if only the selected lines changed
 		let clear = !(
-			Container.config.statusBar.reduceFlicker &&
+			this.container.config.statusBar.reduceFlicker &&
 			e.reason === 'selection' &&
 			(e.pending || e.selections != null)
 		);
 		if (!e.pending && e.selections != null) {
-			const state = Container.lineTracker.getState(e.selections[0].active);
+			const state = this.container.lineTracker.getState(e.selections[0].active);
 			if (state?.commit != null) {
 				void this.updateBlame(e.editor!, state.commit);
 
@@ -163,7 +171,7 @@ export class StatusBarController implements Disposable {
 
 	@debug({ args: false })
 	private async updateBlame(editor: TextEditor, commit: GitBlameCommit, options?: { pr?: PullRequest | null }) {
-		const cfg = Container.config.statusBar;
+		const cfg = this.container.config.statusBar;
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
 		const cc = Logger.getCorrelationContext();
@@ -191,7 +199,7 @@ export class StatusBarController implements Disposable {
 		const timeout = 100;
 		const [getBranchAndTagTips, pr] = await Promise.all([
 			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
-				? Container.git.getBranchesAndTagsTipsFn(commit.repoPath)
+				? this.container.git.getBranchesAndTagsTipsFn(commit.repoPath)
 				: undefined,
 			showPullRequests && options?.pr === undefined
 				? this.getPullRequest(commit, { timeout: timeout })
@@ -205,7 +213,7 @@ export class StatusBarController implements Disposable {
 		}
 
 		this._statusBarBlame.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
-			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+			dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			messageTruncateAtNewLine: true,
 			pullRequestOrRemote: pr,
@@ -322,12 +330,12 @@ export class StatusBarController implements Disposable {
 		commit: GitBlameCommit,
 		{ timeout }: { timeout?: number } = {},
 	): Promise<PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined> {
-		const remote = await Container.git.getRichRemoteProvider(commit.repoPath);
+		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
 		if (remote?.provider == null) return undefined;
 
 		const { provider } = remote;
 		try {
-			return await Container.git.getPullRequestForCommit(commit.ref, provider, { timeout: timeout });
+			return await this.container.git.getPullRequestForCommit(commit.ref, provider, { timeout: timeout });
 		} catch (ex) {
 			return ex instanceof Promises.CancellationError ? ex : undefined;
 		}
@@ -356,8 +364,8 @@ export class StatusBarController implements Disposable {
 			commit,
 			commit.toGitUri(),
 			commit.lines[0].line,
-			Container.config.statusBar.tooltipFormat,
-			Container.config.defaultDateFormat,
+			this.container.config.statusBar.tooltipFormat,
+			this.container.config.defaultDateFormat,
 			{
 				autolinks: true,
 				getBranchAndTagTips: getBranchAndTagTips,

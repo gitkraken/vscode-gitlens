@@ -111,8 +111,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {
-					dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-					light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+					dark: Container.instance.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+					light: Container.instance.context.asAbsolutePath(paths.join('images', 'light', icon)),
 				};
 			}
 

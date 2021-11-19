@@ -38,7 +38,12 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		if (args.inDiffRightEditor) {
 			try {
-				const diffUris = await Container.git.getPreviousDiffUris(gitUri.repoPath!, gitUri, gitUri.sha, 0);
+				const diffUris = await Container.instance.git.getPreviousDiffUris(
+					gitUri.repoPath!,
+					gitUri,
+					gitUri.sha,
+					0,
+				);
 				gitUri = diffUris?.previous ?? gitUri;
 			} catch (ex) {
 				Logger.error(
@@ -66,7 +71,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
-			const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+			const status = await Container.instance.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
 			if (status?.indexStatus != null) {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: gitUri.repoPath,
@@ -88,7 +93,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		uri = gitUri.toFileUri();
 
-		const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, uri);
+		const workingUri = await Container.instance.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
 			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 

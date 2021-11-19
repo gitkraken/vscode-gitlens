@@ -46,9 +46,9 @@ export class StashSaveCommand extends Command {
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
-			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+			args.repoPath = await Container.instance.git.getRepoPath(args.uris[0].fsPath);
 
-			const status = await Container.git.getStatusForRepo(args.repoPath);
+			const status = await Container.instance.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {
 				if (!context.scmResourceStates.some(s => (s as any).resourceGroupType === ResourceGroupType.Index)) {
 					args.keepStaged = true;
@@ -60,9 +60,9 @@ export class StashSaveCommand extends Command {
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
 				[],
 			);
-			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+			args.repoPath = await Container.instance.git.getRepoPath(args.uris[0].fsPath);
 
-			const status = await Container.git.getStatusForRepo(args.repoPath);
+			const status = await Container.instance.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {
 				if (!context.scmResourceGroups.some(g => g.id === 'index')) {
 					args.keepStaged = true;

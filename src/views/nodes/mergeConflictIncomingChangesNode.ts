@@ -25,7 +25,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const commit = await Container.git.getCommit(
+		const commit = await Container.instance.git.getCommit(
 			this.status.repoPath,
 			this.status.type === 'rebase' ? this.status.steps.current.commit.ref : this.status.HEAD.ref,
 		);
@@ -38,7 +38,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				: ` (${GitReference.toString(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })) ??
+			? (await commit?.getAvatarUri({ defaultStyle: Container.instance.config.defaultGravatarsStyle })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
 		item.tooltip = new MarkdownString(
@@ -51,7 +51,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										commit,
 										{
 											avatarSize: 16,
-											dateFormat: Container.config.defaultDateFormat,
+											dateFormat: Container.instance.config.defaultDateFormat,
 											markdown: true,
 											// messageAutolinks: true,
 											messageIndent: 4,

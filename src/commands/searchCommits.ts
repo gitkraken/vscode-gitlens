@@ -50,7 +50,7 @@ export class SearchCommitsCommand extends Command {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					Container.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					Container.instance.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
 			},
 		}));
 	}

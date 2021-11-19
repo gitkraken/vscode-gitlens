@@ -63,14 +63,14 @@ export async function getHeatmapColors() {
 	if (heatmapColors == null) {
 		let colors;
 		if (
-			Container.config.heatmap.coldColor === defaultHeatmapColdColor &&
-			Container.config.heatmap.hotColor === defaultHeatmapHotColor
+			Container.instance.config.heatmap.coldColor === defaultHeatmapColdColor &&
+			Container.instance.config.heatmap.hotColor === defaultHeatmapHotColor
 		) {
 			colors = defaultHeatmapColors;
 		} else {
 			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
 			colors = chroma
-				.scale([Container.config.heatmap.hotColor, Container.config.heatmap.coldColor])
+				.scale([Container.instance.config.heatmap.hotColor, Container.instance.config.heatmap.coldColor])
 				.mode('lrgb')
 				.classes(20)
 				.colors(20);
@@ -110,7 +110,7 @@ export class Annotations {
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
-		const { locations } = Container.config.heatmap;
+		const { locations } = Container.instance.config.heatmap;
 		const gutter = locations.includes(HeatmapLocations.Gutter);
 		const overview = locations.includes(HeatmapLocations.Overview);
 

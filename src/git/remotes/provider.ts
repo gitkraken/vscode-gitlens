@@ -281,7 +281,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
 		super(domain, path, protocol, name, custom);
 
-		Container.context.subscriptions.push(
+		Container.instance.context.subscriptions.push(
 			// TODO@eamodio revisit how connections are linked or not
 			Authentication.onDidChange(e => {
 				if (e.key !== this.key) return;
@@ -346,7 +346,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		this._session = null;
 
 		if (disconnected) {
-			void Container.context.workspaceState.update(this.connectedKey, false);
+			void Container.instance.context.workspaceState.update(this.connectedKey, false);
 
 			this._onDidChange.fire();
 			if (!silent) {
@@ -570,11 +570,11 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._session != null) return this._session;
 
-		if (!Container.config.integrations.enabled) return undefined;
+		if (!Container.instance.config.integrations.enabled) return undefined;
 
 		if (createIfNeeded) {
-			await Container.context.workspaceState.update(this.connectedKey, undefined);
-		} else if (Container.context.workspaceState.get<boolean>(this.connectedKey) === false) {
+			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
+		} else if (Container.instance.context.workspaceState.get<boolean>(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -584,7 +584,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				createIfNone: createIfNeeded,
 			});
 		} catch (ex) {
-			await Container.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -594,14 +594,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await Container.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Container.context.workspaceState.update(this.connectedKey, true);
+			await Container.instance.context.workspaceState.update(this.connectedKey, true);
 
 			this._onDidChange.fire();
 			_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });

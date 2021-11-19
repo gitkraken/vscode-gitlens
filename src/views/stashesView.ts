@@ -48,7 +48,7 @@ export class StashesViewNode extends ViewNode<StashesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No stashes could be found.';
 
@@ -117,8 +117,8 @@ export class StashesViewNode extends ViewNode<StashesView> {
 export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor() {
-		super('gitlens.views.stashes', 'Stashes');
+	constructor(container: Container) {
+		super('gitlens.views.stashes', 'Stashes', container);
 	}
 
 	getRoot() {
@@ -126,7 +126,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -137,7 +137,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('stashes');
+					await this.container.git.resetCaches('stashes');
 					return this.refresh(true);
 				},
 				this,

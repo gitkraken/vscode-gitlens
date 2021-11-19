@@ -132,8 +132,8 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		const item = await this.ensureResults().getTreeItem();
 		item.id = this.id;
 		item.contextValue = `${ContextValues.SearchResults}${this._pinned ? '+pinned' : ''}`;
-		if ((await Container.git.getRepositoryCount()) > 1) {
-			const repo = await Container.git.getRepository(this.repoPath);
+		if ((await Container.instance.git.getRepositoryCount()) > 1) {
+			const repo = await Container.instance.git.getRepository(this.repoPath);
 			item.description = repo?.formattedName ?? this.repoPath;
 		}
 		if (this._pinned) {
@@ -264,7 +264,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		let useCacheOnce = true;
 
 		return async (limit: number | undefined) => {
-			log = await (log ?? Container.git.getLogForSearch(this.repoPath, this.search));
+			log = await (log ?? Container.instance.git.getLogForSearch(this.repoPath, this.search));
 
 			if (!useCacheOnce && log != null && log.query != null) {
 				log = await log.query(limit);

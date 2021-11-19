@@ -45,7 +45,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await Container.git.getLog(this.repoPath, {
+		const log = await Container.instance.git.getLog(this.repoPath, {
 			limit: 0,
 			ref: GitRevision.createRange(
 				this.status.upstream,
@@ -103,7 +103,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const stats = await Container.git.getChangedFilesCount(
+		const stats = await Container.instance.git.getChangedFilesCount(
 			this.repoPath,
 			`${this.status.upstream}${this.direction === 'behind' ? '..' : '...'}`,
 		);

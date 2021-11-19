@@ -38,8 +38,8 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 			try {
 				const blame = editor?.document.isDirty
-					? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.git.getBlameForLine(gitUri, blameline);
+					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
@@ -50,7 +50,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, change the previous commit
 				if (args.commit.isUncommitted) {
-					const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+					const status = await Container.instance.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
 					args.commit = args.commit.with({
 						sha: status?.indexStatus != null ? GitRevision.uncommittedStaged : args.commit.previousSha!,
 						fileName: args.commit.previousFileName!,

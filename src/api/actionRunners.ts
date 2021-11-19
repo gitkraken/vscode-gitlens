@@ -1,7 +1,7 @@
 'use strict';
 import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
 import { Commands } from '../commands/common';
-import { configuration } from '../configuration';
+import { Config, configuration } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { getQuickPickIgnoreFocusOut } from '../quickpicks';
@@ -128,7 +128,7 @@ export class ActionRunners implements Disposable {
 	private readonly _actionRunners = new Map<Actions, RegisteredActionRunner<any>[]>();
 	private readonly _disposable: Disposable;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		const subscriptions: Disposable[] = [
 			configuration.onDidChange(e => {
 				if (!configuration.changed(e, 'partners')) return;
@@ -165,7 +165,7 @@ export class ActionRunners implements Disposable {
 	}
 
 	get(action: Actions): RegisteredActionRunner[] | undefined {
-		return filterOnlyEnabledRunners(this._actionRunners.get(action));
+		return filterOnlyEnabledRunners(this.container.config, this._actionRunners.get(action));
 	}
 
 	has(action: Actions): boolean {
@@ -337,10 +337,10 @@ export class ActionRunners implements Disposable {
 	}
 }
 
-function filterOnlyEnabledRunners(runners: RegisteredActionRunner[] | undefined) {
+function filterOnlyEnabledRunners(config: Config, runners: RegisteredActionRunner[] | undefined) {
 	if (runners == null || runners.length === 0) return undefined;
 
-	const partners = Container.config.partners;
+	const partners = config.partners;
 	if (partners == null) return runners;
 
 	return runners.filter(

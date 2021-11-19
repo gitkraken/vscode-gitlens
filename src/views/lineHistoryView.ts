@@ -11,8 +11,8 @@ const pinnedSuffix = ' (pinned)';
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
-	constructor() {
-		super('gitlens.views.lineHistory', 'Line History');
+	constructor(container: Container) {
+		super('gitlens.views.lineHistory', 'Line History', container);
 
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}
@@ -26,7 +26,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(

@@ -78,7 +78,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			);
 		}
 
-		const commit = await Container.git.getCommit(
+		const commit = await Container.instance.git.getCommit(
 			this.rebaseStatus.repoPath,
 			this.rebaseStatus.steps.current.commit.ref,
 		);
@@ -163,7 +163,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			})}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
 			this.commit,
 			{
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: Container.instance.config.defaultDateFormat,
 				messageIndent: 4,
 			},
 		);

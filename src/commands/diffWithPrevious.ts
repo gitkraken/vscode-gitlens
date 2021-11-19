@@ -83,7 +83,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// }
 
 		try {
-			const diffUris = await Container.git.getPreviousDiffUris(
+			const diffUris = await Container.instance.git.getPreviousDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

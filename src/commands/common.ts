@@ -230,7 +230,7 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 }
 
 export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
-	const repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+	const repoPath = await Container.instance.git.getRepoPathOrActive(uri, editor);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);
@@ -243,7 +243,7 @@ export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: 
 }
 
 export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
-	const repoPath = await Container.git.getRepoPath(uri);
+	const repoPath = await Container.instance.git.getRepoPath(uri);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);

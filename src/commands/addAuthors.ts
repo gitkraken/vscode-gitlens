@@ -13,7 +13,7 @@ export class AddAuthorsCommand extends Command {
 	async execute(sourceControl: SourceControl) {
 		let repo;
 		if (sourceControl?.rootUri != null) {
-			repo = await Container.git.getRepository(sourceControl.rootUri);
+			repo = await Container.instance.git.getRepository(sourceControl.rootUri);
 		}
 
 		return executeGitCommand({

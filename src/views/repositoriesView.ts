@@ -49,8 +49,8 @@ import { ViewBase } from './viewBase';
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
-	constructor() {
-		super('gitlens.views.repositories', 'Repositories');
+	constructor(container: Container) {
+		super('gitlens.views.repositories', 'Repositories', container);
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -63,7 +63,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -74,7 +74,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
+					await this.container.git.resetCaches(
+						'branches',
+						'contributors',
+						'remotes',
+						'stashes',
+						'status',
+						'tags',
+					);
 					return this.refresh(true);
 				},
 				this,
@@ -106,12 +113,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setAutoRefreshToOn'),
-				() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, true),
+				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, true),
 				this,
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setAutoRefreshToOff'),
-				() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, false),
+				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, false),
 				this,
 			),
 			commands.registerCommand(
@@ -262,7 +269,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
-			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
+			void this.setAutoRefresh(this.container.config.views.repositories.autoRefresh);
 		}
 
 		super.onConfigurationChanged(e);
@@ -271,7 +278,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	get autoRefresh() {
 		return (
 			this.config.autoRefresh &&
-			Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
+			this.container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
 		);
 	}
 
@@ -328,7 +335,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on
-		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		let branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 				allowPaging: true,
@@ -359,7 +366,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		}
 
 		// If we didn't find the commit on any local branches, check remote branches
-		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
@@ -663,12 +670,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
-				workspaceEnabled = Container.context.workspaceState.get<boolean>(
+				workspaceEnabled = this.container.context.workspaceState.get<boolean>(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					true,
 				);
 			} else {
-				await Container.context.workspaceState.update(
+				await this.container.context.workspaceState.update(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					workspaceEnabled,
 				);

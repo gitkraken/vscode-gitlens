@@ -76,7 +76,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
@@ -159,7 +159,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -195,7 +195,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
+		const aheadBehind = await Container.instance.git.getAheadBehindCommitCount(state.repo.path, [
 			GitRevision.createRange(context.destination.name, state.reference.name),
 		]);
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;

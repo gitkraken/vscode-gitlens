@@ -59,7 +59,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			return state.repos[0].fetch({ branch: state.reference });
 		}
 
-		return Container.git.fetchAll(state.repos, {
+		return Container.instance.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
 		});
@@ -67,7 +67,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			title: this.title,
 		};
 

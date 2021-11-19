@@ -77,7 +77,7 @@ export namespace GitRevision {
 		if (!force && !isShaLike(ref)) return ref;
 
 		// Don't allow shas to be shortened to less than 5 characters
-		const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
+		const len = Math.max(5, Container.instance.config.advanced.abbreviatedShaLength);
 
 		// If we have a suffix, append it
 		const match = shaShortenRegex.exec(ref);

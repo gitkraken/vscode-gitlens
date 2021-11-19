@@ -57,7 +57,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await Container.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await Container.instance.git.getLog(repoPath, { limit: 0, ref: this.range });
 			if (log != null) {
 				files = [
 					...Iterables.flatMap(log.commits.values(), c =>
@@ -135,7 +135,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {
 				if (files > 0) {
-					const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
+					const aheadFiles = await Container.instance.git.getDiffStatus(
+						this.repoPath,
+						`${this.status.upstream}...`,
+					);
 
 					if (aheadFiles != null) {
 						const uniques = new Set();
@@ -149,7 +152,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						files = uniques.size;
 					}
 				} else {
-					const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+					const stats = await Container.instance.git.getChangedFilesCount(
+						this.repoPath,
+						`${this.status.upstream}...`,
+					);
 					if (stats != null) {
 						files += stats.files;
 					} else {
@@ -164,8 +170,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-diff.svg'),
+			dark: Container.instance.context.asAbsolutePath('images/dark/icon-diff.svg'),
+			light: Container.instance.context.asAbsolutePath('images/light/icon-diff.svg'),
 		};
 
 		return item;

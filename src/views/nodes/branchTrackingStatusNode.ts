@@ -79,7 +79,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			commits = [...log.commits.values()];
 			const commit = commits[commits.length - 1];
 			if (commit.previousSha == null) {
-				const previousLog = await Container.git.getLog(this.uri.repoPath!, { limit: 2, ref: commit.sha });
+				const previousLog = await Container.instance.git.getLog(this.uri.repoPath!, {
+					limit: 2,
+					ref: commit.sha,
+				});
 				if (previousLog != null) {
 					commits[commits.length - 1] = Iterables.first(previousLog.commits.values());
 				}
@@ -148,7 +151,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		let lastFetched = 0;
 
 		if (this.upstreamType !== 'none') {
-			const repo = await Container.git.getRepository(this.repoPath);
+			const repo = await Container.instance.git.getRepository(this.repoPath);
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
@@ -225,7 +228,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				break;
 			}
 			case 'none': {
-				const remotes = await Container.git.getRemotes(this.branch.repoPath);
+				const remotes = await Container.instance.git.getRemotes(this.branch.repoPath);
 				const providers = GitRemote.getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -276,7 +279,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					? GitRevision.createRange(this.status.upstream, this.status.ref)
 					: GitRevision.createRange(this.status.ref, this.status.upstream);
 
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await Container.instance.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range,
 			});

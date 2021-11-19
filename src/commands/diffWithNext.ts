@@ -42,7 +42,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		const gitUri = args.commit != null ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
 		try {
-			const diffUris = await Container.git.getNextDiffUris(
+			const diffUris = await Container.instance.git.getNextDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

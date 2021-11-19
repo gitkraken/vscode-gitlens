@@ -357,7 +357,7 @@ export abstract class RepositoryFolderNode<
 
 		let expand = this.repo.starred;
 		const [active, branch] = await Promise.all([
-			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
+			expand ? undefined : Container.instance.git.isActiveRepoPath(this.uri.repoPath),
 			this.repo.getBranch(),
 		]);
 
@@ -394,7 +394,9 @@ export abstract class RepositoryFolderNode<
 
 			let providerName;
 			if (branch.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
+				const providers = GitRemote.getHighlanderProviders(
+					await Container.instance.git.getRemotes(branch.repoPath),
+				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await branch.getRemote();

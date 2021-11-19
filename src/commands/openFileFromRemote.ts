@@ -25,9 +25,9 @@ export class OpenFileFromRemoteCommand extends Command {
 		});
 		if (url == null || url.length === 0) return;
 
-		let local = await Container.git.getLocalInfoFromRemoteUri(Uri.parse(url));
+		let local = await Container.instance.git.getLocalInfoFromRemoteUri(Uri.parse(url));
 		if (local == null) {
-			local = await Container.git.getLocalInfoFromRemoteUri(Uri.parse(url), { validate: false });
+			local = await Container.instance.git.getLocalInfoFromRemoteUri(Uri.parse(url), { validate: false });
 			if (local == null) {
 				void window.showWarningMessage('Unable to parse the provided remote url.');
 

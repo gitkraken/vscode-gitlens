@@ -47,7 +47,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const getBranchAndTagTips = await Container.instance.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
 				Iterables.map(
@@ -84,9 +84,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		let avatarUri;
 		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			const size = Container.config.hovers.avatarSize;
+			const size = Container.instance.config.hovers.avatarSize;
 			avatarUri = await this.contributor.getAvatarUri({
-				defaultStyle: Container.config.defaultGravatarsStyle,
+				defaultStyle: Container.instance.config.defaultGravatarsStyle,
 				size: size,
 			});
 
@@ -148,7 +148,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await Container.instance.git.getLog(this.uri.repoPath!, {
 				all: this._options?.all,
 				ref: this._options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,

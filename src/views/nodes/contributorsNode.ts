@@ -36,20 +36,20 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const all = Container.config.views.contributors.showAllBranches;
+			const all = Container.instance.config.views.contributors.showAllBranches;
 
 			let ref: string | undefined;
 			// If we aren't getting all branches, get the upstream of the current branch if there is one
 			if (!all) {
 				try {
-					const branch = await Container.git.getBranch(this.uri.repoPath);
+					const branch = await Container.instance.git.getBranch(this.uri.repoPath);
 					if (branch?.upstream?.name != null && !branch.upstream.missing) {
 						ref = '@{u}';
 					}
 				} catch {}
 			}
 
-			const stats = Container.config.views.contributors.showStatistics;
+			const stats = Container.instance.config.views.contributors.showStatistics;
 
 			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
@@ -98,6 +98,6 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		const email = contributors.find(c => c.current)?.email;
 		if (email == null) return undefined;
 
-		return Container.vsls.getContactsPresence([email]);
+		return Container.instance.vsls.getContactsPresence([email]);
 	}
 }

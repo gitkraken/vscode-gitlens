@@ -34,27 +34,31 @@ export class LineAnnotationController implements Disposable {
 	private _editor: TextEditor | undefined;
 	private _enabled: boolean = false;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			container.onReady(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
+			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
 			Authentication.onDidChange(() => void this.refresh(window.activeTextEditor)),
 		);
-		this.onConfigurationChanged();
 	}
 
 	dispose() {
 		this.clearAnnotations(this._editor);
 
-		Container.lineTracker.stop(this);
+		this.container.lineTracker.stop(this);
 		this._disposable.dispose();
+	}
+
+	private onReady(): void {
+		this.onConfigurationChanged();
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'currentLine')) return;
 
 		if (configuration.changed(e, 'currentLine.enabled')) {
-			if (Container.config.currentLine.enabled) {
+			if (this.container.config.currentLine.enabled) {
 				this._enabled = true;
 				this.resume();
 			} else {
@@ -152,7 +156,7 @@ export class LineAnnotationController implements Disposable {
 	) {
 		if (lines.length === 0) return undefined;
 
-		const remote = await Container.git.getRichRemoteProvider(repoPath);
+		const remote = await this.container.git.getRichRemoteProvider(repoPath);
 		if (remote?.provider == null) return undefined;
 
 		const refs = new Set<string>();
@@ -166,7 +170,7 @@ export class LineAnnotationController implements Disposable {
 		const { provider } = remote;
 		const prs = await Promises.raceAll(
 			refs.values(),
-			ref => Container.git.getPullRequestForCommit(ref, provider),
+			ref => this.container.git.getPullRequestForCommit(ref, provider),
 			timeout,
 		);
 		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr == null)) return undefined;
@@ -180,7 +184,7 @@ export class LineAnnotationController implements Disposable {
 
 		const cc = Logger.getCorrelationContext();
 
-		const selections = Container.lineTracker.selections;
+		const selections = this.container.lineTracker.selections;
 		if (editor == null || selections == null || !isTextEditor(editor)) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid selections`;
@@ -197,7 +201,7 @@ export class LineAnnotationController implements Disposable {
 			this._editor = editor;
 		}
 
-		const cfg = Container.config.currentLine;
+		const cfg = this.container.config.currentLine;
 		if (this.suspended) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the controller is suspended`;
@@ -207,7 +211,7 @@ export class LineAnnotationController implements Disposable {
 			return;
 		}
 
-		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable && this.suspended) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
@@ -222,7 +226,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
-		if (editor.document == null || !Container.lineTracker.includes(selections)) {
+		if (editor.document == null || !this.container.lineTracker.includes(selections)) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
 					editor.document == null
@@ -243,7 +247,7 @@ export class LineAnnotationController implements Disposable {
 
 		const commitLines = [
 			...Iterables.filterMap<LineSelection, [number, GitBlameCommit]>(selections, selection => {
-				const state = Container.lineTracker.getState(selection.active);
+				const state = this.container.lineTracker.getState(selection.active);
 				if (state?.commit == null) {
 					Logger.debug(cc, `Line ${selection.active} returned no commit`);
 					return undefined;
@@ -258,7 +262,7 @@ export class LineAnnotationController implements Disposable {
 		// TODO: Make this configurable?
 		const timeout = 100;
 		const [getBranchAndTagTips, prs] = await Promise.all([
-			CommitFormatter.has(cfg.format, 'tips') ? Container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
+			CommitFormatter.has(cfg.format, 'tips') ? this.container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
 			repoPath != null &&
 			cfg.pullRequests.enabled &&
 			CommitFormatter.has(
@@ -293,7 +297,7 @@ export class LineAnnotationController implements Disposable {
 				// l,
 				cfg.format,
 				{
-					dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+					dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
 					pullRequestOrRemote: prs?.get(commit.ref),
 					pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
@@ -312,17 +316,17 @@ export class LineAnnotationController implements Disposable {
 
 	private setLineTracker(enabled: boolean) {
 		if (enabled) {
-			if (!Container.lineTracker.isSubscribed(this)) {
-				Container.lineTracker.start(
+			if (!this.container.lineTracker.isSubscribed(this)) {
+				this.container.lineTracker.start(
 					this,
-					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
+					this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 
 			return;
 		}
 
-		Container.lineTracker.stop(this);
+		this.container.lineTracker.stop(this);
 	}
 
 	private async waitForAnyPendingPullRequests(

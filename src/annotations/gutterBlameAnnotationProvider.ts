@@ -14,8 +14,8 @@ import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Decorations } from './fileAnnotationController';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
-		super(FileAnnotationType.Blame, editor, trackedDocument);
+	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
+		super(FileAnnotationType.Blame, editor, trackedDocument, container);
 	}
 
 	override clear() {
@@ -39,7 +39,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let start = process.hrtime();
 
-		const cfg = Container.config.blame;
+		const cfg = this.container.config.blame;
 
 		// Precalculate the formatting options so we don't need to do it on each iteration
 		const tokenOptions = Strings.getTokensFromTemplate(cfg.format).reduce<{
@@ -51,17 +51,17 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let getBranchAndTagTips;
 		if (CommitFormatter.has(cfg.format, 'tips')) {
-			getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(blame.repoPath);
+			getBranchAndTagTips = await this.container.git.getBranchesAndTagsTipsFn(blame.repoPath);
 		}
 
 		const options: CommitFormatOptions = {
-			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+			dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			tokenOptions: tokenOptions,
 		};
 
 		const avatars = cfg.avatars;
-		const gravatarDefault = Container.config.defaultGravatarsStyle;
+		const gravatarDefault = this.container.config.defaultGravatarsStyle;
 		const separateLines = cfg.separateLines;
 		const renderOptions = Annotations.gutterRenderOptions(
 			separateLines,
@@ -169,7 +169,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply all gutter blame annotations`);
 		}
 
-		this.registerHoverProviders(Container.config.hovers.annotations);
+		this.registerHoverProviders(this.container.config.hovers.annotations);
 		return true;
 	}
 

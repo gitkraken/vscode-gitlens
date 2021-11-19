@@ -15,8 +15,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
-	constructor() {
-		super('gitlens.views.fileHistory', 'File History');
+	constructor(container: Container) {
+		super('gitlens.views.fileHistory', 'File History', container);
 
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
@@ -31,7 +31,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(

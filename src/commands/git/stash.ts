@@ -144,7 +144,7 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			title: this.title,
 		};
 
@@ -258,7 +258,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await Container.git.getStash(state.repo.path),
+					stash: await Container.instance.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null
 							? `No stashes found in ${state.repo.formattedName}`
@@ -374,7 +374,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await Container.git.getStash(state.repo.path),
+					stash: await Container.instance.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to delete',
 					picked: state.reference?.ref,
@@ -435,7 +435,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					stash: await Container.git.getStash(state.repo.path),
+					stash: await Container.instance.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
 					picked: state.reference?.ref,
@@ -447,7 +447,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			}
 
 			// if (!(state.reference instanceof GitStashCommit)) {
-			// 	state.reference = await Container.git.getCommit(state.repo.path, state.reference.ref);
+			// 	state.reference = await Container.instance.git.getCommit(state.repo.path, state.reference.ref);
 			// }
 
 			const result = yield* GitCommandsCommand.getSteps(

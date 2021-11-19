@@ -49,8 +49,8 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 
 		const statusIcon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
+			dark: Container.instance.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
+			light: Container.instance.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();

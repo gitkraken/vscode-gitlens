@@ -10,7 +10,10 @@ export class FetchRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'fetch', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'fetch',
+			state: { repos: await Container.instance.git.getOrderedRepositories() },
+		});
 	}
 }
 
@@ -21,7 +24,10 @@ export class PullRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'pull', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'pull',
+			state: { repos: await Container.instance.git.getOrderedRepositories() },
+		});
 	}
 }
 
@@ -32,6 +38,9 @@ export class PushRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'push', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'push',
+			state: { repos: await Container.instance.git.getOrderedRepositories() },
+		});
 	}
 }

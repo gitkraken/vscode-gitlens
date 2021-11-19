@@ -24,7 +24,7 @@ export class OpenChangedFilesCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Open All Changed Files');
 				if (!repoPath) return;
 
-				const status = await Container.git.getStatusForRepo(repoPath);
+				const status = await Container.instance.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed files');
 

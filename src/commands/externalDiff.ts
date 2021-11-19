@@ -122,7 +122,7 @@ export class ExternalDiffCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Open All Changes (difftool)');
 				if (!repoPath) return undefined;
 
-				const status = await Container.git.getStatusForRepo(repoPath);
+				const status = await Container.instance.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}
@@ -158,11 +158,11 @@ export class ExternalDiffCommand extends Command {
 				const editor = window.activeTextEditor;
 				if (editor == null) return;
 
-				repoPath = await Container.git.getRepoPathOrActive(undefined, editor);
+				repoPath = await Container.instance.git.getRepoPathOrActive(undefined, editor);
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await Container.git.getStatusForFile(repoPath, uri.fsPath);
+				const status = await Container.instance.git.getStatusForFile(repoPath, uri.fsPath);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 
@@ -178,11 +178,13 @@ export class ExternalDiffCommand extends Command {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = await Container.git.getRepoPath(args.files[0].uri.fsPath);
+				repoPath = await Container.instance.git.getRepoPath(args.files[0].uri.fsPath);
 				if (!repoPath) return;
 			}
 
-			const tool = Container.config.advanced.externalDiffTool || (await Container.git.getDiffTool(repoPath));
+			const tool =
+				Container.instance.config.advanced.externalDiffTool ||
+				(await Container.instance.git.getDiffTool(repoPath));
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -199,7 +201,7 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			for (const file of args.files) {
-				void Container.git.openDiffTool(repoPath, file.uri, {
+				void Container.instance.git.openDiffTool(repoPath, file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,

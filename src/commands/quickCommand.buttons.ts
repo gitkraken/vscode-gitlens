@@ -20,8 +20,8 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		const icon = this.getToggledState().icon;
 		return typeof icon === 'string'
 			? {
-					dark: Uri.file(Container.context.asAbsolutePath(`images/dark/${icon}.svg`)),
-					light: Uri.file(Container.context.asAbsolutePath(`images/light/${icon}.svg`)),
+					dark: Uri.file(Container.instance.context.asAbsolutePath(`images/dark/${icon}.svg`)),
+					light: Uri.file(Container.instance.context.asAbsolutePath(`images/light/${icon}.svg`)),
 			  }
 			: icon;
 	}
@@ -133,15 +133,17 @@ export namespace QuickCommandButtons {
 					on: {
 						tooltip: 'Will confirm',
 						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
+							dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-check.svg')),
+							light: Uri.file(Container.instance.context.asAbsolutePath('images/light/icon-check.svg')),
 						},
 					},
 					off: {
 						tooltip: 'Skips confirm',
 						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-no-check.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg')),
+							dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-no-check.svg')),
+							light: Uri.file(
+								Container.instance.context.asAbsolutePath('images/light/icon-no-check.svg'),
+							),
 						},
 					},
 				}),

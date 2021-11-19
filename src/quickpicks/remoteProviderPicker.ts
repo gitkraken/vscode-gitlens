@@ -53,7 +53,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 			let branch = resource.base.branch;
 			if (branch == null) {
-				branch = await Container.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
+				branch = await Container.instance.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
 				if (branch == null && this.remote.provider.hasApi()) {
 					const defaultBranch = await this.remote.provider.getDefaultBranch?.();
 					branch = defaultBranch?.name;
@@ -73,7 +73,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			// Since Bitbucket can't support branch names in the url (other than with the default branch),
 			// turn this into a `Revision` request
 			const { branchOrTag } = resource;
-			const branchesOrTags = await Container.git.getBranchesAndOrTags(this.remote.repoPath, {
+			const branchesOrTags = await Container.instance.git.getBranchesAndOrTags(this.remote.repoPath, {
 				filter: {
 					branches: b => b.name === branchOrTag || GitBranch.getNameWithoutRemote(b.name) === branchOrTag,
 					tags: b => b.name === branchOrTag,

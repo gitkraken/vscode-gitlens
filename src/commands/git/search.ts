@@ -91,14 +91,14 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			commit: undefined,
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,
 		};
 
-		const cfg = Container.config.gitCommands.search;
+		const cfg = Container.instance.config.gitCommands.search;
 		if (state.matchAll == null) {
 			state.matchAll = cfg.matchAll;
 		}
@@ -166,7 +166,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
-				void Container.searchAndCompareView.search(
+				void Container.instance.searchAndCompareView.search(
 					state.repo.path,
 					search,
 					{
@@ -195,7 +195,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void Container.searchAndCompareView.search(
+							void Container.instance.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
@@ -212,7 +212,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
-							void Container.searchAndCompareView.search(
+							void Container.instance.searchAndCompareView.search(
 								repoPath,
 								search,
 								{

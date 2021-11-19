@@ -184,14 +184,18 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		const ref = this.filter === 'left' ? this.ref2 : this.ref1;
 
-		const mergeBase = await Container.git.getMergeBase(this.repoPath, this.ref1 || 'HEAD', this.ref2 || 'HEAD');
+		const mergeBase = await Container.instance.git.getMergeBase(
+			this.repoPath,
+			this.ref1 || 'HEAD',
+			this.ref2 || 'HEAD',
+		);
 		if (mergeBase != null) {
-			const files = await Container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
+			const files = await Container.instance.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.fileName));
 			}
 		} else {
-			const commit = await Container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			const commit = await Container.instance.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
 			if (commit?.files != null) {
 				filterTo = new Set<string>(commit.files.map(f => f.fileName));
 			}

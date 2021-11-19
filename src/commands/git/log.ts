@@ -76,7 +76,7 @@ export class LogGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			selectedBranchOrTag: undefined,
 			title: this.title,
@@ -152,8 +152,8 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? Container.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
-							: Container.git.getLog(state.repo.path, { ref: ref });
+							? Container.instance.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
+							: Container.instance.git.getLog(state.repo.path, { ref: ref });
 					context.cache.set(ref, log);
 				}
 
@@ -175,7 +175,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitLogCommit) || state.reference.isFile) {
-				state.reference = await Container.git.getCommit(state.repo.path, state.reference.ref);
+				state.reference = await Container.instance.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
 			const result = yield* GitCommandsCommand.getSteps(

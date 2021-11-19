@@ -1,6 +1,7 @@
 'use strict';
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
+import { Container } from '../container';
 import { GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
@@ -11,8 +12,8 @@ import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
-		super(FileAnnotationType.Heatmap, editor, trackedDocument);
+	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
+		super(FileAnnotationType.Heatmap, editor, trackedDocument, container);
 	}
 
 	@log()
@@ -58,7 +59,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
 		}
 
-		// this.registerHoverProviders(Container.config.hovers.annotations);
+		// this.registerHoverProviders(this.container.config.hovers.annotations);
 		return true;
 	}
 

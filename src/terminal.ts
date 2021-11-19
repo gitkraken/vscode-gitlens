@@ -19,7 +19,7 @@ function ensureTerminal(cwd: string): Terminal {
 			}
 		});
 
-		Container.context.subscriptions.push(_disposable);
+		Container.instance.context.subscriptions.push(_disposable);
 		_terminalCwd = undefined;
 	}
 

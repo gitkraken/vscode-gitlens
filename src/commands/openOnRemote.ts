@@ -33,7 +33,7 @@ export class OpenOnRemoteCommand extends Command {
 	async execute(args?: OpenOnRemoteCommandArgs) {
 		if (args?.resource == null) return;
 
-		let remotes = 'remotes' in args ? args.remotes : await Container.git.getRemotes(args.repoPath);
+		let remotes = 'remotes' in args ? args.remotes : await Container.instance.git.getRemotes(args.repoPath);
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);
@@ -60,7 +60,7 @@ export class OpenOnRemoteCommand extends Command {
 					const file = commit?.files.find(f => f.fileName === fileName);
 					if (file?.status === 'D') {
 						// Resolve to the previous commit to that file
-						args.resource.sha = await Container.git.resolveReference(
+						args.resource.sha = await Container.instance.git.resolveReference(
 							commit.repoPath,
 							`${commit.sha}^`,
 							fileName,

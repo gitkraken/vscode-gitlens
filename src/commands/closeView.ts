@@ -16,7 +16,7 @@ export class CloseViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.CloseWelcomeView:
-				await Container.context.globalState.update(SyncedState.WelcomeViewVisible, false);
+				await Container.instance.context.globalState.update(SyncedState.WelcomeViewVisible, false);
 				await setContext(ContextKeys.ViewsWelcomeVisible, false);
 				break;
 		}

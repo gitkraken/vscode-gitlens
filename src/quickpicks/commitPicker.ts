@@ -100,7 +100,7 @@ export namespace CommitPicker {
 
 		let scope: KeyboardScope | undefined;
 		if (options?.keys != null && options.keys.length !== 0 && options?.onDidPressKey !== null) {
-			scope = Container.keyboard.createScope(
+			scope = Container.instance.keyboard.createScope(
 				Object.fromEntries(
 					options.keys.map(key => [
 						key,

@@ -22,7 +22,7 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
 		if (args?.repoPath == null) return;
 
-		const repo = await Container.git.getRepository(args.repoPath);
+		const repo = await Container.instance.git.getRepository(args.repoPath);
 		if (repo == null) return;
 
 		const compareRemote = await repo.getRemote(args.remote);

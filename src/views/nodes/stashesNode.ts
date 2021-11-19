@@ -44,8 +44,8 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		item.contextValue = ContextValues.Stashes;
 
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-stash.svg'),
+			dark: Container.instance.context.asAbsolutePath('images/dark/icon-stash.svg'),
+			light: Container.instance.context.asAbsolutePath('images/light/icon-stash.svg'),
 		};
 
 		return item;

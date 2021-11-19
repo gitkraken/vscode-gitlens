@@ -32,7 +32,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.git.getHighlanderRepoPath();
+		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.instance.git.getHighlanderRepoPath();
 		let ref: GitReference | 'HEAD' | undefined;
 		if (repoPath != null) {
 			if (args?.branch != null) {

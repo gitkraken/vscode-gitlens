@@ -58,7 +58,7 @@ export class GitStashCommit extends GitLogCommit {
 
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			const commit = await Container.git.getCommit(this.repoPath, `${this.stashName}^3`);
+			const commit = await Container.instance.git.getCommit(this.repoPath, `${this.stashName}^3`);
 			if (commit != null && commit.files.length !== 0) {
 				// Since these files are untracked -- make them look that way
 				const files = commit.files.map(s => ({

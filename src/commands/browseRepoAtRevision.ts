@@ -66,7 +66,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			if (gitUri.sha == null) return;
 
 			const sha = args?.before
-				? await Container.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
+				? await Container.instance.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
 				: gitUri.sha;
 			uri = toGitLensFSUri(sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);

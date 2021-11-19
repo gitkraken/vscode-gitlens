@@ -28,7 +28,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		}
 
 		try {
-			void (await Container.fileAnnotations.clear(editor));
+			void (await Container.instance.fileAnnotations.clear(editor));
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
 			void Messages.showGenericErrorMessage('Unable to clear file annotations');
@@ -123,7 +123,7 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 	try {
 		args = { type: FileAnnotationType.Blame, ...(args as any) };
 
-		void (await Container.fileAnnotations.toggle(
+		void (await Container.instance.fileAnnotations.toggle(
 			editor,
 			args.type,
 			{

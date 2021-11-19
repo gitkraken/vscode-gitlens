@@ -33,7 +33,7 @@ function contactStatusToPresence(status: string | undefined): ContactPresence {
 }
 
 export class VslsController implements Disposable {
-	private _disposable: Disposable | undefined;
+	private _disposable: Disposable;
 	private _guest: VslsGuestService | undefined;
 	private _host: VslsHostService | undefined;
 
@@ -42,14 +42,18 @@ export class VslsController implements Disposable {
 
 	private _api: Promise<LiveShare | undefined> | undefined;
 
-	constructor() {
-		void this.initialize();
+	constructor(private readonly container: Container) {
+		this._disposable = Disposable.from(container.onReady(this.onReady, this));
 	}
 
 	dispose() {
-		this._disposable?.dispose();
+		this._disposable.dispose();
 		this._host?.dispose();
 		this._guest?.dispose();
+	}
+
+	private onReady(): void {
+		void this.initialize();
 	}
 
 	private async initialize() {
@@ -76,6 +80,7 @@ export class VslsController implements Disposable {
 			void setContext(ContextKeys.Vsls, true);
 
 			this._disposable = Disposable.from(
+				this._disposable,
 				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this),
 			);
 		} catch (ex) {
@@ -157,7 +162,7 @@ export class VslsController implements Disposable {
 	@debug()
 	@timeout(250)
 	maybeGetPresence(email: string | undefined): Promise<ContactPresence | undefined> {
-		return Container.vsls.getContactPresence(email);
+		return this.getContactPresence(email);
 	}
 
 	async invite(email: string | undefined) {
@@ -197,8 +202,8 @@ export class VslsController implements Disposable {
 			case 1 /*Role.Host*/:
 				this.setReadonly(false);
 				void setContext(ContextKeys.Vsls, 'host');
-				if (Container.config.liveshare.allowGuestAccess) {
-					this._host = await VslsHostService.share(api);
+				if (this.container.config.liveshare.allowGuestAccess) {
+					this._host = await VslsHostService.share(api, this.container);
 				}
 				break;
 			case 2 /*Role.Guest*/:

@@ -25,8 +25,9 @@ export class TrackedDocument<T> implements Disposable {
 		key: string,
 		dirty: boolean,
 		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		container: Container,
 	) {
-		const doc = new TrackedDocument(document, key, dirty, eventDelegates);
+		const doc = new TrackedDocument(document, key, dirty, eventDelegates, container);
 		await doc.initialize();
 		return doc;
 	}
@@ -48,6 +49,7 @@ export class TrackedDocument<T> implements Disposable {
 		public readonly key: string,
 		public dirty: boolean,
 		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		private readonly container: Container,
 	) {}
 
 	dispose() {
@@ -58,23 +60,10 @@ export class TrackedDocument<T> implements Disposable {
 
 	private initializing = true;
 	private async initialize(): Promise<Repository | undefined> {
-		const uri = this._document.uri;
-
-		// Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, wait for the GitService to load if it isn't
-		if (Container.git == null) {
-			if (!(await Functions.waitUntil(() => Container.git != null, 2000))) {
-				Logger.log(
-					`TrackedDocument.initialize(${uri.toString(true)})`,
-					'Timed out waiting for the GitService to start',
-				);
-				throw new Error('TrackedDocument timed out waiting for the GitService to start');
-			}
-		}
-
-		this._uri = await GitUri.fromUri(uri);
+		this._uri = await GitUri.fromUri(this._document.uri);
 		if (this._disposed) return undefined;
 
-		const repo = await Container.git.getRepository(this._uri);
+		const repo = await this.container.git.getRepository(this._uri);
 		this._repo = repo;
 		if (this._disposed) return undefined;
 
@@ -203,7 +192,7 @@ export class TrackedDocument<T> implements Disposable {
 		const active = getEditorIfActive(this._document);
 		const wasBlameable = forceBlameChange ? undefined : this.isBlameable;
 
-		this._isTracked = await Container.git.isTracked(this._uri);
+		this._isTracked = await this.container.git.isTracked(this._uri);
 
 		let repo = undefined;
 		if (this._isTracked) {

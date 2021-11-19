@@ -148,10 +148,10 @@ export abstract class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
-		const remote = await Container.git.getRichRemoteProvider(this.repoPath);
+		const remote = await Container.instance.git.getRichRemoteProvider(this.repoPath);
 		if (remote?.provider == null) return undefined;
 
-		return Container.git.getPullRequestForCommit(this.ref, remote, options);
+		return Container.instance.git.getPullRequestForCommit(this.ref, remote, options);
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
@@ -160,14 +160,14 @@ export abstract class GitCommit implements GitRevisionReference {
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
+		return Container.instance.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
 	}
 
 	@memoize()
 	getWorkingUri(): Promise<Uri | undefined> {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getWorkingUri(this.repoPath, this.uri);
+		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
 	@memoize()

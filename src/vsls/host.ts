@@ -50,13 +50,13 @@ export class VslsHostService implements Disposable {
 	static ServiceId = 'proxy';
 
 	@log()
-	static async share(api: LiveShare) {
+	static async share(api: LiveShare, container: Container) {
 		const service = await api.shareService(this.ServiceId);
 		if (service == null) {
 			throw new Error('Failed to share host service');
 		}
 
-		return new VslsHostService(api, service);
+		return new VslsHostService(api, service, container);
 	}
 
 	private readonly _disposable: Disposable;
@@ -65,7 +65,11 @@ export class VslsHostService implements Disposable {
 	private _sharedPathsRegex: RegExp | undefined;
 	private _sharedToLocalPaths = new Map<string, string>();
 
-	constructor(private readonly _api: LiveShare, private readonly _service: SharedService) {
+	constructor(
+		private readonly _api: LiveShare,
+		private readonly _service: SharedService,
+		private readonly container: Container,
+	) {
 		_service.onDidChangeIsServiceAvailable(this.onAvailabilityChanged.bind(this));
 
 		this._disposable = Disposable.from(workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this));
@@ -210,7 +214,7 @@ export class VslsHostService implements Disposable {
 		const normalized = Strings.normalizePath(uri.fsPath, { stripTrailingSlash: true }).toLowerCase();
 
 		const repos = [
-			...Iterables.filterMap(await Container.git.getRepositories(), r => {
+			...Iterables.filterMap(await this.container.git.getRepositories(), r => {
 				if (!r.normalizedPath.startsWith(normalized)) return undefined;
 
 				const vslsUri = this.convertLocalUriToShared(r.folder.uri);

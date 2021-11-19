@@ -136,7 +136,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	private get _pullRequestDateOrAgo() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return dateStyle === DateStyle.Absolute ? this._pullRequestDate : this._pullRequestDateAgo;
 	}
 
@@ -145,7 +146,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get agoOrDate(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._date : this._dateAgo,
 			this._options.tokenOptions.agoOrDate,
@@ -153,7 +155,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get agoOrDateShort(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._date : this._dateAgoShort,
 			this._options.tokenOptions.agoOrDateShort,
@@ -174,7 +177,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorAgoOrDate(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo,
 			this._options.tokenOptions.authorAgoOrDate,
@@ -182,7 +186,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorAgoOrDateShort(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
 			this._options.tokenOptions.authorAgoOrDateShort,
@@ -205,7 +210,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get avatar(): string | Promise<string> {
-		if (!this._options.markdown || !Container.config.hovers.avatars) {
+		if (!this._options.markdown || !Container.instance.config.hovers.avatars) {
 			return this._padOrTruncate(emptyStr, this._options.tokenOptions.avatar);
 		}
 
@@ -228,9 +233,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	private async _getAvatarMarkdown(title: string, size?: number) {
-		size = size ?? Container.config.hovers.avatarSize;
+		size = size ?? Container.instance.config.hovers.avatarSize;
 		const avatarPromise = this._item.getAvatarUri({
-			defaultStyle: Container.config.defaultGravatarsStyle,
+			defaultStyle: Container.instance.config.defaultGravatarsStyle,
 			size: size,
 		});
 		return this._padOrTruncate(
@@ -350,13 +355,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
+					Container.instance.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
 			} else if (pr instanceof Promises.CancellationError) {
 				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
-			} else if (pr.provider != null && Container.config.integrations.enabled) {
+			} else if (pr.provider != null && Container.instance.config.integrations.enabled) {
 				commands += `${separator}[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
 				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
@@ -365,7 +370,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		}
 
-		if (Container.actionRunners.count('hover.commands') > 0) {
+		if (Container.instance.actionRunners.count('hover.commands') > 0) {
 			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
 				GlyphChars.Ellipsis
 			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
@@ -400,7 +405,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get committerAgoOrDate(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo,
 			this._options.tokenOptions.committerAgoOrDate,
@@ -408,7 +414,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get committerAgoOrDateShort(): string {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		const dateStyle =
+			this._options.dateStyle != null ? this._options.dateStyle : Container.instance.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgoShort,
 			this._options.tokenOptions.committerAgoOrDateShort,
@@ -477,7 +484,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
 		if (this._options.messageAutolinks) {
-			message = Container.autolinks.linkify(
+			message = Container.instance.autolinks.linkify(
 				this._options.markdown ? Strings.escapeMarkdown(message, { quoted: true }) : message,
 				this._options.markdown ?? false,
 				this._options.remotes,
@@ -507,7 +514,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
+					Container.instance.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;

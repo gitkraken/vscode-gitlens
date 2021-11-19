@@ -58,18 +58,18 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 		const children: ViewNode[] = [];
 
-		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await Container.instance.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, fileStatuses, currentUser, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(),
 			this.uri.sha == null
-				? Container.git.getStatusForFiles(this.uri.repoPath!, this.getPathOrGlob())
+				? Container.instance.git.getStatusForFiles(this.uri.repoPath!, this.getPathOrGlob())
 				: undefined,
-			this.uri.sha == null ? Container.git.getCurrentUser(this.uri.repoPath!) : undefined,
+			this.uri.sha == null ? Container.instance.git.getCurrentUser(this.uri.repoPath!) : undefined,
 			this.branch != null
-				? Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				? Container.instance.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+				? Container.instance.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
 						ref: range,
 				  })
@@ -169,7 +169,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@debug()
 	protected async subscribe() {
-		const repo = await Container.git.getRepository(this.uri);
+		const repo = await Container.instance.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -233,7 +233,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.getPathOrGlob(), {
+			this._log = await Container.instance.git.getLogForFile(this.uri.repoPath, this.getPathOrGlob(), {
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				ref: this.uri.sha,
 			});

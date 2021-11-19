@@ -64,14 +64,14 @@ export class PushGitCommand extends QuickCommand<State> {
 		if (index !== -1) {
 			if (!GitReference.isBranch(state.reference)) return Promise.resolve();
 
-			return Container.git.pushAll(state.repos, {
+			return Container.instance.git.pushAll(state.repos, {
 				force: false,
 				publish: { remote: state.flags[index + 1] },
 				reference: state.reference,
 			});
 		}
 
-		return Container.git.pushAll(state.repos, {
+		return Container.instance.git.pushAll(state.repos, {
 			force: state.flags.includes('--force'),
 			reference: state.reference,
 		});
@@ -79,7 +79,7 @@ export class PushGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			title: this.title,
 		};
 

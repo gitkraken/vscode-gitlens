@@ -87,8 +87,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				}
 
 				const [mergeStatus, rebaseStatus] = await Promise.all([
-					Container.git.getMergeStatus(status.repoPath),
-					Container.git.getRebaseStatus(status.repoPath),
+					Container.instance.git.getMergeStatus(status.repoPath),
+					Container.instance.git.getRebaseStatus(status.repoPath),
 				]);
 
 				if (mergeStatus != null) {
@@ -211,7 +211,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 			let providerName;
 			if (status.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(status.repoPath));
+				const providers = GitRemote.getHighlanderProviders(
+					await Container.instance.git.getRemotes(status.repoPath),
+				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await status.getRemote();
@@ -265,8 +267,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				: ''
 		}`;
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
+			dark: Container.instance.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+			light: Container.instance.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 		item.tooltip = new MarkdownString(tooltip, true);
 

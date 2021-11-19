@@ -310,7 +310,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.keyboard.createScope(mapping);
+				const scope = Container.instance.keyboard.createScope(mapping);
 				void scope.start();
 
 				disposables.push(
@@ -460,7 +460,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.keyboard.createScope(mapping);
+				const scope = Container.instance.keyboard.createScope(mapping);
 				void scope.start();
 
 				let overrideItems = false;
@@ -767,8 +767,8 @@ class PickCommandStep implements QuickPickStep {
 			new TagGitCommand(args?.command === 'tag' ? args : undefined),
 		];
 
-		if (Container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = Container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		if (Container.instance.config.gitCommands.sortBy === GitCommandSorting.Usage) {
+			const usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -808,12 +808,12 @@ class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = Container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		let usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 		if (usage === undefined) {
 			usage = Object.create(null) as Usage;
 		}
 
 		usage[id] = timestamp;
-		await Container.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
+		await Container.instance.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
 	}
 }

@@ -114,8 +114,10 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	constructor(public readonly id: string, public readonly name: string) {
-		if (Logger.isDebugging || Container.config.debug) {
+	constructor(public readonly id: string, public readonly name: string, protected readonly container: Container) {
+		this.disposables.push(container.onReady(this.onReady, this));
+
+		if (Logger.isDebugging || this.container.config.debug) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(
@@ -164,9 +166,14 @@ export abstract class ViewBase<
 		}
 
 		this.disposables.push(...this.registerCommands());
+	}
 
+	dispose() {
+		Disposable.from(...this.disposables).dispose();
+	}
+
+	private onReady() {
 		this.initialize({ showCollapseAll: this.showCollapseAll });
-
 		setImmediate(() => this.onConfigurationChanged());
 	}
 
@@ -184,11 +191,6 @@ export abstract class ViewBase<
 
 		return false;
 	}
-
-	dispose() {
-		Disposable.from(...this.disposables).dispose();
-	}
-
 	private _title: string | undefined;
 	get title(): string | undefined {
 		return this._title;
@@ -385,7 +387,7 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const queue: (ViewNode | undefined)[] = [root, undefined];
 
-		const defaultPageSize = Container.config.advanced.maxListItems;
+		const defaultPageSize = this.container.config.advanced.maxListItems;
 
 		let depth = 0;
 		let node: ViewNode | undefined;
@@ -572,12 +574,15 @@ export abstract class ViewBase<
 	private _config: (ViewConfig & ViewsCommonConfig) | undefined;
 	get config(): ViewConfig & ViewsCommonConfig {
 		if (this._config == null) {
-			const cfg = { ...Container.config.views };
+			const cfg = { ...this.container.config.views };
 			for (const view of viewsConfigKeys) {
 				delete cfg[view];
 			}
 
-			this._config = { ...(cfg as ViewsCommonConfig), ...(Container.config.views[this.configKey] as ViewConfig) };
+			this._config = {
+				...(cfg as ViewsCommonConfig),
+				...(this.container.config.views[this.configKey] as ViewConfig),
+			};
 		}
 
 		return this._config;

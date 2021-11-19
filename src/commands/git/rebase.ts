@@ -75,7 +75,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	async execute(state: RebaseStepState) {
 		let configs: string[] | undefined;
 		if (state.flags.includes('--interactive')) {
-			await Container.rebaseEditor.enableForNextUse();
+			await Container.instance.rebaseEditor.enableForNextUse();
 
 			let editor;
 			switch (env.appName) {
@@ -97,7 +97,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
@@ -180,7 +180,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -216,7 +216,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
+		const aheadBehind = await Container.instance.git.getAheadBehindCommitCount(state.repo.path, [
 			state.reference.refType === 'revision'
 				? GitRevision.createRange(state.reference.ref, context.destination.ref)
 				: GitRevision.createRange(context.destination.name, state.reference.name),

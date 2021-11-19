@@ -52,7 +52,7 @@ export namespace ReferencePicker {
 
 		let scope: KeyboardScope | undefined;
 		if (options?.keys != null && options.keys.length !== 0 && options?.onDidPressKey !== null) {
-			scope = Container.keyboard.createScope(
+			scope = Container.instance.keyboard.createScope(
 				Object.fromEntries(
 					options.keys.map(key => [
 						key,
@@ -89,14 +89,17 @@ export namespace ReferencePicker {
 
 		quickpick.show();
 
-		const getValidateGitReference = getValidateGitReferenceFn((await Container.git.getRepository(repoPath))!, {
-			buttons: [QuickCommandButtons.RevealInSideBar],
-			ranges:
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
-					? options.allowEnteringRefs.ranges
-					: undefined,
-		});
+		const getValidateGitReference = getValidateGitReferenceFn(
+			(await Container.instance.git.getRepository(repoPath))!,
+			{
+				buttons: [QuickCommandButtons.RevealInSideBar],
+				ranges:
+					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+					options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
+						? options.allowEnteringRefs.ranges
+						: undefined,
+			},
+		);
 
 		quickpick.items = await items;
 
@@ -162,7 +165,7 @@ export namespace ReferencePicker {
 		include = include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
 		const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
-			(await Container.git.getRepository(repoPath))!,
+			(await Container.instance.git.getRepository(repoPath))!,
 			include && ReferencesQuickPickIncludes.BranchesAndTags
 				? ['branches', 'tags']
 				: include && ReferencesQuickPickIncludes.Branches

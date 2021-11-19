@@ -20,7 +20,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			const branch = await Container.git.getBranch(repoPath);
+			const branch = await Container.instance.git.getBranch(repoPath);
 			if (branch?.name) {
 				await env.clipboard.writeText(branch.name);
 			}

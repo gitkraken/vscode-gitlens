@@ -215,7 +215,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	static file(path: string, useVslsScheme?: boolean) {
 		const uri = Uri.file(path);
-		if (Container.vsls.isMaybeGuest && useVslsScheme !== false) {
+		if (Container.instance.vsls.isMaybeGuest && useVslsScheme !== false) {
 			return uri.with({ scheme: DocumentSchemes.Vsls });
 		}
 
@@ -257,7 +257,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (GitUri.is(uri)) return uri;
 
-		if (!Container.git.isTrackable(uri)) return new GitUri(uri);
+		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
 
 		if (uri.scheme === DocumentSchemes.GitLens) return new GitUri(uri);
 
@@ -266,7 +266,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			try {
 				const data: { path: string; ref: string } = JSON.parse(uri.query);
 
-				const repoPath = await Container.git.getRepoPath(data.path);
+				const repoPath = await Container.instance.git.getRepoPath(data.path);
 
 				let ref;
 				switch (data.ref) {
@@ -309,7 +309,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				if (repoPath.endsWith(data.fileName)) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
-					repoPath = (await Container.git.getRepoPath(uri.fsPath))!;
+					repoPath = (await Container.instance.git.getRepoPath(uri.fsPath))!;
 				}
 
 				const commitish: GitCommitish = {
@@ -321,7 +321,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 		}
 
-		return new GitUri(uri, await Container.git.getRepoPath(uri));
+		return new GitUri(uri, await Container.instance.git.getRepoPath(uri));
 	}
 
 	static getDirectory(fileName: string, relativeTo?: string): string {

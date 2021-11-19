@@ -145,7 +145,7 @@ export abstract class PagerNode extends ViewNode {
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
 		protected readonly previousNode?: ViewNode,
-		protected readonly pageSize: number = Container.config.views.pageItemLimit,
+		protected readonly pageSize: number = Container.instance.config.views.pageItemLimit,
 		protected readonly countFn?: () => Promise<number | undefined>,
 	) {
 		super(unknownGitUri, view, parent);

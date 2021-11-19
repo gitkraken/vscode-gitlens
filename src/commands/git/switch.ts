@@ -88,7 +88,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			showTags: false,
 			title: this.title,
 		};
@@ -146,7 +146,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
-				const branches = await Container.git.getBranches(state.reference.repoPath, {
+				const branches = await Container.instance.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: BranchSorting.DateDesc },
 				});

@@ -32,12 +32,12 @@ export class InviteToLiveShareCommand extends Command {
 
 	async execute(args?: InviteToLiveShareCommandArgs) {
 		if (args?.email) {
-			const contact = await Container.vsls.getContact(args.email);
+			const contact = await Container.instance.vsls.getContact(args.email);
 			if (contact != null) {
 				return contact.invite();
 			}
 		}
 
-		return Container.vsls.startSession();
+		return Container.instance.vsls.startSession();
 	}
 }

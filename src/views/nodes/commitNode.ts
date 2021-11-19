@@ -83,7 +83,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: Container.instance.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -98,14 +98,14 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: Container.instance.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
 			? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
 			: this.view.config.avatars
-			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+			? await this.commit.getAvatarUri({ defaultStyle: Container.instance.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
 		// item.tooltip = this.tooltip;
 
@@ -137,16 +137,16 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	private async getTooltip() {
-		const remotes = await Container.git.getRemotes(this.commit.repoPath);
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+		const remotes = await Container.instance.git.getRemotes(this.commit.repoPath);
+		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				Container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
-				Container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				Container.instance.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
+				Container.instance.git.getPullRequestForCommit(this.commit.ref, remote.provider),
 			]);
 		}
 
@@ -155,7 +155,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: Container.instance.config.defaultDateFormat,
 				getBranchAndTagTips: this.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,

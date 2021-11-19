@@ -17,14 +17,20 @@ export class GitCodeLensController implements Disposable {
 	private _provider: GitCodeLensProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
 
-	constructor() {
-		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged();
+	constructor(private readonly container: Container) {
+		this._disposable = Disposable.from(
+			container.onReady(this.onReady, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+		);
 	}
 
 	dispose() {
 		this._providerDisposable?.dispose();
 		this._disposable?.dispose();
+	}
+
+	private onReady(): void {
+		this.onConfigurationChanged();
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
@@ -38,7 +44,7 @@ export class GitCodeLensController implements Disposable {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');
 			}
 
-			const cfg = Container.config.codeLens;
+			const cfg = this.container.config.codeLens;
 			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
 				this.ensureProvider();
 			} else {
@@ -62,7 +68,7 @@ export class GitCodeLensController implements Disposable {
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
 		if (this._provider === undefined || !e.document.isBlameable) return;
 
-		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
@@ -92,11 +98,11 @@ export class GitCodeLensController implements Disposable {
 
 		this._providerDisposable?.dispose();
 
-		this._provider = new GitCodeLensProvider(Container.context, Container.git, Container.tracker);
+		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
-			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+			this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 }

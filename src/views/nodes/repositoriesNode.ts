@@ -36,7 +36,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children === undefined) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
 			this._children = repositories.map(r => new RepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r));
@@ -65,7 +65,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 			return;
 		}
 
-		const repositories = await Container.git.getOrderedRepositories();
+		const repositories = await Container.instance.git.getOrderedRepositories();
 		if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
 		if (repositories.length === 0) {
@@ -98,7 +98,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	protected subscribe() {
-		const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
+		const subscriptions = [Container.instance.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
 		if (this.view.config.autoReveal) {
 			subscriptions.push(

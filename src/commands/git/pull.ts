@@ -68,12 +68,12 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return Container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
+		return Container.instance.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			title: this.title,
 		};
 

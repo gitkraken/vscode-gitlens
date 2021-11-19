@@ -67,7 +67,7 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = await Container.instance.git.getOrderedRepositories();
 			if (repositories.length === 0) {
 				this.view.message = 'No remotes could be found.';
 
@@ -136,8 +136,8 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor() {
-		super('gitlens.views.remotes', 'Remotes');
+	constructor(container: Container) {
+		super('gitlens.views.remotes', 'Remotes', container);
 	}
 
 	getRoot() {
@@ -145,7 +145,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(
@@ -156,7 +156,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
-					await Container.git.resetCaches('branches', 'remotes');
+					await this.container.git.resetCaches('branches', 'remotes');
 					return this.refresh(true);
 				},
 				this,
@@ -259,7 +259,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the remote branches the commit is on
-		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);

@@ -57,7 +57,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				if (blameline >= 0) {
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
-						const blame = await Container.git.getBlameForLine(gitUri, blameline);
+						const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 						if (blame != null && !blame.commit.isUncommitted && blame.commit.previousSha != null) {
 							args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
 						}
@@ -82,13 +82,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = Container.git
+				const log = Container.instance.git
 					.getLogForFile(gitUri.repoPath, gitUri.fsPath)
 					.then(
 						log =>
 							log ??
 							(gitUri.sha
-								? Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
+								? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+										ref: gitUri.sha,
+								  })
 								: undefined),
 					);
 

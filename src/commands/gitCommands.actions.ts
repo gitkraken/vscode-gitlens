@@ -35,7 +35,7 @@ export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<v
 }
 
 async function ensureRepo(repo: string | Repository): Promise<Repository> {
-	return typeof repo === 'string' ? (await Container.git.getRepository(repo))! : repo;
+	return typeof repo === 'string' ? (await Container.instance.git.getRepository(repo))! : repo;
 }
 
 export namespace GitActions {
@@ -152,17 +152,17 @@ export namespace GitActions {
 		) {
 			if (
 				!configuration.get(`views.${branch.remote ? 'remotes' : 'branches'}.reveal` as const) ||
-				(Container.repositoriesView.visible &&
-					!(branch.remote ? Container.remotesView.visible : Container.branchesView.visible))
+				(Container.instance.repositoriesView.visible &&
+					!(branch.remote ? Container.instance.remotesView.visible : Container.instance.branchesView.visible))
 			) {
-				return Container.repositoriesView.revealBranch(branch, options);
+				return Container.instance.repositoriesView.revealBranch(branch, options);
 			}
 
 			let node;
 			if (branch.remote) {
-				node = await Container.remotesView.revealBranch(branch, options);
+				node = await Container.instance.remotesView.revealBranch(branch, options);
 			} else {
-				node = await Container.branchesView.revealBranch(branch, options);
+				node = await Container.instance.branchesView.revealBranch(branch, options);
 			}
 
 			return node;
@@ -177,7 +177,7 @@ export namespace GitActions {
 		) {
 			// Open the working file to ensure undo will work
 			void (await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
-			void (await Container.git.applyChangesToWorkingFile(
+			void (await Container.instance.git.applyChangesToWorkingFile(
 				GitUri.fromFile(file, ref1.repoPath, ref1.ref),
 				ref1.ref,
 				ref2?.ref,
@@ -193,7 +193,7 @@ export namespace GitActions {
 			if (GitLogCommit.is(ref)) {
 				message = ref.message;
 			} else {
-				const commit = await Container.git.getCommit(ref.repoPath, ref.ref);
+				const commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
 				if (commit == null) return;
 
 				message = commit.message;
@@ -399,7 +399,7 @@ export namespace GitActions {
 				file = f;
 			}
 
-			return Container.git.openDiffTool(
+			return Container.instance.git.openDiffTool(
 				commitOrRef.repoPath,
 				GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
 				{
@@ -461,7 +461,7 @@ export namespace GitActions {
 			ref2: string | undefined,
 			tool?: string,
 		): Promise<void> {
-			return Container.git.openDirectoryCompare(repoPath, ref, ref2, tool);
+			return Container.instance.git.openDirectoryCompare(repoPath, ref, ref2, tool);
 		}
 
 		export async function openDirectoryCompareWithPrevious(
@@ -558,7 +558,9 @@ export namespace GitActions {
 
 			const editor = await findOrOpenEditor(uri, opts);
 			if (annotationType != null && editor != null) {
-				void (await Container.fileAnnotations.show(editor, annotationType, { selection: { line: line } }));
+				void (await Container.instance.fileAnnotations.show(editor, annotationType, {
+					selection: { line: line },
+				}));
 			}
 		}
 
@@ -589,7 +591,9 @@ export namespace GitActions {
 
 			const uris: Uri[] = (
 				await Promise.all(
-					files.map(file => Container.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref))),
+					files.map(file =>
+						Container.instance.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref)),
+					),
 				)
 			).filter(<T>(u?: T): u is T => Boolean(u));
 			findOrOpenEditors(uris);
@@ -633,7 +637,7 @@ export namespace GitActions {
 		}
 
 		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {
-			void (await Container.git.checkout(ref.repoPath, ref.ref, {
+			void (await Container.instance.git.checkout(ref.repoPath, ref.ref, {
 				fileName: typeof file === 'string' ? file : file.fileName,
 			}));
 		}
@@ -648,20 +652,20 @@ export namespace GitActions {
 		) {
 			if (
 				!configuration.get('views.commits.reveal') ||
-				(Container.repositoriesView.visible && !Container.commitsView.visible)
+				(Container.instance.repositoriesView.visible && !Container.instance.commitsView.visible)
 			) {
-				return Container.repositoriesView.revealCommit(commit, options);
+				return Container.instance.repositoriesView.revealCommit(commit, options);
 			}
 
 			// TODO@eamodio stop duplicate notifications
 
-			let node = await Container.commitsView.revealCommit(commit, options);
+			let node = await Container.instance.commitsView.revealCommit(commit, options);
 			if (node != null) return node;
 
-			node = await Container.branchesView.revealCommit(commit, options);
+			node = await Container.instance.branchesView.revealCommit(commit, options);
 			if (node != null) return node;
 
-			node = await Container.remotesView.revealCommit(commit, options);
+			node = await Container.instance.remotesView.revealCommit(commit, options);
 			if (node != null) return node;
 
 			return undefined;
@@ -711,12 +715,12 @@ export namespace GitActions {
 		) {
 			if (
 				!configuration.get('views.tags.reveal') ||
-				(Container.repositoriesView.visible && !Container.tagsView.visible)
+				(Container.instance.repositoriesView.visible && !Container.instance.tagsView.visible)
 			) {
-				return Container.repositoriesView.revealTag(tag, options);
+				return Container.instance.repositoriesView.revealTag(tag, options);
 			}
 
-			const node = await Container.tagsView.revealTag(tag, options);
+			const node = await Container.instance.tagsView.revealTag(tag, options);
 			return node;
 		}
 	}
@@ -724,7 +728,7 @@ export namespace GitActions {
 	export namespace Remote {
 		export async function add(repo?: string | Repository) {
 			if (repo == null) {
-				repo = Container.git.getHighlanderRepoPath();
+				repo = Container.instance.git.getHighlanderRepoPath();
 
 				if (repo == null) {
 					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
@@ -750,7 +754,7 @@ export namespace GitActions {
 			if (url == null || url.length === 0) return undefined;
 
 			repo = await ensureRepo(repo);
-			void (await Container.git.addRemote(repo.path, name, url));
+			void (await Container.instance.git.addRemote(repo.path, name, url));
 			void (await repo.fetch({ remote: name }));
 
 			return name;
@@ -758,7 +762,7 @@ export namespace GitActions {
 
 		export async function fetch(repo: string | Repository, remote: string) {
 			if (typeof repo === 'string') {
-				const r = await Container.git.getRepository(repo);
+				const r = await Container.instance.git.getRepository(repo);
 				if (r == null) return;
 
 				repo = r;
@@ -768,7 +772,7 @@ export namespace GitActions {
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			void (await Container.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
+			void (await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
 		}
 
 		export async function reveal(
@@ -781,12 +785,12 @@ export namespace GitActions {
 		) {
 			// if (
 			// 	configuration.get('views.repositories.enabled') &&
-			// 	(Container.repositoriesView.visible || !Container.remotesView.visible)
+			// 	(Container.instance.repositoriesView.visible || !Container.instance.remotesView.visible)
 			// ) {
-			// 	return Container.repositoriesView.revealRemote(remote, options);
+			// 	return Container.instance.repositoriesView.revealRemote(remote, options);
 			// }
 
-			const node = await Container.remotesView.revealRemote(remote, options);
+			const node = await Container.instance.remotesView.revealRemote(remote, options);
 			return node;
 		}
 	}
@@ -836,12 +840,12 @@ export namespace GitActions {
 		) {
 			if (
 				!configuration.get('views.stashes.reveal') ||
-				(Container.repositoriesView.visible && !Container.stashesView.visible)
+				(Container.instance.repositoriesView.visible && !Container.instance.stashesView.visible)
 			) {
-				return Container.repositoriesView.revealStash(stash, options);
+				return Container.instance.repositoriesView.revealStash(stash, options);
 			}
 
-			const node = await Container.stashesView.revealStash(stash, options);
+			const node = await Container.instance.stashesView.revealStash(stash, options);
 			return node;
 		}
 	}

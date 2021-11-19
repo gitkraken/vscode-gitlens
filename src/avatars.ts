@@ -27,7 +27,7 @@ _onDidFetchAvatar.event(
 						),
 				  ]
 				: undefined;
-		void Container.context.globalState.update(GlobalState.Avatars, avatars);
+		void Container.instance.context.globalState.update(GlobalState.Avatars, avatars);
 	}, 1000),
 );
 
@@ -139,7 +139,7 @@ function createOrUpdateAvatar(
 
 function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
 	if (cache == null) {
-		const avatars: [string, Avatar][] | undefined = Container.context.globalState
+		const avatars: [string, Avatar][] | undefined = Container.instance.context.globalState
 			.get<[string, SerializedAvatar][]>(GlobalState.Avatars)
 			?.map<[string, Avatar]>(([key, avatar]) => [
 				key,
@@ -184,13 +184,13 @@ async function getAvatarUriFromRemoteProvider(
 
 	try {
 		let account;
-		if (Container.config.integrations.enabled) {
+		if (Container.instance.config.integrations.enabled) {
 			// if (typeof repoPathOrCommit === 'string') {
-			// 	const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit);
+			// 	const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit);
 			// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 			// } else {
 			if (typeof repoPathOrCommit !== 'string') {
-				const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
+				const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
 				account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
 			}
 		}
@@ -248,7 +248,7 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 	switch (reset) {
 		case 'all':
-			void Container.context.globalState.update(GlobalState.Avatars, undefined);
+			void Container.instance.context.globalState.update(GlobalState.Avatars, undefined);
 			avatarCache?.clear();
 			avatarQueue.clear();
 			break;

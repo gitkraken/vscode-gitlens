@@ -59,7 +59,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
+		const defaultRemote = Container.instance.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
 		return this.id === defaultRemote;
 	}
 
@@ -79,12 +79,15 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.context.workspaceState.update(WorkspaceState.DefaultRemote, state ? this.id : undefined));
+		void (await Container.instance.context.workspaceState.update(
+			WorkspaceState.DefaultRemote,
+			state ? this.id : undefined,
+		));
 
 		// TODO@eamodio this is UGLY
 		if (updateViews) {
-			void (await Container.remotesView.refresh());
-			void (await Container.repositoriesView.refresh());
+			void (await Container.instance.remotesView.refresh());
+			void (await Container.instance.repositoriesView.refresh());
 		}
 	}
 }

@@ -31,7 +31,7 @@ export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
 	private _references: CacheableAutolinkReference[] = [];
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
 		this.onConfigurationChanged();
@@ -43,7 +43,7 @@ export class Autolinks implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
-			this._references = Container.config.autolinks ?? [];
+			this._references = this.container.config.autolinks ?? [];
 		}
 	}
 

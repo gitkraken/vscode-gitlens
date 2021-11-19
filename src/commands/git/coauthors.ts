@@ -93,7 +93,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			activeRepo: undefined,
 			title: this.title,
 		};
@@ -106,7 +106,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			);
 
 			// Ensure that the active repo is known to the built-in git
-			context.activeRepo = await Container.git.getActiveRepository();
+			context.activeRepo = await Container.instance.git.getActiveRepository();
 			if (
 				context.activeRepo != null &&
 				!gitApi.repositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)

@@ -254,8 +254,8 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, SearchAndCompareViewConfig> {
 	protected readonly configKey = 'searchAndCompare';
 
-	constructor() {
-		super('gitlens.views.searchAndCompare', 'Search & Compare');
+	constructor(container: Container) {
+		super('gitlens.views.searchAndCompare', 'Search & Compare', container);
 
 		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, this.keepResults);
 	}
@@ -265,7 +265,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
 			commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
@@ -353,7 +353,10 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	get keepResults(): boolean {
-		return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsSearchAndCompareKeepResults, true);
+		return this.container.context.workspaceState.get<boolean>(
+			WorkspaceState.ViewsSearchAndCompareKeepResults,
+			true,
+		);
 	}
 
 	clear() {
@@ -431,12 +434,12 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	getPinned() {
-		let savedPins = Container.context.workspaceState.get<PinnedItems>(
+		let savedPins = this.container.context.workspaceState.get<PinnedItems>(
 			WorkspaceState.ViewsSearchAndComparePinnedItems,
 		);
 		if (savedPins == null) {
 			// Migrate any deprecated pinned items
-			const deprecatedPins = Container.context.workspaceState.get<DeprecatedPinnedComparisons>(
+			const deprecatedPins = this.container.context.workspaceState.get<DeprecatedPinnedComparisons>(
 				WorkspaceState.Deprecated_PinnedComparisons,
 			);
 			if (deprecatedPins == null) return [];
@@ -452,8 +455,11 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 				};
 			}
 
-			void Container.context.workspaceState.update(WorkspaceState.ViewsSearchAndComparePinnedItems, savedPins);
-			void Container.context.workspaceState.update(WorkspaceState.Deprecated_PinnedComparisons, undefined);
+			void this.container.context.workspaceState.update(
+				WorkspaceState.ViewsSearchAndComparePinnedItems,
+				savedPins,
+			);
+			void this.container.context.workspaceState.update(WorkspaceState.Deprecated_PinnedComparisons, undefined);
 		}
 
 		const root = this.ensureRoot();
@@ -474,7 +480,9 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	async updatePinned(id: string, pin?: PinnedItem) {
-		let pinned = Container.context.workspaceState.get<PinnedItems>(WorkspaceState.ViewsSearchAndComparePinnedItems);
+		let pinned = this.container.context.workspaceState.get<PinnedItems>(
+			WorkspaceState.ViewsSearchAndComparePinnedItems,
+		);
 		if (pinned == null) {
 			pinned = Object.create(null) as PinnedItems;
 		}
@@ -486,7 +494,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			pinned = rest;
 		}
 
-		await Container.context.workspaceState.update(WorkspaceState.ViewsSearchAndComparePinnedItems, pinned);
+		await this.container.context.workspaceState.update(WorkspaceState.ViewsSearchAndComparePinnedItems, pinned);
 
 		this.triggerNodeChange(this.ensureRoot());
 	}
@@ -514,7 +522,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	}
 
 	private setKeepResults(enabled: boolean) {
-		void Container.context.workspaceState.update(WorkspaceState.ViewsSearchAndCompareKeepResults, enabled);
+		void this.container.context.workspaceState.update(WorkspaceState.ViewsSearchAndCompareKeepResults, enabled);
 		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, enabled);
 	}
 

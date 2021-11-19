@@ -9,13 +9,13 @@ export interface ModesQuickPickItem extends QuickPickItem {
 
 export namespace ModePicker {
 	export async function show(): Promise<ModesQuickPickItem | undefined> {
-		if (Container.config.modes == null) return undefined;
+		if (Container.instance.config.modes == null) return undefined;
 
-		const modes = Container.config.modes;
+		const modes = Container.instance.config.modes;
 		const modeKeys = Object.keys(modes);
 		if (modeKeys.length === 0) return undefined;
 
-		const mode = Container.config.mode.active;
+		const mode = Container.instance.config.mode.active;
 
 		const items = modeKeys.map(key => {
 			const modeCfg = modes[key];

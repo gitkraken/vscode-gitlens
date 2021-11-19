@@ -67,19 +67,19 @@ export class LineHistoryNode
 
 		let selection = this.selection;
 
-		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await Container.instance.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
 			this.uri.sha == null
 				? this.editorContents
-					? await Container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
-					: await Container.git.getBlameForRange(this.uri, selection)
+					? await Container.instance.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: await Container.instance.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.branch != null
-				? Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				? Container.instance.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+				? Container.instance.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
 						ref: range,
 				  })
@@ -104,7 +104,7 @@ export class LineHistoryNode
 						selection.active.character,
 					);
 
-					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+					const status = await Container.instance.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
 
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
@@ -263,7 +263,7 @@ export class LineHistoryNode
 
 	@debug()
 	protected async subscribe() {
-		const repo = await Container.git.getRepository(this.uri);
+		const repo = await Container.instance.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -318,7 +318,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+			this._log = await Container.instance.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,

@@ -83,9 +83,13 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					if (gitUri.repoPath) {
 						if (gitUri.sha == null) {
-							const commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
-								firstIfNotFound: true,
-							});
+							const commit = await Container.instance.git.getCommitForFile(
+								gitUri.repoPath,
+								gitUri.fsPath,
+								{
+									firstIfNotFound: true,
+								},
+							);
 
 							if (commit != null) {
 								args.sha = commit.sha;
@@ -115,7 +119,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		args = { range: true, ...args };
 
 		try {
-			let remotes = await Container.git.getRemotes(gitUri.repoPath);
+			let remotes = await Container.instance.git.getRemotes(gitUri.repoPath);
 			const range =
 				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
 					? new Range(
@@ -143,7 +147,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
 				let branch;
 				if (!args.pickBranchOrTag) {
-					branch = await Container.git.getBranch(gitUri.repoPath);
+					branch = await Container.instance.git.getBranch(gitUri.repoPath);
 				}
 
 				if (branch?.upstream == null) {

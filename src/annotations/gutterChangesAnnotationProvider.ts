@@ -32,7 +32,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	private state: { commit: GitLogCommit | undefined; diffs: GitDiff[] } | undefined;
 	private hoverProviderDisposable: Disposable | undefined;
 
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+	constructor(
+		editor: TextEditor,
+		trackedDocument: TrackedDocument<GitDocumentState>,
+		private readonly container: Container,
+	) {
 		super(FileAnnotationType.Changes, editor, trackedDocument);
 	}
 
@@ -74,13 +78,13 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 		let localChanges = ref1 == null && ref2 == null;
 		if (localChanges) {
-			let ref = await Container.git.getOldestUnpushedRefForFile(
+			let ref = await this.container.git.getOldestUnpushedRefForFile(
 				this.trackedDocument.uri.repoPath!,
 				this.trackedDocument.uri.fsPath,
 			);
 			if (ref != null) {
 				ref = `${ref}^`;
-				commit = await Container.git.getCommitForFile(
+				commit = await this.container.git.getCommitForFile(
 					this.trackedDocument.uri.repoPath,
 					this.trackedDocument.uri.fsPath,
 					{ ref: ref },
@@ -96,15 +100,15 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					localChanges = false;
 				}
 			} else {
-				const status = await Container.git.getStatusForFile(
+				const status = await this.container.git.getStatusForFile(
 					this.trackedDocument.uri.repoPath!,
 					this.trackedDocument.uri.fsPath,
 				);
 				const commits = status?.toPsuedoCommits(
-					await Container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
+					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
 				);
 				if (commits?.length) {
-					commit = await Container.git.getCommitForFile(
+					commit = await this.container.git.getCommitForFile(
 						this.trackedDocument.uri.repoPath,
 						this.trackedDocument.uri.fsPath,
 					);
@@ -118,7 +122,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		if (!localChanges) {
-			commit = await Container.git.getCommitForFile(
+			commit = await this.container.git.getCommitForFile(
 				this.trackedDocument.uri.repoPath,
 				this.trackedDocument.uri.fsPath,
 				{
@@ -139,14 +143,14 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 			await Promise.all(
 				ref2 == null && this.editor.document.isDirty
 					? [
-							Container.git.getDiffForFileContents(
+							this.container.git.getDiffForFileContents(
 								this.trackedDocument.uri,
 								ref1!,
 								this.editor.document.getText(),
 							),
-							Container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2),
+							this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2),
 					  ]
-					: [Container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
+					: [this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
 			)
 		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
@@ -162,11 +166,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		const blame =
 			context?.sha != null && context?.only
 				? this.editor?.document.isDirty
-					? await Container.git.getBlameForFileContents(
+					? await this.container.git.getBlameForFileContents(
 							this.trackedDocument.uri,
 							this.editor.document.getText(),
 					  )
-					: await Container.git.getBlameForFile(this.trackedDocument.uri)
+					: await this.container.git.getBlameForFile(this.trackedDocument.uri)
 				: undefined;
 
 		let selection: Selection | undefined;
@@ -279,7 +283,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	}
 
 	registerHoverProvider() {
-		if (!Container.config.hovers.enabled || !Container.config.hovers.annotations.enabled) {
+		if (!this.container.config.hovers.enabled || !this.container.config.hovers.annotations.enabled) {
 			return;
 		}
 
@@ -294,7 +298,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 	provideHover(document: TextDocument, position: Position, _token: CancellationToken): Hover | undefined {
 		if (this.state == null) return undefined;
-		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
 		const { commit, diffs } = this.state;
 

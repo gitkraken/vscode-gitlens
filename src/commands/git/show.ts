@@ -76,7 +76,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: [...(await Container.instance.git.getOrderedRepositories())],
 			title: this.title,
 		};
 
@@ -110,7 +110,10 @@ export class ShowGitCommand extends QuickCommand<State> {
 				state.reference.isFile
 			) {
 				if (state.reference != null && (!GitLogCommit.is(state.reference) || state.reference.isFile)) {
-					state.reference = await Container.git.getCommit(state.reference.repoPath, state.reference.ref);
+					state.reference = await Container.instance.git.getCommit(
+						state.reference.repoPath,
+						state.reference.ref,
+					);
 				}
 
 				if (state.counter < 2 || state.reference == null) {

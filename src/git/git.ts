@@ -75,9 +75,9 @@ export interface GitCommandOptions extends RunOptions<BufferEncoding | 'buffer' 
 const pendingCommands = new Map<string, Promise<string | Buffer>>();
 
 export async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
-	if (Container.vsls.isMaybeGuest) {
+	if (Container.instance.vsls.isMaybeGuest) {
 		if (options.local !== true) {
-			const guest = await Container.vsls.guest();
+			const guest = await Container.instance.vsls.guest();
 			if (guest !== undefined) {
 				return guest.git<TOut>(options, ...args);
 			}
@@ -1396,7 +1396,11 @@ export namespace Git {
 		return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
 	}
 
-	export function stash__apply(repoPath: string, stashName: string, deleteAfter: boolean) {
+	export function stash__apply(
+		repoPath: string,
+		stashName: string,
+		deleteAfter: boolean,
+	): Promise<string | undefined> {
 		if (!stashName) return Promise.resolve(undefined);
 		return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
