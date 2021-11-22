@@ -1,5 +1,5 @@
 'use strict';
-import dayjs from 'dayjs';
+import * as dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -12,5 +12,5 @@ export interface DateFormatter {
 }
 
 export function getDateFormatter(date: Date): DateFormatter {
-	return dayjs(date);
+	return dayjs.default(date);
 }

@@ -1,6 +1,7 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
+/* eslint-disable import/extensions */
 /* eslint-disable import/no-dynamic-require */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -19,6 +20,7 @@ const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
+const { WebpackError } = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 class InlineChunkHtmlPlugin {
@@ -114,7 +116,8 @@ function getExtensionConfig(mode, env) {
 				onDetected: function ({ module: _webpackModuleRecord, paths, compilation }) {
 					if (paths.some(p => p.includes('container.ts'))) return;
 
-					compilation.warnings.push(new Error(paths.join(' -> ')));
+					// @ts-ignore
+					compilation.warnings.push(new WebpackError(paths.join(' -> ')));
 				},
 			}),
 		);
@@ -257,6 +260,7 @@ function getWebviewsConfig(mode, env) {
 		},
 	);
 	// Override the nonce creation so we can dynamically generate them at runtime
+	// @ts-ignore
 	cspHtmlPlugin.createNonce = () => '#{cspNonce}';
 
 	/**

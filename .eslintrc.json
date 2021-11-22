@@ -7,8 +7,7 @@
 		"eslint:recommended",
 		"plugin:@typescript-eslint/recommended",
 		"plugin:@typescript-eslint/recommended-requiring-type-checking",
-		"plugin:import/errors",
-		"plugin:import/warnings",
+		"plugin:import/recommended",
 		"plugin:import/typescript",
 		"prettier"
 	],
@@ -21,10 +20,11 @@
 		},
 		"project": "tsconfig.json"
 	},
-	"plugins": ["import", "@typescript-eslint"],
+	"plugins": ["anti-trojan-source", "import", "@typescript-eslint"],
 	"reportUnusedDisableDirectives": true,
 	"root": true,
 	"rules": {
+		"anti-trojan-source/no-bidi": "error",
 		"arrow-parens": ["off"],
 		"brace-style": ["off", "stroustrup"],
 		"consistent-return": "error",
@@ -257,5 +257,31 @@
 			}
 		],
 		"@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
+	},
+	"settings": {
+		"import/parsers": {
+			"@typescript-eslint/parser": [".ts", ".tsx"]
+		},
+		"import/resolver": {
+			"typescript": {
+				"alwaysTryTypes": true // always try to resolve types under `<root>@types` directory even it doesn't contain any source code, like `@types/unist`
+
+				// // Choose from one of the "project" configs below or omit to use <root>/tsconfig.json by default
+
+				// // use <root>/path/to/folder/tsconfig.json
+				// "project": "path/to/folder",
+
+				// // Multiple tsconfigs (Useful for monorepos)
+
+				// // use a glob pattern
+				// "project": "packages/*/tsconfig.json",
+
+				// // use an array
+				// "project": ["packages/module-a/tsconfig.json", "packages/module-b/tsconfig.json"],
+
+				// // use an array of glob patterns
+				// "project": ["packages/*/tsconfig.json", "other-packages/*/tsconfig.json"]
+			}
+		}
 	}
 }
