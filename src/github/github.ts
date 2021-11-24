@@ -91,8 +91,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -170,8 +170,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -232,8 +232,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -310,8 +310,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -421,8 +421,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -525,8 +525,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
