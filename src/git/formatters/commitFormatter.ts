@@ -289,7 +289,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._options.tokenOptions.commands,
 				)}\``;
 
-				commands += `&nbsp; **[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs({
+				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
 						sha: diffUris.previous.sha ?? emptyStr,
 						uri: diffUris.previous.documentUri(),
@@ -300,7 +300,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					},
 					repoPath: this._item.repoPath,
 					line: this._options.editor?.line,
-				})} "Open Changes")** `;
+				})} "Open Changes with Previous Revision")`;
 			} else {
 				commands = `\`${this._padOrTruncate(
 					GitRevision.shorten(
@@ -315,14 +315,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
-		commands = `---\n\n[$(git-commit) ${this.id}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 			this._item.sha,
 		)} "Show Commit")`;
 
-		commands += ` &nbsp;&nbsp;[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
+		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
 			this._options.editor?.line,
-		)} "Open Changes")`;
+		)} "Open Changes with Previous Revision")`;
 
 		if (this._item.previousSha != null) {
 			const uri = GitUri.toRevisionUri(
