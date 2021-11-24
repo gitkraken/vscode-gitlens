@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as paths from 'path';
-import { TextDecoder } from 'util';
 import * as iconv from 'iconv-lite';
 import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';

@@ -20,7 +20,8 @@
 	"engines": {
 		"vscode": "^1.62.0"
 	},
-	"main": "./dist/gitlens",
+	"main": "./dist/gitlens.js",
+	"browser": "./dist/browser/gitlens.js",
 	"icon": "images/gitlens-icon.png",
 	"preview": false,
 	"badges": [
@@ -10015,9 +10016,12 @@
 		"@octokit/graphql": "4.8.0",
 		"@vscode/codicons": "0.0.26",
 		"chroma-js": "2.1.2",
+		"crypto-browserify": "3.12.0",
 		"dayjs": "1.10.7",
 		"iconv-lite": "0.6.3",
 		"lodash-es": "4.17.21",
+		"node-fetch": "3.1.0",
+		"path-browserify": "1.0.1",
 		"sortablejs": "1.14.0"
 	},
 	"devDependencies": {
@@ -10048,6 +10052,7 @@
 		"html-webpack-plugin": "5.5.0",
 		"image-minimizer-webpack-plugin": "2.2.0",
 		"imagemin-webp": "6.0.0",
+		"json5": "2.2.0",
 		"mini-css-extract-plugin": "2.4.5",
 		"prettier": "2.5.0",
 		"sass": "1.44.0",

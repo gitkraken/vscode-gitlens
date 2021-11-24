@@ -4,7 +4,7 @@
 	},
 	"eslint.packageManager": "yarn",
 	"files.associations": {
-		".eslintrc.json": "jsonc"
+		".eslintrc*.json": "jsonc"
 	},
 	"files.trimTrailingWhitespace": true,
 	"githubIssues.queries": [

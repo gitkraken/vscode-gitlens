@@ -1,0 +1,12 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "es2020"],
+		"paths": {
+			"@env/*": ["src/env/browser/*"]
+		},
+		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
+	},
+	"include": ["src/**/*"],
+	"exclude": ["src/webviews/apps/**/*", "src/env/node/**/*"]
+}

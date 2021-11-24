@@ -1,13 +1,12 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-/* eslint-disable import/extensions */
-/* eslint-disable import/no-dynamic-require */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use strict';
+const { execFileSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
@@ -18,57 +17,11 @@ const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
+const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const { WebpackError } = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-
-class InlineChunkHtmlPlugin {
-	constructor(htmlPlugin, patterns) {
-		this.htmlPlugin = htmlPlugin;
-		this.patterns = patterns;
-	}
-
-	getInlinedTag(publicPath, assets, tag) {
-		if (
-			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
-			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
-		) {
-			return tag;
-		}
-
-		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
-		if (publicPath) {
-			chunkName = chunkName.replace(publicPath, '');
-		}
-		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
-			return tag;
-		}
-
-		const asset = assets[chunkName];
-		if (asset == null) {
-			return tag;
-		}
-
-		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
-	}
-
-	apply(compiler) {
-		let publicPath = compiler.options.output.publicPath || '';
-		if (publicPath && !publicPath.endsWith('/')) {
-			publicPath += '/';
-		}
-
-		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
-			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
-
-			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
-				assets.headTags = assets.headTags.map(getInlinedTagFn);
-				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn);
-			});
-		});
-	}
-}
 
 module.exports =
 	/**
@@ -86,15 +39,20 @@ module.exports =
 			...env,
 		};
 
-		return [getExtensionConfig(mode, env), getWebviewsConfig(mode, env)];
+		return [
+			getExtensionConfig('node', mode, env),
+			getExtensionConfig('webworker', mode, env),
+			getWebviewsConfig(mode, env),
+		];
 	};
 
 /**
+ * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; }} env
  * @returns { WebpackConfig }
  */
-function getExtensionConfig(mode, env) {
+function getExtensionConfig(target, mode, env) {
 	/**
 	 * @type WebpackConfig['plugins'] | any
 	 */
@@ -102,8 +60,25 @@ function getExtensionConfig(mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: { enabled: true, files: 'src/**/*.ts', options: { cache: true } },
+			eslint: {
+				enabled: true,
+				files: 'src/**/*.ts',
+				options: {
+					// cache: true,
+					cacheLocation: path.join(
+						__dirname,
+						target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
+					),
+					overrideConfigFile: path.join(
+						__dirname,
+						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
+					),
+				},
+			},
 			formatter: 'basic',
+			typescript: {
+				configFile: path.join(__dirname, target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json'),
+			},
 		}),
 	];
 
@@ -128,16 +103,15 @@ function getExtensionConfig(mode, env) {
 	}
 
 	return {
-		name: 'extension',
-		entry: './src/extension.ts',
-		mode: mode,
-		target: 'node',
-		node: {
-			__dirname: false,
+		name: `extension:${target}`,
+		entry: {
+			extension: './src/extension.ts',
 		},
+		mode: mode,
+		target: target,
 		devtool: 'source-map',
 		output: {
-			path: path.join(__dirname, 'dist'),
+			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 			libraryTarget: 'commonjs2',
 			filename: 'gitlens.js',
 			chunkFilename: 'feature-[name].js',
@@ -187,13 +161,22 @@ function getExtensionConfig(mode, env) {
 								options: {
 									implementation: esbuild,
 									loader: 'ts',
-									target: 'es2019',
-									tsconfigRaw: require('./tsconfig.json'),
+									target: 'es2020',
+									tsconfigRaw: resolveTSConfig(
+										path.join(
+											__dirname,
+											target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+										),
+									),
 								},
 						  }
 						: {
 								loader: 'ts-loader',
 								options: {
+									configFile: path.join(
+										__dirname,
+										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+									),
 									experimentalWatchApi: true,
 									transpileOnly: true,
 								},
@@ -202,17 +185,35 @@ function getExtensionConfig(mode, env) {
 			],
 		},
 		resolve: {
-			alias: {
-				'universal-user-agent': path.join(
-					__dirname,
-					'node_modules',
-					'universal-user-agent',
-					'dist-node',
-					'index.js',
-				),
-			},
+			alias:
+				target === 'webworker'
+					? {
+							'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+					  }
+					: {
+							'@env': path.resolve(__dirname, 'src', 'env', target),
+							// 'universal-user-agent': path.join(
+							// 	__dirname,
+							// 	'node_modules',
+							// 	'universal-user-agent',
+							// 	'dist-node',
+							// 	'index.js',
+							// ),
+					  },
+			fallback:
+				target === 'webworker'
+					? {
+							child_process: false,
+							crypto: require.resolve('crypto-browserify'),
+							fs: false,
+							os: false,
+							path: require.resolve('path-browserify'),
+							stream: false,
+							url: false,
+					  }
+					: undefined,
+			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-			symlinks: false,
 		},
 		plugins: plugins,
 		stats: {
@@ -423,8 +424,8 @@ function getWebviewsConfig(mode, env) {
 								options: {
 									implementation: esbuild,
 									loader: 'ts',
-									target: 'es2019',
-									tsconfigRaw: require(path.join(basePath, 'tsconfig.json')),
+									target: 'es2020',
+									tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
 								},
 						  }
 						: {
@@ -463,7 +464,6 @@ function getWebviewsConfig(mode, env) {
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
-			symlinks: false,
 		},
 		plugins: plugins,
 		stats: {
@@ -479,4 +479,63 @@ function getWebviewsConfig(mode, env) {
 			level: 'log', // enables logging required for problem matchers
 		},
 	};
+}
+
+class InlineChunkHtmlPlugin {
+	constructor(htmlPlugin, patterns) {
+		this.htmlPlugin = htmlPlugin;
+		this.patterns = patterns;
+	}
+
+	getInlinedTag(publicPath, assets, tag) {
+		if (
+			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
+			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
+		) {
+			return tag;
+		}
+
+		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
+		if (publicPath) {
+			chunkName = chunkName.replace(publicPath, '');
+		}
+		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
+			return tag;
+		}
+
+		const asset = assets[chunkName];
+		if (asset == null) {
+			return tag;
+		}
+
+		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
+	}
+
+	apply(compiler) {
+		let publicPath = compiler.options.output.publicPath || '';
+		if (publicPath && !publicPath.endsWith('/')) {
+			publicPath += '/';
+		}
+
+		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
+			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
+
+			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
+				assets.headTags = assets.headTags.map(getInlinedTagFn);
+				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn);
+			});
+		});
+	}
+}
+
+function resolveTSConfig(configFile) {
+	const data = execFileSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
+		cwd: __dirname,
+		encoding: 'utf8',
+		shell: true,
+	});
+
+	const index = data.indexOf('\n');
+	const json = JSON5.parse(data.substr(index + 1));
+	return json;
 }

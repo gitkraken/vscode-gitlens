@@ -128,7 +128,7 @@ export class DocumentTracker<T> implements Disposable {
 
 		const doc = this._documentMap.get(editor.document);
 		if (doc != null) {
-			(await doc).activate();
+			void (await doc).activate();
 
 			return;
 		}

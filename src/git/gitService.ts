@@ -3800,7 +3800,7 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string) {
+	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined> {
 		return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
 	}
 

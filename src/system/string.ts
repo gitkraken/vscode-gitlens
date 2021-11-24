@@ -3,6 +3,8 @@ import { BinaryToTextEncoding, createHash } from 'crypto';
 import ansiRegex from 'ansi-regex';
 import { isWindows } from '../git/shell';
 
+export { fromBase64, base64 } from '@env/base64';
+
 const emptyStr = '';
 
 export const enum CharCode {
@@ -18,11 +20,6 @@ export const enum CharCode {
 	Z = 90,
 	a = 97,
 	z = 122,
-}
-
-export function base64(s: string): string {
-	const buffer = Buffer.from(s);
-	return buffer.toString('base64');
 }
 
 export function compareSubstring(

@@ -1,6 +1,5 @@
 'use strict';
 import { randomBytes } from 'crypto';
-import { TextDecoder } from 'util';
 import {
 	commands,
 	ConfigurationChangeEvent,
