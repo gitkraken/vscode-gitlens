@@ -256,7 +256,12 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			tooltip += `\n\nLast fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 		}
 		item.iconPath = icon;
-		item.tooltip = new MarkdownString(tooltip, true);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}

@@ -129,6 +129,7 @@ export namespace Hovers {
 		message = `${diff}\n---\n\nChanges  &nbsp;${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
 
 		const markdown = new MarkdownString(message, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -174,6 +175,7 @@ export namespace Hovers {
 		}&nbsp; ${current}${message == null ? '' : ` &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`}`;
 
 		const markdown = new MarkdownString(message, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -238,6 +240,7 @@ export namespace Hovers {
 		});
 
 		const markdown = new MarkdownString(details, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}

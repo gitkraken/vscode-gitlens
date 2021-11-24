@@ -167,6 +167,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		);
 
 		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 
 		return markdown;

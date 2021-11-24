@@ -106,7 +106,8 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Rebasing ${
 				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
 			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${
@@ -121,6 +122,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}

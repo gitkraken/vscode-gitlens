@@ -36,7 +36,8 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			? (await commit?.getAvatarUri({ defaultStyle: Container.instance.config.defaultGravatarsStyle })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`Current changes to $(file)${GlyphChars.Space}${this.file.fileName} on ${GitReference.toString(
 				this.status.current,
 			)}${
@@ -56,6 +57,10 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 		item.command = this.getCommand();
 
 		return item;

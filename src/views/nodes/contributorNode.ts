@@ -120,7 +120,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 				  })}`
 				: '';
 
-		item.tooltip = new MarkdownString(
+		const markdown = new MarkdownString(
 			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;__[${this.contributor.name}](mailto:${
 				this.contributor.email
 			} "Email ${this.contributor.name} (${
@@ -131,7 +131,10 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 				{ format: numberFormatter.format },
 			)}${stats}`,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
 
+		item.tooltip = markdown;
 		item.iconPath = avatarUri;
 
 		return item;

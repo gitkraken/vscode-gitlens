@@ -389,6 +389,9 @@ export class BranchNode
 		}
 
 		tooltip = new MarkdownString(tooltip, true);
+		tooltip.supportHtml = true;
+		tooltip.isTrusted = true;
+
 		if (this.branch.starred) {
 			tooltip.appendMarkdown('\\\n$(star-full) Favorited');
 		}

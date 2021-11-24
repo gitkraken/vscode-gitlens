@@ -270,7 +270,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			dark: Container.instance.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
 			light: Container.instance.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
-		item.tooltip = new MarkdownString(tooltip, true);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}

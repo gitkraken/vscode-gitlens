@@ -80,7 +80,8 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Merging ${
 				this.mergeStatus.incoming != null ? GitReference.toString(this.mergeStatus.incoming) : ''
 			}into ${GitReference.toString(this.mergeStatus.current)}`}${
@@ -90,6 +91,10 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}
