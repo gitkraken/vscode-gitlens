@@ -131,7 +131,8 @@ export class RemoteProviderFactory {
 	private static getCustomProvider(cfg: RemotesConfig) {
 		switch (cfg.type) {
 			case CustomRemoteType.AzureDevOps:
-				return (domain: string, path: string) => new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
+				return (domain: string, path: string) =>
+					new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.Bitbucket:
 				return (domain: string, path: string) =>
 					new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);

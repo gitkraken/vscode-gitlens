@@ -82,17 +82,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = Container.instance.git
-					.getLogForFile(gitUri.repoPath, gitUri.fsPath)
-					.then(
-						log =>
-							log ??
-							(gitUri.sha
-								? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-										ref: gitUri.sha,
-								  })
-								: undefined),
-					);
+				const log = Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
+					log =>
+						log ??
+						(gitUri.sha
+							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+									ref: gitUri.sha,
+							  })
+							: undefined),
+				);
 
 				const title = `Open ${
 					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'

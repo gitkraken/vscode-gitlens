@@ -18,7 +18,7 @@ export interface InputBox {
 export const enum RefType {
 	Head,
 	RemoteHead,
-	Tag
+	Tag,
 }
 
 export interface Ref {
@@ -81,11 +81,10 @@ export const enum Status {
 	DELETED_BY_THEM,
 	BOTH_ADDED,
 	BOTH_DELETED,
-	BOTH_MODIFIED
+	BOTH_MODIFIED,
 }
 
 export interface Change {
-
 	/**
 	 * Returns either `originalUri` or `renameUri`, depending
 	 * on whether this change is a rename change. When
@@ -141,19 +140,18 @@ export interface BranchQuery {
 }
 
 export interface Repository {
-
 	readonly rootUri: Uri;
 	readonly inputBox: InputBox;
 	readonly state: RepositoryState;
 	readonly ui: RepositoryUIState;
 
-	getConfigs(): Promise<{ key: string; value: string; }[]>;
+	getConfigs(): Promise<{ key: string; value: string }[]>;
 	getConfig(key: string): Promise<string>;
 	setConfig(key: string, value: string): Promise<string>;
 	getGlobalConfig(key: string): Promise<string>;
 
-	getObjectDetails(treeish: string, path: string): Promise<{ mode: string, object: string, size: number }>;
-	detectObjectType(object: string): Promise<{ mimetype: string, encoding?: string }>;
+	getObjectDetails(treeish: string, path: string): Promise<{ mode: string; object: string; size: number }>;
+	detectObjectType(object: string): Promise<{ mimetype: string; encoding?: string }>;
 	buffer(ref: string, path: string): Promise<Buffer>;
 	show(ref: string, path: string): Promise<string>;
 	getCommit(ref: string): Promise<Commit>;
@@ -225,7 +223,12 @@ export interface CredentialsProvider {
 }
 
 export interface PushErrorHandler {
-	handlePushError(repository: Repository, remote: Remote, refspec: string, error: Error & { gitErrorCode: GitErrorCodes }): Promise<boolean>;
+	handlePushError(
+		repository: Repository,
+		remote: Remote,
+		refspec: string,
+		error: Error & { gitErrorCode: GitErrorCodes },
+	): Promise<boolean>;
 }
 
 export type APIState = 'uninitialized' | 'initialized';
@@ -241,7 +244,7 @@ export interface API {
 	toGitUri(uri: Uri, ref: string): Uri;
 	getRepository(uri: Uri): Repository | null;
 	init(root: Uri): Promise<Repository | null>;
-	openRepository?(root: Uri): Promise<Repository | null>
+	openRepository?(root: Uri): Promise<Repository | null>;
 
 	registerRemoteSourceProvider(provider: RemoteSourceProvider): Disposable;
 	registerCredentialsProvider(provider: CredentialsProvider): Disposable;
@@ -249,7 +252,6 @@ export interface API {
 }
 
 export interface GitExtension {
-
 	readonly enabled: boolean;
 	readonly onDidChangeEnablement: Event<boolean>;
 

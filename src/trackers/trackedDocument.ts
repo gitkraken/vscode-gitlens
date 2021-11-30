@@ -11,7 +11,6 @@ import {
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Functions } from '../system';
 
 export interface DocumentBlameStateChangeEvent<T> {
 	readonly editor: TextEditor;
