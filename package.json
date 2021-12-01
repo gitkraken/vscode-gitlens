@@ -164,6 +164,8 @@
 		"onCommand:gitlens.openBlamePriorToChange",
 		"onCommand:gitlens.openFileRevision",
 		"onCommand:gitlens.openFileRevisionFrom",
+		"onCommand:gitlens.openIssueOnRemote",
+		"onCommand:gitlens.copyRemoteIssueUrl",
 		"onCommand:gitlens.openPullRequestOnRemote",
 		"onCommand:gitlens.copyRemotePullRequestUrl",
 		"onCommand:gitlens.openAssociatedPullRequestOnRemote",
@@ -3397,6 +3399,24 @@
 					"dark": "#c74e39",
 					"highContrast": "#c74e39"
 				}
+			},
+			{
+				"id": "gitlens.autolinkedIssueOpenIconColor",
+				"defaults": {
+					"dark": "#22863a",
+					"light": "#22863a",
+					"highContrast": "editor.foreground"
+				},
+				"description": "Specifies the icon color indicating that an issue is open"
+			},
+			{
+				"id": "gitlens.autolinkedIssueClosedIconColor",
+				"defaults": {
+					"dark": "#cb2431",
+					"light": "#cb2431",
+					"highContrast": "editor.foreground"
+				},
+				"description": "Specifies the icon color indicating that an issue is closed"
 			}
 		],
 		"commands": [
@@ -4115,6 +4135,18 @@
 					"light": "images/light/icon-open-revision.svg"
 				},
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.openIssueOnRemote",
+				"title": "Open Issue on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyRemoteIssueUrl",
+				"title": "Copy Issue Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.openPullRequestOnRemote",
@@ -5947,6 +5979,14 @@
 				},
 				{
 					"command": "gitlens.copyRemoteComparisonUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openIssueOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyRemoteIssueUrl",
 					"when": "false"
 				},
 				{
@@ -8470,6 +8510,18 @@
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
+					"command": "gitlens.openIssueOnRemote",
+					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteIssueUrl"
+				},
+				{
+					"command": "gitlens.openIssueOnRemote",
+					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
+					"group": "1_gitlens_actions@99",
+					"alt": "gitlens.copyRemoteIssueUrl"
+				},
+				{
 					"command": "gitlens.views.openPullRequest",
 					"when": "gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "inline@1"
@@ -9070,7 +9122,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag)\\b)/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{

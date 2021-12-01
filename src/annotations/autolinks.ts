@@ -191,9 +191,9 @@ export class Autolinks implements Disposable {
 										index = footnotes.size + 1;
 										footnotes.set(
 											index,
-											`[**${
-												issue.type === 'PullRequest' ? '$(git-pull-request)' : '$(info)'
-											} ${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+											`${IssueOrPullRequest.getMarkdownIcon(
+												issue,
+											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
 												5,
 											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
 												issue.closedDate ?? issue.date,

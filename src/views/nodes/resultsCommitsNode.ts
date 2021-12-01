@@ -4,6 +4,7 @@ import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -70,6 +71,11 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [];
+
+		const remote = await this.view.container.git.getRichRemoteProvider(this.repoPath);
+		if (remote != null) {
+			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, remote, log));
+		}
 
 		const { files } = this._results;
 		if (files != null) {

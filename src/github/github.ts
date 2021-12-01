@@ -5,6 +5,7 @@ import {
 	ClientError,
 	DefaultBranch,
 	IssueOrPullRequest,
+	IssueOrPullRequestType,
 	PullRequest,
 	PullRequestState,
 	RichRemoteProvider,
@@ -244,28 +245,30 @@ export class GitHubApi {
 
 		try {
 			const query = `query getIssueOrPullRequest(
-	$owner: String!
-	$repo: String!
-	$number: Int!
-) {
-	repository(name: $repo, owner: $owner) {
-		issueOrPullRequest(number: $number) {
-			__typename
-			... on Issue {
-				createdAt
-				closed
-				closedAt
-				title
-			}
-			... on PullRequest {
-				createdAt
-				closed
-				closedAt
-				title
+		$owner: String!
+		$repo: String!
+		$number: Int!
+	) {
+		repository(name: $repo, owner: $owner) {
+			issueOrPullRequest(number: $number) {
+				__typename
+				... on Issue {
+					createdAt
+					closed
+					closedAt
+					title
+					url
+				}
+				... on PullRequest {
+					createdAt
+					closed
+					closedAt
+					title
+					url
+				}
 			}
 		}
-	}
-}`;
+	}`;
 
 			const rsp = await graphql<QueryResult>(query, {
 				...options,
@@ -281,11 +284,12 @@ export class GitHubApi {
 			return {
 				provider: provider,
 				type: issue.type,
-				id: number,
+				id: String(number),
 				date: new Date(issue.createdAt),
 				title: issue.title,
 				closed: issue.closed,
 				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
+				url: issue.url,
 			};
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -505,12 +509,13 @@ export class GitHubApi {
 }
 
 interface GitHubIssueOrPullRequest {
-	type: 'Issue' | 'PullRequest';
+	type: IssueOrPullRequestType;
 	number: number;
 	createdAt: string;
 	closed: boolean;
 	closedAt: string | null;
 	title: string;
+	url: string;
 }
 
 type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';

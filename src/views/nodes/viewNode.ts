@@ -28,6 +28,8 @@ import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
+	AutolinkedItems = 'gitlens:autolinked:items',
+	AutolinkedIssue = 'gitlens:autolinked:issue',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
