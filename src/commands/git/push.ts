@@ -88,7 +88,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		}
 
 		if (state.repos != null && !Array.isArray(state.repos)) {
-			state.repos = [state.repos as any];
+			state.repos = [state.repos as string];
 		}
 
 		let skippedStepOne = false;
