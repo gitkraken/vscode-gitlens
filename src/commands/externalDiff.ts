@@ -1,5 +1,7 @@
 'use strict';
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
+import { ScmResource } from '../@types/vscode.git.resources';
+import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import { Container } from '../container';
 import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -15,38 +17,6 @@ import {
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
 } from './common';
-
-enum Status {
-	INDEX_MODIFIED,
-	INDEX_ADDED,
-	INDEX_DELETED,
-	INDEX_RENAMED,
-	INDEX_COPIED,
-
-	MODIFIED,
-	DELETED,
-	UNTRACKED,
-	IGNORED,
-
-	ADDED_BY_US,
-	ADDED_BY_THEM,
-	DELETED_BY_US,
-	DELETED_BY_THEM,
-	BOTH_ADDED,
-	BOTH_DELETED,
-	BOTH_MODIFIED,
-}
-
-enum ResourceGroupType {
-	Merge,
-	Index,
-	WorkingTree,
-}
-
-interface Resource extends SourceControlResourceState {
-	readonly resourceGroupType: ResourceGroupType;
-	readonly type: Status;
-}
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -103,14 +73,14 @@ export class ExternalDiffCommand extends Command {
 			if (context.type === 'scm-states') {
 				args.files = context.scmResourceStates.map(r => ({
 					uri: r.resourceUri,
-					staged: (r as Resource).resourceGroupType === ResourceGroupType.Index,
+					staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
 				}));
 			} else if (context.type === 'scm-groups') {
 				args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
 					this.isModified(r)
 						? {
 								uri: r.resourceUri,
-								staged: (r as Resource).resourceGroupType === ResourceGroupType.Index,
+								staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
 						  }
 						: undefined,
 				);
@@ -145,8 +115,10 @@ export class ExternalDiffCommand extends Command {
 	}
 
 	private isModified(resource: SourceControlResourceState) {
-		const status = (resource as Resource).type;
-		return status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
+		const status = (resource as ScmResource).type;
+		return (
+			status === ScmStatus.BOTH_MODIFIED || status === ScmStatus.INDEX_MODIFIED || status === ScmStatus.MODIFIED
+		);
 	}
 
 	async execute(args?: ExternalDiffCommandArgs) {
