@@ -1,6 +1,6 @@
 'use strict';
 
-export { findLastIndex, intersection } from 'lodash-es';
+export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];

@@ -707,7 +707,11 @@ export async function* pickBranchOrTagStepMultiRepo<
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder:
 			branchesAndOrTags.length === 0
-				? `No branches${context.showTags ? ' or tags' : ''} found in ${state.repos[0].formattedName}`
+				? `No ${state.repos.length === 1 ? '' : 'common '}branches${
+						context.showTags ? ' or tags' : ''
+				  } found in ${
+						state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
+				  }`
 				: `${typeof placeholder === 'string' ? placeholder : placeholder(context)}${GlyphChars.Space.repeat(
 						3,
 				  )}(or enter a reference using #)`,
@@ -742,7 +746,13 @@ export async function* pickBranchOrTagStepMultiRepo<
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
 					quickpick.placeholder =
 						branchesAndOrTags.length === 0
-							? `${state.repos[0].formattedName} has no branches${context.showTags ? ' or tags' : ''}`
+							? `No ${state.repos.length === 1 ? '' : 'common '}branches${
+									context.showTags ? ' or tags' : ''
+							  } found in ${
+									state.repos.length === 1
+										? state.repos[0].formattedName
+										: `${state.repos.length} repositories`
+							  }`
 							: `${
 									typeof placeholder === 'string' ? placeholder : placeholder(context)
 							  }${GlyphChars.Space.repeat(3)}(or enter a reference using #)`;
