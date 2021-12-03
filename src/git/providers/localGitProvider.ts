@@ -17,7 +17,7 @@ import {
 } from 'vscode';
 import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../../@types/vscode.git';
 import { configuration } from '../../configuration';
-import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../constants';
+import { BuiltInGitConfiguration, DocumentSchemes } from '../../constants';
 import { Container } from '../../container';
 import { LogCorrelationContext, Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -81,7 +81,7 @@ import {
 	SearchPattern,
 	TagSortOptions,
 } from '../git';
-import { GitProvider, GitProviderId, RepositoryInitWatcher, ScmRepository } from '../gitProvider';
+import { GitProvider, GitProviderId, PagedResult, RepositoryInitWatcher, ScmRepository } from '../gitProvider';
 import { GitProviderService } from '../gitProviderService';
 import { GitUri } from '../gitUri';
 import { InvalidGitConfigError, UnableToFindGitError } from '../locator';
@@ -102,15 +102,6 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
-
-const maxDefaultBranchWeight = 100;
-const weightedDefaultBranches = new Map<string, number>([
-	['master', maxDefaultBranchWeight],
-	['main', 15],
-	['default', 10],
-	['develop', 5],
-	['development', 1],
-]);
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	descriptor = { id: GitProviderId.Git, name: 'Git' };
@@ -916,7 +907,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
-		let [branch] = await this.getBranches(repoPath, { filter: b => b.current });
+		let {
+			values: [branch],
+		} = await this.getBranches(repoPath, { filter: b => b.current });
 		if (branch != null) return branch;
 
 		const data = await Git.rev_parse__currentBranch(repoPath, this.container.config.advanced.commitOrdering);
@@ -947,41 +940,41 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return branch;
 	}
 
-	@log({
-		args: {
-			0: b => b.name,
-		},
-	})
-	async getBranchAheadRange(branch: GitBranch) {
-		if (branch.state.ahead > 0) {
-			return GitRevision.createRange(branch.upstream?.name, branch.ref);
-		}
+	// @log({
+	// 	args: {
+	// 		0: b => b.name,
+	// 	},
+	// })
+	// async getBranchAheadRange(branch: GitBranch) {
+	// 	if (branch.state.ahead > 0) {
+	// 		return GitRevision.createRange(branch.upstream?.name, branch.ref);
+	// 	}
 
-		if (branch.upstream == null) {
-			// If we have no upstream branch, try to find a best guess branch to use as the "base"
-			const branches = await this.getBranches(branch.repoPath, {
-				filter: b => weightedDefaultBranches.has(b.name),
-			});
-			if (branches.length > 0) {
-				let weightedBranch: { weight: number; branch: GitBranch } | undefined;
-				for (const branch of branches) {
-					const weight = weightedDefaultBranches.get(branch.name)!;
-					if (weightedBranch == null || weightedBranch.weight < weight) {
-						weightedBranch = { weight: weight, branch: branch };
-					}
+	// 	if (branch.upstream == null) {
+	// 		// If we have no upstream branch, try to find a best guess branch to use as the "base"
+	// 		const { values: branches } = await this.getBranches(branch.repoPath, {
+	// 			filter: b => weightedDefaultBranches.has(b.name),
+	// 		});
+	// 		if (branches.length > 0) {
+	// 			let weightedBranch: { weight: number; branch: GitBranch } | undefined;
+	// 			for (const branch of branches) {
+	// 				const weight = weightedDefaultBranches.get(branch.name)!;
+	// 				if (weightedBranch == null || weightedBranch.weight < weight) {
+	// 					weightedBranch = { weight: weight, branch: branch };
+	// 				}
 
-					if (weightedBranch.weight === maxDefaultBranchWeight) break;
-				}
+	// 				if (weightedBranch.weight === maxDefaultBranchWeight) break;
+	// 			}
 
-				const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
-				if (possibleBranch !== branch.ref) {
-					return GitRevision.createRange(possibleBranch, branch.ref);
-				}
-			}
-		}
+	// 			const possibleBranch = weightedBranch!.branch.upstream?.name ?? weightedBranch!.branch.ref;
+	// 			if (possibleBranch !== branch.ref) {
+	// 				return GitRevision.createRange(possibleBranch, branch.ref);
+	// 			}
+	// 		}
+	// 	}
 
-		return undefined;
-	}
+	// 	return undefined;
+	// }
 
 	@log({
 		args: {
@@ -994,8 +987,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			filter?: (b: GitBranch) => boolean;
 			sort?: boolean | BranchSortOptions;
 		} = {},
-	): Promise<GitBranch[]> {
-		if (repoPath == null) return [];
+	): Promise<PagedResult<GitBranch>> {
+		if (repoPath == null) return { values: [] };
 
 		let branchesPromise = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
 		if (branchesPromise == null) {
@@ -1064,99 +1057,60 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			GitBranch.sort(branches, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
-		return branches;
+		return { values: branches };
 	}
 
-	@log({
-		args: {
-			1: () => false,
-		},
-	})
-	async getBranchesAndOrTags(
-		repoPath: string | undefined,
-		{
-			filter,
-			include,
-			sort,
-			...options
-		}: {
-			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
-		} = {},
-	) {
-		const [branches, tags] = await Promise.all([
-			include == null || include === 'all' || include === 'branches'
-				? this.getBranches(repoPath, {
-						...options,
-						filter: filter?.branches,
-						sort: typeof sort === 'boolean' ? undefined : sort?.branches,
-				  })
-				: undefined,
-			include == null || include === 'all' || include === 'tags'
-				? this.getTags(repoPath, {
-						...options,
-						filter: filter?.tags,
-						sort: typeof sort === 'boolean' ? undefined : sort?.tags,
-				  })
-				: undefined,
-		]);
+	// @log()
+	// async getBranchesAndTagsTipsFn(repoPath: string | undefined, currentName?: string) {
+	// 	const [{ values: branches }, { values: tags }] = await Promise.all([
+	// 		this.getBranches(repoPath),
+	// 		this.getTags(repoPath),
+	// 	]);
 
-		if (branches != null && tags != null) {
-			return [...branches.filter(b => !b.remote), ...tags, ...branches.filter(b => b.remote)];
-		}
+	// 	const branchesAndTagsBySha = Arrays.groupByFilterMap(
+	// 		(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
+	// 		bt => bt.sha,
+	// 		bt => {
+	// 			if (currentName) {
+	// 				if (bt.name === currentName) return undefined;
+	// 				if (bt.refType === 'branch' && bt.getNameWithoutRemote() === currentName) {
+	// 					return { name: bt.name, compactName: bt.getRemoteName(), type: bt.refType };
+	// 				}
+	// 			}
 
-		return branches ?? tags;
-	}
+	// 			return { name: bt.name, compactName: undefined, type: bt.refType };
+	// 		},
+	// 	);
 
-	@log()
-	async getBranchesAndTagsTipsFn(repoPath: string | undefined, currentName?: string) {
-		const [branches, tags] = await Promise.all([this.getBranches(repoPath), this.getTags(repoPath)]);
+	// 	return (sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined => {
+	// 		const branchesAndTags = branchesAndTagsBySha.get(sha);
+	// 		if (branchesAndTags == null || branchesAndTags.length === 0) return undefined;
 
-		const branchesAndTagsBySha = Arrays.groupByFilterMap(
-			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
-			bt => bt.sha,
-			bt => {
-				if (currentName) {
-					if (bt.name === currentName) return undefined;
-					if (bt.refType === 'branch' && bt.getNameWithoutRemote() === currentName) {
-						return { name: bt.name, compactName: bt.getRemoteName(), type: bt.refType };
-					}
-				}
+	// 		if (!options?.compact) {
+	// 			return branchesAndTags
+	// 				.map(
+	// 					bt => `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${bt.name}`,
+	// 				)
+	// 				.join(', ');
+	// 		}
 
-				return { name: bt.name, compactName: undefined, type: bt.refType };
-			},
-		);
+	// 		if (branchesAndTags.length > 1) {
+	// 			const [bt] = branchesAndTags;
+	// 			return `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
+	// 				bt.compactName ?? bt.name
+	// 			}, ${GlyphChars.Ellipsis}`;
+	// 		}
 
-		return (sha: string, options?: { compact?: boolean; icons?: boolean }): string | undefined => {
-			const branchesAndTags = branchesAndTagsBySha.get(sha);
-			if (branchesAndTags == null || branchesAndTags.length === 0) return undefined;
-
-			if (!options?.compact) {
-				return branchesAndTags
-					.map(
-						bt => `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${bt.name}`,
-					)
-					.join(', ');
-			}
-
-			if (branchesAndTags.length > 1) {
-				const [bt] = branchesAndTags;
-				return `${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
-					bt.compactName ?? bt.name
-				}, ${GlyphChars.Ellipsis}`;
-			}
-
-			return branchesAndTags
-				.map(
-					bt =>
-						`${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
-							bt.compactName ?? bt.name
-						}`,
-				)
-				.join(', ');
-		};
-	}
+	// 		return branchesAndTags
+	// 			.map(
+	// 				bt =>
+	// 					`${options?.icons ? `${bt.type === 'tag' ? '$(tag)' : '$(git-branch)'} ` : ''}${
+	// 						bt.compactName ?? bt.name
+	// 					}`,
+	// 			)
+	// 			.join(', ');
+	// 	};
+	// }
 
 	@log()
 	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
@@ -3249,8 +3203,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getTags(
 		repoPath: string | undefined,
 		options: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions } = {},
-	): Promise<GitTag[]> {
-		if (repoPath == null) return [];
+	): Promise<PagedResult<GitTag>> {
+		if (repoPath == null) return { values: [] };
 
 		let tagsPromise = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
 		if (tagsPromise == null) {
@@ -3286,7 +3240,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			GitTag.sort(tags, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
-		return tags;
+		return { values: tags };
 	}
 
 	@log()
@@ -3384,7 +3338,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async hasBranchesAndOrTags(
+	async hasBranchOrTag(
 		repoPath: string | undefined,
 		{
 			filter,
@@ -3392,7 +3346,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		} = {},
 	) {
-		const [branches, tags] = await Promise.all([
+		const [{ values: branches }, { values: tags }] = await Promise.all([
 			this.getBranches(repoPath, {
 				filter: filter?.branches,
 				sort: false,
@@ -3403,7 +3357,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}),
 		]);
 
-		return (branches != null && branches.length !== 0) || (tags != null && tags.length !== 0);
+		return branches.length !== 0 || tags.length !== 0;
 	}
 
 	@log()

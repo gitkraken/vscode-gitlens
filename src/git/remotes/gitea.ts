@@ -83,29 +83,31 @@ export class GiteaRemote extends RemoteProvider {
 			}
 		}
 
-		const branches = new Set<string>(
-			(
-				await repository.getBranches({
-					filter: b => b.remote,
-				})
-			).map(b => b.getNameWithoutRemote()),
-		);
-
 		// Check for a link with branch (and deal with branch names with /)
 		if (path.startsWith('/branch/')) {
 			let branch;
+			const possibleBranches = new Map<string, string>();
 			offset = '/branch/'.length;
 			index = offset;
 			do {
 				branch = path.substring(offset, index);
-
-				if (branches.has(branch)) {
-					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
-					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
-				}
+				possibleBranches.set(branch, path.substr(index));
 
 				index = path.indexOf('/', index + 1);
 			} while (index < path.length && index !== -1);
+
+			if (possibleBranches.size !== 0) {
+				const { values: branches } = await repository.getBranches({
+					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+				});
+				for (const branch of branches) {
+					const path = possibleBranches.get(branch.getNameWithoutRemote());
+					if (path == null) continue;
+
+					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
+					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				}
+			}
 		}
 
 		return undefined;

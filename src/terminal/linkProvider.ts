@@ -7,7 +7,8 @@ import {
 	ShowQuickCommitCommandArgs,
 } from '../commands';
 import { Container } from '../container';
-import { GitReference } from '../git/git';
+import { GitBranch, GitReference, GitTag } from '../git/git';
+import { PagedResult } from '../git/gitProvider';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;
@@ -42,7 +43,8 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 		const links: GitTerminalLink[] = [];
 
-		const branchesAndTags = await this.container.git.getBranchesAndOrTags(repoPath);
+		let branchResults: PagedResult<GitBranch> | undefined;
+		let tagResults: PagedResult<GitTag> | undefined;
 
 		// Don't use the shared regex instance directly, because we can be called reentrantly (because of the awaits below)
 		const refRegex = new RegExp(refRegexShared, refRegexShared.flags);
@@ -91,19 +93,41 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			const branchOrTag = branchesAndTags?.find(r => r.name === ref);
-			if (branchOrTag != null) {
+			if (branchResults === undefined) {
+				branchResults = await this.container.git.getBranches(repoPath);
+				// TODO@eamodio handle paging
+			}
+
+			const branch = branchResults.values.find(r => r.name === ref);
+			if (branch != null) {
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: branchOrTag.refType === 'branch' ? 'Show Branch' : 'Show Tag',
+					tooltip: 'Show Branch',
 					command: {
 						command: Commands.ShowQuickBranchHistory,
-						args: {
-							branch: branchOrTag.refType === 'branch' ? branchOrTag.name : undefined,
-							tag: branchOrTag.refType === 'tag' ? branchOrTag.name : undefined,
-							repoPath: repoPath,
-						},
+						args: { repoPath: repoPath, branch: branch.name },
+					},
+				};
+				links.push(link);
+
+				continue;
+			}
+
+			if (tagResults === undefined) {
+				tagResults = await this.container.git.getTags(repoPath);
+				// TODO@eamodio handle paging
+			}
+
+			const tag = tagResults.values.find(r => r.name === ref);
+			if (tag != null) {
+				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
+					startIndex: match.index,
+					length: ref.length,
+					tooltip: 'Show Tag',
+					command: {
+						command: Commands.ShowQuickBranchHistory,
+						args: { repoPath: repoPath, tag: tag.name },
 					},
 				};
 				links.push(link);

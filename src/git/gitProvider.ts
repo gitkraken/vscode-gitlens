@@ -57,12 +57,18 @@ export interface ScmRepository {
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
 }
 
+export interface PagedResult<T> {
+	readonly paging?: {
+		readonly cursor: string;
+		readonly more: boolean;
+	};
+	readonly values: NonNullable<T>[];
+}
+
 export interface GitProvider {
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 
 	readonly descriptor: GitProviderDescriptor;
-	// get readonly(): boolean;
-	// get useCaching(): boolean;
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
 	createRepository(
@@ -99,9 +105,6 @@ export interface GitProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
-	// getActiveRepository(editor?: TextEditor): Promise<Repository | undefined>;
-	// getActiveRepoPath(editor?: TextEditor): Promise<string | undefined>;
-	// getHighlanderRepoPath(): string | undefined;
 	getBlameForFile(uri: GitUri): Promise<GitBlame | undefined>;
 	getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
 	getBlameForLine(
@@ -119,30 +122,10 @@ export interface GitProvider {
 	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
 	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
 	getBranch(repoPath: string): Promise<GitBranch | undefined>;
-	// getBranchAheadRange(branch: GitBranch): Promise<string | undefined>;
 	getBranches(
 		repoPath: string,
 		options?: { filter?: ((b: GitBranch) => boolean) | undefined; sort?: boolean | BranchSortOptions | undefined },
-	): Promise<GitBranch[]>;
-	// getBranchesAndOrTags(
-	// 	repoPath: string | undefined,
-	// 	options?: {
-	// 		filter?:
-	// 			| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
-	// 			| undefined;
-	// 		include?: 'branches' | 'tags' | 'all' | undefined;
-	// 		sort?:
-	// 			| boolean
-	// 			| { branches?: BranchSortOptions | undefined; tags?: TagSortOptions | undefined }
-	// 			| undefined;
-	// 	},
-	// ): Promise<any>;
-	// getBranchesAndTagsTipsFn(
-	// 	repoPath: string | undefined,
-	// 	currentName?: string,
-	// ): Promise<
-	// 	(sha: string, options?: { compact?: boolean | undefined; icons?: boolean | undefined }) => string | undefined
-	// >;
+	): Promise<PagedResult<GitBranch>>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined>;
 	getCommitBranches(
@@ -394,21 +377,21 @@ export interface GitProvider {
 	getTags(
 		repoPath: string | undefined,
 		options?: { filter?: ((t: GitTag) => boolean) | undefined; sort?: boolean | TagSortOptions | undefined },
-	): Promise<GitTag[]>;
+	): Promise<PagedResult<GitTag>>;
 	getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]>;
 	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined>;
 	getVersionedUri(repoPath: string | undefined, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
-	// hasBranchesAndOrTags(
-	// 	repoPath: string | undefined,
-	// 	options?: {
-	// 		filter?:
-	// 			| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
-	// 			| undefined;
-	// 	},
-	// ): Promise<boolean>;
+	hasBranchOrTag(
+		repoPath: string | undefined,
+		options?: {
+			filter?:
+				| { branches?: ((b: GitBranch) => boolean) | undefined; tags?: ((t: GitTag) => boolean) | undefined }
+				| undefined;
+		},
+	): Promise<boolean>;
 	hasRemotes(repoPath: string | undefined): Promise<boolean>;
 	hasTrackingBranch(repoPath: string | undefined): Promise<boolean>;
 	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;

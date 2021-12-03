@@ -25,6 +25,7 @@ import {
 	SearchPattern,
 	TagSortOptions,
 } from '../git/git';
+import { PagedResult } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
 import {
 	BranchQuickPickItem,
@@ -163,7 +164,8 @@ export async function getBranchesAndOrTags(
 		singleRepo = true;
 		const repo = repos instanceof Repository ? repos : repos[0];
 
-		[branches, tags] = await Promise.all([
+		// TODO@eamodio handle paging
+		const [branchesResult, tagsResult] = await Promise.allSettled([
 			include.includes('branches')
 				? repo.getBranches({
 						filter: filter?.branches,
@@ -172,10 +174,14 @@ export async function getBranchesAndOrTags(
 				: undefined,
 			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
+
+		branches = (branchesResult.status === 'fulfilled' ? branchesResult.value?.values : undefined) ?? [];
+		tags = (tagsResult.status === 'fulfilled' ? tagsResult.value?.values : undefined) ?? [];
 	} else {
-		const [branchesByRepo, tagsByRepo] = await Promise.all([
+		// TODO@eamodio handle paging
+		const [branchesByRepoResult, tagsByRepoResult] = await Promise.allSettled([
 			include.includes('branches')
-				? Promise.all(
+				? Promise.allSettled(
 						repos.map(r =>
 							r.getBranches({
 								filter: filter?.branches,
@@ -185,7 +191,7 @@ export async function getBranchesAndOrTags(
 				  )
 				: undefined,
 			include.includes('tags')
-				? Promise.all(
+				? Promise.allSettled(
 						repos.map(r =>
 							r.getTags({ filter: filter?.tags, sort: typeof sort === 'boolean' ? sort : sort?.tags }),
 						),
@@ -193,22 +199,35 @@ export async function getBranchesAndOrTags(
 				: undefined,
 		]);
 
-		if (include.includes('branches')) {
+		const branchesByRepo =
+			branchesByRepoResult.status === 'fulfilled'
+				? branchesByRepoResult.value
+						?.filter((r): r is PromiseFulfilledResult<PagedResult<GitBranch>> => r.status === 'fulfilled')
+						?.map(r => r.value.values)
+				: undefined;
+		const tagsByRepo =
+			tagsByRepoResult.status === 'fulfilled'
+				? tagsByRepoResult.value
+						?.filter((r): r is PromiseFulfilledResult<PagedResult<GitTag>> => r.status === 'fulfilled')
+						?.map(r => r.value.values)
+				: undefined;
+
+		if (include.includes('branches') && branchesByRepo != null) {
 			branches = GitBranch.sort(
-				Arrays.intersection(...branchesByRepo!, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any),
+				Arrays.intersection(...branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
 			);
 		}
 
-		if (include.includes('tags')) {
-			tags = GitTag.sort(
-				Arrays.intersection(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any),
-			);
+		if (include.includes('tags') && tagsByRepo != null) {
+			tags = GitTag.sort(Arrays.intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
 		}
 	}
 
-	if (include.includes('branches') && !include.includes('tags')) {
+	if ((branches == null || branches.length === 0) && (tags == null || tags.length === 0)) return [];
+
+	if (branches != null && branches.length !== 0 && (tags == null || tags.length === 0)) {
 		return Promise.all(
-			branches!.map(b =>
+			branches.map(b =>
 				BranchQuickPickItem.create(
 					b,
 					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
@@ -224,9 +243,9 @@ export async function getBranchesAndOrTags(
 		);
 	}
 
-	if (include.includes('tags') && !include.includes('branches')) {
+	if (tags != null && tags.length !== 0 && (branches == null || branches.length === 0)) {
 		return Promise.all(
-			tags!.map(t =>
+			tags.map(t =>
 				TagQuickPickItem.create(
 					t,
 					picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
@@ -329,7 +348,7 @@ export function getValidateGitReferenceFn(
 
 		if (!inRefMode) {
 			if (
-				await Container.instance.git.hasBranchesAndOrTags(repos.path, {
+				await Container.instance.git.hasBranchOrTag(repos.path, {
 					filter: { branches: b => b.name.includes(value), tags: t => t.name.includes(value) },
 				})
 			) {

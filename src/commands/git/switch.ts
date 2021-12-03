@@ -146,7 +146,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
-				const branches = await Container.instance.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await Container.instance.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: BranchSorting.DateDesc },
 				});

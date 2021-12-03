@@ -427,13 +427,11 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@gate()
 	@log()
 	branch(...args: string[]) {
 		this.runTerminalCommand('branch', ...args);
 	}
 
-	@gate()
 	@log()
 	branchDelete(
 		branches: GitBranchReference | GitBranchReference[],
@@ -485,7 +483,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@gate(() => '')
 	@log()
 	cherryPick(...args: string[]) {
 		this.runTerminalCommand('cherry-pick', ...args);
@@ -541,7 +538,9 @@ export class Repository implements Disposable {
 
 	async getBranch(name?: string): Promise<GitBranch | undefined> {
 		if (name) {
-			const [branch] = await this.getBranches({ filter: b => b.name === name });
+			const {
+				values: [branch],
+			} = await this.getBranches({ filter: b => b.name === name });
 			return branch;
 		}
 
@@ -554,20 +553,11 @@ export class Repository implements Disposable {
 	getBranches(
 		options: {
 			filter?: (b: GitBranch) => boolean;
+			paging?: { cursor?: string; limit?: number };
 			sort?: boolean | BranchSortOptions;
 		} = {},
-	): Promise<GitBranch[]> {
-		return this.container.git.getBranches(this.path, options);
-	}
-
-	getBranchesAndOrTags(
-		options: {
-			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
-		} = {},
 	) {
-		return this.container.git.getBranchesAndOrTags(this.path, options);
+		return this.container.git.getBranches(this.path, options);
 	}
 
 	getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
@@ -657,7 +647,7 @@ export class Repository implements Disposable {
 		return this.container.git.getStatusForRepo(this.path);
 	}
 
-	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }): Promise<GitTag[]> {
+	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }) {
 		return this.container.git.getTags(this.path, options);
 	}
 
@@ -676,7 +666,6 @@ export class Repository implements Disposable {
 		return branch?.upstream != null;
 	}
 
-	@gate(() => '')
 	@log()
 	merge(...args: string[]) {
 		this.runTerminalCommand('merge', ...args);
@@ -826,7 +815,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@gate(() => '')
 	@log()
 	rebase(configs: string[] | undefined, ...args: string[]) {
 		this.runTerminalCommand(
@@ -835,7 +823,6 @@ export class Repository implements Disposable {
 		);
 	}
 
-	@gate(() => '')
 	@log()
 	reset(...args: string[]) {
 		this.runTerminalCommand('reset', ...args);
@@ -869,7 +856,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@gate()
 	@log()
 	revert(...args: string[]) {
 		this.runTerminalCommand('revert', ...args);
@@ -891,7 +877,7 @@ export class Repository implements Disposable {
 		return this.updateStarred(true, branch);
 	}
 
-	@gate(() => '')
+	@gate()
 	@log()
 	async stashApply(stashName: string, options: { deleteAfter?: boolean } = {}) {
 		void (await this.container.git.stashApply(this.path, stashName, options));
@@ -899,7 +885,7 @@ export class Repository implements Disposable {
 		this.fireChange(RepositoryChange.Stash);
 	}
 
-	@gate(() => '')
+	@gate()
 	@log()
 	async stashDelete(stashName: string, ref?: string) {
 		void (await this.container.git.stashDelete(this.path, stashName, ref));
@@ -907,7 +893,7 @@ export class Repository implements Disposable {
 		this.fireChange(RepositoryChange.Stash);
 	}
 
-	@gate(() => '')
+	@gate()
 	@log()
 	async stashSave(message?: string, uris?: Uri[], options: { includeUntracked?: boolean; keepIndex?: boolean } = {}) {
 		void (await this.container.git.stashSave(this.path, message, uris, options));
@@ -1008,13 +994,11 @@ export class Repository implements Disposable {
 		this._suspended = true;
 	}
 
-	@gate()
 	@log()
 	tag(...args: string[]) {
 		this.runTerminalCommand('tag', ...args);
 	}
 
-	@gate()
 	@log()
 	tagDelete(tags: GitTagReference | GitTagReference[]) {
 		if (!Array.isArray(tags)) {

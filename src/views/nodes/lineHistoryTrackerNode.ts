@@ -76,9 +76,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			} else if (!GitRevision.isSha(commitish.sha)) {
-				[branch] = await this.view.container.git.getBranches(this.uri.repoPath, {
+				({
+					values: [branch],
+				} = await this.view.container.git.getBranches(this.uri.repoPath, {
 					filter: b => b.name === commitish.sha,
-				});
+				}));
 			}
 			this._child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection, this._editorContents);
 		}

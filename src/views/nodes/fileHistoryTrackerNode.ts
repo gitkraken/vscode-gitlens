@@ -66,9 +66,11 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			} else if (!GitRevision.isSha(commitish.sha)) {
-				[branch] = await this.view.container.git.getBranches(this.uri.repoPath, {
+				({
+					values: [branch],
+				} = await this.view.container.git.getBranches(this.uri.repoPath, {
 					filter: b => b.name === commitish.sha,
-				});
+				}));
 			}
 			this._child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}

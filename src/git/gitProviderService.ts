@@ -64,7 +64,7 @@ import {
 	SearchPattern,
 	TagSortOptions,
 } from './git';
-import { GitProvider, GitProviderDescriptor, GitProviderId, ScmRepository } from './gitProvider';
+import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
 import { GitUri } from './gitUri';
 import { RemoteProvider, RemoteProviders, RichRemoteProvider } from './remotes/factory';
 
@@ -753,7 +753,7 @@ export class GitProviderService implements Disposable {
 
 		if (branch.upstream == null) {
 			// If we have no upstream branch, try to find a best guess branch to use as the "base"
-			const branches = await this.getBranches(branch.repoPath, {
+			const { values: branches } = await this.getBranches(branch.repoPath, {
 				filter: b => weightedDefaultBranches.has(b.name),
 			});
 			if (branches.length > 0) {
@@ -788,53 +788,11 @@ export class GitProviderService implements Disposable {
 			filter?: (b: GitBranch) => boolean;
 			sort?: boolean | BranchSortOptions;
 		},
-	): Promise<GitBranch[]> {
-		if (repoPath == null) return [];
+	): Promise<PagedResult<GitBranch>> {
+		if (repoPath == null) return { values: [] };
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getBranches(path, options);
-	}
-
-	@log({
-		args: {
-			1: () => false,
-		},
-	})
-	async getBranchesAndOrTags(
-		repoPath: string | Uri | undefined,
-		{
-			filter,
-			include,
-			sort,
-			...options
-		}: {
-			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
-		} = {},
-	): Promise<(GitBranch | GitTag)[] | GitBranch[] | GitTag[]> {
-		const [branches, tags] = await Promise.all([
-			include == null || include === 'all' || include === 'branches'
-				? this.getBranches(repoPath, {
-						...options,
-						filter: filter?.branches,
-						sort: typeof sort === 'boolean' ? undefined : sort?.branches,
-				  })
-				: undefined,
-			include == null || include === 'all' || include === 'tags'
-				? this.getTags(repoPath, {
-						...options,
-						filter: filter?.tags,
-						sort: typeof sort === 'boolean' ? undefined : sort?.tags,
-				  })
-				: undefined,
-		]);
-
-		if (branches != null && tags != null) {
-			return [...branches.filter(b => !b.remote), ...tags, ...branches.filter(b => b.remote)];
-		}
-
-		return branches ?? tags ?? [];
 	}
 
 	@log()
@@ -844,7 +802,10 @@ export class GitProviderService implements Disposable {
 	): Promise<
 		(sha: string, options?: { compact?: boolean | undefined; icons?: boolean | undefined }) => string | undefined
 	> {
-		const [branches, tags] = await Promise.all([this.getBranches(repoPath), this.getTags(repoPath)]);
+		const [{ values: branches }, { values: tags }] = await Promise.all([
+			this.getBranches(repoPath),
+			this.getTags(repoPath),
+		]);
 
 		const branchesAndTagsBySha = Arrays.groupByFilterMap(
 			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
@@ -1577,8 +1538,8 @@ export class GitProviderService implements Disposable {
 	async getTags(
 		repoPath: string | Uri | undefined,
 		options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
-	): Promise<GitTag[]> {
-		if (repoPath == null) return [];
+	): Promise<PagedResult<GitTag>> {
+		if (repoPath == null) return { values: [] };
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getTags(path, options);
@@ -1629,26 +1590,16 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async hasBranchesAndOrTags(
+	async hasBranchOrTag(
 		repoPath: string | Uri | undefined,
-		{
-			filter,
-		}: {
+		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-		} = {},
+		},
 	): Promise<boolean> {
-		const [branches, tags] = await Promise.all([
-			this.getBranches(repoPath, {
-				filter: filter?.branches,
-				sort: false,
-			}),
-			this.getTags(repoPath, {
-				filter: filter?.tags,
-				sort: false,
-			}),
-		]);
+		if (repoPath == null) return false;
 
-		return (branches != null && branches.length !== 0) || (tags != null && tags.length !== 0);
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.hasBranchOrTag(path, options);
 	}
 
 	@log()
