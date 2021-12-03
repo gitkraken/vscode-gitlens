@@ -2,7 +2,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { GitRemote, GitRemoteType, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, log } from '../../system';
@@ -117,8 +116,8 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 				provider.icon === 'remote'
 					? new ThemeIcon('cloud')
 					: {
-							dark: Container.instance.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
-							light: Container.instance.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
+							dark: this.view.container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
+							light: this.view.container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 					  };
 
 			if (provider.hasApi()) {

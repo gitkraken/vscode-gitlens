@@ -1,5 +1,14 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import {
+	commands,
+	ConfigurationChangeEvent,
+	ConfigurationScope,
+	env,
+	Event,
+	EventEmitter,
+	ExtensionContext,
+	UIKind,
+} from 'vscode';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -15,7 +24,9 @@ import {
 	FileAnnotationType,
 } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitService } from './git/providers/localGitProvider';
+import { GitProviderId } from './git/gitProvider';
+import { GitProviderService } from './git/gitProviderService';
+import { LocalGitProvider } from './git/providers/localGitProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
@@ -84,7 +95,7 @@ export class Container {
 		this._config = this.applyMode(config);
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
-		context.subscriptions.push((this._git = new GitService(this)));
+		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
 
 		context.subscriptions.push((this._actionRunners = new ActionRunners(this)));
@@ -136,7 +147,14 @@ export class Container {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
+		this.registerGitProviders();
 		this._onReady.fire();
+	}
+
+	private registerGitProviders() {
+		if (env.uiKind !== UIKind.Web) {
+			this._context.subscriptions.push(this._git.register(GitProviderId.Git, new LocalGitProvider(this)));
+		}
 	}
 
 	private onConfigurationChanging(e: ConfigurationWillChangeEvent) {
@@ -235,7 +253,7 @@ export class Container {
 		return this._fileHistoryView;
 	}
 
-	private _git: GitService;
+	private _git: GitProviderService;
 	get git() {
 		return this._git;
 	}

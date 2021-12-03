@@ -2,7 +2,6 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { CommitFormatter, GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { FileHistoryView } from '../fileHistoryView';
@@ -25,7 +24,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const commit = await Container.instance.git.getCommit(this.status.repoPath, 'HEAD');
+		const commit = await this.view.container.git.getCommit(this.status.repoPath, 'HEAD');
 
 		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
@@ -33,7 +32,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			commit != null ? ` (${GitReference.toString(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: Container.instance.config.defaultGravatarsStyle })) ??
+			? (await commit?.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
 
@@ -47,7 +46,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 							commit,
 							{
 								avatarSize: 16,
-								dateFormat: Container.instance.config.defaultDateFormat,
+								dateFormat: this.view.container.config.defaultDateFormat,
 								markdown: true,
 								// messageAutolinks: true,
 								messageIndent: 4,

@@ -514,7 +514,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		const root = this.ensureRoot();
 		root.addOrReplace(results, !this.keepResults);
 
-		setImmediate(() => this.reveal(results, options));
+		queueMicrotask(() => this.reveal(results, options));
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

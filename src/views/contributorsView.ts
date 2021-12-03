@@ -6,8 +6,8 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
-import { ContributorsNode, RepositoryFolderNode, unknownGitUri, ViewNode } from './nodes';
+import { debug, Strings } from '../system';
+import { ContributorsNode, RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
@@ -38,17 +38,10 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 }
 
-export class ContributorsViewNode extends ViewNode<ContributorsView> {
-	protected override splatted = true;
-	private children: ContributorsRepositoryNode[] | undefined;
-
-	constructor(view: ContributorsView) {
-		super(unknownGitUri, view);
-	}
-
+export class ContributorsViewNode extends RepositoriesSubscribeableNode<ContributorsView, ContributorsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No contributors could be found.';
 
@@ -72,13 +65,13 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 
 			const children = await child.getChildren();
 
-			// const all = Container.instance.config.views.contributors.showAllBranches;
+			// const all = this.view.container.config.views.contributors.showAllBranches;
 
 			// let ref: string | undefined;
 			// // If we aren't getting all branches, get the upstream of the current branch if there is one
 			// if (!all) {
 			// 	try {
-			// 		const branch = await Container.instance.git.getBranch(this.uri.repoPath);
+			// 		const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			// 		if (branch?.upstream?.name != null && !branch.upstream.missing) {
 			// 			ref = '@{u}';
 			// 		}
@@ -108,25 +101,6 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
@@ -151,8 +125,8 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.git.resetCaches('contributors');
+				() => {
+					this.container.git.resetCaches('contributors');
 					return this.refresh(true);
 				},
 				this,

@@ -205,6 +205,7 @@ export class VslsHostService implements Disposable {
 		return { data: data.toString('binary'), isBuffer: true };
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	@log()
 	private async onRepositoriesInFolderRequest(
 		request: RepositoriesInFolderRequest,
@@ -214,7 +215,7 @@ export class VslsHostService implements Disposable {
 		const normalized = Strings.normalizePath(uri.fsPath, { stripTrailingSlash: true }).toLowerCase();
 
 		const repos = [
-			...Iterables.filterMap(await this.container.git.getRepositories(), r => {
+			...Iterables.filterMap(this.container.git.repositories, r => {
 				if (!r.normalizedPath.startsWith(normalized)) return undefined;
 
 				const vslsUri = this.convertLocalUriToShared(r.folder.uri);

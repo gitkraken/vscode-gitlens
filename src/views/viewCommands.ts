@@ -17,7 +17,6 @@ import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '..
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { GitService } from '../git/providers/localGitProvider';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
 import {
@@ -657,7 +656,7 @@ export class ViewCommands {
 	@debug()
 	private switch(node?: ViewRefNode | BranchesNode) {
 		if (node == null) {
-			return GitActions.switchTo(this.container.git.getHighlanderRepoPath());
+			return GitActions.switchTo(this.container.git.highlanderRepoPath);
 		}
 
 		if (!(node instanceof ViewRefNode) && !(node instanceof BranchesNode)) return Promise.resolve();
@@ -672,7 +671,7 @@ export class ViewCommands {
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return;
 
-		const repo = await GitService.getOrOpenBuiltInGitRepository(node.repoPath);
+		const repo = await Container.instance.git.getOrOpenScmRepository(node.repoPath);
 		const commit = await repo?.getCommit('HEAD');
 
 		if (commit?.hash !== node.ref.ref) {

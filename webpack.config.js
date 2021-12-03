@@ -127,13 +127,13 @@ function getExtensionConfig(target, mode, env) {
 							treeShaking: true,
 							// Keep the class names otherwise @log won't provide a useful name
 							keepNames: true,
-							target: 'es2019',
+							target: 'es2020',
 					  })
 					: new TerserPlugin({
 							extractComments: false,
 							parallel: true,
 							terserOptions: {
-								ecma: 2019,
+								ecma: 2020,
 								// Keep the class names otherwise @log won't provide a useful name
 								keep_classnames: true,
 								module: true,
@@ -284,7 +284,7 @@ function getWebviewsConfig(mode, env) {
 			eslint: {
 				enabled: true,
 				files: path.join(basePath, '**', '*.ts'),
-				options: { cache: true },
+				// options: { cache: true },
 			},
 			formatter: 'basic',
 			typescript: {

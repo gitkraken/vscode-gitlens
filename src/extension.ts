@@ -7,17 +7,15 @@ import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullReque
 import { configuration, Configuration, TraceLevel } from './configuration';
 import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
 import { Container } from './container';
-import { Git, GitBranch, GitCommit } from './git/git';
+import { GitBranch, GitCommit } from './git/git';
 import { GitUri } from './git/gitUri';
-import { InvalidGitConfigError, UnableToFindGitError } from './git/locator';
-import { GitService } from './git/providers/localGitProvider';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { Strings, Versions } from './system';
 import { ViewNode } from './views/nodes';
 
-export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
+export function activate(context: ExtensionContext): Promise<GitLensApi | undefined> | undefined {
 	const start = process.hrtime();
 
 	if (context.extension.id === 'eamodio.gitlens-insiders') {
@@ -111,28 +109,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const cfg = configuration.get();
 	// await migrateSettings(context, previousVersion);
 
-	try {
-		// Try to use the same git as the built-in vscode git extension
-		const gitApi = await GitService.getBuiltInGitApi();
-		await Git.setOrFindGitPath(gitApi?.git.path ?? configuration.getAny<string | string[]>('git.path'));
-	} catch (ex) {
-		Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
-		void setEnabled(false);
-
-		if (ex instanceof InvalidGitConfigError) {
-			void Messages.showGitInvalidConfigErrorMessage();
-		} else if (ex instanceof UnableToFindGitError) {
-			void Messages.showGitMissingErrorMessage();
-		} else {
-			const msg: string = ex?.message ?? '';
-			if (msg) {
-				void window.showErrorMessage(`Unable to initialize Git; ${msg}`);
-			}
-		}
-
-		return undefined;
-	}
-
 	const container = Container.create(context, cfg);
 	// Signal that the container is now ready
 	container.ready();
@@ -141,7 +117,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	registerBuiltInActionRunners(container);
 	registerPartnerActionRunners(context);
 
-	notifyOnUnsupportedGitVersion(Git.getGitVersion());
 	void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
 	void context.globalState.update(GlobalState.Version, gitlensVersion);
@@ -168,7 +143,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	);
 
 	const api = new Api(container);
-	return api;
+	return Promise.resolve(api);
 }
 
 export function deactivate() {
@@ -194,13 +169,6 @@ export async function setEnabled(enabled: boolean): Promise<void> {
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedState | string)[]) {
 	return context.globalState?.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
-}
-
-function notifyOnUnsupportedGitVersion(version: string) {
-	if (GitService.compareGitVersion('2.7.2') !== -1) return;
-
-	// If git is less than v2.7.2
-	void Messages.showGitVersionUnsupportedErrorMessage(version, '2.7.2');
 }
 
 function registerBuiltInActionRunners(container: Container): void {

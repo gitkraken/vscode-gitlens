@@ -152,7 +152,7 @@ export function propOf<T, K extends Extract<keyof T, string>>(o: T, key: K) {
 }
 
 export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
-	let timer: NodeJS.Timer | undefined;
+	let timer: any | undefined;
 	const disposable = {
 		dispose: () => {
 			if (timer !== undefined) {
@@ -161,15 +161,15 @@ export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
 			}
 		},
 	};
-	timer = global.setInterval(fn, ms);
+	timer = globalThis.setInterval(fn, ms);
 
 	return disposable;
 }
 
 export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
 	return new Promise((resolve, reject) => {
-		let timer: NodeJS.Timer | undefined;
-		timer = global.setInterval(() => {
+		let timer: any | undefined;
+		timer = globalThis.setInterval(() => {
 			if (onProgress()) {
 				if (timer !== undefined) {
 					clearInterval(timer);
@@ -201,16 +201,4 @@ export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress:
 
 export async function wait(ms: number) {
 	await new Promise(resolve => setTimeout(resolve, ms));
-}
-
-export async function waitUntil(fn: (...args: any[]) => boolean, timeout: number): Promise<boolean> {
-	const max = Math.round(timeout / 100);
-	let counter = 0;
-	while (true) {
-		if (fn()) return true;
-		if (counter > max) return false;
-
-		await wait(100);
-		counter++;
-	}
 }

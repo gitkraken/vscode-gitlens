@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { configuration } from '../../configuration';
-import { Container } from '../../container';
 import {
 	GitBranch,
 	GitLog,
@@ -58,18 +57,18 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 		const children: ViewNode[] = [];
 
-		const range = this.branch != null ? await Container.instance.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, fileStatuses, currentUser, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(),
 			this.uri.sha == null
-				? Container.instance.git.getStatusForFiles(this.uri.repoPath!, this.getPathOrGlob())
+				? this.view.container.git.getStatusForFiles(this.uri.repoPath!, this.getPathOrGlob())
 				: undefined,
-			this.uri.sha == null ? Container.instance.git.getCurrentUser(this.uri.repoPath!) : undefined,
+			this.uri.sha == null ? this.view.container.git.getCurrentUser(this.uri.repoPath!) : undefined,
 			this.branch != null
-				? Container.instance.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.instance.git.getLogRefsOnly(this.uri.repoPath!, {
+				? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
 						ref: range,
 				  })
@@ -169,7 +168,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@debug()
 	protected async subscribe() {
-		const repo = await Container.instance.git.getRepository(this.uri);
+		const repo = await this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -233,7 +232,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.instance.git.getLogForFile(this.uri.repoPath, this.getPathOrGlob(), {
+			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.getPathOrGlob(), {
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				ref: this.uri.sha,
 			});

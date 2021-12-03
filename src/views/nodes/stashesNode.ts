@@ -1,6 +1,5 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Container } from '../../container';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables } from '../../system';
@@ -44,8 +43,8 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		item.contextValue = ContextValues.Stashes;
 
 		item.iconPath = {
-			dark: Container.instance.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: Container.instance.context.asAbsolutePath('images/light/icon-stash.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-stash.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-stash.svg'),
 		};
 
 		return item;

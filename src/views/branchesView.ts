@@ -28,14 +28,14 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
+import { gate, Strings } from '../system';
 import {
 	BranchesNode,
 	BranchNode,
 	BranchOrTagFolderNode,
+	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
 	RepositoryNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { ViewBase } from './viewBase';
@@ -63,17 +63,10 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 	}
 }
 
-export class BranchesViewNode extends ViewNode<BranchesView> {
-	protected override splatted = true;
-	private children: BranchesRepositoryNode[] | undefined;
-
-	constructor(view: BranchesView) {
-		super(unknownGitUri, view);
-	}
-
+export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView, BranchesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No branches could be found.';
 
@@ -118,25 +111,6 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig> {
@@ -161,8 +135,8 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.git.resetCaches('branches');
+				() => {
+					this.container.git.resetCaches('branches');
 					return this.refresh(true);
 				},
 				this,

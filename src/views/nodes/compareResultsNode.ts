@@ -1,7 +1,6 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
-import { Container } from '../../container';
 import { GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, log, Strings } from '../../system';
@@ -74,13 +73,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await Container.instance.git.getAheadBehindCommitCount(this.repoPath, [
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
 				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
 			]);
 			const mergeBase =
-				(await Container.instance.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
 					forkPoint: true,
-				})) ?? (await Container.instance.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
 			this._children = [
 				new ResultsCommitsNode(
@@ -144,8 +143,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let description;
-		if ((await Container.instance.git.getRepositoryCount()) > 1) {
-			const repo = await Container.instance.git.getRepository(this.uri.repoPath!);
+		if (this.view.container.git.repositoryCount > 1) {
+			const repo = await this.view.container.git.getRepository(this.uri.repoPath!);
 			description = repo?.formattedName ?? this.uri.repoPath;
 		}
 
@@ -181,7 +180,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		this._pinned = Date.now();
 		await this.updatePinned();
 
-		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
+		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
 	@gate()
@@ -209,7 +208,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 		this._children = undefined;
 		this.view.triggerNodeChange(this.parent);
-		setImmediate(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
+		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
 	@log()
@@ -219,7 +218,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		this._pinned = 0;
 		await this.view.updatePinned(this.getPinnableId());
 
-		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
+		queueMicrotask(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
 	private getPinnableId() {
@@ -227,13 +226,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.instance.git.getDiffStatus(
+		let files = await this.view.container.git.getDiffStatus(
 			this.repoPath,
 			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
 		);
 
 		if (this._ref.ref === '') {
-			const workingFiles = await Container.instance.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = await this.view.container.git.getDiffStatus(this.repoPath, 'HEAD');
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
@@ -257,13 +256,13 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.instance.git.getDiffStatus(
+		let files = await this.view.container.git.getDiffStatus(
 			this.repoPath,
 			GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
 		);
 
 		if (this._compareWith.ref === '') {
-			const workingFiles = await Container.instance.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = await this.view.container.git.getDiffStatus(this.repoPath, 'HEAD');
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
@@ -289,7 +288,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
 		const repoPath = this.repoPath;
 		return async (limit: number | undefined) => {
-			const log = await Container.instance.git.getLog(repoPath, {
+			const log = await this.view.container.git.getLog(repoPath, {
 				limit: limit,
 				ref: range,
 			});
@@ -319,7 +318,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
 		}
 
-		const files = await Container.instance.git.getDiffStatus(this.uri.repoPath!, comparison);
+		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
 			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,

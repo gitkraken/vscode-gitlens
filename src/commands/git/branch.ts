@@ -148,7 +148,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.instance.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
 			showTags: false,
 			title: this.title,
 		};

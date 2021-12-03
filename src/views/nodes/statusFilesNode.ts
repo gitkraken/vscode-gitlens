@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
 import {
 	GitCommitType,
 	GitFileWithCommit,
@@ -57,7 +56,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await Container.instance.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
 			if (log != null) {
 				files = [
 					...Iterables.flatMap(log.commits.values(), c =>
@@ -135,7 +134,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {
 				if (files > 0) {
-					const aheadFiles = await Container.instance.git.getDiffStatus(
+					const aheadFiles = await this.view.container.git.getDiffStatus(
 						this.repoPath,
 						`${this.status.upstream}...`,
 					);
@@ -152,7 +151,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						files = uniques.size;
 					}
 				} else {
-					const stats = await Container.instance.git.getChangedFilesCount(
+					const stats = await this.view.container.git.getChangedFilesCount(
 						this.repoPath,
 						`${this.status.upstream}...`,
 					);
@@ -170,8 +169,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
-			dark: Container.instance.context.asAbsolutePath('images/dark/icon-diff.svg'),
-			light: Container.instance.context.asAbsolutePath('images/light/icon-diff.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-diff.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-diff.svg'),
 		};
 
 		return item;

@@ -209,7 +209,7 @@ export class VslsController implements Disposable {
 			case 2 /*Role.Guest*/:
 				this.setReadonly(true);
 				void setContext(ContextKeys.Vsls, 'guest');
-				this._guest = await VslsGuestService.connect(api);
+				this._guest = await VslsGuestService.connect(api, this.container);
 				break;
 
 			default:

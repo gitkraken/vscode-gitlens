@@ -1,6 +1,7 @@
 'use strict';
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
+import { Container } from '../container';
 import { setEnabled } from '../extension';
 import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
 import { Logger } from '../logger';
@@ -10,7 +11,7 @@ import { GitCommandRequestType, RepositoriesInFolderRequestType, RepositoryProxy
 
 export class VslsGuestService implements Disposable {
 	@log()
-	static async connect(api: LiveShare) {
+	static async connect(api: LiveShare, container: Container) {
 		const cc = Logger.getCorrelationContext();
 
 		try {
@@ -19,14 +20,18 @@ export class VslsGuestService implements Disposable {
 				throw new Error('Failed to connect to host service');
 			}
 
-			return new VslsGuestService(api, service);
+			return new VslsGuestService(api, service, container);
 		} catch (ex) {
 			Logger.error(ex, cc);
 			return undefined;
 		}
 	}
 
-	constructor(private readonly _api: LiveShare, private readonly _service: SharedServiceProxy) {
+	constructor(
+		private readonly _api: LiveShare,
+		private readonly _service: SharedServiceProxy,
+		private readonly container: Container,
+	) {
 		_service.onDidChangeIsServiceAvailable(this.onAvailabilityChanged.bind(this));
 		this.onAvailabilityChanged(_service.isServiceAvailable);
 	}
@@ -70,7 +75,17 @@ export class VslsGuestService implements Disposable {
 
 		return response.repositories.map(
 			(r: RepositoryProxy) =>
-				new Repository(folder, r.path, r.root, onAnyRepositoryChanged, !window.state.focused, r.closed),
+				new Repository(
+					this.container,
+					onAnyRepositoryChanged,
+					// TODO@eamodio add live share provider
+					undefined!,
+					folder,
+					r.path,
+					r.root,
+					!window.state.focused,
+					r.closed,
+				),
 		);
 	}
 

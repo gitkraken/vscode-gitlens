@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
 import { GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
@@ -111,8 +110,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {
-					dark: Container.instance.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-					light: Container.instance.context.asAbsolutePath(paths.join('images', 'light', icon)),
+					dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+					light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 				};
 			}
 

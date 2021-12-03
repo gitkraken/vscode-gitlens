@@ -1,6 +1,6 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Container } from '../../container';
+import { RepositoriesChangedEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate } from '../../system';
@@ -34,9 +34,9 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		this._children = undefined;
 	}
 
-	async getChildren(): Promise<ViewNode[]> {
+	getChildren(): ViewNode[] {
 		if (this._children === undefined) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
 			this._children = repositories.map(r => new RepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r));
@@ -65,7 +65,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 			return;
 		}
 
-		const repositories = await Container.instance.git.getOrderedRepositories();
+		const repositories = this.view.container.git.openRepositories;
 		if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
 		if (repositories.length === 0) {
@@ -98,7 +98,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	protected subscribe() {
-		const subscriptions = [Container.instance.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
+		const subscriptions = [this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
 		if (this.view.config.autoReveal) {
 			subscriptions.push(
@@ -141,7 +141,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	@debug()
-	private onRepositoriesChanged() {
+	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
 		void this.triggerChange();
 	}
 }

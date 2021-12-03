@@ -1,6 +1,5 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Container } from '../../container';
 import {
 	GitBranch,
 	GitCommitType,
@@ -67,19 +66,19 @@ export class LineHistoryNode
 
 		let selection = this.selection;
 
-		const range = this.branch != null ? await Container.instance.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
 			this.uri.sha == null
 				? this.editorContents
-					? await Container.instance.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
-					: await Container.instance.git.getBlameForRange(this.uri, selection)
+					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.branch != null
-				? Container.instance.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.instance.git.getLogRefsOnly(this.uri.repoPath!, {
+				? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
 						ref: range,
 				  })
@@ -104,7 +103,7 @@ export class LineHistoryNode
 						selection.active.character,
 					);
 
-					const status = await Container.instance.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+					const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
 
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
@@ -263,7 +262,7 @@ export class LineHistoryNode
 
 	@debug()
 	protected async subscribe() {
-		const repo = await Container.instance.git.getRepository(this.uri);
+		const repo = await this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -318,7 +317,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await Container.instance.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,

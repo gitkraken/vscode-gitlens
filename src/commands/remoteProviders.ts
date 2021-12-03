@@ -47,7 +47,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		if (args?.repoPath == null) {
 			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
 
-			for (const repo of await Container.instance.git.getOrderedRepositories()) {
+			for (const repo of Container.instance.git.openRepositories) {
 				const remote = await repo.getRichRemote();
 				if (remote?.provider != null && !(await remote.provider.isConnected())) {
 					repos.set(repo, remote);
@@ -135,7 +135,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		if (args?.repoPath == null) {
 			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
 
-			for (const repo of await Container.instance.git.getOrderedRepositories()) {
+			for (const repo of Container.instance.git.openRepositories) {
 				const remote = await repo.getRichRemote(true);
 				if (remote != null) {
 					repos.set(repo, remote);

@@ -20,8 +20,15 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
-import { RepositoryFolderNode, RepositoryNode, StashesNode, StashNode, unknownGitUri, ViewNode } from './nodes';
+import { gate, Strings } from '../system';
+import {
+	RepositoriesSubscribeableNode,
+	RepositoryFolderNode,
+	RepositoryNode,
+	StashesNode,
+	StashNode,
+	ViewNode,
+} from './nodes';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
@@ -38,17 +45,10 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 	}
 }
 
-export class StashesViewNode extends ViewNode<StashesView> {
-	protected override splatted = true;
-	private children: StashesRepositoryNode[] | undefined;
-
-	constructor(view: StashesView) {
-		super(unknownGitUri, view);
-	}
-
+export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, StashesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No stashes could be found.';
 
@@ -93,25 +93,6 @@ export class StashesViewNode extends ViewNode<StashesView> {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
@@ -136,8 +117,8 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.git.resetCaches('stashes');
+				() => {
+					this.container.git.resetCaches('stashes');
 					return this.refresh(true);
 				},
 				this,

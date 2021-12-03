@@ -37,7 +37,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 	async provideTerminalLinks(context: TerminalLinkContext): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0) return [];
 
-		const repoPath = this.container.git.getHighlanderRepoPath();
+		const repoPath = this.container.git.highlanderRepoPath;
 		if (repoPath == null) return [];
 
 		const links: GitTerminalLink[] = [];

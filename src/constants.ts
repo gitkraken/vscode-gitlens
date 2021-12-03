@@ -95,6 +95,7 @@ export enum DocumentSchemes {
 	Output = 'output',
 	PRs = 'pr',
 	Vsls = 'vsls',
+	VirtualFS = 'vscode-vfs',
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
@@ -105,6 +106,12 @@ export function getEditorIfActive(document: TextDocument): TextEditor | undefine
 export function isActiveDocument(document: TextDocument): boolean {
 	const editor = window.activeTextEditor;
 	return editor != null && editor.document === document;
+}
+
+export function isVisibleDocument(document: TextDocument): boolean {
+	if (window.visibleTextEditors.length === 0) return false;
+
+	return window.visibleTextEditors.some(e => e.document === document);
 }
 
 export function isTextEditor(editor: TextEditor): boolean {

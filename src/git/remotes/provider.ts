@@ -238,7 +238,20 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	}
 }
 
+const _connectedCache = new Set<string>();
 const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
+function fireAuthenticationChanged(key: string, reason: 'connected' | 'disconnected') {
+	// Only fire events if the key is being connected for the first time (we could probably do the same for disconnected, but better safe on those imo)
+	if (_connectedCache.has(key)) {
+		if (reason === 'connected') return;
+
+		_connectedCache.delete(key);
+	} else if (reason === 'connected') {
+		_connectedCache.add(key);
+	}
+
+	_onDidChangeAuthentication.fire({ key: key, reason: reason });
+}
 
 export class Authentication {
 	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
@@ -350,7 +363,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			this._onDidChange.fire();
 			if (!silent) {
-				_onDidChangeAuthentication.fire({ reason: 'disconnected', key: this.key });
+				fireAuthenticationChanged(this.key, 'disconnected');
 			}
 		}
 	}
@@ -603,8 +616,10 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (session != null) {
 			await Container.instance.context.workspaceState.update(this.connectedKey, true);
 
-			this._onDidChange.fire();
-			_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
+			queueMicrotask(() => {
+				this._onDidChange.fire();
+				fireAuthenticationChanged(this.key, 'connected');
+			});
 		}
 
 		return session ?? undefined;

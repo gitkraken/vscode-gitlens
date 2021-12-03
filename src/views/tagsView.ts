@@ -20,13 +20,13 @@ import {
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
+import { gate, Strings } from '../system';
 import {
 	BranchOrTagFolderNode,
+	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
 	RepositoryNode,
 	TagsNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { ViewBase } from './viewBase';
@@ -45,17 +45,10 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 	}
 }
 
-export class TagsViewNode extends ViewNode<TagsView> {
-	protected override splatted = true;
-	private children: TagsRepositoryNode[] | undefined;
-
-	constructor(view: TagsView) {
-		super(unknownGitUri, view);
-	}
-
+export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No tags could be found.';
 
@@ -100,25 +93,6 @@ export class TagsViewNode extends ViewNode<TagsView> {
 		const item = new TreeItem('Tags', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
@@ -143,8 +117,8 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.git.resetCaches('tags');
+				() => {
+					this.container.git.resetCaches('tags');
 					return this.refresh(true);
 				},
 				this,

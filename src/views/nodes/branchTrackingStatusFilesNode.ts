@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
 import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, Iterables, Strings } from '../../system';
@@ -45,7 +44,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await Container.instance.git.getLog(this.repoPath, {
+		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
 			ref: GitRevision.createRange(
 				this.status.upstream,
@@ -103,7 +102,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const stats = await Container.instance.git.getChangedFilesCount(
+		const stats = await this.view.container.git.getChangedFilesCount(
 			this.repoPath,
 			`${this.status.upstream}${this.direction === 'behind' ? '..' : '...'}`,
 		);

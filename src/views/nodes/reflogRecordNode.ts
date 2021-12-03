@@ -1,7 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { GitLog, GitReflogRecord } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables } from '../../system';
@@ -90,7 +89,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 	private async getLog() {
 		if (this._log === undefined) {
 			const range = `${this.record.previousSha}..${this.record.sha}`;
-			this._log = await Container.instance.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range,
 			});

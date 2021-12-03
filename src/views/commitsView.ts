@@ -26,9 +26,9 @@ import { debug, Functions, gate, Strings } from '../system';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
+	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
 	RepositoryNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { ViewBase } from './viewBase';
@@ -47,7 +47,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			let authors;
 			if (this.view.state.myCommitsOnly) {
-				const user = await Container.instance.git.getCurrentUser(this.repo.path);
+				const user = await this.view.container.git.getCurrentUser(this.repo.path);
 				if (user != null) {
 					authors = [`^${user.name} <${user.email}>$`];
 				}
@@ -118,17 +118,10 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 }
 
-export class CommitsViewNode extends ViewNode<CommitsView> {
-	protected override splatted = true;
-	private children: CommitsRepositoryNode[] | undefined;
-
-	constructor(view: CommitsView) {
-		super(unknownGitUri, view);
-	}
-
+export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.instance.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No commits could be found.';
 
@@ -177,25 +170,6 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 interface CommitsViewState {
@@ -229,8 +203,8 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.git.resetCaches('branches', 'status', 'tags');
+				() => {
+					this.container.git.resetCaches('branches', 'status', 'tags');
 					return this.refresh(true);
 				},
 				this,

@@ -114,7 +114,7 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	constructor(public readonly id: string, public readonly name: string, protected readonly container: Container) {
+	constructor(public readonly id: string, public readonly name: string, public readonly container: Container) {
 		this.disposables.push(container.onReady(this.onReady, this));
 
 		if (Logger.isDebugging || this.container.config.debug) {
@@ -174,7 +174,7 @@ export abstract class ViewBase<
 
 	private onReady() {
 		this.initialize({ showCollapseAll: this.showCollapseAll });
-		setImmediate(() => this.onConfigurationChanged());
+		queueMicrotask(() => this.onConfigurationChanged());
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -374,7 +374,7 @@ export abstract class ViewBase<
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		await this.show({ preserveFocus: true });
 		// Since we have to show the view, let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 0));
+		return new Promise<ViewNode | undefined>(resolve => queueMicrotask(() => resolve(find.call(this))));
 	}
 
 	private async findNodeCoreBFS(

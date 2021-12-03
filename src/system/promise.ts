@@ -26,9 +26,9 @@ export function cancellable<T>(
 
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
-		let timer: NodeJS.Timer | undefined;
+		let timer: any | undefined;
 		if (typeof timeoutOrToken === 'number') {
-			timer = global.setTimeout(() => {
+			timer = globalThis.setTimeout(() => {
 				if (typeof options.onDidCancel === 'function') {
 					options.onDidCancel(resolve, reject);
 				} else {

@@ -728,7 +728,7 @@ export namespace GitActions {
 	export namespace Remote {
 		export async function add(repo?: string | Repository) {
 			if (repo == null) {
-				repo = Container.instance.git.getHighlanderRepoPath();
+				repo = Container.instance.git.highlanderRepoPath;
 
 				if (repo == null) {
 					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');

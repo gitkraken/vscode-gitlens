@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
 import { GitFile } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
@@ -120,7 +119,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
-				ex.promise.then(() => setTimeout(() => this.triggerChange(false), 0));
+				ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
 			label = 'files changed';
@@ -184,18 +183,18 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		const ref = this.filter === 'left' ? this.ref2 : this.ref1;
 
-		const mergeBase = await Container.instance.git.getMergeBase(
+		const mergeBase = await this.view.container.git.getMergeBase(
 			this.repoPath,
 			this.ref1 || 'HEAD',
 			this.ref2 || 'HEAD',
 		);
 		if (mergeBase != null) {
-			const files = await Container.instance.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
+			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.fileName));
 			}
 		} else {
-			const commit = await Container.instance.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
 			if (commit?.files != null) {
 				filterTo = new Set<string>(commit.files.map(f => f.fileName));
 			}

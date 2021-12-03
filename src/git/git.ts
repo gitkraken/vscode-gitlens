@@ -6,7 +6,8 @@ import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Paths, Strings } from '../system';
+import { Messages } from '../messages';
+import { Paths, Strings, Versions } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { GitRevision } from './models/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
@@ -129,7 +130,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			args.splice(0, 0, '-c', 'core.longpaths=true');
 		}
 
-		promise = run<TOut>(gitInfo.path, args, encoding ?? 'utf8', runOpts);
+		promise = run<TOut>(Git.getGitPath(), args, encoding ?? 'utf8', runOpts);
 
 		pendingCommands.set(command, promise);
 	} else {
@@ -206,19 +207,23 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
-let gitInfo: GitLocation;
-
 export namespace Git {
+	let gitInfo: GitLocation | undefined;
+
 	export function getEncoding(encoding: string | undefined) {
 		return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
 	}
 
 	export function getGitPath(): string {
-		return gitInfo.path;
+		return gitInfo?.path ?? '';
 	}
 
 	export function getGitVersion(): string {
-		return gitInfo.version;
+		return gitInfo?.version ?? '';
+	}
+
+	export function hasGitPath(): boolean {
+		return Boolean(gitInfo?.path);
 	}
 
 	export async function setOrFindGitPath(gitPath?: string | string[]): Promise<void> {
@@ -231,10 +236,15 @@ export namespace Git {
 				GlyphChars.Dot
 			} ${Strings.getDurationMilliseconds(start)} ms`,
 		);
+
+		// Warn if git is less than v2.7.2
+		if (Versions.compare(Versions.fromString(gitInfo.version), Versions.fromString('2.7.2')) === -1) {
+			void Messages.showGitVersionUnsupportedErrorMessage(gitInfo.version, '2.7.2');
+		}
 	}
 
 	export function validateVersion(major: number, minor: number): boolean {
-		const [gitMajor, gitMinor] = gitInfo.version.split('.');
+		const [gitMajor, gitMinor] = getGitVersion().split('.');
 		return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
 	}
 

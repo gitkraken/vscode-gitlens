@@ -1,6 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { Uri } from 'vscode';
+import { Strings } from '../system';
 import { normalizePath } from './string';
 
 const slash = '/';
@@ -36,10 +37,20 @@ export function isDescendent(path: string, basePath: string): boolean;
 export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean;
 export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean {
 	if (typeof baseUriOrPath === 'string') {
+		baseUriOrPath = Strings.normalizePath(baseUriOrPath);
 		if (!baseUriOrPath.startsWith('/')) {
 			baseUriOrPath = `/${baseUriOrPath}`;
 		}
+	}
 
+	if (typeof uriOrPath === 'string') {
+		uriOrPath = Strings.normalizePath(uriOrPath);
+		if (!uriOrPath.startsWith('/')) {
+			uriOrPath = `/${uriOrPath}`;
+		}
+	}
+
+	if (typeof baseUriOrPath === 'string') {
 		return (
 			baseUriOrPath.length === 1 ||
 			(typeof uriOrPath === 'string' ? uriOrPath : uriOrPath.path).startsWith(

@@ -25,7 +25,6 @@ import {
 	SearchPattern,
 	TagSortOptions,
 } from '../git/git';
-import { GitService } from '../git/gitService';
 import { GitUri } from '../git/gitUri';
 import {
 	BranchQuickPickItem,
@@ -1075,7 +1074,7 @@ export async function* pickContributorsStep<
 	context: Context,
 	placeholder: string = 'Choose contributors',
 ): AsyncStepResultGenerator<GitContributor[]> {
-	const message = (await GitService.getOrOpenBuiltInGitRepository(state.repo.path))?.inputBox.value;
+	const message = (await Container.instance.git.getOrOpenScmRepository(state.repo.path))?.inputBox.value;
 
 	const step = QuickCommand.createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),

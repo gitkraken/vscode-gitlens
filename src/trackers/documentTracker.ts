@@ -19,8 +19,10 @@ import {
 import { configuration } from '../configuration';
 import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
+import { RepositoriesChangedEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
-import { Functions } from '../system';
+import { Functions, Iterables } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -63,7 +65,7 @@ export class DocumentTracker<T> implements Disposable {
 		return this._onDidTriggerDirtyIdle.event;
 	}
 
-	private _dirtyIdleTriggerDelay!: number;
+	private _dirtyIdleTriggerDelay: number;
 	private readonly _disposable: Disposable;
 	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
 
@@ -76,7 +78,11 @@ export class DocumentTracker<T> implements Disposable {
 			workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
+			this.container.git.onDidChangeRepositories(Functions.debounce(this.onRepositoriesChanged, 250), this),
+			this.container.git.onDidChangeRepository(Functions.debounce(this.onRepositoryChanged, 250), this),
 		);
+
+		this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
 	}
 
 	dispose() {
@@ -86,29 +92,12 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private onReady(): void {
-		void this.onConfigurationChanged();
-		void this.onActiveTextEditorChanged(window.activeTextEditor);
+		this.onConfigurationChanged();
+		this.onActiveTextEditorChanged(window.activeTextEditor);
 	}
 
-	private async onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		// Only rest the cached state if we aren't initializing
-		if (
-			e != null &&
-			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
-		) {
-			for (const d of this._documentMap.values()) {
-				(await d).reset('config');
-			}
-		}
-
-		if (configuration.changed(e, 'advanced.blame.delayAfterEdit')) {
-			this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
-			this._dirtyIdleTriggeredDebounced = undefined;
-		}
-	}
-
-	private _timer: NodeJS.Timer | undefined;
-	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
+	private _timer: any | undefined;
+	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
 		if (editor != null && !isTextEditor(editor)) return;
 
 		if (this._timer != null) {
@@ -128,13 +117,51 @@ export class DocumentTracker<T> implements Disposable {
 
 		const doc = this._documentMap.get(editor.document);
 		if (doc != null) {
-			void (await doc).activate();
+			void doc.then(
+				d => d.activate(),
+				() => {},
+			);
 
 			return;
 		}
 
 		// No need to activate this, as it is implicit in initialization if currently active
 		void this.addCore(editor.document);
+	}
+
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+		// Only rest the cached state if we aren't initializing
+		if (
+			e != null &&
+			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
+		) {
+			this.reset('config');
+		}
+
+		if (configuration.changed(e, 'advanced.blame.delayAfterEdit')) {
+			this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
+			this._dirtyIdleTriggeredDebounced = undefined;
+		}
+	}
+
+	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
+		this.reset('repository');
+	}
+
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (
+			e.changed(
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
+			void Promise.allSettled(
+				Iterables.map(this._documentMap.values(), async d => (await d).reset('repository')),
+			);
+		}
 	}
 
 	private async onTextDocumentChanged(e: TextDocumentChangeEvent) {
@@ -321,7 +348,7 @@ export class DocumentTracker<T> implements Disposable {
 		| undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
-			setImmediate(() => {
+			queueMicrotask(() => {
 				this._dirtyStateChangedDebounced?.cancel();
 				if (window.activeTextEditor !== e.editor) return;
 
@@ -357,6 +384,15 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		this._dirtyStateChangedDebounced(e);
+	}
+
+	private reset(reason: 'config' | 'dispose' | 'document' | 'repository') {
+		void Promise.allSettled(
+			Iterables.map(
+				Iterables.filter(this._documentMap, ([key]) => typeof key === 'string'),
+				async ([, d]) => (await d).reset(reason),
+			),
+		);
 	}
 }
 

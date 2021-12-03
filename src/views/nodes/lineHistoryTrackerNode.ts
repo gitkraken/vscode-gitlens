@@ -2,7 +2,6 @@
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys, setContext } from '../../constants';
-import { Container } from '../../container';
 import { GitReference, GitRevision } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
@@ -75,9 +74,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await Container.instance.git.getBranch(this.uri.repoPath);
+				branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			} else if (!GitRevision.isSha(commitish.sha)) {
-				[branch] = await Container.instance.git.getBranches(this.uri.repoPath, {
+				[branch] = await this.view.container.git.getBranches(this.uri.repoPath, {
 					filter: b => b.name === commitish.sha,
 				});
 			}
@@ -123,7 +122,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (pick == null) return;
 
 		if (GitReference.isBranch(pick)) {
-			const branch = await Container.instance.git.getBranch(this.uri.repoPath);
+			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;
@@ -151,10 +150,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		}
 
 		const editor = window.activeTextEditor;
-		if (editor == null || !Container.instance.git.isTrackable(editor.document.uri)) {
+		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
 			if (
 				!this.hasUri ||
-				(Container.instance.git.isTrackable(this.uri) &&
+				(this.view.container.git.isTrackable(this.uri) &&
 					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
 				return true;
@@ -211,13 +210,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	protected subscribe() {
-		if (Container.instance.lineTracker.isSubscribed(this)) return undefined;
+		if (this.view.container.lineTracker.isSubscribed(this)) return undefined;
 
 		const onActiveLinesChanged = Functions.debounce(this.onActiveLinesChanged.bind(this), 250);
 
-		return Container.instance.lineTracker.start(
+		return this.view.container.lineTracker.start(
 			this,
-			Container.instance.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
+			this.view.container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
 				if (e.pending) return;
 
 				onActiveLinesChanged(e);

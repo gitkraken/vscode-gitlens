@@ -2,7 +2,6 @@
 import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/git';
-import { GitService } from '../../git/providers/localGitProvider';
 import { Strings } from '../../system';
 import {
 	PartialStepState,
@@ -60,7 +59,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: CoAuthorStepState) {
-		const repo = await GitService.getOrOpenBuiltInGitRepository(state.repo.path);
+		const repo = await Container.instance.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 
 		let message = repo.inputBox.value;
@@ -93,23 +92,23 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.instance.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
 			activeRepo: undefined,
 			title: this.title,
 		};
 
-		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi != null) {
+		const scmRepositories = await Container.instance.git.getOpenScmRepositories();
+		if (scmRepositories.length) {
 			// Filter out any repo's that are not known to the built-in git
 			context.repos = context.repos.filter(repo =>
-				gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
+				scmRepositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
 			);
 
 			// Ensure that the active repo is known to the built-in git
 			context.activeRepo = await Container.instance.git.getActiveRepository();
 			if (
 				context.activeRepo != null &&
-				!gitApi.repositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)
+				!scmRepositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)
 			) {
 				context.activeRepo = undefined;
 			}

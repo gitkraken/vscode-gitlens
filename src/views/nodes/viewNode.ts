@@ -9,7 +9,6 @@ import {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import {
 	GitFile,
 	GitReference,
@@ -20,6 +19,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../../git/git';
+import { RepositoriesChangedEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, log, logName, Strings } from '../../system';
@@ -357,7 +357,7 @@ export abstract class RepositoryFolderNode<
 
 		let expand = this.repo.starred;
 		const [active, branch] = await Promise.all([
-			expand ? undefined : Container.instance.git.isActiveRepoPath(this.uri.repoPath),
+			expand ? undefined : this.view.container.git.isActiveRepoPath(this.uri.repoPath),
 			this.repo.getBranch(),
 		]);
 
@@ -395,7 +395,7 @@ export abstract class RepositoryFolderNode<
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await Container.instance.git.getRemotes(branch.repoPath),
+					await this.view.container.git.getRemotes(branch.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -515,6 +515,46 @@ export abstract class RepositoryFolderNode<
 		if (this.changed(e)) {
 			void (this.loaded ? this : this.parent ?? this).triggerChange(true);
 		}
+	}
+}
+
+export abstract class RepositoriesSubscribeableNode<
+	TView extends View = View,
+	TChild extends ViewNode & Disposable = ViewNode & Disposable,
+> extends SubscribeableViewNode<TView> {
+	protected override splatted = true;
+	protected children: TChild[] | undefined;
+
+	constructor(view: TView) {
+		super(unknownGitUri, view);
+	}
+
+	override async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	override refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
+	}
+
+	@debug()
+	protected subscribe(): Disposable | Promise<Disposable> {
+		return this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this);
+	}
+
+	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
+		void this.triggerChange(true);
 	}
 }
 

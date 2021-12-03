@@ -130,7 +130,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 	private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
 		return new Promise<TextEditor | undefined>(resolve => {
-			let timer: NodeJS.Timer | undefined;
+			let timer: any | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {
 				if (timer != null) {

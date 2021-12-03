@@ -2,7 +2,6 @@
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys, setContext } from '../../constants';
-import { Container } from '../../container';
 import { GitReference, GitRevision } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
@@ -65,9 +64,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
-				branch = await Container.instance.git.getBranch(this.uri.repoPath);
+				branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			} else if (!GitRevision.isSha(commitish.sha)) {
-				[branch] = await Container.instance.git.getBranches(this.uri.repoPath, {
+				[branch] = await this.view.container.git.getBranches(this.uri.repoPath, {
 					filter: b => b.name === commitish.sha,
 				});
 			}
@@ -111,7 +110,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (pick == null) return;
 
 		if (GitReference.isBranch(pick)) {
-			const branch = await Container.instance.git.getBranch(this.uri.repoPath);
+			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
 			this._base = pick.ref;
@@ -137,10 +136,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		}
 
 		const editor = window.activeTextEditor;
-		if (editor == null || !Container.instance.git.isTrackable(editor.document.uri)) {
+		if (editor == null || !this.view.container.git.isTrackable(editor.document.uri)) {
 			if (
 				!this.hasUri ||
-				(Container.instance.git.isTrackable(this.uri) &&
+				(this.view.container.git.isTrackable(this.uri) &&
 					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
 				return true;
@@ -167,7 +166,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		let uri;
 		if (gitUri.sha != null) {
 			// If we have a sha, normalize the history to the working file (so we get a full history all the time)
-			const workingUri = await Container.instance.git.getWorkingUri(gitUri.repoPath!, gitUri);
+			const workingUri = await this.view.container.git.getWorkingUri(gitUri.repoPath!, gitUri);
 			if (workingUri != null) {
 				uri = workingUri;
 			}

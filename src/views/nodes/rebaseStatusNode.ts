@@ -13,7 +13,6 @@ import {
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import {
 	CommitFormatter,
 	GitBranch,
@@ -78,7 +77,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			);
 		}
 
-		const commit = await Container.instance.git.getCommit(
+		const commit = await this.view.container.git.getCommit(
 			this.rebaseStatus.repoPath,
 			this.rebaseStatus.steps.current.commit.ref,
 		);
@@ -168,7 +167,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			})}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
 			this.commit,
 			{
-				dateFormat: Container.instance.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				messageIndent: 4,
 			},
 		);

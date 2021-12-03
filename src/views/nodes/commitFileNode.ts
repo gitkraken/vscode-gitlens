@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
 import { GitBranch, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { FileHistoryView } from '../fileHistoryView';
@@ -49,7 +48,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			// Try to get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit == null) {
-				const log = await Container.instance.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -69,8 +68,8 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 
 		const icon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.instance.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-			light: Container.instance.context.asAbsolutePath(paths.join('images', 'light', icon)),
+			dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+			light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 		};
 
 		item.command = this.getCommand();
