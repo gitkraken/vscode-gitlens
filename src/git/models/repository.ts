@@ -32,8 +32,8 @@ import {
 	GitTag,
 	SearchPattern,
 } from '../git';
-import { GitService } from '../gitService';
 import { GitUri } from '../gitUri';
+import { GitService } from '../providers/localGitProvider';
 import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import {
 	BranchSortOptions,

@@ -19,14 +19,14 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/vscode.git';
-import { resetAvatarCache } from '../avatars';
-import { configuration } from '../configuration';
-import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
-import { Container } from '../container';
-import { setEnabled } from '../extension';
-import { LogCorrelationContext, Logger } from '../logger';
-import { Messages } from '../messages';
+import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../../@types/vscode.git';
+import { resetAvatarCache } from '../../avatars';
+import { configuration } from '../../configuration';
+import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../../constants';
+import { Container } from '../../container';
+import { setEnabled } from '../../extension';
+import { LogCorrelationContext, Logger } from '../../logger';
+import { Messages } from '../../messages';
 import {
 	Arrays,
 	debug,
@@ -39,9 +39,15 @@ import {
 	Strings,
 	TernarySearchTree,
 	Versions,
-} from '../system';
-import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { vslsUriPrefixRegex } from '../vsls/vsls';
+} from '../../system';
+import {
+	CachedBlame,
+	CachedDiff,
+	CachedLog,
+	GitDocumentState,
+	TrackedDocument,
+} from '../../trackers/gitDocumentTracker';
+import { vslsUriPrefixRegex } from '../../vsls/vsls';
 import {
 	Authentication,
 	BranchDateFormatting,
@@ -97,11 +103,11 @@ import {
 	RepositoryChangeEvent,
 	SearchPattern,
 	TagSortOptions,
-} from './git';
-import { GitUri } from './gitUri';
-import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
-import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from './remotes/factory';
-import { fsExists, isWindows } from './shell';
+} from '../git';
+import { GitUri } from '../gitUri';
+import { GitReflogParser, GitShortLogParser } from '../parsers/parsers';
+import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
+import { fsExists, isWindows } from '../shell';
 
 const emptyStr = '';
 const slash = '/';

@@ -2,7 +2,7 @@
 import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/git';
-import { GitService } from '../../git/gitService';
+import { GitService } from '../../git/providers/localGitProvider';
 import { Strings } from '../../system';
 import {
 	PartialStepState,

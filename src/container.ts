@@ -15,7 +15,7 @@ import {
 	FileAnnotationType,
 } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitService } from './git/gitService';
+import { GitService } from './git/providers/localGitProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
