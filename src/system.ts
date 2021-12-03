@@ -23,6 +23,7 @@ export * as Dates from './system/date';
 export * from './system/decorators/gate';
 export * from './system/decorators/log';
 export * from './system/decorators/memoize';
+export * from './system/decorators/serialize';
 export * from './system/decorators/timeout';
 export * as Encoding from './system/encoding';
 export * as Functions from './system/function';
