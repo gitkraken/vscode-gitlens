@@ -25,6 +25,7 @@ interface Context {
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
 	pickCommit: boolean;
+	pickCommitForItem: boolean;
 	selectedBranchOrTag: GitReference | undefined;
 	showTags: boolean;
 	title: string;
@@ -101,6 +102,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
+			pickCommitForItem: false,
 			selectedBranchOrTag: undefined,
 			showTags: true,
 			title: this.title,
@@ -141,6 +143,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = `${this.title} ${GitReference.toString(context.destination, { icon: false })}`;
+			context.pickCommitForItem = false;
 
 			if (state.counter < 2 || state.reference == null) {
 				const pickCommitToggle = new QuickCommandButtons.PickCommitToggle(context.pickCommit, context, () => {
@@ -174,7 +177,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			if (
 				state.counter < 3 &&
 				context.selectedBranchOrTag != null &&
-				(context.pickCommit || state.reference.ref === context.destination.ref)
+				(context.pickCommit || context.pickCommitForItem || state.reference.ref === context.destination.ref)
 			) {
 				const ref = context.selectedBranchOrTag.ref;
 

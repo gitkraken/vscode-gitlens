@@ -38,10 +38,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 	}
 
 	/**
-	 *
-	 * @param quickInput
 	 * @returns `true` if the step should be retried (refreshed)
-	 *
 	 */
 	onDidClick?(quickInput: QuickInput): boolean | void | Promise<boolean | void>;
 
@@ -87,6 +84,11 @@ export namespace QuickCommandButtons {
 		constructor(on = false) {
 			super('Match using Regular Expressions', { off: 'icon-match-regex', on: 'icon-match-regex-selected' }, on);
 		}
+	};
+
+	export const PickCommit: QuickInputButton = {
+		iconPath: new ThemeIcon('git-commit'),
+		tooltip: 'Choose a Specific Commit',
 	};
 
 	export const PickCommitToggle = class extends ToggleQuickInputButton {

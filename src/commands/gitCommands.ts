@@ -468,9 +468,11 @@ export class GitCommandsCommand extends Command {
 				disposables.push(
 					scope,
 					quickpick.onDidHide(() => resolve(undefined)),
-					quickpick.onDidTriggerItemButton(async e =>
-						step.onDidClickItemButton?.(quickpick, e.button, e.item),
-					),
+					quickpick.onDidTriggerItemButton(async e => {
+						if ((await step.onDidClickItemButton?.(quickpick, e.button, e.item)) === true) {
+							resolve(await this.nextStep(quickpick, commandsStep.command!, [e.item]));
+						}
+					}),
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();

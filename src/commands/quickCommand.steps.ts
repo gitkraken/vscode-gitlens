@@ -563,7 +563,7 @@ export async function* pickBranchesStep<
 
 export async function* pickBranchOrTagStep<
 	State extends PartialStepState & { repo: Repository },
-	Context extends { repos: Repository[]; showTags?: boolean; title: string },
+	Context extends { repos: Repository[]; pickCommitForItem?: boolean; showTags?: boolean; title: string },
 >(
 	state: State,
 	context: Context,
@@ -591,7 +591,10 @@ export async function* pickBranchOrTagStep<
 
 	const getBranchesAndOrTagsFn = async () => {
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
-			buttons: [QuickCommandButtons.RevealInSideBar],
+			buttons:
+				typeof context.pickCommitForItem === 'boolean'
+					? [QuickCommandButtons.PickCommit, QuickCommandButtons.RevealInSideBar]
+					: [QuickCommandButtons.RevealInSideBar],
 			filter: filter,
 			picked: picked,
 			sort: true,
@@ -616,6 +619,11 @@ export async function* pickBranchOrTagStep<
 				: branchesAndOrTags,
 		additionalButtons: [...(additionalButtons ?? []), showTagsButton],
 		onDidClickItemButton: (quickpick, button, { item }) => {
+			if (button === QuickCommandButtons.PickCommit) {
+				context.pickCommitForItem = true;
+				return true;
+			}
+
 			if (button === QuickCommandButtons.RevealInSideBar) {
 				if (GitReference.isBranch(item)) {
 					void GitActions.Branch.reveal(item, { select: true, expand: true });
@@ -625,6 +633,7 @@ export async function* pickBranchOrTagStep<
 					void GitActions.Commit.reveal(item, { select: true, expand: true });
 				}
 			}
+			return false;
 		},
 		onDidClickButton: async (quickpick, button) => {
 			if (button === showTagsButton) {
