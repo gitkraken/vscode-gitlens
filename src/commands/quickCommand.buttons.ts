@@ -37,6 +37,12 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		this._on = value;
 	}
 
+	/**
+	 *
+	 * @param quickInput
+	 * @returns `true` if the step should be retried (refreshed)
+	 *
+	 */
 	onDidClick?(quickInput: QuickInput): boolean | void | Promise<boolean | void>;
 
 	private getState() {

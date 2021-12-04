@@ -190,8 +190,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	async retry(): Promise<QuickPickStep | QuickInputStep | undefined> {
-		await this.next(Directive.Back);
-		await this.next();
+		await this.next(Directive.Noop);
 		return this.value;
 	}
 
