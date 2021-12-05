@@ -25,7 +25,7 @@ import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
-export enum Commands {
+export const enum Commands {
 	ActionPrefix = 'gitlens.action.',
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
@@ -732,7 +732,7 @@ export async function openEditor(
 	}
 }
 
-export enum OpenWorkspaceLocation {
+export const enum OpenWorkspaceLocation {
 	CurrentWindow = 'currentWindow',
 	NewWindow = 'newWindow',
 	AddToWorkspace = 'addToWorkspace',

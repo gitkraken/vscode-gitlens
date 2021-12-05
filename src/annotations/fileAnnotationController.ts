@@ -45,7 +45,7 @@ import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
 import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 
-export enum AnnotationClearReason {
+export const enum AnnotationClearReason {
 	User = 'User',
 	BlameabilityChanged = 'BlameabilityChanged',
 	ColumnChanged = 'ColumnChanged',

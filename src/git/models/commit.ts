@@ -21,7 +21,7 @@ export interface GitCommitLine {
 	code?: string;
 }
 
-export enum GitCommitType {
+export const enum GitCommitType {
 	Blame = 'blame',
 	Log = 'log',
 	LogFile = 'logFile',

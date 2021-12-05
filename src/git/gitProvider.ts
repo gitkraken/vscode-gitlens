@@ -35,7 +35,7 @@ import { GitUri } from './gitUri';
 import { RemoteProviders } from './remotes/factory';
 import { SearchPattern } from './search';
 
-export enum GitProviderId {
+export const enum GitProviderId {
 	Git = 'git',
 	GitHub = 'github',
 }

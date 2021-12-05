@@ -15,7 +15,7 @@ import { ContextKeys, setContext } from '../constants';
 import { Logger } from '../logger';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
-export enum AnnotationStatus {
+export const enum AnnotationStatus {
 	Computing = 'computing',
 	Computed = 'computed',
 }

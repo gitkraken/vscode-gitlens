@@ -10,7 +10,7 @@ import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQ
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
-export enum ReferencesQuickPickIncludes {
+export const enum ReferencesQuickPickIncludes {
 	Branches = 1,
 	Tags = 2,
 	WorkingTree = 4,

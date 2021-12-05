@@ -4,7 +4,7 @@ import { configuration } from './configuration';
 import { GitCommit } from './git/git';
 import { Logger } from './logger';
 
-export enum SuppressedMessages {
+export const enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
 	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
 	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',

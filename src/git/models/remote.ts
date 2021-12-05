@@ -3,7 +3,7 @@ import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { RemoteProvider, RichRemoteProvider } from '../remotes/factory';
 
-export enum GitRemoteType {
+export const enum GitRemoteType {
 	Fetch = 'fetch',
 	Push = 'push',
 }

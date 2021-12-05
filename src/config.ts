@@ -1,6 +1,6 @@
 'use strict';
 
-export enum TraceLevel {
+export const enum TraceLevel {
 	Silent = 'silent',
 	Errors = 'errors',
 	Verbose = 'verbose',
@@ -152,7 +152,7 @@ export interface Config {
 	advanced: AdvancedConfig;
 }
 
-export enum AnnotationsToggleMode {
+export const enum AnnotationsToggleMode {
 	File = 'file',
 	Window = 'window',
 }
@@ -165,25 +165,25 @@ export interface AutolinkReference {
 	ignoreCase?: boolean;
 }
 
-export enum BlameHighlightLocations {
+export const enum BlameHighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
 	Overview = 'overview',
 }
 
-export enum BranchSorting {
+export const enum BranchSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
 	NameAsc = 'name:asc',
 	NameDesc = 'name:desc',
 }
 
-export enum ChangesLocations {
+export const enum ChangesLocations {
 	Gutter = 'gutter',
 	Overview = 'overview',
 }
 
-export enum CodeLensCommand {
+export const enum CodeLensCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -201,13 +201,13 @@ export enum CodeLensCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum CodeLensScopes {
+export const enum CodeLensScopes {
 	Document = 'document',
 	Containers = 'containers',
 	Blocks = 'blocks',
 }
 
-export enum ContributorSorting {
+export const enum ContributorSorting {
 	CountDesc = 'count:desc',
 	CountAsc = 'count:asc',
 	DateDesc = 'date:desc',
@@ -216,7 +216,7 @@ export enum ContributorSorting {
 	NameDesc = 'name:desc',
 }
 
-export enum CustomRemoteType {
+export const enum CustomRemoteType {
 	AzureDevOps = 'AzureDevOps',
 	Bitbucket = 'Bitbucket',
 	BitbucketServer = 'BitbucketServer',
@@ -227,28 +227,28 @@ export enum CustomRemoteType {
 	GitLab = 'GitLab',
 }
 
-export enum DateSource {
+export const enum DateSource {
 	Authored = 'authored',
 	Committed = 'committed',
 }
 
-export enum DateStyle {
+export const enum DateStyle {
 	Absolute = 'absolute',
 	Relative = 'relative',
 }
 
-export enum FileAnnotationType {
+export const enum FileAnnotationType {
 	Blame = 'blame',
 	Changes = 'changes',
 	Heatmap = 'heatmap',
 }
 
-export enum GitCommandSorting {
+export const enum GitCommandSorting {
 	Name = 'name',
 	Usage = 'usage',
 }
 
-export enum GravatarDefaultStyle {
+export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
 	Geometric = 'identicon',
 	Monster = 'monsterid',
@@ -257,18 +257,18 @@ export enum GravatarDefaultStyle {
 	Robot = 'robohash',
 }
 
-export enum HeatmapLocations {
+export const enum HeatmapLocations {
 	Gutter = 'gutter',
 	Overview = 'overview',
 }
 
-export enum KeyMap {
+export const enum KeyMap {
 	Alternate = 'alternate',
 	Chorded = 'chorded',
 	None = 'none',
 }
 
-export enum StatusBarCommand {
+export const enum StatusBarCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -288,25 +288,25 @@ export enum StatusBarCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum TagSorting {
+export const enum TagSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
 	NameAsc = 'name:asc',
 	NameDesc = 'name:desc',
 }
 
-export enum ViewBranchesLayout {
+export const enum ViewBranchesLayout {
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewFilesLayout {
+export const enum ViewFilesLayout {
 	Auto = 'auto',
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewShowBranchComparison {
+export const enum ViewShowBranchComparison {
 	Branch = 'branch',
 	Working = 'working',
 }

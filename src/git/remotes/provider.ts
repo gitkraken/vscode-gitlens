@@ -26,7 +26,7 @@ import {
 	Repository,
 } from '../models/models';
 
-export enum RemoteResourceType {
+export const enum RemoteResourceType {
 	Branch = 'branch',
 	Branches = 'branches',
 	Commit = 'commit',

@@ -25,7 +25,7 @@ export interface GitTrackingState {
 	behind: number;
 }
 
-export enum GitBranchStatus {
+export const enum GitBranchStatus {
 	Ahead = 'ahead',
 	Behind = 'behind',
 	Diverged = 'diverged',

@@ -5,7 +5,7 @@ import { SearchPattern } from './git/git';
 
 export const quickPickTitleMaxChars = 80;
 
-export enum BuiltInCommands {
+export const enum BuiltInCommands {
 	CloseActiveEditor = 'workbench.action.closeActiveEditor',
 	CloseAllEditors = 'workbench.action.closeAllEditors',
 	CursorMove = 'cursorMove',
@@ -27,7 +27,7 @@ export enum BuiltInCommands {
 	ShowReferences = 'editor.action.showReferences',
 }
 
-export enum BuiltInGitCommands {
+export const enum BuiltInGitCommands {
 	Publish = 'git.publish',
 	Pull = 'git.pull',
 	PullRebase = 'git.pullRebase',
@@ -36,13 +36,13 @@ export enum BuiltInGitCommands {
 	UndoCommit = 'git.undoCommit',
 }
 
-export enum BuiltInGitConfiguration {
+export const enum BuiltInGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
 
-export enum ContextKeys {
+export const enum ContextKeys {
 	ActionPrefix = 'gitlens:action:',
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
@@ -71,7 +71,7 @@ export function setContext(key: ContextKeys | string, value: any) {
 	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
-export enum Colors {
+export const enum Colors {
 	GutterBackgroundColor = 'gitlens.gutterBackgroundColor',
 	GutterForegroundColor = 'gitlens.gutterForegroundColor',
 	GutterUncommittedForegroundColor = 'gitlens.gutterUncommittedForegroundColor',
@@ -87,7 +87,7 @@ export enum Colors {
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
-export enum DocumentSchemes {
+export const enum DocumentSchemes {
 	DebugConsole = 'debug',
 	File = 'file',
 	Git = 'git',
@@ -172,14 +172,14 @@ export const enum GlyphChars {
 	ZeroWidthSpace = '\u200b',
 }
 
-export enum SyncedState {
+export const enum SyncedState {
 	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
-export enum GlobalState {
+export const enum GlobalState {
 	Avatars = 'gitlens:avatars',
 	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
@@ -254,7 +254,7 @@ export interface Usage {
 	[id: string]: number;
 }
 
-export enum WorkspaceState {
+export const enum WorkspaceState {
 	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
 
 	BranchComparisons = 'gitlens:branch:comparisons',

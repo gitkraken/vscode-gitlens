@@ -13,7 +13,7 @@ export const PullRequestDateFormatting = {
 	},
 };
 
-export enum PullRequestState {
+export const enum PullRequestState {
 	Open = 'Open',
 	Closed = 'Closed',
 	Merged = 'Merged',

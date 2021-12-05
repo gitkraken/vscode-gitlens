@@ -25,7 +25,7 @@ import { Logger } from '../../logger';
 import { debug, Functions, gate, log, logName, Strings } from '../../system';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
-export enum ContextValues {
+export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
 	Branch = 'gitlens:branch',

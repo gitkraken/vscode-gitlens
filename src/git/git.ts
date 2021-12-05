@@ -56,7 +56,7 @@ const GitWarnings = {
 	notAGitCommand: /'.+' is not a git command/i,
 };
 
-export enum GitErrorHandling {
+export const enum GitErrorHandling {
 	Ignore = 'ignore',
 	Throw = 'throw',
 }
