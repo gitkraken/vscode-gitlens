@@ -326,6 +326,7 @@ export interface AdvancedConfig {
 	externalDiffTool: string | null;
 	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
+	fileHistoryStopsAtFirstParent: boolean;
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;

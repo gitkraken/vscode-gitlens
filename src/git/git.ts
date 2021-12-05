@@ -867,7 +867,7 @@ export namespace Git {
 		}
 
 		params.push(renames ? '--follow' : '-m');
-		if (/*renames ||*/ firstParent) {
+		if (firstParent) {
 			params.push('--first-parent');
 			// In Git >= 2.29.0 `--first-parent` implies `-m`, so lets include it for consistency
 			if (renames) {

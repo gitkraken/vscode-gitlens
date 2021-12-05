@@ -2433,7 +2433,7 @@ export class GitService implements Disposable {
 			const data = await Git.log__file(root, file, ref, {
 				ordering: this.container.config.advanced.commitOrdering,
 				...options,
-				firstParent: options.renames,
+				firstParent: Container.config.advanced.fileHistoryStopsAtFirstParent,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
 			});
