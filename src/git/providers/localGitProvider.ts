@@ -17,7 +17,7 @@ import {
 } from 'vscode';
 import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../../@types/vscode.git';
 import { configuration } from '../../configuration';
-import { BuiltInGitConfiguration, DocumentSchemes } from '../../constants';
+import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { LogCorrelationContext, Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -84,7 +84,7 @@ import {
 import { GitProvider, GitProviderId, PagedResult, RepositoryInitWatcher, ScmRepository } from '../gitProvider';
 import { GitProviderService } from '../gitProviderService';
 import { GitUri } from '../gitUri';
-import { InvalidGitConfigError, UnableToFindGitError } from '../locator';
+import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from '../locator';
 import { GitReflogParser, GitShortLogParser } from '../parsers/parsers';
 import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import { fsExists, isWindows } from '../shell';
@@ -121,7 +121,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
-	constructor(private readonly container: Container) {}
+	constructor(private readonly container: Container) {
+		Git.setLocator(this.ensureGit.bind(this));
+	}
 
 	dispose() {}
 
@@ -167,16 +169,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this._onDidChangeRepository.fire(e);
 	}
 
-	private _initialized: Promise<void> | undefined;
-	private async ensureInitialized(): Promise<void> {
-		if (this._initialized == null) {
-			this._initialized = this.initializeCore();
+	private _gitLocator: Promise<GitLocation> | undefined;
+	private async ensureGit(): Promise<GitLocation> {
+		if (this._gitLocator == null) {
+			this._gitLocator = this.findGit();
 		}
 
-		return this._initialized;
+		return this._gitLocator;
 	}
 
-	private async initializeCore() {
+	@log()
+	private async findGit(): Promise<GitLocation> {
+		if (!configuration.getAny<boolean>('git.enabled', null, true)) {
+			Logger.log('Built-in Git is disabled ("git.enabled": false)');
+			void Messages.showGitDisabledErrorMessage();
+
+			throw new UnableToFindGitError();
+		}
+
 		// Try to use the same git as the built-in vscode git extension
 		const gitApi = await this.getScmGitApi();
 		if (gitApi != null) {
@@ -196,14 +206,23 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
-		if (Git.hasGitPath()) return;
+		const gitPath = gitApi?.git.path ?? configuration.getAny<string | string[]>('git.path');
 
-		await Git.setOrFindGitPath(gitApi?.git.path ?? configuration.getAny<string | string[]>('git.path'));
+		const start = process.hrtime();
+		const location = await findGitPath(gitPath);
+		Logger.log(
+			`Git found: ${location.version} @ ${location.path === 'git' ? 'PATH' : location.path} ${
+				GlyphChars.Dot
+			} ${Strings.getDurationMilliseconds(start)} ms`,
+		);
 
 		// Warn if git is less than v2.7.2
-		if (this.compareGitVersion('2.7.2') === -1) {
-			void Messages.showGitVersionUnsupportedErrorMessage(Git.getGitVersion(), '2.7.2');
+		if (Versions.compare(Versions.fromString(location.version), Versions.fromString('2.7.2')) === -1) {
+			Logger.log(`Git version (${location.version}) is outdated`);
+			void Messages.showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
 		}
+
+		return location;
 	}
 
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
@@ -216,7 +235,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (autoRepositoryDetection === false) return [];
 
 		try {
-			await this.ensureInitialized();
+			void (await this.ensureGit());
 
 			const repositories = await this.repositorySearch(workspace.getWorkspaceFolder(uri)!);
 			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
@@ -3143,7 +3162,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
-		const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
 
 		const data = await Git.status__file(repoPath, fileName, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3156,7 +3175,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getStatusForFiles(repoPath: string, path: string): Promise<GitStatusFile[] | undefined> {
-		const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
 
 		const data = await Git.status__file(repoPath, path, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3171,7 +3190,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
-		const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
+		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
 
 		const data = await Git.status(repoPath, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3396,10 +3415,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repoPath === doc?.uri.repoPath;
 	}
 
-	isTrackable(scheme: string): boolean;
-	isTrackable(uri: Uri): boolean;
-	isTrackable(schemeOruri: string | Uri): boolean {
-		const scheme = typeof schemeOruri === 'string' ? schemeOruri : schemeOruri.scheme;
+	isTrackable(uri: Uri): boolean {
+		const { scheme } = uri;
 		return (
 			scheme === DocumentSchemes.File ||
 			scheme === DocumentSchemes.Git ||
@@ -3409,12 +3426,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	async isTracked(
-		fileName: string,
-		repoPath?: string,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<boolean>;
-	async isTracked(uri: GitUri): Promise<boolean>;
 	@log<LocalGitProvider['isTracked']>({
 		exit: tracked => `returned ${tracked}`,
 		singleLine: true,
@@ -3687,7 +3698,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	stashSave(
+	async stashSave(
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
@@ -3695,7 +3706,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<void> {
 		if (uris == null) return Git.stash__push(repoPath, message, options);
 
-		this.ensureGitVersion(
+		await this.ensureGitVersion(
 			'2.13.2',
 			'Stashing individual files',
 			' Please retry by stashing everything or install a more recent version of Git.',
@@ -3704,10 +3715,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const pathspecs = uris.map(u => `./${Paths.splitPath(u.fsPath, repoPath)[0]}`);
 
 		const stdinVersion = '2.30.0';
-		const stdin = this.compareGitVersion(stdinVersion) !== -1;
+		const stdin = (await this.compareGitVersion(stdinVersion)) !== -1;
 		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
 		if (!stdin && Arrays.countStringLength(pathspecs) > maxGitCliLength) {
-			this.ensureGitVersion(
+			await this.ensureGitVersion(
 				stdinVersion,
 				`Stashing so many files (${pathspecs.length}) at once`,
 				' Please retry by stashing fewer files or install a more recent version of Git.',
@@ -3774,14 +3785,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private compareGitVersion(version: string) {
-		return Versions.compare(Versions.fromString(Git.getGitVersion()), Versions.fromString(version));
+	private async compareGitVersion(version: string) {
+		return Versions.compare(Versions.fromString(await Git.version()), Versions.fromString(version));
 	}
 
-	private ensureGitVersion(version: string, prefix: string, suffix: string): void {
-		if (this.compareGitVersion(version) === -1) {
+	private async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
+		if ((await this.compareGitVersion(version)) === -1) {
 			throw new Error(
-				`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${Git.getGitVersion()}).${suffix}`,
+				`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await Git.version()}).${suffix}`,
 			);
 		}
 	}

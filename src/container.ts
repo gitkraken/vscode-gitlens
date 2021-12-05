@@ -24,8 +24,7 @@ import {
 	FileAnnotationType,
 } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitProviderId } from './git/gitProvider';
-import { GitProviderService } from './git/gitProviderService';
+import { GitProviderId, GitProviderService } from './git/gitProviderService';
 import { LocalGitProvider } from './git/providers/localGitProvider';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
@@ -147,14 +146,18 @@ export class Container {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
-		this.registerGitProviders();
-		this._onReady.fire();
+		queueMicrotask(() => {
+			this.registerGitProviders();
+			this._onReady.fire();
+		});
 	}
 
 	private registerGitProviders() {
 		if (env.uiKind !== UIKind.Web) {
 			this._context.subscriptions.push(this._git.register(GitProviderId.Git, new LocalGitProvider(this)));
 		}
+
+		this._git.registrationComplete();
 	}
 
 	private onConfigurationChanging(e: ConfigurationWillChangeEvent) {

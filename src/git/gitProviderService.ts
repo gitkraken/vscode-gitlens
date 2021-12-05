@@ -1,4 +1,5 @@
 'use strict';
+import { encodingExists } from 'iconv-lite';
 import {
 	ConfigurationChangeEvent,
 	Disposable,
@@ -16,9 +17,15 @@ import {
 } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
-import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
+import {
+	BuiltInGitConfiguration,
+	ContextKeys,
+	DocumentSchemes,
+	GlyphChars,
+	setContext,
+	WorkspaceState,
+} from '../constants';
 import { Container } from '../container';
-import { setEnabled } from '../extension';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '../system';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
@@ -28,7 +35,6 @@ import {
 	BranchDateFormatting,
 	BranchSortOptions,
 	CommitDateFormatting,
-	Git,
 	GitBlame,
 	GitBlameLine,
 	GitBlameLines,
@@ -68,7 +74,7 @@ import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepo
 import { GitUri } from './gitUri';
 import { RemoteProvider, RemoteProviders, RichRemoteProvider } from './remotes/factory';
 
-export type { GitProviderDescriptor, GitProviderId };
+export { type GitProviderDescriptor, GitProviderId };
 
 const slash = '/';
 
@@ -122,7 +128,7 @@ export class GitProviderService implements Disposable {
 				}
 
 				this.resetCaches('providers');
-				void this.updateContext(this._repositories);
+				void this.updateContext();
 			}),
 		);
 
@@ -130,7 +136,7 @@ export class GitProviderService implements Disposable {
 		CommitDateFormatting.reset();
 		PullRequestDateFormatting.reset();
 
-		void this.updateContext(this._repositories);
+		void this.updateContext();
 	}
 
 	dispose() {
@@ -192,77 +198,13 @@ export class GitProviderService implements Disposable {
 			}
 
 			if (removed.length) {
-				void this.updateContext(this._repositories);
+				void this.updateContext();
 
 				// Defer the event trigger enough to let everything unwind
 				queueMicrotask(() => {
 					this._onDidChangeRepositories.fire({ added: [], removed: removed });
 					removed.forEach(r => r.dispose());
 				});
-			}
-		}
-	}
-
-	private async updateContext(repositories: Map<string, Repository>) {
-		const hasRepositories = this.openRepositoryCount !== 0;
-		await setEnabled(hasRepositories);
-
-		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
-		async function updateRemoteContext() {
-			let hasRemotes = false;
-			let hasRichRemotes = false;
-			let hasConnectedRemotes = false;
-			if (hasRepositories) {
-				for (const repo of repositories.values()) {
-					if (!hasConnectedRemotes) {
-						hasConnectedRemotes = await repo.hasRichRemote(true);
-
-						if (hasConnectedRemotes) {
-							hasRichRemotes = true;
-							hasRemotes = true;
-						}
-					}
-
-					if (!hasRichRemotes) {
-						hasRichRemotes = await repo.hasRichRemote();
-					}
-
-					if (!hasRemotes) {
-						hasRemotes = await repo.hasRemotes();
-					}
-
-					if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
-				}
-			}
-
-			await Promise.all([
-				setContext(ContextKeys.HasRemotes, hasRemotes),
-				setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
-				setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
-			]);
-		}
-
-		void updateRemoteContext();
-
-		// If we have no repositories setup a watcher in case one is initialized
-		if (!hasRepositories) {
-			for (const provider of this._providers.values()) {
-				const watcher = provider.createRepositoryInitWatcher?.();
-				if (watcher != null) {
-					const disposable = Disposable.from(
-						watcher,
-						watcher.onDidCreate(uri => {
-							const f = workspace.getWorkspaceFolder(uri);
-							if (f == null) return;
-
-							void this.discoverRepositories([f], { force: true }).then(() => {
-								if (Iterables.some(this.repositories, r => r.folder === f)) {
-									disposable.dispose();
-								}
-							});
-						}),
-					);
-				}
 			}
 		}
 	}
@@ -330,20 +272,42 @@ export class GitProviderService implements Disposable {
 		if (this._providers.has(id)) throw new Error(`Provider '${id}' has already been registered`);
 
 		this._providers.set(id, provider);
-		const disposable = provider.onDidChangeRepository(e => {
-			if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
-				void this.updateContext(this._repositories);
 
-				// Send a notification that the repositories changed
-				queueMicrotask(() => this._onDidChangeRepositories.fire({ added: [], removed: [e.repository] }));
-			}
+		const disposables = [];
 
-			this._onDidChangeRepository.fire(e);
-		});
+		const watcher = provider.createRepositoryInitWatcher?.();
+		if (watcher != null) {
+			disposables.push(
+				watcher,
+				watcher.onDidCreate(uri => {
+					const f = workspace.getWorkspaceFolder(uri);
+					if (f == null) return;
+
+					void this.discoverRepositories([f], { force: true });
+				}),
+			);
+		}
+
+		const disposable = Disposable.from(
+			...disposables,
+			provider.onDidChangeRepository(e => {
+				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
+					void this.updateContext();
+
+					// Send a notification that the repositories changed
+					queueMicrotask(() => this._onDidChangeRepositories.fire({ added: [], removed: [e.repository] }));
+				}
+
+				this._onDidChangeRepository.fire(e);
+			}),
+		);
 
 		this._onDidChangeProviders.fire({ added: [provider], removed: [] });
 
-		void this.onWorkspaceFoldersChanged({ added: workspace.workspaceFolders ?? [], removed: [] });
+		// Don't kick off the discovery if we're still initializing (we'll do it at the end for all "known" providers)
+		if (!this._initializing) {
+			this.onWorkspaceFoldersChanged({ added: workspace.workspaceFolders ?? [], removed: [] });
+		}
 
 		return {
 			dispose: () => {
@@ -359,7 +323,7 @@ export class GitProviderService implements Disposable {
 					}
 				}
 
-				void this.updateContext(this._repositories);
+				void this.updateContext();
 
 				if (removed.length) {
 					// Defer the event trigger enough to let everything unwind
@@ -372,6 +336,27 @@ export class GitProviderService implements Disposable {
 				this._onDidChangeProviders.fire({ added: [], removed: [provider] });
 			},
 		};
+	}
+
+	private _initializing: boolean = true;
+	registrationComplete() {
+		this._initializing = false;
+
+		const { workspaceFolders } = workspace;
+		if (workspaceFolders?.length) {
+			const autoRepositoryDetection =
+				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+					BuiltInGitConfiguration.AutoRepositoryDetection,
+				) ?? true;
+
+			if (autoRepositoryDetection !== false) {
+				void this.discoverRepositories(workspaceFolders);
+
+				return;
+			}
+		}
+
+		void this.updateContext();
 	}
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
@@ -408,9 +393,10 @@ export class GitProviderService implements Disposable {
 			this._repositories.set(repository.path, repository);
 		}
 
+		void this.updateContext();
+
 		if (added.length === 0) return;
 
-		void this.updateContext(this._repositories);
 		// Defer the event trigger enough to let everything unwind
 		queueMicrotask(() => this._onDidChangeRepositories.fire({ added: added, removed: [] }));
 	}
@@ -434,16 +420,85 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	static getProviderId(repoPath: string | Uri): GitProviderId {
-		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.VirtualFS) {
-			if (repoPath.authority.startsWith('github')) {
-				return GitProviderId.GitHub;
-			}
+	private _context: { enabled: boolean; disabled: boolean } = { enabled: false, disabled: false };
 
-			throw new Error(`Unsupported scheme: ${repoPath.scheme}`);
+	async setEnabledContext(enabled: boolean): Promise<void> {
+		let disabled = !enabled;
+		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
+		if (!enabled && this._initializing) {
+			disabled = !(
+				this.container.context.workspaceState.get<boolean>(WorkspaceState.AssumeRepositoriesOnStartup) ?? true
+			);
 		}
 
-		return GitProviderId.Git;
+		if (this._context.enabled === enabled && this._context.disabled === disabled) return;
+
+		const promises = [];
+
+		if (this._context.enabled !== enabled) {
+			this._context.enabled = enabled;
+			promises.push(setContext(ContextKeys.Enabled, enabled));
+		}
+
+		if (this._context.disabled !== disabled) {
+			this._context.disabled = disabled;
+			promises.push(setContext(ContextKeys.Disabled, disabled));
+		}
+
+		await Promise.all(promises);
+
+		if (!this._initializing) {
+			void this.container.context.workspaceState.update(WorkspaceState.AssumeRepositoriesOnStartup, enabled);
+		}
+	}
+
+	private async updateContext() {
+		const hasRepositories = this.openRepositoryCount !== 0;
+		await this.setEnabledContext(hasRepositories);
+
+		// Don't bother trying to set the values if we're still starting up
+		if (!hasRepositories && this._initializing) return;
+
+		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
+		async function updateRemoteContext(this: GitProviderService) {
+			let hasRemotes = false;
+			let hasRichRemotes = false;
+			let hasConnectedRemotes = false;
+			if (hasRepositories) {
+				for (const repo of this._repositories.values()) {
+					if (!hasConnectedRemotes) {
+						hasConnectedRemotes = await repo.hasRichRemote(true);
+
+						if (hasConnectedRemotes) {
+							hasRichRemotes = true;
+							hasRemotes = true;
+						}
+					}
+
+					if (!hasRichRemotes) {
+						hasRichRemotes = await repo.hasRichRemote();
+
+						if (hasRichRemotes) {
+							hasRemotes = true;
+						}
+					}
+
+					if (!hasRemotes) {
+						hasRemotes = await repo.hasRemotes();
+					}
+
+					if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
+				}
+			}
+
+			await Promise.all([
+				setContext(ContextKeys.HasRemotes, hasRemotes),
+				setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
+				setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
+			]);
+		}
+
+		void updateRemoteContext.call(this);
 	}
 
 	private getProvider(repoPath: string | Uri): { provider: GitProvider; path: string } {
@@ -465,6 +520,18 @@ export class GitProviderService implements Disposable {
 					path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
 				};
 		}
+	}
+
+	static getProviderId(repoPath: string | Uri): GitProviderId {
+		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.VirtualFS) {
+			if (repoPath.authority.startsWith('github')) {
+				return GitProviderId.GitHub;
+			}
+
+			throw new Error(`Unsupported scheme: ${repoPath.scheme}`);
+		}
+
+		return GitProviderId.Git;
 	}
 
 	@log()
@@ -1396,7 +1463,7 @@ export class GitProviderService implements Disposable {
 		repo = provider.createRepository(folder, rp, false);
 		this._repositories.set(rp, repo);
 
-		void this.updateContext(this._repositories);
+		void this.updateContext();
 		// Send a notification that the repositories changed
 		queueMicrotask(() => this._onDidChangeRepositories.fire({ added: [repo!], removed: [] }));
 
@@ -1638,41 +1705,20 @@ export class GitProviderService implements Disposable {
 		return repoPath === doc?.uri.repoPath;
 	}
 
-	isTrackable(scheme: string): boolean;
-	isTrackable(uri: Uri): boolean;
-	isTrackable(schemeOruri: string | Uri): boolean {
-		const scheme = typeof schemeOruri === 'string' ? schemeOruri : schemeOruri.scheme;
-		return (
-			scheme === DocumentSchemes.File ||
-			scheme === DocumentSchemes.Git ||
-			scheme === DocumentSchemes.GitLens ||
-			scheme === DocumentSchemes.PRs ||
-			scheme === DocumentSchemes.Vsls ||
-			scheme === DocumentSchemes.VirtualFS
-		);
+	isTrackable(uri: Uri): boolean {
+		const { provider } = this.getProvider(uri);
+		return provider.isTrackable(uri);
 	}
 
-	async isTracked(uri: GitUri): Promise<boolean>;
-	async isTracked(
+	private async isTracked(
 		fileName: string,
 		repoPath: string | Uri,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<boolean>;
-	@log<GitProviderService['isTracked']>({
-		exit: tracked => `returned ${tracked}`,
-		singleLine: true,
-	})
-	async isTracked(
-		fileNameOrUri: string | GitUri,
-		repoPath?: string | Uri,
 		options?: { ref?: string; skipCacheUpdate?: boolean },
 	): Promise<boolean> {
 		if (options?.ref === GitRevision.deletedOrMissing) return false;
 
-		const { provider, path } = this.getProvider(
-			repoPath ?? (typeof fileNameOrUri === 'string' ? undefined! : fileNameOrUri),
-		);
-		return provider.isTracked(fileNameOrUri, path, options);
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.isTracked(fileName, path, options);
 	}
 
 	@log()
@@ -1814,7 +1860,8 @@ export class GitProviderService implements Disposable {
 	static getEncoding(uri: Uri): string;
 	static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
 		const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
-		return Git.getEncoding(configuration.getAny<string>('files.encoding', uri));
+		const encoding = configuration.getAny<string>('files.encoding', uri);
+		return encoding != null && encodingExists(encoding) ? encoding : 'utf8';
 	}
 }
 

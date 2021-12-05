@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as paths from 'path';
-import * as iconv from 'iconv-lite';
 import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Paths, Strings, Versions } from '../system';
-import { findGitPath, GitLocation } from './locator';
+import { Paths, Strings } from '../system';
+import { GitLocation } from './locator';
 import { GitRevision } from './models/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { fsExists, run, RunError, RunOptions } from './shell';
@@ -130,7 +128,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			args.splice(0, 0, '-c', 'core.longpaths=true');
 		}
 
-		promise = run<TOut>(Git.getGitPath(), args, encoding ?? 'utf8', runOpts);
+		promise = run<TOut>(await Git.path(), args, encoding ?? 'utf8', runOpts);
 
 		pendingCommands.set(command, promise);
 	} else {
@@ -208,43 +206,21 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 }
 
 export namespace Git {
-	let gitInfo: GitLocation | undefined;
-
-	export function getEncoding(encoding: string | undefined) {
-		return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
+	let gitLocator!: () => Promise<GitLocation>;
+	export function setLocator(locator: () => Promise<GitLocation>): void {
+		gitLocator = locator;
 	}
 
-	export function getGitPath(): string {
-		return gitInfo?.path ?? '';
+	export async function path(): Promise<string> {
+		return (await gitLocator()).path;
 	}
 
-	export function getGitVersion(): string {
-		return gitInfo?.version ?? '';
+	export async function version(): Promise<string> {
+		return (await gitLocator()).version;
 	}
 
-	export function hasGitPath(): boolean {
-		return Boolean(gitInfo?.path);
-	}
-
-	export async function setOrFindGitPath(gitPath?: string | string[]): Promise<void> {
-		const start = process.hrtime();
-
-		gitInfo = await findGitPath(gitPath);
-
-		Logger.log(
-			`Git found: ${gitInfo.version} @ ${gitInfo.path === 'git' ? 'PATH' : gitInfo.path} ${
-				GlyphChars.Dot
-			} ${Strings.getDurationMilliseconds(start)} ms`,
-		);
-
-		// Warn if git is less than v2.7.2
-		if (Versions.compare(Versions.fromString(gitInfo.version), Versions.fromString('2.7.2')) === -1) {
-			void Messages.showGitVersionUnsupportedErrorMessage(gitInfo.version, '2.7.2');
-		}
-	}
-
-	export function validateVersion(major: number, minor: number): boolean {
-		const [gitMajor, gitMinor] = getGitVersion().split('.');
+	export async function validateVersion(major: number, minor: number): Promise<boolean> {
+		const [gitMajor, gitMinor] = (await version()).split('.');
 		return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
 	}
 
@@ -286,7 +262,7 @@ export namespace Git {
 			const index = params.indexOf('--ignore-revs-file');
 			if (index !== -1) {
 				// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
-				let supported = Git.validateVersion(2, 23);
+				let supported = await Git.validateVersion(2, 23);
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
 					if (!paths.isAbsolute(ignoreRevsFile)) {
@@ -1493,7 +1469,7 @@ export namespace Git {
 		void (await git<string>({ cwd: repoPath }, ...params));
 	}
 
-	export function status(
+	export async function status(
 		repoPath: string,
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
@@ -1504,7 +1480,7 @@ export namespace Git {
 			'--branch',
 			'-u',
 		];
-		if (Git.validateVersion(2, 18)) {
+		if (await Git.validateVersion(2, 18)) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
@@ -1515,7 +1491,7 @@ export namespace Git {
 		);
 	}
 
-	export function status__file(
+	export async function status__file(
 		repoPath: string,
 		fileName: string,
 		porcelainVersion: number = 1,
@@ -1524,7 +1500,7 @@ export namespace Git {
 		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
-		if (Git.validateVersion(2, 18)) {
+		if (await Git.validateVersion(2, 18)) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 

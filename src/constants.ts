@@ -255,6 +255,8 @@ export interface Usage {
 }
 
 export enum WorkspaceState {
+	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
+
 	BranchComparisons = 'gitlens:branch:comparisons',
 	ConnectedPrefix = 'gitlens:connected:',
 	DefaultRemote = 'gitlens:remote:default',

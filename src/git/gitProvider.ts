@@ -396,15 +396,7 @@ export interface GitProvider {
 	hasTrackingBranch(repoPath: string | undefined): Promise<boolean>;
 	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;
 
-	isTrackable(scheme: string): boolean;
 	isTrackable(uri: Uri): boolean;
-	isTrackable(schemeOruri: string | Uri): boolean;
-	isTracked(
-		fileName: string,
-		repoPath?: string,
-		options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	): Promise<boolean>;
-	isTracked(uri: GitUri): Promise<boolean>;
 	isTracked(
 		fileNameOrUri: string | GitUri,
 		repoPath?: string,

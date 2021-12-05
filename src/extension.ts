@@ -31,9 +31,6 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 		}
 	}
 
-	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
-	void setContext(ContextKeys.Enabled, true);
-
 	if (!workspace.isTrusted) {
 		void setContext(ContextKeys.Readonly, true);
 		context.subscriptions.push(
@@ -68,7 +65,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 		context.globalState.get<string>(GlobalState.Version) ??
 		context.globalState.get<string>(GlobalState.Deprecated_Version);
 
-	let previousVersion;
+	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
 		previousVersion = syncedVersion ?? localVersion;
 	} else if (Versions.compare(syncedVersion, localVersion) === 1) {
@@ -95,46 +92,38 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 		);
 	}
 
-	const enabled = workspace.getConfiguration('git', null).get<boolean>('enabled', true);
-	if (!enabled) {
-		Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
-		void setEnabled(false);
-
-		void Messages.showGitDisabledErrorMessage();
-
-		return undefined;
-	}
-
 	Configuration.configure(context);
 	const cfg = configuration.get();
 	// await migrateSettings(context, previousVersion);
 
 	const container = Container.create(context, cfg);
+	container.onReady(() => {
+		registerCommands(context);
+		registerBuiltInActionRunners(container);
+		registerPartnerActionRunners(context);
+
+		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
+
+		void context.globalState.update(GlobalState.Version, gitlensVersion);
+
+		// Only update our synced version if the new version is greater
+		if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
+			void context.globalState.update(SyncedState.Version, gitlensVersion);
+		}
+
+		if (cfg.outputLevel === TraceLevel.Debug) {
+			setTimeout(async () => {
+				if (cfg.outputLevel !== TraceLevel.Debug) return;
+
+				if (await Messages.showDebugLoggingWarningMessage()) {
+					void commands.executeCommand(Commands.DisableDebugLogging);
+				}
+			}, 60000);
+		}
+	});
+
 	// Signal that the container is now ready
 	container.ready();
-
-	registerCommands(context);
-	registerBuiltInActionRunners(container);
-	registerPartnerActionRunners(context);
-
-	void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
-
-	void context.globalState.update(GlobalState.Version, gitlensVersion);
-
-	// Only update our synced version if the new version is greater
-	if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
-		void context.globalState.update(SyncedState.Version, gitlensVersion);
-	}
-
-	if (cfg.outputLevel === TraceLevel.Debug) {
-		setTimeout(async () => {
-			if (cfg.outputLevel !== TraceLevel.Debug) return;
-
-			if (await Messages.showDebugLoggingWarningMessage()) {
-				void commands.executeCommand(Commands.DisableDebugLogging);
-			}
-		}, 60000);
-	}
 
 	Logger.log(
 		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${
@@ -162,10 +151,6 @@ export function deactivate() {
 // 		Logger.error(ex, 'migrateSettings');
 // 	}
 // }
-
-export async function setEnabled(enabled: boolean): Promise<void> {
-	await Promise.all([setContext(ContextKeys.Enabled, enabled), setContext(ContextKeys.Disabled, !enabled)]);
-}
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedState | string)[]) {
 	return context.globalState?.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
