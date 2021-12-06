@@ -180,45 +180,70 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	private async findGit(): Promise<GitLocation> {
+		const cc = Logger.getCorrelationContext();
+
 		if (!configuration.getAny<boolean>('git.enabled', null, true)) {
-			Logger.log('Built-in Git is disabled ("git.enabled": false)');
+			Logger.log(cc, 'Built-in Git is disabled ("git.enabled": false)');
 			void Messages.showGitDisabledErrorMessage();
 
 			throw new UnableToFindGitError();
 		}
 
-		// Try to use the same git as the built-in vscode git extension
-		const gitApi = await this.getScmGitApi();
-		if (gitApi != null) {
-			this.container.context.subscriptions.push(
+		const scmPromise = this.getScmGitApi();
+
+		// Try to use the same git as the built-in vscode git extension, but only wait for a bit
+		const timeout = 100;
+		let gitPath;
+		try {
+			const gitApi = await Promises.cancellable(scmPromise, timeout);
+			gitPath = gitApi?.git.path;
+		} catch {
+			Logger.log(cc, `Stopped waiting for built-in Git, after ${timeout} ms...`);
+		}
+
+		async function subscribeToScmOpenCloseRepository(
+			container: Container,
+			apiPromise: Promise<BuiltInGitApi | undefined>,
+		) {
+			const gitApi = await apiPromise;
+			if (gitApi == null) return;
+
+			container.context.subscriptions.push(
 				gitApi.onDidCloseRepository(e => {
-					const repository = this.container.git.getCachedRepository(Strings.normalizePath(e.rootUri.fsPath));
+					const repository = container.git.getCachedRepository(Strings.normalizePath(e.rootUri.fsPath));
 					if (repository != null) {
 						repository.closed = true;
 					}
 				}),
 				gitApi.onDidOpenRepository(e => {
-					const repository = this.container.git.getCachedRepository(Strings.normalizePath(e.rootUri.fsPath));
+					const repository = container.git.getCachedRepository(Strings.normalizePath(e.rootUri.fsPath));
 					if (repository != null) {
 						repository.closed = false;
 					}
 				}),
 			);
 		}
-
-		const gitPath = gitApi?.git.path ?? configuration.getAny<string | string[]>('git.path');
+		void subscribeToScmOpenCloseRepository(this.container, scmPromise);
 
 		const start = process.hrtime();
-		const location = await findGitPath(gitPath);
-		Logger.log(
-			`Git found: ${location.version} @ ${location.path === 'git' ? 'PATH' : location.path} ${
-				GlyphChars.Dot
-			} ${Strings.getDurationMilliseconds(start)} ms`,
-		);
+		const location = await findGitPath(gitPath ?? configuration.getAny<string | string[]>('git.path'));
+
+		if (cc != null) {
+			cc.exitDetails = ` ${GlyphChars.Dot} Git found (${Strings.getDurationMilliseconds(start)} ms): ${
+				location.version
+			} @ ${location.path === 'git' ? 'PATH' : location.path}`;
+		} else {
+			Logger.log(
+				cc,
+				`Git found: ${location.version} @ ${location.path === 'git' ? 'PATH' : location.path} ${
+					GlyphChars.Dot
+				} ${Strings.getDurationMilliseconds(start)} ms`,
+			);
+		}
 
 		// Warn if git is less than v2.7.2
 		if (Versions.compare(Versions.fromString(location.version), Versions.fromString('2.7.2')) === -1) {
-			Logger.log(`Git version (${location.version}) is outdated`);
+			Logger.log(cc, `Git version (${location.version}) is outdated`);
 			void Messages.showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
 		}
 
@@ -3732,17 +3757,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		});
 	}
 
-	@log()
+	private _scmGitApi: Promise<BuiltInGitApi | undefined> | undefined;
 	private async getScmGitApi(): Promise<BuiltInGitApi | undefined> {
+		return this._scmGitApi ?? (this._scmGitApi = this.getScmGitApiCore());
+	}
+
+	@log()
+	private async getScmGitApiCore(): Promise<BuiltInGitApi | undefined> {
 		try {
 			const extension = extensions.getExtension<GitExtension>('vscode.git');
-			if (extension != null) {
-				const gitExtension = extension.isActive ? extension.exports : await extension.activate();
-				return gitExtension.getAPI(1);
-			}
-		} catch {}
+			if (extension == null) return undefined;
 
-		return undefined;
+			const gitExtension = extension.isActive ? extension.exports : await extension.activate();
+			return gitExtension?.getAPI(1);
+		} catch {
+			return undefined;
+		}
 	}
 
 	@log()

@@ -2,14 +2,14 @@
 import { CancellationToken } from 'vscode';
 import { map } from './iterable';
 
-export class CancellationError<TPromise = any> extends Error {
-	constructor(public readonly promise: TPromise, message: string) {
+export class CancellationError<T extends Promise<any> = Promise<any>> extends Error {
+	constructor(public readonly promise: T, message: string) {
 		super(message);
 	}
 }
 
-export class CancellationErrorWithId<T, TPromise = any> extends CancellationError<TPromise> {
-	constructor(public readonly id: T, promise: TPromise, message: string) {
+export class CancellationErrorWithId<TKey, T extends Promise<any> = Promise<any>> extends CancellationError<T> {
+	constructor(public readonly id: TKey, promise: T, message: string) {
 		super(promise, message);
 	}
 }
