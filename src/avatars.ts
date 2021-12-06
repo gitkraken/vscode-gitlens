@@ -4,8 +4,7 @@ import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';
 import { Container } from './container';
 import { GitRevisionReference } from './git/git';
-import { Functions, Iterables, Strings } from './system';
-import { MillisecondsPerDay, MillisecondsPerHour, MillisecondsPerMinute } from './system/date';
+import { Dates, Functions, Iterables, Strings } from './system';
 import { ContactPresenceStatus } from './vsls/vsls';
 
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
@@ -57,13 +56,13 @@ const presenceCache = new Map<ContactPresenceStatus, string>();
 const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
 const retryDecay = [
-	MillisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
-	MillisecondsPerMinute,
-	MillisecondsPerMinute * 5,
-	MillisecondsPerMinute * 10,
-	MillisecondsPerHour,
-	MillisecondsPerDay,
-	MillisecondsPerDay * 7,
+	Dates.MillisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
+	Dates.MillisecondsPerMinute,
+	Dates.MillisecondsPerMinute * 5,
+	Dates.MillisecondsPerMinute * 10,
+	Dates.MillisecondsPerHour,
+	Dates.MillisecondsPerDay,
+	Dates.MillisecondsPerDay * 7,
 ];
 
 export function getAvatarUri(

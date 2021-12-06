@@ -30,7 +30,7 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
-import { memoize } from './system/decorators/memoize';
+import { log, memoize } from './system';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
@@ -142,16 +142,18 @@ export class Container {
 	}
 
 	private _ready: boolean = false;
+
 	ready() {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
+		this.registerGitProviders();
 		queueMicrotask(() => {
-			this.registerGitProviders();
 			this._onReady.fire();
 		});
 	}
 
+	@log()
 	private registerGitProviders() {
 		if (env.uiKind !== UIKind.Web) {
 			this._context.subscriptions.push(this._git.register(GitProviderId.Git, new LocalGitProvider(this)));
@@ -164,7 +166,7 @@ export class Container {
 		this._config = undefined;
 
 		if (configuration.changed(e.change, 'outputLevel')) {
-			Logger.level = configuration.get('outputLevel');
+			Logger.logLevel = configuration.get('outputLevel');
 		}
 
 		if (configuration.changed(e.change, 'defaultGravatarsStyle')) {

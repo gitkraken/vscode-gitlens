@@ -1,6 +1,6 @@
 'use strict';
 
-export const enum TraceLevel {
+export const enum OutputLevel {
 	Silent = 'silent',
 	Errors = 'errors',
 	Verbose = 'verbose',
@@ -110,7 +110,7 @@ export interface Config {
 		};
 	};
 	modes: Record<string, ModeConfig> | null;
-	outputLevel: TraceLevel;
+	outputLevel: OutputLevel;
 	partners: Record<
 		string,
 		{

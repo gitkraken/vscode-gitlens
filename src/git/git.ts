@@ -2,6 +2,7 @@
 'use strict';
 import * as paths from 'path';
 import { Uri, window, workspace } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -85,7 +86,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		}
 	}
 
-	const start = process.hrtime();
+	const start = hrtime();
 
 	const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
 

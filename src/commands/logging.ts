@@ -1,5 +1,5 @@
 'use strict';
-import { configuration, TraceLevel } from '../configuration';
+import { configuration, OutputLevel } from '../configuration';
 import { command, Command, Commands } from './common';
 
 @command()
@@ -9,7 +9,7 @@ export class EnableDebugLoggingCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.updateEffective('outputLevel', TraceLevel.Debug);
+		await configuration.updateEffective('outputLevel', OutputLevel.Debug);
 	}
 }
 
@@ -20,6 +20,6 @@ export class DisableDebugLoggingCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.updateEffective('outputLevel', TraceLevel.Errors);
+		await configuration.updateEffective('outputLevel', OutputLevel.Errors);
 	}
 }

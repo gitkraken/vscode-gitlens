@@ -18,7 +18,7 @@ import { Container } from '../container';
 import { GitDiff, GitLogCommit } from '../git/git';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
-import { log, Strings } from '../system';
+import { log, Stopwatch } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
 import { Decorations } from './fileAnnotationController';
@@ -155,7 +155,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
-		let start = process.hrtime();
+		const sw = new Stopwatch(cc!);
 
 		const decorationsMap = new Map<
 			string,
@@ -262,14 +262,12 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 			}
 		}
 
-		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute recent changes annotations`);
+		sw.restart({ suffix: ' to compute recent changes annotations' });
 
 		if (decorationsMap.size) {
-			start = process.hrtime();
-
 			this.setDecorations([...decorationsMap.values()]);
 
-			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
+			sw.stop({ suffix: ' to apply all recent changes annotations' });
 
 			if (selection != null && context?.selection !== false) {
 				this.editor.selection = selection;

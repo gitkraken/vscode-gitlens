@@ -1,5 +1,8 @@
 'use strict';
 import * as paths from 'path';
+import { GlyphChars } from '../constants';
+import { LogLevel } from '../logger';
+import { Stopwatch } from '../system';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {
@@ -28,10 +31,14 @@ function parseVersion(raw: string): string {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
+	const sw = new Stopwatch(`findSpecificGit(${path})`, { logLevel: LogLevel.Debug });
+
 	let version;
 	try {
 		version = await run<string>(path, ['--version'], 'utf8');
 	} catch (ex) {
+		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 		throw ex;
 	}
@@ -44,12 +51,16 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		try {
 			version = await run<string>(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
+			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 			throw ex;
 		}
 
 		path = foundPath;
 	}
+
+	sw.stop({ message: ` ${GlyphChars.Dot} Found git @ ${path}` });
 
 	return {
 		path: path,

@@ -1,28 +1,49 @@
 'use strict';
-import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
-import { configuration, Configuration, TraceLevel } from './configuration';
-import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
+import { configuration, Configuration, OutputLevel } from './configuration';
+import { ContextKeys, GlobalState, setContext, SyncedState } from './constants';
 import { Container } from './container';
 import { GitBranch, GitCommit } from './git/git';
 import { GitUri } from './git/gitUri';
-import { Logger } from './logger';
+import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { Strings, Versions } from './system';
+import { Stopwatch, Versions } from './system';
 import { ViewNode } from './views/nodes';
 
 export function activate(context: ExtensionContext): Promise<GitLensApi | undefined> | undefined {
-	const start = process.hrtime();
+	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
+	const gitlensVersion = context.extension.packageJSON.version;
 
-	if (context.extension.id === 'eamodio.gitlens-insiders') {
+	Logger.configure(context, configuration.get('outputLevel'), o => {
+		if (GitUri.is(o)) {
+			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
+				o.sha ? ` sha=${o.sha}` : ''
+			})`;
+		}
+
+		if (GitCommit.is(o)) {
+			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
+		}
+
+		if (ViewNode.is(o)) return o.toString();
+
+		return undefined;
+	});
+
+	const sw = new Stopwatch(`GitLens${insiders ? ' (Insiders)' : ''} v${gitlensVersion}`, {
+		log: { message: ' activating...' },
+	});
+
+	if (insiders) {
 		// Ensure that stable isn't also installed
 		const stable = extensions.getExtension('eamodio.gitlens');
 		if (stable != null) {
-			Logger.log('GitLens (Insiders) was NOT activated because GitLens is also enabled');
+			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
 			setTimeout(() => void Messages.showInsidersErrorMessage(), 0);
@@ -40,26 +61,6 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 
 	setKeysForSync(context);
 
-	Logger.configure(context, configuration.get('outputLevel'), o => {
-		if (GitUri.is(o)) {
-			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
-				o.sha ? ` sha=${o.sha}` : ''
-			})`;
-		}
-
-		if (GitCommit.is(o)) {
-			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
-		}
-
-		if (ViewNode.is(o)) {
-			return o.toString();
-		}
-
-		return undefined;
-	});
-
-	const gitlensVersion = context.extension.packageJSON.version;
-
 	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
 	const localVersion =
 		context.globalState.get<string>(GlobalState.Version) ??
@@ -74,12 +75,11 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 		previousVersion = localVersion;
 	}
 
-	if (Logger.willLog('debug')) {
-		Logger.debug(
-			`GitLens (v${gitlensVersion}): syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, ${
-				SyncedState.WelcomeViewVisible
-			}=${context.globalState.get<boolean>(SyncedState.WelcomeViewVisible)}`,
-		);
+	let exitMessage;
+	if (Logger.enabled(LogLevel.Debug)) {
+		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${context.globalState.get<boolean>(
+			SyncedState.WelcomeViewVisible,
+		)}`;
 	}
 
 	if (previousVersion == null) {
@@ -111,9 +111,9 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 			void context.globalState.update(SyncedState.Version, gitlensVersion);
 		}
 
-		if (cfg.outputLevel === TraceLevel.Debug) {
+		if (cfg.outputLevel === OutputLevel.Debug) {
 			setTimeout(async () => {
-				if (cfg.outputLevel !== TraceLevel.Debug) return;
+				if (cfg.outputLevel !== OutputLevel.Debug) return;
 
 				if (await Messages.showDebugLoggingWarningMessage()) {
 					void commands.executeCommand(Commands.DisableDebugLogging);
@@ -125,11 +125,11 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	// Signal that the container is now ready
 	container.ready();
 
-	Logger.log(
-		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${
-			GlyphChars.Dot
-		} ${Strings.getDurationMilliseconds(start)} ms`,
-	);
+	sw.stop({
+		message: ` activated; app=${env.appName}(${codeVersion})${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}${
+			exitMessage != null ? `, ${exitMessage}` : ''
+		}`,
+	});
 
 	const api = new Api(container);
 	return Promise.resolve(api);

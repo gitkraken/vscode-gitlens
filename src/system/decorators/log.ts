@@ -1,5 +1,6 @@
 'use strict';
-import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
+import { hrtime } from '@env/hrtime';
+import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { filterMap } from '../array';
 import { getParameters } from '../function';
 import { is as isPromise } from '../promise';
@@ -106,8 +107,8 @@ export function log<T extends (...arg: any) => any>(
 
 			if (
 				(!Logger.isDebugging &&
-					Logger.level !== TraceLevel.Debug &&
-					!(Logger.level === TraceLevel.Verbose && !options.debug)) ||
+					!Logger.enabled(LogLevel.Debug) &&
+					!(Logger.enabled(LogLevel.Info) && !options.debug)) ||
 				(typeof options.condition === 'function' && !options.condition(...args))
 			) {
 				return fn!.apply(this, args);
@@ -129,7 +130,7 @@ export function log<T extends (...arg: any) => any>(
 				correlate = true;
 			}
 
-			let prefix = `${correlate ? `[${correlationId.toString(16)}] ` : emptyStr}${
+			let prefix = `${correlate ? `[${correlationId.toString(16).padStart(5)}] ` : emptyStr}${
 				instanceName ? `${instanceName}.` : emptyStr
 			}${key}`;
 
@@ -189,7 +190,7 @@ export function log<T extends (...arg: any) => any>(
 			}
 
 			if (options.singleLine || options.timed || options.exit != null) {
-				const start = options.timed ? process.hrtime() : undefined;
+				const start = options.timed ? hrtime() : undefined;
 
 				const logError = (ex: Error) => {
 					const timing = start !== undefined ? ` \u2022 ${getDurationMilliseconds(start)} ms` : emptyStr;

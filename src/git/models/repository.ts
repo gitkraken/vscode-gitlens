@@ -18,7 +18,7 @@ import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Logger } from '../../logger';
+import { Logger, LogLevel } from '../../logger';
 import { Messages } from '../../messages';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
@@ -273,7 +273,7 @@ export class Repository implements Disposable {
 		if (!this.supportsChangeEvents) {
 			void this.tryWatchingForChangesViaBuiltInApi();
 
-			if (Logger.willLog('debug')) {
+			if (Logger.enabled(LogLevel.Debug)) {
 				Logger.debug(
 					`Repository(${
 						this.id
@@ -1105,7 +1105,7 @@ export class Repository implements Disposable {
 					);
 					this._supportsChangeEvents = true;
 
-					if (Logger.willLog('debug')) {
+					if (Logger.enabled(LogLevel.Debug)) {
 						Logger.debug(`Repository(${this.id}) is now using fallback file watching`);
 					}
 				} catch {}

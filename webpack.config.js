@@ -208,6 +208,7 @@ function getExtensionConfig(target, mode, env) {
 							fs: false,
 							os: false,
 							path: require.resolve('path-browserify'),
+							process: false,
 							stream: false,
 							url: false,
 					  }

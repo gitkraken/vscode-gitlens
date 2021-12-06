@@ -5,7 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitBlame, GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
-import { Arrays, Iterables, log, Strings } from '../system';
+import { Arrays, Iterables, log, Stopwatch, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
 import { AnnotationContext } from './annotationProvider';
@@ -37,7 +37,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		let start = process.hrtime();
+		const sw = new Stopwatch(cc!);
 
 		const cfg = this.container.config.blame;
 
@@ -157,16 +157,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			decorationsMap.set(l.sha, gutter);
 		}
 
-		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
+		sw.restart({ suffix: ' to compute gutter blame annotations' });
 
 		if (decorationOptions.length) {
-			start = process.hrtime();
-
 			this.setDecorations([
 				{ decorationType: Decorations.gutterBlameAnnotation, rangesOrOptions: decorationOptions },
 			]);
 
-			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply all gutter blame annotations`);
+			sw.stop({ suffix: ' to apply all gutter blame annotations' });
 		}
 
 		this.registerHoverProviders(this.container.config.hovers.annotations);

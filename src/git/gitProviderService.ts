@@ -268,6 +268,7 @@ export class GitProviderService implements Disposable {
 	 * @param provider A provider for handling git operations
 	 * @returns A disposable to unregister the {@link GitProvider}
 	 */
+	@log({ args: { 1: () => false }, singleLine: true })
 	register(id: GitProviderId, provider: GitProvider): Disposable {
 		if (this._providers.has(id)) throw new Error(`Provider '${id}' has already been registered`);
 
@@ -339,6 +340,8 @@ export class GitProviderService implements Disposable {
 	}
 
 	private _initializing: boolean = true;
+
+	@log({ singleLine: true })
 	registrationComplete() {
 		this._initializing = false;
 
@@ -361,6 +364,7 @@ export class GitProviderService implements Disposable {
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
 
+	@log<GitProviderService['discoverRepositories']>({ args: { 0: folders => `${folders.length}` } })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
 		const promises = [];
 

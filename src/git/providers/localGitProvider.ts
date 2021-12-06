@@ -15,6 +15,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../../@types/vscode.git';
 import { configuration } from '../../configuration';
 import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../constants';
@@ -225,7 +226,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		void subscribeToScmOpenCloseRepository(this.container, scmPromise);
 
-		const start = process.hrtime();
+		const start = hrtime();
 		const location = await findGitPath(gitPath ?? configuration.getAny<string | string[]>('git.path'));
 
 		if (cc != null) {

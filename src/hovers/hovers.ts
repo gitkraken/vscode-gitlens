@@ -3,6 +3,7 @@ import { MarkdownString } from 'vscode';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { hrtime } from '../env/node/hrtime';
 import {
 	CommitFormatter,
 	GitBlameCommit,
@@ -15,7 +16,7 @@ import {
 	PullRequest,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
+import { Logger, LogLevel } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
 
 export namespace Hovers {
@@ -263,7 +264,7 @@ export namespace Hovers {
 		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssues');
 		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
 
-		const start = process.hrtime();
+		const start = hrtime();
 
 		if (
 			!Container.instance.config.hovers.autolinks.enabled ||
@@ -290,7 +291,7 @@ export namespace Hovers {
 				timeout: timeout,
 			});
 
-			if (autolinks != null && Logger.willLog('debug')) {
+			if (autolinks != null && Logger.enabled(LogLevel.Debug)) {
 				// If there are any issues/PRs that timed out, log it
 				const count = Iterables.count(autolinks.values(), pr => pr instanceof Promises.CancellationError);
 				if (count !== 0) {
@@ -342,7 +343,7 @@ export namespace Hovers {
 		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
 		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
 
-		const start = process.hrtime();
+		const start = hrtime();
 
 		if (!options?.pullRequests) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
