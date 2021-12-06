@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use strict';
-const { execFileSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
@@ -529,14 +529,20 @@ class InlineChunkHtmlPlugin {
 	}
 }
 
+/**
+ * @param { string } configFile
+ * @returns { string }
+ */
 function resolveTSConfig(configFile) {
-	const data = execFileSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
+	const result = spawnSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
 		cwd: __dirname,
 		encoding: 'utf8',
 		shell: true,
 	});
 
-	const index = data.indexOf('\n');
-	const json = JSON5.parse(data.substr(index + 1));
+	const data = result.stdout;
+	const start = data.indexOf('{');
+	const end = data.lastIndexOf('}') + 1;
+	const json = JSON5.parse(data.substring(start, end));
 	return json;
 }
