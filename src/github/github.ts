@@ -14,12 +14,7 @@ import { Logger } from '../logger';
 import { debug } from '../system';
 
 export class GitHubApi {
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: RichRemoteProvider,
 		token: string,
@@ -99,12 +94,7 @@ export class GitHubApi {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
 		provider: RichRemoteProvider,
 		token: string,
@@ -178,12 +168,7 @@ export class GitHubApi {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
 		provider: RichRemoteProvider,
 		token: string,
@@ -240,12 +225,7 @@ export class GitHubApi {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
 		provider: RichRemoteProvider,
 		token: string,
@@ -318,12 +298,7 @@ export class GitHubApi {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
 		provider: RichRemoteProvider,
 		token: string,
@@ -429,12 +404,7 @@ export class GitHubApi {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: RichRemoteProvider,
 		token: string,

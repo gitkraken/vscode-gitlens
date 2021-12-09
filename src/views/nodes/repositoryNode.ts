@@ -358,9 +358,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	private _repoUpdatedAt: number = this.repo.updatedAt;
 
-	@debug({
+	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
-			0: (e: RepositoryFileSystemChangeEvent) =>
+			0: e =>
 				`{ repository: ${e.repository?.name ?? ''}, uris(${e.uris.length}): [${e.uris
 					.slice(0, 1)
 					.map(u => u.fsPath)
@@ -397,11 +397,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		void this.triggerChange(false);
 	}
 
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) => e.toString(),
-		},
-	})
+	@debug<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		this._repoUpdatedAt = this.repo.updatedAt;
 

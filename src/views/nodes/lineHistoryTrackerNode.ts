@@ -226,9 +226,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 	}
 
-	@debug({
+	@debug<LineHistoryTrackerNode['onActiveLinesChanged']>({
 		args: {
-			0: (e: LinesChangeEvent) =>
+			0: e =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
 					?.map(s => `[${s.anchor}-${s.active}]`)
 					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,

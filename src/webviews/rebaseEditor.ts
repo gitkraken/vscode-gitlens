@@ -162,7 +162,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
+	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
 		const repo = await this.container.git.getRepository(repoPath);

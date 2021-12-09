@@ -60,9 +60,9 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this._subscriptionOnlyWhenActive = undefined;
 	}
 
-	@debug({
+	@debug<GitLineTracker['onBlameStateChanged']>({
 		args: {
-			0: (e: DocumentBlameStateChangeEvent<GitDocumentState>) =>
+			0: e =>
 				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, blameable=${
 					e.blameable
 				}`,
@@ -72,10 +72,9 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.trigger('editor');
 	}
 
-	@debug({
+	@debug<GitLineTracker['onContentChanged']>({
 		args: {
-			0: (e: DocumentContentChangeEvent<GitDocumentState>) =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+			0: e => `editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
 		},
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
@@ -92,10 +91,9 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		}
 	}
 
-	@debug({
+	@debug<GitLineTracker['onDirtyIdleTriggered']>({
 		args: {
-			0: (e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+			0: e => `editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
 		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
@@ -105,9 +103,9 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.resume();
 	}
 
-	@debug({
+	@debug<GitLineTracker['onDirtyStateChanged']>({
 		args: {
-			0: (e: DocumentDirtyStateChangeEvent<GitDocumentState>) =>
+			0: e =>
 				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, dirty=${
 					e.dirty
 				}`,
@@ -121,11 +119,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		}
 	}
 
-	@debug({
-		args: {
-			0: (selections: LineSelection[]) => selections?.map(s => s.active).join(','),
-			1: (editor: TextEditor) => editor.document.uri.toString(true),
-		},
+	@debug<GitLineTracker['updateState']>({
+		args: { 0: selections => selections?.map(s => s.active).join(','), 1: e => e.document.uri.toString(true) },
 		exit: updated => `returned ${updated}`,
 		singleLine: true,
 	})

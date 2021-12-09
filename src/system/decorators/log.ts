@@ -52,7 +52,16 @@ export function logName<T>(fn: (c: T, name: string) => string) {
 
 export function debug<T extends (...arg: any) => any>(
 	options: {
-		args?: false | Record<string, (arg: any) => string | false>;
+		args?:
+			| false
+			| {
+					0?: ((arg: Parameters<T>[0]) => unknown) | string | false;
+					1?: ((arg: Parameters<T>[1]) => unknown) | string | false;
+					2?: ((arg: Parameters<T>[2]) => unknown) | string | false;
+					3?: ((arg: Parameters<T>[3]) => unknown) | string | false;
+					4?: ((arg: Parameters<T>[4]) => unknown) | string | false;
+					[key: number]: (((arg: any) => unknown) | string | false) | undefined;
+			  };
 		condition?(...args: Parameters<T>): boolean;
 		correlate?: boolean;
 		enter?(...args: Parameters<T>): string;
@@ -70,7 +79,16 @@ type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
 export function log<T extends (...arg: any) => any>(
 	options: {
-		args?: false | Record<number, (arg: any) => string | false>;
+		args?:
+			| false
+			| {
+					0?: ((arg: Parameters<T>[0]) => unknown) | string | false;
+					1?: ((arg: Parameters<T>[1]) => unknown) | string | false;
+					2?: ((arg: Parameters<T>[2]) => unknown) | string | false;
+					3?: ((arg: Parameters<T>[3]) => unknown) | string | false;
+					4?: ((arg: Parameters<T>[4]) => unknown) | string | false;
+					[key: number]: (((arg: any) => unknown) | string | false) | undefined;
+			  };
 		condition?(...args: Parameters<T>): boolean;
 		correlate?: boolean;
 		debug?: boolean;
@@ -163,16 +181,17 @@ export function log<T extends (...arg: any) => any>(
 					logFn(`${prefix}${enter}`);
 				}
 			} else {
-				const argFns = typeof options.args === 'object' ? options.args : undefined;
-				let argFn;
+				const argControllers = typeof options.args === 'object' ? options.args : undefined;
+				let argController;
 				let loggable;
 				loggableParams = filterMap(args, (v: any, index: number) => {
 					const p = parameters[index];
 
-					argFn = argFns !== undefined ? argFns[index] : undefined;
-					if (argFn !== undefined) {
-						loggable = argFn(v);
-						if (loggable === false) return undefined;
+					argController = argControllers != null ? argControllers[index] : undefined;
+					if (argController != null) {
+						if (typeof argController === 'boolean') return undefined;
+						if (typeof argController === 'string') return argController;
+						loggable = String(argController(v));
 					} else {
 						loggable = Logger.toLoggable(v, options.sanitize);
 					}

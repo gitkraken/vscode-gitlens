@@ -15,6 +15,7 @@ import {
 import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
+import { Logger } from '../logger';
 import { debug } from '../system';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
@@ -60,9 +61,9 @@ export class LineHoverController implements Disposable {
 		}
 	}
 
-	@debug({
+	@debug<LineHoverController['onActiveLinesChanged']>({
 		args: {
-			0: (e: LinesChangeEvent) =>
+			0: e =>
 				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
 					?.map(s => `[${s.anchor}-${s.active}]`)
 					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
@@ -82,11 +83,11 @@ export class LineHoverController implements Disposable {
 		this.register(e.editor);
 	}
 
-	@debug({
+	@debug<LineHoverController['provideDetailsHover']>({
 		args: {
-			0: document => document.uri.toString(true),
-			1: (position: Position) => `${position.line}:${position.character}`,
-			2: () => false,
+			0: document => Logger.toLoggable(document.uri),
+			1: position => `${position.line}:${position.character}`,
+			2: false,
 		},
 	})
 	async provideDetailsHover(
@@ -156,11 +157,11 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
-	@debug({
+	@debug<LineHoverController['provideChangesHover']>({
 		args: {
-			0: document => document.uri.toString(true),
-			1: (position: Position) => `${position.line}:${position.character}`,
-			2: () => false,
+			0: document => Logger.toLoggable(document.uri),
+			1: position => `${position.line}:${position.character}`,
+			2: false,
 		},
 	})
 	async provideChangesHover(

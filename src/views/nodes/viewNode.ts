@@ -491,11 +491,7 @@ export abstract class RepositoryFolderNode<
 
 	protected abstract changed(e: RepositoryChangeEvent): boolean;
 
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) => e.toString(),
-		},
-	})
+	@debug<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		this._repoUpdatedAt = this.repo.updatedAt;
 

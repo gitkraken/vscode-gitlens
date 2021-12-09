@@ -323,16 +323,10 @@ export abstract class ViewBase<
 			token?: CancellationToken;
 		},
 	): Promise<ViewNode | undefined>;
-	@log({
+	@log<ViewBase<RootNode, ViewConfig>['findNode']>({
 		args: {
-			0: (predicate: string | ((node: ViewNode) => boolean)) =>
-				typeof predicate === 'string' ? predicate : 'function',
-			1: (opts: {
-				allowPaging?: boolean;
-				canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
-				maxDepth?: number;
-				token?: CancellationToken;
-			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
+			0: predicate => (typeof predicate === 'string' ? predicate : '<function>'),
+			1: opts => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
 		},
 	})
 	async findNode(
@@ -493,9 +487,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange();
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => n.toString() },
-	})
+	@debug<ViewBase<RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
 	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
 		const cancel = await node.refresh?.(reset);
 		if (!force && cancel === true) return;
@@ -503,9 +495,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange(node);
 	}
 
-	@log({
-		args: { 0: (n: ViewNode) => n.toString() },
-	})
+	@log<ViewBase<RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
 	async reveal(
 		node: ViewNode,
 		options?: {
@@ -537,11 +527,8 @@ export abstract class ViewBase<
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@debug({
-		args: {
-			0: (n: ViewNode & PageableViewNode) => n.toString(),
-			3: (n?: ViewNode) => (n == null ? '' : n.toString()),
-		},
+	@debug<ViewBase<RootNode, ViewConfig>['loadMoreNodeChildren']>({
+		args: { 0: n => n.toString(), 2: n => n?.toString() },
 	})
 	async loadMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
@@ -556,14 +543,15 @@ export abstract class ViewBase<
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 
-	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
+	@debug<ViewBase<RootNode, ViewConfig>['resetNodeLastKnownLimit']>({
+		args: { 0: n => n.toString() },
+		singleLine: true,
+	})
 	resetNodeLastKnownLimit(node: PageableViewNode) {
 		this._lastKnownLimits.delete(node.id);
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => (n != null ? n.toString() : '') },
-	})
+	@debug<ViewBase<RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);

@@ -47,11 +47,11 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	@debug({
+	@debug<Autolinks['getIssueOrPullRequestLinks']>({
 		args: {
-			0: (message: string) => message.substring(0, 50),
-			1: _ => false,
-			2: ({ timeout }) => timeout,
+			0: message => message.substring(0, 50),
+			1: false,
+			2: options => options?.timeout,
 		},
 	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
@@ -101,11 +101,12 @@ export class Autolinks implements Disposable {
 		return issuesOrPullRequests;
 	}
 
-	@debug({
+	@debug<Autolinks['linkify']>({
 		args: {
-			0: (text: string) => text.substring(0, 30),
-			2: _ => false,
-			3: _ => false,
+			0: text => text.substring(0, 30),
+			2: remotes => remotes?.length,
+			3: issuesOrPullRequests => issuesOrPullRequests?.size,
+			4: footnotes => footnotes?.size,
 		},
 	})
 	linkify(

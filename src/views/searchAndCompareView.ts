@@ -95,9 +95,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		}
 	}
 
-	@log({
-		args: { 0: (n: ViewNode) => n.toString() },
-	})
+	@log<SearchAndCompareViewNode['dismiss']>({ args: { 0: n => n.toString() } })
 	dismiss(node: ComparePickerNode | CompareResultsNode | SearchResultsNode) {
 		if (node === this.comparePicker) {
 			this.removeComparePicker();

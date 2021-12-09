@@ -396,14 +396,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repositories;
 	}
 
-	@debug({
-		args: {
-			0: (root: string) => root,
-			1: (depth: number) => `${depth}`,
-			2: () => false,
-			3: () => false,
-		},
-	})
+	@debug<LocalGitProvider['repositorySearchCore']>({ args: { 2: false, 3: false } })
 	private repositorySearchCore(
 		root: string,
 		depth: number,
@@ -564,12 +557,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log({
-		args: {
-			0: (repoPath: string) => repoPath,
-			1: (uris: Uri[]) => `${uris.length}`,
-		},
-	})
+	@log<LocalGitProvider['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
 	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const paths = new Map<string, Uri>(uris.map(u => [Strings.normalizePath(u.fsPath), u]));
 
@@ -690,11 +678,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log({
-		args: {
-			1: _contents => '<contents>',
-		},
-	})
+	@log<LocalGitProvider['getBlameForFileContents']>({ args: { 1: '<contents>' } })
 	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -823,11 +807,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log({
-		args: {
-			2: _contents => '<contents>',
-		},
-	})
+	@log<LocalGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
 		uri: GitUri,
 		editorLine: number, // editor lines are 0-based
@@ -886,11 +866,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.getBlameForRangeSync(blame, uri, range);
 	}
 
-	@log({
-		args: {
-			2: _contents => '<contents>',
-		},
-	})
+	@log<LocalGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
 		const blame = await this.getBlameForFileContents(uri, contents);
 		if (blame == null) return undefined;
@@ -898,11 +874,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.getBlameForRangeSync(blame, uri, range);
 	}
 
-	@log({
-		args: {
-			0: _blame => '<blame>',
-		},
-	})
+	@log<LocalGitProvider['getBlameForRangeContents']>({ args: { 0: '<blame>' } })
 	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
 		if (blame.lines.length === 0) return { allLines: blame.lines, ...blame };
 
@@ -1021,11 +993,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	// 	return undefined;
 	// }
 
-	@log({
-		args: {
-			1: () => false,
-		},
-	})
+	@log({ args: { 1: false } })
 	async getBranches(
 		repoPath: string | undefined,
 		options: {
@@ -1188,7 +1156,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			.filter(<T>(i?: T): i is T => Boolean(i));
 	}
 
-	@log()
+	@log<LocalGitProvider['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
 	getAheadBehindCommitCount(
 		repoPath: string,
 		refs: string[],
@@ -1472,11 +1440,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log({
-		args: {
-			1: _contents => '<contents>',
-		},
-	})
+	@log<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
 	async getDiffForFileContents(
 		uri: GitUri,
 		ref: string,
@@ -2759,11 +2723,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			options != null ? `|${options.limit ?? -1}:${options.include?.join(',')}` : ''
 		}`;
 	})
-	@debug<LocalGitProvider['getPullRequestForBranch']>({
-		args: {
-			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
-		},
-	})
+	@debug<LocalGitProvider['getPullRequestForBranch']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
 	async getPullRequestForBranch(
 		branch: string,
 		remoteOrProvider: GitRemote | RichRemoteProvider,
@@ -2816,11 +2776,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			options?.timeout
 		}`;
 	})
-	@debug<LocalGitProvider['getPullRequestForCommit']>({
-		args: {
-			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
-		},
-	})
+	@debug<LocalGitProvider['getPullRequestForCommit']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
 	async getPullRequestForCommit(
 		ref: string,
 		remoteOrProvider: GitRemote | RichRemoteProvider,
@@ -2933,7 +2889,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				options?.includeDisconnected ?? false
 			}`,
 	)
-	@log({ args: { 0: () => false } })
+	@log<LocalGitProvider['getRichRemoteProvider']>({
+		args: {
+			0: remotesOrRepoPath =>
+				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
+		},
+	})
 	async getRichRemoteProvider(
 		remotesOrRepoPath: GitRemote[] | string | undefined,
 		{ includeDisconnected }: { includeDisconnected?: boolean } = {},
@@ -3240,11 +3201,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return status;
 	}
 
-	@log({
-		args: {
-			1: () => false,
-		},
-	})
+	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
 		options: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions } = {},
@@ -3382,7 +3339,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
-	@log()
+	@log({ args: { 1: false } })
 	async hasBranchOrTag(
 		repoPath: string | undefined,
 		{
@@ -3425,11 +3382,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repository.hasUpstreamBranch();
 	}
 
-	@log({
-		args: {
-			1: (editor: TextEditor) =>
-				editor != null ? `TextEditor(${Logger.toLoggable(editor.document.uri)})` : 'undefined',
-		},
+	@log<GitProviderService['isActiveRepoPath']>({
+		args: { 1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined) },
 	})
 	async isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean> {
 		if (repoPath == null) return false;
@@ -3452,10 +3406,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	@log<LocalGitProvider['isTracked']>({
-		exit: tracked => `returned ${tracked}`,
-		singleLine: true,
-	})
+	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${tracked}`, singleLine: true })
 	async isTracked(
 		fileNameOrUri: string | GitUri,
 		repoPath?: string,
@@ -3723,7 +3674,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		await Git.stash__delete(repoPath, stashName, ref);
 	}
 
-	@log()
+	@log<LocalGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
 	async stashSave(
 		repoPath: string,
 		message?: string,
