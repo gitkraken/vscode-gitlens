@@ -201,6 +201,7 @@
 	"contributes": {
 		"configuration": [
 			{
+				"id": "current-line-blame",
 				"title": "Current Line Blame",
 				"order": 10,
 				"properties": {
@@ -245,6 +246,7 @@
 				}
 			},
 			{
+				"id": "git-code-lens",
 				"title": "Git Code Lens",
 				"order": 11,
 				"properties": {
@@ -432,6 +434,7 @@
 				}
 			},
 			{
+				"id": "status-bar-blame",
 				"title": "Status Bar Blame",
 				"order": 12,
 				"properties": {
@@ -543,6 +546,7 @@
 				}
 			},
 			{
+				"id": "hovers",
 				"title": "Hovers",
 				"order": 13,
 				"properties": {
@@ -685,6 +689,7 @@
 				}
 			},
 			{
+				"id": "views",
 				"title": "Views",
 				"order": 20,
 				"properties": {
@@ -794,6 +799,7 @@
 				}
 			},
 			{
+				"id": "commits-view",
 				"title": "Commits View",
 				"order": 21,
 				"properties": {
@@ -886,6 +892,7 @@
 				}
 			},
 			{
+				"id": "repositories-view",
 				"title": "Repositories View",
 				"order": 22,
 				"properties": {
@@ -1092,6 +1099,7 @@
 				}
 			},
 			{
+				"id": "file-history-view",
 				"title": "File History View",
 				"order": 23,
 				"properties": {
@@ -1150,6 +1158,7 @@
 				}
 			},
 			{
+				"id": "line-history-view",
 				"title": "Line History View",
 				"order": 24,
 				"properties": {
@@ -1167,6 +1176,7 @@
 				}
 			},
 			{
+				"id": "branches-view",
 				"title": "Branches View",
 				"order": 25,
 				"properties": {
@@ -1291,6 +1301,7 @@
 				}
 			},
 			{
+				"id": "remotes-view",
 				"title": "Remotes View",
 				"order": 26,
 				"properties": {
@@ -1378,6 +1389,7 @@
 				}
 			},
 			{
+				"id": "stashes-view",
 				"title": "Stashes View",
 				"order": 27,
 				"properties": {
@@ -1422,6 +1434,7 @@
 				}
 			},
 			{
+				"id": "tags-view",
 				"title": "Tags View",
 				"order": 28,
 				"properties": {
@@ -1507,6 +1520,7 @@
 				}
 			},
 			{
+				"id": "contributors-view",
 				"title": "Contributors View",
 				"order": 29,
 				"properties": {
@@ -1602,6 +1616,7 @@
 				}
 			},
 			{
+				"id": "search-compare-view",
 				"title": "Search & Compare View",
 				"order": 29,
 				"properties": {
@@ -1660,6 +1675,7 @@
 				}
 			},
 			{
+				"id": "gutter-blame",
 				"title": "Gutter Blame",
 				"order": 100,
 				"properties": {
@@ -1775,6 +1791,7 @@
 				}
 			},
 			{
+				"id": "gutter-changes",
 				"title": "Gutter Changes",
 				"order": 101,
 				"properties": {
@@ -1820,6 +1837,7 @@
 				}
 			},
 			{
+				"id": "gutter-heatmap",
 				"title": "Gutter Heatmap",
 				"order": 102,
 				"properties": {
@@ -1886,6 +1904,7 @@
 				}
 			},
 			{
+				"id": "git-command-palette",
 				"title": "Git Command Palette",
 				"order": 110,
 				"properties": {
@@ -2010,6 +2029,7 @@
 				}
 			},
 			{
+				"id": "integrations",
 				"title": "Integrations",
 				"order": 111,
 				"properties": {
@@ -2214,6 +2234,7 @@
 				}
 			},
 			{
+				"id": "terminal",
 				"title": "Terminal",
 				"order": 112,
 				"properties": {
@@ -2226,6 +2247,7 @@
 				}
 			},
 			{
+				"id": "date-times",
 				"title": "Date & Times",
 				"order": 120,
 				"properties": {
@@ -2292,6 +2314,7 @@
 				}
 			},
 			{
+				"id": "menus-toolbars",
 				"title": "Menus & Toolbars",
 				"order": 121,
 				"properties": {
@@ -2546,6 +2569,7 @@
 				}
 			},
 			{
+				"id": "keyboard",
 				"title": "Keyboard Shortcuts",
 				"order": 122,
 				"properties": {
@@ -2569,6 +2593,7 @@
 				}
 			},
 			{
+				"id": "modes",
 				"title": "Modes",
 				"order": 123,
 				"properties": {
@@ -2746,6 +2771,7 @@
 				}
 			},
 			{
+				"id": "advanced",
 				"title": "Advanced",
 				"order": 1000,
 				"properties": {
@@ -2981,6 +3007,7 @@
 				}
 			},
 			{
+				"id": "general",
 				"title": "General",
 				"order": 0,
 				"properties": {
