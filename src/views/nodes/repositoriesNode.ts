@@ -1,6 +1,6 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { RepositoriesChangedEvent } from '../../git/gitProviderService';
+import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate } from '../../system';
@@ -141,7 +141,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	@debug()
-	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange();
 	}
 }

@@ -20,7 +20,7 @@ import { configuration } from '../configuration';
 import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
-import { RepositoriesChangedEvent } from '../git/gitProviderService';
+import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
 import { Functions, Iterables } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
@@ -144,7 +144,7 @@ export class DocumentTracker<T> implements Disposable {
 		}
 	}
 
-	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		this.reset('repository');
 	}
 

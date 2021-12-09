@@ -19,7 +19,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../../git/git';
-import { RepositoriesChangedEvent } from '../../git/gitProviderService';
+import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, log, logName, Strings } from '../../system';
@@ -549,7 +549,7 @@ export abstract class RepositoriesSubscribeableNode<
 		return this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this);
 	}
 
-	private onRepositoriesChanged(_e: RepositoriesChangedEvent) {
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange(true);
 	}
 }

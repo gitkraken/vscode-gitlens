@@ -87,24 +87,24 @@ const weightedDefaultBranches = new Map<string, number>([
 	['development', 1],
 ]);
 
-export type GitProvidersChangedEvent = {
+export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
 	readonly removed: readonly GitProvider[];
 };
 
-export type RepositoriesChangedEvent = {
+export type RepositoriesChangeEvent = {
 	readonly added: readonly Repository[];
 	readonly removed: readonly Repository[];
 };
 
 export class GitProviderService implements Disposable {
-	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangedEvent>();
-	get onDidChangeProviders(): Event<GitProvidersChangedEvent> {
+	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
+	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
 		return this._onDidChangeProviders.event;
 	}
 
-	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangedEvent>();
-	get onDidChangeRepositories(): Event<RepositoriesChangedEvent> {
+	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangeEvent>();
+	get onDidChangeRepositories(): Event<RepositoriesChangeEvent> {
 		return this._onDidChangeRepositories.event;
 	}
 
