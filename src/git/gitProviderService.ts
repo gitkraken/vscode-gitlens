@@ -20,10 +20,19 @@ import { configuration } from '../configuration';
 import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import { ProviderNotFoundError } from '../errors';
+import { AccessDeniedError, ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
+import type { SubscriptionChangeEvent } from '../premium/subscription/subscriptionService';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
 import { WorkspaceStorageKeys } from '../storage';
+import {
+	FreeSubscriptionPlans,
+	getSubscriptionPlanPriority,
+	isPaidSubscriptionPlan,
+	RequiredSubscriptionPlans,
+	Subscription,
+	SubscriptionPlanId,
+} from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -32,13 +41,16 @@ import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } 
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import {
+	Features,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
+	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
+	RepositoryVisibility,
 	ScmRepository,
 } from './gitProvider';
 import { GitUri } from './gitUri';
@@ -100,12 +112,24 @@ export type RepositoriesChangeEvent = {
 	readonly removed: readonly Repository[];
 };
 
+export type FeatureAccess =
+	| { allowed: true; subscription: { current: Subscription; required?: undefined } }
+	| { allowed: false; subscription: { current: Subscription; required?: RequiredSubscriptionPlans } };
+
 export interface GitProviderResult {
 	provider: GitProvider;
 	path: string;
 }
 
+export const enum RepositoriesVisibility {
+	Private = 'private',
+	Public = 'public',
+	Mixed = 'mixed',
+}
+
 export class GitProviderService implements Disposable {
+	static readonly previewFeatures: Map<PremiumFeatures | undefined, boolean> | undefined; // = new Map();
+
 	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
 		return this._onDidChangeProviders.event;
@@ -123,6 +147,11 @@ export class GitProviderService implements Disposable {
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
 		this._etag = Date.now();
 
+		this._accessCache.clear();
+		this._visibilityCache.delete(undefined);
+		if (removed?.length) {
+			this._visibilityCache.clear();
+		}
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [] });
 	}
 
@@ -142,6 +171,7 @@ export class GitProviderService implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
+			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
@@ -194,6 +224,12 @@ export class GitProviderService implements Disposable {
 		if (configuration.changed(e, 'views.contributors.showAllBranches')) {
 			this.resetCaches('contributors');
 		}
+	}
+
+	@debug()
+	onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		this._accessCache.clear();
+		this._subscription = e.current;
 	}
 
 	@debug<GitProviderService['onWindowStateChanged']>({ args: { 0: e => `focused=${e.focused}` } })
@@ -334,6 +370,7 @@ export class GitProviderService implements Disposable {
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
 				}
 
+				this._visibilityCache.delete(e.repository.path);
 				this._onDidChangeRepository.fire(e);
 			}),
 			provider.onDidCloseRepository(e => {
@@ -490,6 +527,191 @@ export class GitProviderService implements Disposable {
 
 			return [];
 		}
+	}
+
+	private _subscription: Subscription | undefined;
+	private async getSubscription(): Promise<Subscription> {
+		return this._subscription ?? (this._subscription = await this.container.subscription.getSubscription());
+	}
+
+	private _accessCache = new Map<string | undefined, Promise<FeatureAccess>>();
+	async access(feature?: PremiumFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
+		let cacheKey;
+		if (repoPath != null) {
+			const { path } = this.getProvider(repoPath);
+			cacheKey = path;
+		}
+
+		let access = this._accessCache.get(cacheKey);
+		if (access == null) {
+			access = this.accessCore(feature, repoPath);
+			this._accessCache.set(cacheKey, access);
+		}
+		return access;
+	}
+
+	@debug()
+	private async accessCore(feature?: PremiumFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
+		const subscription = await this.getSubscription();
+		if (subscription.account?.verified === false) {
+			return { allowed: false, subscription: { current: subscription } };
+		}
+
+		const plan = subscription.plan.effective.id;
+		if (isPaidSubscriptionPlan(plan) || GitProviderService.previewFeatures?.get(feature)) {
+			return { allowed: true, subscription: { current: subscription } };
+		}
+
+		function getRepoAccess(
+			this: GitProviderService,
+			repoPath: string | Uri,
+			plan: FreeSubscriptionPlans,
+		): Promise<FeatureAccess> {
+			const { path: cacheKey } = this.getProvider(repoPath);
+
+			let access = this._accessCache.get(cacheKey);
+			if (access == null) {
+				access = this.visibility(repoPath).then(visibility => {
+					if (visibility === RepositoryVisibility.Public) {
+						switch (plan) {
+							case SubscriptionPlanId.Free:
+								return {
+									allowed: false,
+									subscription: { current: subscription, required: SubscriptionPlanId.FreePlus },
+								};
+							case SubscriptionPlanId.FreePlus:
+								return { allowed: true, subscription: { current: subscription } };
+						}
+					}
+
+					return {
+						allowed: false,
+						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+					};
+				});
+
+				this._accessCache.set(cacheKey, access);
+			}
+
+			return access;
+		}
+
+		if (repoPath == null) {
+			const repositories = this.openRepositories;
+			if (repositories.length === 0) {
+				return { allowed: false, subscription: { current: subscription } };
+			}
+
+			if (repositories.length === 1) {
+				return getRepoAccess.call(this, repositories[0].path, plan);
+			}
+
+			let allowed = true;
+			let requiredPlan: RequiredSubscriptionPlans | undefined;
+			let requiredPriority = -1;
+
+			const results = await Promise.allSettled(repositories.map(r => getRepoAccess.call(this, r.path, plan)));
+			for (const result of results) {
+				if (result.status !== 'fulfilled') continue;
+
+				if (result.value.allowed) continue;
+
+				allowed = false;
+				const priority = getSubscriptionPlanPriority(result.value.subscription.required);
+				if (requiredPriority < priority) {
+					requiredPriority = priority;
+					requiredPlan = result.value.subscription.required;
+				}
+			}
+
+			return allowed
+				? { allowed: true, subscription: { current: subscription } }
+				: { allowed: false, subscription: { current: subscription, required: requiredPlan } };
+		}
+
+		return getRepoAccess.call(this, repoPath, plan);
+	}
+
+	async ensureAccess(feature: PremiumFeatures, repoPath?: string): Promise<void> {
+		const { allowed, subscription } = await this.access(feature, repoPath);
+		if (!allowed) throw new AccessDeniedError(subscription.current, subscription.required);
+	}
+
+	supports(repoPath: string | Uri, feature: Features): Promise<boolean> {
+		const { provider } = this.getProvider(repoPath);
+		return provider.supports(feature);
+	}
+
+	private _visibilityCache: Map<undefined, Promise<RepositoriesVisibility>> &
+		Map<string, Promise<RepositoryVisibility>> = new Map();
+	visibility(): Promise<RepositoriesVisibility>;
+	visibility(repoPath: string | Uri): Promise<RepositoryVisibility>;
+	async visibility(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
+		if (repoPath == null) {
+			let visibility = this._visibilityCache.get(undefined);
+			if (visibility == null) {
+				visibility = this.visibilityCore();
+				this._visibilityCache.set(undefined, visibility);
+			}
+			return visibility;
+		}
+
+		const { path: cacheKey } = this.getProvider(repoPath);
+
+		let visibility = this._visibilityCache.get(cacheKey);
+		if (visibility == null) {
+			visibility = this.visibilityCore(repoPath);
+			this._visibilityCache.set(cacheKey, visibility);
+		}
+		return visibility;
+	}
+
+	private visibilityCore(): Promise<RepositoriesVisibility>;
+	private visibilityCore(repoPath: string | Uri): Promise<RepositoryVisibility>;
+	@debug()
+	private async visibilityCore(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
+		function getRepoVisibility(this: GitProviderService, repoPath: string | Uri): Promise<RepositoryVisibility> {
+			const { provider, path } = this.getProvider(repoPath);
+
+			let visibility = this._visibilityCache.get(path);
+			if (visibility == null) {
+				visibility = provider.visibility(path);
+				this._visibilityCache.set(path, visibility);
+			}
+
+			return visibility;
+		}
+
+		if (repoPath == null) {
+			const repositories = this.openRepositories;
+			if (repositories.length === 0) return RepositoriesVisibility.Private;
+
+			if (repositories.length === 1) {
+				return getRepoVisibility.call(this, repositories[0].path);
+			}
+
+			const results = await Promise.allSettled(repositories.map(r => getRepoVisibility.call(this, r.path)));
+
+			let isPublic: boolean | undefined = undefined;
+			let isPrivate: boolean | undefined = undefined;
+
+			for (const result of results) {
+				if (result.status !== 'fulfilled') continue;
+
+				if (result.value === RepositoryVisibility.Public) {
+					isPublic = true;
+				} else if (result.value === RepositoryVisibility.Private) {
+					isPrivate = true;
+				}
+
+				if (isPublic && isPrivate) break;
+			}
+
+			if (isPublic) return isPrivate ? RepositoriesVisibility.Mixed : RepositoriesVisibility.Public;
+			return RepositoriesVisibility.Private;
+		}
+
+		return getRepoVisibility.call(this, repoPath);
 	}
 
 	private _context: { enabled: boolean; disabled: boolean } = { enabled: false, disabled: false };

@@ -26,16 +26,20 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
 import {
+	Features,
 	GitProvider,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
+	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	ScmRepository,
 } from '../../git/gitProvider';
+import { GitProviderService } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import {
 	BranchSortOptions,
@@ -79,6 +83,7 @@ import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factor
 import { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
 import { LogCorrelationContext, Logger } from '../../logger';
+import { SubscriptionPlanId } from '../../subscription';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
@@ -178,6 +183,84 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			suspended ?? !window.state.focused,
 			closed,
 		);
+	}
+
+	private _allowedFeatures = new Map<string, Map<PremiumFeatures, boolean>>();
+	async allows(feature: PremiumFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean> {
+		if (plan === SubscriptionPlanId.Free) return false;
+		if (plan === SubscriptionPlanId.Pro) return true;
+
+		if (repoPath == null) {
+			const repositories = [...this.container.git.getOpenRepositories(this.descriptor.id)];
+			const results = await Promise.allSettled(repositories.map(r => this.allows(feature, plan, r.path)));
+			return results.every(r => r.status === 'fulfilled' && r.value);
+		}
+
+		let allowedByRepo = this._allowedFeatures.get(repoPath);
+		let allowed = allowedByRepo?.get(feature);
+		if (allowed != null) return allowed;
+
+		allowed = GitProviderService.previewFeatures?.get(feature)
+			? true
+			: (await this.visibility(repoPath)) === RepositoryVisibility.Public;
+		if (allowedByRepo == null) {
+			allowedByRepo = new Map<PremiumFeatures, boolean>();
+			this._allowedFeatures.set(repoPath, allowedByRepo);
+		}
+
+		allowedByRepo.set(feature, allowed);
+		return allowed;
+	}
+
+	private _supportedFeatures = new Map<Features, boolean>();
+	async supports(feature: Features): Promise<boolean> {
+		const supported = this._supportedFeatures.get(feature);
+		if (supported != null) return supported;
+
+		return false;
+	}
+
+	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+		const remotes = await this.getRemotes(repoPath);
+		if (remotes.length === 0) return RepositoryVisibility.Private;
+
+		const origin = remotes.find(r => r.name === 'origin');
+		if (origin != null) {
+			return this.getRemoteVisibility(origin);
+		}
+
+		const upstream = remotes.find(r => r.name === 'upstream');
+		if (upstream != null) {
+			return this.getRemoteVisibility(upstream);
+		}
+
+		const results = await Promise.allSettled(remotes.map(r => this.getRemoteVisibility(r)));
+		for (const result of results) {
+			if (result.status !== 'fulfilled') continue;
+
+			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
+		}
+
+		return RepositoryVisibility.Private;
+	}
+
+	private async getRemoteVisibility(
+		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+	): Promise<RepositoryVisibility> {
+		switch (remote.provider?.id) {
+			case 'github': {
+				const { github, metadata, session } = await this.ensureRepositoryContext(remote.repoPath);
+				const visibility = await github.getRepositoryVisibility(
+					session.accessToken,
+					metadata.repo.owner,
+					metadata.repo.name,
+				);
+
+				return visibility ?? RepositoryVisibility.Private;
+			}
+			default:
+				return RepositoryVisibility.Private;
+		}
 	}
 
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {

@@ -1,7 +1,7 @@
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
-import type { Container } from '../container';
+import { Container } from '../container';
 import { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
@@ -652,6 +652,21 @@ export class GitCommandsCommand extends Command {
 
 									case Directive.LoadMore:
 										void loadMore();
+										return;
+
+									case Directive.RequiresVerification:
+										void Container.instance.subscription.resendVerification();
+										resolve(undefined);
+										return;
+
+									case Directive.RequiresFreeSubscription:
+										void Container.instance.subscription.loginOrSignUp();
+										resolve(undefined);
+										return;
+
+									case Directive.RequiresPaidSubscription:
+										void Container.instance.subscription.purchase();
+										resolve(undefined);
 										return;
 								}
 							}

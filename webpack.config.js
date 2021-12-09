@@ -257,6 +257,7 @@ function getWebviewsConfig(mode, env) {
 			},
 		}),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
+		getHtmlPlugin('home', true, mode, env),
 		getHtmlPlugin('rebase', false, mode, env),
 		getHtmlPlugin('settings', false, mode, env),
 		getHtmlPlugin('welcome', false, mode, env),
@@ -279,6 +280,17 @@ function getWebviewsConfig(mode, env) {
 					),
 					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 				},
+				{
+					from: path.posix.join(
+						__dirname.replace(/\\/g, '/'),
+						'node_modules',
+						'@vscode',
+						'webview-ui-toolkit',
+						'dist',
+						'toolkit.min.js',
+					),
+					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
+				},
 			],
 		}),
 	];
@@ -298,6 +310,7 @@ function getWebviewsConfig(mode, env) {
 		name: 'webviews',
 		context: basePath,
 		entry: {
+			home: './premium/home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
 			welcome: './welcome/welcome.ts',

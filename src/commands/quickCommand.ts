@@ -278,8 +278,11 @@ export namespace QuickCommand {
 				case Directive.Cancel:
 					endSteps(state);
 					break;
-				case Directive.Noop:
-					break;
+				// case Directive.Noop:
+				// case Directive.RequiresVerification:
+				// case Directive.RequiresFreeSubscription:
+				// case Directive.RequiresProSubscription:
+				// 	break;
 			}
 			return false;
 		}

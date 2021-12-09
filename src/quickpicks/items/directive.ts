@@ -1,11 +1,15 @@
+import { QuickPickItem } from 'vscode';
+import type { Subscription } from '../../subscription';
+
 export enum Directive {
 	Back,
 	Cancel,
 	LoadMore,
 	Noop,
+	RequiresVerification,
+	RequiresFreeSubscription,
+	RequiresPaidSubscription,
 }
-
-import { QuickPickItem } from 'vscode';
 
 export namespace Directive {
 	export function is<T>(value: Directive | T): value is Directive {
@@ -21,9 +25,10 @@ export namespace DirectiveQuickPickItem {
 	export function create(
 		directive: Directive,
 		picked?: boolean,
-		options: { label?: string; description?: string; detail?: string } = {},
+		options?: { label?: string; description?: string; detail?: string; subscription?: Subscription },
 	) {
-		let label = options.label;
+		let label = options?.label;
+		let detail = options?.detail;
 		if (label == null) {
 			switch (directive) {
 				case Directive.Back:
@@ -38,13 +43,25 @@ export namespace DirectiveQuickPickItem {
 				case Directive.Noop:
 					label = 'Try again';
 					break;
+				case Directive.RequiresVerification:
+					label = 'Resend Verification Email';
+					detail = 'You must verify your account email address before you can continue';
+					break;
+				case Directive.RequiresFreeSubscription:
+					label = 'Create a Free+ Account';
+					detail = 'To unlock all premium features for public code';
+					break;
+				case Directive.RequiresPaidSubscription:
+					label = 'Upgrade to a paid subscription';
+					detail = 'To unlock all premium features for private code';
+					break;
 			}
 		}
 
 		const item: DirectiveQuickPickItem = {
 			label: label,
-			description: options.description,
-			detail: options.detail,
+			description: options?.description,
+			detail: detail,
 			alwaysShow: true,
 			picked: picked,
 			directive: directive,

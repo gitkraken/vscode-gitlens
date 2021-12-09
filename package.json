@@ -50,6 +50,7 @@
 	"activationEvents": [
 		"onCustomEditor:gitlens.rebase",
 		"onFileSystem:gitlens",
+		"onView:gitlens.views.home",
 		"onView:gitlens.views.repositories",
 		"onView:gitlens.views.commits",
 		"onView:gitlens.views.fileHistory",
@@ -60,6 +61,15 @@
 		"onView:gitlens.views.tags",
 		"onView:gitlens.views.contributors",
 		"onView:gitlens.views.searchAndCompare",
+		"onWebviewPanel:gitlens.welcome",
+		"onWebviewPanel:gitlens.settings",
+		"onCommand:gitlens.premium.login",
+		"onCommand:gitlens.premium.loginOrSignUp",
+		"onCommand:gitlens.premium.signUp",
+		"onCommand:gitlens.premium.logout",
+		"onCommand:gitlens.premium.startPreview",
+		"onCommand:gitlens.premium.purchase",
+		"onCommand:gitlens.premium.reset",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#branches-view",
@@ -3456,6 +3466,41 @@
 		],
 		"commands": [
 			{
+				"command": "gitlens.premium.login",
+				"title": "Login...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.loginOrSignUp",
+				"title": "Unlock Premium Features...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.signUp",
+				"title": "Sign Up for Free+...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.logout",
+				"title": "Logout",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.startPreview",
+				"title": "Try Premium Features...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.purchase",
+				"title": "Unlock Premium Features for Private Code...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.reset",
+				"title": "Reset...",
+				"category": "GitLens Premium"
+			},
+			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -5600,6 +5645,33 @@
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "gitlens.premium.login",
+					"when": "gitlens:premium == free"
+				},
+				{
+					"command": "gitlens.premium.loginOrSignUp",
+					"when": "gitlens:premium == free"
+				},
+				{
+					"command": "gitlens.premium.signUp",
+					"when": "gitlens:premium == free"
+				},
+				{
+					"command": "gitlens.premium.logout",
+					"when": "gitlens:premium != free"
+				},
+				{
+					"command": "gitlens.premium.startPreview",
+					"when": "gitlens:premium == free"
+				},
+				{
+					"command": "gitlens.premium.purchase",
+					"when": "!gitlens:premium:paid"
+				},
+				{
+					"command": "gitlens.premium.reset"
+				},
 				{
 					"command": "gitlens.showSettingsPage#views",
 					"when": "false"
@@ -10030,6 +10102,15 @@
 		"views": {
 			"gitlens": [
 				{
+					"type": "webview",
+					"id": "gitlens.views.home",
+					"name": "Home",
+					"-when": "!gitlens:disabled && gitlens:views:home:visible != false",
+					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg",
+					"visibility": "visible"
+				},
+				{
 					"id": "gitlens.views.welcome",
 					"name": "Welcome",
 					"when": "gitlens:views:welcome:visible != false",
@@ -10178,6 +10259,7 @@
 	"dependencies": {
 		"@octokit/core": "3.5.1",
 		"@vscode/codicons": "0.0.28",
+		"@vscode/webview-ui-toolkit": "0.9.1",
 		"ansi-regex": "6.0.1",
 		"chroma-js": "2.3.0",
 		"iconv-lite": "0.6.3",

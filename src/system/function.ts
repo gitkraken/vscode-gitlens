@@ -152,3 +152,15 @@ export function disposableInterval(fn: (...args: any[]) => void, ms: number): Di
 
 	return disposable;
 }
+
+/**
+ * Szudzik elegant pairing function
+ * http://szudzik.com/ElegantPairing.pdf
+ */
+export function szudzikPairing(x: number, y: number): number {
+	return x >= y ? x * x + x + y : x + y * y;
+}
+
+export async function wait(ms: number) {
+	await new Promise(resolve => setTimeout(resolve, ms));
+}

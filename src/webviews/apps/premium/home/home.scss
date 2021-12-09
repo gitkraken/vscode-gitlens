@@ -1,0 +1,80 @@
+// @import '../../scss/base';
+// @import '../../scss/buttons';
+// @import '../../scss/utils';
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+	box-sizing: border-box;
+}
+
+body {
+	background-color: var(--color-background);
+	color: var(--color-foreground);
+	font-family: var(--font-family);
+	height: 100%;
+	line-height: 1.4;
+	font-size: 100% !important;
+}
+
+.container {
+	color: var(--color-view-foreground);
+	display: grid;
+	font-size: 1.3em;
+	padding-bottom: 1.5rem;
+}
+
+section {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+}
+
+h3 {
+	border: none;
+	color: var(--color-view-header-foreground);
+	font-size: 1.5rem;
+	font-weight: 600;
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+a {
+	text-decoration: none;
+
+	&:focus {
+		outline-color: var(--focus-border);
+	}
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+b {
+	font-weight: 600;
+}
+
+p {
+	margin-bottom: 0;
+}
+
+vscode-button {
+	align-self: center;
+	margin-top: 1.5rem;
+	max-width: 300px;
+	width: 100%;
+}
+
+@media (min-width: 640px) {
+	vscode-button {
+		align-self: flex-start;
+	}
+}
+
+vscode-divider {
+	margin-top: 2rem;
+}
+
+@import '../../scss/codicons';

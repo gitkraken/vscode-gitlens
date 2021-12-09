@@ -98,9 +98,9 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected onInputBlurred(element: HTMLInputElement) {
 		this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
 
-		const popup = document.getElementById(`${element.name}.popup`);
-		if (popup != null) {
-			popup.classList.add('hidden');
+		const $popup = document.getElementById(`${element.name}.popup`);
+		if ($popup != null) {
+			$popup.classList.add('hidden');
 		}
 
 		let value: string | null | undefined = element.value;
@@ -189,14 +189,15 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected onInputFocused(element: HTMLInputElement) {
 		this.log(`${this.appName}.onInputFocused: name=${element.name}, value=${element.value}`);
 
-		const popup = document.getElementById(`${element.name}.popup`);
-		if (popup != null) {
-			if (popup.childElementCount === 0) {
-				const template = document.querySelector('#token-popup') as HTMLTemplateElement;
-				const instance = document.importNode(template.content, true);
-				popup.appendChild(instance);
+		const $popup = document.getElementById(`${element.name}.popup`);
+		if ($popup != null) {
+			if ($popup.childElementCount === 0) {
+				const $template = (document.querySelector('#token-popup') as HTMLTemplateElement)?.content.cloneNode(
+					true,
+				);
+				$popup.appendChild($template);
 			}
-			popup.classList.remove('hidden');
+			$popup.classList.remove('hidden');
 		}
 	}
 

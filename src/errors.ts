@@ -1,4 +1,27 @@
 import { Uri } from 'vscode';
+import { isPaidSubscriptionPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
+
+export class AccessDeniedError extends Error {
+	public readonly subscription: Subscription;
+	public readonly required: RequiredSubscriptionPlans | undefined;
+
+	constructor(subscription: Subscription, required: RequiredSubscriptionPlans | undefined) {
+		let message;
+		if (subscription.account?.verified === false) {
+			message = 'Email verification required';
+		} else if (required != null && isPaidSubscriptionPlan(required)) {
+			message = 'Paid subscription required';
+		} else {
+			message = 'Subscription required';
+		}
+
+		super(message);
+
+		this.subscription = subscription;
+		this.required = required;
+		Error.captureStackTrace?.(this, AccessDeniedError);
+	}
+}
 
 export const enum AuthenticationErrorReason {
 	UserDidNotConsent = 1,

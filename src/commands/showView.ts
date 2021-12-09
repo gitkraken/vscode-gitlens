@@ -20,6 +20,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowStashesView,
 			Commands.ShowTagsView,
 			Commands.ShowWelcomeView,
+			Commands.ShowHomeView,
 		]);
 	}
 
@@ -53,6 +54,10 @@ export class ShowViewCommand extends Command {
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
 				void this.container.storage.store(SyncedStorageKeys.WelcomeViewVisible, true);
 				void (await executeCommand('gitlens.views.welcome.focus'));
+				break;
+			case Commands.ShowHomeView:
+				void (await executeCommand('gitlens.views.home.focus'));
+				break;
 		}
 
 		return Promise.resolve(undefined);

@@ -29,6 +29,7 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
+import { SubscriptionService } from './premium/subscription/subscriptionService';
 import { StatusBarController } from './statusbar/statusBarController';
 import { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -50,6 +51,7 @@ import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { VslsController } from './vsls/vsls';
+import { HomeWebviewView } from './webviews/premium/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { SettingsWebview } from './webviews/settings/settingsWebview';
 import { WelcomeWebview } from './webviews/welcome/welcomeWebview';
@@ -150,6 +152,8 @@ export class Container {
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
+		context.subscriptions.push((this._subscription = new SubscriptionService(this)));
+
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
 
@@ -180,6 +184,8 @@ export class Container {
 		context.subscriptions.push((this._tagsView = new TagsView(this)));
 		context.subscriptions.push((this._contributorsView = new ContributorsView(this)));
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView(this)));
+
+		context.subscriptions.push((this._homeWebviewView = new HomeWebviewView(this)));
 
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -304,6 +310,17 @@ export class Container {
 		return this._context.extensionMode === ExtensionMode.Development;
 	}
 
+	@memoize()
+	get env(): 'dev' | 'staging' | 'production' {
+		if (this.insiders || this.debugging) {
+			const env = configuration.getAny('gitkraken.env');
+			if (env === 'dev') return 'dev';
+			if (env === 'staging') return 'staging';
+		}
+
+		return 'production';
+	}
+
 	private _fileAnnotationController: FileAnnotationController;
 	get fileAnnotations() {
 		return this._fileAnnotationController;
@@ -384,6 +401,15 @@ export class Container {
 		return this._rebaseEditor;
 	}
 
+	private _homeWebviewView: HomeWebviewView | undefined;
+	get homeWebviewView() {
+		if (this._homeWebviewView == null) {
+			this._context.subscriptions.push((this._homeWebviewView = new HomeWebviewView(this)));
+		}
+
+		return this._homeWebviewView;
+	}
+
 	private _remotesView: RemotesView | undefined;
 	get remotesView() {
 		if (this._remotesView == null) {
@@ -409,6 +435,15 @@ export class Container {
 		}
 
 		return this._searchAndCompareView;
+	}
+
+	private _subscription: SubscriptionService | undefined;
+	get subscription() {
+		if (this._subscription == null) {
+			this._subscription = new SubscriptionService(this);
+		}
+
+		return this._subscription;
 	}
 
 	private _settingsWebview: SettingsWebview;

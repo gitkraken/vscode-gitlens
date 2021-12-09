@@ -1,5 +1,6 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import { Commit, InputBox } from '../@types/vscode.git';
+import { SubscriptionPlanId } from '../subscription';
 import { GitUri } from './gitUri';
 import {
 	BranchSortOptions,
@@ -88,6 +89,15 @@ export interface RepositoryOpenEvent {
 	readonly uri: Uri;
 }
 
+export const enum Features {}
+
+export const enum PremiumFeatures {}
+
+export const enum RepositoryVisibility {
+	Private = 'private',
+	Public = 'public',
+}
+
 export interface GitProvider extends Disposable {
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
@@ -106,6 +116,11 @@ export interface GitProvider extends Disposable {
 		closed?: boolean,
 	): Repository;
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
+
+	allows(feature: PremiumFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean>;
+	supports(feature: Features): Promise<boolean>;
+	visibility(repoPath: string): Promise<RepositoryVisibility>;
+
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 

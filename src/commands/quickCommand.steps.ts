@@ -2,7 +2,7 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { PagedResult } from '../git/gitProvider';
+import { PagedResult, PremiumFeatures } from '../git/gitProvider';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -64,6 +64,7 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
+import { isPaidSubscriptionPlan } from '../subscription';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
@@ -2069,4 +2070,38 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	return items;
+}
+
+export async function* ensureAccessStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string },
+>(state: State, context: Context, feature: PremiumFeatures): AsyncStepResultGenerator<void> {
+	const access = await Container.instance.git.access(feature, state.repo.path);
+	if (access.allowed) return undefined;
+
+	let directive: Directive;
+	let placeholder: string;
+	if (access.subscription.current.account?.verified === false) {
+		directive = Directive.RequiresVerification;
+		placeholder = 'You must verify your account email address before you can continue';
+	} else {
+		if (access.subscription.required == null) return undefined;
+
+		if (isPaidSubscriptionPlan(access.subscription.required)) {
+			directive = Directive.RequiresPaidSubscription;
+			placeholder = 'Requires a paid subscription';
+		} else {
+			directive = Directive.RequiresFreeSubscription;
+			placeholder = 'Requires a Free+ account';
+		}
+	}
+
+	const step = QuickCommand.createPickStep<DirectiveQuickPickItem>({
+		title: appendReposToTitle(context.title, state, context),
+		placeholder: placeholder,
+		items: [DirectiveQuickPickItem.create(directive, true), DirectiveQuickPickItem.create(Directive.Cancel)],
+	});
+
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
 }

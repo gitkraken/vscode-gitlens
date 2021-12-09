@@ -21,9 +21,10 @@ import {
 	RepositoryChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
+import { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
-import { is as isA } from '../../system/function';
+import { is as isA, szudzikPairing } from '../../system/function';
 import { pad } from '../../system/string';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
@@ -541,16 +542,25 @@ export abstract class RepositoriesSubscribeableNode<
 	}
 
 	protected override etag(): number {
-		return this.view.container.git.etag;
+		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
 
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
-		return this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this);
+		return Disposable.from(
+			this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+			this.view.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange(true);
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (e.current.plan !== e.previous.plan) {
+			void this.triggerChange(true);
+		}
 	}
 }
 

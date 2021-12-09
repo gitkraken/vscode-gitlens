@@ -15,6 +15,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
+import { fetch } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type {
@@ -27,16 +28,19 @@ import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
+	Features,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
+	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
@@ -91,11 +95,12 @@ import {
 	LogType,
 } from '../../../git/parsers';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
+import { RemoteProvider, RemoteResourceType, RichRemoteProvider } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
 import { WorkspaceStorageKeys } from '../../../storage';
+import { SubscriptionPlanId } from '../../../subscription';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -381,6 +386,93 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			onDidCreate: watcher.onDidCreate,
 			dispose: () => watcher.dispose(),
 		};
+	}
+
+	private _allowedFeatures = new Map<string, Map<PremiumFeatures, boolean>>();
+	async allows(feature: PremiumFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean> {
+		if (plan === SubscriptionPlanId.Free) return false;
+		if (plan === SubscriptionPlanId.Pro) return true;
+
+		if (repoPath == null) {
+			const repositories = [...this.container.git.getOpenRepositories(this.descriptor.id)];
+			const results = await Promise.allSettled(repositories.map(r => this.allows(feature, plan, r.path)));
+			return results.every(r => r.status === 'fulfilled' && r.value);
+		}
+
+		let allowedByRepo = this._allowedFeatures.get(repoPath);
+		let allowed = allowedByRepo?.get(feature);
+		if (allowed != null) return allowed;
+
+		allowed = GitProviderService.previewFeatures?.get(feature)
+			? true
+			: (await this.visibility(repoPath)) === RepositoryVisibility.Public;
+		if (allowedByRepo == null) {
+			allowedByRepo = new Map<PremiumFeatures, boolean>();
+			this._allowedFeatures.set(repoPath, allowedByRepo);
+		}
+
+		allowedByRepo.set(feature, allowed);
+		return allowed;
+	}
+
+	private _supportedFeatures = new Map<Features, boolean>();
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async supports(feature: Features): Promise<boolean> {
+		const supported = this._supportedFeatures.get(feature);
+		if (supported != null) return supported;
+
+		return false;
+	}
+
+	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+		const remotes = await this.getRemotes(repoPath);
+		if (remotes.length === 0) return RepositoryVisibility.Private;
+
+		const origin = remotes.find(r => r.name === 'origin');
+		if (origin != null) {
+			return this.getRemoteVisibility(origin);
+		}
+
+		const upstream = remotes.find(r => r.name === 'upstream');
+		if (upstream != null) {
+			return this.getRemoteVisibility(upstream);
+		}
+
+		const results = await Promise.allSettled(remotes.map(r => this.getRemoteVisibility(r)));
+		for (const result of results) {
+			if (result.status !== 'fulfilled') continue;
+
+			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
+		}
+
+		return RepositoryVisibility.Private;
+	}
+
+	private async getRemoteVisibility(
+		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+	): Promise<RepositoryVisibility> {
+		switch (remote.provider?.id) {
+			case 'github':
+			case 'gitlab':
+			case 'bitbucket':
+			case 'azure-devops':
+			case 'gitea':
+			case 'gerrit': {
+				const url = remote.provider.url({ type: RemoteResourceType.Repo });
+				if (url == null) return RepositoryVisibility.Private;
+
+				// Check if the url returns a 200 status code
+				try {
+					const response = await fetch(url, { method: 'HEAD' });
+					if (response.status === 200) {
+						return RepositoryVisibility.Public;
+					}
+				} catch {}
+				return RepositoryVisibility.Private;
+			}
+			default:
+				return RepositoryVisibility.Private;
+		}
 	}
 
 	@log<LocalGitProvider['repositorySearch']>({

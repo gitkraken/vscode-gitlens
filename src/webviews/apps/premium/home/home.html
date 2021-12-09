@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+			}
+		</style>
+	</head>
+
+	<body class="preload">
+		<div class="container">
+			<div id="slot1"></div>
+			<vscode-divider></vscode-divider>
+			<div id="slot2"></div>
+		</div>
+		<script type="module" src="#{root}/dist/webviews/toolkit.min.js"></script>
+		#{endOfBody}
+	</body>
+
+	<template id="welcome">
+		<section>
+			<h3>Welcome to GitLens 12!</h3>
+			<p>
+				GitLens <b>supercharges</b> Git inside VS Code and <b>unlocks</b> the untapped <b>knowledge</b> within
+				each repository. While GitLens is both very <b>powerful</b> and feature rich, it is <b>intuitive</b> and
+				highly customizable to meet your needs.
+			</p>
+			<p>
+				Jump over to the getting started experience to familiarize yourself with the features GitLens provides.
+			</p>
+			<vscode-button data-action="command:gitlens.getStarted">Get Started</vscode-button>
+			<p>Or, you can use the GitLens welcome experience to get setup quickly.</p>
+			<vscode-button data-action="command:gitlens.showWelcomePage">Welcome (Quick Setup)</vscode-button>
+			<ul>
+				<li>
+					To view all GitLens settings, run
+					<a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Open%20Settings%22"
+						>GitLens: Open Settings</a
+					>
+					from the Command Palette.
+				</li>
+				<li>
+					<a href="command:gitlens.showSettingsPage%23views">GitLens side bar views</a>
+					for commits, branches, etc. are displayed within the Source Control side bar by default.
+					<a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Set%20Views%20Layout%22"
+						>Run GitLens: Set Views Layout</a
+					>
+					from the Command Palette to display them here in the GitLens side bar, or drag & drop them
+					individually.
+				</li>
+			</ul>
+			<vscode-button data-action="command:gitlens.home.hideWelcome" appearance="secondary">Hide</vscode-button>
+		</section>
+	</template>
+
+	<template id="state:free">
+		<section>
+			<h3>Try GitLens Premium Features</h3>
+			<p>
+				Premium features like <a href="">Git Worktrees</a> and <a href="">Visual File History</a> are available
+				with a free account, with many more features coming soon, including a commit graph and GitHub Enterprise
+				integration. Access to premium features for private code is available with a paid account.
+				<a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<p>
+				You can try these premium features for free, without an account, for 3 days. All non-premium features
+				will continue to be free without an account.
+			</p>
+			<vscode-button data-action="command:gitlens.premium.startPreview">Try premium features now</vscode-button>
+			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
+			<vscode-button data-action="command:gitlens.premium.showPlans" appearance="secondary"
+				>View paid plans</vscode-button
+			>
+		</section>
+	</template>
+
+	<template id="state:free-preview">
+		<section>
+			<h3>Trying Premium Features</h3>
+			<p>
+				You are currently trying premium GitLens features, like <a href="">Git Worktrees</a> and
+				<a href="">Visual File History</a>, for <span data-bind="previewDays">3 more days</span>.
+				<a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<p>
+				After that time, a free account will be required to continue using these premium features for public
+				code, or you can puchase a paid plan to access premium features for private code.
+			</p>
+			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
+			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+			<p>All non-premium features will continue to be free without an account.</p>
+		</section>
+	</template>
+
+	<template id="state:free-preview-expired">
+		<section>
+			<h3>Continue using Premium Features</h3>
+			<p>
+				Premium GitLens features like <a href="">Git Worktrees</a> and <a href="">Visual File History</a>, a
+				commit graph (coming soon), and GitHub Enterprise integration (coming soon) are only available with an
+				account. <a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<p>Create a free account to continue trialing premium features for all code for an additional 7 days.</p>
+			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
+			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+			<p>All non-premium features will continue to be free without an account.</p>
+			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
+				>Close</vscode-button
+			>
+		</section>
+	</template>
+
+	<template id="state:plus-trial">
+		<section>
+			<h3>Premium Feature Trial</h3>
+			<p>
+				You are currently trialing premium GitLens features like <a href="">Git Worktrees</a> and
+				<a href="">Visual File History</a> for both public and private code. In
+				<span data-bind="trialDays">7 days</span>, accessing these premium features for private code will
+				require a paid account.
+			</p>
+			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+			<p>
+				With your free account, you will continue to have access to premium features for public code, as well as
+				all non-premium features.
+			</p>
+			<!-- <vscode-button appearance="secondary">Close</vscode-button> -->
+		</section>
+	</template>
+
+	<template id="state:verify-email">
+		<section>
+			<h3>Please validate your email</h3>
+			<p>To continue using premium GitLens features, please validate the email for the account you created.</p>
+			<vscode-button data-action="command:gitlens.premium.resendVerification"
+				>Resend verification email</vscode-button
+			>
+			<vscode-button data-action="command:gitlens.premium.validate">Refresh validation</vscode-button>
+			<p>All non-premium features will continue to be free without an account.</p>
+		</section>
+	</template>
+
+	<template id="state:plus-trial-expired">
+		<section>
+			<h3>GitLens Free+</h3>
+			<p>
+				With your free account, you have access to GitLens Free+, which unlocks premium features like
+				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for public code. More premium
+				features like a commit graph and GitHub Enterprise integration are coming soon.
+				<a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<p>Access to premium features for private code requires a paid plan.</p>
+			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
+				>Close</vscode-button
+			>
+		</section>
+	</template>
+
+	<template id="state:paid">
+		<section>
+			<h3 data-bind="plan">GitLens Pro</h3>
+			<p>
+				Thank you for purchasing <span data-bind="plan">GitLens Pro</span>! With a
+				<span data-bind="plan">GitLens Pro</span> account, you can access premium features like
+				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for all of your code.
+			</p>
+			<p>
+				Additional premium featues like a commit graph and GitHub Enterprise integration are coming soon.
+				<a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
+				>Close</vscode-button
+			>
+		</section>
+	</template>
+</html>

@@ -12,8 +12,8 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
-				"webRoot": "${workspaceFolder}/src/webviews/apps"
+				// "urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
@@ -35,8 +35,8 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
-				"webRoot": "${workspaceFolder}/src/webviews/apps"
+				// "urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
@@ -76,8 +76,8 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
-				"webRoot": "${workspaceFolder}/src/webviews/apps"
+				// "urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
@@ -128,8 +128,8 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
-				"webRoot": "${workspaceFolder}/src/webviews/apps"
+				// "urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",

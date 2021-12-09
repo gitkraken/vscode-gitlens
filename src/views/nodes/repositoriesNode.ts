@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { debounce } from '../../system/function';
+import { debounce, szudzikPairing } from '../../system/function';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
@@ -109,7 +109,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	protected override etag(): number {
-		return this.view.container.git.etag;
+		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
 
 	@debug({ args: false })

@@ -147,6 +147,7 @@ export const enum Commands {
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowCommitsView = 'gitlens.showCommitsView',
 	ShowContributorsView = 'gitlens.showContributorsView',
+	ShowHomeView = 'gitlens.showHomeView',
 	ShowFileHistoryView = 'gitlens.showFileHistoryView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
@@ -236,6 +237,10 @@ export const enum ContextKeys {
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
 	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
 	Vsls = 'gitlens:vsls',
+
+	Premium = 'gitlens:premium',
+	PremiumPaid = 'gitlens:premium:paid',
+	PremiumUpgradeRequired = 'gitlens:premium:upgradeRequired',
 }
 
 export const enum CoreCommands {

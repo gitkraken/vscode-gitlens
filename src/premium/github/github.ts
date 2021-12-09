@@ -11,7 +11,7 @@ import {
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
 } from '../../errors';
-import { PagedResult } from '../../git/gitProvider';
+import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
 import {
 	type DefaultBranch,
 	GitFileIndexStatus,
@@ -1357,6 +1357,46 @@ export class GitHubApi {
 				username: rsp.viewer?.login,
 				id: rsp.viewer?.id,
 			};
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
+	@debug<GitHubApi['getRepositoryVisibility']>({ args: { 0: '<token>' } })
+	async getRepositoryVisibility(
+		token: string,
+		owner: string,
+		repo: string,
+	): Promise<RepositoryVisibility | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository:
+				| {
+						visibility: 'PUBLIC' | 'PRIVATE' | 'INTERNAL';
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getRepositoryVisibility(
+	$owner: String!
+	$repo: String!
+) {
+	repository(owner: $owner, name: $repo) {
+		visibility
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+			});
+			if (rsp?.repository?.visibility == null) return undefined;
+
+			return rsp.repository.visibility === 'PUBLIC' ? RepositoryVisibility.Public : RepositoryVisibility.Private;
 		} catch (ex) {
 			debugger;
 			return this.handleRequestError(ex, cc, undefined);
