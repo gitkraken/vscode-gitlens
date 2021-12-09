@@ -3149,7 +3149,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
-		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
+		const porcelainVersion = (await Git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await Git.status__file(repoPath, fileName, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3162,7 +3162,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getStatusForFiles(repoPath: string, path: string): Promise<GitStatusFile[] | undefined> {
-		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
+		const porcelainVersion = (await Git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await Git.status__file(repoPath, path, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3177,7 +3177,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
 		if (repoPath == null) return undefined;
 
-		const porcelainVersion = (await Git.validateVersion(2, 11)) ? 2 : 1;
+		const porcelainVersion = (await Git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await Git.status(repoPath, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
@@ -3686,19 +3686,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		await this.ensureGitVersion(
 			'2.13.2',
 			'Stashing individual files',
-			' Please retry by stashing everything or install a more recent version of Git.',
+			' Please retry by stashing everything or install a more recent version of Git and try again.',
 		);
 
 		const pathspecs = uris.map(u => `./${Paths.splitPath(u.fsPath, repoPath)[0]}`);
 
 		const stdinVersion = '2.30.0';
-		const stdin = (await this.compareGitVersion(stdinVersion)) !== -1;
+		const stdin = await Git.isAtLeastVersion(stdinVersion);
 		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
 		if (!stdin && Arrays.countStringLength(pathspecs) > maxGitCliLength) {
 			await this.ensureGitVersion(
 				stdinVersion,
 				`Stashing so many files (${pathspecs.length}) at once`,
-				' Please retry by stashing fewer files or install a more recent version of Git.',
+				' Please retry by stashing fewer files or install a more recent version of Git and try again.',
 			);
 		}
 
@@ -3767,15 +3767,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private async compareGitVersion(version: string) {
-		return Versions.compare(Versions.fromString(await Git.version()), Versions.fromString(version));
-	}
-
 	private async ensureGitVersion(version: string, prefix: string, suffix: string): Promise<void> {
-		if ((await this.compareGitVersion(version)) === -1) {
-			throw new Error(
-				`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await Git.version()}).${suffix}`,
-			);
-		}
+		if (await Git.isAtLeastVersion(version)) return;
+
+		throw new Error(
+			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await Git.version()}).${suffix}`,
+		);
 	}
 }

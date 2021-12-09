@@ -6,7 +6,7 @@ import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Paths, Strings } from '../system';
+import { Paths, Strings, Versions } from '../system';
 import { GitLocation } from './locator';
 import { GitRevision } from './models/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
@@ -220,9 +220,9 @@ export namespace Git {
 		return (await gitLocator()).version;
 	}
 
-	export async function validateVersion(major: number, minor: number): Promise<boolean> {
-		const [gitMajor, gitMinor] = (await version()).split('.');
-		return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
+	export async function isAtLeastVersion(minimum: string): Promise<boolean> {
+		const result = Versions.compare(Versions.fromString(await Git.version()), Versions.fromString(minimum));
+		return result !== -1;
 	}
 
 	// Git commands
@@ -263,7 +263,7 @@ export namespace Git {
 			const index = params.indexOf('--ignore-revs-file');
 			if (index !== -1) {
 				// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
-				let supported = await Git.validateVersion(2, 23);
+				let supported = await Git.isAtLeastVersion('2.23');
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
 					if (!paths.isAbsolute(ignoreRevsFile)) {
@@ -1481,7 +1481,7 @@ export namespace Git {
 			'--branch',
 			'-u',
 		];
-		if (await Git.validateVersion(2, 18)) {
+		if (await Git.isAtLeastVersion('2.18')) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
@@ -1501,7 +1501,7 @@ export namespace Git {
 		const [file, root] = Paths.splitPath(fileName, repoPath);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
-		if (await Git.validateVersion(2, 18)) {
+		if (await Git.isAtLeastVersion('2.18')) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
