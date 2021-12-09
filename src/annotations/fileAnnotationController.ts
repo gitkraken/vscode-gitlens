@@ -308,7 +308,7 @@ export class FileAnnotationController implements Disposable {
 		void provider.restore(e.textEditor);
 	}
 
-	private onVisibleTextEditorsChanged(editors: TextEditor[]) {
+	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
 		let provider: AnnotationProviderBase | undefined;
 		for (const e of editors) {
 			provider = this.getProvider(e);

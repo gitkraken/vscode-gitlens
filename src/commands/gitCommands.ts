@@ -403,7 +403,6 @@ export class GitCommandsCommand extends Command {
 		const originalStepIgnoreFocusOut = step.ignoreFocusOut;
 
 		const quickpick = window.createQuickPick();
-		(quickpick as any).enableProposedApi = true;
 		quickpick.ignoreFocusOut = originalIgnoreFocusOut;
 
 		const disposables: Disposable[] = [];

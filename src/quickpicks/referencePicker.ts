@@ -38,7 +38,6 @@ export namespace ReferencePicker {
 		options: ReferencesQuickPickOptions = {},
 	): Promise<GitReference | undefined> {
 		const quickpick = window.createQuickPick<ReferencesQuickPickItem>();
-		(quickpick as any).enableProposedApi = true;
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		quickpick.title = title;

@@ -157,18 +157,19 @@ export class GitCodeLensProvider implements CodeLensProvider {
 					document.isDirty
 						? this.container.git.getBlameForFileContents(gitUri, document.getText())
 						: this.container.git.getBlameForFile(gitUri),
-					commands.executeCommand(BuiltInCommands.ExecuteDocumentSymbolProvider, document.uri) as Promise<
-						SymbolInformation[]
-					>,
+					commands.executeCommand<SymbolInformation[]>(
+						BuiltInCommands.ExecuteDocumentSymbolProvider,
+						document.uri,
+					),
 				]);
 			}
 
 			if (blame === undefined || blame.lines.length === 0) return lenses;
 		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
-			symbols = (await commands.executeCommand(
+			symbols = await commands.executeCommand<SymbolInformation[]>(
 				BuiltInCommands.ExecuteDocumentSymbolProvider,
 				document.uri,
-			)) as SymbolInformation[];
+			);
 		}
 
 		if (token.isCancellationRequested) return lenses;
