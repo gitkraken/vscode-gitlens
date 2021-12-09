@@ -173,7 +173,7 @@ export interface PageableViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;
-	loadMore(limit?: number | { until?: any }): Promise<void>;
+	loadMore(limit?: number | { until?: string | undefined }): Promise<void>;
 }
 
 export namespace PageableViewNode {

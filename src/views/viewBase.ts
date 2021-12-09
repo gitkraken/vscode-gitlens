@@ -545,7 +545,7 @@ export abstract class ViewBase<
 	})
 	async loadMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
-		limit: number | { until: any } | undefined,
+		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
 	) {
 		if (previousNode != null) {
