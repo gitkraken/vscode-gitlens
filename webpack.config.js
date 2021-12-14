@@ -161,7 +161,7 @@ function getExtensionConfig(target, mode, env) {
 								options: {
 									implementation: esbuild,
 									loader: 'ts',
-									target: 'es2020',
+									target: ['es2020', 'chrome91', 'node14.16'],
 									tsconfigRaw: resolveTSConfig(
 										path.join(
 											__dirname,
