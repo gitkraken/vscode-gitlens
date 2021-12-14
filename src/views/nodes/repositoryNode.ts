@@ -352,11 +352,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...disposables);
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
+	protected override etag(): number {
+		return this.repo.etag;
 	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
 
 	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
@@ -368,8 +366,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
 		this._status = this.repo.getStatus();
 
 		if (this._children !== undefined) {
@@ -399,8 +395,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 

@@ -226,6 +226,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
 	@debug<LineHistoryTrackerNode['onActiveLinesChanged']>({
 		args: {
 			0: e =>

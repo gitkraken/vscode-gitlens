@@ -102,10 +102,20 @@ export class GitProviderService implements Disposable {
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
 		return this._onDidChangeProviders.event;
 	}
+	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
+		this._etag = Date.now();
+
+		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [] });
+	}
 
 	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangeEvent>();
 	get onDidChangeRepositories(): Event<RepositoriesChangeEvent> {
 		return this._onDidChangeRepositories.event;
+	}
+	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
+		this._etag = Date.now();
+
+		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [] });
 	}
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
@@ -145,6 +155,11 @@ export class GitProviderService implements Disposable {
 
 		this._repositories.forEach(r => r.dispose());
 		this._repositories.clear();
+	}
+
+	private _etag: number = 0;
+	get etag(): number {
+		return this._etag;
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
@@ -202,7 +217,7 @@ export class GitProviderService implements Disposable {
 
 				// Defer the event trigger enough to let everything unwind
 				queueMicrotask(() => {
-					this._onDidChangeRepositories.fire({ added: [], removed: removed });
+					this.fireRepositoriesChanged([], removed);
 					removed.forEach(r => r.dispose());
 				});
 			}
@@ -296,14 +311,14 @@ export class GitProviderService implements Disposable {
 					void this.updateContext();
 
 					// Send a notification that the repositories changed
-					queueMicrotask(() => this._onDidChangeRepositories.fire({ added: [], removed: [e.repository] }));
+					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
 				}
 
 				this._onDidChangeRepository.fire(e);
 			}),
 		);
 
-		this._onDidChangeProviders.fire({ added: [provider], removed: [] });
+		this.fireProvidersChanged([provider]);
 
 		// Don't kick off the discovery if we're still initializing (we'll do it at the end for all "known" providers)
 		if (!this._initializing) {
@@ -329,12 +344,12 @@ export class GitProviderService implements Disposable {
 				if (removed.length) {
 					// Defer the event trigger enough to let everything unwind
 					queueMicrotask(() => {
-						this._onDidChangeRepositories.fire({ added: [], removed: removed });
+						this.fireRepositoriesChanged([], removed);
 						removed.forEach(r => r.dispose());
 					});
 				}
 
-				this._onDidChangeProviders.fire({ added: [], removed: [provider] });
+				this.fireProvidersChanged([], [provider]);
 			},
 		};
 	}
@@ -402,7 +417,7 @@ export class GitProviderService implements Disposable {
 		if (added.length === 0) return;
 
 		// Defer the event trigger enough to let everything unwind
-		queueMicrotask(() => this._onDidChangeRepositories.fire({ added: added, removed: [] }));
+		queueMicrotask(() => this.fireRepositoriesChanged(added));
 	}
 
 	private async discoverRepositoriesCore(folder: WorkspaceFolder): Promise<Repository[]> {
@@ -1413,7 +1428,7 @@ export class GitProviderService implements Disposable {
 
 		void this.updateContext();
 		// Send a notification that the repositories changed
-		queueMicrotask(() => this._onDidChangeRepositories.fire({ added: [repo!], removed: [] }));
+		queueMicrotask(() => this.fireRepositoriesChanged([repo!]));
 
 		return rp;
 	}

@@ -109,8 +109,8 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...subscriptions);
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return true;
+	protected override etag(): number {
+		return this.view.container.git.etag;
 	}
 
 	@debug({ args: false })

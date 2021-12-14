@@ -185,8 +185,8 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		return subscription;
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return true;
+	protected override etag(): number {
+		return Date.now();
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {

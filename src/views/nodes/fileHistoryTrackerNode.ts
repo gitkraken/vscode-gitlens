@@ -217,6 +217,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 	}
 
+	protected override etag(): number {
+		return 0;
+	}
+
 	@debug({ args: false })
 	private onActiveEditorChanged(_editor: TextEditor | undefined) {
 		void this.triggerChange();

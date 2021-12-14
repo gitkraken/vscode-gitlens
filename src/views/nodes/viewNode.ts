@@ -229,6 +229,9 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
 		if (!this.loaded) return;
 
+		if (reset && !this.view.visible) {
+			this._pendingReset = reset;
+		}
 		await super.triggerChange(reset, force);
 	}
 
@@ -247,14 +250,29 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 	}
 
-	protected get requiresResetOnVisible(): boolean {
-		return false;
+	private _etag: number | undefined;
+	protected abstract etag(): number;
+
+	private _pendingReset: boolean = false;
+	private get requiresResetOnVisible(): boolean {
+		let reset = this._pendingReset;
+		this._pendingReset = false;
+
+		const etag = this.etag();
+		if (etag !== this._etag) {
+			this._etag = etag;
+			reset = true;
+		}
+
+		return reset;
 	}
 
 	protected abstract subscribe(): Disposable | undefined | Promise<Disposable | undefined>;
 
 	@debug()
 	protected async unsubscribe(): Promise<void> {
+		this._etag = this.etag();
+
 		if (this.subscription != null) {
 			const subscriptionPromise = this.subscription;
 			this.subscription = undefined;
@@ -308,7 +326,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		if (this.subscription != null) return;
 
 		this.subscription = Promise.resolve(this.subscribe());
-		await this.subscription;
+		void (await this.subscription);
 	}
 
 	@gate()
@@ -483,18 +501,14 @@ export abstract class RepositoryFolderNode<
 		return this.repo.onDidChange(this.onRepositoryChanged, this);
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
+	protected override etag(): number {
+		return this.repo.etag;
 	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
 
 	protected abstract changed(e: RepositoryChangeEvent): boolean;
 
 	@debug<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
@@ -542,6 +556,10 @@ export abstract class RepositoriesSubscribeableNode<
 			}
 			this.children = undefined;
 		}
+	}
+
+	protected override etag(): number {
+		return this.view.container.git.etag;
 	}
 
 	@debug()

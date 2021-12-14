@@ -302,7 +302,7 @@ export abstract class ViewBase<
 	}
 
 	get visible(): boolean {
-		return this.tree != null ? this.tree.visible : false;
+		return this.tree?.visible ?? false;
 	}
 
 	async findNode(

@@ -309,6 +309,10 @@ export class Repository implements Disposable {
 		return this._supportsChangeEvents;
 	}
 
+	get etag(): number {
+		return this._updatedAt;
+	}
+
 	private _updatedAt: number = 0;
 	get updatedAt(): number {
 		return this._updatedAt;
