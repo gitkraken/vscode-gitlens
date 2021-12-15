@@ -105,6 +105,7 @@ export function log<T extends (...arg: any) => any>(
 	const logFn = (options.debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger)) as
 		| typeof Logger.debug
 		| typeof Logger.log;
+	const warnFn = Logger.warn.bind(Logger);
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		let fn: Function | undefined;
@@ -200,11 +201,12 @@ export function log<T extends (...arg: any) => any>(
 				}).join(', ');
 
 				if (!options.singleLine) {
-					if (!options.debug) {
-						Logger.logWithDebugParams(`${prefix}${enter}`, loggableParams);
-					} else {
-						logFn(`${prefix}${enter}`, loggableParams);
-					}
+					logFn(
+						`${prefix}${enter}`,
+						!options.debug && !Logger.enabled(LogLevel.Debug) && !Logger.isDebugging
+							? emptyStr
+							: loggableParams,
+					);
 				}
 			}
 
@@ -246,7 +248,22 @@ export function log<T extends (...arg: any) => any>(
 				}
 
 				const logResult = (r: any) => {
-					const timing = start !== undefined ? ` \u2022 ${getDurationMilliseconds(start)} ms` : emptyStr;
+					let exitLogFn;
+					let timing;
+					if (start != null) {
+						const duration = getDurationMilliseconds(start);
+						if (duration > Logger.slowCallWarningThreshold) {
+							exitLogFn = warnFn;
+							timing = ` \u2022 ${duration} ms (slow)`;
+						} else {
+							exitLogFn = logFn;
+							timing = ` \u2022 ${duration} ms`;
+						}
+					} else {
+						timing = emptyStr;
+						exitLogFn = logFn;
+					}
+
 					let exit;
 					if (options.exit != null) {
 						try {
@@ -259,23 +276,16 @@ export function log<T extends (...arg: any) => any>(
 					}
 
 					if (options.singleLine) {
-						if (!options.debug) {
-							Logger.logWithDebugParams(
-								`${prefix}${enter} ${exit}${
-									correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
-								}${timing}`,
-								loggableParams,
-							);
-						} else {
-							logFn(
-								`${prefix}${enter} ${exit}${
-									correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
-								}${timing}`,
-								loggableParams,
-							);
-						}
+						exitLogFn(
+							`${prefix}${enter} ${exit}${
+								correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
+							}${timing}`,
+							!options.debug && !Logger.enabled(LogLevel.Debug) && !Logger.isDebugging
+								? emptyStr
+								: loggableParams,
+						);
 					} else {
-						logFn(
+						exitLogFn(
 							`${prefix} ${exit}${
 								correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 							}${timing}`,

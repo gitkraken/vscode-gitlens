@@ -160,19 +160,24 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 	} finally {
 		pendingCommands.delete(command);
 
-		const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(waited) ' : emptyStr}`;
-		if (exception !== undefined) {
-			Logger.warn(
+		const duration = Strings.getDurationMilliseconds(start);
+		const elapsed = `${duration} ms ${waiting ? '(waited) ' : emptyStr}`;
+		if (exception != null) {
+			Logger.error(
+				'',
 				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || emptyStr)
 					.trim()
 					.replace(/fatal: /g, '')
-					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`,
+					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${elapsed}`,
 			);
+		} else if (duration > Logger.slowCallWarningThreshold) {
+			Logger.warn(`${gitCommand} ${GlyphChars.Dot} ${elapsed} (slow)`);
 		} else {
-			Logger.log(`${gitCommand} ${GlyphChars.Dot} ${duration}`);
+			Logger.log(`${gitCommand} ${GlyphChars.Dot} ${elapsed}`);
 		}
 		Logger.logGitCommand(
-			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${duration}`,
+			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${elapsed}`,
+			duration,
 			exception,
 		);
 	}

@@ -33,6 +33,8 @@ export interface LogCorrelationContext {
 }
 
 export class Logger {
+	static readonly slowCallWarningThreshold = 500;
+
 	private static output: OutputChannel | undefined;
 	private static customLoggableFn: ((o: object) => string | undefined) | undefined;
 
@@ -152,30 +154,6 @@ export class Logger {
 		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}`);
 	}
 
-	static logWithDebugParams(message: string, ...params: any[]): void;
-	static logWithDebugParams(context: LogCorrelationContext | undefined, message: string, ...params: any[]): void;
-	static logWithDebugParams(contextOrMessage: LogCorrelationContext | string | undefined, ...params: any[]): void {
-		if (this.level < OrderedLevel.Info && !this.isDebugging) return;
-
-		let message;
-		if (typeof contextOrMessage === 'string') {
-			message = contextOrMessage;
-		} else {
-			message = params.shift();
-
-			if (contextOrMessage != null) {
-				message = `${contextOrMessage.prefix} ${message ?? emptyStr}`;
-			}
-		}
-
-		if (this.isDebugging) {
-			console.log(this.timestamp, consolePrefix, message ?? emptyStr, ...params);
-		}
-
-		if (this.output == null || this.level < OrderedLevel.Info) return;
-		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(true, params)}`);
-	}
-
 	static warn(message: string, ...params: any[]): void;
 	static warn(context: LogCorrelationContext | undefined, message: string, ...params: any[]): void;
 	static warn(contextOrMessage: LogCorrelationContext | string | undefined, ...params: any[]): void {
@@ -267,12 +245,14 @@ export class Logger {
 
 	static gitOutput: OutputChannel | undefined;
 
-	static logGitCommand(command: string, ex?: Error): void {
+	static logGitCommand(command: string, duration: number, ex?: Error): void {
 		if (this.level < OrderedLevel.Debug && !this.isDebugging) return;
 
 		if (this.isDebugging) {
 			if (ex != null) {
 				console.error(this.timestamp, gitConsolePrefix, command ?? emptyStr, ex);
+			} else if (duration > Logger.slowCallWarningThreshold) {
+				console.warn(this.timestamp, gitConsolePrefix, command ?? emptyStr);
 			} else {
 				console.log(this.timestamp, gitConsolePrefix, command ?? emptyStr);
 			}
