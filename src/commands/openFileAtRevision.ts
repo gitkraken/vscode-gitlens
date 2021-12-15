@@ -11,6 +11,7 @@ import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { GitActions } from './gitCommands';
+import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -115,10 +116,17 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								preview: false,
 							}));
 						},
-						showOtherReferences: CommandQuickPickItem.fromCommand(
-							'Choose a branch or tag...',
-							Commands.OpenFileAtRevisionFrom,
-						),
+						showOtherReferences: [
+							CommandQuickPickItem.fromCommand(
+								'Choose a Branch or Tag...',
+								Commands.OpenFileAtRevisionFrom,
+							),
+							CommandQuickPickItem.fromCommand<OpenFileAtRevisionFromCommandArgs>(
+								'Choose a Stash...',
+								Commands.OpenFileAtRevisionFrom,
+								{ stash: true },
+							),
+						],
 					},
 				);
 				if (pick == null) return;

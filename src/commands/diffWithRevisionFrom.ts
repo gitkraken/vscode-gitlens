@@ -6,7 +6,7 @@ import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
+import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
@@ -14,6 +14,7 @@ import { DiffWithCommandArgs } from './diffWith';
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
+	stash?: boolean;
 }
 
 @command()
@@ -38,19 +39,42 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
-		const pick = await ReferencePicker.show(
-			gitUri.repoPath,
-			`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-			'Choose a branch or tag to compare with',
-			{
-				allowEnteringRefs: true,
-				// checkmarks: false,
-			},
-		);
-		if (pick == null) return;
+		let ref;
+		let sha;
+		if (args?.stash) {
+			const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
 
-		const ref = pick.ref;
+			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const pick = await StashPicker.show(
+				Container.instance.git.getStash(gitUri.repoPath),
+				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+				'Choose a stash to compare with',
+				{
+					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
+					filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName),
+				},
+			);
+			if (pick == null) return;
+
+			ref = pick.ref;
+			sha = ref;
+		} else {
+			const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const pick = await ReferencePicker.show(
+				gitUri.repoPath,
+				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+				'Choose a branch or tag to compare with',
+				{
+					allowEnteringRefs: true,
+					// checkmarks: false,
+				},
+			);
+			if (pick == null) return;
+
+			ref = pick.ref;
+			sha = GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref;
+		}
+
 		if (ref == null) return;
 
 		let renamedUri: Uri | undefined;
@@ -70,7 +94,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: gitUri.repoPath,
 			lhs: {
-				sha: GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref,
+				sha: sha,
 				uri: renamedUri ?? gitUri,
 				title: renamedTitle ?? `${paths.basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
 			},

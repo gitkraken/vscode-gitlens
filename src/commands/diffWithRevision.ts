@@ -10,6 +10,7 @@ import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 
 export interface DiffWithRevisionCommandArgs {
 	line?: number;
@@ -70,10 +71,14 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							showOptions: args!.showOptions,
 						}));
 					},
-					showOtherReferences: CommandQuickPickItem.fromCommand(
-						'Choose a branch or tag...',
-						Commands.DiffWithRevisionFrom,
-					),
+					showOtherReferences: [
+						CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffWithRevisionFrom),
+						CommandQuickPickItem.fromCommand<DiffWithRevisionFromCommandArgs>(
+							'Choose a Stash...',
+							Commands.DiffWithRevisionFrom,
+							{ stash: true },
+						),
+					],
 				},
 			);
 			if (pick == null) return;
