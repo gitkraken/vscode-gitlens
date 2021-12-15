@@ -246,7 +246,7 @@ export interface RefQuickPickItem extends QuickPickItemOfT<GitReference> {
 
 export namespace RefQuickPickItem {
 	export function create(
-		ref: string,
+		ref: string | GitReference,
 		repoPath: string,
 		picked?: boolean,
 		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; ref?: boolean; icon?: boolean } = {},
@@ -279,7 +279,13 @@ export namespace RefQuickPickItem {
 			};
 		}
 
-		const gitRef = GitReference.create(ref, repoPath);
+		let gitRef;
+		if (typeof ref === 'string') {
+			gitRef = GitReference.create(ref, repoPath);
+		} else {
+			gitRef = ref;
+			ref = gitRef.ref;
+		}
 
 		if (GitRevision.isRange(ref)) {
 			return {
