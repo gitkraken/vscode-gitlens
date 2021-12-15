@@ -1,5 +1,5 @@
 'use strict';
-import { MarkdownString } from 'vscode';
+import { CancellationToken, MarkdownString } from 'vscode';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -189,6 +189,7 @@ export namespace Hovers {
 		dateFormat: string | null,
 		options?: {
 			autolinks?: boolean;
+			cancellationToken?: CancellationToken;
 			pullRequests?: {
 				enabled: boolean;
 				pr?: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>>;
@@ -204,6 +205,8 @@ export namespace Hovers {
 		}
 
 		const remotes = await Container.instance.git.getRemotes(commit.repoPath, { sort: true });
+
+		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
@@ -223,6 +226,8 @@ export namespace Hovers {
 				}),
 			Container.instance.vsls.maybeGetPresence(commit.email),
 		]);
+
+		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
 		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
@@ -261,7 +266,7 @@ export namespace Hovers {
 	}
 
 	async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssues');
+		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssuesOrPullRequests');
 		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
 
 		const start = hrtime();

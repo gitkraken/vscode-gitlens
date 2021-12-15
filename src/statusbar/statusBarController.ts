@@ -18,7 +18,7 @@ import { Container } from '../container';
 import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
-import { debug, Functions, Promises } from '../system';
+import { debug, Promises } from '../system';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
@@ -359,7 +359,6 @@ export class StatusBarController implements Disposable {
 	) {
 		if (cancellationToken.isCancellationRequested) return;
 
-		void (await Functions.wait(10000));
 		const tooltip = await Hovers.detailsMessage(
 			commit,
 			commit.toGitUri(),
@@ -368,6 +367,7 @@ export class StatusBarController implements Disposable {
 			this.container.config.defaultDateFormat,
 			{
 				autolinks: true,
+				cancellationToken: cancellationToken,
 				getBranchAndTagTips: getBranchAndTagTips,
 				pullRequests: pullRequests,
 			},
