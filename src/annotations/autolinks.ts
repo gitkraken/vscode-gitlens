@@ -49,7 +49,7 @@ export class Autolinks implements Disposable {
 
 	@debug<Autolinks['getIssueOrPullRequestLinks']>({
 		args: {
-			0: message => message.substring(0, 50),
+			0: '<message>',
 			1: false,
 			2: options => options?.timeout,
 		},
@@ -103,7 +103,7 @@ export class Autolinks implements Disposable {
 
 	@debug<Autolinks['linkify']>({
 		args: {
-			0: text => text.substring(0, 30),
+			0: '<text>',
 			2: remotes => remotes?.length,
 			3: issuesOrPullRequests => issuesOrPullRequests?.size,
 			4: footnotes => footnotes?.size,
