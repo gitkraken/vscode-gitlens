@@ -140,7 +140,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			)}`;
 
 			if (state.fileName) {
-				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName, {
+				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName, {
 					truncateTo: quickPickTitleMaxChars - context.title.length - 3,
 				})}`;
 			}

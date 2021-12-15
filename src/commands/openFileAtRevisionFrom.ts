@@ -43,7 +43,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			const title = `Open File at Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await ReferencePicker.show(
 				gitUri.repoPath,
-				`${title}${gitUri.getFormattedFilename({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a branch or tag to open the file revision from',
 				{
 					allowEnteringRefs: true,

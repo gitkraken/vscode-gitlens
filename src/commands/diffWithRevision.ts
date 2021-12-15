@@ -47,7 +47,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 			const title = `Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await CommitPicker.show(
 				log,
-				`${title}${gitUri.getFormattedFilename({
+				`${title}${gitUri.getFormattedFileName({
 					suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
 					truncateTo: quickPickTitleMaxChars - title.length,
 				})}`,

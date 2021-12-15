@@ -523,7 +523,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.uris != null
 					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${
 							state.uris.length === 1
-								? GitUri.getFormattedFilename(state.uris[0])
+								? GitUri.getFormattedFileName(state.uris[0])
 								: `${state.uris.length} files`
 					  }`
 					: undefined,
@@ -569,7 +569,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: context.title,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFilename(state.uris[0])
+									? GitUri.getFormattedFileName(state.uris[0])
 									: `${state.uris.length} files`
 							}`,
 						}),
@@ -577,7 +577,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: `${context.title} & Keep Staged`,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFilename(state.uris[0])
+									? GitUri.getFormattedFileName(state.uris[0])
 									: `${state.uris.length} files`
 							}, but will keep staged files intact`,
 						}),

@@ -184,8 +184,8 @@ export class GitUri extends (Uri as any as UriEx) {
 		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
 	}
 
-	getFormattedFilename(options: { suffix?: string; truncateTo?: number } = {}): string {
-		return GitUri.getFormattedFilename(this.fsPath, options);
+	getFormattedFileName(options: { suffix?: string; truncateTo?: number } = {}): string {
+		return GitUri.getFormattedFileName(this.fsPath, options);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
@@ -330,7 +330,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
 	}
 
-	static getFormattedFilename(
+	static getFormattedFileName(
 		fileNameOrUri: string | Uri,
 		options: {
 			suffix?: string;

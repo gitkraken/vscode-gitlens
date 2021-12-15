@@ -75,7 +75,7 @@ export class SettingsWebview extends WebviewBase {
 		}
 	}
 
-	get filename(): string {
+	get fileName(): string {
 		return 'settings.html';
 	}
 

@@ -61,7 +61,7 @@ export abstract class WebviewBase implements Disposable {
 		);
 	}
 
-	abstract get filename(): string;
+	abstract get fileName(): string;
 	abstract get id(): string;
 	abstract get title(): string;
 
@@ -322,7 +322,7 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	private async getHtml(webview: Webview): Promise<string> {
-		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', this.filename);
+		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', this.fileName);
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		const [head, body, endOfBody] = await Promise.all([

@@ -1291,13 +1291,13 @@ export namespace Git {
 	export async function rev_parse__verify(
 		repoPath: string,
 		ref: string,
-		filename?: string,
+		fileName?: string,
 	): Promise<string | undefined> {
 		const data = await git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
-			filename ? `${ref}:./${filename}` : `${ref}^{commit}`,
+			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
 	}

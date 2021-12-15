@@ -1689,7 +1689,7 @@ export async function* showCommitOrStashFileStep<
 			}),
 			state,
 			context,
-			`${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName)}`,
+			`${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName)}`,
 		),
 		placeholder: `${GitUri.getFormattedPath(state.fileName, {
 			relativeTo: state.repo.path,
@@ -1756,7 +1756,7 @@ async function getShowCommitOrStashFileStepItems<
 	if (file == null) return [];
 
 	const items: CommandQuickPickItem[] = [
-		new CommitFilesQuickPickItem(state.reference, undefined, GitUri.getFormattedFilename(state.fileName)),
+		new CommitFilesQuickPickItem(state.reference, undefined, GitUri.getFormattedFileName(state.fileName)),
 	];
 
 	let remotes: GitRemote<RemoteProvider>[] | undefined;

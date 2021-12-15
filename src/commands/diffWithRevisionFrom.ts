@@ -41,7 +41,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 		const pick = await ReferencePicker.show(
 			gitUri.repoPath,
-			`${title}${gitUri.getFormattedFilename({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+			`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 			'Choose a branch or tag to compare with',
 			{
 				allowEnteringRefs: true,

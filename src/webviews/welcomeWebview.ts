@@ -9,7 +9,7 @@ export class WelcomeWebview extends WebviewBase {
 		super(Commands.ShowWelcomePage, container);
 	}
 
-	get filename(): string {
+	get fileName(): string {
 		return 'welcome.html';
 	}
 
