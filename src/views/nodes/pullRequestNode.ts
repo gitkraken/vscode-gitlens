@@ -1,25 +1,41 @@
 'use strict';
-import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Colors } from '../../constants';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { ViewsWithPullRequests } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class PullRequestNode extends ViewNode<ViewsWithPullRequests> {
+export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	static key = ':pullrequest';
-	static getId(repoPath: string, id: string, ref: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${ref}`;
+	static getId(repoPath: string, id: string, refOrParent: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${refOrParent}`;
 	}
 
+	public readonly pullRequest: PullRequest;
+	private readonly branchOrCommit?: GitBranch | GitCommit;
+	private readonly repoPath: string;
+
 	constructor(
-		view: ViewsWithPullRequests,
+		view: ViewsWithCommits,
 		parent: ViewNode,
-		public readonly pullRequest: PullRequest,
-		public readonly branchOrCommit: GitBranch | GitCommit,
+		pullRequest: PullRequest,
+		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
 	) {
-		super(GitUri.fromRepoPath(branchOrCommit.repoPath), view, parent);
+		let branchOrCommit;
+		let repoPath;
+		if (typeof branchOrCommitOrRepoPath === 'string') {
+			repoPath = branchOrCommitOrRepoPath;
+		} else {
+			repoPath = branchOrCommitOrRepoPath.repoPath;
+			branchOrCommit = branchOrCommitOrRepoPath;
+		}
+
+		super(GitUri.fromRepoPath(repoPath), view, parent);
+
+		this.branchOrCommit = branchOrCommit;
+		this.pullRequest = pullRequest;
+		this.repoPath = repoPath;
 	}
 
 	override toClipboard(): string {
@@ -27,7 +43,7 @@ export class PullRequestNode extends ViewNode<ViewsWithPullRequests> {
 	}
 
 	override get id(): string {
-		return PullRequestNode.getId(this.branchOrCommit.repoPath, this.pullRequest.id, this.branchOrCommit.ref);
+		return PullRequestNode.getId(this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref ?? this.parent!.id!);
 	}
 
 	getChildren(): ViewNode[] {
@@ -39,30 +55,32 @@ export class PullRequestNode extends ViewNode<ViewsWithPullRequests> {
 		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
-		item.iconPath = new ThemeIcon(
-			'git-pull-request',
-			new ThemeColor(
-				this.pullRequest.state === PullRequestState.Closed
-					? Colors.ClosedPullRequestIconColor
-					: this.pullRequest.state === PullRequestState.Merged
-					? Colors.MergedPullRequestIconColor
-					: Colors.OpenPullRequestIconColor,
-			),
-		);
-		item.tooltip = `${this.pullRequest.title}\n#${this.pullRequest.id} by ${this.pullRequest.author.name} was ${
-			this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()
-		} ${this.pullRequest.formatDateFromNow()}`;
+		item.iconPath = PullRequest.getThemeIcon(this.pullRequest);
+
+		const tooltip = new MarkdownString('', true);
+		tooltip.supportHtml = true;
+		tooltip.isTrusted = true;
 
 		if (this.branchOrCommit instanceof GitCommit) {
-			item.tooltip = `Commit ${this.branchOrCommit.shortSha} was introduced by PR #${this.pullRequest.id}\n${item.tooltip}`;
+			tooltip.appendMarkdown(
+				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
+			);
 		}
 
-		// item.tooltip = `Open Pull Request #${this.pullRequest.number} on ${this.pullRequest.provider}`;
-		// item.command = {
-		// 	title: 'Open Pull Request',
-		// 	command: Commands.OpenPullRequestOnRemote,
-		// 	arguments: [this],
-		// };
+		const linkTitle = ` "Open Pull Request \\#${this.pullRequest.id} on ${this.pullRequest.provider.name}"`;
+		tooltip.appendMarkdown(
+			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title}**](${
+				this.pullRequest.url
+			}${linkTitle}) \\\n[#${this.pullRequest.id}](${this.pullRequest.url}${linkTitle}) by [@${
+				this.pullRequest.author.name
+			}](${this.pullRequest.author.url} "Open @${this.pullRequest.author.name} on ${
+				this.pullRequest.provider.name
+			}") was ${
+				this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()
+			} ${this.pullRequest.formatDateFromNow()}`,
+		);
+
+		item.tooltip = tooltip;
 
 		return item;
 	}

@@ -3232,7 +3232,7 @@
 				"description": "Specifies the icon color of closed pull requests in the GitLens views",
 				"defaults": {
 					"dark": "#f85149",
-					"light": "#f85149",
+					"light": "#cf222e",
 					"highContrast": "#ff544b"
 				}
 			},
@@ -3240,8 +3240,8 @@
 				"id": "gitlens.openPullRequestIconColor",
 				"description": "Specifies the icon color of open pull requests in the GitLens views",
 				"defaults": {
-					"dark": "#56d364",
-					"light": "#56d364",
+					"dark": "#3fb950",
+					"light": "#1a7f37",
 					"highContrast": "#68ff79"
 				}
 			},
@@ -3249,8 +3249,8 @@
 				"id": "gitlens.mergedPullRequestIconColor",
 				"description": "Specifies the icon color of merged pull requests in the GitLens views",
 				"defaults": {
-					"dark": "#995dff",
-					"light": "#995dff",
+					"dark": "#a371f7",
+					"light": "#8250df",
 					"highContrast": "#8945ff"
 				}
 			},
@@ -8478,6 +8478,17 @@
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "inline@99",
+					"alt": "gitlens.copyRemotePullRequestUrl"
+				},
+				{
+					"command": "gitlens.views.openPullRequest",
+					"when": "gitlens:action:openPullRequest > 1 && viewItem =~ /gitlens:pullrequest\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.openPullRequestOnRemote",
+					"when": "viewItem =~ /gitlens:pullrequest\\b/",
+					"group": "1_gitlens_actions@99",
 					"alt": "gitlens.copyRemotePullRequestUrl"
 				},
 				{

@@ -58,21 +58,7 @@ export type View =
 	| SearchAndCompareView
 	| StashesView
 	| TagsView;
-export type ViewsWithCommits =
-	| BranchesView
-	| CommitsView
-	| ContributorsView
-	| RemotesView
-	| RepositoriesView
-	| SearchAndCompareView
-	| TagsView;
-export type ViewsWithPullRequests =
-	| BranchesView
-	| CommitsView
-	| ContributorsView
-	| RemotesView
-	| RepositoriesView
-	| SearchAndCompareView;
+export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
