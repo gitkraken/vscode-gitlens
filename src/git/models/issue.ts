@@ -51,8 +51,8 @@ export namespace IssueOrPullRequest {
 		}
 
 		if (issue.closed) {
-			return new ThemeIcon('pass', new ThemeColor(Colors.MergedPullRequestIconColor));
+			return new ThemeIcon('pass', new ThemeColor(Colors.ClosedAutolinkedIssueIconColor));
 		}
-		return new ThemeIcon('issues', new ThemeColor(Colors.OpenPullRequestIconColor));
+		return new ThemeIcon('issues', new ThemeColor(Colors.OpenAutolinkedIssueIconColor));
 	}
 }

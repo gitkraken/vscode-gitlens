@@ -3230,6 +3230,24 @@
 				}
 			},
 			{
+				"id": "gitlens.openAutolinkedIssueIconColor",
+				"defaults": {
+					"dark": "#3fb950",
+					"light": "#1a7f37",
+					"highContrast": "#68ff79"
+				},
+				"description": "Specifies the icon color of open issues in the GitLens views"
+			},
+			{
+				"id": "gitlens.closedAutolinkedIssueIconColor",
+				"defaults": {
+					"dark": "#a371f7",
+					"light": "#8250df",
+					"highContrast": "#8945ff"
+				},
+				"description": "Specifies the icon color of closed issues in the GitLens views"
+			},
+			{
 				"id": "gitlens.closedPullRequestIconColor",
 				"description": "Specifies the icon color of closed pull requests in the GitLens views",
 				"defaults": {
@@ -3399,24 +3417,6 @@
 					"dark": "#c74e39",
 					"highContrast": "#c74e39"
 				}
-			},
-			{
-				"id": "gitlens.autolinkedIssueOpenIconColor",
-				"defaults": {
-					"dark": "#22863a",
-					"light": "#22863a",
-					"highContrast": "editor.foreground"
-				},
-				"description": "Specifies the icon color indicating that an issue is open"
-			},
-			{
-				"id": "gitlens.autolinkedIssueClosedIconColor",
-				"defaults": {
-					"dark": "#cb2431",
-					"light": "#cb2431",
-					"highContrast": "editor.foreground"
-				},
-				"description": "Specifies the icon color indicating that an issue is closed"
 			}
 		],
 		"commands": [
