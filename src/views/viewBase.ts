@@ -59,6 +59,7 @@ export type View =
 	| StashesView
 	| TagsView;
 export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
+export type ViewsWithRepositoryFolders = Exclude<View, RepositoriesView | FileHistoryView | LineHistoryView>;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
@@ -161,6 +162,10 @@ export abstract class ViewBase<
 	private onReady() {
 		this.initialize({ showCollapseAll: this.showCollapseAll });
 		queueMicrotask(() => this.onConfigurationChanged());
+	}
+
+	get canReveal(): boolean {
+		return true;
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -353,8 +358,8 @@ export abstract class ViewBase<
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		await this.show({ preserveFocus: true });
-		// Since we have to show the view, let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve => queueMicrotask(() => resolve(find.call(this))));
+		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
+		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 100));
 	}
 
 	private async findNodeCoreBFS(

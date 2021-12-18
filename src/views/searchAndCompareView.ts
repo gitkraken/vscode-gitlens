@@ -10,6 +10,7 @@ import { debug, gate, Iterables, log, Promises } from '../system';
 import {
 	CompareResultsNode,
 	ContextValues,
+	RepositoryFolderNode,
 	ResultsFilesNode,
 	SearchResultsNode,
 	unknownGitUri,
@@ -258,7 +259,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, this.keepResults);
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new SearchAndCompareViewNode(this);
 	}
 
@@ -495,6 +496,23 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		await this.container.context.workspaceState.update(WorkspaceState.ViewsSearchAndComparePinnedItems, pinned);
 
 		this.triggerNodeChange(this.ensureRoot());
+	}
+
+	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof SearchAndCompareViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
 	}
 
 	private async addResults(

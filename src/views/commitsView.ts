@@ -183,12 +183,16 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		super('gitlens.views.commits', 'Commits', container);
 	}
 
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showCommits');
+	}
+
 	private readonly _state: CommitsViewState = {};
 	get state(): CommitsViewState {
 		return this._state;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new CommitsViewNode(this);
 	}
 
@@ -343,7 +347,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -355,6 +359,23 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 				return node;
 			},
 		);
+	}
+
+	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

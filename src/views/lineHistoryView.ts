@@ -21,7 +21,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		return false;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new LineHistoryTrackerNode(this);
 	}
 

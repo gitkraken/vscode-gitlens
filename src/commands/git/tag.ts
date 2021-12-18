@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitReference, GitTagReference, Repository } from '../../git/git';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -23,6 +24,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -128,6 +130,7 @@ export class TagGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.tagsView,
 			showTags: false,
 			title: this.title,
 		};

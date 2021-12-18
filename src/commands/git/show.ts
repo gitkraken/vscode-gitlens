@@ -2,6 +2,7 @@
 import { Container } from '../../container';
 import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
 import { CommandQuickPickItem, CommitFilesQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickCommitStep,
@@ -17,6 +18,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -77,6 +79,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			title: this.title,
 		};
 

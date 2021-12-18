@@ -5,6 +5,7 @@ import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, Sea
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 import { SearchResultsNode } from '../../views/nodes';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
@@ -22,6 +23,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	commit: GitLogCommit | undefined;
 	resultsKey: string | undefined;
 	resultsPromise: Promise<GitLog | undefined> | undefined;
@@ -92,6 +94,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.searchAndCompareView,
 			commit: undefined,
 			resultsKey: undefined,
 			resultsPromise: undefined,

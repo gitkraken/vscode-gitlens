@@ -3,6 +3,7 @@ import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/git';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickContributorsStep,
@@ -16,6 +17,7 @@ import {
 interface Context {
 	repos: Repository[];
 	activeRepo: Repository | undefined;
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -94,6 +96,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
 			activeRepo: undefined,
+			associatedView: Container.instance.contributorsView,
 			title: this.title,
 		};
 

@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import { FlagsQuickPickItem } from '../../quickpicks';
 import { Arrays, Dates, Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -19,6 +20,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -68,6 +70,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			title: this.title,
 		};
 

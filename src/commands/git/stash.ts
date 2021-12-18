@@ -8,6 +8,7 @@ import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
@@ -27,6 +28,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -145,6 +147,7 @@ export class StashGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.stashesView,
 			title: this.title,
 		};
 

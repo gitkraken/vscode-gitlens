@@ -67,6 +67,7 @@ import {
 	TagQuickPickItem,
 } from '../quickpicks';
 import { Arrays, Iterables, Strings } from '../system';
+import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { Commands } from './common';
 import { GitActions } from './gitCommands.actions';
 import {
@@ -499,10 +500,7 @@ export async function* pickBranchStep<
 				: branches,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Branch.reveal(item, {
-					select: true,
-					expand: true,
-				});
+				void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -558,10 +556,7 @@ export async function* pickBranchesStep<
 				: branches,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Branch.reveal(item, {
-					select: true,
-					expand: true,
-				});
+				void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -644,11 +639,11 @@ export async function* pickBranchOrTagStep<
 
 			if (button === QuickCommandButtons.RevealInSideBar) {
 				if (GitReference.isBranch(item)) {
-					void GitActions.Branch.reveal(item, { select: true, expand: true });
+					void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isTag(item)) {
-					void GitActions.Tag.reveal(item, { select: true, expand: true });
+					void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, expand: true });
+					void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
 				}
 			}
 			return false;
@@ -753,11 +748,11 @@ export async function* pickBranchOrTagStepMultiRepo<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
 				if (GitReference.isBranch(item)) {
-					void GitActions.Branch.reveal(item, { select: true, expand: true });
+					void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isTag(item)) {
-					void GitActions.Tag.reveal(item, { select: true, expand: true });
+					void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, expand: true });
+					void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
 				}
 			}
 		},
@@ -1102,8 +1097,25 @@ export async function* pickContributorsStep<
 		placeholder: placeholder,
 		matchOnDescription: true,
 		items: (await Container.instance.git.getContributors(state.repo.path)).map(c =>
-			ContributorQuickPickItem.create(c, message?.includes(c.toCoauthor())),
+			ContributorQuickPickItem.create(c, message?.includes(c.toCoauthor()), {
+				buttons: [QuickCommandButtons.RevealInSideBar],
+			}),
 		),
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			if (button === QuickCommandButtons.RevealInSideBar) {
+				void GitActions.Contributor.reveal(item, { select: true, focus: false, expand: true });
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			void GitActions.Contributor.reveal(quickpick.activeItems[0].item, {
+				select: true,
+				focus: false,
+				expand: true,
+			});
+		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
 	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
@@ -1111,7 +1123,7 @@ export async function* pickContributorsStep<
 
 export async function* pickRepositoryStep<
 	State extends PartialStepState & { repo?: string | Repository },
-	Context extends { repos: Repository[]; title: string },
+	Context extends { repos: Repository[]; title: string; associatedView: ViewsWithRepositoryFolders },
 >(state: State, context: Context, placeholder: string = 'Choose a repository'): AsyncStepResultGenerator<Repository> {
 	if (typeof state.repo === 'string') {
 		state.repo = await Container.instance.git.getRepository(state.repo);
@@ -1137,8 +1149,9 @@ export async function* pickRepositoryStep<
 				  ),
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				void Container.instance.repositoriesView.revealRepository(item.path, {
+				void GitActions.Repository.reveal(item.path, context.associatedView, {
 					select: true,
+					focus: false,
 					expand: true,
 				});
 			}
@@ -1147,7 +1160,7 @@ export async function* pickRepositoryStep<
 		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			void Container.instance.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
+			void GitActions.Repository.reveal(quickpick.activeItems[0].item.path, context.associatedView, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -1160,7 +1173,7 @@ export async function* pickRepositoryStep<
 
 export async function* pickRepositoriesStep<
 	State extends PartialStepState & { repos?: string[] | Repository[] },
-	Context extends { repos: Repository[]; title: string },
+	Context extends { repos: Repository[]; title: string; associatedView: ViewsWithRepositoryFolders },
 >(
 	state: State,
 	context: Context,
@@ -1206,8 +1219,9 @@ export async function* pickRepositoriesStep<
 				  ),
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				void Container.instance.repositoriesView.revealRepository(item.path, {
+				void GitActions.Repository.reveal(item.path, context.associatedView, {
 					select: true,
+					focus: false,
 					expand: true,
 				});
 			}
@@ -1216,7 +1230,7 @@ export async function* pickRepositoriesStep<
 		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			void Container.instance.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
+			void GitActions.Repository.reveal(quickpick.activeItems[0].item.path, context.associatedView, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -1331,6 +1345,7 @@ export async function* pickTagsStep<
 			if (button === QuickCommandButtons.RevealInSideBar) {
 				void GitActions.Tag.reveal(item, {
 					select: true,
+					focus: false,
 					expand: true,
 				});
 			}

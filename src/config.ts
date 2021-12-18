@@ -565,6 +565,7 @@ export interface ContributorsViewConfig {
 		enabled: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showAllBranches: boolean;
 	showStatistics: boolean;
 }

@@ -21,8 +21,10 @@ import { Container } from '../container';
 import {
 	GitBranch,
 	GitBranchReference,
+	GitContributor,
 	GitLogCommit,
 	GitReference,
+	GitRemote,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
@@ -34,6 +36,7 @@ import {
 	BranchOrTagFolderNode,
 	BranchTrackingStatusNode,
 	CompareBranchNode,
+	ContributorNode,
 	ContributorsNode,
 	ReflogNode,
 	RemoteNode,
@@ -58,7 +61,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return this._onDidChangeAutoRefresh.event;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new RepositoriesNode(this);
 	}
 
@@ -368,7 +371,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			allowPaging: true,
 			maxDepth: 8,
 			canTraverse: n => {
-				// Only search for commit nodes in the same repo within BranchNodes
+				// Only search for commit nodes in the same repo within BranchNode/RemoteNode
 				if (n instanceof RepositoriesNode) return true;
 
 				if (n instanceof RemoteNode) {
@@ -380,6 +383,45 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 				}
 
 				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	findContributor(contributor: GitContributor, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
+
+		return this.findNode(ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for contributor nodes in the same repo within a ContributorsNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof ContributorsNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	findRemote(remote: GitRemote, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(remote.repoPath);
+
+		return this.findNode((n: any) => n.remote?.name === remote.name, {
+			allowPaging: true,
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for remote nodes in the same repo within a RemotesNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof RemotesNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -440,7 +482,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(branch, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -498,11 +543,66 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(commit, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
+	}
+
+	@gate(() => '')
+	async revealContributor(
+		contributor: GitContributor,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findContributor(contributor, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
+	}
+
+	@gate(() => '')
+	revealRemote(
+		remote: GitRemote,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing remote '${remote.name}' in the side bar...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
@@ -525,16 +625,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 		const node = await this.findNode(repoNodeId, {
 			maxDepth: 1,
-			canTraverse: n => {
-				// Only search for branches nodes in the same repo
-				if (n instanceof RepositoriesNode) return true;
-
-				// if (n instanceof RepositoryNode) {
-				// 	return n.id.startsWith(repoNodeId);
-				// }
-
-				return false;
-			},
+			canTraverse: n => n instanceof RepositoriesNode,
 		});
 
 		if (node !== undefined) {
@@ -556,7 +647,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(stash, { icon: false, quoted: true })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -614,7 +705,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(tag, { icon: false, quoted: true })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

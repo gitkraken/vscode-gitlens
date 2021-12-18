@@ -4,6 +4,7 @@ import { BranchSorting } from '../../config';
 import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/git';
 import { Arrays } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
@@ -21,6 +22,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -89,6 +91,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			showTags: false,
 			title: this.title,
 		};

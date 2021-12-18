@@ -11,7 +11,7 @@ import {
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
-import { configuration, FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import {
 	GitBranchReference,
@@ -28,6 +28,7 @@ import {
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { RepositoryPicker } from '../quickpicks';
+import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
@@ -150,21 +151,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				!configuration.get(`views.${branch.remote ? 'remotes' : 'branches'}.reveal` as const) ||
-				(Container.instance.repositoriesView.visible &&
-					!(branch.remote ? Container.instance.remotesView.visible : Container.instance.branchesView.visible))
-			) {
-				return Container.instance.repositoriesView.revealBranch(branch, options);
-			}
-
-			let node;
-			if (branch.remote) {
-				node = await Container.instance.remotesView.revealBranch(branch, options);
-			} else {
-				node = await Container.instance.branchesView.revealBranch(branch, options);
-			}
-
+			const view = branch.remote ? Container.instance.remotesView : Container.instance.branchesView;
+			const node = view.canReveal
+				? await view.revealBranch(branch, options)
+				: await Container.instance.repositoriesView.revealBranch(branch, options);
 			return node;
 		}
 	}
@@ -650,23 +640,20 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				!configuration.get('views.commits.reveal') ||
-				(Container.instance.repositoriesView.visible && !Container.instance.commitsView.visible)
-			) {
-				return Container.instance.repositoriesView.revealCommit(commit, options);
-			}
+			const views = [
+				Container.instance.commitsView,
+				Container.instance.branchesView,
+				Container.instance.remotesView,
+			];
 
 			// TODO@eamodio stop duplicate notifications
 
-			let node = await Container.instance.commitsView.revealCommit(commit, options);
-			if (node != null) return node;
-
-			node = await Container.instance.branchesView.revealCommit(commit, options);
-			if (node != null) return node;
-
-			node = await Container.instance.remotesView.revealCommit(commit, options);
-			if (node != null) return node;
+			for (const view of views) {
+				const node = view.canReveal
+					? await view.revealCommit(commit, options)
+					: await Container.instance.repositoriesView.revealCommit(commit, options);
+				if (node != null) return node;
+			}
 
 			return undefined;
 		}
@@ -679,48 +666,19 @@ export namespace GitActions {
 				state: { repo: repo, contributors: contributors },
 			});
 		}
-	}
-
-	export namespace Tag {
-		export function create(repo?: string | Repository, ref?: GitReference, name?: string) {
-			return executeGitCommand({
-				command: 'tag',
-				state: {
-					subcommand: 'create',
-					repo: repo,
-					reference: ref,
-					name: name,
-				},
-			});
-		}
-
-		export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]) {
-			return executeGitCommand({
-				command: 'tag',
-				state: {
-					subcommand: 'delete',
-					repo: repo,
-					references: refs,
-				},
-			});
-		}
 
 		export async function reveal(
-			tag: GitTagReference,
+			contributor: GitContributor,
 			options?: {
 				select?: boolean;
 				focus?: boolean;
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				!configuration.get('views.tags.reveal') ||
-				(Container.instance.repositoriesView.visible && !Container.instance.tagsView.visible)
-			) {
-				return Container.instance.repositoriesView.revealTag(tag, options);
-			}
-
-			const node = await Container.instance.tagsView.revealTag(tag, options);
+			const view = Container.instance.contributorsView;
+			const node = view.canReveal
+				? await view.revealContributor(contributor, options)
+				: await Container.instance.repositoriesView.revealContributor(contributor, options);
 			return node;
 		}
 	}
@@ -783,14 +741,27 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			// if (
-			// 	configuration.get('views.repositories.enabled') &&
-			// 	(Container.instance.repositoriesView.visible || !Container.instance.remotesView.visible)
-			// ) {
-			// 	return Container.instance.repositoriesView.revealRemote(remote, options);
-			// }
+			const view = Container.instance.remotesView;
+			const node = view.canReveal
+				? await view.revealRemote(remote, options)
+				: await Container.instance.repositoriesView.revealRemote(remote, options);
+			return node;
+		}
+	}
 
-			const node = await Container.instance.remotesView.revealRemote(remote, options);
+	export namespace Repository {
+		export async function reveal(
+			repoPath: string,
+			view?: ViewsWithRepositoryFolders,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			const node = view?.canReveal
+				? await view.revealRepository(repoPath, options)
+				: await Container.instance.repositoriesView.revealRepository(repoPath, options);
 			return node;
 		}
 	}
@@ -838,14 +809,50 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				!configuration.get('views.stashes.reveal') ||
-				(Container.instance.repositoriesView.visible && !Container.instance.stashesView.visible)
-			) {
-				return Container.instance.repositoriesView.revealStash(stash, options);
-			}
+			const view = Container.instance.stashesView;
+			const node = view.canReveal
+				? await view.revealStash(stash, options)
+				: await Container.instance.repositoriesView.revealStash(stash, options);
+			return node;
+		}
+	}
 
-			const node = await Container.instance.stashesView.revealStash(stash, options);
+	export namespace Tag {
+		export function create(repo?: string | Repository, ref?: GitReference, name?: string) {
+			return executeGitCommand({
+				command: 'tag',
+				state: {
+					subcommand: 'create',
+					repo: repo,
+					reference: ref,
+					name: name,
+				},
+			});
+		}
+
+		export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]) {
+			return executeGitCommand({
+				command: 'tag',
+				state: {
+					subcommand: 'delete',
+					repo: repo,
+					references: refs,
+				},
+			});
+		}
+
+		export async function reveal(
+			tag: GitTagReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			const view = Container.instance.tagsView;
+			const node = view.canReveal
+				? await view.revealTag(tag, options)
+				: await Container.instance.repositoriesView.revealTag(tag, options);
 			return node;
 		}
 	}

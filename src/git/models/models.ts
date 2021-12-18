@@ -251,7 +251,7 @@ export namespace GitReference {
 
 	export function toString(
 		refs: GitReference | GitReference[] | undefined,
-		options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean } | false,
+		options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean; quoted?: boolean } | false,
 	) {
 		if (refs == null) return '';
 
@@ -263,15 +263,16 @@ export namespace GitReference {
 		let result;
 		if (!Array.isArray(refs) || refs.length === 1) {
 			const ref = Array.isArray(refs) ? refs[0] : refs;
+			let refName = options?.quoted ? `'${ref.name}'` : ref.name;
 			switch (ref.refType) {
 				case 'branch':
 					result = `${options.label ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
-						options.icon ? `$(git-branch)${GlyphChars.Space}${ref.name}${GlyphChars.Space}` : ref.name
+						options.icon ? `$(git-branch)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
 					}`;
 					break;
 				case 'tag':
 					result = `${options.label ? 'tag ' : ''}${
-						options.icon ? `$(tag)${GlyphChars.Space}${ref.name}${GlyphChars.Space}` : ref.name
+						options.icon ? `$(tag)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
 					}`;
 					break;
 				default: {
@@ -291,7 +292,7 @@ export namespace GitReference {
 								: `${message ?? ref.number ?? ref.name}`
 						}`;
 					} else if (GitRevision.isRange(ref.ref)) {
-						result = ref.name;
+						result = refName;
 					} else {
 						let message;
 						if (options.expand && ref.message) {
@@ -301,20 +302,21 @@ export namespace GitReference {
 									: ` (${ref.message})`;
 						}
 
-						let name;
 						let prefix;
 						if (options.expand && options.label && GitRevision.isShaParent(ref.ref)) {
-							name = ref.name.endsWith('^') ? ref.name.substr(0, ref.name.length - 1) : ref.name;
+							refName = ref.name.endsWith('^') ? ref.name.substr(0, ref.name.length - 1) : ref.name;
+							if (options?.quoted) {
+								refName = `'${refName}'`;
+							}
 							prefix = 'before ';
 						} else {
-							name = ref.name;
 							prefix = '';
 						}
 
 						result = `${options.label ? `${prefix}commit ` : ''}${
 							options.icon
-								? `$(git-commit)${GlyphChars.Space}${name}${message ?? ''}${GlyphChars.Space}`
-								: `${name}${message ?? ''}`
+								? `$(git-commit)${GlyphChars.Space}${refName}${message ?? ''}${GlyphChars.Space}`
+								: `${refName}${message ?? ''}`
 						}`;
 					}
 					break;

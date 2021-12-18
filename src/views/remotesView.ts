@@ -114,7 +114,11 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		super('gitlens.views.remotes', 'Remotes', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showRemotes');
+	}
+
+	protected getRoot() {
 		return new RemotesViewNode(this);
 	}
 
@@ -297,7 +301,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -323,7 +327,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -349,7 +353,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote ${remote.name} in the side bar...`,
+				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -361,6 +365,23 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 				return node;
 			},
 		);
+	}
+
+	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof RemotesViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {

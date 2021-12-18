@@ -42,8 +42,8 @@ export namespace BranchQuickPickItem {
 		options: {
 			alwaysShow?: boolean;
 			buttons?: QuickInputButton[];
-			current?: boolean | 'checkmark';
 			checked?: boolean;
+			current?: boolean | 'checkmark';
 			ref?: boolean;
 			status?: boolean;
 			type?: boolean | 'remote';
@@ -225,12 +225,13 @@ export namespace ContributorQuickPickItem {
 	export function create(
 		contributor: GitContributor,
 		picked?: boolean,
-		options: { alwaysShow?: boolean } = {},
+		options: { alwaysShow?: boolean; buttons?: QuickInputButton[] } = {},
 	): ContributorQuickPickItem {
 		const item: ContributorQuickPickItem = {
 			label: contributor.name,
 			description: contributor.email,
 			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
 			picked: picked,
 			item: contributor,
 		};
@@ -249,7 +250,7 @@ export namespace RefQuickPickItem {
 		ref: string | GitReference,
 		repoPath: string,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; ref?: boolean; icon?: boolean } = {},
+		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; icon?: boolean; ref?: boolean } = {},
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
@@ -399,8 +400,8 @@ export namespace TagQuickPickItem {
 		options: {
 			alwaysShow?: boolean;
 			buttons?: QuickInputButton[];
-			message?: boolean;
 			checked?: boolean;
+			message?: boolean;
 			ref?: boolean;
 			type?: boolean;
 		} = {},

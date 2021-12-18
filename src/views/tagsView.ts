@@ -102,7 +102,11 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		super('gitlens.views.tags', 'Tags', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showTags');
+	}
+
+	protected getRoot() {
 		return new TagsViewNode(this);
 	}
 
@@ -199,6 +203,23 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
 	revealTag(
 		tag: GitTagReference,
 		options?: {
@@ -210,7 +231,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(tag, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

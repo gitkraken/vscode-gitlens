@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
 import {
 	PartialStepState,
@@ -18,6 +19,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	selectedBranchOrTag: GitReference | undefined;
 	title: string;
@@ -77,6 +79,7 @@ export class LogGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			selectedBranchOrTag: undefined,
 			title: this.title,

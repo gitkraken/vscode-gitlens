@@ -102,7 +102,11 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		super('gitlens.views.stashes', 'Stashes', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showStashes');
+	}
+
+	protected getRoot() {
 		return new StashesViewNode(this);
 	}
 
@@ -177,6 +181,23 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	}
 
 	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof StashesViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
 	async revealStash(
 		stash: GitStashReference,
 		options?: {
@@ -188,7 +209,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(stash, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
