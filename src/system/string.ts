@@ -22,6 +22,23 @@ export const enum CharCode {
 	z = 122,
 }
 
+const compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
+export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
+	const result = compareCollator.compare(a, b);
+	// Intl.Collator.compare isn't guaranteed to always return 1 or -1 on all platforms so normalize it
+	return result === 0 ? 0 : result > 0 ? 1 : -1;
+}
+
+export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {
+	// Treat `null` & `undefined` as equivalent
+	if (a == null && b == null) return true;
+	if (a == null || b == null) return false;
+	return compareIgnoreCase(a, b) === 0;
+}
+
+export const sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+export const sortCompare = sortCollator.compare;
+
 export function compareSubstring(
 	a: string,
 	b: string,
@@ -110,12 +127,6 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 
 	// Keep under the same block-quote but with line breaks
 	return s.replace(markdownQuotedRegex, '\t\n>  ');
-}
-
-export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {
-	if (a == null && b == null) return true;
-	if (a == null || b == null) return false;
-	return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
 }
 
 export function escapeRegex(s: string) {

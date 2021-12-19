@@ -1,6 +1,7 @@
 'use strict';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { Strings } from '../../system';
 import { RemoteProvider, RichRemoteProvider } from '../remotes/factory';
 
 export const enum GitRemoteType {
@@ -43,7 +44,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
 				(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+				Strings.sortCompare(a.name, b.name),
 		);
 	}
 

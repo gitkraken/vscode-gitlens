@@ -2,7 +2,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { Arrays } from '../../system';
+import { Arrays, Strings } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { StashesView } from '../stashesView';
 import { ViewsWithCommits } from '../viewBase';
@@ -77,7 +77,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 			return (
 				(a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
 				a.priority - b.priority ||
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+				Strings.sortCompare(a.label!, b.label!)
 			);
 		});
 

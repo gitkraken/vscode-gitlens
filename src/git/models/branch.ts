@@ -2,7 +2,7 @@
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Dates, debug, memoize } from '../../system';
+import { Dates, debug, memoize, Strings } from '../../system';
 import { GitRemote, GitRevision } from '../git';
 import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
 import { GitStatus } from './status';
@@ -78,7 +78,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+						Strings.sortCompare(a.name, b.name),
 				);
 			case BranchSorting.NameDesc:
 				return branches.sort(
@@ -92,7 +92,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
+						Strings.sortCompare(b.name, a.name),
 				);
 			case BranchSorting.DateDesc:
 			default:

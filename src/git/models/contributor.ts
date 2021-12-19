@@ -2,7 +2,7 @@
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import { configuration, ContributorSorting, GravatarDefaultStyle } from '../../configuration';
-import { Dates, memoize } from '../../system';
+import { Dates, memoize, Strings } from '../../system';
 
 export interface ContributorSortOptions {
 	current?: true;
@@ -41,15 +41,11 @@ export class GitContributor {
 				);
 			case ContributorSorting.NameAsc:
 				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+					(a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || Strings.sortCompare(a.name, b.name),
 				);
 			case ContributorSorting.NameDesc:
 				return contributors.sort(
-					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
+					(a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1) || Strings.sortCompare(b.name, a.name),
 				);
 			case ContributorSorting.CountDesc:
 			default:

@@ -3070,7 +3070,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						return;
 					}
 
-					if (path.toLowerCase() === resolvedPath.toLowerCase()) {
+					if (Strings.equalsIgnoreCase(path, resolvedPath)) {
 						Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
 						resolve(repoPath);
 						return;

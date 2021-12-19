@@ -118,11 +118,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort(
-				(a, b) =>
-					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
