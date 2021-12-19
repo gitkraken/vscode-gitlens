@@ -285,27 +285,22 @@ export function md5(s: string, encoding: BinaryToTextEncoding = 'base64'): strin
 	return createHash('md5').update(s).digest(encoding);
 }
 
-export function normalizePath(
-	fileName: string,
-	options: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean } = { stripTrailingSlash: true },
-) {
+export function normalizePath(fileName: string, options?: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean }) {
 	if (fileName == null || fileName.length === 0) return fileName;
 
 	let normalized = fileName.replace(pathNormalizeRegex, '/');
 
-	const { addLeadingSlash, stripTrailingSlash } = { stripTrailingSlash: true, ...options };
-
-	if (stripTrailingSlash) {
+	if (options?.stripTrailingSlash ?? true) {
 		normalized = normalized.replace(pathStripTrailingSlashRegex, emptyStr);
 	}
 
-	if (addLeadingSlash && normalized.charCodeAt(0) !== CharCode.Slash) {
+	if ((options?.addLeadingSlash ?? false) && normalized.charCodeAt(0) !== CharCode.Slash) {
 		normalized = `/${normalized}`;
 	}
 
 	if (isWindows) {
 		// Ensure that drive casing is normalized (lower case)
-		normalized = normalized.replace(driveLetterNormalizeRegex, (drive: string) => drive.toLowerCase());
+		normalized = normalized.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
 	}
 
 	return normalized;
