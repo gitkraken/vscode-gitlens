@@ -344,7 +344,7 @@ export interface GitProvider {
 	// 	options?: { ref?: string | undefined },
 	// ): Promise<string | undefined>;
 
-	getRepoPath(filePath: string, isDirectory: boolean): Promise<string | undefined>;
+	getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined>;
 
 	// getRepoPathOrActive(uri: Uri | undefined, editor: TextEditor | undefined): Promise<string | undefined>;
 	// getRepositories(predicate?: (repo: Repository) => boolean): Promise<Iterable<Repository>>;
@@ -397,11 +397,6 @@ export interface GitProvider {
 	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;
 
 	isTrackable(uri: Uri): boolean;
-	isTracked(
-		fileNameOrUri: string | GitUri,
-		repoPath?: string,
-		options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	): Promise<boolean>;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;
 	openDiffTool(

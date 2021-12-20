@@ -74,19 +74,19 @@ export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | strin
 	);
 }
 
-export function splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
+export function splitPath(filePath: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
 	if (repoPath) {
-		fileName = normalizePath(fileName);
+		filePath = normalizePath(filePath);
 		repoPath = normalizePath(repoPath);
 
 		const normalizedRepoPath = (repoPath.endsWith(slash) ? repoPath : `${repoPath}/`).toLowerCase();
-		if (fileName.toLowerCase().startsWith(normalizedRepoPath)) {
-			fileName = fileName.substring(normalizedRepoPath.length);
+		if (filePath.toLowerCase().startsWith(normalizedRepoPath)) {
+			filePath = filePath.substring(normalizedRepoPath.length);
 		}
 	} else {
-		repoPath = normalizePath(extract ? paths.dirname(fileName) : repoPath!);
-		fileName = normalizePath(extract ? paths.basename(fileName) : fileName);
+		repoPath = normalizePath(extract ? paths.dirname(filePath) : repoPath!);
+		filePath = normalizePath(extract ? paths.basename(filePath) : filePath);
 	}
 
-	return [fileName, repoPath];
+	return [filePath, repoPath];
 }

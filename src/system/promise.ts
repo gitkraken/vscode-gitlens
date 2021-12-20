@@ -2,6 +2,8 @@
 import { CancellationToken } from 'vscode';
 import { map } from './iterable';
 
+export type PromiseOrValue<T> = Promise<T> | T;
+
 export class CancellationError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(public readonly promise: T, message: string) {
 		super(message);
@@ -81,8 +83,8 @@ export function first<T>(promises: Promise<T>[], predicate: (value: T) => boolea
 	return Promise.race(newPromises);
 }
 
-export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
-	return obj != null && typeof (obj as Promise<T>).then === 'function';
+export function is<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
+	return obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function';
 }
 
 export function raceAll<TPromise>(

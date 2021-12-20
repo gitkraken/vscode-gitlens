@@ -28,6 +28,7 @@ import {
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '../system';
+import { PromiseOrValue } from '../system/promise';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { ProviderNotFoundError } from './errors';
 import {
@@ -105,6 +106,20 @@ export class GitProviderService implements Disposable {
 	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
 		this._etag = Date.now();
 
+		if (this._pathToRepoPathCache.size !== 0) {
+			if (removed?.length) {
+				// If a repository was removed, clear the cache for all paths
+				this._pathToRepoPathCache.clear();
+			} else if (added?.length) {
+				// If a provider was added, only preserve paths with a resolved repoPath
+				for (const [key, value] of this._pathToRepoPathCache) {
+					if (value === null || Promises.is(value)) {
+						this._pathToRepoPathCache.delete(key);
+					}
+				}
+			}
+		}
+
 		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [] });
 	}
 
@@ -114,6 +129,20 @@ export class GitProviderService implements Disposable {
 	}
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
 		this._etag = Date.now();
+
+		if (this._pathToRepoPathCache.size !== 0) {
+			if (removed?.length) {
+				// If a repository was removed, clear the cache for all paths
+				this._pathToRepoPathCache.clear();
+			} else if (added?.length) {
+				// If a repository was added, only preserve paths with a resolved repoPath
+				for (const [key, value] of this._pathToRepoPathCache) {
+					if (value === null || Promises.is(value)) {
+						this._pathToRepoPathCache.delete(key);
+					}
+				}
+			}
+		}
 
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [] });
 	}
@@ -193,7 +222,7 @@ export class GitProviderService implements Disposable {
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 					BuiltInGitConfiguration.AutoRepositoryDetection,
 				) ?? true;
-			if (autoRepositoryDetection !== false) {
+			if (autoRepositoryDetection !== false && autoRepositoryDetection !== 'openEditors') {
 				void this.discoverRepositories(e.added);
 			}
 		}
@@ -273,7 +302,7 @@ export class GitProviderService implements Disposable {
 	// }
 
 	getCachedRepository(repoPath: string): Repository | undefined {
-		return this._repositories.get(repoPath);
+		return repoPath && this._repositories.size !== 0 ? this._repositories.get(repoPath) : undefined;
 	}
 
 	/**
@@ -367,7 +396,7 @@ export class GitProviderService implements Disposable {
 					BuiltInGitConfiguration.AutoRepositoryDetection,
 				) ?? true;
 
-			if (autoRepositoryDetection !== false) {
+			if (autoRepositoryDetection !== false && autoRepositoryDetection !== 'openEditors') {
 				void this.discoverRepositories(workspaceFolders);
 
 				return;
@@ -1371,66 +1400,25 @@ export class GitProviderService implements Disposable {
 		return provider.getRemotesCore(path, providers, options);
 	}
 
-	async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
-	async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
+	async getRepoPath(filePath: string): Promise<string | undefined>;
+	async getRepoPath(uri: Uri | undefined): Promise<string | undefined>;
 	@log<GitProviderService['getRepoPath']>({ exit: path => `returned ${path}` })
-	async getRepoPath(
-		filePathOrUri: string | Uri | undefined,
-		options?: { ref?: string },
-	): Promise<string | undefined> {
+	async getRepoPath(filePathOrUri: string | Uri | undefined): Promise<string | undefined> {
 		if (filePathOrUri == null) return this.highlanderRepoPath;
 		if (GitUri.is(filePathOrUri)) return filePathOrUri.repoPath;
 
-		const cc = Logger.getCorrelationContext();
+		// const autoRepositoryDetection =
+		// 	configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+		// 		BuiltInGitConfiguration.AutoRepositoryDetection,
+		// 	) ?? true;
 
-		// Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
-		let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
-		if (repo != null) return repo.path;
-
-		const { provider, path } = this.getProvider(filePathOrUri);
-		const rp = await provider.getRepoPath(path, false);
-
-		// const rp = await this.getRepoPathCore(
-		// 	typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath,
-		// 	false,
+		// const repo = await this.getRepository(
+		// 	filePathOrUri,
+		// 	autoRepositoryDetection === true || autoRepositoryDetection === 'openEditors',
 		// );
-		if (rp == null) return undefined;
 
-		// Recheck this._repositoryTree.get(rp) to make sure we haven't already tried adding this due to awaits
-		if (this._repositories.get(rp) != null) return rp;
-
-		const isVslsScheme =
-			typeof filePathOrUri === 'string' ? undefined : filePathOrUri.scheme === DocumentSchemes.Vsls;
-
-		// If this new repo is inside one of our known roots and we we don't already know about, add it
-		const root = this.findRepositoryForPath(rp, isVslsScheme);
-
-		let folder;
-		if (root != null) {
-			// Not sure why I added this for vsls (I can't see a reason for it anymore), but if it is added it will break submodules
-			// rp = root.path;
-			folder = root.folder;
-		} else {
-			folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
-			if (folder == null) {
-				const parts = rp.split(slash);
-				folder = {
-					uri: GitUri.file(rp, isVslsScheme),
-					name: parts[parts.length - 1],
-					index: this.container.git.repositoryCount,
-				};
-			}
-		}
-
-		Logger.log(cc, `Repository found in '${rp}'`);
-		repo = provider.createRepository(folder, rp, false);
-		this._repositories.set(rp, repo);
-
-		void this.updateContext();
-		// Send a notification that the repositories changed
-		queueMicrotask(() => this.fireRepositoriesChanged([repo!]));
-
-		return rp;
+		const repo = await this.getRepository(filePathOrUri, true);
+		return repo?.path;
 	}
 
 	@log<GitProviderService['getRepoPathOrActive']>({
@@ -1443,60 +1431,102 @@ export class GitProviderService implements Disposable {
 		return this.getActiveRepoPath(editor);
 	}
 
-	async getRepository(
-		repoPath: string,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<Repository | undefined>;
-	async getRepository(
-		uri: Uri,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<Repository | undefined>;
-	async getRepository(
-		repoPathOrUri: string | Uri,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<Repository | undefined>;
-	@log<GitProviderService['getRepository']>({
-		exit: repo => `returned ${repo != null ? `${repo.path}` : 'undefined'}`,
-	})
-	async getRepository(
-		repoPathOrUri: string | Uri,
-		options: { ref?: string; skipCacheUpdate?: boolean } = {},
-	): Promise<Repository | undefined> {
-		let isVslsScheme;
+	private _pathToRepoPathCache = new Map<string, PromiseOrValue<string | null>>();
 
-		let path: string;
+	async getRepository(repoPath: string, createIfNeeded?: boolean): Promise<Repository | undefined>;
+	async getRepository(uri: Uri, createIfNeeded?: boolean): Promise<Repository | undefined>;
+	async getRepository(repoPathOrUri: string | Uri, createIfNeeded?: boolean): Promise<Repository | undefined>;
+	@log<GitProviderService['getRepository']>({ exit: repo => `returned ${repo?.path ?? 'undefined'}` })
+	async getRepository(repoPathOrUri: string | Uri, createIfNeeded: boolean = false): Promise<Repository | undefined> {
+		if (!createIfNeeded && this.repositoryCount === 0) return undefined;
+
+		const cc = Logger.getCorrelationContext();
+
+		let isVslsScheme: boolean | undefined;
+		let repo: Repository | undefined;
+		let rp: string | null;
+
+		let filePath: string;
 		if (typeof repoPathOrUri === 'string') {
-			const repo = this._repositories.get(repoPathOrUri);
-			if (repo != null) return repo;
-
-			path = repoPathOrUri;
-			isVslsScheme = undefined;
+			filePath = Strings.normalizePath(repoPathOrUri);
 		} else {
-			if (GitUri.is(repoPathOrUri)) {
-				if (repoPathOrUri.repoPath) {
-					const repo = this._repositories.get(repoPathOrUri.repoPath);
-					if (repo != null) return repo;
-				}
-
-				path = repoPathOrUri.fsPath;
-			} else {
-				path = repoPathOrUri.fsPath;
+			if (GitUri.is(repoPathOrUri) && repoPathOrUri.repoPath) {
+				repo = this.getCachedRepository(repoPathOrUri.repoPath);
+				if (repo != null) return repo;
 			}
 
+			filePath = Strings.normalizePath(repoPathOrUri.fsPath);
 			isVslsScheme = repoPathOrUri.scheme === DocumentSchemes.Vsls;
 		}
 
-		const repo = this.findRepositoryForPath(path, isVslsScheme);
-		if (repo == null) return undefined;
+		repo = this.getCachedRepository(filePath);
+		if (repo != null) return repo;
 
-		// Make sure the file is tracked in this repo before returning -- it could be from a submodule
-		if (!(await this.isTracked(path, repo.path, options))) return undefined;
-		return repo;
+		let repoPathOrPromise = this._pathToRepoPathCache.get(filePath);
+		if (repoPathOrPromise !== undefined) {
+			rp = Promises.is(repoPathOrPromise) ? await repoPathOrPromise : repoPathOrPromise;
+			// If the repoPath is explicitly null, then we know no repo exists
+			if (rp === null) return undefined;
+
+			repo = this.getCachedRepository(rp);
+			// If the repo exists or if we aren't creating it, just return what we found cached
+			if (!createIfNeeded || repo != null) return repo;
+		}
+
+		async function findRepoPath(this: GitProviderService): Promise<string | null> {
+			const { provider, path } = this.getProvider(filePath);
+			rp = (await provider.getRepoPath(path)) ?? null;
+			// Store the found repoPath for this filePath, so we can avoid future lookups for the filePath
+			this._pathToRepoPathCache.set(filePath, rp);
+
+			if (rp == null) return null;
+
+			// Store the found repoPath for itself, so we can avoid future lookups for the repoPath
+			this._pathToRepoPathCache.set(rp, rp);
+
+			if (!createIfNeeded || this._repositories.has(rp)) return rp;
+
+			// If this new repo is inside one of our known roots and we we don't already know about, add it
+			const root = this.findRepositoryForPath(rp, isVslsScheme);
+
+			let folder;
+			if (root != null) {
+				// Not sure why I added this for vsls (I can't see a reason for it anymore), but if it is added it will break submodules
+				// rp = root.path;
+				folder = root.folder;
+			} else {
+				folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
+				if (folder == null) {
+					const parts = rp.split(slash);
+					folder = {
+						uri: GitUri.file(rp, isVslsScheme),
+						name: parts[parts.length - 1],
+						index: this.repositoryCount,
+					};
+				}
+			}
+
+			Logger.log(cc, `Repository found in '${rp}'`);
+			repo = provider.createRepository(folder, rp, false);
+			this._repositories.set(rp, repo);
+
+			void this.updateContext();
+			// Send a notification that the repositories changed
+			queueMicrotask(() => this.fireRepositoriesChanged([repo!]));
+
+			return rp;
+		}
+
+		repoPathOrPromise = findRepoPath.call(this);
+		this._pathToRepoPathCache.set(filePath, repoPathOrPromise);
+
+		rp = await repoPathOrPromise;
+		return rp != null ? this.getCachedRepository(rp) : undefined;
 	}
 
 	@debug()
 	private findRepositoryForPath(path: string, isVslsScheme: boolean | undefined): Repository | undefined {
-		if (this._repositories.size === 0) return undefined;
+		if (this.repositoryCount === 0) return undefined;
 
 		function findBySubPath(repositories: Map<string, Repository>, path: string) {
 			const repos = [...repositories.values()].sort((a, b) => a.path.length - b.path.length);
@@ -1666,17 +1696,6 @@ export class GitProviderService implements Disposable {
 	isTrackable(uri: Uri): boolean {
 		const { provider } = this.getProvider(uri);
 		return provider.isTrackable(uri);
-	}
-
-	private async isTracked(
-		fileName: string,
-		repoPath: string | Uri,
-		options?: { ref?: string; skipCacheUpdate?: boolean },
-	): Promise<boolean> {
-		if (options?.ref === GitRevision.deletedOrMissing) return false;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.isTracked(fileName, path, options);
 	}
 
 	@log()

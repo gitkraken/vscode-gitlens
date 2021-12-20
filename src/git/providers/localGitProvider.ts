@@ -23,6 +23,7 @@ import { Container } from '../../container';
 import { LogCorrelationContext, Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { Arrays, debug, Functions, gate, Iterables, log, Paths, Promises, Strings, Versions } from '../../system';
+import { PromiseOrValue } from '../../system/promise';
 import {
 	CachedBlame,
 	CachedDiff,
@@ -119,7 +120,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, Promise<GitTag[]>>();
-	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
+	private readonly _trackedCache = new Map<string, PromiseOrValue<boolean>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
 	constructor(private readonly container: Container) {
@@ -258,7 +259,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 				BuiltInGitConfiguration.AutoRepositoryDetection,
 			) ?? true;
-		if (autoRepositoryDetection === false) return [];
+		if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
 
 		try {
 			void (await this.ensureGit());
@@ -2079,7 +2080,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitLog | undefined> {
-		if (!(await this.isTracked(fileName, repoPath, { ref: ref }))) {
+		if (!(await this.isTracked(fileName, repoPath, ref))) {
 			Logger.log(cc, `Skipping log; '${fileName}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
 		}
@@ -3014,13 +3015,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@gate()
 	@debug()
-	async getRepoPath(filePath: string, isDirectory: boolean): Promise<string | undefined> {
+	async getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		let repoPath: string | undefined;
 		try {
-			const path = isDirectory ? filePath : paths.dirname(filePath);
+			let path: string;
+			if (isDirectory) {
+				path = filePath;
+			} else {
+				const stat = await new Promise<fs.Stats | undefined>(resolve =>
+					fs.stat(filePath, (err, stat) => resolve(err == null ? stat : undefined)),
+				);
+				path = stat?.isDirectory() ? filePath : paths.dirname(filePath);
+			}
 
 			repoPath = await Git.rev_parse__show_toplevel(path);
 			if (repoPath == null) return repoPath;
@@ -3406,69 +3416,57 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${tracked}`, singleLine: true })
-	async isTracked(
-		fileNameOrUri: string | GitUri,
-		repoPath?: string,
-		options: { ref?: string; skipCacheUpdate?: boolean } = {},
-	): Promise<boolean> {
-		if (options.ref === GitRevision.deletedOrMissing) return false;
-
-		let ref = options.ref;
+	private async isTracked(filePath: string, repoPath?: string, ref?: string): Promise<boolean>;
+	private async isTracked(uri: GitUri): Promise<boolean>;
+	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${tracked}` /*, singleLine: true }*/ })
+	private async isTracked(filePathOrUri: string | GitUri, repoPath?: string, ref?: string): Promise<boolean> {
 		let cacheKey: string;
-		let fileName: string;
-		if (typeof fileNameOrUri === 'string') {
-			[fileName, repoPath] = Paths.splitPath(fileNameOrUri, repoPath);
-			cacheKey = GitUri.toKey(fileNameOrUri);
-		} else {
-			if (!this.isTrackable(fileNameOrUri)) return false;
+		let relativeFilePath: string;
 
-			fileName = fileNameOrUri.fsPath;
-			repoPath = fileNameOrUri.repoPath;
-			ref = fileNameOrUri.sha;
-			cacheKey = GitUri.toKey(fileName);
+		if (typeof filePathOrUri === 'string') {
+			if (ref === GitRevision.deletedOrMissing) return false;
+
+			cacheKey = ref ? `${ref}:${Strings.normalizePath(filePathOrUri)}` : Strings.normalizePath(filePathOrUri);
+			[relativeFilePath, repoPath] = Paths.splitPath(filePathOrUri, repoPath);
+		} else {
+			if (!this.isTrackable(filePathOrUri)) return false;
+
+			// Always use the ref of the GitUri
+			ref = filePathOrUri.sha;
+			cacheKey = ref
+				? `${ref}:${Strings.normalizePath(filePathOrUri.fsPath)}`
+				: Strings.normalizePath(filePathOrUri.fsPath);
+			relativeFilePath = filePathOrUri.fsPath;
+			repoPath = filePathOrUri.repoPath;
 		}
 
 		if (ref != null) {
-			cacheKey += `:${ref}`;
+			cacheKey = `${ref}:${cacheKey}`;
 		}
 
 		let tracked = this._trackedCache.get(cacheKey);
-		if (tracked != null) {
-			tracked = await tracked;
+		if (tracked != null) return tracked;
 
-			return tracked;
-		}
-
-		tracked = this.isTrackedCore(fileName, repoPath == null ? emptyStr : repoPath, ref);
-		if (options.skipCacheUpdate) {
-			tracked = await tracked;
-
-			return tracked;
-		}
-
+		tracked = this.isTrackedCore(relativeFilePath, repoPath ?? emptyStr, ref);
 		this._trackedCache.set(cacheKey, tracked);
+
 		tracked = await tracked;
 		this._trackedCache.set(cacheKey, tracked);
-
 		return tracked;
 	}
 
+	@debug()
 	private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
 		if (ref === GitRevision.deletedOrMissing) return false;
 
 		try {
 			// Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-			let tracked = Boolean(await Git.ls_files(repoPath == null ? emptyStr : repoPath, fileName));
-			if (!tracked && ref != null) {
-				tracked = Boolean(await Git.ls_files(repoPath == null ? emptyStr : repoPath, fileName, { ref: ref }));
+			let tracked = Boolean(await Git.ls_files(repoPath, fileName));
+			if (!tracked && ref != null && !GitRevision.isUncommitted(ref)) {
+				tracked = Boolean(await Git.ls_files(repoPath, fileName, { ref: ref }));
 				// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
 				if (!tracked) {
-					tracked = Boolean(
-						await Git.ls_files(repoPath == null ? emptyStr : repoPath, fileName, {
-							ref: `${ref}^`,
-						}),
-					);
+					tracked = Boolean(await Git.ls_files(repoPath, fileName, { ref: `${ref}^` }));
 				}
 			}
 			return tracked;
