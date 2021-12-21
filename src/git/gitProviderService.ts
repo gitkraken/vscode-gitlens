@@ -993,8 +993,8 @@ export class GitProviderService implements Disposable {
 		return provider.getContributors(path, options);
 	}
 
-	@log()
 	@gate()
+	@log()
 	async getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCurrentUser(path);

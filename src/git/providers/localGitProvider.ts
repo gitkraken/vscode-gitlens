@@ -1253,8 +1253,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return contributors;
 	}
 
-	@log()
 	@gate()
+	@log()
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		let user = this._userMapCache.get(repoPath);
 		if (user != null) return user;
