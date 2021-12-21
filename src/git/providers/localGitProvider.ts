@@ -3392,7 +3392,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repository.hasUpstreamBranch();
 	}
 
-	@log<GitProviderService['isActiveRepoPath']>({
+	@log<LocalGitProvider['isActiveRepoPath']>({
 		args: { 1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined) },
 	})
 	async isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean> {
