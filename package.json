@@ -32,7 +32,8 @@
 		}
 	],
 	"categories": [
-		"Other"
+		"Other",
+		"SCM Providers"
 	],
 	"galleryBanner": {
 		"color": "#8647ae",
@@ -10082,7 +10083,25 @@
 					"visibility": "collapsed"
 				}
 			]
-		}
+		},
+		"walkthroughs": [
+			{
+				"id": "gitlens.welcome",
+				"title": "Get Started with GitLens",
+				"description": "Discover and customize GitLens' most valuable features.",
+				"steps": [
+					{
+						"id": "gitlens.welcome.currentLineBlame",
+						"title": "Current Line Blame",
+						"description": "The Current Line Blame view shows the blame information for the current line.",
+						"media": {
+							"image": "images/docs/current-line-blame.png",
+							"altText": "Current Line Blame"
+						}
+					}
+				]
+			}
+		]
 	},
 	"scripts": {
 		"analyze:bundle": "webpack --env analyzeBundle",
