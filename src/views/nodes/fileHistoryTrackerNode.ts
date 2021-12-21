@@ -133,8 +133,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
-			this.setUri();
-			this.resetChild();
+			this.reset();
 		}
 
 		const editor = window.activeTextEditor;
@@ -147,8 +146,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				return true;
 			}
 
-			this.setUri();
-			this.resetChild();
+			this.reset();
 
 			if (cc != null) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
@@ -182,13 +180,23 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			gitUri = await GitUri.fromUri(uri);
 		}
 
-		this.setUri(gitUri);
-		this.resetChild();
+		// If we have no repoPath then don't attempt to use the Uri
+		if (gitUri.repoPath == null) {
+			this.reset();
+		} else {
+			this.setUri(gitUri);
+			this.resetChild();
+		}
 
 		if (cc != null) {
 			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 		}
 		return false;
+	}
+
+	private reset() {
+		this.setUri();
+		this.resetChild();
 	}
 
 	@log()

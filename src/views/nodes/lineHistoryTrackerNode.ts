@@ -145,10 +145,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
-			this.setUri();
-			this._editorContents = undefined;
-			this._selection = undefined;
-			this.resetChild();
+			this.reset();
 		}
 
 		const editor = window.activeTextEditor;
@@ -161,10 +158,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				return true;
 			}
 
-			this.setUri();
-			this._editorContents = undefined;
-			this._selection = undefined;
-			this.resetChild();
+			this.reset();
 
 			if (cc != null) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
@@ -194,15 +188,27 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			return true;
 		}
 
-		this.setUri(gitUri);
-		this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
-		this._selection = editor.selection;
-		this.resetChild();
+		// If we have no repoPath then don't attempt to use the Uri
+		if (gitUri.repoPath == null) {
+			this.reset();
+		} else {
+			this.setUri(gitUri);
+			this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
+			this._selection = editor.selection;
+			this.resetChild();
+		}
 
 		if (cc != null) {
 			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 		}
 		return false;
+	}
+
+	private reset() {
+		this.setUri();
+		this._editorContents = undefined;
+		this._selection = undefined;
+		this.resetChild();
 	}
 
 	@log()

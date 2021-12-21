@@ -571,12 +571,18 @@ export class GitProviderService implements Disposable {
 	}
 
 	static getProviderId(repoPath: string | Uri): GitProviderId {
+		if (repoPath == null) {
+			// eslint-disable-next-line no-debugger
+			debugger;
+			throw new Error('Unsupported provider; no repository path');
+		}
+
 		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.VirtualFS) {
 			if (repoPath.authority.startsWith('github')) {
 				return GitProviderId.GitHub;
 			}
 
-			throw new Error(`Unsupported scheme: ${repoPath.scheme}`);
+			throw new Error(`Unsupported provider: ${repoPath.scheme}`);
 		}
 
 		return GitProviderId.Git;
