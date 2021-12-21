@@ -13,7 +13,6 @@ const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const esbuild = require('esbuild');
-const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
@@ -119,19 +118,22 @@ function getExtensionConfig(target, mode, env) {
 		optimization: {
 			minimizer: [
 				env.esbuild
-					? new ESBuildMinifyPlugin({
-							format: 'cjs',
-							// @ts-ignore
-							implementation: esbuild,
-							minify: true,
-							treeShaking: true,
-							// Keep the class names otherwise @log won't provide a useful name
-							keepNames: true,
-							target: 'es2020',
+					? new TerserPlugin({
+							minify: TerserPlugin.esbuildMinify,
+							terserOptions: {
+								// @ts-ignore
+								format: 'cjs',
+								minify: true,
+								treeShaking: true,
+								// Keep the class names otherwise @log won't provide a useful name
+								keepNames: true,
+								target: 'es2020',
+							},
 					  })
 					: new TerserPlugin({
 							extractComments: false,
 							parallel: true,
+							// @ts-ignore
 							terserOptions: {
 								ecma: 2020,
 								// Keep the class names otherwise @log won't provide a useful name
