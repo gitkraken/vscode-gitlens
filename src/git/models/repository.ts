@@ -1109,9 +1109,7 @@ export class Repository implements Disposable {
 					);
 					this._supportsChangeEvents = true;
 
-					if (Logger.enabled(LogLevel.Debug)) {
-						Logger.debug(`Repository(${this.id}) is now using fallback file watching`);
-					}
+					Logger.debug(`Repository(${this.id}) is now using fallback file watching`);
 				} catch {}
 			}
 		}
