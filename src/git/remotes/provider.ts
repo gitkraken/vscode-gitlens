@@ -234,7 +234,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected encodeUrl(url: string): string;
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
-		return Encoding.encodeUrl(url);
+		return Encoding.encodeUrl(url)?.replace(/#/g, '%23');
 	}
 }
 
