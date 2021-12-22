@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1572](https://github.com/gitkraken/vscode-gitlens/issues/1572) - Forced regular expression search in changes
 - Fixes [#1473](https://github.com/gitkraken/vscode-gitlens/issues/1473) - Support VSCodium in interactive rebase editor
 - Fixes [#1699](https://github.com/gitkraken/vscode-gitlens/issues/1699) - Exception has occurred: RangeError [ERR_OUT_OF_RANGE]
+- Fixes [#1601](https://github.com/gitkraken/vscode-gitlens/issues/1601) - Add a better time sample in "Dates & Times" setting
 - Fixes performance issue with the rich hover on the status bar blame
 - Fixes cross repository branch switching via the _Git Command Palette_
 - Fixes an issue with TOC entries in the VS Code settings editor
