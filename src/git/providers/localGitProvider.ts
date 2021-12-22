@@ -1176,21 +1176,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		fileName: string,
 		options: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean } = {},
 	): Promise<GitLogCommit | undefined> {
-		const log = await this.getLogForFile(repoPath, fileName, {
-			limit: 2,
-			ref: options.ref,
-			range: options.range,
-			reverse: options.reverse,
-		});
-		if (log == null) return undefined;
+		const cc = Logger.getCorrelationContext();
 
-		const commit = options.ref ? log.commits.get(options.ref) : undefined;
-		if (commit == null && !options.firstIfNotFound && options.ref) {
-			// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-			if (GitRevision.isSha(options.ref) || GitRevision.isUncommitted(options.ref)) return undefined;
+		try {
+			const log = await this.getLogForFile(repoPath, fileName, {
+				limit: 2,
+				ref: options.ref,
+				range: options.range,
+				reverse: options.reverse,
+			});
+			if (log == null) return undefined;
+
+			const commit = options.ref ? log.commits.get(options.ref) : undefined;
+			if (commit == null && !options.firstIfNotFound && options.ref) {
+				// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
+				if (GitRevision.isSha(options.ref) || GitRevision.isUncommitted(options.ref)) return undefined;
+			}
+
+			return commit ?? Iterables.first(log.commits.values());
+		} catch (ex) {
+			Logger.error(ex, cc);
+			return undefined;
 		}
-
-		return commit ?? Iterables.first(log.commits.values());
 	}
 
 	@log()
