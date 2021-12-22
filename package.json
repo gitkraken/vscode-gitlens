@@ -525,6 +525,7 @@
 					"gitlens.statusBar.tooltipFormat": {
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}${\n\n---\n\nfootnotes}",
+						"editPresentation": "multilineText",
 						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
@@ -670,6 +671,7 @@
 					"gitlens.hovers.detailsMarkdownFormat": {
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}\n\n${commands}",
+						"editPresentation": "multilineText",
 						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
