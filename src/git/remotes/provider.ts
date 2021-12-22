@@ -595,6 +595,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		try {
 			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
 				createIfNone: createIfNeeded,
+				silent: !createIfNeeded,
 			});
 		} catch (ex) {
 			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
