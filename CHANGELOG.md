@@ -23,7 +23,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#1572](https://github.com/Axosoft/vscode-gitlens/issues/1572) - Forced regular expression search in changes
+- Fixes [#1572](https://github.com/gitkraken/vscode-gitlens/issues/1572) - Forced regular expression search in changes
+- Fixes [#1473](https://github.com/gitkraken/vscode-gitlens/issues/1473) - Support VSCodium in interactive rebase editor
 - Fixes performance issue with the rich hover on the status bar blame
 - Fixes cross repository branch switching via the _Git Command Palette_
 - Fixes an issue with TOC entries in the VS Code settings editor
@@ -40,12 +41,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new rich hover to the GitLens mode in the status bar
 - Adds functional groupings to all GitLens settings when using the VS Code settings UI. Groups will be displayed in the table of contents in the settings UI &mdash; thanks to Raymond Zhao ([@rzhao271](https://github.com/rzhao271)) on the VS Code team for allowing extensions to add groups to VS Code settings UI
 - Adds new action buttons on many quick pick menu options, including in the _Git Command Palette_ &mdash; thanks to Tyler Leonhardt ([@tylerLeonhardt](https://github.com/tylerLeonhardt)) on the VS Code team for the API support
-- Adds [Gerrit](https://www.gerritcodereview.com/) remote provider support &mdash; closes [#720](https://github.com/eamodio/vscode-gitlens/issues/720) thanks to [PR #1535](https://github.com/eamodio/vscode-gitlens/pull/1535) by Andrew Savage ([@andrewsavage1](https://github.com/andrewsavage1))
-- Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/eamodio/vscode-gitlens/issues/1710)
-- Adds a new _Cherry Pick without Committing_ confirmation option to the _Git Command Palette_'s _cherry-pick_ command &mdash; closes [#1693](https://github.com/eamodio/vscode-gitlens/issues/1693)
-- Adds a new _Merge without Fast-Forwarding or Committing_ confirmation option to the _Git Command Palette_'s _merge_ command &mdash; closes [#1178](https://github.com/eamodio/vscode-gitlens/issues/1178) thanks to [PR #1621](https://github.com/eamodio/vscode-gitlens/pull/1621) by Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov))
-- Adds commit message autolinking of merged pull requests for Azure Repos &mdash; closes [#1486](https://github.com/eamodio/vscode-gitlens/issues/1486) thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Mark Molinaro ([@markjm](https://github.com/markjm))
-- Adds a new `AzureDevOps` type to `gitlens.remotes` to better support Azure DevOps remote matching &mdash; thanks to [PR #1487](https://github.com/eamodio/vscode-gitlens/pull/1487) by Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD))
+- Adds [Gerrit](https://www.gerritcodereview.com/) remote provider support &mdash; closes [#720](https://github.com/gitkraken/vscode-gitlens/issues/720) thanks to [PR #1535](https://github.com/gitkraken/vscode-gitlens/pull/1535) by Andrew Savage ([@andrewsavage1](https://github.com/andrewsavage1))
+- Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/gitkraken/vscode-gitlens/issues/1710)
+- Adds a new _Cherry Pick without Committing_ confirmation option to the _Git Command Palette_'s _cherry-pick_ command &mdash; closes [#1693](https://github.com/gitkraken/vscode-gitlens/issues/1693)
+- Adds a new _Merge without Fast-Forwarding or Committing_ confirmation option to the _Git Command Palette_'s _merge_ command &mdash; closes [#1178](https://github.com/gitkraken/vscode-gitlens/issues/1178) thanks to [PR #1621](https://github.com/gitkraken/vscode-gitlens/pull/1621) by Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov))
+- Adds commit message autolinking of merged pull requests for Azure Repos &mdash; closes [#1486](https://github.com/gitkraken/vscode-gitlens/issues/1486) thanks to [PR #1487](https://github.com/gitkraken/vscode-gitlens/pull/1487) by Mark Molinaro ([@markjm](https://github.com/markjm))
+- Adds a new `AzureDevOps` type to `gitlens.remotes` to better support Azure DevOps remote matching &mdash; thanks to [PR #1487](https://github.com/gitkraken/vscode-gitlens/pull/1487) by Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD))
 
 ### Changed
 
@@ -53,14 +54,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#1669](https://github.com/Axosoft/vscode-gitlens/issues/1669) - Workitem Link (Hover ) for Repository (DevOps) with Blank is broken
-- Fixes [#1695](https://github.com/Axosoft/vscode-gitlens/issues/1695) - gitlens.remotes: ${repo} has '%2520' instead of '%20' for a space
-- Fixes [#1531](https://github.com/eamodio/vscode-gitlens/issues/1531) - Typo in `gitlens.defaultGravatarsStyle` options &mdash; thanks to [PR #1532](https://github.com/eamodio/vscode-gitlens/pull/1532) by Alwin Wang ([@alwinw](https://github.com/alwinw))
-- Fixes [#1511](https://github.com/eamodio/vscode-gitlens/issues/1511) - Avatars are blurry on retina displays &mdash; thanks to [PR #1595](https://github.com/eamodio/vscode-gitlens/pull/1595) by Adaex Yang ([@adaex](https://github.com/adaex))
-- Fixes [#1609](https://github.com/eamodio/vscode-gitlens/issues/1609) - X.globalState.setKeysForSync is not a function &mdash; thanks to [PR #1610](https://github.com/eamodio/vscode-gitlens/pull/1610) by Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky))
-- Fixes [#1131](https://github.com/eamodio/vscode-gitlens/issues/1131) - Order matters for search filters in 'search commits' &mdash; with help from [PR #1575](https://github.com/eamodio/vscode-gitlens/pull/1575) by Lior Kletter ([@Git-Lior](https://github.com/Git-Lior))
-- Fixes [#1583](https://github.com/eamodio/vscode-gitlens/issues/1583) - Should hide the context menu on unrelated tabs &mdash; thanks to [PR #1589](https://github.com/eamodio/vscode-gitlens/pull/1589) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
-- Fixes [#1587](https://github.com/eamodio/vscode-gitlens/issues/1587) - Hover on blame can duplicate &mdash; thanks to [PR #1588](https://github.com/eamodio/vscode-gitlens/pull/1588) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
+- Fixes [#1669](https://github.com/gitkraken/vscode-gitlens/issues/1669) - Workitem Link (Hover ) for Repository (DevOps) with Blank is broken
+- Fixes [#1695](https://github.com/gitkraken/vscode-gitlens/issues/1695) - gitlens.remotes: ${repo} has '%2520' instead of '%20' for a space
+- Fixes [#1531](https://github.com/gitkraken/vscode-gitlens/issues/1531) - Typo in `gitlens.defaultGravatarsStyle` options &mdash; thanks to [PR #1532](https://github.com/gitkraken/vscode-gitlens/pull/1532) by Alwin Wang ([@alwinw](https://github.com/alwinw))
+- Fixes [#1511](https://github.com/gitkraken/vscode-gitlens/issues/1511) - Avatars are blurry on retina displays &mdash; thanks to [PR #1595](https://github.com/gitkraken/vscode-gitlens/pull/1595) by Adaex Yang ([@adaex](https://github.com/adaex))
+- Fixes [#1609](https://github.com/gitkraken/vscode-gitlens/issues/1609) - X.globalState.setKeysForSync is not a function &mdash; thanks to [PR #1610](https://github.com/gitkraken/vscode-gitlens/pull/1610) by Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky))
+- Fixes [#1131](https://github.com/gitkraken/vscode-gitlens/issues/1131) - Order matters for search filters in 'search commits' &mdash; with help from [PR #1575](https://github.com/gitkraken/vscode-gitlens/pull/1575) by Lior Kletter ([@Git-Lior](https://github.com/Git-Lior))
+- Fixes [#1583](https://github.com/gitkraken/vscode-gitlens/issues/1583) - Should hide the context menu on unrelated tabs &mdash; thanks to [PR #1589](https://github.com/gitkraken/vscode-gitlens/pull/1589) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
+- Fixes [#1587](https://github.com/gitkraken/vscode-gitlens/issues/1587) - Hover on blame can duplicate &mdash; thanks to [PR #1588](https://github.com/gitkraken/vscode-gitlens/pull/1588) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
 
 ## [11.6.1] - 2021-10-08
 

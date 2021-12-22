@@ -88,6 +88,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				case 'Visual Studio Code - Exploration':
 					editor = 'code-exploration --wait --reuse-window';
 					break;
+				case 'VSCodium':
+					editor = 'codium --wait --reuse-window';
+					break;
 				default:
 					editor = 'code --wait --reuse-window';
 					break;
