@@ -6,10 +6,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a new _Autolinked Issues and Pull Requests_ node to comparisons to list autolinked issues in commit messages and associated pull requests
+  - Currently only supported for connected GitHub remote providers
+- Adds the ability to choose a stash when opening or comparing file revisions, via the _Open Changes with Revision..._ & _Open File at Revision..._ commands
+- Adds improved hover information shown on pull requests in the GitLens views
+- Adds an easier method to choose a specific commit to the _Git Command Palette_'s _merge_ & _rebase_ commands
+
+### Changed
+
+- Refactors GitLens internals into a new flexible Git provider model (read: lots of internal changes) to ultimately allow GitLens to work on the web in vscode.dev/github.dev
+- Changes the icon of the _Open Changes_ action on the hovers to be clearer
+- Changes footnotes in hovers to be above the command bar rather than below
+- Improves GitLens view refreshing when folders are added or removed from a workspace
+
 ### Fixed
 
 - Fixes [#1572](https://github.com/Axosoft/vscode-gitlens/issues/1572) - Forced regular expression search in changes
+- Fixes performance issue with the rich hover on the status bar blame
+- Fixes cross repository branch switching via the _Git Command Palette_
+- Fixes an issue with TOC entries in the VS Code settings editor
 - Fixes issues using quotes when searching for commits in certain scenarios
+- Fixes issues when revealing items in GitLens views the item wouldn't get selected properly
+- Fixes issues with retries on _Git Command Palette_ command steps
 
 ## [11.7.0] - 2021-11-18
 
