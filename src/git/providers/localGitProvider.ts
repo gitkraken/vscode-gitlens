@@ -1795,7 +1795,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								searchArgs.add('--all-match');
 							}
 							for (const value of values) {
-								searchArgs.add(`--grep=${value.replace(doubleQuoteRegex, '\\b')}`);
+								searchArgs.add(
+									`--grep=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
+								);
 							}
 
 							break;
@@ -1803,14 +1805,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						case 'author:':
 							searchArgs.add('-m');
 							for (const value of values) {
-								searchArgs.add(`--author=${value.replace(doubleQuoteRegex, '\\b')}`);
+								searchArgs.add(
+									`--author=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
+								);
 							}
 
 							break;
 
 						case 'change:':
 							for (const value of values) {
-								searchArgs.add(`-G${value}`);
+								searchArgs.add(`-G${value.replace(doubleQuoteRegex, '')}`);
 							}
 
 							break;
