@@ -1814,7 +1814,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 						case 'change:':
 							for (const value of values) {
-								searchArgs.add(`-G${value.replace(doubleQuoteRegex, '')}`);
+								searchArgs.add(
+									search.matchRegex
+										? `-G${value.replace(doubleQuoteRegex, '')}`
+										: `-S${value.replace(doubleQuoteRegex, '')}`,
+								);
 							}
 
 							break;
