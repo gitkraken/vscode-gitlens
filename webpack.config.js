@@ -379,22 +379,32 @@ function getWebviewsConfig(mode, env) {
 			],
 		}),
 		new ImageMinimizerPlugin({
-			test: /\.(png)$/i,
-			filename: '[path][name].webp',
-			loader: false,
 			deleteOriginalAssets: true,
-			minimizerOptions: {
-				plugins: [
-					[
-						'imagemin-webp',
-						{
-							lossless: true,
-							nearLossless: 0,
-							quality: 100,
-							method: mode === 'production' ? 4 : 0,
-						},
+			minimizer: {
+				implementation: ImageMinimizerPlugin.imageminGenerate,
+				options: {
+					plugins: [
+						[
+							'imagemin-webp',
+							{
+								lossless: true,
+								nearLossless: 0,
+								quality: 100,
+								method: mode === 'production' ? 4 : 0,
+							},
+						],
 					],
-				],
+				},
+				// implementation: ImageMinimizerPlugin.squooshGenerate,
+				// options: {
+				// 	// @ts-ignore
+				// 	encodeOptions: {
+				// 		webp: {
+				// 			// quality: 90,
+				// 			lossless: 1,
+				// 		},
+				// 	},
+				// },
 			},
 		}),
 	];
