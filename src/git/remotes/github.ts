@@ -3,7 +3,6 @@ import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
-import { GitHubPullRequest } from '../../github/github';
 import {
 	Account,
 	DefaultBranch,
@@ -240,6 +239,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
+		const GitHubPullRequest = (await import('../../github/github')).GitHubPullRequest;
 		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),

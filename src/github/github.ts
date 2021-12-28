@@ -1,14 +1,14 @@
 'use strict';
 import { graphql } from '@octokit/graphql';
 import {
-	DefaultBranch,
-	IssueOrPullRequest,
-	IssueOrPullRequestType,
+	type DefaultBranch,
+	type IssueOrPullRequest,
+	type IssueOrPullRequestType,
 	PullRequest,
 	PullRequestState,
 } from '../git/models';
-import { Account } from '../git/models/author';
-import { AuthenticationError, ClientError, RichRemoteProvider } from '../git/remotes/provider';
+import type { Account } from '../git/models/author';
+import { AuthenticationError, ClientError, type RichRemoteProvider } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { debug } from '../system';
 

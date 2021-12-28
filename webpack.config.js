@@ -142,6 +142,14 @@ function getExtensionConfig(target, mode, env) {
 							},
 					  }),
 			],
+			splitChunks: {
+				// Disable all non-async code splitting
+				chunks: () => false,
+				cacheGroups: {
+					default: false,
+					vendors: false,
+				},
+			},
 		},
 		externals: {
 			vscode: 'commonjs vscode',
