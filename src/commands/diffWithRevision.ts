@@ -2,8 +2,8 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';

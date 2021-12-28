@@ -2,7 +2,7 @@
 import { Disposable, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStash, GitStashCommit } from '../git/git';
+import { GitLog, GitLogCommit, GitStash, GitStashCommit } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
 import {
 	CommandQuickPickItem,

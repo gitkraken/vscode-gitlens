@@ -15,7 +15,8 @@ import { HeatmapLocations } from '../config';
 import { Config, configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
+import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
+import { GitCommit } from '../git/models';
 import { Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 

@@ -2,6 +2,7 @@
 import * as paths from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { configuration } from '../../configuration';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitLog,
@@ -10,9 +11,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-	toFolderGlob,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Logger } from '../../logger';
 import { Arrays, debug, gate, Iterables, memoize } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
@@ -243,7 +242,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? toFolderGlob(this.uri.fsPath) : this.uri.fsPath;
+		return this.folder ? paths.join(this.uri.fsPath, '*') : this.uri.fsPath;
 	}
 
 	get hasMore() {

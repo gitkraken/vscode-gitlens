@@ -3,7 +3,7 @@ import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';
 import { Container } from './container';
-import { GitRevisionReference } from './git/git';
+import { GitRevisionReference } from './git/models';
 import { Dates, Functions, Iterables, Strings } from './system';
 import { ContactPresenceStatus } from './vsls/vsls';
 

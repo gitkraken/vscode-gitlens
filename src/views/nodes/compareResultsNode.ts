@@ -1,8 +1,8 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
-import { GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitRevision } from '../../git/models';
 import { debug, gate, log, Strings } from '../../system';
 import { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
@@ -19,7 +19,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
-		return Strings.sha1(`${repoPath}|${ref1}|${ref2}`);
+		return Strings.md5(`${repoPath}|${ref1}|${ref2}`);
 	}
 
 	private _children: ViewNode[] | undefined;

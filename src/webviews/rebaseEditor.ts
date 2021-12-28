@@ -1,5 +1,4 @@
 'use strict';
-import { randomBytes } from 'crypto';
 import {
 	CancellationToken,
 	commands,
@@ -15,11 +14,12 @@ import {
 	workspace,
 	WorkspaceEdit,
 } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/git';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { debug, gate, Iterables, Strings } from '../system';
@@ -478,7 +478,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const bootstrap = await this.parseState(context);
 		const cspSource = context.panel.webview.cspSource;
-		const cspNonce = randomBytes(16).toString('base64');
+		const cspNonce = getNonce();
 		const root = context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString();
 
 		const html = content

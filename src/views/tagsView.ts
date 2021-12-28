@@ -12,14 +12,14 @@ import {
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitReference,
 	GitTagReference,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { gate, Strings } from '../system';
 import {
 	BranchOrTagFolderNode,

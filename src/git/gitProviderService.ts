@@ -31,8 +31,9 @@ import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '.
 import { PromiseOrValue } from '../system/promise';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { ProviderNotFoundError } from './errors';
+import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
+import { GitUri } from './gitUri';
 import {
-	Authentication,
 	BranchDateFormatting,
 	BranchSortOptions,
 	CommitDateFormatting,
@@ -68,12 +69,11 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-	SearchPattern,
 	TagSortOptions,
-} from './git';
-import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
-import { GitUri } from './gitUri';
-import { RemoteProvider, RemoteProviders, RichRemoteProvider } from './remotes/factory';
+} from './models';
+import { RemoteProviders } from './remotes/factory';
+import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import { SearchPattern } from './search';
 
 export { type GitProviderDescriptor, GitProviderId };
 

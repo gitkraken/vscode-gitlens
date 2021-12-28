@@ -1,7 +1,8 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, SearchPattern } from '../../git/git';
+import { GitLog, GitLogCommit, Repository } from '../../git/models';
+import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 import { SearchResultsNode } from '../../views/nodes';

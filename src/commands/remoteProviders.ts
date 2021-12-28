@@ -1,6 +1,7 @@
 'use strict';
 import { Container } from '../container';
-import { GitCommit, GitRemote, Repository, RichRemoteProvider } from '../git/git';
+import { GitCommit, GitRemote, Repository } from '../git/models';
+import { RichRemoteProvider } from '../git/remotes/provider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { Iterables } from '../system';
 import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';

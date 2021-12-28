@@ -1,8 +1,8 @@
 'use strict';
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/models';
 import { Strings } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';

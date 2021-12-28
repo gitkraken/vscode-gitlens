@@ -2,7 +2,8 @@
 import { commands, QuickPickItem } from 'vscode';
 import { Commands, GitActions } from '../commands';
 import { Container } from '../container';
-import { GitReference, GitRevisionReference, GitStashCommit, SearchPattern } from '../git/git';
+import { GitReference, GitRevisionReference, GitStashCommit } from '../git/models';
+import { SearchPattern } from '../git/search';
 import { Keys } from '../keyboard';
 
 declare module 'vscode' {

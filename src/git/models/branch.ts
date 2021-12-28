@@ -3,8 +3,9 @@ import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Dates, debug, memoize, Strings } from '../../system';
-import { GitRemote, GitRevision } from '../git';
-import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
+import { GitBranchReference, GitReference, GitRevision } from '../models';
+import { PullRequest, PullRequestState } from './pullRequest';
+import { GitRemote } from './remote';
 import { GitStatus } from './status';
 
 const whitespaceRegex = /\s/;

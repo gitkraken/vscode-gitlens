@@ -24,7 +24,7 @@ import {
 	PullRequestState,
 	RemoteProviderReference,
 	Repository,
-} from '../models/models';
+} from '../models';
 
 export const enum RemoteResourceType {
 	Branch = 'branch',

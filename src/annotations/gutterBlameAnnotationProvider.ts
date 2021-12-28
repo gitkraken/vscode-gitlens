@@ -3,7 +3,8 @@ import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRende
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter, GitBlame, GitBlameCommit } from '../git/git';
+import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
+import { GitBlame, GitBlameCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Arrays, Iterables, log, Stopwatch, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';

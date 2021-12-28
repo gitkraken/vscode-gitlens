@@ -1,5 +1,6 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitCommitType,
@@ -12,8 +13,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Logger } from '../../logger';
 import { debug, gate, Iterables, memoize } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';

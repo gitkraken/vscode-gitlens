@@ -4,7 +4,8 @@ import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemColla
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
-import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
+import { GitBranch, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';

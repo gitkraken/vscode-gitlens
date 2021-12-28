@@ -13,7 +13,7 @@ import {
 	GitStashCommit,
 	GitTag,
 	Repository,
-} from '../git/git';
+} from '../git/models';
 import { Dates, Strings } from '../system';
 import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
 

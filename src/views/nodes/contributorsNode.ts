@@ -1,7 +1,7 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitContributor, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitContributor, Repository } from '../../git/models';
 import { debug, gate, timeout } from '../../system';
 import { ContributorsView } from '../contributorsView';
 import { RepositoriesView } from '../repositoriesView';

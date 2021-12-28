@@ -15,8 +15,8 @@ import {
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
 import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
-import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitReference, GitRevision } from '../git/models';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
 import {

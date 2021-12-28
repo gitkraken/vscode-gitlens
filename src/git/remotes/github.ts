@@ -12,7 +12,7 @@ import {
 	PullRequest,
 	PullRequestState,
 	Repository,
-} from '../models/models';
+} from '../models';
 import { RichRemoteProvider } from './provider';
 
 const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;

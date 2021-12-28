@@ -19,8 +19,17 @@ import {
 import type { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitReference, GitRemote, GitTag, Repository } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import {
+	GitBranch,
+	GitCommit,
+	GitContributor,
+	GitFile,
+	GitReference,
+	GitRemote,
+	GitTag,
+	Repository,
+} from '../git/models';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';

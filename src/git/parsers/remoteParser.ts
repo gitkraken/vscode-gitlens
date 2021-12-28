@@ -1,8 +1,8 @@
 'use strict';
 import { debug } from '../../system';
-import { GitRemote } from '../git';
+import { GitRemote } from '../models';
 import { GitRemoteType } from '../models/remote';
-import { RemoteProvider } from '../remotes/factory';
+import { RemoteProvider } from '../remotes/provider';
 
 const emptyStr = '';
 

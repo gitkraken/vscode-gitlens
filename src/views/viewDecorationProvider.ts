@@ -11,7 +11,7 @@ import {
 	window,
 } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitBranchStatus } from '../git/git';
+import { GitBranchStatus } from '../git/models';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();

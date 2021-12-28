@@ -2,7 +2,7 @@
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitBlameCommit } from '../git/git';
+import { GitBlameCommit } from '../git/models';
 import { Logger } from '../logger';
 import { log, Stopwatch } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';

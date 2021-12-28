@@ -2,7 +2,7 @@
 import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/git';
+import { GitReference, Repository } from '../../git/models';
 import { Arrays } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {

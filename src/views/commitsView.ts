@@ -12,6 +12,7 @@ import {
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { ContextKeys, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitLogCommit,
 	GitReference,
@@ -20,8 +21,7 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { debug, Functions, gate, Strings } from '../system';
 import {
 	BranchNode,

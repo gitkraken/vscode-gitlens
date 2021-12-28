@@ -339,30 +339,3 @@ export namespace GitReference {
 		}
 	}
 }
-
-export * from './author';
-export * from './blame';
-export * from './blameCommit';
-export * from './branch';
-export * from './commit';
-export * from './contributor';
-export * from './defaultBranch';
-export * from './diff';
-export * from './file';
-export * from './issue';
-export * from './log';
-export * from './logCommit';
-export * from './merge';
-export * from './pullRequest';
-export * from './rebase';
-export * from './reflog';
-export * from './remote';
-export * from './remoteProvider';
-export * from './repository';
-export * from './shortlog';
-export * from './stash';
-export * from './stashCommit';
-export * from './status';
-export * from './tag';
-export * from './tree';
-export * from './user';

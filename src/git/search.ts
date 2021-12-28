@@ -1,6 +1,5 @@
 'use strict';
-import { GitRevision } from './git';
-import { GitRevisionReference } from './models/models';
+import { GitRevision, GitRevisionReference } from './models';
 
 export type SearchOperators =
 	| ''

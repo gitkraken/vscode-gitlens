@@ -1,5 +1,4 @@
 'use strict';
-import { randomBytes } from 'crypto';
 import {
 	commands,
 	ConfigurationChangeEvent,
@@ -13,10 +12,12 @@ import {
 	window,
 	workspace,
 } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { CommitFormatter, GitBlameCommit, PullRequest, PullRequestState } from '../git/git';
+import { CommitFormatter } from '../git/formatters';
+import { GitBlameCommit, PullRequest, PullRequestState } from '../git/models';
 import { Logger } from '../logger';
 import {
 	DidChangeConfigurationNotificationType,
@@ -332,7 +333,7 @@ export abstract class WebviewBase implements Disposable {
 		]);
 
 		const cspSource = webview.cspSource;
-		const cspNonce = randomBytes(16).toString('base64');
+		const cspNonce = getNonce();
 		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
 
 		const html = content

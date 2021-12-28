@@ -2,8 +2,9 @@
 import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
-import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitReference, GitRevisionReference } from '../../git/models';
 import { View } from '../viewBase';
 import { FileNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';

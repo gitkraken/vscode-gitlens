@@ -1,7 +1,7 @@
 'use strict';
-import { BinaryToTextEncoding, createHash } from 'crypto';
 import ansiRegex from 'ansi-regex';
-import { isWindows } from '../git/shell';
+import { md5 as _md5 } from '@env/crypto';
+import { isWindows } from '@env/platform';
 
 export { fromBase64, base64 } from '@env/base64';
 
@@ -281,8 +281,8 @@ export function* lines(s: string, char: string = '\n'): IterableIterator<string>
 	}
 }
 
-export function md5(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
-	return createHash('md5').update(s).digest(encoding);
+export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
+	return _md5(s, encoding);
 }
 
 export function normalizePath(fileName: string, options?: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean }) {
@@ -377,10 +377,6 @@ const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 export function sanitizeForFileSystem(s: string, replacement: string = '_') {
 	if (!s) return s;
 	return s.replace(illegalCharsForFSRegex, replacement);
-}
-
-export function sha1(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
-	return createHash('sha1').update(s).digest(encoding);
 }
 
 export function splitLast(s: string, splitter: string) {

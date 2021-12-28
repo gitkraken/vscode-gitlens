@@ -9,9 +9,9 @@ import { GerritRemote } from './gerrit';
 import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
-import { RemoteProvider, RichRemoteProvider } from './provider';
+import { RemoteProvider } from './provider';
 
-export { RemoteProvider, RichRemoteProvider };
+// export { RemoteProvider, RichRemoteProvider };
 export type RemoteProviders = {
 	custom: boolean;
 	matcher: string | RegExp;

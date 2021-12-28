@@ -22,30 +22,23 @@ import { Logger, LogLevel } from '../../logger';
 import { Messages } from '../../messages';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
-import {
-	GitBranch,
-	GitContributor,
-	GitDiffShortStat,
-	GitRemote,
-	GitStash,
-	GitStatus,
-	GitTag,
-	SearchPattern,
-} from '../git';
 import { GitProviderDescriptor } from '../gitProvider';
 import { GitUri } from '../gitUri';
-import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
-import {
-	BranchSortOptions,
-	GitBranchReference,
-	GitLog,
-	GitLogCommit,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReference,
-	GitTagReference,
-	TagSortOptions,
-} from './models';
+import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
+import { RichRemoteProvider } from '../remotes/provider';
+import { SearchPattern } from '../search';
+import { BranchSortOptions, GitBranch } from './branch';
+import { GitContributor } from './contributor';
+import { GitDiffShortStat } from './diff';
+import { GitLog } from './log';
+import { GitLogCommit } from './logCommit';
+import { GitMergeStatus } from './merge';
+import { GitRebaseStatus } from './rebase';
+import { GitBranchReference, GitReference, GitTagReference } from './reference';
+import { GitRemote } from './remote';
+import { GitStash } from './stash';
+import { GitStatus } from './status';
+import { GitTag, TagSortOptions } from './tag';
 
 export const enum RepositoryChange {
 	// FileSystem = 'filesystem',

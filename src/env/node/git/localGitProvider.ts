@@ -16,80 +16,93 @@ import {
 	WorkspaceFolder,
 } from 'vscode';
 import { hrtime } from '@env/hrtime';
-import type { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../../@types/vscode.git';
-import { configuration } from '../../configuration';
-import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { LogCorrelationContext, Logger } from '../../logger';
-import { Messages } from '../../messages';
-import { Arrays, debug, Functions, gate, Iterables, log, Paths, Promises, Strings, Versions } from '../../system';
-import { PromiseOrValue } from '../../system/promise';
+import { isWindows } from '@env/platform';
+import type {
+	API as BuiltInGitApi,
+	Repository as BuiltInGitRepository,
+	GitExtension,
+} from '../../../@types/vscode.git';
+import { configuration } from '../../../configuration';
+import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../../constants';
+import { Container } from '../../../container';
+import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
-	CachedBlame,
-	CachedDiff,
-	CachedLog,
-	GitDocumentState,
-	TrackedDocument,
-} from '../../trackers/gitDocumentTracker';
+	GitProvider,
+	GitProviderId,
+	PagedResult,
+	RepositoryInitWatcher,
+	ScmRepository,
+} from '../../../git/gitProvider';
+import { GitProviderService } from '../../../git/gitProviderService';
+import { GitUri } from '../../../git/gitUri';
 import {
 	BranchSortOptions,
-	Git,
 	GitAuthor,
 	GitBlame,
 	GitBlameCommit,
 	GitBlameLine,
 	GitBlameLines,
-	GitBlameParser,
 	GitBranch,
-	GitBranchParser,
 	GitBranchReference,
 	GitCommitType,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
 	GitDiffHunkLine,
-	GitDiffParser,
 	GitDiffShortStat,
-	GitErrors,
 	GitFile,
 	GitLog,
 	GitLogCommit,
-	GitLogParser,
 	GitMergeStatus,
 	GitRebaseStatus,
 	GitReference,
 	GitReflog,
 	GitRemote,
-	GitRemoteParser,
 	GitRevision,
 	GitStash,
-	GitStashParser,
 	GitStatus,
 	GitStatusFile,
-	GitStatusParser,
 	GitTag,
-	GitTagParser,
 	GitTree,
-	GitTreeParser,
 	GitUser,
-	isFolderGlob,
-	maxGitCliLength,
 	PullRequest,
 	PullRequestState,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-	SearchPattern,
 	TagSortOptions,
-} from '../git';
-import { GitProvider, GitProviderId, PagedResult, RepositoryInitWatcher, ScmRepository } from '../gitProvider';
-import { GitProviderService } from '../gitProviderService';
-import { GitUri } from '../gitUri';
-import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from '../locator';
-import { GitReflogParser, GitShortLogParser } from '../parsers/parsers';
-import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
-import { fsExists, isWindows } from '../shell';
+} from '../../../git/models';
+import {
+	GitBlameParser,
+	GitBranchParser,
+	GitDiffParser,
+	GitLogParser,
+	GitReflogParser,
+	GitRemoteParser,
+	GitShortLogParser,
+	GitStashParser,
+	GitStatusParser,
+	GitTagParser,
+	GitTreeParser,
+} from '../../../git/parsers';
+import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
+import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
+import { SearchPattern } from '../../../git/search';
+import { LogCorrelationContext, Logger } from '../../../logger';
+import { Messages } from '../../../messages';
+import { Arrays, debug, Functions, gate, Iterables, log, Paths, Promises, Strings, Versions } from '../../../system';
+import { PromiseOrValue } from '../../../system/promise';
+import {
+	CachedBlame,
+	CachedDiff,
+	CachedLog,
+	GitDocumentState,
+	TrackedDocument,
+} from '../../../trackers/gitDocumentTracker';
+import { Git, GitErrors, isFolderGlob, maxGitCliLength } from './git';
+import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from './locator';
+import { fsExists, RunError } from './shell';
 
 const emptyStr = '';
 
@@ -683,7 +696,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const key = `blame:${Strings.sha1(contents)}`;
+		const key = `blame:${Strings.md5(contents)}`;
 
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
@@ -1457,7 +1470,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitDiff | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const key = `diff:${Strings.sha1(contents)}`;
+		const key = `diff:${Strings.md5(contents)}`;
 
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
@@ -3679,7 +3692,39 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		stashName: string,
 		{ deleteAfter }: { deleteAfter?: boolean } = {},
 	): Promise<void> {
-		await Git.stash__apply(repoPath, stashName, Boolean(deleteAfter));
+		try {
+			await Git.stash__apply(repoPath, stashName, Boolean(deleteAfter));
+		} catch (ex) {
+			if (ex instanceof Error) {
+				const msg: string = ex.message ?? '';
+				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
+					throw new StashApplyError(
+						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						StashApplyErrorReason.WorkingChanges,
+						ex,
+					);
+				}
+
+				if (
+					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
+					(ex instanceof RunError &&
+						((ex.stdout.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
+							ex.stdout.includes('needs merge')))
+				) {
+					void window.showInformationMessage('Stash applied with conflicts');
+
+					return;
+				}
+
+				throw new StashApplyError(
+					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
+					undefined,
+					ex,
+				);
+			}
+
+			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, undefined, ex);
+		}
 	}
 
 	@log()

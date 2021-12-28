@@ -1,8 +1,8 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
-import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { Repository } from '../../git/models';
 import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { TagsView } from '../tagsView';

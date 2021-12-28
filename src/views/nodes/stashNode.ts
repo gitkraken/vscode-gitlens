@@ -2,7 +2,8 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
-import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
+import { GitStashCommit, GitStashReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';

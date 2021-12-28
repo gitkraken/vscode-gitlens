@@ -1,7 +1,8 @@
 'use strict';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
+import { GitRemote, GitRevision } from '../git/models';
+import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RemoteProviderPicker } from '../quickpicks';

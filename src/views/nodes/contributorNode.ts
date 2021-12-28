@@ -2,8 +2,8 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';
-import { GitContributor, GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitContributor, GitLog } from '../../git/models';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { ContactPresence } from '../../vsls/vsls';
 import { ContributorsView } from '../contributorsView';

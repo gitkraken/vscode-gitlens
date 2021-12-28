@@ -142,11 +142,6 @@ function getExtensionConfig(target, mode, env) {
 							},
 					  }),
 			],
-			splitChunks: {
-				cacheGroups: {
-					defaultVendors: false,
-				},
-			},
 		},
 		externals: {
 			vscode: 'commonjs vscode',
@@ -187,34 +182,8 @@ function getExtensionConfig(target, mode, env) {
 			],
 		},
 		resolve: {
-			alias:
-				target === 'webworker'
-					? {
-							'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
-					  }
-					: {
-							'@env': path.resolve(__dirname, 'src', 'env', target),
-							// 'universal-user-agent': path.join(
-							// 	__dirname,
-							// 	'node_modules',
-							// 	'universal-user-agent',
-							// 	'dist-node',
-							// 	'index.js',
-							// ),
-					  },
-			fallback:
-				target === 'webworker'
-					? {
-							child_process: false,
-							crypto: require.resolve('crypto-browserify'),
-							fs: false,
-							os: false,
-							path: require.resolve('path-browserify'),
-							process: false,
-							stream: false,
-							url: false,
-					  }
-					: undefined,
+			alias: { '@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target) },
+			fallback: target === 'webworker' ? { path: require.resolve('path-browserify') } : undefined,
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},

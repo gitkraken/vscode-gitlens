@@ -1,14 +1,6 @@
 'use strict';
-import {
-	commands,
-	ConfigurationChangeEvent,
-	ConfigurationScope,
-	env,
-	Event,
-	EventEmitter,
-	ExtensionContext,
-	UIKind,
-} from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import { getSupportedGitProviders } from '@env/git';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -24,8 +16,7 @@ import {
 	FileAnnotationType,
 } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitProviderId, GitProviderService } from './git/gitProviderService';
-import { LocalGitProvider } from './git/providers/localGitProvider';
+import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
@@ -155,8 +146,9 @@ export class Container {
 
 	@log()
 	private registerGitProviders() {
-		if (env.uiKind !== UIKind.Web) {
-			this._context.subscriptions.push(this._git.register(GitProviderId.Git, new LocalGitProvider(this)));
+		const providers = getSupportedGitProviders(this);
+		for (const provider of providers) {
+			this._context.subscriptions.push(this._git.register(provider.descriptor.id, provider));
 		}
 
 		this._git.registrationComplete();

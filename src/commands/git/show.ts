@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
+import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/models';
 import { CommandQuickPickItem, CommitFilesQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {

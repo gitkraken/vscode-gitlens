@@ -18,16 +18,9 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { Iterables, Promises, Strings } from '../../system';
 import { ContactPresence } from '../../vsls/vsls';
-import {
-	GitCommit,
-	GitLogCommit,
-	GitRemote,
-	GitRevision,
-	IssueOrPullRequest,
-	PullRequest,
-	RemoteProvider,
-} from '../git';
 import { GitUri } from '../gitUri';
+import { GitCommit, GitLogCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
+import { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
 
 const emptyStr = '';

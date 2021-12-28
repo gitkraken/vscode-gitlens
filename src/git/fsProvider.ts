@@ -14,9 +14,9 @@ import {
 } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitRevision, GitTree } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { debug, Iterables, Strings, TernarySearchTree } from '../system';
+import { GitRevision, GitTree } from './models';
 
 const emptyArray = new Uint8Array(0);
 

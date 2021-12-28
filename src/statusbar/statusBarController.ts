@@ -15,7 +15,8 @@ import { command, Commands, ToggleFileChangesAnnotationCommandArgs } from '../co
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
+import { CommitFormatter } from '../git/formatters';
+import { GitBlameCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Promises } from '../system';

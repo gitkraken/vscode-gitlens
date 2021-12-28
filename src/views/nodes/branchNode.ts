@@ -2,6 +2,7 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
+import { GitUri } from '../../git/gitUri';
 import {
 	BranchDateFormatting,
 	GitBranch,
@@ -10,8 +11,7 @@ import {
 	GitRemote,
 	GitRemoteType,
 	PullRequestState,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';

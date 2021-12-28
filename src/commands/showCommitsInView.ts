@@ -2,8 +2,8 @@
 import { TextEditor, Uri } from 'vscode';
 import { executeGitCommand } from '../commands';
 import { Container } from '../container';
-import { SearchPattern } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';

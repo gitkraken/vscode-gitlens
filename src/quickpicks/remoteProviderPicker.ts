@@ -3,14 +3,8 @@ import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscod
 import { Commands, OpenOnRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import {
-	getNameFromRemoteResource,
-	GitBranch,
-	GitRemote,
-	RemoteProvider,
-	RemoteResource,
-	RemoteResourceType,
-} from '../git/git';
+import { GitBranch, GitRemote } from '../git/models';
+import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Keys } from '../keyboard';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
 

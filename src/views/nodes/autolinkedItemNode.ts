@@ -1,7 +1,7 @@
 'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitFile, IssueOrPullRequest, IssueOrPullRequestType } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
 import { Dates } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';

@@ -1,7 +1,7 @@
 'use strict';
 import { configuration, DateStyle, TagSorting } from '../../configuration';
 import { Dates, memoize, Strings } from '../../system';
-import { GitReference, GitTagReference } from './models';
+import { GitReference, GitTagReference } from '../models';
 
 export const TagDateFormatting = {
 	dateFormat: undefined! as string | null,

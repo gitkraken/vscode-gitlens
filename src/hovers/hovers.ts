@@ -1,11 +1,12 @@
 'use strict';
 import { CancellationToken, MarkdownString } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { hrtime } from '../env/node/hrtime';
+import { CommitFormatter } from '../git/formatters';
+import { GitUri } from '../git/gitUri';
 import {
-	CommitFormatter,
 	GitBlameCommit,
 	GitCommit,
 	GitDiffHunk,
@@ -14,8 +15,7 @@ import {
 	GitRemote,
 	GitRevision,
 	PullRequest,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { Logger, LogLevel } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
 

@@ -28,7 +28,7 @@ import {
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/git';
+} from '../git/models';
 import { gate } from '../system';
 import {
 	BranchesNode,
@@ -647,7 +647,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false, quoted: true })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(stash, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -705,7 +708,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false, quoted: true })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(tag, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

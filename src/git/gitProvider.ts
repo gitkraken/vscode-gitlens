@@ -1,5 +1,6 @@
 import { Disposable, Event, Range, TextEditor, Uri, WorkspaceFolder } from 'vscode';
 import { Commit, InputBox } from '../@types/vscode.git';
+import { GitUri } from './gitUri';
 import {
 	BranchSortOptions,
 	GitBlame,
@@ -25,14 +26,12 @@ import {
 	GitTag,
 	GitTree,
 	GitUser,
-	RemoteProvider,
 	Repository,
 	RepositoryChangeEvent,
-	RichRemoteProvider,
 	TagSortOptions,
-} from './git';
-import { GitUri } from './gitUri';
+} from './models';
 import { RemoteProviders } from './remotes/factory';
+import { RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import { SearchPattern } from './search';
 
 export const enum GitProviderId {

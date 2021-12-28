@@ -3,7 +3,7 @@ import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRemote, IssueOrPullRequest } from '../git/git';
+import { GitRemote, IssueOrPullRequest } from '../git/models';
 import { Logger } from '../logger';
 import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
 

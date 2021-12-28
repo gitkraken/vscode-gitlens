@@ -2,8 +2,8 @@
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitBlame, GitBlameCommit, GitCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';

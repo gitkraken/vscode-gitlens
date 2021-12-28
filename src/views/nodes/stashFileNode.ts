@@ -1,5 +1,5 @@
 'use strict';
-import { GitFile, GitLogCommit } from '../../git/git';
+import { GitFile, GitLogCommit } from '../../git/models';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
 import { CommitFileNode } from './commitFileNode';

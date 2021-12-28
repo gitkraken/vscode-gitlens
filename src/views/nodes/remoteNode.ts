@@ -2,8 +2,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { GitRemote, GitRemoteType, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitRemote, GitRemoteType, Repository } from '../../git/models';
 import { Arrays, log } from '../../system';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';

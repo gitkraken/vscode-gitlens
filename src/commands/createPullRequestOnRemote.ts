@@ -1,6 +1,7 @@
 'use strict';
 import { Container } from '../container';
-import { GitRemote, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
+import { GitRemote } from '../git/models';
+import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Command, command, Commands, executeCommand } from './common';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 

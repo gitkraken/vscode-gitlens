@@ -19,9 +19,9 @@ import {
 import { configuration } from '../configuration';
 import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
 import { Functions, Iterables } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 

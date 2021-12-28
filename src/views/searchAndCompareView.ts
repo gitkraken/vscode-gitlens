@@ -4,7 +4,8 @@ import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitRevision, SearchPattern } from '../git/git';
+import { GitLog, GitRevision } from '../git/models';
+import { SearchPattern } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import { debug, gate, Iterables, log, Promises } from '../system';
 import {

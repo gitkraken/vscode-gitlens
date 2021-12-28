@@ -38,8 +38,9 @@ import {
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitBlame, GitBlameLines, GitCommit, RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
 

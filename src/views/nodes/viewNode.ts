@@ -9,6 +9,8 @@ import {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { GlyphChars } from '../../constants';
+import { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitFile,
 	GitReference,
@@ -18,9 +20,7 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../../git/git';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, log, logName, Strings } from '../../system';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';

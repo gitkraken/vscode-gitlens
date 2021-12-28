@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
 import { ViewShowBranchComparison } from './config';
-import { SearchPattern } from './git/git';
+import { SearchPattern } from './git/search';
 
 export const quickPickTitleMaxChars = 80;
 

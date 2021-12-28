@@ -3,6 +3,8 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
+import { PagedResult } from '../git/gitProvider';
+import { GitUri } from '../git/gitUri';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -19,14 +21,11 @@ import {
 	GitStatus,
 	GitTag,
 	GitTagReference,
-	RemoteProvider,
-	RemoteResourceType,
 	Repository,
-	SearchPattern,
 	TagSortOptions,
-} from '../git/git';
-import { PagedResult } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
+import { RemoteProvider, RemoteResourceType } from '../git/remotes/provider';
+import { SearchPattern } from '../git/search';
 import {
 	BranchQuickPickItem,
 	CommandQuickPickItem,

@@ -1,8 +1,8 @@
 'use strict';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Colors } from '../../constants';
-import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/models';
 import { Dates, debug, gate, Iterables, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';

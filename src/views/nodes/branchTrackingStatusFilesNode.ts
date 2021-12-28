@@ -2,8 +2,8 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';

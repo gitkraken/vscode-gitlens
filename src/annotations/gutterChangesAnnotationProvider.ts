@@ -15,7 +15,7 @@ import {
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitDiff, GitLogCommit } from '../git/git';
+import { GitDiff, GitLogCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log, Stopwatch } from '../system';

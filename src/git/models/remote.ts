@@ -2,7 +2,7 @@
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';
-import { RemoteProvider, RichRemoteProvider } from '../remotes/factory';
+import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
 
 export const enum GitRemoteType {
 	Fetch = 'fetch',

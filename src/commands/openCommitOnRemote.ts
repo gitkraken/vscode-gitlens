@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {

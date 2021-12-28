@@ -3,7 +3,7 @@ import { ExecException, execFile } from 'child_process';
 import * as fs from 'fs';
 import * as paths from 'path';
 import * as iconv from 'iconv-lite';
-import { Logger } from '../logger';
+import { Logger } from '../../../logger';
 
 export const isWindows = process.platform === 'win32';
 

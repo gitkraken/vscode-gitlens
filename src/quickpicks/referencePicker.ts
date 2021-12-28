@@ -4,7 +4,7 @@ import { GitActions } from '../commands';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/git';
+import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
 import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
 

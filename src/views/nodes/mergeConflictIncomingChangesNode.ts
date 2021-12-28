@@ -2,8 +2,9 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { CommitFormatter, GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/models';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';

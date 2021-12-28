@@ -1,6 +1,7 @@
 'use strict';
 import { Arrays, debug, Strings } from '../../system';
-import { fileStatusRegex, GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../git';
+import { GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../models';
+import { fileStatusRegex } from './logParser';
 // import { Logger } from './logger';
 
 // Using %x00 codes because some shells seem to try to expand things if not

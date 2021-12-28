@@ -12,7 +12,7 @@ import {
 	GitLogCommitLine,
 	GitRevision,
 	GitUser,
-} from '../git';
+} from '../models';
 
 const emptyEntry: LogEntry = {};
 const emptyStr = '';

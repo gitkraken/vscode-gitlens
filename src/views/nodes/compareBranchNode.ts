@@ -2,8 +2,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../configuration';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
-import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitRevision } from '../../git/models';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
 import { debug, gate, log, Strings } from '../../system';
 import { BranchesView } from '../branchesView';

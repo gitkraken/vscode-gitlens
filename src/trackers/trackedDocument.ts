@@ -2,8 +2,8 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
 import { ContextKeys, getEditorIfActive, isActiveDocument, setContext } from '../constants';
 import { Container } from '../container';
-import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 
 export interface DocumentBlameStateChangeEvent<T> {

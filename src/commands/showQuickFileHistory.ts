@@ -1,8 +1,8 @@
 'use strict';
 import { Range, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitBranch, GitLog, GitReference, GitTag } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitBranch, GitLog, GitReference, GitTag } from '../git/models';
 import { CommandQuickPickItem } from '../quickpicks';
 import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { executeGitCommand } from './gitCommands';

@@ -2,8 +2,8 @@
 import * as paths from 'path';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { GitFile } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitFile } from '../../git/models';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';

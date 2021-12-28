@@ -1,8 +1,8 @@
 'use strict';
 import * as paths from 'path';
-import { GlyphChars } from '../constants';
-import { LogLevel } from '../logger';
-import { Stopwatch } from '../system';
+import { GlyphChars } from '../../../constants';
+import { LogLevel } from '../../../logger';
+import { Stopwatch } from '../../../system';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {

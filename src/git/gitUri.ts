@@ -4,9 +4,9 @@ import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitFile, GitRevision } from '../git/git';
 import { Logger } from '../logger';
 import { debug, memoize, Strings } from '../system';
+import { GitCommit, GitFile, GitRevision } from './models';
 
 const emptyStr = '';
 const slash = '/';

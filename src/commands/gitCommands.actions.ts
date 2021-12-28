@@ -13,6 +13,7 @@ import {
 } from '../commands';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitBranchReference,
 	GitContributor,
@@ -25,8 +26,7 @@ import {
 	GitStashReference,
 	GitTagReference,
 	Repository,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { RepositoryPicker } from '../quickpicks';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';

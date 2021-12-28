@@ -7,8 +7,8 @@ import {
 	ShowQuickCommitCommandArgs,
 } from '../commands';
 import { Container } from '../container';
-import { GitBranch, GitReference, GitTag } from '../git/git';
 import { PagedResult } from '../git/gitProvider';
+import { GitBranch, GitReference, GitTag } from '../git/models';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;

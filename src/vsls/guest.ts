@@ -2,7 +2,8 @@
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';
-import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
+import { GitCommandOptions } from '../git/commandOptions';
+import { Repository, RepositoryChangeEvent } from '../git/models';
 import { Logger } from '../logger';
 import { debug, log } from '../system';
 import { VslsHostService } from './host';

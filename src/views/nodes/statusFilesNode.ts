@@ -2,6 +2,7 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitCommitType,
 	GitFileWithCommit,
@@ -11,8 +12,7 @@ import {
 	GitStatus,
 	GitStatusFile,
 	GitTrackingState,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Arrays, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';

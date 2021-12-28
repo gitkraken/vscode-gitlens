@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
-import { GitCommit } from './git/git';
+import { GitCommit } from './git/models';
 import { Logger } from './logger';
 
 export const enum SuppressedMessages {

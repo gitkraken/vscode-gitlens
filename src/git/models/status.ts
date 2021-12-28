@@ -4,9 +4,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
+import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from '../models';
 import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
-import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from './models';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;

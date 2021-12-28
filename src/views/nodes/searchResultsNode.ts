@@ -1,8 +1,9 @@
 'use strict';
 import { ThemeIcon, TreeItem } from 'vscode';
 import { executeGitCommand } from '../../commands';
-import { GitLog, SearchPattern } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog } from '../../git/models';
+import { SearchPattern } from '../../git/search';
 import { debug, gate, log, Strings } from '../../system';
 import { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
@@ -27,7 +28,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return Strings.sha1(`${repoPath}|${SearchPattern.toKey(search)}`);
+		return Strings.md5(`${repoPath}|${SearchPattern.toKey(search)}`);
 	}
 
 	static override is(node: any): node is SearchResultsNode {

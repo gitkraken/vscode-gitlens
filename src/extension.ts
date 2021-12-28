@@ -1,14 +1,14 @@
 'use strict';
 import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
-import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
+import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import { configuration, Configuration, OutputLevel } from './configuration';
 import { ContextKeys, GlobalState, setContext, SyncedState } from './constants';
 import { Container } from './container';
-import { GitBranch, GitCommit } from './git/git';
 import { GitUri } from './git/gitUri';
+import { GitBranch, GitCommit } from './git/models';
 import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';

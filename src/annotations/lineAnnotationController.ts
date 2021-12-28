@@ -14,7 +14,9 @@ import {
 import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
-import { Authentication, CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
+import { CommitFormatter } from '../git/formatters';
+import { GitBlameCommit, PullRequest } from '../git/models';
+import { Authentication } from '../git/remotes/provider';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Iterables, log, Promises } from '../system';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';

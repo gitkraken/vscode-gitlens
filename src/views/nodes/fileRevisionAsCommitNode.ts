@@ -12,15 +12,9 @@ import {
 } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Colors, GlyphChars } from '../../constants';
-import {
-	CommitFormatter,
-	GitBranch,
-	GitFile,
-	GitLogCommit,
-	GitRevisionReference,
-	StatusFileFormatter,
-} from '../../git/git';
+import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';

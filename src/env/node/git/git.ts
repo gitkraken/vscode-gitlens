@@ -3,23 +3,15 @@
 import * as paths from 'path';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Paths, Strings, Versions } from '../system';
+import { GlyphChars } from '../../../constants';
+import { Container } from '../../../container';
+import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
+import { GitDiffFilter, GitRevision } from '../../../git/models';
+import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from '../../../git/parsers';
+import { Logger } from '../../../logger';
+import { Paths, Strings, Versions } from '../../../system';
 import { GitLocation } from './locator';
-import { GitRevision } from './models/models';
-import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { fsExists, run, RunError, RunOptions } from './shell';
-
-export * from './models/models';
-export * from './parsers/parsers';
-export * from './formatters/formatters';
-export * from './remotes/provider';
-export * from './search';
-export { RunError } from './shell';
-
-export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
@@ -56,19 +48,6 @@ const GitWarnings = {
 	remoteConnectionError: /Could not read from remote repository/i,
 	notAGitCommand: /'.+' is not a git command/i,
 };
-
-export const enum GitErrorHandling {
-	Ignore = 'ignore',
-	Throw = 'throw',
-}
-
-export interface GitCommandOptions extends RunOptions<BufferEncoding | 'buffer' | string> {
-	configs?: string[];
-	readonly correlationKey?: string;
-	errors?: GitErrorHandling;
-	// Specifies that this command should always be executed locally if possible
-	local?: boolean;
-}
 
 // A map of running git commands -- avoids running duplicate overlaping commands
 const pendingCommands = new Map<string, Promise<string | Buffer>>();
@@ -1562,8 +1541,4 @@ export namespace Git {
 
 export function isFolderGlob(path: string) {
 	return paths.basename(path) === '*';
-}
-
-export function toFolderGlob(fsPath: string) {
-	return paths.join(fsPath, '*');
 }

@@ -12,6 +12,7 @@ import {
 import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitBranchReference,
@@ -22,8 +23,7 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { gate, Strings } from '../system';
 import {
 	BranchNode,

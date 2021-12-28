@@ -1,6 +1,6 @@
 'use strict';
 import { debug, Strings } from '../../system';
-import { GitStatus, GitStatusFile } from '../git';
+import { GitStatus, GitStatusFile } from '../models';
 
 const emptyStr = '';
 

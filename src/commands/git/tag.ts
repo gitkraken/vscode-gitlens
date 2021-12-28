@@ -1,7 +1,7 @@
 'use strict';
 import { QuickInputButtons, QuickPickItem } from 'vscode';
 import { Container } from '../../container';
-import { GitReference, GitTagReference, Repository } from '../../git/git';
+import { GitReference, GitTagReference, Repository } from '../../git/models';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';

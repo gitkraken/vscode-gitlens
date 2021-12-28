@@ -13,16 +13,16 @@ import {
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
+import { CommitFormatter } from '../../git/formatters';
+import { GitUri } from '../../git/gitUri';
 import {
-	CommitFormatter,
 	GitBranch,
 	GitLogCommit,
 	GitRebaseStatus,
 	GitReference,
 	GitRevisionReference,
 	GitStatus,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';

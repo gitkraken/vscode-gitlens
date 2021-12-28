@@ -13,8 +13,8 @@ import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
 import { debug, gate, Strings } from '../system';
 import {
 	ContributorNode,

@@ -1,7 +1,7 @@
 'use strict';
 import { executeGitCommand } from '../commands';
 import { Container } from '../container';
-import { SearchPattern } from '../git/git';
+import { SearchPattern } from '../git/search';
 import { SearchResultsNode } from '../views/nodes';
 import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 

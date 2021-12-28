@@ -1,7 +1,7 @@
 'use strict';
 import { env } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
+import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
 import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';

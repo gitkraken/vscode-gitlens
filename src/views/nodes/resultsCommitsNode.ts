@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog } from '../../git/models';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';

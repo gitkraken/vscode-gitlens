@@ -1,6 +1,7 @@
 'use strict';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitRemote,
@@ -10,8 +11,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';

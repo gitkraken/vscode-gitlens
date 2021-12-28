@@ -1,7 +1,7 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitReference, GitStatus, Repository } from '../../git/git';
+import { GitReference, GitStatus, Repository } from '../../git/models';
 import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';

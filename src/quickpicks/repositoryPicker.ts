@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../git/git';
+import { Repository } from '../git/models';
 import { getQuickPickIgnoreFocusOut, RepositoryQuickPickItem } from '../quickpicks';
 import { Iterables } from '../system';
 
