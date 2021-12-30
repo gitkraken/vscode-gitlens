@@ -24,7 +24,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -35,6 +35,7 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
+			squoosh: false,
 			...env,
 		};
 
@@ -48,7 +49,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -210,7 +211,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
@@ -244,9 +245,40 @@ function getWebviewsConfig(mode, env) {
 	// @ts-ignore
 	cspHtmlPlugin.createNonce = () => '#{cspNonce}';
 
-	/**
-	 * @type WebpackConfig['plugins'] | any
-	 */
+	/** @type ImageMinimizerPlugin.Generator<any> */
+	// @ts-ignore
+	let imageGeneratorConfig = env.squoosh
+		? {
+				type: 'asset',
+				implementation: ImageMinimizerPlugin.squooshGenerate,
+				options: {
+					encodeOptions: {
+						webp: {
+							// quality: 90,
+							lossless: 1,
+						},
+					},
+				},
+		  }
+		: {
+				type: 'asset',
+				implementation: ImageMinimizerPlugin.imageminGenerate,
+				options: {
+					plugins: [
+						[
+							'imagemin-webp',
+							{
+								lossless: true,
+								nearLossless: 0,
+								quality: 100,
+								method: mode === 'production' ? 4 : 0,
+							},
+						],
+					],
+				},
+		  };
+
+	/** @type WebpackConfig['plugins'] | any */
 	const plugins = [
 		new CleanPlugin(
 			mode === 'production'
@@ -355,36 +387,16 @@ function getWebviewsConfig(mode, env) {
 				},
 			],
 		}),
-		new ImageMinimizerPlugin({
-			deleteOriginalAssets: true,
-			minimizer: {
-				implementation: ImageMinimizerPlugin.imageminGenerate,
-				options: {
-					plugins: [
-						[
-							'imagemin-webp',
-							{
-								lossless: true,
-								nearLossless: 0,
-								quality: 100,
-								method: mode === 'production' ? 4 : 0,
-							},
-						],
-					],
-				},
-				// implementation: ImageMinimizerPlugin.squooshGenerate,
-				// options: {
-				// 	// @ts-ignore
-				// 	encodeOptions: {
-				// 		webp: {
-				// 			// quality: 90,
-				// 			lossless: 1,
-				// 		},
-				// 	},
-				// },
-			},
-		}),
 	];
+
+	if (mode !== 'production') {
+		plugins.push(
+			new ImageMinimizerPlugin({
+				deleteOriginalAssets: true,
+				generator: [imageGeneratorConfig],
+			}),
+		);
+	}
 
 	return {
 		name: 'webviews',
@@ -401,6 +413,14 @@ function getWebviewsConfig(mode, env) {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+		},
+		optimization: {
+			minimizer: [
+				new ImageMinimizerPlugin({
+					deleteOriginalAssets: true,
+					generator: [imageGeneratorConfig],
+				}),
+			],
 		},
 		module: {
 			rules: [
