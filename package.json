@@ -10144,6 +10144,7 @@
 		"sortablejs": "1.14.0"
 	},
 	"devDependencies": {
+		"@squoosh/lib": "0.4.0",
 		"@types/chroma-js": "2.1.3",
 		"@types/lodash-es": "4.17.5",
 		"@types/node": "14.17.4",
@@ -10151,7 +10152,6 @@
 		"@types/vscode": "1.63.1",
 		"@typescript-eslint/eslint-plugin": "5.8.1",
 		"@typescript-eslint/parser": "5.8.1",
-		"@squoosh/lib": "0.4.0",
 		"ansi-regex": "6.0.1",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
@@ -10159,13 +10159,13 @@
 		"cross-env": "7.0.3",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.5.1",
-		"esbuild": "0.14.8",
+		"esbuild": "0.14.9",
 		"esbuild-loader": "2.18.0",
 		"eslint": "8.5.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.3.0",
 		"eslint-import-resolver-typescript": "2.5.0",
-		"eslint-plugin-anti-trojan-source": "1.0.6",
+		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.25.3",
 		"fork-ts-checker-webpack-plugin": "6.5.0",
 		"html-loader": "3.0.1",
@@ -10176,7 +10176,7 @@
 		"json5": "2.2.0",
 		"mini-css-extract-plugin": "2.4.5",
 		"prettier": "2.5.1",
-		"sass": "1.45.1",
+		"sass": "1.45.2",
 		"sass-loader": "12.4.0",
 		"terser-webpack-plugin": "5.3.0",
 		"ts-loader": "9.2.6",
@@ -10187,7 +10187,6 @@
 		"webpack-cli": "4.9.1"
 	},
 	"resolutions": {
-		"esbuild": "0.14.8",
 		"node-fetch": "2.6.1",
 		"semver-regex": "3.1.3",
 		"trim-newlines": "4.0.2"
