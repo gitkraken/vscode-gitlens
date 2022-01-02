@@ -122,6 +122,7 @@ function getExtensionConfig(target, mode, env) {
 					? new TerserPlugin({
 							minify: TerserPlugin.esbuildMinify,
 							terserOptions: {
+								drop: ['debugger'],
 								// @ts-ignore
 								format: 'cjs',
 								minify: true,
@@ -132,6 +133,7 @@ function getExtensionConfig(target, mode, env) {
 							},
 					  })
 					: new TerserPlugin({
+							drop_debugger: true,
 							extractComments: false,
 							parallel: true,
 							// @ts-ignore
