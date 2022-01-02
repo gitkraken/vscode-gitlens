@@ -36,7 +36,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 			args.uri = await GitUri.fromUri(uri);
 			if (GitUri.is(args.uri) && args.uri.sha) {
-				const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
+				const workingUri = await Container.instance.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
 						'Unable to open working file. File could not be found in the working tree',
@@ -58,7 +58,9 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, throwOnError: true });
 			if (args.annotationType === undefined) return;
 
-			void (await Container.fileAnnotations.show(e, args.annotationType, args.line));
+			void (await Container.instance.fileAnnotations.show(e, args.annotationType, {
+				selection: { line: args.line },
+			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenWorkingFileCommand');
 			void Messages.showGenericErrorMessage('Unable to open working file');

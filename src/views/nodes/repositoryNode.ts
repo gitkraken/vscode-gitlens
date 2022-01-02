@@ -1,24 +1,24 @@
 'use strict';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitRemote,
 	GitStatus,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { CompareBranchNode } from './compareBranchNode';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
+import { CompareBranchNode } from './compareBranchNode';
 import { ContributorsNode } from './contributorsNode';
 import { MergeStatusNode } from './mergeStatusNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
@@ -44,11 +44,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		this._status = this.repo.getStatus();
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RepositoryNode.getId(this.repo.path);
 	}
 
@@ -65,7 +65,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					true,
 					undefined,
 					status.sha,
-					status.upstream,
+					status.upstream ? { name: status.upstream, missing: false } : undefined,
 					status.state.ahead,
 					status.state.behind,
 					status.detached,
@@ -86,8 +86,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				}
 
 				const [mergeStatus, rebaseStatus] = await Promise.all([
-					Container.git.getMergeStatus(status.repoPath),
-					Container.git.getRebaseStatus(status.repoPath),
+					this.view.container.git.getMergeStatus(status.repoPath),
+					this.view.container.git.getRebaseStatus(status.repoPath),
 				]);
 
 				if (mergeStatus != null) {
@@ -210,7 +210,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 			let providerName;
 			if (status.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(status.repoPath));
+				const providers = GitRemote.getHighlanderProviders(
+					await this.view.container.git.getRemotes(status.repoPath),
+				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await status.getRemote();
@@ -249,11 +251,14 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		if (!this.repo.supportsChangeEvents) {
-			description = `<!>${description ? ` ${GlyphChars.Space}${description}` : ''}`;
-			tooltip += '\n\n<!> Unable to automatically detect repository changes';
+			description = `${Strings.pad(GlyphChars.Warning, 1, 0)}${
+				description ? Strings.pad(description, 2, 0) : ''
+			}`;
+			tooltip += `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`;
 		}
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
 			lastFetched
@@ -261,11 +266,15 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				: ''
 		}`;
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
+			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
+			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
-		item.id = this.id;
-		item.tooltip = new MarkdownString(tooltip, true);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}
@@ -287,7 +296,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		if (reset) {
 			this._status = this.repo.getStatus();
 
@@ -343,15 +352,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...disposables);
 	}
 
-	protected get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
+	protected override etag(): number {
+		return this.repo.etag;
 	}
 
-	private _repoUpdatedAt: number = this.repo.updatedAt;
-
-	@debug({
+	@debug<RepositoryNode['onFileSystemChanged']>({
 		args: {
-			0: (e: RepositoryFileSystemChangeEvent) =>
+			0: e =>
 				`{ repository: ${e.repository?.name ?? ''}, uris(${e.uris.length}): [${e.uris
 					.slice(0, 1)
 					.map(u => u.fsPath)
@@ -359,8 +366,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
 		this._status = this.repo.getStatus();
 
 		if (this._children !== undefined) {
@@ -388,50 +393,47 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		void this.triggerChange(false);
 	}
 
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
-		},
-	})
+	@debug<RepositoryNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
-		if (e.changed(RepositoryChange.Closed)) {
+		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 
 			return;
 		}
 
 		if (
-			this._children === undefined ||
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Index) ||
-			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Unknown)
+			this._children == null ||
+			e.changed(
+				RepositoryChange.Config,
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
 		) {
 			void this.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Remotes)) {
+		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Stash)) {
+		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof StashesNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Tags)) {
+		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof TagsNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}

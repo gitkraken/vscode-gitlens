@@ -1,5 +1,10 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
+import { GitBlameCommit, GitCommit, GitLog, GitLogCommit } from '../git/models';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCachedCommand,
 	command,
@@ -8,12 +13,7 @@ import {
 	getCommandUri,
 	isCommandContextViewNodeHasCommit,
 } from './common';
-import { Container } from '../container';
-import { GitBlameCommit, GitCommit, GitLog, GitLogCommit } from '../git/git';
 import { executeGitCommand } from './gitCommands';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface ShowQuickCommitFileCommandArgs {
 	sha?: string;
@@ -37,7 +37,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
 		if (context.editor != null && context.command.startsWith(Commands.ShowQuickCommitRevision)) {
 			args = { ...args };
 
@@ -78,7 +78,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			if (blameline < 0) return;
 
 			try {
-				const blame = await Container.git.getBlameForLine(gitUri, blameline);
+				const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
 
@@ -115,7 +115,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				if (args.fileLog === undefined) {
 					const repoPath = args.commit === undefined ? gitUri.repoPath : args.commit.repoPath;
-					args.commit = await Container.git.getCommitForFile(repoPath, gitUri.fsPath, { ref: args.sha });
+					args.commit = await Container.instance.git.getCommitForFile(repoPath, gitUri.fsPath, {
+						ref: args.sha,
+					});
 					if (args.commit === undefined) {
 						void Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
 
@@ -134,7 +136,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 			const fileName = args.commit.fileName;
 			if (args.commit instanceof GitBlameCommit) {
-				args.commit = (await Container.git.getCommit(args.commit.repoPath, args.commit.ref))!;
+				args.commit = (await Container.instance.git.getCommit(args.commit.repoPath, args.commit.ref))!;
 			}
 
 			void (await executeGitCommand({

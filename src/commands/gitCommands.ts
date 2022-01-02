@@ -1,9 +1,12 @@
 'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
-import { command, Command, Commands } from './common';
 import { configuration, GitCommandSorting } from '../configuration';
 import { Usage, WorkspaceState } from '../constants';
 import { Container } from '../container';
+import { KeyMapping } from '../keyboard';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { log, Promises } from '../system';
+import { command, Command, CommandContext, Commands } from './common';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -21,7 +24,6 @@ import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { StatusGitCommand, StatusGitCommandArgs } from './git/status';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { TagGitCommand, TagGitCommandArgs } from './git/tag';
-import { KeyMapping } from '../keyboard';
 import {
 	isQuickInputStep,
 	isQuickPickStep,
@@ -32,8 +34,6 @@ import {
 	StepSelection,
 } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { log, Promises } from '../system';
 
 export * from './gitCommands.actions';
 
@@ -79,7 +79,48 @@ export class GitCommandsCommand extends Command {
 	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor() {
-		super(Commands.GitCommands);
+		super([
+			Commands.GitCommands,
+			Commands.GitCommandsBranch,
+			Commands.GitCommandsCherryPick,
+			Commands.GitCommandsMerge,
+			Commands.GitCommandsRebase,
+			Commands.GitCommandsReset,
+			Commands.GitCommandsRevert,
+			Commands.GitCommandsSwitch,
+			Commands.GitCommandsTag,
+		]);
+	}
+
+	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgs) {
+		switch (context.command) {
+			case Commands.GitCommandsBranch:
+				args = { command: 'branch' };
+				break;
+			case Commands.GitCommandsCherryPick:
+				args = { command: 'cherry-pick' };
+				break;
+			case Commands.GitCommandsMerge:
+				args = { command: 'merge' };
+				break;
+			case Commands.GitCommandsRebase:
+				args = { command: 'rebase' };
+				break;
+			case Commands.GitCommandsReset:
+				args = { command: 'reset' };
+				break;
+			case Commands.GitCommandsRevert:
+				args = { command: 'revert' };
+				break;
+			case Commands.GitCommandsSwitch:
+				args = { command: 'switch' };
+				break;
+			case Commands.GitCommandsTag:
+				args = { command: 'tag' };
+				break;
+		}
+
+		return this.execute(args);
 	}
 
 	@log({ args: false, correlate: true, singleLine: true, timed: false })
@@ -140,9 +181,10 @@ export class GitCommandsCommand extends Command {
 		command: QuickCommand<any>,
 		stepPromise: Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined>,
 	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined> {
-		const stepOrTimeout = await Promise.race<
-			Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined | typeof showLoadingSymbol>
-		>([stepPromise, new Promise(resolve => setTimeout(() => resolve(showLoadingSymbol), 250))]);
+		const stepOrTimeout = await Promise.race([
+			stepPromise,
+			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(() => resolve(showLoadingSymbol), 250)),
+		]);
 
 		if (stepOrTimeout !== showLoadingSymbol) {
 			return stepOrTimeout;
@@ -197,7 +239,7 @@ export class GitCommandsCommand extends Command {
 				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async () => {
 					if (command?.skipConfirmKey == null) return;
 
-					const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') ?? [];
+					const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
 
 					const index = skipConfirmations.indexOf(command.skipConfirmKey);
 					if (index !== -1) {
@@ -206,7 +248,7 @@ export class GitCommandsCommand extends Command {
 						skipConfirmations.push(command.skipConfirmKey);
 					}
 
-					void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
+					void (await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations));
 				});
 				buttons.push(willConfirmToggle);
 			} else {
@@ -243,9 +285,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
-			? true
-			: step.ignoreFocusOut ?? false;
+		input.ignoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut') ? true : step.ignoreFocusOut ?? false;
 
 		const disposables: Disposable[] = [];
 
@@ -270,7 +310,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.keyboard.createScope(mapping);
+				const scope = Container.instance.keyboard.createScope(mapping);
 				void scope.start();
 
 				disposables.push(
@@ -357,7 +397,7 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
-		const originalIgnoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
+		const originalIgnoreFocusOut = !configuration.get('gitCommands.closeOnFocusOut')
 			? true
 			: step.ignoreFocusOut ?? false;
 		const originalStepIgnoreFocusOut = step.ignoreFocusOut;
@@ -419,7 +459,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.keyboard.createScope(mapping);
+				const scope = Container.instance.keyboard.createScope(mapping);
 				void scope.start();
 
 				let overrideItems = false;
@@ -427,7 +467,11 @@ export class GitCommandsCommand extends Command {
 				disposables.push(
 					scope,
 					quickpick.onDidHide(() => resolve(undefined)),
-
+					quickpick.onDidTriggerItemButton(async e => {
+						if ((await step.onDidClickItemButton?.(quickpick, e.button, e.item)) === true) {
+							resolve(await this.nextStep(quickpick, commandsStep.command!, [e.item]));
+						}
+					}),
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();
@@ -724,8 +768,8 @@ class PickCommandStep implements QuickPickStep {
 			new TagGitCommand(args?.command === 'tag' ? args : undefined),
 		];
 
-		if (Container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = Container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		if (Container.instance.config.gitCommands.sortBy === GitCommandSorting.Usage) {
+			const usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -765,12 +809,12 @@ class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = Container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		let usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 		if (usage === undefined) {
 			usage = Object.create(null) as Usage;
 		}
 
 		usage[id] = timestamp;
-		await Container.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
+		await Container.instance.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
 	}
 }

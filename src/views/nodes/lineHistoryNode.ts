@@ -1,9 +1,6 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { LoadMoreNode, MessageNode } from './common';
-import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
-import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitCommitType,
@@ -13,21 +10,25 @@ import {
 	GitLogCommit,
 	GitRevision,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { insertDateMarkers } from './helpers';
+} from '../../git/models';
 import { Logger } from '../../logger';
-import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import { LineHistoryView } from '../lineHistoryView';
-import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables, memoize } from '../../system';
+import { FileHistoryView } from '../fileHistoryView';
+import { LineHistoryView } from '../lineHistoryView';
+import { LoadMoreNode, MessageNode } from './common';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { insertDateMarkers } from './helpers';
+import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
-	implements PageableViewNode {
+	implements PageableViewNode
+{
 	static key = ':history:line';
 	static getId(repoPath: string, uri: string, selection: Selection): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
@@ -35,7 +36,7 @@ export class LineHistoryNode
 		}-${selection.end.line},${selection.end.character}])`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -48,11 +49,11 @@ export class LineHistoryNode
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.uri.fileName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return LineHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true), this.selection);
 	}
 
@@ -65,16 +66,19 @@ export class LineHistoryNode
 
 		let selection = this.selection;
 
-		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
-		const [log, blame, unpublishedCommits] = await Promise.all([
+		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
+		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
 			this.uri.sha == null
 				? this.editorContents
-					? await Container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
-					: await Container.git.getBlameForRange(this.uri, selection)
+					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: await this.view.container.git.getBlameForRange(this.uri, selection)
+				: undefined,
+			this.branch != null
+				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+				? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 						limit: 0,
 						ref: range,
 				  })
@@ -99,7 +103,7 @@ export class LineHistoryNode
 						selection.active.character,
 					);
 
-					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+					const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
 
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
@@ -205,6 +209,7 @@ export class LineHistoryNode
 						c =>
 							new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
 								branch: this.branch,
+								getBranchAndTagTips: getBranchAndTagTips,
 								selection: selection,
 								unpublished: unpublishedCommits?.has(c.ref),
 							}),
@@ -257,7 +262,7 @@ export class LineHistoryNode
 
 	@debug()
 	protected async subscribe() {
-		const repo = await Container.git.getRepository(this.uri);
+		const repo = await this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -269,21 +274,26 @@ export class LineHistoryNode
 		return subscription;
 	}
 
-	protected get requiresResetOnVisible(): boolean {
-		return true;
+	protected override etag(): number {
+		return Date.now();
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
-			!e.changed(RepositoryChange.Index) &&
-			!e.changed(RepositoryChange.Heads) &&
-			!e.changed(RepositoryChange.Remotes) &&
-			!e.changed(RepositoryChange.Unknown)
+			!e.changed(
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Remotes,
+				RepositoryChange.RemoteProviders,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
 		) {
 			return;
 		}
 
-		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.changes.join()}); triggering node refresh`);
+		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
 
 		void this.triggerChange(true);
 	}
@@ -298,7 +308,7 @@ export class LineHistoryNode
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -307,7 +317,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,

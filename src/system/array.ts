@@ -1,10 +1,6 @@
 'use strict';
-import {
-	findLastIndex as _findLastIndex,
-	intersectionWith as _intersectionWith,
-	isEqual as _isEqual,
-	xor as _xor,
-} from 'lodash-es';
+
+export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
@@ -32,6 +28,10 @@ export function countUniques<T>(source: T[], accessor: (item: T) => string): Rec
 		uniqueCounts[value] = (uniqueCounts[value] ?? 0) + 1;
 	}
 	return uniqueCounts;
+}
+
+export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
+	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
 export function filterMap<T, TMapped>(
@@ -62,49 +62,50 @@ export function filterMapAsync<T, TMapped>(
 	}, [] as any);
 }
 
-export const findLastIndex = _findLastIndex;
-
-export function groupBy<T>(source: T[], accessor: (item: T) => string): Record<string, T[]> {
+export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Record<string, T[]> {
 	return source.reduce((groupings, current) => {
-		const value = accessor(current);
-		groupings[value] = groupings[value] ?? [];
-		groupings[value].push(current);
+		const value = groupingKey(current);
+		const group = groupings[value];
+		if (group === undefined) {
+			groupings[value] = [current];
+		} else {
+			group.push(current);
+		}
 		return groupings;
 	}, Object.create(null) as Record<string, T[]>);
 }
 
-export function groupByMap<TKey, TValue>(source: TValue[], accessor: (item: TValue) => TKey): Map<TKey, TValue[]> {
+export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: TValue) => TKey): Map<TKey, TValue[]> {
 	return source.reduce((groupings, current) => {
-		const value = accessor(current);
-		const group = groupings.get(value) ?? [];
-		groupings.set(value, group);
-		group.push(current);
+		const value = groupingKey(current);
+		const group = groupings.get(value);
+		if (group === undefined) {
+			groupings.set(value, [current]);
+		} else {
+			group.push(current);
+		}
 		return groupings;
 	}, new Map<TKey, TValue[]>());
 }
 
 export function groupByFilterMap<TKey, TValue, TMapped>(
 	source: TValue[],
-	accessor: (item: TValue) => TKey,
+	groupingKey: (item: TValue) => TKey,
 	predicateMapper: (item: TValue) => TMapped | null | undefined,
 ): Map<TKey, TMapped[]> {
 	return source.reduce((groupings, current) => {
 		const mapped = predicateMapper(current);
 		if (mapped != null) {
-			const value = accessor(current);
-			const group = groupings.get(value) ?? [];
-			groupings.set(value, group);
-			group.push(mapped);
+			const value = groupingKey(current);
+			const group = groupings.get(value);
+			if (group === undefined) {
+				groupings.set(value, [mapped]);
+			} else {
+				group.push(mapped);
+			}
 		}
 		return groupings;
 	}, new Map<TKey, TMapped[]>());
-}
-
-export const intersection = _intersectionWith;
-export const isEqual = _isEqual;
-
-export function areEquivalent<T>(value: T[], other: T[]) {
-	return _xor(value, other).length === 0;
 }
 
 export function isStringArray<T extends any[]>(array: string[] | T): array is string[] {
@@ -204,14 +205,23 @@ export function compactHierarchy<T>(
 	return root;
 }
 
-export function uniqueBy<T>(source: T[], accessor: (item: T) => any, predicate?: (item: T) => boolean): T[] {
-	const uniqueValues = Object.create(null) as Record<string, any>;
-	return source.filter(item => {
-		const value = accessor(item);
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-		if (uniqueValues[value]) return false;
-
-		uniqueValues[value] = accessor;
-		return predicate?.(item) ?? true;
-	});
+export function uniqueBy<TKey, TValue>(
+	source: TValue[],
+	uniqueKey: (item: TValue) => TKey,
+	onDeduplicate: (original: TValue, current: TValue) => TValue | void,
+) {
+	const map = source.reduce((uniques, current) => {
+		const value = uniqueKey(current);
+		const original = uniques.get(value);
+		if (original === undefined) {
+			uniques.set(value, current);
+		} else {
+			const updated = onDeduplicate(original, current);
+			if (updated !== undefined) {
+				uniques.set(value, updated);
+			}
+		}
+		return uniques;
+	}, new Map<TKey, TValue>());
+	return [...map.values()];
 }

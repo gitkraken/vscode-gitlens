@@ -1,15 +1,15 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ViewBranchesLayout } from '../../configuration';
+import { GitUri } from '../../git/gitUri';
+import { Repository } from '../../git/models';
+import { Arrays, debug, gate } from '../../system';
 import { BranchesView } from '../branchesView';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ViewBranchesLayout } from '../../configuration';
-import { Repository } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { Arrays, debug, gate } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
@@ -29,7 +29,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchesNode.getId(this.repo.path);
 	}
 
@@ -44,9 +44,10 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 				filter: b => !b.remote,
 				sort: { current: false },
 			});
-			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
-			const branchNodes = branches.map(
+			// TODO@eamodio handle paging
+			const branchNodes = branches.values.map(
 				b =>
 					new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
 						showComparison:
@@ -86,19 +87,19 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
+		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
 		if (await this.repo.hasRemotes()) {
 			item.contextValue += '+remotes';
 		}
 		item.iconPath = new ThemeIcon('git-branch');
-		item.id = this.id;
 
 		return item;
 	}
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

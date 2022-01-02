@@ -2,10 +2,10 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<style nonce="Z2l0bGVucy1ib290c3RyYXA=">
+		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?669d352dfabff8f6eaa466c8ae820e43') format('truetype');
+				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
 			}
 		</style>
 	</head>
@@ -20,12 +20,22 @@
 		/> -->
 
 		<div class="container">
+			<div class="banner">
+				<a
+					title="Learn more about GitKraken and GitLens joining forces!"
+					href="https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code"
+					target="_blank"
+					alt="Learn more about GitKraken and GitLens joining forces!"
+				>
+					<img src="#{root}/images/gk+gl-banner.png" alt="GitKraken and GitLens are joining forces!" />
+				</a>
+			</div>
 			<header>
 				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
 					<div class="header__logo">
 						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
 						<div>
-							<h1>Git<span class="header__logo--highlight">Lens</span></h1>
+							<h1 class="header__title">Git<span class="header__title--highlight">Lens</span></h1>
 							<p class="header__subtitle">Git supercharged</p>
 						</div>
 					</div>
@@ -44,10 +54,7 @@
 					<a class="bold" title="Open GitLens on GitHub" href="https://github.com/eamodio/vscode-gitlens"
 						>open-source</a
 					>
-					extension for Visual Studio Code created by
-					<a class="bold" title="Learn more about Eric" href="https://www.amod.io/?utm_source=gitlens"
-						>Eric Amodio</a
-					>.
+					extension for Visual Studio Code.
 				</p>
 				<p>
 					GitLens simply helps you <b>better understand code</b>. Quickly glimpse into whom, why, and when a
@@ -55,21 +62,6 @@
 					and why the code evolved. Effortlessly explore the history and evolution of a codebase. Dive right
 					in and see how GitLens can help!
 				</p>
-
-				<div class="cta is-sidebar-hidden center">
-					<div class="cta--primary">
-						<a
-							class="button button--flat-primary button--big"
-							title="Sponsor GitLens"
-							href="https://gitlens.amod.io/#sponsor"
-							>Sponsor GitLens &#x2764;</a
-						>
-						<p>
-							If you find GitLens useful, please consider sponsoring it. And if you use GitLens for work,
-							please encourage your employer to sponsor it.
-						</p>
-					</div>
-				</div>
 			</div>
 
 			<div class="content__area">
@@ -430,61 +422,6 @@
 
 			<div class="sidebar">
 				<div class="sidebar__group">
-					<a
-						class="button button--flat-primary"
-						title="Sponsor GitLens"
-						href="https://gitlens.amod.io/#sponsor"
-						>Sponsor GitLens &#x2764;</a
-					>
-					<p>
-						If you find GitLens useful, please consider sponsoring it. And if you use GitLens for work,
-						please encourage your employer to sponsor it.
-					</p>
-				</div>
-				<div class="sidebar__group sidebar__group--sponsors">
-					<h2>Sponsors</h2>
-					<a
-						class="sponsor__image-link"
-						title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE"
-						href="https://sponsorlink.codestream.com/?utm_source=gitlens_welcome&utm_medium=banner&utm_campaign=gitlens"
-					>
-						<img
-							class="sponsor__image light"
-							src="https://alt-images.codestream.com/codestream_logo_gitlens_web_dark.png"
-							alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE"
-						/>
-						<img
-							class="sponsor__image dark"
-							src="https://alt-images.codestream.com/codestream_logo_gitlens_web_light.png"
-							alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE"
-						/>
-					</a>
-					<a class="sponsor__image-link" title="Visit Embark Studios" href="https://embark-studios.com">
-						<img
-							class="sponsor__image light"
-							src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png"
-							alt="Embark Studios Logo"
-						/>
-						<img
-							class="sponsor__image dark"
-							src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_light.png"
-							alt="Embark Studios Logo"
-						/>
-					</a>
-					<a class="sponsor__image-link" title="Visit Localize" href="https://localizejs.com">
-						<img
-							class="sponsor__image light"
-							src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png"
-							alt="Localize Logo"
-						/>
-						<img
-							class="sponsor__image dark"
-							src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_light.png"
-							alt="Localize Logo"
-						/>
-					</a>
-				</div>
-				<div class="sidebar__group">
 					<h2>Help</h2>
 					<ul>
 						<li>
@@ -497,28 +434,21 @@
 							<a href="https://vscode-slack.amod.io">Slack</a>
 							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
 						</li>
-						<li>
-							<a href="https://twitter.com/eamodio">Twitter</a>
-							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens hashtag</small>
-						</li>
+						<li><a href="https://twitter.com/gitlens">Twitter</a></li>
 					</ul>
 				</div>
 				<div class="sidebar__group">
 					<h2>Resources</h2>
 					<ul>
 						<li><a href="https://gitlens.amod.io">Website</a></li>
-						<li>
-							<a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a>
-						</li>
+						<li><a href="https://gitlens.amod.io/#whats-new">What's New</a></li>
 						<li>
 							<a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens"
 								>Marketplace</a
 							>
 						</li>
 						<li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
-						<li>
-							<a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/license">License</a>
-						</li>
+						<li><a href="https://github.com/eamodio/vscode-gitlens/blob/main/LICENSE">License</a></li>
 					</ul>
 				</div>
 			</div>

@@ -1,12 +1,12 @@
 'use strict';
 import { Uri } from 'vscode';
+import { getAvatarUri } from '../../avatars';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
 import { Dates, memoize } from '../../system';
-import { CommitFormatter } from '../formatters/formatters';
+import { CommitFormatter } from '../formatters';
 import { GitUri } from '../gitUri';
-import { getAvatarUri } from '../../avatars';
-import { GitReference, GitRevision, GitRevisionReference, PullRequest } from './models';
+import { GitReference, GitRevision, GitRevisionReference, PullRequest } from '../models';
 
 export interface GitAuthor {
 	name: string;
@@ -21,7 +21,7 @@ export interface GitCommitLine {
 	code?: string;
 }
 
-export enum GitCommitType {
+export const enum GitCommitType {
 	Blame = 'blame',
 	Log = 'log',
 	LogFile = 'logFile',
@@ -147,11 +147,11 @@ export abstract class GitCommit implements GitRevisionReference {
 	}
 
 	@memoize()
-	async getAssociatedPullRequest(): Promise<PullRequest | undefined> {
-		const remote = await Container.git.getRichRemoteProvider(this.repoPath);
+	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
+		const remote = await Container.instance.git.getRichRemoteProvider(this.repoPath);
 		if (remote?.provider == null) return undefined;
 
-		return Container.git.getPullRequestForCommit(this.ref, remote);
+		return Container.instance.git.getPullRequestForCommit(this.ref, remote, options);
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
@@ -160,14 +160,14 @@ export abstract class GitCommit implements GitRevisionReference {
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
+		return Container.instance.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
 	}
 
 	@memoize()
 	getWorkingUri(): Promise<Uri | undefined> {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getWorkingUri(this.repoPath, this.uri);
+		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
 	@memoize()
@@ -235,8 +235,7 @@ export abstract class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	getShortMessage() {
-		// eslint-disable-next-line no-template-curly-in-string
-		return CommitFormatter.fromTemplate('${message}', this, { messageTruncateAtNewLine: true });
+		return CommitFormatter.fromTemplate(`\${message}`, this, { messageTruncateAtNewLine: true });
 	}
 
 	@memoize()

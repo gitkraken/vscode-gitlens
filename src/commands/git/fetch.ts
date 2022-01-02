@@ -1,7 +1,10 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/models';
+import { FlagsQuickPickItem } from '../../quickpicks';
+import { Arrays, Dates, Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -14,11 +17,10 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -59,7 +61,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			return state.repos[0].fetch({ branch: state.reference });
 		}
 
-		return Container.git.fetchAll(state.repos, {
+		return Container.instance.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
 		});
@@ -67,7 +69,8 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			title: this.title,
 		};
 
@@ -76,7 +79,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		}
 
 		if (state.repos != null && !Array.isArray(state.repos)) {
-			state.repos = [state.repos as any];
+			state.repos = [state.repos as string];
 		}
 
 		let skippedStepOne = false;

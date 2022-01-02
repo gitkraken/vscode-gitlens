@@ -1,5 +1,10 @@
 'use strict';
-import { env, TextEditor, Uri, window } from 'vscode';
+import { TextEditor, Uri } from 'vscode';
+import { GitActions } from '../commands';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { ReferencePicker } from '../quickpicks';
+import { CompareResultsNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
 	command,
@@ -9,11 +14,6 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasRef,
 } from './common';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
-import { CompareResultsNode } from '../views/nodes';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -31,7 +31,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffDirectoryWithHead:
 				args = { ...args };
@@ -49,7 +49,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 			case Commands.ViewsOpenDirectoryDiffWithWorking:
 				if (isCommandContextViewNodeHasRef(context)) {
 					args = { ...args };
-					args.ref1 = context.node.ref;
+					args.ref1 = context.node.ref.ref;
 					args.ref2 = undefined;
 				}
 				break;
@@ -82,24 +82,9 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				if (args.ref1 == null) return;
 			}
 
-			void Container.git.openDirectoryCompare(repoPath, args.ref1, args.ref2);
+			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (msg === 'No diff tool found') {
-				const result = await window.showWarningMessage(
-					'Unable to open directory compare because there is no Git diff tool configured',
-					'View Git Docs',
-				);
-				if (!result) return;
-
-				void env.openExternal(
-					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-				);
-
-				return;
-			}
-
-			Logger.error(ex, 'DiffDirectoryCommand');
+			Logger.error(ex, 'OpenDirectoryCompareCommand');
 			void Messages.showGenericErrorMessage('Unable to open directory compare');
 		}
 	}

@@ -1,6 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { Range } from 'vscode';
+import { Arrays, debug, Strings } from '../../system';
 import {
 	GitAuthor,
 	GitCommitType,
@@ -10,8 +11,8 @@ import {
 	GitLogCommit,
 	GitLogCommitLine,
 	GitRevision,
-} from '../git';
-import { Arrays, debug, Strings } from '../../system';
+	GitUser,
+} from '../models';
 
 const emptyEntry: LogEntry = {};
 const emptyStr = '';
@@ -79,6 +80,8 @@ export class GitLogParser {
 	static simpleRefs = `${lb}r${rb}${sp}%H`;
 	static simpleFormat = `${lb}r${rb}${sp}%H`;
 
+	static shortlog = '%H%x00%aN%x00%aE%x00%at';
+
 	@debug({ args: false })
 	static parse(
 		data: string,
@@ -86,7 +89,7 @@ export class GitLogParser {
 		repoPath: string | undefined,
 		fileName: string | undefined,
 		sha: string | undefined,
-		currentUser: { name?: string; email?: string } | undefined,
+		currentUser: GitUser | undefined,
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,
@@ -288,9 +291,8 @@ export class GitLogParser {
 											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileIndexStatus;
 
 											renamedFileName = match[3];
-											renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
-												renamedFileName,
-											);
+											renamedMatch =
+												fileStatusAndSummaryRenamedFilePathRegex.exec(renamedFileName);
 											if (renamedMatch != null) {
 												// If there is no new path, the path part was removed so ensure we don't end up with //
 												entry.fileName =
@@ -299,9 +301,8 @@ export class GitLogParser {
 														: `${renamedMatch[1]}${renamedMatch[3]}${renamedMatch[4]}`;
 												entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${renamedMatch[4]}`;
 											} else {
-												renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(
-													renamedFileName,
-												);
+												renamedMatch =
+													fileStatusAndSummaryRenamedFileRegex.exec(renamedFileName);
 												if (renamedMatch != null) {
 													entry.fileName = renamedMatch[2];
 													entry.originalFileName = renamedMatch[1];

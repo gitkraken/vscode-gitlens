@@ -1,4 +1,5 @@
 'use strict';
+import { compareIgnoreCase } from './string';
 
 declare type VersionComparisonResult = -1 | 0 | 1;
 
@@ -29,9 +30,7 @@ export function compare(v1: string | Version, v2: string | Version): VersionComp
 	if (v1.pre === undefined && v2.pre !== undefined) return 1;
 	if (v1.pre !== undefined && v2.pre === undefined) return -1;
 
-	if (v1.pre !== undefined && v2.pre !== undefined) {
-		return v1.pre.localeCompare(v2.pre) as VersionComparisonResult;
-	}
+	if (v1.pre !== undefined && v2.pre !== undefined) return compareIgnoreCase(v1.pre, v2.pre);
 
 	return 0;
 }

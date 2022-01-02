@@ -1,8 +1,9 @@
 'use strict';
-import { GitBranch } from '../models/branch';
 import { debug } from '../../system';
+import { GitBranch } from '../models/branch';
 
-const branchWithTrackingRegex = /^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[gone])?<r>(.*)<d>(.*)$/gm;
+const branchWithTrackingRegex =
+	/^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
@@ -26,9 +27,10 @@ export class GitBranchParser {
 
 		let current;
 		let name;
-		let tracking;
+		let upstream;
 		let ahead;
 		let behind;
+		let missing;
 		let ref;
 		let date;
 
@@ -39,7 +41,7 @@ export class GitBranchParser {
 			match = branchWithTrackingRegex.exec(data);
 			if (match == null) break;
 
-			[, current, name, tracking, ahead, behind, ref, date] = match;
+			[, current, name, upstream, ahead, behind, missing, ref, date] = match;
 
 			if (name.startsWith('refs/remotes/')) {
 				// Strip off refs/remotes/
@@ -63,7 +65,9 @@ export class GitBranchParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					tracking == null || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
+					upstream == null || upstream.length === 0
+						? undefined
+						: { name: ` ${upstream}`.substr(1), missing: Boolean(missing) },
 					Number(ahead) || 0,
 					Number(behind) || 0,
 				),

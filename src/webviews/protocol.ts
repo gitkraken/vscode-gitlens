@@ -74,16 +74,14 @@ export interface DidPreviewConfigurationNotificationParams {
 	id: string;
 	preview: string;
 }
-export const DidPreviewConfigurationNotificationType = new IpcNotificationType<DidPreviewConfigurationNotificationParams>(
-	'configuration/didPreview',
-);
+export const DidPreviewConfigurationNotificationType =
+	new IpcNotificationType<DidPreviewConfigurationNotificationParams>('configuration/didPreview');
 
 export interface SettingsDidRequestJumpToNotificationParams {
 	anchor: string;
 }
-export const SettingsDidRequestJumpToNotificationType = new IpcNotificationType<SettingsDidRequestJumpToNotificationParams>(
-	'settings/jumpTo',
-);
+export const SettingsDidRequestJumpToNotificationType =
+	new IpcNotificationType<SettingsDidRequestJumpToNotificationParams>('settings/jumpTo');
 
 export interface AppStateWithConfig {
 	config: Config;

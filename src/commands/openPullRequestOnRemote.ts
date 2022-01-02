@@ -1,8 +1,8 @@
 'use strict';
 import { env, Uri } from 'vscode';
-import { Command, command, CommandContext, Commands } from './common';
 import { Container } from '../container';
 import { PullRequestNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands } from './common';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -17,7 +17,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		super([Commands.OpenPullRequestOnRemote, Commands.CopyRemotePullRequestUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenPullRequestOnRemoteCommandArgs) {
 		if (context.type === 'viewItem' && context.node instanceof PullRequestNode) {
 			args = {
 				...args,
@@ -33,10 +33,10 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await Container.git.getRichRemoteProvider(args.repoPath);
+			const remote = await Container.instance.git.getRichRemoteProvider(args.repoPath);
 			if (remote?.provider == null) return;
 
-			const pr = await Container.git.getPullRequestForCommit(args.ref, remote.provider);
+			const pr = await Container.instance.git.getPullRequestForCommit(args.ref, remote.provider);
 			if (pr == null) return;
 
 			args = { ...args };

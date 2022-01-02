@@ -1,6 +1,8 @@
 'use strict';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/git';
+import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/models';
+import { FlagsQuickPickItem } from '../../quickpicks';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -14,10 +16,10 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
 	title: string;
@@ -61,7 +63,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	private _canSkipConfirm: boolean = false;
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this._canSkipConfirm;
 	}
 
@@ -71,7 +73,8 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -118,7 +121,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 

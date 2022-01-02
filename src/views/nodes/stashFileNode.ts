@@ -1,8 +1,8 @@
 'use strict';
-import { CommitFileNode } from './commitFileNode';
-import { GitFile, GitLogCommit } from '../../git/git';
+import { GitFile, GitLogCommit } from '../../git/models';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
+import { CommitFileNode } from './commitFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode<StashesView | RepositoriesView> {
@@ -10,7 +10,7 @@ export class StashFileNode extends CommitFileNode<StashesView | RepositoriesView
 		super(view, parent, file, commit);
 	}
 
-	protected get contextValue(): string {
+	protected override get contextValue(): string {
 		return `${ContextValues.File}+stashed`;
 	}
 }

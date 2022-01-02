@@ -16,16 +16,25 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { Action, ActionContext } from '../api/gitlens';
+import type { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitTag, Repository } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import {
+	GitBranch,
+	GitCommit,
+	GitContributor,
+	GitFile,
+	GitReference,
+	GitRemote,
+	GitTag,
+	Repository,
+} from '../git/models';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
-export enum Commands {
+export const enum Commands {
 	ActionPrefix = 'gitlens.action.',
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
@@ -34,7 +43,6 @@ export enum Commands {
 	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
-	CloseUpdatesView = 'gitlens.closeUpdatesView',
 	CloseWelcomeView = 'gitlens.closeWelcomeView',
 	CompareWith = 'gitlens.compareWith',
 	CompareHeadWith = 'gitlens.compareHeadWith',
@@ -48,10 +56,13 @@ export enum Commands {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteComparisonUrl = 'gitlens.copyRemoteComparisonUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
+	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
 	CopyRemoteFileUrlFrom = 'gitlens.copyRemoteFileUrlFrom',
+	CopyRemoteIssueUrl = 'gitlens.copyRemoteIssueUrl',
 	CopyRemotePullRequestUrl = 'gitlens.copyRemotePullRequestUrl',
 	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
+	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
 	DiffWith = 'gitlens.diffWith',
@@ -69,25 +80,29 @@ export enum Commands {
 	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
 	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
+	DisableDebugLogging = 'gitlens.disableDebugLogging',
+	EnableDebugLogging = 'gitlens.enableDebugLogging',
 	DisableRebaseEditor = 'gitlens.disableRebaseEditor',
 	EnableRebaseEditor = 'gitlens.enableRebaseEditor',
 	ExternalDiff = 'gitlens.externalDiff',
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
-	HideLineHistoryView = 'gitlens.hideLineHistoryView',
-	HideRepositoriesView = 'gitlens.hideRepositoriesView',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
-	OpenChangedFiles = 'gitlens.openChangedFiles',
+	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
 	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',
 	OpenBranchOnRemote = 'gitlens.openBranchOnRemote',
+	OpenChangedFiles = 'gitlens.openChangedFiles',
 	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
 	OpenComparisonOnRemote = 'gitlens.openComparisonOnRemote',
+	OpenFileHistory = 'gitlens.openFileHistory',
 	OpenFileFromRemote = 'gitlens.openFileFromRemote',
 	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	OpenFileOnRemoteFrom = 'gitlens.openFileOnRemoteFrom',
 	OpenFileAtRevision = 'gitlens.openFileRevision',
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
+	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
+	OpenIssueOnRemote = 'gitlens.openIssueOnRemote',
 	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
 	OpenAssociatedPullRequestOnRemote = 'gitlens.openAssociatedPullRequestOnRemote',
 	OpenRepoOnRemote = 'gitlens.openRepoOnRemote',
@@ -100,9 +115,17 @@ export enum Commands {
 	PullRepositories = 'gitlens.pullRepositories',
 	PushRepositories = 'gitlens.pushRepositories',
 	GitCommands = 'gitlens.gitCommands',
+	GitCommandsBranch = 'gitlens.gitCommands.branch',
+	GitCommandsCherryPick = 'gitlens.gitCommands.cherryPick',
+	GitCommandsMerge = 'gitlens.gitCommands.merge',
+	GitCommandsRebase = 'gitlens.gitCommands.rebase',
+	GitCommandsReset = 'gitlens.gitCommands.reset',
+	GitCommandsRevert = 'gitlens.gitCommands.revert',
+	GitCommandsSwitch = 'gitlens.gitCommands.switch',
+	GitCommandsTag = 'gitlens.gitCommands.tag',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshHover = 'gitlens.refreshHover',
-	ResetRemoteConnectionAuthorization = 'gitlens.resetRemoteConnectionAuthorization',
+	ResetAvatarCache = 'gitlens.resetAvatarCache',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
@@ -114,7 +137,6 @@ export enum Commands {
 	ShowCommitsView = 'gitlens.showCommitsView',
 	ShowContributorsView = 'gitlens.showContributorsView',
 	ShowFileHistoryView = 'gitlens.showFileHistoryView',
-	ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
@@ -149,13 +171,13 @@ export enum Commands {
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
-	SupportGitLens = 'gitlens.supportGitLens',
 	SwitchMode = 'gitlens.switchMode',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
 	ToggleFileBlameInDiffLeft = 'gitlens.toggleFileBlameInDiffLeft',
 	ToggleFileBlameInDiffRight = 'gitlens.toggleFileBlameInDiffRight',
 	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
 	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
@@ -173,6 +195,7 @@ export enum Commands {
 	Deprecated_OpenFileInRemote = 'gitlens.openFileInRemote',
 	Deprecated_OpenInRemote = 'gitlens.openInRemote',
 	Deprecated_OpenRepoInRemote = 'gitlens.openRepoInRemote',
+	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
 export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
@@ -180,7 +203,7 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 }
 
 export function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
-	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}` as Commands, {
+	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}`, {
 		...args,
 		type: action,
 	});
@@ -218,7 +241,7 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 }
 
 export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
-	const repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+	const repoPath = await Container.instance.git.getRepoPathOrActive(uri, editor);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);
@@ -231,7 +254,7 @@ export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: 
 }
 
 export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
-	const repoPath = await Container.git.getRepoPath(uri);
+	const repoPath = await Container.instance.git.getRepoPath(uri);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);
@@ -337,9 +360,7 @@ export function isCommandContextViewNodeHasFileCommit(
 	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
-export function isCommandContextViewNodeHasFileRefs(
-	context: CommandContext,
-): context is CommandViewNodeContext & {
+export function isCommandContextViewNodeHasFileRefs(context: CommandContext): context is CommandViewNodeContext & {
 	node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
 	if (context.type !== 'viewItem') return false;
@@ -355,7 +376,7 @@ export function isCommandContextViewNodeHasFileRefs(
 
 export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
-): context is CommandViewNodeContext & { node: ViewNode & { ref: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {
 	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
@@ -436,7 +457,10 @@ function isGitTimelineItem(item: any): item is GitTimelineItem {
 }
 
 export abstract class Command implements Disposable {
-	static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
+	static getMarkdownCommandArgsCore<T>(
+		command: Commands | `${Commands.ActionPrefix}${ActionContext['type']}`,
+		args: T,
+	): string {
 		return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
 	}
 
@@ -565,21 +589,21 @@ export abstract class Command implements Disposable {
 }
 
 export abstract class ActiveEditorCommand extends Command {
-	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
+	protected override readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
 	constructor(command: Commands | Commands[]) {
 		super(command);
 	}
 
-	protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
 		return this.execute(context.editor, context.uri, ...args);
 	}
 
-	protected _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: string, ...args: any[]): any {
 		return super._execute(command, undefined, ...args);
 	}
 
-	abstract execute(editor?: TextEditor, ...args: any[]): any;
+	abstract override execute(editor?: TextEditor, ...args: any[]): any;
 }
 
 let lastCommand: { command: string; args: any[] } | undefined = undefined;
@@ -592,7 +616,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 		super(command);
 	}
 
-	protected _execute(command: string, ...args: any[]): any {
+	protected override _execute(command: string, ...args: any[]): any {
 		lastCommand = {
 			command: command,
 			args: args,
@@ -600,7 +624,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 		return super._execute(command, ...args);
 	}
 
-	abstract execute(editor: TextEditor, ...args: any[]): any;
+	abstract override execute(editor: TextEditor, ...args: any[]): any;
 }
 
 export abstract class EditorCommand implements Disposable {
@@ -719,16 +743,22 @@ export async function openEditor(
 	}
 }
 
-export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
-	if (options.openInNewWindow) {
-		void commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+export const enum OpenWorkspaceLocation {
+	CurrentWindow = 'currentWindow',
+	NewWindow = 'newWindow',
+	AddToWorkspace = 'addToWorkspace',
+}
 
-		return true;
+export function openWorkspace(
+	uri: Uri,
+	options: { location?: OpenWorkspaceLocation; name?: string } = { location: OpenWorkspaceLocation.CurrentWindow },
+): void {
+	if (options?.location === OpenWorkspaceLocation.AddToWorkspace) {
+		const count = workspace.workspaceFolders?.length ?? 0;
+		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
-	return workspace.updateWorkspaceFolders(
-		workspace.workspaceFolders != null ? workspace.workspaceFolders.length : 0,
-		null,
-		{ uri: uri, name: name },
-	);
+	return void commands.executeCommand(BuiltInCommands.OpenFolder, uri, {
+		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
+	});
 }

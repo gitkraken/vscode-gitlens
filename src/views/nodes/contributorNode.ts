@@ -1,18 +1,18 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { getPresenceDataUri } from '../../avatars';
+import { GlyphChars } from '../../constants';
+import { GitUri } from '../../git/gitUri';
+import { GitContributor, GitLog } from '../../git/models';
+import { debug, gate, Iterables, Strings } from '../../system';
+import { ContactPresence } from '../../vsls/vsls';
+import { ContributorsView } from '../contributorsView';
+import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { ContributorsView } from '../contributorsView';
-import { GitContributor, GitLog } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
-import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { debug, gate, Iterables, Strings } from '../../system';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { ContactPresence } from '../../vsls/vsls';
 
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
@@ -25,16 +25,20 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		view: ContributorsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly contributor: GitContributor,
-		private readonly _presenceMap: Map<string, ContactPresence> | undefined,
+		private readonly _options?: {
+			all?: boolean;
+			ref?: string;
+			presence: Map<string, ContactPresence> | undefined;
+		},
 	) {
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ContributorNode.getId(this.contributor.repoPath, this.contributor.name, this.contributor.email);
 	}
 
@@ -42,7 +46,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
 				Iterables.map(
@@ -60,7 +64,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const presence = this._presenceMap?.get(this.contributor.email);
+		const presence = this._options?.presence?.get(this.contributor.email);
 
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
@@ -75,22 +79,69 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
 		}${this.contributor.email}`;
-		item.tooltip = `${this.contributor.name}${presence != null ? ` (${presence.statusText})` : ''}\n${
-			this.contributor.email
-		}\n${Strings.pluralize('commit', this.contributor.count)}`;
 
+		let avatarUri;
+		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			item.iconPath = await this.contributor.getAvatarUri({
-				defaultStyle: Container.config.defaultGravatarsStyle,
+			const size = this.view.container.config.hovers.avatarSize;
+			avatarUri = await this.contributor.getAvatarUri({
+				defaultStyle: this.view.container.config.defaultGravatarsStyle,
+				size: size,
 			});
+
+			if (presence != null) {
+				const title = `${this.contributor.count ? 'You are' : `${this.contributor.name} is`} ${
+					presence.status === 'dnd' ? 'in ' : ''
+				}${presence.statusText.toLocaleLowerCase()}`;
+
+				avatarMarkdown = `![${title}](${avatarUri.toString(
+					true,
+				)}|width=${size},height=${size} "${title}")![${title}](${getPresenceDataUri(
+					presence.status,
+				)} "${title}")`;
+			} else {
+				avatarMarkdown = `![${this.contributor.name}](${avatarUri.toString(
+					true,
+				)}|width=${size},height=${size} "${this.contributor.name}")`;
+			}
 		}
+
+		const numberFormatter = new Intl.NumberFormat();
+
+		const stats =
+			this.contributor.stats != null
+				? `\\\n${Strings.pluralize('file', this.contributor.stats.files, {
+						format: numberFormatter.format,
+				  })} changed, ${Strings.pluralize('addition', this.contributor.stats.additions, {
+						format: numberFormatter.format,
+				  })}, ${Strings.pluralize('deletion', this.contributor.stats.deletions, {
+						format: numberFormatter.format,
+				  })}`
+				: '';
+
+		const markdown = new MarkdownString(
+			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;__[${this.contributor.name}](mailto:${
+				this.contributor.email
+			} "Email ${this.contributor.name} (${
+				this.contributor.email
+			})")__ \\\nLast commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\n\n${Strings.pluralize(
+				'commit',
+				this.contributor.count,
+				{ format: numberFormatter.format },
+			)}${stats}`,
+		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
+		item.iconPath = avatarUri;
 
 		return item;
 	}
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -99,7 +150,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
+				all: this._options?.all,
+				ref: this._options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
 			});

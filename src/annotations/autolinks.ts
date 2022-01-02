@@ -1,11 +1,11 @@
 'use strict';
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
-import { Container } from '../container';
-import { Dates, debug, Iterables, Promises, Strings } from '../system';
-import { Logger } from '../logger';
-import { GitRemote, IssueOrPullRequest } from '../git/git';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
+import { GitRemote, IssueOrPullRequest } from '../git/models';
+import { Logger } from '../logger';
+import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
 
 const numRegex = /<num>/g;
 
@@ -31,27 +31,27 @@ export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
 	private _references: CacheableAutolinkReference[] = [];
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this.onConfigurationChanged();
 	}
 
 	dispose() {
 		this._disposable?.dispose();
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
-			this._references = Container.config.autolinks ?? [];
+			this._references = this.container.config.autolinks ?? [];
 		}
 	}
 
-	@debug({
+	@debug<Autolinks['getIssueOrPullRequestLinks']>({
 		args: {
-			0: (message: string) => message.substring(0, 50),
-			1: _ => false,
-			2: ({ timeout }) => timeout,
+			0: '<message>',
+			1: false,
+			2: options => options?.timeout,
 		},
 	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
@@ -101,11 +101,12 @@ export class Autolinks implements Disposable {
 		return issuesOrPullRequests;
 	}
 
-	@debug({
+	@debug<Autolinks['linkify']>({
 		args: {
-			0: (text: string) => text.substring(0, 30),
-			2: _ => false,
-			3: _ => false,
+			0: '<text>',
+			2: remotes => remotes?.length,
+			3: issuesOrPullRequests => issuesOrPullRequests?.size,
+			4: footnotes => footnotes?.size,
 		},
 	})
 	linkify(
@@ -157,7 +158,7 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${ref.url.replace(numRegex, '$2')}${
+				const replacement = `[$1](${Encoding.encodeUrl(ref.url.replace(numRegex, '$2'))}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
@@ -167,9 +168,14 @@ export class Autolinks implements Disposable {
 			}
 
 			ref.linkify = (text: string, markdown: boolean, footnotes?: Map<number, string>) => {
+				const includeFootnotes = footnotes == null;
+				let index;
+
 				if (markdown) {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
+
+						const issueUrl = Encoding.encodeUrl(ref.url.replace(numRegex, num));
 
 						let title = '';
 						if (ref.title) {
@@ -179,23 +185,33 @@ export class Autolinks implements Disposable {
 								if (issue instanceof Promises.CancellationError) {
 									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 								} else {
-									title += `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
-										/([")\\])/g,
-										'\\$1',
-									)}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
-										issue.closedDate ?? issue.date,
-									).fromNow()}`;
+									const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
+
+									if (footnotes != null) {
+										index = footnotes.size + 1;
+										footnotes.set(
+											index,
+											`${IssueOrPullRequest.getMarkdownIcon(
+												issue,
+											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+												5,
+											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
+												issue.closedDate ?? issue.date,
+											).fromNow()}`,
+										);
+									}
+
+									title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+										issue.closed ? 'Closed' : 'Opened'
+									}, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`;
 								}
 							}
 							title += '"';
 						}
 
-						return `[${linkText}](${ref.url.replace(numRegex, num)}${title})`;
+						return `[${linkText}](${issueUrl}${title})`;
 					});
 				}
-
-				const includeFootnotes = footnotes == null;
-				let index;
 
 				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
 					const issue = issuesOrPullRequests?.get(num);
@@ -207,7 +223,7 @@ export class Autolinks implements Disposable {
 
 					index = footnotes.size + 1;
 					footnotes.set(
-						footnotes.size + 1,
+						index,
 						`${linkText}: ${
 							issue instanceof Promises.CancellationError
 								? 'Details timed out'

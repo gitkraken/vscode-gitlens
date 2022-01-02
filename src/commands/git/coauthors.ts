@@ -1,8 +1,9 @@
 'use strict';
 import { commands } from 'vscode';
 import { Container } from '../../container';
-import { GitContributor, Repository } from '../../git/git';
-import { GitService } from '../../git/gitService';
+import { GitContributor, Repository } from '../../git/models';
+import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickContributorsStep,
@@ -12,11 +13,11 @@ import {
 	StepResult,
 	StepState,
 } from '../quickCommand';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
 	activeRepo: Repository | undefined;
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -55,12 +56,12 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm() {
+	override get canConfirm() {
 		return false;
 	}
 
 	async execute(state: CoAuthorStepState) {
-		const repo = await GitService.getBuiltInGitRepository(state.repo.path);
+		const repo = await Container.instance.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 
 		let message = repo.inputBox.value;
@@ -93,23 +94,24 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
 			activeRepo: undefined,
+			associatedView: Container.instance.contributorsView,
 			title: this.title,
 		};
 
-		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi != null) {
+		const scmRepositories = await Container.instance.git.getOpenScmRepositories();
+		if (scmRepositories.length) {
 			// Filter out any repo's that are not known to the built-in git
 			context.repos = context.repos.filter(repo =>
-				gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
+				scmRepositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
 			);
 
 			// Ensure that the active repo is known to the built-in git
-			context.activeRepo = await Container.git.getActiveRepository();
+			context.activeRepo = await Container.instance.git.getActiveRepository();
 			if (
 				context.activeRepo != null &&
-				!gitApi.repositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)
+				!scmRepositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)
 			) {
 				context.activeRepo = undefined;
 			}

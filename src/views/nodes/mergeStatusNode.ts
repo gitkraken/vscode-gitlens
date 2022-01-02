@@ -1,14 +1,14 @@
 'use strict';
 import * as paths from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchNode } from './branchNode';
 import { ViewFilesLayout } from '../../configuration';
-import { FileNode, FolderNode } from './folderNode';
-import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
+import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { FileNode, FolderNode } from './folderNode';
+import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
@@ -29,7 +29,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		super(GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return MergeStatusNode.getId(this.mergeStatus.repoPath, this.mergeStatus.current.name, this.root);
 	}
 
@@ -55,9 +55,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -80,7 +78,8 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Merging ${
 				this.mergeStatus.incoming != null ? GitReference.toString(this.mergeStatus.incoming) : ''
 			}into ${GitReference.toString(this.mergeStatus.current)}`}${
@@ -90,6 +89,10 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}

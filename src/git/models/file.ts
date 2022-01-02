@@ -6,7 +6,7 @@ import { GitLogCommit } from './logCommit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 
-export enum GitFileConflictStatus {
+export const enum GitFileConflictStatus {
 	AddedByBoth = 'AA',
 	AddedByUs = 'AU',
 	AddedByThem = 'UA',
@@ -16,7 +16,7 @@ export enum GitFileConflictStatus {
 	ModifiedByBoth = 'UU',
 }
 
-export enum GitFileIndexStatus {
+export const enum GitFileIndexStatus {
 	Added = 'A',
 	Deleted = 'D',
 	Modified = 'M',
@@ -24,7 +24,7 @@ export enum GitFileIndexStatus {
 	Copied = 'C',
 }
 
-export enum GitFileWorkingTreeStatus {
+export const enum GitFileWorkingTreeStatus {
 	Added = 'A',
 	Deleted = 'D',
 	Modified = 'M',

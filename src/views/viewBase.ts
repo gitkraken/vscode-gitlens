@@ -3,12 +3,10 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
-	ConfigurationTarget,
 	Disposable,
 	Event,
 	EventEmitter,
 	MarkdownString,
-	MessageItem,
 	TreeDataProvider,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -17,8 +15,6 @@ import {
 	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
-import { BranchesView } from './branchesView';
-import { CommitsView } from './commitsView';
 import {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -37,16 +33,18 @@ import {
 	ViewsConfigKeys,
 } from '../configuration';
 import { Container } from '../container';
+import { Logger } from '../logger';
+import { debug, Functions, log, Promises } from '../system';
+import { BranchesView } from './branchesView';
+import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
-import { Logger } from '../logger';
 import { PageableViewNode, ViewNode } from './nodes';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
-import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
 
 export type View =
@@ -60,14 +58,8 @@ export type View =
 	| SearchAndCompareView
 	| StashesView
 	| TagsView;
-export type ViewsWithCommits =
-	| BranchesView
-	| CommitsView
-	| ContributorsView
-	| RemotesView
-	| RepositoriesView
-	| SearchAndCompareView
-	| TagsView;
+export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
+export type ViewsWithRepositoryFolders = Exclude<View, RepositoriesView | FileHistoryView | LineHistoryView>;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
@@ -85,8 +77,9 @@ export abstract class ViewBase<
 		| RepositoriesViewConfig
 		| SearchAndCompareViewConfig
 		| StashesViewConfig
-		| TagsViewConfig
-> implements TreeDataProvider<ViewNode>, Disposable {
+		| TagsViewConfig,
+> implements TreeDataProvider<ViewNode>, Disposable
+{
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
@@ -102,20 +95,17 @@ export abstract class ViewBase<
 		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
-	protected disposable: Disposable | undefined;
+	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	constructor(public readonly id: string, public readonly name: string) {
-		if (Logger.isDebugging || Container.config.debug) {
-			const getTreeItem = this.getTreeItem;
-			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
-				const item = await getTreeItem.apply(this, [node]);
+	constructor(public readonly id: string, public readonly name: string, public readonly container: Container) {
+		this.disposables.push(container.onReady(this.onReady, this));
 
-				const parent = node.getParent();
-
+		if (Logger.isDebugging || this.container.config.debug) {
+			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(
 						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
@@ -133,25 +123,49 @@ export abstract class ViewBase<
 						}`,
 					);
 				}
+			}
+
+			const getTreeItemFn = this.getTreeItem;
+			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
+				const item = await getTreeItemFn.apply(this, [node]);
+
+				const parent = node.getParent();
+
+				if (node.resolveTreeItem != null) {
+					if (item.tooltip != null) {
+						addDebuggingInfo(item, node, parent);
+					}
+
+					const resolveTreeItemFn = node.resolveTreeItem;
+					node.resolveTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, item: TreeItem) {
+						const resolvedItem = await resolveTreeItemFn.apply(this, [item]);
+
+						addDebuggingInfo(resolvedItem, node, parent);
+
+						return resolvedItem;
+					};
+				} else {
+					addDebuggingInfo(item, node, parent);
+				}
 
 				return item;
 			};
 		}
 
-		this.registerCommands();
+		this.disposables.push(...this.registerCommands());
+	}
 
-		Container.context.subscriptions.push(
-			configuration.onDidChange(e => {
-				if (!this.filterConfigurationChanged(e)) return;
+	dispose() {
+		Disposable.from(...this.disposables).dispose();
+	}
 
-				this._config = undefined;
-				this.onConfigurationChanged(e);
-			}, this),
-		);
-
+	private onReady() {
 		this.initialize({ showCollapseAll: this.showCollapseAll });
+		queueMicrotask(() => this.onConfigurationChanged());
+	}
 
-		setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
+	get canReveal(): boolean {
+		return true;
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -161,18 +175,13 @@ export abstract class ViewBase<
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'views')) return false;
 
-		if (configuration.changed(e, 'views', this.configKey)) return true;
+		if (configuration.changed(e, `views.${this.configKey}` as const)) return true;
 		for (const key of viewsCommonConfigKeys) {
-			if (configuration.changed(e, 'views', key)) return true;
+			if (configuration.changed(e, `views.${key}` as const)) return true;
 		}
 
 		return false;
 	}
-
-	dispose() {
-		this.disposable?.dispose();
-	}
-
 	private _title: string | undefined;
 	get title(): string | undefined {
 		return this._title;
@@ -211,24 +220,25 @@ export abstract class ViewBase<
 	}
 
 	protected abstract getRoot(): RootNode;
-	protected abstract registerCommands(): void;
-	protected onConfigurationChanged(e: ConfigurationChangeEvent): void {
-		if (!configuration.initializing(e) && this.root != null) {
+	protected abstract registerCommands(): Disposable[];
+	protected onConfigurationChanged(e?: ConfigurationChangeEvent): void {
+		if (e != null && this.root != null) {
 			void this.refresh(true);
 		}
 	}
 
 	protected initialize(options: { showCollapseAll?: boolean } = {}) {
-		if (this.disposable != null) {
-			this.disposable.dispose();
-			this._onDidChangeTreeData = new EventEmitter<ViewNode>();
-		}
-
-		this.tree = window.createTreeView(this.id, {
+		this.tree = window.createTreeView<ViewNode<View>>(this.id, {
 			...options,
 			treeDataProvider: this,
 		});
-		this.disposable = Disposable.from(
+		this.disposables.push(
+			configuration.onDidChange(e => {
+				if (!this.filterConfigurationChanged(e)) return;
+
+				this._config = undefined;
+				this.onConfigurationChanged(e);
+			}, this),
 			this.tree,
 			this.tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
@@ -260,6 +270,10 @@ export abstract class ViewBase<
 		return node.getTreeItem();
 	}
 
+	resolveTreeItem(item: TreeItem, node: ViewNode): TreeItem | Promise<TreeItem> {
+		return node.resolveTreeItem(item);
+	}
+
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
@@ -272,14 +286,14 @@ export abstract class ViewBase<
 		this._onDidChangeVisibility.fire(e);
 	}
 
-	get selection(): ViewNode[] {
+	get selection(): readonly ViewNode[] {
 		if (this.tree == null || this.root == null) return [];
 
 		return this.tree.selection;
 	}
 
 	get visible(): boolean {
-		return this.tree != null ? this.tree.visible : false;
+		return this.tree?.visible ?? false;
 	}
 
 	async findNode(
@@ -300,16 +314,10 @@ export abstract class ViewBase<
 			token?: CancellationToken;
 		},
 	): Promise<ViewNode | undefined>;
-	@log({
+	@log<ViewBase<RootNode, ViewConfig>['findNode']>({
 		args: {
-			0: (predicate: string | ((node: ViewNode) => boolean)) =>
-				typeof predicate === 'string' ? predicate : 'function',
-			1: (opts: {
-				allowPaging?: boolean;
-				canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
-				maxDepth?: number;
-				token?: CancellationToken;
-			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
+			0: predicate => (typeof predicate === 'string' ? predicate : '<function>'),
+			1: opts => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
 		},
 	})
 	async findNode(
@@ -328,26 +336,30 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		async function find(this: ViewBase<RootNode, ViewConfig>) {
+			try {
+				const node = await this.findNodeCoreBFS(
+					typeof predicate === 'string' ? n => n.id === predicate : predicate,
+					this.ensureRoot(),
+					allowPaging,
+					canTraverse,
+					maxDepth,
+					token,
+				);
+
+				return node;
+			} catch (ex) {
+				Logger.error(ex, cc);
+				return undefined;
+			}
+		}
+
+		if (this.root != null) return find.call(this);
+
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		if (this.root == null) {
-			await this.show();
-		}
-
-		try {
-			const node = await this.findNodeCoreBFS(
-				typeof predicate === 'string' ? n => n.id === predicate : predicate,
-				this.ensureRoot(),
-				allowPaging,
-				canTraverse,
-				maxDepth,
-				token,
-			);
-
-			return node;
-		} catch (ex) {
-			Logger.error(ex, cc);
-			return undefined;
-		}
+		await this.show({ preserveFocus: true });
+		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
+		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 100));
 	}
 
 	private async findNodeCoreBFS(
@@ -360,7 +372,7 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const queue: (ViewNode | undefined)[] = [root, undefined];
 
-		const defaultPageSize = Container.config.advanced.maxListItems;
+		const defaultPageSize = this.container.config.advanced.maxListItems;
 
 		let depth = 0;
 		let node: ViewNode | undefined;
@@ -466,9 +478,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange();
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => n.toString() },
-	})
+	@debug<ViewBase<RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
 	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
 		const cancel = await node.refresh?.(reset);
 		if (!force && cancel === true) return;
@@ -476,9 +486,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange(node);
 	}
 
-	@log({
-		args: { 0: (n: ViewNode) => n.toString() },
-	})
+	@log<ViewBase<RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
 	async reveal(
 		node: ViewNode,
 		options?: {
@@ -497,28 +505,11 @@ export abstract class ViewBase<
 	}
 
 	@log()
-	async show() {
+	async show(options?: { preserveFocus?: boolean }) {
 		try {
-			void (await commands.executeCommand(`${this.id}.focus`));
+			void (await commands.executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
 			Logger.error(ex);
-
-			const section = Strings.splitSingle(this.id, '.')[1];
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-			if (!configuration.get(section as any, 'enabled')) {
-				const actions: MessageItem[] = [{ title: 'Enable' }, { title: 'Cancel', isCloseAffordance: true }];
-
-				const result = await window.showErrorMessage(
-					`Unable to show the ${this.name} view since it's currently disabled. Would you like to enable it?`,
-					...actions,
-				);
-
-				if (result === actions[0]) {
-					await configuration.update(section as any, 'enabled', true, ConfigurationTarget.Global);
-
-					void (await commands.executeCommand(`${this.id}.focus`));
-				}
-			}
 		}
 	}
 
@@ -527,15 +518,12 @@ export abstract class ViewBase<
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@debug({
-		args: {
-			0: (n: ViewNode & PageableViewNode) => n.toString(),
-			3: (n?: ViewNode) => (n == null ? '' : n.toString()),
-		},
+	@debug<ViewBase<RootNode, ViewConfig>['loadMoreNodeChildren']>({
+		args: { 0: n => n.toString(), 2: n => n?.toString() },
 	})
 	async loadMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
-		limit: number | { until: any } | undefined,
+		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
 	) {
 		if (previousNode != null) {
@@ -546,14 +534,15 @@ export abstract class ViewBase<
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 
-	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
+	@debug<ViewBase<RootNode, ViewConfig>['resetNodeLastKnownLimit']>({
+		args: { 0: n => n.toString() },
+		singleLine: true,
+	})
 	resetNodeLastKnownLimit(node: PageableViewNode) {
 		this._lastKnownLimits.delete(node.id);
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => (n != null ? n.toString() : '') },
-	})
+	@debug<ViewBase<RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
@@ -564,12 +553,15 @@ export abstract class ViewBase<
 	private _config: (ViewConfig & ViewsCommonConfig) | undefined;
 	get config(): ViewConfig & ViewsCommonConfig {
 		if (this._config == null) {
-			const cfg = { ...Container.config.views };
+			const cfg = { ...this.container.config.views };
 			for (const view of viewsConfigKeys) {
 				delete cfg[view];
 			}
 
-			this._config = { ...(cfg as ViewsCommonConfig), ...(Container.config.views[this.configKey] as ViewConfig) };
+			this._config = {
+				...(cfg as ViewsCommonConfig),
+				...(this.container.config.views[this.configKey] as ViewConfig),
+			};
 		}
 
 		return this._config;

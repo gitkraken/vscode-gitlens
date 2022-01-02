@@ -1,14 +1,14 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { MessageNode } from './common';
-import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RemoteNode } from './remoteNode';
+import { Repository } from '../../git/models';
+import { debug, gate } from '../../system';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
+import { MessageNode } from './common';
+import { RemoteNode } from './remoteNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { debug, gate } from '../../system';
 
 export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remotes';
@@ -22,7 +22,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RemotesNode.getId(this.repo.path);
 	}
 
@@ -54,7 +54,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

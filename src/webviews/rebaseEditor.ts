@@ -1,5 +1,4 @@
 'use strict';
-import { TextDecoder } from 'util';
 import {
 	CancellationToken,
 	commands,
@@ -15,14 +14,15 @@ import {
 	workspace,
 	WorkspaceEdit,
 } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
-import { Repository, RepositoryChange } from '../git/git';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { debug, gate, Iterables } from '../system';
+import { debug, gate, Iterables, Strings } from '../system';
 import {
 	Author,
 	Commit,
@@ -86,7 +86,7 @@ interface RebaseEditorContext {
 	readonly id: number;
 	readonly document: TextDocument;
 	readonly panel: WebviewPanel;
-	readonly repo: Repository;
+	readonly repoPath: string;
 	readonly subscriptions: Disposable[];
 
 	abortOnClose: boolean;
@@ -96,12 +96,11 @@ interface RebaseEditorContext {
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
 	private readonly _disposable: Disposable;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			window.registerCustomEditorProvider('gitlens.rebase', this, {
 				supportsMultipleEditorsPerDocument: false,
 				webviewOptions: {
-					enableFindWidget: true,
 					retainContextWhenHidden: true,
 				},
 			}),
@@ -113,13 +112,18 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	get enabled(): boolean {
-		const associations = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
-			'workbench.editorAssociations',
-		)?.globalValue;
+		const associations = configuration.inspectAny<
+			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
+		>('workbench.editorAssociations')?.globalValue;
 		if (associations == null || associations.length === 0) return true;
 
-		const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
-		return association != null ? association.viewType === 'gitlens.rebase' : true;
+		if (Array.isArray(associations)) {
+			const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
+			return association != null ? association.viewType === 'gitlens.rebase' : true;
+		}
+
+		const association = associations['git-rebase-todo'];
+		return association != null ? association === 'gitlens.rebase' : true;
 	}
 
 	private _disableAfterNextUse: boolean = false;
@@ -133,46 +137,35 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	async setEnabled(enabled: boolean): Promise<void> {
 		this._disableAfterNextUse = false;
 
-		const inspection = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
-			'workbench.editorAssociations',
-		);
+		const inspection = configuration.inspectAny<
+			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
+		>('workbench.editorAssociations');
 
 		let associations = inspection?.globalValue;
-		if (associations == null || associations.length === 0) {
+		if (Array.isArray(associations)) {
+			associations = associations.reduce((accumulator, current) => {
+				accumulator[current.filenamePattern] = current.viewType;
+				return accumulator;
+			}, Object.create(null) as Record<string, string>);
+		}
+
+		if (associations == null) {
 			if (enabled) return;
 
-			associations = [
-				{
-					viewType: 'default',
-					filenamePattern: 'git-rebase-todo',
-				},
-			];
+			associations = {
+				'git-rebase-todo': 'default',
+			};
 		} else {
-			const index = associations.findIndex(a => a.filenamePattern === 'git-rebase-todo');
-			if (index !== -1) {
-				if (enabled) {
-					if (associations.length === 1) {
-						associations = undefined;
-					} else {
-						associations.splice(index, 1);
-					}
-				} else {
-					associations[index].viewType = 'default';
-				}
-			} else if (!enabled) {
-				associations.push({
-					viewType: 'default',
-					filenamePattern: 'git-rebase-todo',
-				});
-			}
+			associations['git-rebase-todo'] = enabled ? 'gitlens.rebase' : 'default';
 		}
 
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
+	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		const repo = await this.getRepository(document);
+		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
+		const repo = await this.container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
@@ -182,7 +175,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			subscriptions: subscriptions,
 			document: document,
 			panel: panel,
-			repo: repo,
+			repoPath: repo?.path ?? repoPath,
 			abortOnClose: true,
 		};
 
@@ -210,21 +203,17 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 				void this.getStateAndNotify(context);
 			}),
-			repo.onDidChange(e => {
-				if (
-					e.changed(RepositoryChange.Closed, true) ||
-					e.changed(RepositoryChange.Ignores, true) ||
-					e.changed(RepositoryChange.Remotes, true) ||
-					e.changed(RepositoryChange.Starred, true) ||
-					e.changed(RepositoryChange.Stash, true) ||
-					e.changed(RepositoryChange.Tags, true)
-				) {
-					return;
-				}
-
-				void this.getStateAndNotify(context);
-			}),
 		);
+
+		if (repo != null) {
+			subscriptions.push(
+				repo.onDidChange(e => {
+					if (!e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) return;
+
+					void this.getStateAndNotify(context);
+				}),
+			);
+		}
 
 		panel.webview.options = { enableCommandUris: true, enableScripts: true };
 		panel.webview.html = await this.getHtml(context);
@@ -252,8 +241,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async parseState(context: RebaseEditorContext): Promise<RebaseState> {
-		const branch = await context.repo.getBranch();
-		const state = await parseRebaseTodo(context.document.getText(), context.repo, branch?.name);
+		const branch = await this.container.git.getBranch(context.repoPath);
+		const state = await parseRebaseTodo(this.container, context.document.getText(), context.repoPath, branch?.name);
 		return state;
 	}
 
@@ -484,38 +473,46 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async getHtml(context: RebaseEditorContext): Promise<string> {
-		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
+		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
-		let html = content
-			.replace(/#{cspSource}/g, context.panel.webview.cspSource)
-			.replace(/#{root}/g, context.panel.webview.asWebviewUri(Container.context.extensionUri).toString());
-
 		const bootstrap = await this.parseState(context);
+		const cspSource = context.panel.webview.cspSource;
+		const cspNonce = getNonce();
+		const root = context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString();
 
-		html = html.replace(
-			/#{endOfBody}/i,
-			`<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
-				bootstrap,
-			)};</script>`,
-		);
+		const html = content
+			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+				switch (token) {
+					case 'endOfBody':
+						return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
+							bootstrap,
+						)};</script>`;
+					default:
+						return '';
+				}
+			})
+			.replace(/#{(cspSource|cspNonce|root)}/g, (substring, token) => {
+				switch (token) {
+					case 'cspSource':
+						return cspSource;
+					case 'cspNonce':
+						return cspNonce;
+					case 'root':
+						return root;
+					default:
+						return '';
+				}
+			});
 
 		return html;
-	}
-
-	private async getRepository(document: TextDocument): Promise<Repository> {
-		const repo = await Container.git.getRepository(Uri.joinPath(document.uri, '..', '..', '..'));
-		if (repo == null) {
-			// eslint-disable-next-line no-debugger
-			debugger;
-		}
-		return repo!;
 	}
 }
 
 async function parseRebaseTodo(
+	container: Container,
 	contents: string | { entries: RebaseEntry[]; onto: string },
-	repo: Repository,
+	repoPath: string,
 	branch: string | undefined,
 ): Promise<Omit<RebaseState, 'rebasing'>> {
 	let onto: string;
@@ -530,7 +527,7 @@ async function parseRebaseTodo(
 	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
 
-	const log = await repo.searchForCommits({
+	const log = await container.git.getLogForSearch(repoPath, {
 		pattern: `${onto ? `#:${onto} ` : ''}${Iterables.join(
 			Iterables.map(entries, e => `#:${e.ref}`),
 			' ',
@@ -544,7 +541,7 @@ async function parseRebaseTodo(
 			authors.set(ontoCommit.author, {
 				author: ontoCommit.author,
 				avatarUrl: (
-					await ontoCommit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
 				email: ontoCommit.email,
 			});
@@ -553,7 +550,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: ontoCommit.ref,
 			author: ontoCommit.author,
-			date: ontoCommit.formatDate(Container.config.defaultDateFormat),
+			date: ontoCommit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
 		});
@@ -573,7 +570,7 @@ async function parseRebaseTodo(
 			authors.set(commit.author, {
 				author: commit.author,
 				avatarUrl: (
-					await commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
 				email: commit.email,
 			});
@@ -582,7 +579,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: commit.ref,
 			author: commit.author,
-			date: commit.formatDate(Container.config.defaultDateFormat),
+			date: commit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message,
 		});
@@ -595,8 +592,7 @@ async function parseRebaseTodo(
 		authors: [...authors.values()],
 		commits: commits,
 		commands: {
-			// eslint-disable-next-line no-template-curly-in-string
-			commit: ShowQuickCommitCommand.getMarkdownCommandArgs('${commit}', repo.path),
+			commit: ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, repoPath),
 		},
 	};
 }

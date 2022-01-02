@@ -1,9 +1,9 @@
 'use strict';
 import { Range, Uri } from 'vscode';
 import { RemotesUrlsConfig } from '../../configuration';
+import { Strings } from '../../system';
 import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
-import { Strings } from '../../system';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;
@@ -11,6 +11,10 @@ export class CustomRemote extends RemoteProvider {
 	constructor(domain: string, path: string, urls: RemotesUrlsConfig, protocol?: string, name?: string) {
 		super(domain, path, protocol, name, true);
 		this.urls = urls;
+	}
+
+	get id() {
+		return 'custom';
 	}
 
 	get name() {
@@ -24,28 +28,30 @@ export class CustomRemote extends RemoteProvider {
 		return Promise.resolve(undefined);
 	}
 
-	protected getUrlForRepository(): string {
-		return Strings.interpolate(this.urls.repository, this.getContext());
+	protected override getUrlForRepository(): string {
+		return this.encodeUrl(Strings.interpolate(this.urls.repository, this.getContext()));
 	}
 
 	protected getUrlForBranches(): string {
-		return Strings.interpolate(this.urls.branches, this.getContext());
+		return this.encodeUrl(Strings.interpolate(this.urls.branches, this.getContext()));
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return Strings.interpolate(this.urls.branch, this.getContext({ branch: branch }));
+		return this.encodeUrl(Strings.interpolate(this.urls.branch, this.getContext({ branch: branch })));
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return Strings.interpolate(this.urls.commit, this.getContext({ id: sha }));
+		return this.encodeUrl(Strings.interpolate(this.urls.commit, this.getContext({ id: sha })));
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string | undefined {
+	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
-		return Strings.interpolate(
-			this.urls.comparison,
-			this.getContext({ ref1: ref1, ref2: ref2, notation: notation }),
+		return this.encodeUrl(
+			Strings.interpolate(
+				this.urls.comparison,
+				this.getContext({ ref1: base, ref2: compare, notation: notation }),
+			),
 		);
 	}
 
@@ -61,19 +67,27 @@ export class CustomRemote extends RemoteProvider {
 			line = '';
 		}
 
+		let url;
 		if (sha) {
-			return Strings.interpolate(
-				this.urls.fileInCommit,
-				this.getContext({ id: sha, file: fileName, line: line }),
-			);
-		}
-		if (branch) {
-			return Strings.interpolate(
+			url = Strings.interpolate(this.urls.fileInCommit, this.getContext({ id: sha, file: fileName, line: line }));
+		} else if (branch) {
+			url = Strings.interpolate(
 				this.urls.fileInBranch,
 				this.getContext({ branch: branch, file: fileName, line: line }),
 			);
+		} else {
+			url = Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
 		}
-		return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
+
+		const decodeHash = url.includes('#');
+		url = this.encodeUrl(url);
+		if (decodeHash) {
+			const index = url.lastIndexOf('%23');
+			if (index !== -1) {
+				url = `${url.substring(0, index)}#${url.substring(index + 3)}`;
+			}
+		}
+		return url;
 	}
 
 	private getContext(context?: Record<string, unknown>) {

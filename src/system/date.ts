@@ -1,12 +1,11 @@
 'use strict';
-import dayjs from 'dayjs';
+import * as dayjs from 'dayjs';
 import * as advancedFormat from 'dayjs/plugin/advancedFormat';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 
-dayjs.extend(advancedFormat.default);
-dayjs.extend(relativeTime.default);
-dayjs.extend(relativeTime.default, {
+dayjs.default.extend(advancedFormat.default);
+dayjs.default.extend(relativeTime.default, {
 	thresholds: [
 		{ l: 's', r: 44, d: 'second' },
 		{ l: 'm', r: 89 },
@@ -23,9 +22,9 @@ dayjs.extend(relativeTime.default, {
 		{ l: 'yy', d: 'year' },
 	],
 });
-dayjs.extend(updateLocale.default);
+dayjs.default.extend(updateLocale.default);
 
-dayjs.updateLocale('en', {
+dayjs.default.updateLocale('en', {
 	relativeTime: {
 		future: 'in %s',
 		past: '%s ago',
@@ -102,7 +101,7 @@ const shortLocale = {
 	},
 };
 
-dayjs.locale('en-short', shortLocale, true);
+dayjs.default.locale('en-short', shortLocale, true);
 
 export const MillisecondsPerMinute = 60000; // 60 * 1000
 export const MillisecondsPerHour = 3600000; // 60 * 60 * 1000
@@ -114,7 +113,7 @@ export interface DateFormatter {
 }
 
 export function getFormatter(date: Date): DateFormatter {
-	const formatter = dayjs(date);
+	const formatter = dayjs.default(date);
 	return {
 		fromNow: function (locale?: string) {
 			return (locale ? formatter.locale(locale) : formatter).fromNow();

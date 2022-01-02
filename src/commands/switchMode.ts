@@ -1,11 +1,11 @@
 'use strict';
 import { ConfigurationTarget } from 'vscode';
-import { command, Command, Commands } from './common';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { ModePicker } from '../quickpicks';
 import { log } from '../system';
+import { command, Command, Commands } from './common';
 
 @command()
 export class SwitchModeCommand extends Command {
@@ -24,21 +24,22 @@ export class SwitchModeCommand extends Command {
 			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 
-		const active = Container.config.mode.active;
+		const active = Container.instance.config.mode.active;
 		if (active === pick.key) return;
 
 		// Check if we have applied any annotations and clear them if we won't be applying them again
 		if (active != null && active.length !== 0) {
-			const activeAnnotations = Container.config.modes[active].annotations;
+			const activeAnnotations = Container.instance.config.modes?.[active].annotations;
 			if (activeAnnotations != null) {
-				const newAnnotations = pick.key != null ? Container.config.modes[pick.key].annotations : undefined;
+				const newAnnotations =
+					pick.key != null ? Container.instance.config.modes?.[pick.key].annotations : undefined;
 				if (activeAnnotations !== newAnnotations) {
-					await Container.fileAnnotations.clearAll();
+					await Container.instance.fileAnnotations.clearAll();
 				}
 			}
 		}
 
-		await configuration.update('mode', 'active', pick.key, ConfigurationTarget.Global);
+		await configuration.update('mode.active', pick.key, ConfigurationTarget.Global);
 	}
 }
 
@@ -50,10 +51,15 @@ export class ToggleReviewModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (!Object.keys(Container.config.modes).includes('review')) return;
+		if (
+			Container.instance.config.modes == null ||
+			!Object.keys(Container.instance.config.modes).includes('review')
+		) {
+			return;
+		}
 
-		const mode = Container.config.mode.active === 'review' ? undefined : 'review';
-		await configuration.update('mode', 'active', mode, ConfigurationTarget.Global);
+		const mode = Container.instance.config.mode.active === 'review' ? undefined : 'review';
+		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }
 
@@ -65,9 +71,11 @@ export class ToggleZenModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (!Object.keys(Container.config.modes).includes('zen')) return;
+		if (Container.instance.config.modes == null || !Object.keys(Container.instance.config.modes).includes('zen')) {
+			return;
+		}
 
-		const mode = Container.config.mode.active === 'zen' ? undefined : 'zen';
-		await configuration.update('mode', 'active', mode, ConfigurationTarget.Global);
+		const mode = Container.instance.config.mode.active === 'zen' ? undefined : 'zen';
+		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }

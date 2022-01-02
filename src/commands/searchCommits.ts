@@ -1,9 +1,9 @@
 'use strict';
 import { executeGitCommand } from '../commands';
-import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 import { Container } from '../container';
-import { SearchPattern } from '../git/git';
+import { SearchPattern } from '../git/search';
 import { SearchResultsNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;
@@ -20,7 +20,7 @@ export class SearchCommitsCommand extends Command {
 		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
 	}
 
-	protected preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			args.showResultsInSideBar = true;
@@ -50,7 +50,7 @@ export class SearchCommitsCommand extends Command {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					Container.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					Container.instance.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
 			},
 		}));
 	}

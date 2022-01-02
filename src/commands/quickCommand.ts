@@ -1,8 +1,8 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 import { Keys } from '../keyboard';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
@@ -46,6 +46,14 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): boolean | void | Promise<boolean | void>;
+	/**
+	 * @returns `true` if the current item should be selected
+	 */
+	onDidClickItemButton?(
+		quickpick: QuickPick<T>,
+		button: QuickInputButton,
+		item: T,
+	): boolean | void | Promise<boolean | void>;
 	onDidLoadMore?(quickpick: QuickPick<T>): (DirectiveQuickPickItem | T)[] | Promise<(DirectiveQuickPickItem | T)[]>;
 	onDidPressKey?(quickpick: QuickPick<T>, key: Keys): void | Promise<void>;
 	onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): boolean | Promise<boolean>;
@@ -146,7 +154,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 		return override != null
 			? override
-			: !Container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
+			: !Container.instance.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string) {
@@ -189,8 +197,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	async retry(): Promise<QuickPickStep | QuickInputStep | undefined> {
-		await this.next(Directive.Back);
-		await this.next();
+		await this.next(Directive.Noop);
 		return this.value;
 	}
 

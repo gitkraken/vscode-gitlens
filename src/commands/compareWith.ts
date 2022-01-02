@@ -1,5 +1,8 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
+import { Container } from '../container';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCommand,
 	command,
@@ -8,9 +11,6 @@ import {
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
 } from './common';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -29,7 +29,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
 		switch (context.command) {
 			case Commands.CompareWith:
 				args = { ...args };
@@ -76,9 +76,9 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
-				void (await Container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2));
+				void (await Container.instance.searchAndCompareView.compare(repoPath, args.ref1, args.ref2));
 			} else {
-				Container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
+				Container.instance.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');

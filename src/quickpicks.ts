@@ -3,7 +3,7 @@
 import { configuration } from './configuration';
 
 export function getQuickPickIgnoreFocusOut() {
-	return !configuration.get('advanced', 'quickPick', 'closeOnFocusOut');
+	return !configuration.get('advanced.quickPick.closeOnFocusOut');
 }
 
 export * from './quickpicks/quickPicksItems';

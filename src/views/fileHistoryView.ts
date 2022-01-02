@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, FileHistoryViewConfig } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
@@ -15,14 +15,14 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
-	constructor() {
-		super('gitlens.views.fileHistory', 'File History');
+	constructor(container: Container) {
+		super('gitlens.views.fileHistory', 'File History', container);
 
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
 	}
 
-	protected get showCollapseAll(): boolean {
+	protected override get showCollapseAll(): boolean {
 		return false;
 	}
 
@@ -30,61 +30,71 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return this._followCursor ? new LineHistoryTrackerNode(this) : new FileHistoryTrackerNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setCursorFollowingOn'),
-			() => this.setCursorFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setCursorFollowingOff'),
-			() => this.setCursorFollowing(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOn'),
-			() => this.setEditorFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOff'),
-			() => this.setEditorFollowing(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setRenameFollowingOn'),
-			() => this.setRenameFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setRenameFollowingOff'),
-			() => this.setRenameFollowing(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowAllBranchesOn'),
-			() => this.setShowAllBranches(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowAllBranchesOff'),
-			() => this.setShowAllBranches(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			commands.registerCommand(
+				this.getQualifiedCommand('setCursorFollowingOn'),
+				() => this.setCursorFollowing(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setCursorFollowingOff'),
+				() => this.setCursorFollowing(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOn'),
+				() => this.setEditorFollowing(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOff'),
+				() => this.setEditorFollowing(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setRenameFollowingOn'),
+				() => this.setRenameFollowing(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setRenameFollowingOff'),
+				() => this.setRenameFollowing(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAllBranchesOn'),
+				() => this.setShowAllBranches(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAllBranchesOff'),
+				() => this.setShowAllBranches(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+		];
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -94,8 +104,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryShowAllBranches')
+			!configuration.changed(e, 'advanced.fileHistoryFollowsRenames') &&
+			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches')
 		) {
 			return false;
 		}
@@ -122,12 +132,17 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setCursorFollowing(enabled: boolean) {
+		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
+
 		this._followCursor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
 
 		const root = this.ensureRoot(true);
+		if (uri != null) {
+			root.setUri(uri);
+		}
 		root.setEditorFollowing(this._followEditor);
 		void root.ensureSubscription();
 		void this.refresh(true);
@@ -157,14 +172,14 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setRenameFollowing(enabled: boolean) {
-		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
+		return configuration.updateEffective('advanced.fileHistoryFollowsRenames', enabled);
 	}
 
 	private setShowAllBranches(enabled: boolean) {
-		return configuration.updateEffective('advanced', 'fileHistoryShowAllBranches', enabled);
+		return configuration.updateEffective('advanced.fileHistoryShowAllBranches', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

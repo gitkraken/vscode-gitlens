@@ -1,6 +1,6 @@
 'use strict';
-import { command, Command, Commands } from './common';
 import { Container } from '../container';
+import { command, Command, Commands } from './common';
 
 @command()
 export class DisableRebaseEditorCommand extends Command {
@@ -9,7 +9,7 @@ export class DisableRebaseEditorCommand extends Command {
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(false);
+		return Container.instance.rebaseEditor.setEnabled(false);
 	}
 }
 
@@ -20,6 +20,6 @@ export class EnableRebaseEditorCommand extends Command {
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(true);
+		return Container.instance.rebaseEditor.setEnabled(true);
 	}
 }

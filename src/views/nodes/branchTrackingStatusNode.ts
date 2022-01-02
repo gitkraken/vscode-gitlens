@@ -1,16 +1,15 @@
 'use strict';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Colors } from '../../constants';
+import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/models';
+import { Dates, debug, gate, Iterables, Strings } from '../../system';
+import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
-import { Colors } from '../../constants';
-import { Container } from '../../container';
-import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
-import { Dates, debug, gate, Iterables, Strings } from '../../system';
-import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
@@ -53,7 +52,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		this.options = { showAheadCommits: false, ...options };
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchTrackingStatusNode.getId(
 			this.status.repoPath,
 			this.status.ref,
@@ -79,7 +78,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			commits = [...log.commits.values()];
 			const commit = commits[commits.length - 1];
 			if (commit.previousSha == null) {
-				const previousLog = await Container.git.getLog(this.uri.repoPath!, { limit: 2, ref: commit.sha });
+				const previousLog = await this.view.container.git.getLog(this.uri.repoPath!, {
+					limit: 2,
+					ref: commit.sha,
+				});
 				if (previousLog != null) {
 					commits[commits.length - 1] = Iterables.first(previousLog.commits.values());
 				}
@@ -148,7 +150,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		let lastFetched = 0;
 
 		if (this.upstreamType !== 'none') {
-			const repo = await Container.git.getRepository(this.repoPath);
+			const repo = await this.view.container.git.getRepository(this.repoPath);
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
@@ -225,7 +227,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				break;
 			}
 			case 'none': {
-				const remotes = await Container.git.getRemotes(this.branch.repoPath);
+				const remotes = await this.view.container.git.getRemotes(this.branch.repoPath);
 				const providers = GitRemote.getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -253,14 +255,19 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			tooltip += `\n\nLast fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 		}
 		item.iconPath = icon;
-		item.tooltip = new MarkdownString(tooltip, true);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -276,7 +283,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					? GitRevision.createRange(this.status.upstream, this.status.ref)
 					: GitRevision.createRange(this.status.ref, this.status.upstream);
 
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range,
 			});

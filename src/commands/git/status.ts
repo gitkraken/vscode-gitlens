@@ -1,7 +1,10 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitReference, GitStatus, Repository } from '../../git/git';
+import { GitReference, GitStatus, Repository } from '../../git/models';
+import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickRepositoryStep,
@@ -11,11 +14,10 @@ import {
 	StepResult,
 	StepState,
 } from '../quickCommand';
-import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	status: GitStatus;
 	title: string;
 }
@@ -49,13 +51,14 @@ export class StatusGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm() {
+	override get canConfirm() {
 		return false;
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			status: undefined!,
 			title: this.title,
 		};
@@ -91,7 +94,8 @@ export class StatusGitCommand extends QuickCommand<State> {
 					refType: 'branch',
 					name: context.status.branch,
 					remote: false,
-					tracking: context.status.upstream,
+					upstream:
+						context.status.upstream != null ? { name: context.status.upstream, missing: false } : undefined,
 				}),
 				{ icon: false },
 			)}`;

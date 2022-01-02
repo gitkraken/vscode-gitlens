@@ -1,10 +1,10 @@
 'use strict';
 import { Uri, window } from 'vscode';
-import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
+import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -24,7 +24,7 @@ export class OpenChangedFilesCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Open All Changed Files');
 				if (!repoPath) return;
 
-				const status = await Container.git.getStatusForRepo(repoPath);
+				const status = await Container.instance.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed files');
 

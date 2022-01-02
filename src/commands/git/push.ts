@@ -1,8 +1,11 @@
 'use strict';
 import { configuration } from '../../configuration';
-import { GlyphChars } from '../../constants';
+import { BuiltInGitConfiguration, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/git';
+import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
+import { Arrays, Dates, Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -17,11 +20,10 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -64,14 +66,14 @@ export class PushGitCommand extends QuickCommand<State> {
 		if (index !== -1) {
 			if (!GitReference.isBranch(state.reference)) return Promise.resolve();
 
-			return Container.git.pushAll(state.repos, {
+			return Container.instance.git.pushAll(state.repos, {
 				force: false,
 				publish: { remote: state.flags[index + 1] },
 				reference: state.reference,
 			});
 		}
 
-		return Container.git.pushAll(state.repos, {
+		return Container.instance.git.pushAll(state.repos, {
 			force: state.flags.includes('--force'),
 			reference: state.reference,
 		});
@@ -79,7 +81,8 @@ export class PushGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			title: this.title,
 		};
 
@@ -88,7 +91,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		}
 
 		if (state.repos != null && !Array.isArray(state.repos)) {
-			state.repos = [state.repos as any];
+			state.repos = [state.repos as string];
 		}
 
 		let skippedStepOne = false;
@@ -152,7 +155,7 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const useForceWithLease = configuration.getAny<boolean>('git.useForcePushWithLease') ?? false;
+		const useForceWithLease = configuration.getAny<boolean>(BuiltInGitConfiguration.UseForcePushWithLease) ?? false;
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
@@ -188,7 +191,7 @@ export class PushGitCommand extends QuickCommand<State> {
 				} else {
 					const branch = await repo.getBranch(state.reference.name);
 
-					if (branch != null && branch?.tracking == null) {
+					if (branch != null && branch?.upstream == null) {
 						for (const remote of await repo.getRemotes()) {
 							items.push(
 								FlagsQuickPickItem.create<Flags>(

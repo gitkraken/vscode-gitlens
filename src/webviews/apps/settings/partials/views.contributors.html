@@ -12,13 +12,13 @@
 		</h2>
 
 		<p class="section__header-hint">
-			Adds a Contributors view
+			Adds a
 			<a
 				class="command command--show-view"
 				title="Show View in Side Bar"
 				href="command:gitlens.showContributorsView"
-			></a>
-			to visualize, navigate, and explore contributors
+				>Contributors view</a
+			>, hidden by default, to visualize, navigate, and explore contributors
 		</p>
 	</div>
 
@@ -26,6 +26,18 @@
 		<div class="section__group">
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.contributors.showAllBranches"
+								name="views.contributors.showAllBranches"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.contributors.showAllBranches">Show commits from all branches</label>
+						</div>
+					</div>
+
 					<div class="section__group">
 						<div class="section__content">
 							<div class="settings settings--fixed">
@@ -62,6 +74,22 @@
 										</div>
 									</div>
 								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="sortContributorsBy">Sort contributors</label>
+							<div class="select-container">
+								<select id="sortContributorsBy" name="sortContributorsBy" data-setting>
+									<option value="count:desc">by commit count, descending</option>
+									<option value="count:asc">by commit count, ascending</option>
+									<option value="date:desc">by recent commit date, descending</option>
+									<option value="date:asc">by recent commit date, ascending</option>
+									<option value="name:asc">by name, ascending</option>
+									<option value="name:desc">by name, descending</option>
+								</select>
 							</div>
 						</div>
 					</div>

@@ -1,14 +1,6 @@
 'use strict';
-import { isEqual as _isEqual } from 'lodash-es';
-import { areEquivalent as arraysAreEquivalent } from './array';
 
-export function entries<T>(o: Record<string, T>): IterableIterator<[string, T]>;
-export function entries<T>(o: Record<number, T>): IterableIterator<[string, T]>;
-export function* entries<T>(o: any): IterableIterator<[string, T]> {
-	for (const key in o) {
-		yield [key, o[key]];
-	}
-}
+export { isEqual as areEqual } from 'lodash-es';
 
 export function flatten(o: any, prefix: string = '', stringify: boolean = false): Record<string, any> {
 	const flattened = Object.create(null) as Record<string, any>;
@@ -49,17 +41,6 @@ function _flatten(flattened: Record<string, any>, key: string, value: any, strin
 	}
 }
 
-export function isEqual(value: any, other: any) {
-	return _isEqual(value, other);
-}
-
-export function areEquivalent(value: any, other: any) {
-	if (Array.isArray(value) && Array.isArray(other)) {
-		return arraysAreEquivalent(value, other);
-	}
-	return isEqual(value, other);
-}
-
 export function paths(o: Record<string, any>, path?: string): string[] {
 	const results = [];
 
@@ -73,12 +54,4 @@ export function paths(o: Record<string, any>, path?: string): string[] {
 	}
 
 	return results;
-}
-
-export function values<T>(o: Record<string, T>): IterableIterator<T>;
-export function values<T>(o: Record<number, T>): IterableIterator<T>;
-export function* values<T>(o: any): IterableIterator<T> {
-	for (const key in o) {
-		yield o[key];
-	}
 }

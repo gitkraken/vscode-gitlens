@@ -1,14 +1,13 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { MessageNode } from './common';
-import { Container } from '../../container';
-import { ContributorNode } from './contributorNode';
-import { ContributorsView } from '../contributorsView';
-import { GitContributor, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoryNode } from './repositoryNode';
-import { RepositoriesView } from '../repositoriesView';
+import { GitContributor, Repository } from '../../git/models';
 import { debug, gate, timeout } from '../../system';
+import { ContributorsView } from '../contributorsView';
+import { RepositoriesView } from '../repositoriesView';
+import { MessageNode } from './common';
+import { ContributorNode } from './contributorNode';
+import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {
@@ -17,7 +16,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	protected splatted = true;
+	protected override splatted = true;
 
 	private _children: ContributorNode[] | undefined;
 
@@ -30,19 +29,36 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return ContributorsNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const contributors = await this.repo.getContributors();
+			const all = this.view.container.config.views.contributors.showAllBranches;
+
+			let ref: string | undefined;
+			// If we aren't getting all branches, get the upstream of the current branch if there is one
+			if (!all) {
+				try {
+					const branch = await this.view.container.git.getBranch(this.uri.repoPath);
+					if (branch?.upstream?.name != null && !branch.upstream.missing) {
+						ref = '@{u}';
+					}
+				} catch {}
+			}
+
+			const stats = this.view.container.config.views.contributors.showStatistics;
+
+			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
-			const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
+			const presenceMap = await this.maybeGetPresenceMap(contributors);
 
-			this._children = contributors.map(c => new ContributorNode(this.uri, this.view, this, c, presenceMap));
+			this._children = contributors.map(
+				c => new ContributorNode(this.uri, this.view, this, c, { all: all, ref: ref, presence: presenceMap }),
+			);
 		}
 
 		return this._children;
@@ -70,7 +86,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 
@@ -81,6 +97,6 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		const email = contributors.find(c => c.current)?.email;
 		if (email == null) return undefined;
 
-		return Container.vsls.getContactsPresence([email]);
+		return this.view.container.vsls.getContactsPresence([email]);
 	}
 }

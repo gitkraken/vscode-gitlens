@@ -1,10 +1,10 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
-import { GitReference } from '../git/git';
-import { executeGitCommand } from './gitCommands';
-import { GitUri } from '../git/gitUri';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
+import { GitReference } from '../git/models';
+import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { executeGitCommand } from './gitCommands';
 
 export interface ShowQuickBranchHistoryCommandArgs {
 	repoPath?: string;
@@ -18,7 +18,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 		super([Commands.ShowQuickBranchHistory, Commands.ShowQuickCurrentBranchHistory]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
 		if (context.command === Commands.ShowQuickCurrentBranchHistory) {
 			args = { ...args };
 			args.branch = 'HEAD';
@@ -32,7 +32,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.git.getHighlanderRepoPath();
+		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.instance.git.highlanderRepoPath;
 		let ref: GitReference | 'HEAD' | undefined;
 		if (repoPath != null) {
 			if (args?.branch != null) {

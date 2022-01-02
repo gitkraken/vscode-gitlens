@@ -1,20 +1,35 @@
 'use strict';
-import { commands, Disposable, QuickPickItem, window } from 'vscode';
+import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
 import { Commands } from '../commands/common';
+import { Config, configuration } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
+import { Container } from '../container';
 import { getQuickPickIgnoreFocusOut } from '../quickpicks';
-import { Action, ActionContext, ActionRunner } from './gitlens';
+import { Strings } from '../system';
+import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
-const actions: Actions[] = ['createPullRequest', 'openPullRequest'];
+const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'hover.commands'];
 
-export const defaultActionRunnerName = 'Built In';
+// The order here determines the sorting of these actions when shown to the user
+export const enum ActionRunnerType {
+	BuiltIn = 0,
+	BuiltInPartner = 1,
+	Partner = 2,
+	BuiltInPartnerInstaller = 3,
+}
 
-export class ActionRunnerQuickPickItem implements QuickPickItem {
-	constructor(public readonly runner: RegisteredActionRunner) {}
+export const builtInActionRunnerName = 'Built In';
+
+class ActionRunnerQuickPickItem implements QuickPickItem {
+	private readonly _label: string;
+
+	constructor(public readonly runner: RegisteredActionRunner, context: ActionContext) {
+		this._label = typeof runner.label === 'string' ? runner.label : runner.label(context);
+	}
 
 	get label(): string {
-		return this.runner.label;
+		return this._label;
 	}
 
 	get detail(): string | undefined {
@@ -22,8 +37,39 @@ export class ActionRunnerQuickPickItem implements QuickPickItem {
 	}
 }
 
-class RegisteredActionRunner implements ActionRunner, Disposable {
-	constructor(private readonly runner: ActionRunner, private readonly unregister: () => void) {}
+class NoActionRunnersQuickPickItem implements QuickPickItem {
+	public readonly runner: RegisteredActionRunner | undefined;
+
+	get label(): string {
+		return 'No actions were found';
+	}
+
+	get detail(): string | undefined {
+		return undefined;
+	}
+}
+
+let runnerId = 0;
+function nextRunnerId() {
+	if (runnerId === Number.MAX_SAFE_INTEGER) {
+		runnerId = 1;
+	} else {
+		runnerId++;
+	}
+
+	return runnerId;
+}
+
+class RegisteredActionRunner<T extends ActionContext = ActionContext> implements ActionRunner<T>, Disposable {
+	readonly id: number;
+
+	constructor(
+		public readonly type: ActionRunnerType,
+		private readonly runner: ActionRunner<T>,
+		private readonly unregister: () => void,
+	) {
+		this.id = nextRunnerId();
+	}
 
 	dispose() {
 		this.unregister();
@@ -33,25 +79,70 @@ class RegisteredActionRunner implements ActionRunner, Disposable {
 		return this.runner.name;
 	}
 
-	get label(): string {
+	get label(): string | ((context: T) => string) {
 		return this.runner.label;
 	}
 
-	run(context: ActionContext): void | Promise<void> {
+	get order(): number {
+		switch (this.type) {
+			case ActionRunnerType.BuiltIn:
+				return 0;
+
+			case ActionRunnerType.BuiltInPartner:
+				return 1;
+
+			case ActionRunnerType.Partner:
+				// Sort built-in partners and partners with ids the same
+				return this.partnerId ? 1 : 2;
+
+			case ActionRunnerType.BuiltInPartnerInstaller:
+				return 3;
+
+			default:
+				return 100;
+		}
+	}
+
+	get partnerId(): string {
+		return this.runner.partnerId;
+	}
+
+	run(context: T): void | Promise<void> {
 		return this.runner.run(context);
 	}
+
+	// when(context: ActionContext): boolean {
+	// 	try {
+	// 		return this.runner.when?.(context) ?? true;
+	// 	} catch {
+	// 		return false;
+	// 	}
+	// }
 }
 
 export class ActionRunners implements Disposable {
-	private readonly _actionRunners = new Map<Actions, RegisteredActionRunner[]>();
+	private _onDidChange = new EventEmitter<Actions | undefined>();
+	get onDidChange(): Event<Actions | undefined> {
+		return this._onDidChange.event;
+	}
+
+	private readonly _actionRunners = new Map<Actions, RegisteredActionRunner<any>[]>();
 	private readonly _disposable: Disposable;
-	constructor() {
-		const subscriptions: Disposable[] = [];
+
+	constructor(private readonly container: Container) {
+		const subscriptions: Disposable[] = [
+			configuration.onDidChange(e => {
+				if (!configuration.changed(e, 'partners')) return;
+
+				void this._updateAllContextKeys();
+			}),
+		];
 
 		for (const action of actions) {
 			subscriptions.push(
-				commands.registerCommand(`${Commands.ActionPrefix}${action}`, (context: ActionContext) =>
-					this.run(context),
+				commands.registerCommand(
+					`${Commands.ActionPrefix}${action}`,
+					(context: ActionContext, runnerId?: number) => this.run(context, runnerId),
 				),
 			);
 		}
@@ -71,26 +162,39 @@ export class ActionRunners implements Disposable {
 	}
 
 	count(action: Actions): number {
-		return this._actionRunners.get(action)?.length ?? 0;
+		return this.get(action)?.length ?? 0;
+	}
+
+	get(action: Actions): RegisteredActionRunner[] | undefined {
+		return filterOnlyEnabledRunners(this.container.config, this._actionRunners.get(action));
 	}
 
 	has(action: Actions): boolean {
 		return this.count(action) > 0;
 	}
 
-	register<T extends ActionContext>(action: Action<T>, runner: ActionRunner): Disposable {
+	register<T extends ActionContext>(
+		action: Action<T>,
+		runner: ActionRunner<T>,
+		type: ActionRunnerType = ActionRunnerType.Partner,
+	): Disposable {
 		let runners = this._actionRunners.get(action);
 		if (runners == null) {
 			runners = [];
 			this._actionRunners.set(action, runners);
 		}
 
+		const onChanged = (action: Actions) => {
+			void this._updateContextKeys(action);
+			this._onDidChange.fire(action);
+		};
+
 		const runnersMap = this._actionRunners;
-		const updateContextKeys = this._updateContextKeys.bind(this);
-		const registeredRunner = new RegisteredActionRunner(runner, function (this: RegisteredActionRunner) {
+
+		const registeredRunner = new RegisteredActionRunner(type, runner, function (this: RegisteredActionRunner) {
 			if (runners!.length === 1) {
 				runnersMap.delete(action);
-				void updateContextKeys(action);
+				onChanged(action);
 			} else {
 				const index = runners!.indexOf(this);
 				if (index !== -1) {
@@ -98,64 +202,113 @@ export class ActionRunners implements Disposable {
 				}
 			}
 		});
-		runners.push(registeredRunner);
 
-		void this._updateContextKeys(action);
+		runners.push(registeredRunner);
+		onChanged(action);
 
 		return {
 			dispose: () => registeredRunner.dispose(),
 		};
 	}
 
-	registerDefault<T extends ActionContext>(action: Action<T>, runner: Omit<ActionRunner, 'name'>): Disposable {
-		return this.register(action, { ...runner, name: defaultActionRunnerName });
+	registerBuiltIn<T extends ActionContext>(
+		action: Action<T>,
+		runner: Omit<ActionRunner<T>, 'partnerId' | 'name'>,
+	): Disposable {
+		return this.register(
+			action,
+			{ ...runner, partnerId: undefined!, name: builtInActionRunnerName },
+			ActionRunnerType.BuiltIn,
+		);
 	}
 
-	async run<T extends ActionContext>(context: T) {
-		const runners = this._actionRunners.get(context.type);
+	registerBuiltInPartner<T extends ActionContext>(
+		partnerId: string,
+		action: Action<T>,
+		runner: Omit<ActionRunner<T>, 'partnerId'>,
+	): Disposable {
+		return this.register(action, { ...runner, partnerId: partnerId }, ActionRunnerType.BuiltInPartner);
+	}
+
+	registerBuiltInPartnerInstaller<T extends ActionContext>(
+		partnerId: string,
+		action: Action<T>,
+		runner: Omit<ActionRunner<T>, 'partnerId'>,
+	): Disposable {
+		return this.register(
+			action,
+			{ ...runner, partnerId: partnerId, name: `${runner.name} (Not Installed)` },
+			ActionRunnerType.BuiltInPartnerInstaller,
+		);
+	}
+
+	async run<T extends ActionContext>(context: T, runnerId?: number) {
+		let runners = this.get(context.type);
 		if (runners == null || runners.length === 0) return;
+
+		if (runnerId != null) {
+			runners = runners.filter(r => r.id === runnerId);
+		}
+		if (runners.length === 0) return;
 
 		let runner;
 
-		if (runners.length > 1) {
-			const items = runners.map(r => new ActionRunnerQuickPickItem(r));
+		if (runners.length > 1 || runners.every(r => r.type !== ActionRunnerType.BuiltIn)) {
+			const items: (ActionRunnerQuickPickItem | NoActionRunnersQuickPickItem)[] = runners
+				// .filter(r => r.when(context))
+				.sort((a, b) => a.order - b.order || Strings.sortCompare(a.name, b.name))
+				.map(r => new ActionRunnerQuickPickItem(r, context));
 
-			const quickpick = window.createQuickPick<ActionRunnerQuickPickItem>();
+			if (items.length === 0) {
+				items.push(new NoActionRunnersQuickPickItem());
+			}
+
+			const quickpick = window.createQuickPick<ActionRunnerQuickPickItem | NoActionRunnersQuickPickItem>();
 			quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 			const disposables: Disposable[] = [];
 
 			try {
-				const pick = await new Promise<ActionRunnerQuickPickItem | undefined>(resolve => {
-					disposables.push(
-						quickpick.onDidHide(() => resolve(undefined)),
-						quickpick.onDidAccept(() => {
-							if (quickpick.activeItems.length !== 0) {
-								resolve(quickpick.activeItems[0]);
-							}
-						}),
-					);
+				const pick = await new Promise<ActionRunnerQuickPickItem | NoActionRunnersQuickPickItem | undefined>(
+					resolve => {
+						disposables.push(
+							quickpick.onDidHide(() => resolve(undefined)),
+							quickpick.onDidAccept(() => {
+								if (quickpick.activeItems.length !== 0) {
+									resolve(quickpick.activeItems[0]);
+								}
+							}),
+						);
 
-					let title;
-					let placeholder;
-					switch (context.type) {
-						case 'createPullRequest':
-							title = 'Create Pull Request';
-							placeholder = 'Choose how to create a pull request';
-							break;
-						case 'openPullRequest':
-							title = 'Open Pull Request';
-							placeholder = 'Choose how to open the pull request';
-							break;
-					}
+						let title;
+						let placeholder;
+						switch (context.type) {
+							case 'createPullRequest':
+								title = 'Create Pull Request';
+								placeholder = 'Choose how to create a pull request';
+								break;
+							case 'openPullRequest':
+								title = 'Open Pull Request';
+								placeholder = 'Choose how to open the pull request';
+								break;
+							case 'hover.commands':
+								title = 'Need Help or Want to Collaborate?';
+								placeholder = 'Choose what you would like to do';
+								break;
+							default:
+								// eslint-disable-next-line no-debugger
+								debugger;
+								break;
+						}
 
-					quickpick.title = title;
-					quickpick.placeholder = placeholder;
-					quickpick.matchOnDetail = true;
-					quickpick.items = items;
+						quickpick.title = title;
+						quickpick.placeholder = placeholder;
+						quickpick.matchOnDetail = true;
+						quickpick.items = items;
 
-					quickpick.show();
-				});
+						quickpick.show();
+					},
+				);
 				if (pick == null) return;
 
 				runner = pick.runner;
@@ -167,10 +320,27 @@ export class ActionRunners implements Disposable {
 			[runner] = runners;
 		}
 
-		await runner.run(context);
+		await runner?.run(context);
 	}
 
 	private async _updateContextKeys(action: Actions) {
 		await setContext(`${ContextKeys.ActionPrefix}${action}`, this.count(action));
 	}
+
+	private async _updateAllContextKeys() {
+		for (const action of actions) {
+			await this._updateContextKeys(action);
+		}
+	}
+}
+
+function filterOnlyEnabledRunners(config: Config, runners: RegisteredActionRunner[] | undefined) {
+	if (runners == null || runners.length === 0) return undefined;
+
+	const partners = config.partners;
+	if (partners == null) return runners;
+
+	return runners.filter(
+		r => r.partnerId == null || (r.partnerId != null && partners[r.partnerId]?.enabled !== false),
+	);
 }

@@ -5,11 +5,11 @@ import { WelcomeState } from './protocol';
 import { WebviewBase } from './webviewBase';
 
 export class WelcomeWebview extends WebviewBase {
-	constructor() {
-		super(Commands.ShowWelcomePage);
+	constructor(container: Container) {
+		super(Commands.ShowWelcomePage, container);
 	}
 
-	get filename(): string {
+	get fileName(): string {
 		return 'welcome.html';
 	}
 
@@ -21,11 +21,11 @@ export class WelcomeWebview extends WebviewBase {
 		return 'Welcome to GitLens';
 	}
 
-	renderEndOfBody() {
+	override renderEndOfBody() {
 		const bootstrap: WelcomeState = {
-			config: Container.config,
+			config: this.container.config,
 		};
-		return `<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
+		return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
 			bootstrap,
 		)};</script>`;
 	}

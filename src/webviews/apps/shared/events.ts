@@ -1,7 +1,5 @@
 'use strict';
 
-// Taken from github.com/microsoft/vscode/src/vs/base/common/event.ts
-
 export interface Disposable {
 	dispose(): void;
 }

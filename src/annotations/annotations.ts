@@ -15,8 +15,9 @@ import { HeatmapLocations } from '../config';
 import { Config, configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
-import { Objects, Strings } from '../system';
+import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
+import { GitCommit } from '../git/models';
+import { Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
@@ -63,14 +64,14 @@ export async function getHeatmapColors() {
 	if (heatmapColors == null) {
 		let colors;
 		if (
-			Container.config.heatmap.coldColor === defaultHeatmapColdColor &&
-			Container.config.heatmap.hotColor === defaultHeatmapHotColor
+			Container.instance.config.heatmap.coldColor === defaultHeatmapColdColor &&
+			Container.instance.config.heatmap.hotColor === defaultHeatmapHotColor
 		) {
 			colors = defaultHeatmapColors;
 		} else {
 			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
 			colors = chroma
-				.scale([Container.config.heatmap.hotColor, Container.config.heatmap.coldColor])
+				.scale([Container.instance.config.heatmap.hotColor, Container.instance.config.heatmap.coldColor])
 				.mode('lrgb')
 				.classes(20)
 				.colors(20);
@@ -83,9 +84,9 @@ export async function getHeatmapColors() {
 
 		const disposable = configuration.onDidChange(e => {
 			if (
-				configuration.changed(e, 'heatmap', 'ageThreshold') ||
-				configuration.changed(e, 'heatmap', 'hotColor') ||
-				configuration.changed(e, 'heatmap', 'coldColor')
+				configuration.changed(e, 'heatmap.ageThreshold') ||
+				configuration.changed(e, 'heatmap.hotColor') ||
+				configuration.changed(e, 'heatmap.coldColor')
 			) {
 				disposable.dispose();
 				heatmapColors = undefined;
@@ -110,7 +111,7 @@ export class Annotations {
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
-		const { locations } = Container.config.heatmap;
+		const { locations } = Container.instance.config.heatmap;
 		const gutter = locations.includes(HeatmapLocations.Gutter);
 		const overview = locations.includes(HeatmapLocations.Overview);
 
@@ -171,7 +172,7 @@ export class Annotations {
 	): RenderOptions {
 		// Get the character count of all the tokens, assuming there there is a cap (bail if not)
 		let chars = 0;
-		for (const token of Objects.values(options.tokenOptions!)) {
+		for (const token of Object.values(options.tokenOptions!)) {
 			if (token === undefined) continue;
 
 			// If any token is uncapped, kick out and set no max

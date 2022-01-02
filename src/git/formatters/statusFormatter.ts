@@ -62,8 +62,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get working() {
-		const commit = (this._item as GitFileWithCommit).commit;
-		const statusFile = commit === undefined ? this._item : commit.files[0];
+		const statusFile = (this._item as GitFileWithCommit).commit?.files?.[0] ?? this._item;
 
 		let icon;
 		if (statusFile.workingTreeStatus !== undefined && statusFile.indexStatus !== undefined) {

@@ -1,11 +1,11 @@
 'use strict';
 import { Range, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { Container } from '../container';
-import { GitBranch, GitLog, GitReference, GitTag } from '../git/git';
-import { executeGitCommand } from './gitCommands';
 import { GitUri } from '../git/gitUri';
+import { GitBranch, GitLog, GitReference, GitTag } from '../git/models';
 import { CommandQuickPickItem } from '../quickpicks';
+import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { executeGitCommand } from './gitCommands';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
@@ -21,11 +21,21 @@ export interface ShowQuickFileHistoryCommandArgs {
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor() {
-		super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory, Commands.QuickOpenFileHistory]);
+		super([
+			Commands.OpenFileHistory,
+			Commands.OpenFolderHistory,
+			Commands.ShowQuickFileHistory,
+			Commands.QuickOpenFileHistory,
+			Commands.Deprecated_ShowFileHistoryInView,
+		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
-		if (context.command === Commands.ShowFileHistoryInView) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
+		if (
+			context.command === Commands.OpenFileHistory ||
+			context.command === Commands.OpenFolderHistory ||
+			context.command === Commands.Deprecated_ShowFileHistoryInView
+		) {
 			args = { ...args };
 			args.showInSideBar = true;
 		}
@@ -40,7 +50,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		if (args?.showInSideBar) {
-			await Container.fileHistoryView.showHistoryForUri(gitUri);
+			await Container.instance.fileHistoryView.showHistoryForUri(gitUri);
 
 			return;
 		}

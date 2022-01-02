@@ -1,4 +1,5 @@
 'use strict';
+import { Uri } from 'vscode';
 import { is as isPromise } from '../promise';
 
 const emptyStr = '';
@@ -8,9 +9,8 @@ function defaultResolver(...args: any[]): string {
 		const arg0 = args[0];
 		if (arg0 == null) return emptyStr;
 		if (typeof arg0 === 'string') return arg0;
-		if (typeof arg0 === 'number' || typeof arg0 === 'boolean') {
-			return String(arg0);
-		}
+		if (typeof arg0 === 'number' || typeof arg0 === 'boolean' || arg0 instanceof Error) return String(arg0);
+		if (arg0 instanceof Uri) return arg0.toString();
 
 		return JSON.stringify(arg0);
 	}

@@ -1,6 +1,6 @@
 'use strict';
-import { GitTag } from '../git';
 import { debug } from '../../system';
+import { GitTag } from '../models';
 
 const tagRegex = /^<n>(.+)<\*r>(.*)<r>(.*)<d>(.*)<ad>(.*)<s>(.*)$/gm;
 

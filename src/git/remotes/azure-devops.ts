@@ -43,23 +43,33 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			// Strip off any `_git` part from the repo url
-			const baseUrl = this.baseUrl.replace(gitRegex, '/');
+			const workUrl = this.baseUrl.replace(gitRegex, '/');
 			this._autolinks = [
 				{
 					prefix: '#',
-					url: `${baseUrl}/_workitems/edit/<num>`,
+					url: `${workUrl}/_workitems/edit/<num>`,
 					title: `Open Work Item #<num> on ${this.name}`,
+				},
+				{
+					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
+					prefix: 'Merged PR ',
+					url: `${this.baseUrl}/pullrequest/<num>`,
+					title: `Open Pull Request #<num> on ${this.name}`,
 				},
 			];
 		}
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
 		return 'vsts';
+	}
+
+	get id() {
+		return 'azure-devops';
 	}
 
 	get name() {
@@ -67,7 +77,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _displayPath: string | undefined;
-	get displayPath(): string {
+	override get displayPath(): string {
 		if (this._displayPath === undefined) {
 			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		}
@@ -109,35 +119,39 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/?version=GB${branch}&_a=history`;
+		return this.encodeUrl(`${this.baseUrl}/?version=GB${branch}&_a=history`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commit/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
-		return `${this.baseUrl}/branchCompare?baseVersion=GB${ref1}&targetVersion=GB${ref2}`;
+	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {
 			if (range.start.line === range.end.line) {
-				line = `&line=${range.start.line}`;
+				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${
+					range.end.character + 1
+				}`;
 			} else {
-				line = `&line=${range.start.line}&lineEnd=${range.end.line}`;
+				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${
+					range.start.character + 1
+				}&lineEndColumn=${range.end.character + 1}`;
 			}
 		} else {
 			line = '';
 		}
 
-		if (sha) return `${this.baseUrl}/commit/${sha}/?_a=contents&path=/${fileName}${line}`;
-		if (branch) return `${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`;
-		return `${this.baseUrl}?path=/${fileName}${line}`;
+		if (sha) return this.encodeUrl(`${this.baseUrl}?path=${fileName}&version=GC${sha}${line}&_a=contents`);
+		if (branch) return this.encodeUrl(`${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`);
+		return this.encodeUrl(`${this.baseUrl}?path=/${fileName}${line}`);
 	}
 }

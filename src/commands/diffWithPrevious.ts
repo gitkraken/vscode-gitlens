@@ -1,8 +1,8 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -31,7 +31,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
 	}
 
-	protected preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
 		if (context.command === Commands.DiffWithPreviousInDiffRight) {
 			args = { ...args, inDiffRightEditor: true };
 		}
@@ -83,7 +83,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// }
 
 		try {
-			const diffUris = await Container.git.getPreviousDiffUris(
+			const diffUris = await Container.instance.git.getPreviousDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

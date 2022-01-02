@@ -1,15 +1,19 @@
 'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
-import { GitCommit } from './git/git';
+import { GitCommit } from './git/models';
 import { Logger } from './logger';
 
-export enum SuppressedMessages {
+export const enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
 	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
+	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
 	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
 	GitDisabledWarning = 'suppressGitDisabledWarning',
+	GitMissingWarning = 'suppressGitMissingWarning',
 	GitVersionWarning = 'suppressGitVersionWarning',
+	IncorrectWorkspaceCasingWarning = 'suppressImproperWorkspaceCasingWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
 	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
@@ -37,6 +41,31 @@ export class Messages {
 			`${message}. The commit could not be found.`,
 			SuppressedMessages.CommitNotFoundWarning,
 		);
+	}
+
+	static async showCreatePullRequestPrompt(branch: string): Promise<boolean> {
+		const create = { title: 'Create Pull Request...' };
+		const result = await Messages.showMessage(
+			'info',
+			`Would you like to create a Pull Request for branch '${branch}'?`,
+			SuppressedMessages.CreatePullRequestPrompt,
+			{ title: "Don't Show Again" },
+			create,
+		);
+		return result === create;
+	}
+
+	static async showDebugLoggingWarningMessage(): Promise<boolean> {
+		const disable = { title: 'Disable Debug Logging' };
+		const result = await Messages.showMessage(
+			'warn',
+			'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+			SuppressedMessages.SuppressDebugLoggingWarning,
+			{ title: "Don't Show Again" },
+			disable,
+		);
+
+		return result === disable;
 	}
 
 	static async showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {
@@ -71,6 +100,21 @@ export class Messages {
 		);
 	}
 
+	static showGitInvalidConfigErrorMessage() {
+		return Messages.showMessage(
+			'error',
+			'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		);
+	}
+
+	static showGitMissingErrorMessage() {
+		return Messages.showMessage(
+			'error',
+			"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+			SuppressedMessages.GitMissingWarning,
+		);
+	}
+
 	static showGitVersionUnsupportedErrorMessage(version: string, required: string): Promise<MessageItem | undefined> {
 		return Messages.showMessage(
 			'error',
@@ -79,10 +123,18 @@ export class Messages {
 		);
 	}
 
+	static async showIncorrectWorkspaceCasingWarningMessage(): Promise<void> {
+		void (await Messages.showMessage(
+			'warn',
+			'This workspace was opened with a different casing than what exists on disk. Please re-open this workspace with the exact casing as it exists on disk, otherwise you may experience issues with certain Git features, such as missing blame or history.',
+			SuppressedMessages.IncorrectWorkspaceCasingWarning,
+		));
+	}
+
 	static showInsidersErrorMessage() {
 		return Messages.showMessage(
 			'error',
-			'GitLens (Insiders) cannot be used while GitLens is also installed. Please ensure that only one version of GitLens is installed.',
+			'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
 			SuppressedMessages.GitDisabledWarning,
 		);
 	}
@@ -112,22 +164,17 @@ export class Messages {
 	}
 
 	static async showWhatsNewMessage(version: string) {
-		const actions: MessageItem[] = [{ title: "What's New" }, { title: '❤ Sponsor' }];
-
+		const whatsnew = { title: "What's New" };
 		const result = await Messages.showMessage(
 			'info',
 			`GitLens has been updated to v${version} — check out what's new!`,
 			undefined,
 			null,
-			...actions,
+			whatsnew,
 		);
 
-		if (result != null) {
-			if (result === actions[0]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
-			} else if (result === actions[1]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
-			}
+		if (result === whatsnew) {
+			await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 		}
 	}
 
@@ -140,7 +187,7 @@ export class Messages {
 	): Promise<MessageItem | undefined> {
 		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
 
-		if (suppressionKey !== undefined && configuration.get('advanced', 'messages', suppressionKey)) {
+		if (suppressionKey !== undefined && configuration.get(`advanced.messages.${suppressionKey}` as const)) {
 			Logger.log(
 				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`,
 			);
@@ -186,16 +233,16 @@ export class Messages {
 	}
 
 	private static suppressedMessage(suppressionKey: SuppressedMessages) {
-		const messages: Record<string, boolean | undefined> = configuration.get('advanced', 'messages');
+		const messages = { ...configuration.get('advanced.messages') };
 
 		messages[suppressionKey] = true;
 
 		for (const [key, value] of Object.entries(messages)) {
 			if (value !== true) {
-				messages[key] = undefined;
+				delete messages[key as keyof typeof messages];
 			}
 		}
 
-		return configuration.update('advanced', 'messages', messages as any, ConfigurationTarget.Global);
+		return configuration.update('advanced.messages', messages, ConfigurationTarget.Global);
 	}
 }

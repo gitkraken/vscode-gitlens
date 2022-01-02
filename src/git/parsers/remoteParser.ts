@@ -1,13 +1,14 @@
 'use strict';
-import { GitRemoteType } from '../models/remote';
-import { RemoteProvider } from '../remotes/factory';
-import { GitRemote } from '../git';
 import { debug } from '../../system';
+import { GitRemote } from '../models';
+import { GitRemoteType } from '../models/remote';
+import { RemoteProvider } from '../remotes/provider';
 
 const emptyStr = '';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
+const urlRegex =
+	/^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
 
 // Test git urls
 /*
@@ -52,7 +53,7 @@ export class GitRemoteParser {
 	static parse(
 		data: string,
 		repoPath: string,
-		providerFactory: (domain: string, path: string) => RemoteProvider | undefined,
+		providerFactory: (url: string, domain: string, path: string) => RemoteProvider | undefined,
 	): GitRemote[] | undefined {
 		if (!data) return undefined;
 
@@ -85,7 +86,7 @@ export class GitRemoteParser {
 			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
 			remote = groups[uniqueness];
 			if (remote === undefined) {
-				const provider = providerFactory(domain, path);
+				const provider = providerFactory(url, domain, path);
 
 				remote = new GitRemote(
 					repoPath,

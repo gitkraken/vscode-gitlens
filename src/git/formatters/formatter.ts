@@ -140,7 +140,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 	protected static fromTemplateCoreAsync<
 		TFormatter extends Formatter<Item, Options>,
 		Item,
-		Options extends FormatOptions
+		Options extends FormatOptions,
 	>(
 		formatter: TFormatter | Constructor<TFormatter>,
 		template: string,
@@ -188,7 +188,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		const token =
 			tokens.length === 1
 				? (tokens[0] as string)
-				: ((`(${tokens.join('|')})` as keyof NonNullable<TOptions['tokenOptions']>) as string);
+				: (`(${tokens.join('|')})` as keyof NonNullable<TOptions['tokenOptions']> as string);
 
 		let regex = hasTokenRegexMap.get(token);
 		if (regex == null) {

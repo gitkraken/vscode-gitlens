@@ -4,9 +4,9 @@ import { GitUri } from '../../git/gitUri';
 import { Arrays } from '../../system';
 import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
+import { RepositoryNode } from './repositoryNode';
 import { TagNode } from './tagNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
 	static getId(repoPath: string, key: string | undefined, type: string, relativePath: string | undefined): string {
@@ -29,11 +29,11 @@ export class BranchOrTagFolderNode extends ViewNode {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.folderName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return BranchOrTagFolderNode.getId(this.repoPath, this._key, this.type, this.relativePath);
 	}
 

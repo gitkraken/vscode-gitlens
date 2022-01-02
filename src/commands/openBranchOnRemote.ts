@@ -1,5 +1,9 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
+import { Logger } from '../logger';
+import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,11 +14,7 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasBranch,
 } from './common';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;
@@ -28,7 +28,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenBranchOnRemote, Commands.Deprecated_OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasBranch(context)) {
 			args = {
 				...args,
@@ -67,7 +67,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 					{
 						autoPick: true,
 						// checkmarks: false,
-						filter: { branches: b => b.tracking != null },
+						filter: { branches: b => b.upstream != null },
 						include: ReferencesQuickPickIncludes.Branches,
 						sort: { branches: { current: true }, tags: {} },
 					},

@@ -1,14 +1,15 @@
 'use strict';
 import * as paths from 'path';
-import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { GitBranch, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
+import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
-export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewRefFileNode<TView> {
+export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
 	constructor(
 		view: TView,
 		parent: ViewNode,
@@ -23,7 +24,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewR
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -45,10 +46,10 @@ export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewR
 
 	async getTreeItem(): Promise<TreeItem> {
 		if (!this.commit.isFile) {
-			// See if we can get the commit directly from the multi-file commit
+			// Try to get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit == null) {
-				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -63,12 +64,13 @@ export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewR
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
 		item.contextValue = this.contextValue;
 		item.description = this.description;
+		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
 		item.tooltip = this.tooltip;
 
 		const icon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+			dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+			light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 		};
 
 		item.command = this.getCommand();
@@ -123,14 +125,10 @@ export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewR
 	}
 
 	private get tooltip() {
-		return StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
-			this.file,
-		);
+		return StatusFileFormatter.fromTemplate(`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`, this.file);
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		let line;
 		if (this.commit.line !== undefined) {
 			line = this.commit.line.to.line - 1;

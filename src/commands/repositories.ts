@@ -1,7 +1,7 @@
 'use strict';
+import { executeGitCommand } from '../commands';
 import { Container } from '../container';
 import { command, Command, Commands } from './common';
-import { executeGitCommand } from '../commands';
 
 @command()
 export class FetchRepositoriesCommand extends Command {
@@ -10,7 +10,10 @@ export class FetchRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'fetch', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'fetch',
+			state: { repos: Container.instance.git.openRepositories },
+		});
 	}
 }
 
@@ -21,7 +24,10 @@ export class PullRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'pull', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'pull',
+			state: { repos: Container.instance.git.openRepositories },
+		});
 	}
 }
 
@@ -32,6 +38,9 @@ export class PushRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		return executeGitCommand({ command: 'push', state: { repos: await Container.git.getOrderedRepositories() } });
+		return executeGitCommand({
+			command: 'push',
+			state: { repos: Container.instance.git.openRepositories },
+		});
 	}
 }

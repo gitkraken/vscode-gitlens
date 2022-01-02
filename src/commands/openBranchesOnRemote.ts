@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import {
 	ActiveEditorCommand,
@@ -30,7 +30,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}

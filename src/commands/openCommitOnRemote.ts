@@ -1,5 +1,10 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,11 +15,6 @@ import {
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
 } from './common';
-import { Container } from '../container';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
@@ -35,7 +35,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
 		let uri = context.uri;
 
 		if (isCommandContextViewNodeHasCommit(context)) {
@@ -72,8 +72,8 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				if (blameline < 0) return;
 
 				const blame = editor?.document.isDirty
-					? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.git.getBlameForLine(gitUri, blameline);
+					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage(
 						'Unable to open commit on remote provider',

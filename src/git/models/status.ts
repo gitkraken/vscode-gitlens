@@ -1,12 +1,12 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GitBranch, GitTrackingState } from './branch';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
-import { GitUri } from '../gitUri';
-import { GitCommitType, GitLogCommit, GitRemote, GitRevision } from './models';
 import { memoize, Strings } from '../../system';
+import { GitUri } from '../gitUri';
+import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from '../models';
+import { GitBranch, GitTrackingState } from './branch';
+import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;
@@ -234,7 +234,7 @@ export class GitStatus {
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 
-		const remotes = await Container.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotes(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
 		const remoteName = GitBranch.getRemote(this.upstream);
@@ -249,13 +249,18 @@ export class GitStatus {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
+		return GitStatus.getUpstreamStatus(
+			this.upstream ? { name: this.upstream, missing: false } : undefined,
+			this.state,
+			options,
+		);
 	}
 
 	static getUpstreamStatus(
-		upstream: string | undefined,
+		upstream: { name: string; missing: boolean } | undefined,
 		state: { ahead: number; behind: number },
 		options: {
+			count?: boolean;
 			empty?: string;
 			expand?: boolean;
 			icons?: boolean;
@@ -264,28 +269,38 @@ export class GitStatus {
 			suffix?: string;
 		} = {},
 	): string {
-		const { expand = false, icons = false, prefix = '', separator = ' ', suffix = '' } = options;
+		const { count = true, expand = false, icons = false, prefix = '', separator = ' ', suffix = '' } = options;
 		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty ?? '';
 
 		if (expand) {
 			let status = '';
-			if (state.behind) {
-				status += `${Strings.pluralize('commit', state.behind, {
-					infix: icons ? '$(arrow-down) ' : undefined,
-				})} behind`;
-			}
-			if (state.ahead) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
-					infix: icons ? '$(arrow-up) ' : undefined,
-				})} ahead`;
-				if (suffix.startsWith(` ${upstream.split('/')[0]}`)) {
-					status += ' of';
+			if (upstream.missing) {
+				status = 'missing';
+			} else {
+				if (state.behind) {
+					status += `${Strings.pluralize('commit', state.behind, {
+						infix: icons ? '$(arrow-down) ' : undefined,
+					})} behind`;
+				}
+				if (state.ahead) {
+					status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
+						infix: icons ? '$(arrow-up) ' : undefined,
+					})} ahead`;
+					if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
+						status += ' of';
+					}
 				}
 			}
 			return `${prefix}${status}${suffix}`;
 		}
 
-		return `${prefix}${state.behind}${GlyphChars.ArrowDown}${separator}${state.ahead}${GlyphChars.ArrowUp}${suffix}`;
+		const showCounts = count && !upstream.missing;
+
+		return `${prefix}${showCounts ? state.behind : ''}${
+			showCounts || state.behind !== 0 ? GlyphChars.ArrowDown : ''
+		}${separator}${showCounts ? state.ahead : ''}${
+			showCounts || state.ahead !== 0 ? GlyphChars.ArrowUp : ''
+		}${suffix}`;
 	}
 }
 
@@ -403,11 +418,10 @@ export class GitStatusFile implements GitFile {
 		return GitFile.getStatusText(this.status);
 	}
 
-	async toPsuedoCommits(): Promise<GitLogCommit[]> {
+	toPsuedoCommits(user: GitUser | undefined): GitLogCommit[] {
 		const commits: GitLogCommit[] = [];
 
 		if (this.conflictStatus != null) {
-			const user = await Container.git.getCurrentUser(this.repoPath);
 			commits.push(
 				new GitLogCommit(
 					GitCommitType.LogFile,
@@ -431,7 +445,6 @@ export class GitStatusFile implements GitFile {
 
 		if (this.workingTreeStatus == null && this.indexStatus == null) return commits;
 
-		const user = await Container.git.getCurrentUser(this.repoPath);
 		if (this.workingTreeStatus != null && this.indexStatus != null) {
 			commits.push(
 				new GitLogCommit(

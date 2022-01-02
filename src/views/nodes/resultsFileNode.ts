@@ -2,11 +2,11 @@
 import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { FileNode } from './folderNode';
-import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitReference, GitRevisionReference } from '../../git/models';
 import { View } from '../viewBase';
+import { FileNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
 export class ResultsFileNode extends ViewRefFileNode implements FileNode {
@@ -22,7 +22,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -43,15 +43,14 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		item.contextValue = ContextValues.ResultsFile;
 		item.description = this.description;
 		item.tooltip = StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
+			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`,
 			this.file,
 		);
 
 		const statusIcon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
+			dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
+			light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();
@@ -104,7 +103,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		return 0;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: this.ref1,

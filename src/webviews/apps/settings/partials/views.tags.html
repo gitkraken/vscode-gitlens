@@ -8,8 +8,10 @@
 		</h2>
 
 		<p class="section__header-hint">
-			Adds a Tags view
-			<a class="command command--show-view" title="Show View in Side Bar" href="command:gitlens.showTagsView"></a>
+			Adds a
+			<a class="command command--show-view" title="Show View in Side Bar" href="command:gitlens.showTagsView"
+				>Tags view</a
+			>
 			to visualize, explore, and manage Git tags
 		</p>
 	</div>
@@ -35,10 +37,10 @@
 							<label for="sortTagsBy">Sort tags</label>
 							<div class="select-container">
 								<select id="sortTagsBy" name="sortTagsBy" data-setting>
-									<option value="name:desc">by name, descending</option>
+									<option value="date:desc">by recent commit date, descending</option>
+									<option value="date:asc">by recent commit date, ascending</option>
 									<option value="name:asc">by name, ascending</option>
-									<option value="date:desc">by date, descending</option>
-									<option value="date:asc">by date, ascending</option>
+									<option value="name:desc">by name, descending</option>
 								</select>
 							</div>
 						</div>

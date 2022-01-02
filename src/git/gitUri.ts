@@ -5,9 +5,9 @@ import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitFile, GitRevision } from '../git/git';
 import { Logger } from '../logger';
 import { debug, memoize, Strings } from '../system';
+import { GitCommit, GitFile, GitRevision } from './models';
 
 const emptyStr = '';
 const slash = '/';
@@ -19,7 +19,6 @@ export interface GitCommitish {
 	versionedPath?: string;
 }
 
-// Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L331-L337
 interface UriComponents {
 	scheme: string;
 	authority: string;
@@ -35,7 +34,7 @@ interface UriEx {
 	new (components: UriComponents): Uri;
 }
 
-export class GitUri extends ((Uri as any) as UriEx) {
+export class GitUri extends (Uri as any as UriEx) {
 	static is(uri: any): uri is GitUri {
 		return uri instanceof GitUri;
 	}
@@ -186,8 +185,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
 	}
 
-	getFormattedFilename(options: { suffix?: string; truncateTo?: number } = {}): string {
-		return GitUri.getFormattedFilename(this.fsPath, options);
+	getFormattedFileName(options: { suffix?: string; truncateTo?: number } = {}): string {
+		return GitUri.getFormattedFileName(this.fsPath, options);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
@@ -200,9 +199,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
 	}
 
 	private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
-		// Taken from https://github.com/Microsoft/vscode/blob/e444eaa768a1e8bd8315f2cee265d725e96a8162/src/vs/base/common/uri.ts#L300-L325
-		// check for authority as used in UNC shares or use the path as given
-		if (fsPath.startsWith(slash) && fsPath[1] === slash) {
+		// Check for authority as used in UNC shares or use the path as given
+		if (fsPath[0] === slash && fsPath[1] === slash) {
 			const index = fsPath.indexOf(slash, 2);
 			if (index === -1) {
 				authority = fsPath.substring(2);
@@ -218,7 +216,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 	static file(path: string, useVslsScheme?: boolean) {
 		const uri = Uri.file(path);
-		if (Container.vsls.isMaybeGuest && useVslsScheme !== false) {
+		if (Container.instance.vsls.isMaybeGuest && useVslsScheme !== false) {
 			return uri.with({ scheme: DocumentSchemes.Vsls });
 		}
 
@@ -269,7 +267,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			return this.fromUri(newUri);
 		}
 
-		if (!Container.git.isTrackable(uri)) return new GitUri(uri);
+		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
 
 		if (uri.scheme === DocumentSchemes.GitLens) return new GitUri(uri);
 
@@ -278,7 +276,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			try {
 				const data: { path: string; ref: string } = JSON.parse(uri.query);
 
-				const repoPath = await Container.git.getRepoPath(data.path);
+				const repoPath = await Container.instance.git.getRepoPath(data.path);
 
 				let ref;
 				switch (data.ref) {
@@ -321,7 +319,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 				if (repoPath.endsWith(data.fileName)) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
-					repoPath = (await Container.git.getRepoPath(uri.fsPath))!;
+					repoPath = (await Container.instance.git.getRepoPath(uri.fsPath))!;
 				}
 
 				const commitish: GitCommitish = {
@@ -333,7 +331,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			} catch {}
 		}
 
-		return new GitUri(uri, await Container.git.getRepoPath(uri));
+		return new GitUri(uri, await Container.instance.git.getRepoPath(uri));
 	}
 
 	static getDirectory(fileName: string, relativeTo?: string): string {
@@ -342,7 +340,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
 	}
 
-	static getFormattedFilename(
+	static getFormattedFileName(
 		fileNameOrUri: string | Uri,
 		options: {
 			suffix?: string;

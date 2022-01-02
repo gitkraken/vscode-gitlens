@@ -36,22 +36,21 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 ]);
 
 class RebaseEditor extends App<RebaseState> {
-	// eslint-disable-next-line no-template-curly-in-string
-	private readonly commitTokenRegex = new RegExp(encodeURIComponent('${commit}'));
+	private readonly commitTokenRegex = new RegExp(encodeURIComponent(`\${commit}`));
 
 	constructor() {
 		super('RebaseEditor', (window as any).bootstrap);
 		(window as any).bootstrap = undefined;
 	}
 
-	protected onInitialize() {
+	protected override onInitialize() {
 		this.state = this.getState() ?? this.state;
 		if (this.state != null) {
 			this.refresh(this.state);
 		}
 	}
 
-	protected onBind() {
+	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -175,6 +174,34 @@ class RebaseEditor extends App<RebaseState> {
 							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 						}
 					}
+				} else if (e.key === 'j' || e.key === 'k') {
+					if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+						if (me.state == null) return;
+
+						let ref = (this as HTMLLIElement).dataset.ref;
+						if (ref == null) return;
+
+						e.preventDefault();
+
+						let index = me.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
+						if (index < 0) {
+							index = me.state.entries.length - 1;
+						} else if (index === me.state.entries.length) {
+							index = 0;
+						}
+
+						ref = me.state.entries[index].ref;
+						document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+					}
+				} else if (e.key === 'J' || e.key === 'K') {
+					if (!e.metaKey && !e.ctrlKey && !e.altKey && e.shiftKey) {
+						const ref = (this as HTMLLIElement).dataset.ref;
+						if (ref) {
+							e.stopPropagation();
+
+							me.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
+						}
+					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
 					const action = rebaseActionsMap.get(e.key);
 					if (action !== undefined) {
@@ -252,7 +279,7 @@ class RebaseEditor extends App<RebaseState> {
 		this.sendCommand(RebaseDidSwitchCommandType, {});
 	}
 
-	protected onMessageReceived(e: MessageEvent) {
+	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data;
 
 		switch (msg.method) {

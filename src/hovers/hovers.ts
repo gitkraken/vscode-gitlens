@@ -1,10 +1,12 @@
 'use strict';
-import { MarkdownString } from 'vscode';
+import { CancellationToken, MarkdownString } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { CommitFormatter } from '../git/formatters';
+import { GitUri } from '../git/gitUri';
 import {
-	CommitFormatter,
 	GitBlameCommit,
 	GitCommit,
 	GitDiffHunk,
@@ -12,9 +14,9 @@ import {
 	GitLogCommit,
 	GitRemote,
 	GitRevision,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
+	PullRequest,
+} from '../git/models';
+import { Logger, LogLevel } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
 
 export namespace Hovers {
@@ -49,11 +51,11 @@ export namespace Hovers {
 
 			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
+			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
 			if (hunkLine == null && ref == null) {
-				hunkLine = await Container.git.getDiffForLine(
+				hunkLine = await Container.instance.git.getDiffForLine(
 					uri,
 					editorLine,
 					undefined,
@@ -128,6 +130,7 @@ export namespace Hovers {
 		message = `${diff}\n---\n\nChanges  &nbsp;${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
 
 		const markdown = new MarkdownString(message, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -173,6 +176,7 @@ export namespace Hovers {
 		}&nbsp; ${current}${message == null ? '' : ` &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`}`;
 
 		const markdown = new MarkdownString(message, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -181,27 +185,60 @@ export namespace Hovers {
 		commit: GitCommit,
 		uri: GitUri,
 		editorLine: number,
+		format: string,
 		dateFormat: string | null,
+		options?: {
+			autolinks?: boolean;
+			cancellationToken?: CancellationToken;
+			pullRequests?: {
+				enabled: boolean;
+				pr?: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>>;
+			};
+			getBranchAndTagTips?: (
+				sha: string,
+				options?: { compact?: boolean | undefined; icons?: boolean | undefined },
+			) => string | undefined;
+		},
 	): Promise<MarkdownString> {
 		if (dateFormat === null) {
 			dateFormat = 'MMMM Do, YYYY h:mma';
 		}
 
-		const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
+		const remotes = await Container.instance.git.getRemotes(commit.repoPath, { sort: true });
+
+		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
-			getPullRequestForCommit(commit.ref, remotes),
-			Container.vsls.maybeGetPresence(commit.email).catch(() => undefined),
+			options?.pullRequests?.pr ??
+				getPullRequestForCommit(commit.ref, remotes, {
+					pullRequests:
+						options?.pullRequests?.enabled ||
+						CommitFormatter.has(
+							format,
+							'pullRequest',
+							'pullRequestAgo',
+							'pullRequestAgoOrDate',
+							'pullRequestDate',
+							'pullRequestState',
+						),
+				}),
+			Container.instance.vsls.maybeGetPresence(commit.email),
 		]);
 
-		const details = await CommitFormatter.fromTemplateAsync(Container.config.hovers.detailsMarkdownFormat, commit, {
+		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+
+		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
-			line: editorLine,
+			editor: {
+				line: editorLine,
+				uri: uri,
+			},
+			getBranchAndTagTips: options?.getBranchAndTagTips,
 			markdown: true,
-			messageAutolinks: Container.config.hovers.autolinks.enabled,
+			messageAutolinks: options?.autolinks,
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
@@ -209,6 +246,7 @@ export namespace Hovers {
 		});
 
 		const markdown = new MarkdownString(details, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -218,7 +256,7 @@ export namespace Hovers {
 	}
 
 	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
-		if (diffStyle === 'hunk' || (diffStyle == null && Container.config.hovers.changesDiff === 'hunk')) {
+		if (diffStyle === 'hunk' || (diffStyle == null && Container.instance.config.hovers.changesDiff === 'hunk')) {
 			return getDiffFromHunk(hunkLine.hunk);
 		}
 
@@ -228,22 +266,22 @@ export namespace Hovers {
 	}
 
 	async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssues');
+		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssuesOrPullRequests');
 		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
 
-		const start = process.hrtime();
+		const start = hrtime();
 
 		if (
-			!Container.config.hovers.autolinks.enabled ||
-			!Container.config.hovers.autolinks.enhanced ||
-			!CommitFormatter.has(Container.config.hovers.detailsMarkdownFormat, 'message')
+			!Container.instance.config.hovers.autolinks.enabled ||
+			!Container.instance.config.hovers.autolinks.enhanced ||
+			!CommitFormatter.has(Container.instance.config.hovers.detailsMarkdownFormat, 'message')
 		) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
@@ -254,11 +292,11 @@ export namespace Hovers {
 		const timeout = 250;
 
 		try {
-			const autolinks = await Container.autolinks.getIssueOrPullRequestLinks(message, remote, {
+			const autolinks = await Container.instance.autolinks.getIssueOrPullRequestLinks(message, remote, {
 				timeout: timeout,
 			});
 
-			if (autolinks != null && Logger.willLog('debug')) {
+			if (autolinks != null && Logger.enabled(LogLevel.Debug)) {
 				// If there are any issues/PRs that timed out, log it
 				const count = Iterables.count(autolinks.values(), pr => pr instanceof Promises.CancellationError);
 				if (count !== 0) {
@@ -300,29 +338,25 @@ export namespace Hovers {
 		}
 	}
 
-	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+	async function getPullRequestForCommit(
+		ref: string,
+		remotes: GitRemote[],
+		options?: {
+			pullRequests?: boolean;
+		},
+	) {
 		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
 		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
 
-		const start = process.hrtime();
+		const start = hrtime();
 
-		if (
-			!Container.config.hovers.pullRequests.enabled ||
-			!CommitFormatter.has(
-				Container.config.hovers.detailsMarkdownFormat,
-				'pullRequest',
-				'pullRequestAgo',
-				'pullRequestAgoOrDate',
-				'pullRequestDate',
-				'pullRequestState',
-			)
-		) {
+		if (!options?.pullRequests) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
-		const remote = await Container.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
+		const remote = await Container.instance.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
@@ -338,7 +372,7 @@ export namespace Hovers {
 		}
 
 		try {
-			const pr = await Container.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
+			const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 

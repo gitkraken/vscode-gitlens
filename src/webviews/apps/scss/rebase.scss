@@ -344,6 +344,7 @@ $entry-padding: 5px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	width: 0;
 
 	.entry--fixup &,
 	.entry--drop & {

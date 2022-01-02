@@ -1,5 +1,8 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
+import { Logger } from '../logger';
 import {
 	ActiveEditorCommand,
 	command,
@@ -10,9 +13,6 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasRemote,
 } from './common';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
@@ -26,7 +26,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}

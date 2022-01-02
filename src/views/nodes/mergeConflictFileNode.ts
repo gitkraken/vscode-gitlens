@@ -2,12 +2,13 @@
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
-import { FileNode } from './folderNode';
-import { GitFile, GitMergeStatus, GitRebaseStatus, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitMergeStatus, GitRebaseStatus } from '../../git/models';
+import { ViewsWithCommits } from '../viewBase';
+import { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
@@ -20,7 +21,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -48,8 +49,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
 		item.tooltip = StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
+			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
 			this.file,
 		);
 		// Use the file icon and decorations
@@ -110,7 +110,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		this._description = undefined;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		return {
 			title: 'Open File',
 			command: BuiltInCommands.Open,

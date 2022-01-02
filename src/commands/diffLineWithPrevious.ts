@@ -1,12 +1,12 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
-import { GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
+import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithPreviousCommandArgs {
 	commit?: GitCommit;
@@ -33,7 +33,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 		const gitUri = args.commit != null ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
 
 		try {
-			const diffUris = await Container.git.getPreviousLineDiffUris(
+			const diffUris = await Container.instance.git.getPreviousLineDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				args.line,

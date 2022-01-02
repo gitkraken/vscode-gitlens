@@ -1,9 +1,9 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
-import { Logger } from '../logger';
 import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 
 @command()
@@ -24,7 +24,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		if (blameline < 0) return;
 
 		try {
-			const blame = await Container.git.getBlameForLine(gitUri, blameline);
+			const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 			if (blame == null) return;
 
 			await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {

@@ -1,10 +1,10 @@
 'use strict';
 import { window } from 'vscode';
-import { Command, command, CommandContext, Commands, executeCommand } from './common';
-import { RemoteResourceType } from '../git/git';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
 import { ResultsCommitsNode } from '../views/nodes';
+import { Command, command, CommandContext, Commands, executeCommand } from './common';
+import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -20,7 +20,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
 		if (context.type === 'viewItem') {
 			if (context.node instanceof ResultsCommitsNode) {
 				args = {
@@ -46,8 +46,8 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Comparison,
-					ref1: args.ref1,
-					ref2: args.ref2,
+					base: args.ref1,
+					compare: args.ref2,
 					notation: args.notation,
 				},
 				repoPath: args.repoPath,

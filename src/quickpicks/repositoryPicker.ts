@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../git/git';
+import { Repository } from '../git/models';
 import { getQuickPickIgnoreFocusOut, RepositoryQuickPickItem } from '../quickpicks';
 import { Iterables } from '../system';
 
@@ -12,7 +12,7 @@ export namespace RepositoryPicker {
 		repositories?: Repository[],
 	): Promise<RepositoryQuickPickItem | undefined> {
 		const items: RepositoryQuickPickItem[] = await Promise.all([
-			...Iterables.map(repositories ?? (await Container.git.getOrderedRepositories()), r =>
+			...Iterables.map(repositories ?? Container.instance.git.openRepositories, r =>
 				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true }),
 			),
 		]);

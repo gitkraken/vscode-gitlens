@@ -11,8 +11,9 @@ import {
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
-import { configuration, FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitBranchReference,
 	GitContributor,
@@ -25,9 +26,9 @@ import {
 	GitStashReference,
 	GitTagReference,
 	Repository,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
 import { RepositoryPicker } from '../quickpicks';
+import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
@@ -35,7 +36,7 @@ export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<v
 }
 
 async function ensureRepo(repo: string | Repository): Promise<Repository> {
-	return typeof repo === 'string' ? (await Container.git.getRepository(repo))! : repo;
+	return typeof repo === 'string' ? (await Container.instance.git.getRepository(repo))! : repo;
 }
 
 export namespace GitActions {
@@ -150,21 +151,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible ||
-					(branch.remote ? !Container.remotesView.visible : !Container.branchesView.visible))
-			) {
-				return Container.repositoriesView.revealBranch(branch, options);
-			}
-
-			let node;
-			if (!branch.remote) {
-				node = await Container.branchesView.revealBranch(branch, options);
-			} else {
-				node = await Container.remotesView.revealBranch(branch, options);
-			}
-
+			const view = branch.remote ? Container.instance.remotesView : Container.instance.branchesView;
+			const node = view.canReveal
+				? await view.revealBranch(branch, options)
+				: await Container.instance.repositoriesView.revealBranch(branch, options);
 			return node;
 		}
 	}
@@ -177,7 +167,7 @@ export namespace GitActions {
 		) {
 			// Open the working file to ensure undo will work
 			void (await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
-			void (await Container.git.applyChangesToWorkingFile(
+			void (await Container.instance.git.applyChangesToWorkingFile(
 				GitUri.fromFile(file, ref1.repoPath, ref1.ref),
 				ref1.ref,
 				ref2?.ref,
@@ -193,7 +183,7 @@ export namespace GitActions {
 			if (GitLogCommit.is(ref)) {
 				message = ref.message;
 			} else {
-				const commit = await Container.git.getCommit(ref.repoPath, ref.ref);
+				const commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
 				if (commit == null) return;
 
 				message = commit.message;
@@ -229,9 +219,9 @@ export namespace GitActions {
 				refs = refsOrOptions as { repoPath: string; ref1: string; ref2: string };
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -265,9 +255,9 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -308,9 +298,9 @@ export namespace GitActions {
 				ref = refOrOptions as { repoPath: string; ref: string };
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -375,12 +365,12 @@ export namespace GitActions {
 			}));
 		}
 
-		export async function openChangesWithDiffTool(
+		export function openChangesWithDiffTool(
 			file: string | GitFile,
 			commit: GitLogCommit,
 			tool?: string,
 		): Promise<void>;
-		export async function openChangesWithDiffTool(
+		export function openChangesWithDiffTool(
 			file: GitFile,
 			ref: { repoPath: string; ref: string },
 			tool?: string,
@@ -399,24 +389,7 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (!tool) {
-				tool = await Container.git.getDiffTool(commitOrRef.repoPath);
-				if (tool == null) {
-					const result = await window.showWarningMessage(
-						'Unable to open changes in diff tool. No Git diff tool is configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-
-					return;
-				}
-			}
-
-			void Container.git.openDiffTool(
+			return Container.instance.git.openDiffTool(
 				commitOrRef.repoPath,
 				GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
 				{
@@ -452,7 +425,7 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (file.status === 'A' || file.status === 'D') return;
+			if (file.status === 'D') return;
 
 			let ref;
 			if (GitLogCommit.is(commitOrRef)) {
@@ -473,45 +446,24 @@ export namespace GitActions {
 		}
 
 		export async function openDirectoryCompare(
+			repoPath: string,
+			ref: string,
+			ref2: string | undefined,
+			tool?: string,
+		): Promise<void> {
+			return Container.instance.git.openDirectoryCompare(repoPath, ref, ref2, tool);
+		}
+
+		export async function openDirectoryCompareWithPrevious(
 			ref: { repoPath: string; ref: string } | GitLogCommit,
 		): Promise<void> {
-			try {
-				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg === 'No diff tool found') {
-					const result = await window.showWarningMessage(
-						'Unable to open directory compare because there is no Git diff tool configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-			}
+			return openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`);
 		}
 
 		export async function openDirectoryCompareWithWorking(
 			ref: { repoPath: string; ref: string } | GitLogCommit,
 		): Promise<void> {
-			try {
-				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, undefined));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg === 'No diff tool found') {
-					const result = await window.showWarningMessage(
-						'Unable to open directory compare because there is no Git diff tool configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-			}
+			return openDirectoryCompare(ref.repoPath, ref.ref, undefined);
 		}
 
 		export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;
@@ -596,7 +548,9 @@ export namespace GitActions {
 
 			const editor = await findOrOpenEditor(uri, opts);
 			if (annotationType != null && editor != null) {
-				void (await Container.fileAnnotations.show(editor, annotationType, line));
+				void (await Container.instance.fileAnnotations.show(editor, annotationType, {
+					selection: { line: line },
+				}));
 			}
 		}
 
@@ -616,7 +570,7 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
 					`Are your sure you want to open all ${files.length} files?`,
 					{ title: 'Yes' },
@@ -627,7 +581,9 @@ export namespace GitActions {
 
 			const uris: Uri[] = (
 				await Promise.all(
-					files.map(file => Container.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref))),
+					files.map(file =>
+						Container.instance.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref)),
+					),
 				)
 			).filter(<T>(u?: T): u is T => Boolean(u));
 			findOrOpenEditors(uris);
@@ -656,9 +612,9 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} revisions?`,
+					`Are your sure you want to open all ${files.length} file revisions?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -671,7 +627,7 @@ export namespace GitActions {
 		}
 
 		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {
-			void (await Container.git.checkout(ref.repoPath, ref.ref, {
+			void (await Container.instance.git.checkout(ref.repoPath, ref.ref, {
 				fileName: typeof file === 'string' ? file : file.fileName,
 			}));
 		}
@@ -684,23 +640,20 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.commitsView.visible)
-			) {
-				return Container.repositoriesView.revealCommit(commit, options);
-			}
+			const views = [
+				Container.instance.commitsView,
+				Container.instance.branchesView,
+				Container.instance.remotesView,
+			];
 
 			// TODO@eamodio stop duplicate notifications
 
-			let node = await Container.commitsView.revealCommit(commit, options);
-			if (node != null) return node;
-
-			node = await Container.branchesView.revealCommit(commit, options);
-			if (node != null) return node;
-
-			node = await Container.remotesView.revealCommit(commit, options);
-			if (node != null) return node;
+			for (const view of views) {
+				const node = view.canReveal
+					? await view.revealCommit(commit, options)
+					: await Container.instance.repositoriesView.revealCommit(commit, options);
+				if (node != null) return node;
+			}
 
 			return undefined;
 		}
@@ -713,48 +666,19 @@ export namespace GitActions {
 				state: { repo: repo, contributors: contributors },
 			});
 		}
-	}
-
-	export namespace Tag {
-		export function create(repo?: string | Repository, ref?: GitReference, name?: string) {
-			return executeGitCommand({
-				command: 'tag',
-				state: {
-					subcommand: 'create',
-					repo: repo,
-					reference: ref,
-					name: name,
-				},
-			});
-		}
-
-		export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]) {
-			return executeGitCommand({
-				command: 'tag',
-				state: {
-					subcommand: 'delete',
-					repo: repo,
-					references: refs,
-				},
-			});
-		}
 
 		export async function reveal(
-			tag: GitTagReference,
+			contributor: GitContributor,
 			options?: {
 				select?: boolean;
 				focus?: boolean;
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.tagsView.visible)
-			) {
-				return Container.repositoriesView.revealTag(tag, options);
-			}
-
-			const node = await Container.tagsView.revealTag(tag, options);
+			const view = Container.instance.contributorsView;
+			const node = view.canReveal
+				? await view.revealContributor(contributor, options)
+				: await Container.instance.repositoriesView.revealContributor(contributor, options);
 			return node;
 		}
 	}
@@ -762,7 +686,7 @@ export namespace GitActions {
 	export namespace Remote {
 		export async function add(repo?: string | Repository) {
 			if (repo == null) {
-				repo = Container.git.getHighlanderRepoPath();
+				repo = Container.instance.git.highlanderRepoPath;
 
 				if (repo == null) {
 					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
@@ -788,7 +712,7 @@ export namespace GitActions {
 			if (url == null || url.length === 0) return undefined;
 
 			repo = await ensureRepo(repo);
-			void (await Container.git.addRemote(repo.path, name, url));
+			void (await Container.instance.git.addRemote(repo.path, name, url));
 			void (await repo.fetch({ remote: name }));
 
 			return name;
@@ -796,7 +720,7 @@ export namespace GitActions {
 
 		export async function fetch(repo: string | Repository, remote: string) {
 			if (typeof repo === 'string') {
-				const r = await Container.git.getRepository(repo);
+				const r = await Container.instance.git.getRepository(repo);
 				if (r == null) return;
 
 				repo = r;
@@ -806,7 +730,7 @@ export namespace GitActions {
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			void (await Container.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
+			void (await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
 		}
 
 		export async function reveal(
@@ -817,14 +741,27 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			// if (
-			// 	configuration.get('views', 'repositories', 'enabled') &&
-			// 	(Container.repositoriesView.visible || !Container.remotesView.visible)
-			// ) {
-			// 	return Container.repositoriesView.revealRemote(remote, options);
-			// }
+			const view = Container.instance.remotesView;
+			const node = view.canReveal
+				? await view.revealRemote(remote, options)
+				: await Container.instance.repositoriesView.revealRemote(remote, options);
+			return node;
+		}
+	}
 
-			const node = await Container.remotesView.revealRemote(remote, options);
+	export namespace Repository {
+		export async function reveal(
+			repoPath: string,
+			view?: ViewsWithRepositoryFolders,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			const node = view?.canReveal
+				? await view.revealRepository(repoPath, options)
+				: await Container.instance.repositoriesView.revealRepository(repoPath, options);
 			return node;
 		}
 	}
@@ -872,14 +809,50 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.stashesView.visible)
-			) {
-				return Container.repositoriesView.revealStash(stash, options);
-			}
+			const view = Container.instance.stashesView;
+			const node = view.canReveal
+				? await view.revealStash(stash, options)
+				: await Container.instance.repositoriesView.revealStash(stash, options);
+			return node;
+		}
+	}
 
-			const node = await Container.stashesView.revealStash(stash, options);
+	export namespace Tag {
+		export function create(repo?: string | Repository, ref?: GitReference, name?: string) {
+			return executeGitCommand({
+				command: 'tag',
+				state: {
+					subcommand: 'create',
+					repo: repo,
+					reference: ref,
+					name: name,
+				},
+			});
+		}
+
+		export function remove(repo?: string | Repository, refs?: GitTagReference | GitTagReference[]) {
+			return executeGitCommand({
+				command: 'tag',
+				state: {
+					subcommand: 'delete',
+					repo: repo,
+					references: refs,
+				},
+			});
+		}
+
+		export async function reveal(
+			tag: GitTagReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			const view = Container.instance.tagsView;
+			const node = view.canReveal
+				? await view.revealTag(tag, options)
+				: await Container.instance.repositoriesView.revealTag(tag, options);
 			return node;
 		}
 	}

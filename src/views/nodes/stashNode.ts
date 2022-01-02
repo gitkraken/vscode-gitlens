@@ -2,12 +2,12 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
-import { Container } from '../../container';
-import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
+import { GitStashCommit, GitStashReference } from '../../git/models';
+import { Arrays, Strings } from '../../system';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
-import { Arrays, Strings } from '../../system';
 
 export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';
@@ -19,11 +19,11 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		super(commit.toGitUri(), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.commit.stashName;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 
@@ -50,9 +50,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 		return children;
 	}
@@ -61,20 +59,19 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: this.view.container.config.defaultDateFormat,
 		});
 		item.contextValue = ContextValues.Stash;
-		// eslint-disable-next-line no-template-curly-in-string
-		item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
-			messageAutolinks: true,
+		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
+			dateFormat: this.view.container.config.defaultDateFormat,
+			// messageAutolinks: true,
 		});
 
 		return item;

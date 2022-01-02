@@ -1,19 +1,19 @@
 'use strict';
-import { GitCommitType } from './commit';
 import { Container } from '../../container';
+import { gate, memoize } from '../../system';
+import { GitReference } from '../models';
+import { GitCommitType } from './commit';
 import { GitFile, GitFileWorkingTreeStatus } from './file';
 import { GitLogCommit } from './logCommit';
-import { GitReference } from './models';
-import { gate, memoize } from '../../system';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitStashCommit extends GitLogCommit {
-	static isOfRefType(commit: GitReference | undefined) {
+	static override isOfRefType(commit: GitReference | undefined) {
 		return commit?.refType === 'stash';
 	}
 
-	static is(commit: any): commit is GitStashCommit {
+	static override is(commit: any): commit is GitStashCommit {
 		return (
 			commit instanceof GitStashCommit
 			// || (commit.repoPath !== undefined &&
@@ -22,7 +22,7 @@ export class GitStashCommit extends GitLogCommit {
 		);
 	}
 
-	readonly refType = 'stash';
+	override readonly refType = 'stash';
 
 	constructor(
 		type: GitCommitType,
@@ -46,7 +46,7 @@ export class GitStashCommit extends GitLogCommit {
 		return match[1];
 	}
 
-	get shortSha() {
+	override get shortSha() {
 		return this.stashName;
 	}
 
@@ -58,7 +58,7 @@ export class GitStashCommit extends GitLogCommit {
 
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			const commit = await Container.git.getCommit(this.repoPath, `${this.stashName}^3`);
+			const commit = await Container.instance.git.getCommit(this.repoPath, `${this.stashName}^3`);
 			if (commit != null && commit.files.length !== 0) {
 				// Since these files are untracked -- make them look that way
 				const files = commit.files.map(s => ({
@@ -66,7 +66,7 @@ export class GitStashCommit extends GitLogCommit {
 					status: GitFileWorkingTreeStatus.Untracked,
 					conflictStatus: undefined,
 					indexStatus: undefined,
-					workingTreeStatus: GitFileWorkingTreeStatus.Untracked,
+					workingTreeStatus: undefined,
 				}));
 
 				this.files.push(...files);
@@ -74,7 +74,7 @@ export class GitStashCommit extends GitLogCommit {
 		}
 	}
 
-	with(changes: {
+	override with(changes: {
 		type?: GitCommitType;
 		sha?: string | null;
 		fileName?: string;

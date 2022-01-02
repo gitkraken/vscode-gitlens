@@ -1,6 +1,6 @@
 'use strict';
 
-export enum TraceLevel {
+export const enum OutputLevel {
 	Silent = 'silent',
 	Errors = 'errors',
 	Verbose = 'verbose',
@@ -109,12 +109,20 @@ export interface Config {
 			alignment: 'left' | 'right';
 		};
 	};
-	modes: Record<string, ModeConfig>;
-	outputLevel: TraceLevel;
+	modes: Record<string, ModeConfig> | null;
+	outputLevel: OutputLevel;
+	partners: Record<
+		string,
+		{
+			enabled: boolean;
+			[key: string]: any;
+		}
+	> | null;
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
 	sortBranchesBy: BranchSorting;
+	sortContributorsBy: ContributorSorting;
 	sortTagsBy: TagSorting;
 	statusBar: {
 		alignment: 'left' | 'right';
@@ -126,6 +134,7 @@ export interface Config {
 		pullRequests: {
 			enabled: boolean;
 		};
+		tooltipFormat: string;
 	};
 	strings: {
 		codeLens: {
@@ -143,7 +152,7 @@ export interface Config {
 	advanced: AdvancedConfig;
 }
 
-export enum AnnotationsToggleMode {
+export const enum AnnotationsToggleMode {
 	File = 'file',
 	Window = 'window',
 }
@@ -156,26 +165,30 @@ export interface AutolinkReference {
 	ignoreCase?: boolean;
 }
 
-export enum BlameHighlightLocations {
+export const enum BlameHighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
 	Overview = 'overview',
 }
 
-export enum BranchSorting {
-	NameDesc = 'name:desc',
-	NameAsc = 'name:asc',
+export const enum BranchSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
 }
 
-export enum ChangesLocations {
+export const enum ChangesLocations {
 	Gutter = 'gutter',
 	Overview = 'overview',
 }
 
-export enum CodeLensCommand {
+export const enum CodeLensCommand {
+	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
+	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
@@ -183,44 +196,59 @@ export enum CodeLensCommand {
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
+	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum CodeLensScopes {
+export const enum CodeLensScopes {
 	Document = 'document',
 	Containers = 'containers',
 	Blocks = 'blocks',
 }
 
-export enum CustomRemoteType {
+export const enum ContributorSorting {
+	CountDesc = 'count:desc',
+	CountAsc = 'count:asc',
+	DateDesc = 'date:desc',
+	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
+}
+
+export const enum CustomRemoteType {
+	AzureDevOps = 'AzureDevOps',
 	Bitbucket = 'Bitbucket',
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',
+	Gerrit = 'Gerrit',
+	Gitea = 'Gitea',
 	GitHub = 'GitHub',
 	GitLab = 'GitLab',
 }
 
-export enum DateSource {
+export const enum DateSource {
 	Authored = 'authored',
 	Committed = 'committed',
 }
 
-export enum DateStyle {
+export const enum DateStyle {
 	Absolute = 'absolute',
 	Relative = 'relative',
 }
 
-export enum FileAnnotationType {
+export const enum FileAnnotationType {
 	Blame = 'blame',
 	Changes = 'changes',
 	Heatmap = 'heatmap',
 }
 
-export enum GitCommandSorting {
+export const enum GitCommandSorting {
 	Name = 'name',
 	Usage = 'usage',
 }
 
-export enum GravatarDefaultStyle {
+export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
 	Geometric = 'identicon',
 	Monster = 'monsterid',
@@ -229,20 +257,24 @@ export enum GravatarDefaultStyle {
 	Robot = 'robohash',
 }
 
-export enum HeatmapLocations {
+export const enum HeatmapLocations {
 	Gutter = 'gutter',
 	Overview = 'overview',
 }
 
-export enum KeyMap {
+export const enum KeyMap {
 	Alternate = 'alternate',
 	Chorded = 'chorded',
 	None = 'none',
 }
 
-export enum StatusBarCommand {
+export const enum StatusBarCommand {
+	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
 	DiffWithWorking = 'gitlens.diffWithWorking',
+	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
@@ -251,27 +283,30 @@ export enum StatusBarCommand {
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
+	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum TagSorting {
-	NameDesc = 'name:desc',
-	NameAsc = 'name:asc',
+export const enum TagSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
+	NameAsc = 'name:asc',
+	NameDesc = 'name:desc',
 }
 
-export enum ViewBranchesLayout {
+export const enum ViewBranchesLayout {
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewFilesLayout {
+export const enum ViewFilesLayout {
 	Auto = 'auto',
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewShowBranchComparison {
+export const enum ViewShowBranchComparison {
 	Branch = 'branch',
 	Working = 'working',
 }
@@ -287,6 +322,9 @@ export interface AdvancedConfig {
 	caching: {
 		enabled: boolean;
 	};
+	commitOrdering: string | null;
+	externalDiffTool: string | null;
+	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
@@ -294,9 +332,13 @@ export interface AdvancedConfig {
 	messages: {
 		suppressCommitHasNoPreviousCommitWarning: boolean;
 		suppressCommitNotFoundWarning: boolean;
+		suppressCreatePullRequestPrompt: boolean;
+		suppressDebugLoggingWarning: boolean;
 		suppressFileNotUnderSourceControlWarning: boolean;
 		suppressGitDisabledWarning: boolean;
+		suppressGitMissingWarning: boolean;
 		suppressGitVersionWarning: boolean;
+		suppressImproperWorkspaceCasingWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
 		suppressNoRepositoryWarning: boolean;
 		suppressRebaseSwitchToTextWarning: boolean;
@@ -306,7 +348,6 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
-	useSymmetricDifferenceNotation: boolean;
 }
 
 export interface CodeLensConfig {
@@ -402,13 +443,23 @@ export interface ModeConfig {
 	statusBar?: boolean;
 }
 
-export interface RemotesConfig {
-	domain: string;
-	name?: string;
-	protocol?: string;
-	type: CustomRemoteType;
-	urls?: RemotesUrlsConfig;
-}
+export type RemotesConfig =
+	| {
+			domain: string;
+			regex: null;
+			name?: string;
+			protocol?: string;
+			type: CustomRemoteType;
+			urls?: RemotesUrlsConfig;
+	  }
+	| {
+			domain: null;
+			regex: string;
+			name?: string;
+			protocol?: string;
+			type: CustomRemoteType;
+			urls?: RemotesUrlsConfig;
+	  };
 
 export interface RemotesUrlsConfig {
 	repository: string;
@@ -490,6 +541,7 @@ export interface BranchesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showBranchComparison: false | ViewShowBranchComparison.Branch;
 }
 
@@ -502,6 +554,7 @@ export interface CommitsViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
@@ -512,15 +565,18 @@ export interface ContributorsViewConfig {
 		enabled: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
+	showAllBranches: boolean;
+	showStatistics: boolean;
 }
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
+	files: ViewsFilesConfig;
 }
 
 export interface LineHistoryViewConfig {
 	avatars: boolean;
-	enabled: boolean;
 }
 
 export interface RemotesViewConfig {
@@ -534,6 +590,7 @@ export interface RemotesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 }
 
 export interface RepositoriesViewConfig {
@@ -545,7 +602,6 @@ export interface RepositoriesViewConfig {
 		showBranchComparison: false | ViewShowBranchComparison.Branch;
 	};
 	compact: boolean;
-	enabled: boolean;
 	files: ViewsFilesConfig;
 	includeWorkingTree: boolean;
 	pullRequests: {
@@ -575,6 +631,7 @@ export interface SearchAndCompareViewConfig {
 
 export interface StashesViewConfig {
 	files: ViewsFilesConfig;
+	reveal: boolean;
 }
 
 export interface TagsViewConfig {
@@ -583,6 +640,7 @@ export interface TagsViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	reveal: boolean;
 }
 
 export interface ViewsFilesConfig {

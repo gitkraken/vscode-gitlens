@@ -1,7 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars, NamedRef } from '../../constants';
-import { Container } from '../../container';
 import { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
 
@@ -33,8 +32,8 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 
 		let description;
 		if (repoPath !== undefined) {
-			if ((await Container.git.getRepositoryCount()) > 1) {
-				const repo = await Container.git.getRepository(repoPath);
+			if (this.view.container.git.repositoryCount > 1) {
+				const repo = await this.view.container.git.getRepository(repoPath);
 				description = repo?.formattedName ?? repoPath;
 			}
 		}

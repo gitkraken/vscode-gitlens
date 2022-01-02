@@ -1,4 +1,9 @@
 'use strict';
+import { Command } from 'vscode';
+
+export function command<T extends unknown[]>(command: Omit<Command, 'arguments'> & { arguments: [...T] }): Command {
+	return command;
+}
 
 export * from './commands/addAuthors';
 export * from './commands/browseRepoAtRevision';
@@ -9,6 +14,7 @@ export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
+export * from './commands/createPullRequestOnRemote';
 export * from './commands/openDirectoryCompare';
 export * from './commands/diffLineWithPrevious';
 export * from './commands/diffLineWithWorking';
@@ -21,6 +27,7 @@ export * from './commands/diffWithWorking';
 export * from './commands/externalDiff';
 export * from './commands/gitCommands';
 export * from './commands/inviteToLiveShare';
+export * from './commands/logging';
 export * from './commands/openAssociatedPullRequestOnRemote';
 export * from './commands/openBranchesOnRemote';
 export * from './commands/openBranchOnRemote';
@@ -32,6 +39,7 @@ export * from './commands/openFileOnRemote';
 export * from './commands/openFileAtRevision';
 export * from './commands/openFileAtRevisionFrom';
 export * from './commands/openOnRemote';
+export * from './commands/openIssueOnRemote';
 export * from './commands/openPullRequestOnRemote';
 export * from './commands/openRepoOnRemote';
 export * from './commands/openRevisionFile';
@@ -40,7 +48,7 @@ export * from './commands/rebaseEditor';
 export * from './commands/refreshHover';
 export * from './commands/remoteProviders';
 export * from './commands/repositories';
-export * from './commands/resetRemoteConnectionAuthorization';
+export * from './commands/resetAvatarCache';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/setViewsLayout';
 export * from './commands/searchCommits';
@@ -55,7 +63,6 @@ export * from './commands/showQuickStashList';
 export * from './commands/showView';
 export * from './commands/stashApply';
 export * from './commands/stashSave';
-export * from './commands/supportGitLens';
 export * from './commands/switchMode';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileAnnotations';

@@ -1,7 +1,7 @@
 'use strict';
-import { Dates, memoize } from '../../system';
-import { CommitDateFormatting, GitRevision } from '../git';
 import { DateStyle } from '../../config';
+import { Dates, memoize } from '../../system';
+import { CommitDateFormatting, GitRevision } from '../models';
 
 export interface GitReflog {
 	readonly repoPath: string;

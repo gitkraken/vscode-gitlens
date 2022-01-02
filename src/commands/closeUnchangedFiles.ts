@@ -1,12 +1,12 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
-import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Functions } from '../system';
+import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -28,7 +28,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Close All Unchanged Files');
 				if (!repoPath) return;
 
-				const status = await Container.git.getStatusForRepo(repoPath);
+				const status = await Container.instance.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 
@@ -59,7 +59,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				if (editor != null) {
 					let found = false;
 					for (const e of editors) {
-						if (TextEditorComparer.equals(e, editor, { useId: true, usePosition: true })) {
+						if (TextEditorComparer.equals(e, editor, { usePosition: true })) {
 							found = true;
 							break;
 						}
@@ -130,7 +130,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 	private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
 		return new Promise<TextEditor | undefined>(resolve => {
-			let timer: NodeJS.Timer | undefined;
+			let timer: any | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {
 				if (timer != null) {

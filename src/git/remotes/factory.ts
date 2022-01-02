@@ -1,44 +1,94 @@
 'use strict';
+import { CustomRemoteType, RemotesConfig } from '../../configuration';
+import { Logger } from '../../logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';
-import { CustomRemoteType, RemotesConfig } from '../../configuration';
 import { CustomRemote } from './custom';
+import { GerritRemote } from './gerrit';
+import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
-import { Logger } from '../../logger';
-import { RemoteProvider, RichRemoteProvider } from './provider';
+import { RemoteProvider } from './provider';
 
-export { RemoteProvider, RichRemoteProvider };
-export type RemoteProviders = [string | RegExp, (domain: string, path: string) => RemoteProvider][];
+// export { RemoteProvider, RichRemoteProvider };
+export type RemoteProviders = {
+	custom: boolean;
+	matcher: string | RegExp;
+	creator: (domain: string, path: string) => RemoteProvider;
+}[];
 
-const defaultProviders: RemoteProviders = [
-	['bitbucket.org', (domain: string, path: string) => new BitbucketRemote(domain, path)],
-	['github.com', (domain: string, path: string) => new GitHubRemote(domain, path)],
-	['gitlab.com', (domain: string, path: string) => new GitLabRemote(domain, path)],
-	[/\bdev\.azure\.com$/i, (domain: string, path: string) => new AzureDevOpsRemote(domain, path)],
-	[/\bbitbucket\b/i, (domain: string, path: string) => new BitbucketServerRemote(domain, path)],
-	[/\bgitlab\b/i, (domain: string, path: string) => new GitLabRemote(domain, path)],
-	[
-		/\bvisualstudio\.com$/i,
-		(domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
-	],
+const builtInProviders: RemoteProviders = [
+	{
+		custom: false,
+		matcher: 'bitbucket.org',
+		creator: (domain: string, path: string) => new BitbucketRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: 'github.com',
+		creator: (domain: string, path: string) => new GitHubRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: 'gitlab.com',
+		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bdev\.azure\.com$/i,
+		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path),
+	},
+	{
+		custom: true,
+		matcher: /^(.+\/(?:bitbucket|stash))\/scm\/(.+)$/i,
+		creator: (domain: string, path: string) => new BitbucketServerRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bgitlab\b/i,
+		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bvisualstudio\.com$/i,
+		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
+	},
+	{
+		custom: false,
+		matcher: /\bgitea\b/i,
+		creator: (domain: string, path: string) => new GiteaRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bgooglesource\.com$/i,
+		creator: (domain: string, path: string) => new GerritRemote(domain, path),
+	},
 ];
 
 export class RemoteProviderFactory {
-	static factory(providers: RemoteProviders): (domain: string, path: string) => RemoteProvider | undefined {
-		return (domain: string, path: string) => this.create(providers, domain, path);
+	static factory(
+		providers: RemoteProviders,
+	): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+		return (url: string, domain: string, path: string) => this.create(providers, url, domain, path);
 	}
 
-	static create(providers: RemoteProviders, domain: string, path: string): RemoteProvider | undefined {
+	static create(providers: RemoteProviders, url: string, domain: string, path: string): RemoteProvider | undefined {
 		try {
 			const key = domain.toLowerCase();
-			for (const [matcher, creator] of providers) {
-				if (
-					(typeof matcher === 'string' && matcher === key) ||
-					(typeof matcher !== 'string' && matcher.test(key))
-				) {
-					return creator(domain, path);
+			for (const { custom, matcher, creator } of providers) {
+				if (typeof matcher === 'string') {
+					if (matcher === key) return creator(domain, path);
+
+					continue;
+				}
+
+				if (matcher.test(key)) return creator(domain, path);
+				if (!custom) continue;
+
+				const match = matcher.exec(url);
+				if (match != null) {
+					return creator(match[1], match[2]);
 				}
 			}
 
@@ -55,19 +105,34 @@ export class RemoteProviderFactory {
 		if (cfg != null && cfg.length > 0) {
 			for (const rc of cfg) {
 				const provider = this.getCustomProvider(rc);
-				if (provider === undefined) continue;
+				if (provider == null) continue;
 
-				providers.push([rc.domain.toLowerCase(), provider]);
+				let matcher: string | RegExp | undefined;
+				try {
+					matcher = rc.regex ? new RegExp(rc.regex, 'i') : rc.domain?.toLowerCase();
+					if (matcher == null) throw new Error('No matcher found');
+				} catch (ex) {
+					Logger.error(ex, `Loading remote provider '${rc.name ?? ''}' failed`);
+				}
+
+				providers.push({
+					custom: true,
+					matcher: matcher!,
+					creator: provider,
+				});
 			}
 		}
 
-		providers.push(...defaultProviders);
+		providers.push(...builtInProviders);
 
 		return providers;
 	}
 
 	private static getCustomProvider(cfg: RemotesConfig) {
 		switch (cfg.type) {
+			case CustomRemoteType.AzureDevOps:
+				return (domain: string, path: string) =>
+					new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.Bitbucket:
 				return (domain: string, path: string) =>
 					new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
@@ -77,6 +142,10 @@ export class RemoteProviderFactory {
 			case CustomRemoteType.Custom:
 				return (domain: string, path: string) =>
 					new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
+			case CustomRemoteType.Gerrit:
+				return (domain: string, path: string) => new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
+			case CustomRemoteType.Gitea:
+				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitHub:
 				return (domain: string, path: string) => new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitLab:

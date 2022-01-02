@@ -1,5 +1,10 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
+import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
+import { GitCommit, GitLog, GitLogCommit } from '../git/models';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
 import {
 	ActiveEditorCachedCommand,
 	command,
@@ -8,12 +13,7 @@ import {
 	getCommandUri,
 	isCommandContextViewNodeHasCommit,
 } from './common';
-import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit } from '../git/git';
 import { executeGitCommand, GitActions } from './gitCommands';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;
@@ -36,7 +36,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		super([Commands.RevealCommitInView, Commands.ShowQuickCommit]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickCommitCommandArgs) {
 		if (context.command === Commands.RevealCommitInView) {
 			args = { ...args };
 			args.revealInView = true;
@@ -89,7 +89,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			if (blameline < 0) return;
 
 			try {
-				const blame = await Container.git.getBlameForLine(gitUri, blameline);
+				const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit');
 
@@ -126,7 +126,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await Container.git.getCommit(repoPath!, args.sha);
+					args.commit = await Container.instance.git.getCommit(repoPath!, args.sha);
 				}
 			}
 

@@ -18,16 +18,16 @@ git clone https://github.com/eamodio/vscode-gitlens.git
 
 Prerequisites
 
-- [Git](https://git-scm.com/)
-- [NodeJS](https://nodejs.org/), `>= 10.11.0`
-- [yarn](https://yarnpkg.com/), `>= 1.17.3`
+- [Git](https://git-scm.com/), `>= 2.7.2`
+- [NodeJS](https://nodejs.org/), `>= 14.16.0`
+- [yarn](https://yarnpkg.com/), `>= 1.22.5`
 
 ### Dependencies
 
 From a terminal, where you have cloned the repository, execute the following command to install the required dependencies:
 
 ```
-yarn --frozen-lockfile
+yarn
 ```
 
 ### Build
@@ -104,8 +104,7 @@ yarn run pack
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Start the [`watch`](#watch) task
-4. Choose the `Launch GitLens` launch configuration from the launch dropdown in the Debug viewlet and press `F5`.
+3. Choose the `Watch & Launch GitLens` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
 
 ## Submitting a Pull Request
 

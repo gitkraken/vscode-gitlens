@@ -1,14 +1,13 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { MessageNode } from './common';
-import { Container } from '../../container';
-import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
-import { StashesView } from '../stashesView';
-import { StashNode } from './stashNode';
+import { Repository } from '../../git/models';
 import { debug, gate, Iterables } from '../../system';
+import { RepositoriesView } from '../repositoriesView';
+import { StashesView } from '../stashesView';
+import { MessageNode } from './common';
+import { RepositoryNode } from './repositoryNode';
+import { StashNode } from './stashNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
@@ -23,7 +22,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StashesNode.getId(this.repo.path);
 	}
 
@@ -44,8 +43,8 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		item.contextValue = ContextValues.Stashes;
 
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-stash.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-stash.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-stash.svg'),
 		};
 
 		return item;
@@ -53,7 +52,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

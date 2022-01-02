@@ -1,12 +1,12 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitActions } from './gitCommands';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { GitActions } from './gitCommands';
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;
@@ -36,7 +36,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const commit = await Container.git.getCommit(gitUri.repoPath!, gitUri.sha);
+					const commit = await Container.instance.git.getCommit(gitUri.repoPath!, gitUri.sha);
 
 					args.revisionUri =
 						commit != null && commit.status === 'D'

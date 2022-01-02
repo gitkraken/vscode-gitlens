@@ -132,11 +132,10 @@ export class LineTracker<T> implements Disposable {
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
-				// eslint-disable-next-line @typescript-eslint/no-empty-function
 				this.onStart?.() ?? { dispose: () => {} },
 			);
 
-			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+			queueMicrotask(() => this.onActiveTextEditorChanged(window.activeTextEditor));
 		}
 
 		return disposable;
@@ -203,7 +202,7 @@ export class LineTracker<T> implements Disposable {
 
 	private onLinesChanged(e: LinesChangeEvent) {
 		if (e.selections === undefined) {
-			setImmediate(() => {
+			queueMicrotask(() => {
 				if (window.activeTextEditor !== e.editor) return;
 
 				if (this._linesChangedDebounced !== undefined) {

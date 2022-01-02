@@ -2,13 +2,13 @@
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { FileNode } from './folderNode';
-import { GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitLogCommit } from '../../git/models';
 import { Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
@@ -54,7 +54,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		this._hasUnstagedChanges = hasUnstagedChanges;
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.fileName;
 	}
 
@@ -75,15 +75,13 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			if (this._hasStagedChanges) {
 				item.contextValue += '+staged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					// eslint-disable-next-line no-template-curly-in-string
-					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
+					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
 					this.file,
 				);
 			} else {
 				item.contextValue += '+unstaged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					// eslint-disable-next-line no-template-curly-in-string
-					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Working Tree',
+					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Working Tree`,
 					this.file,
 				);
 			}
@@ -113,8 +111,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {
-					dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-					light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+					dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+					light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 				};
 			}
 
@@ -225,7 +223,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		return changedIn.join(changedIn.length > 2 ? ', ' : ' and ');
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
 			const commandArgs: DiffWithPreviousCommandArgs = {
 				commit: this.commit,

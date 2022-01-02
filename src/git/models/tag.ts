@@ -1,7 +1,7 @@
 'use strict';
-import { Dates, memoize } from '../../system';
-import { GitReference, GitTagReference } from './models';
 import { configuration, DateStyle, TagSorting } from '../../configuration';
+import { Dates, memoize, Strings } from '../../system';
+import { GitReference, GitTagReference } from '../models';
 
 export const TagDateFormatting = {
 	dateFormat: undefined! as string | null,
@@ -13,6 +13,11 @@ export const TagDateFormatting = {
 	},
 };
 
+export interface TagSortOptions {
+	current?: boolean;
+	orderBy?: TagSorting;
+}
+
 export class GitTag implements GitTagReference {
 	static is(tag: any): tag is GitTag {
 		return tag instanceof GitTag;
@@ -22,22 +27,19 @@ export class GitTag implements GitTagReference {
 		return tag?.refType === 'tag';
 	}
 
-	static sort(tags: GitTag[], options?: { orderBy?: TagSorting }) {
+	static sort(tags: GitTag[], options?: TagSortOptions) {
 		options = { orderBy: configuration.get('sortTagsBy'), ...options };
 
 		switch (options.orderBy) {
 			case TagSorting.DateAsc:
 				return tags.sort((a, b) => a.date.getTime() - b.date.getTime());
-			case TagSorting.DateDesc:
-				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 			case TagSorting.NameAsc:
-				return tags.sort((a, b) =>
-					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
-				);
+				return tags.sort((a, b) => Strings.sortCompare(a.name, b.name));
+			case TagSorting.NameDesc:
+				return tags.sort((a, b) => Strings.sortCompare(b.name, a.name));
+			case TagSorting.DateDesc:
 			default:
-				return tags.sort((a, b) =>
-					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
-				);
+				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 		}
 	}
 

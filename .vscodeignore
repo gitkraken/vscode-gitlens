@@ -5,12 +5,14 @@
 dist/webviews/*.css
 emoji/**
 images/docs/**
+images/originals/**
 node_modules/**
 scripts/**
 src/**
 test/**
 **/*.fig
 **/*.pdn
+**/*.js.LICENSE.txt
 .eslintcache
 .eslintignore
 .eslintrc.json
@@ -24,9 +26,9 @@ test/**
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 generateEmojiShortcodeMap.js
+README.insiders.md
 tsconfig.eslint.json
-tsconfig.json
-tsconfig.webviews.json
-tsconfig.tsbuildinfo
+tsconfig*.json
+tsconfig*.tsbuildinfo
 webpack.config.js
 yarn.lock

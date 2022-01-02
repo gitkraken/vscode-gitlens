@@ -10,26 +10,25 @@ import {
 	TreeItemCollapsibleState,
 	Uri,
 } from 'vscode';
-import { BranchNode } from './branchNode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { FileNode, FolderNode } from './folderNode';
+import { CommitFormatter } from '../../git/formatters';
+import { GitUri } from '../../git/gitUri';
 import {
-	CommitFormatter,
 	GitBranch,
 	GitLogCommit,
 	GitRebaseStatus,
 	GitReference,
 	GitRevisionReference,
 	GitStatus,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
+} from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { BranchNode } from './branchNode';
+import { CommitFileNode } from './commitFileNode';
+import { FileNode, FolderNode } from './folderNode';
+import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
@@ -50,7 +49,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RebaseStatusNode.getId(this.rebaseStatus.repoPath, this.rebaseStatus.incoming.name, this.root);
 	}
 
@@ -73,12 +72,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
-		const commit = await Container.git.getCommit(
+		const commit = await this.view.container.git.getCommit(
 			this.rebaseStatus.repoPath,
 			this.rebaseStatus.steps.current.commit.ref,
 		);
@@ -106,7 +103,8 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Rebasing ${
 				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
 			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${
@@ -121,6 +119,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}
@@ -138,7 +140,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		super(commit.toGitUri(), view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		let message = this.commit.message;
 		const index = message.indexOf('\n');
 		if (index !== -1) {
@@ -163,7 +165,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			})}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
 			this.commit,
 			{
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				messageIndent: 4,
 			},
 		);
@@ -187,9 +189,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -200,8 +200,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 		// item.contextValue = ContextValues.RebaseCommit;
 
-		// eslint-disable-next-line no-template-curly-in-string
-		item.description = CommitFormatter.fromTemplate('${message}', this.commit, {
+		item.description = CommitFormatter.fromTemplate(`\${message}`, this.commit, {
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = new ThemeIcon('git-commit');
@@ -210,7 +209,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			uri: this.uri,

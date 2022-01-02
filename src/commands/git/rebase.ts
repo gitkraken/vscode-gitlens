@@ -1,7 +1,10 @@
 'use strict';
 import { env } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
+import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
+import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -17,14 +20,14 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
 	pickCommit: boolean;
+	pickCommitForItem: boolean;
 	selectedBranchOrTag: GitReference | undefined;
 	showTags: boolean;
 	title: string;
@@ -68,14 +71,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
 	async execute(state: RebaseStepState) {
 		let configs: string[] | undefined;
 		if (state.flags.includes('--interactive')) {
-			await Container.rebaseEditor.enableForNextUse();
+			await Container.instance.rebaseEditor.enableForNextUse();
 
 			let editor;
 			switch (env.appName) {
@@ -84,6 +87,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					break;
 				case 'Visual Studio Code - Exploration':
 					editor = 'code-exploration --wait --reuse-window';
+					break;
+				case 'VSCodium':
+					editor = 'codium --wait --reuse-window';
 					break;
 				default:
 					editor = 'code --wait --reuse-window';
@@ -97,10 +103,12 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
+			pickCommitForItem: false,
 			selectedBranchOrTag: undefined,
 			showTags: true,
 			title: this.title,
@@ -141,6 +149,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = `${this.title} ${GitReference.toString(context.destination, { icon: false })}`;
+			context.pickCommitForItem = false;
 
 			if (state.counter < 2 || state.reference == null) {
 				const pickCommitToggle = new QuickCommandButtons.PickCommitToggle(context.pickCommit, context, () => {
@@ -174,13 +183,13 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			if (
 				state.counter < 3 &&
 				context.selectedBranchOrTag != null &&
-				(context.pickCommit || state.reference.ref === context.destination.ref)
+				(context.pickCommit || context.pickCommitForItem || state.reference.ref === context.destination.ref)
 			) {
 				const ref = context.selectedBranchOrTag.ref;
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -216,7 +225,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
+		const aheadBehind = await Container.instance.git.getAheadBehindCommitCount(state.repo.path, [
 			state.reference.refType === 'revision'
 				? GitRevision.createRange(state.reference.ref, context.destination.ref)
 				: GitRevision.createRange(context.destination.name, state.reference.name),

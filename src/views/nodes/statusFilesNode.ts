@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitCommitType,
 	GitFileWithCommit,
@@ -12,14 +12,13 @@ import {
 	GitStatus,
 	GitStatusFile,
 	GitTrackingState,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { Arrays, Iterables, Objects, Strings } from '../../system';
+} from '../../git/models';
+import { Arrays, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
+import { RepositoryNode } from './repositoryNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	static key = ':status-files';
@@ -46,7 +45,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		this.repoPath = status.repoPath;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return StatusFilesNode.getId(this.repoPath);
 	}
 
@@ -57,7 +56,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		let log: GitLog | undefined;
 		if (this.range != null) {
-			log = await Container.git.getLog(repoPath, { limit: 0, ref: this.range });
+			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
 			if (log != null) {
 				files = [
 					...Iterables.flatMap(log.commits.values(), c =>
@@ -97,19 +96,16 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		const groups = Arrays.groupBy(files, s => s.fileName);
 
-		let children: FileNode[] = [
-			...Iterables.map(
-				Objects.values(groups),
-				files =>
-					new StatusFileNode(
-						this.view,
-						this,
-						repoPath,
-						files[files.length - 1],
-						files.map(s => s.commit),
-					),
-			),
-		];
+		let children: FileNode[] = Object.values(groups).map(
+			files =>
+				new StatusFileNode(
+					this.view,
+					this,
+					repoPath,
+					files[files.length - 1],
+					files.map(s => s.commit),
+				),
+		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(
@@ -122,11 +118,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort(
-				(a, b) =>
-					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -138,7 +130,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {
 				if (files > 0) {
-					const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
+					const aheadFiles = await this.view.container.git.getDiffStatus(
+						this.repoPath,
+						`${this.status.upstream}...`,
+					);
 
 					if (aheadFiles != null) {
 						const uniques = new Set();
@@ -152,7 +147,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						files = uniques.size;
 					}
 				} else {
-					const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+					const stats = await this.view.container.git.getChangedFilesCount(
+						this.repoPath,
+						`${this.status.upstream}...`,
+					);
 					if (stats != null) {
 						files += stats.files;
 					} else {
@@ -167,8 +165,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-diff.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-diff.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-diff.svg'),
 		};
 
 		return item;

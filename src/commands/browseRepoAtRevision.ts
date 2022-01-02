@@ -1,13 +1,21 @@
 'use strict';
 import * as paths from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openWorkspace } from './common';
 import { BuiltInCommands } from '../constants';
+import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Container } from '../container';
+import {
+	ActiveEditorCommand,
+	command,
+	CommandContext,
+	Commands,
+	getCommandUri,
+	openWorkspace,
+	OpenWorkspaceLocation,
+} from './common';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
@@ -27,7 +35,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
 		switch (context.command) {
 			case Commands.BrowseRepoAtRevisionInNewWindow:
 				args = { ...args, before: false, openInNewWindow: true };
@@ -58,13 +66,14 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			if (gitUri.sha == null) return;
 
 			const sha = args?.before
-				? await Container.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
+				? await Container.instance.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
 				: gitUri.sha;
 			uri = toGitLensFSUri(sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);
 
-			openWorkspace(uri, `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, {
-				openInNewWindow: args.openInNewWindow,
+			openWorkspace(uri, {
+				location: args.openInNewWindow ? OpenWorkspaceLocation.NewWindow : OpenWorkspaceLocation.AddToWorkspace,
+				name: `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
 			});
 
 			if (!args.openInNewWindow) {

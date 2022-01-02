@@ -1,6 +1,8 @@
 'use strict';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
+import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
+import { FlagsQuickPickItem } from '../../quickpicks';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -15,10 +17,10 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
 	selectedBranchOrTag: GitReference | undefined;
@@ -26,7 +28,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--edit';
+type Flags = '--edit' | '--no-commit';
 
 interface State<Refs = GitReference | GitReference[]> {
 	repo: string | Repository;
@@ -66,7 +68,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
@@ -74,13 +76,14 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'cherry';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			selectedBranchOrTag: undefined,
@@ -162,7 +165,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -218,6 +221,13 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
 						context.destination,
 					)}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-commit'], {
+					label: `${this.title} without Committing`,
+					description: '--no-commit',
+					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+						context.destination,
+					)} without Committing`,
 				}),
 			],
 			context,

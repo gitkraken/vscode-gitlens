@@ -18,7 +18,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		(window as any).bootstrap = undefined;
 	}
 
-	protected onInitialize() {
+	protected override onInitialize() {
 		// Add scopes if available
 		const scopes = document.getElementById('scopes') as HTMLSelectElement;
 		if (scopes != null && this.state.scopes.length > 1) {
@@ -51,9 +51,21 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 			this._observer.observe(el);
 		}
+
+		for (const el of document.querySelectorAll<HTMLInputElement>('[data-setting]')) {
+			if (!el.title && el.type === 'checkbox') {
+				el.title = `Setting name: "gitlens.${el.name}"`;
+			}
+
+			for (const label of document.querySelectorAll<HTMLLabelElement>(`label[for="${el.id}"]`)) {
+				if (!label.title) {
+					label.title = `Setting name: "gitlens.${el.name}"`;
+				}
+			}
+		}
 	}
 
-	protected onBind() {
+	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -85,7 +97,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		return disposables;
 	}
 
-	protected onMessageReceived(e: MessageEvent) {
+	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 
 		switch (msg.method) {
@@ -142,7 +154,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		this.toggleJumpLink(this._activeSection, true);
 	}
 
-	protected getSettingsScope(): 'user' | 'workspace' {
+	protected override getSettingsScope(): 'user' | 'workspace' {
 		return this._scopes != null
 			? (this._scopes.options[this._scopes.selectedIndex].value as 'user' | 'workspace')
 			: 'user';
@@ -173,7 +185,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		e.stopPropagation();
 	}
 
-	protected onInputSelected(element: HTMLSelectElement) {
+	protected override onInputSelected(element: HTMLSelectElement) {
 		if (element === this._scopes) return;
 
 		super.onInputSelected(element);

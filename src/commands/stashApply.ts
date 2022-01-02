@@ -1,5 +1,7 @@
 'use strict';
 import { GitActions } from '../commands';
+import { GitStashCommit, GitStashReference } from '../git/models';
+import { CommandQuickPickItem } from '../quickpicks';
 import {
 	command,
 	Command,
@@ -8,8 +10,6 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasRepository,
 } from './common';
-import { GitStashCommit, GitStashReference } from '../git/git';
-import { CommandQuickPickItem } from '../quickpicks';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;
@@ -25,7 +25,7 @@ export class StashApplyCommand extends Command {
 		super(Commands.StashApply);
 	}
 
-	protected preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
 		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
 			args = { ...args, stashItem: context.node.commit };
 		} else if (isCommandContextViewNodeHasRepository(context)) {

@@ -1,17 +1,16 @@
 'use strict';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { ViewBranchesLayout } from '../../configuration';
+import { GlyphChars } from '../../constants';
+import { GitUri } from '../../git/gitUri';
+import { GitRemote, GitRemoteType, Repository } from '../../git/models';
+import { Arrays, log } from '../../system';
+import { RemotesView } from '../remotesView';
+import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ViewBranchesLayout } from '../../configuration';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitRemote, GitRemoteType, Repository } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { Arrays, log } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
@@ -30,11 +29,11 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		super(uri, view, parent);
 	}
 
-	toClipboard(): string {
+	override toClipboard(): string {
 		return this.remote.name;
 	}
 
-	get id(): string {
+	override get id(): string {
 		return RemoteNode.getId(this.remote.repoPath, this.remote.name, this.remote.id);
 	}
 
@@ -44,9 +43,10 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
 		});
-		if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+		if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
-		const branchNodes = branches.map(
+		// TODO@eamodio handle paging
+		const branchNodes = branches.values.map(
 			b =>
 				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
 					showComparison: false,
@@ -106,24 +106,25 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			arrows = GlyphChars.Dash;
 		}
 
-		const item = new TreeItem(
-			`${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
-			TreeItemCollapsibleState.Collapsed,
-		);
+		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+		item.id = this.id;
 
 		if (this.remote.provider != null) {
 			const { provider } = this.remote;
 
 			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
-				light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
-			};
+			item.iconPath =
+				provider.icon === 'remote'
+					? new ThemeIcon('cloud')
+					: {
+							dark: this.view.container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
+							light: this.view.container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
+					  };
 
 			if (provider.hasApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
-				item.contextValue += `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
+				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
 				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
 					connected ? 'connected' : 'not connected'
 				})\n${provider.displayPath}\n`;
@@ -144,9 +145,8 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 		if (this.remote.default) {
 			item.contextValue += '+default';
+			item.resourceUri = Uri.parse('gitlens-view://remote/default');
 		}
-
-		item.id = this.id;
 
 		for (const { type, url } of this.remote.urls) {
 			item.tooltip += `\n${url} (${type})`;

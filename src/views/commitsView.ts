@@ -4,7 +4,6 @@ import {
 	commands,
 	ConfigurationChangeEvent,
 	Disposable,
-	MarkdownString,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -13,26 +12,25 @@ import {
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { ContextKeys, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitLogCommit,
 	GitReference,
-	GitRemote,
 	GitRevisionReference,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
+} from '../git/models';
+import { debug, Functions, gate, Strings } from '../system';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
-	ContextValues,
+	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
 	RepositoryNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, Functions, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
@@ -49,7 +47,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			let authors;
 			if (this.view.state.myCommitsOnly) {
-				const user = await Container.git.getCurrentUser(this.repo.path);
+				const user = await this.view.container.git.getCurrentUser(this.repo.path);
 				if (user != null) {
 					authors = [`^${user.name} <${user.email}>$`];
 				}
@@ -57,6 +55,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			this.child = new BranchNode(this.uri, this.view, this, branch, true, {
 				expanded: true,
+				limitCommits: !this.splatted,
 				showComparison: this.view.config.showBranchComparison,
 				showCurrent: false,
 				showTracking: true,
@@ -67,76 +66,9 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		return this.child.getChildren();
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
-		this.splatted = false;
-
-		let expand = this.repo.starred;
-		const [active, branch] = await Promise.all([
-			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
-			this.repo.getBranch(),
-		]);
-		if (!expand && (active || (branch?.state.ahead ?? 0) > 0 || (branch?.state.behind ?? 0) > 0)) {
-			expand = true;
-		}
-
-		const item = new TreeItem(
-			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
-		);
-		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
-
-		if (branch != null) {
-			const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
-
-			const status = branch?.getTrackingStatus();
-			item.description = `${status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
-				lastFetched
-					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
-					: ''
-			}`;
-
-			let providerName;
-			if (branch.tracking != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
-				providerName = providers?.length ? providers[0].name : undefined;
-			} else {
-				const remote = await branch.getRemote();
-				providerName = remote?.provider?.name;
-			}
-
-			item.tooltip = new MarkdownString(
-				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
-					lastFetched
-						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-								lastFetched,
-								false,
-						  )}`
-						: ''
-				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
-					branch.name
-				}${
-					branch.tracking
-						? ` is ${branch.getTrackingStatus({
-								empty: `up to date with $(git-branch) ${branch.tracking}${
-									providerName ? ` on ${providerName}` : ''
-								}`,
-								expand: true,
-								icons: true,
-								separator: ', ',
-								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
-						  })}`
-						: `hasn't been published to ${providerName ?? 'a remote'}`
-				}`,
-				true,
-			);
-		}
-
-		return item;
-	}
-
 	@gate()
 	@debug()
-	async refresh(reset: boolean = false) {
+	override async refresh(reset: boolean = false) {
 		if (reset) {
 			this.child = undefined;
 		} else {
@@ -147,7 +79,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	@debug()
-	protected async subscribe() {
+	protected override async subscribe() {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
@@ -173,27 +105,23 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Index) ||
-			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Remotes) ||
-			e.changed(RepositoryChange.Unknown)
+		return e.changed(
+			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Index,
+			RepositoryChange.Remotes,
+			RepositoryChange.RemoteProviders,
+			RepositoryChange.Status,
+			RepositoryChange.Unknown,
+			RepositoryChangeComparisonMode.Any,
 		);
 	}
 }
 
-export class CommitsViewNode extends ViewNode<CommitsView> {
-	protected splatted = true;
-	private children: CommitsRepositoryNode[] | undefined;
-
-	constructor(view: CommitsView) {
-		super(unknownGitUri, view);
-	}
-
+export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, CommitsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No commits could be found.';
 
@@ -204,7 +132,10 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(
-				r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+				r =>
+					new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat, {
+						showBranchAndLastFetched: true,
+					}),
 			);
 		}
 
@@ -213,14 +144,20 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const branch = await child.repo.getBranch();
 			if (branch != null) {
-				const lastFetched = (await child.repo?.getLastFetched()) ?? 0;
+				const lastFetched = (await child.repo.getLastFetched()) ?? 0;
 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
 					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}${
+					child.repo.supportsChangeEvents
+						? ''
+						: `${Strings.pad(GlyphChars.Warning, 3, 2)}Auto-refresh unavailable`
+				}`;
 			} else {
-				this.view.description = undefined;
+				this.view.description = child.repo.supportsChangeEvents
+					? undefined
+					: `${Strings.pad(GlyphChars.Warning, 1, 2)}Auto-refresh unavailable`;
 			}
 
 			return child.getChildren();
@@ -233,25 +170,6 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 interface CommitsViewState {
@@ -261,8 +179,12 @@ interface CommitsViewState {
 export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
-	constructor() {
-		super('gitlens.views.commits', 'Commits');
+	constructor(container: Container) {
+		super('gitlens.views.commits', 'Commits', container);
+	}
+
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showCommits');
 	}
 
 	private readonly _state: CommitsViewState = {};
@@ -270,69 +192,86 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return this._state;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new CommitsViewNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setMyCommitsOnlyOn'),
-			() => this.setMyCommitsOnly(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setMyCommitsOnlyOff'),
-			() => this.setMyCommitsOnly(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOn'),
-			() => this.setShowBranchComparison(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOff'),
-			() => this.setShowBranchComparison(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOn'),
-			() => this.setShowBranchPullRequest(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOff'),
-			() => this.setShowBranchPullRequest(false),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				() => {
+					this.container.git.resetCaches('branches', 'status', 'tags');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setMyCommitsOnlyOn'),
+				() => this.setMyCommitsOnly(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setMyCommitsOnlyOff'),
+				() => this.setMyCommitsOnly(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOn'),
+				() => this.setShowBranchComparison(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOff'),
+				() => this.setShowBranchComparison(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOn'),
+				() => this.setShowBranchPullRequest(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOff'),
+				() => this.setShowBranchPullRequest(false),
+				this,
+			),
+		];
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -352,11 +291,13 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
-		const branch = await Container.git.getBranch(commit.repoPath);
+		const branch = await this.container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		if (!(await Container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) return undefined;
+		if (!(await this.container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) {
+			return undefined;
+		}
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,
@@ -406,7 +347,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -420,8 +361,25 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		);
 	}
 
+	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setMyCommitsOnly(enabled: boolean) {
@@ -431,20 +389,18 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
-			'views',
-			this.configKey,
-			'showBranchComparison',
+			`views.${this.configKey}.showBranchComparison` as const,
 			enabled ? ViewShowBranchComparison.Working : false,
 		);
 	}
 
 	private async setShowBranchPullRequest(enabled: boolean) {
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'showForBranches', enabled);
-		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'enabled', enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
 	}
 }

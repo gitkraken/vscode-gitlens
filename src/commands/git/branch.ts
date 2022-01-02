@@ -1,7 +1,10 @@
 'use strict';
 import { QuickInputButtons } from 'vscode';
 import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/models';
+import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
+import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -19,11 +22,10 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -134,21 +136,22 @@ export class BranchGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canConfirm(): boolean {
+	override get canConfirm(): boolean {
 		return this.subcommand != null;
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return this.subcommand === 'delete' || this.subcommand === 'rename' ? false : super.canSkipConfirm;
 	}
 
-	get skipConfirmKey() {
+	override get skipConfirmKey() {
 		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			associatedView: Container.instance.branchesView,
+			repos: Container.instance.git.openRepositories,
 			showTags: false,
 			title: this.title,
 		};
@@ -256,6 +259,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new branch from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
+					titleContext: ' from',
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -267,7 +271,11 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+					titleContext: ` from ${GitReference.toString(state.reference, {
+						capitalize: true,
+						icon: false,
+						label: state.reference.refType !== 'branch',
+					})}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;
@@ -336,9 +344,10 @@ export class BranchGitCommand extends QuickCommand<State> {
 				context.title = getTitle('Branches', state.subcommand);
 
 				const result = yield* pickBranchesStep(state, context, {
-					filterBranches: b => !b.current,
+					filter: b => !b.current,
 					picked: state.references?.map(r => r.ref),
 					placeholder: 'Choose branches to delete',
+					sort: { current: false, missingUpstream: true },
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -347,10 +356,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Branch', state.references.length, {
-					number: '',
-					suffix: 'es',
-				}).trim(),
+				Strings.pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
 				state.subcommand,
 			);
 
@@ -389,7 +395,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 				}),
 			);
 
-			if (state.references.some(b => b.tracking != null)) {
+			if (state.references.some(b => b.upstream != null)) {
 				confirmations.push(
 					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--remotes'], {
 						label: `${context.title} & Remote${
@@ -430,7 +436,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchStep(state, context, {
-					filterBranches: b => !b.remote,
+					filter: b => !b.remote,
 					picked: state.reference?.ref,
 					placeholder: 'Choose a branch to rename',
 				});

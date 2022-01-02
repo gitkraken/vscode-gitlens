@@ -1,6 +1,9 @@
 'use strict';
+import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import { configuration, DateStyle } from '../../configuration';
+import { Colors } from '../../constants';
 import { Dates, memoize } from '../../system';
+import { RemoteProviderReference } from './remoteProvider';
 
 export const PullRequestDateFormatting = {
 	dateFormat: undefined! as string | null,
@@ -12,7 +15,7 @@ export const PullRequestDateFormatting = {
 	},
 };
 
-export enum PullRequestState {
+export const enum PullRequestState {
 	Open = 'Open',
 	Closed = 'Closed',
 	Merged = 'Merged',
@@ -23,8 +26,40 @@ export class PullRequest {
 		return pr instanceof PullRequest;
 	}
 
+	static getMarkdownIcon(pullRequest: PullRequest): string {
+		switch (pullRequest.state) {
+			case PullRequestState.Open:
+				return `<span style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
+				};">$(git-pull-request)</span>`;
+			case PullRequestState.Closed:
+				return `<span style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
+				};">$(git-pull-request-closed)</span>`;
+			case PullRequestState.Merged:
+				return `<span style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+				};">$(git-merge)</span>`;
+			default:
+				return '$(git-pull-request)';
+		}
+	}
+
+	static getThemeIcon(pullRequest: PullRequest): ThemeIcon {
+		switch (pullRequest.state) {
+			case PullRequestState.Open:
+				return new ThemeIcon('git-pull-request', new ThemeColor(Colors.OpenPullRequestIconColor));
+			case PullRequestState.Closed:
+				return new ThemeIcon('git-pull-request-closed', new ThemeColor(Colors.ClosedPullRequestIconColor));
+			case PullRequestState.Merged:
+				return new ThemeIcon('git-merge', new ThemeColor(Colors.MergedPullRequestIconColor));
+			default:
+				return new ThemeIcon('git-pull-request');
+		}
+	}
+
 	constructor(
-		public readonly provider: string,
+		public readonly provider: RemoteProviderReference,
 		public readonly author: {
 			readonly name: string;
 			readonly avatarUrl: string;

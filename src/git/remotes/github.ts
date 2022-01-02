@@ -3,11 +3,18 @@ import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
-import { GitHubPullRequest } from '../../github/github';
-import { Account, GitRevision, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
+import {
+	Account,
+	DefaultBranch,
+	GitRevision,
+	IssueOrPullRequest,
+	PullRequest,
+	PullRequestState,
+	Repository,
+} from '../models';
 import { RichRemoteProvider } from './provider';
 
-const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
+const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
@@ -27,7 +34,7 @@ export class GitHubRemote extends RichRemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
@@ -44,8 +51,8 @@ export class GitHubRemote extends RichRemoteProvider {
 				{
 					linkify: (text: string) =>
 						text.replace(
-							issueEnricher3rdParyRegex,
-							`[$&](${this.protocol}://${this.domain}/$1/issues/$2 "Open Issue #$2 from $1 on ${this.name}")`,
+							issueEnricher3rdPartyRegex,
+							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
 						),
 				},
 			];
@@ -53,7 +60,11 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this._autolinks;
 	}
 
-	get icon() {
+	override get icon() {
+		return 'github';
+	}
+
+	get id() {
 		return 'github';
 	}
 
@@ -99,44 +110,59 @@ export class GitHubRemote extends RichRemoteProvider {
 			}
 		}
 
-		const branches = new Set<string>(
-			(
-				await repository.getBranches({
-					filter: b => b.remote,
-				})
-			).map(b => b.getNameWithoutRemote()),
-		);
-
 		// Check for a link with branch (and deal with branch names with /)
 		let branch;
+		const possibleBranches = new Map<string, string>();
 		index = path.length;
 		do {
 			index = path.lastIndexOf('/', index - 1);
 			branch = path.substring(1, index);
 
-			if (branches.has(branch)) {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+			possibleBranches.set(branch, path.substr(index));
+		} while (index > 0);
+
+		if (possibleBranches.size !== 0) {
+			const { values: branches } = await repository.getBranches({
+				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+			});
+			for (const branch of branches) {
+				const path = possibleBranches.get(branch.getNameWithoutRemote());
+				if (path == null) continue;
+
+				const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
-		} while (index > 0);
+		}
 
 		return undefined;
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/commits/${branch}`;
+		return this.encodeUrl(`${this.baseUrl}/tree/${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commit/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string {
-		return `${this.baseUrl}/compare/${ref1}${notation}${ref2}`;
+	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
+		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
+	}
+
+	protected override getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		compare: { branch: string; remote: { path: string; url: string } },
+	): string | undefined {
+		if (base.remote.url === compare.remote.url) {
+			return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${compare.branch}`);
+		}
+
+		const [owner] = compare.remote.path.split('/', 1);
+		return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${compare.branch}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -151,9 +177,9 @@ export class GitHubRemote extends RichRemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
-		if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
-		return `${this.baseUrl}?path=${fileName}${line}`;
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/blob/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/blob/${branch}/${fileName}`)}${line}`;
+		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 
 	protected async getProviderAccountForCommit(
@@ -164,7 +190,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForCommit(this.name, accessToken, owner, repo, ref, {
+		return (await Container.instance.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -178,18 +204,26 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForEmail(this.name, accessToken, owner, repo, email, {
+		return (await Container.instance.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
 	}
 
+	protected async getProviderDefaultBranch({
+		accessToken,
+	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.github)?.getDefaultBranch(this, accessToken, owner, repo, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
 	protected async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssueOrPullRequest(this.name, accessToken, owner, repo, Number(id), {
+		return (await Container.instance.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -205,7 +239,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		return (await Container.github)?.getPullRequestForBranch(this.name, accessToken, owner, repo, branch, {
+		const GitHubPullRequest = (await import('../../github/github')).GitHubPullRequest;
+		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
@@ -217,7 +252,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getPullRequestForCommit(this.name, accessToken, owner, repo, ref, {
+		return (await Container.instance.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}

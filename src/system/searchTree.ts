@@ -1,10 +1,7 @@
-/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use strict';
 import { count, map, some } from './iterable';
 import { CharCode, compareSubstring, compareSubstringIgnoreCase } from './string';
-
-// Code stolen from https://github.com/Microsoft/vscode/blob/b3e6d5bb039a4a9362b52a2c8726267ca68cf64e/src/vs/base/common/map.ts#L352
 
 const FIN = { done: true, value: undefined };
 
@@ -332,7 +329,7 @@ export class TernarySearchTree<K, V> {
 				this._forEach(node, value => data.push(value), limit);
 			}
 			if (idx >= data.length) {
-				return (FIN as unknown) as IteratorResult<V>;
+				return FIN as unknown as IteratorResult<V>;
 			}
 
 			if (!res) {

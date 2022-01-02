@@ -3,19 +3,33 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitReference, GitTagReference, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { RepositoryFolderNode, RepositoryNode, TagsNode, unknownGitUri, ViewNode } from './nodes';
-import { debug, gate } from '../system';
+import {
+	GitReference,
+	GitTagReference,
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+} from '../git/models';
+import { gate, Strings } from '../system';
+import {
+	BranchOrTagFolderNode,
+	RepositoriesSubscribeableNode,
+	RepositoryFolderNode,
+	RepositoryNode,
+	TagsNode,
+	ViewNode,
+} from './nodes';
 import { ViewBase } from './viewBase';
-import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -27,25 +41,14 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Tags) ||
-			e.changed(RepositoryChange.Unknown)
-		);
+		return e.changed(RepositoryChange.Tags, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
 
-export class TagsViewNode extends ViewNode<TagsView> {
-	protected splatted = true;
-	private children: TagsRepositoryNode[] | undefined;
-
-	constructor(view: TagsView) {
-		super(unknownGitUri, view);
-	}
-
+export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No tags could be found.';
 
@@ -63,8 +66,12 @@ export class TagsViewNode extends ViewNode<TagsView> {
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
+			if (!child.repo.supportsChangeEvents) {
+				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
+			}
+
 			const tags = await child.repo.getTags();
-			if (tags.length === 0) {
+			if (tags.values.length === 0) {
 				this.view.message = 'No tags could be found.';
 				this.view.title = 'Tags';
 
@@ -74,7 +81,7 @@ export class TagsViewNode extends ViewNode<TagsView> {
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Tags (${tags.length})`;
+			this.view.title = `Tags (${tags.values.length})`;
 
 			return child.getChildren();
 		}
@@ -86,77 +93,79 @@ export class TagsViewNode extends ViewNode<TagsView> {
 		const item = new TreeItem('Tags', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
-	constructor() {
-		super('gitlens.views.tags', 'Tags');
+	constructor(container: Container) {
+		super('gitlens.views.tags', 'Tags', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showTags');
+	}
+
+	protected getRoot() {
 		return new TagsViewNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToList'),
-			() => this.setLayout(ViewBranchesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToTree'),
-			() => this.setLayout(ViewBranchesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				() => {
+					this.container.git.resetCaches('tags');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToList'),
+				() => this.setLayout(ViewBranchesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToTree'),
+				() => this.setLayout(ViewBranchesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+		];
 	}
 
-	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
 		const changed = super.filterConfigurationChanged(e);
 		if (
 			!changed &&
@@ -194,6 +203,23 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
 	revealTag(
 		tag: GitTagReference,
 		options?: {
@@ -205,7 +231,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(tag, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -220,14 +246,14 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.branches.layout` as const, layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
+		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
 	}
 }

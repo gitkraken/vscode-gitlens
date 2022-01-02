@@ -1,5 +1,5 @@
 'use strict';
-import { GitBranchReference, GitRevisionReference } from './models';
+import { GitBranchReference, GitRevisionReference } from '../models';
 
 export interface GitMergeStatus {
 	type: 'merge';
