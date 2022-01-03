@@ -1,28 +1,17 @@
 //@ts-check
 /* eslint-disable @typescript-eslint/no-var-requires */
-const fs = require('fs');
-const path = require('path');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
-const fetch = require('node-fetch');
+import * as fs from 'fs';
+import * as path from 'path';
+import fetch from 'node-fetch';
+import * as checker from 'license-checker-rseidelsohn';
+import { spawn } from 'child_process';
 
 /** @typedef { { licenses: string; repository: string; licenseFile: string } } PackageInfo **/
 
 /**
- * @param { string } file
+ * @param { { [key: string]: PackageInfo } } packages
  */
-async function generateThirdpartyNotices(file) {
-	file = path.join(process.cwd(), file);
-	const data = fs.readFileSync(file, 'utf8');
-	fs.rmSync(file);
-
-	/**
-	 *	@type { { [key: string]: PackageInfo } }
-	 */
-	const packages = JSON.parse(data);
-
-	// Add any packages used in directly in the code
-
+async function generateThirdpartyNotices(packages) {
 	/**
 	 *	@type [string, PackageInfo][]
 	 */
@@ -33,14 +22,6 @@ async function generateThirdpartyNotices(file) {
 				licenses: 'MIT',
 				repository: 'https://github.com/microsoft/vscode',
 				licenseFile: 'https://raw.github.com/microsoft/vscode/main/LICENSE.txt',
-			},
-		],
-		[
-			'chalk/ansi-regex',
-			{
-				licenses: 'MIT',
-				repository: 'https://github.com/chalk/ansi-regex',
-				licenseFile: 'https://raw.github.com/chalk/ansi-regex/main/license',
 			},
 		],
 		[
@@ -65,7 +46,9 @@ async function generateThirdpartyNotices(file) {
 	const licenseOutputs = [];
 
 	let count = 0;
-	for (const [key, data] of Object.entries(packages).concat(codeOnlyPackages)) {
+	for (const [key, data] of Object.entries(packages)
+		.concat(codeOnlyPackages)
+		.sort(([a], [b]) => a.localeCompare(b))) {
 		let name;
 		let version;
 
@@ -100,8 +83,24 @@ async function generateThirdpartyNotices(file) {
 }
 
 async function generate() {
-	await exec('npx license-checker --json --production --relativeLicensePath > thirdparty.json');
-	void generateThirdpartyNotices('thirdparty.json');
+	const packages = await new Promise((resolve, reject) => {
+		checker.init(
+			{
+				direct: 0,
+				json: true,
+				production: true,
+				start: process.cwd(),
+			},
+			(err, packages) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(packages);
+				}
+			},
+		);
+	});
+	void generateThirdpartyNotices(packages);
 }
 
 void generate();
