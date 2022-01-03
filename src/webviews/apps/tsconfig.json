@@ -5,6 +5,6 @@
 		"lib": ["dom", "dom.iterable", "es2020"],
 		"outDir": "../../"
 	},
-	"include": ["**/*", "../../config.ts", "../protocol.ts"],
+	"include": ["**/*", "../../../system/date.ts", "../../config.ts", "../protocol.ts"],
 	"exclude": ["node_modules", "test"]
 }

@@ -40,6 +40,10 @@ import { GitStash } from './stash';
 import { GitStatus } from './status';
 import { GitTag, TagSortOptions } from './tag';
 
+const millisecondsPerMinute = 60 * 1000;
+const millisecondsPerHour = 60 * 60 * 1000;
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
 export const enum RepositoryChange {
 	// FileSystem = 'filesystem',
 	Unknown = 'unknown',
@@ -145,7 +149,7 @@ export interface RepositoryFileSystemChangeEvent {
 export class Repository implements Disposable {
 	static formatLastFetched(lastFetched: number, short: boolean = true): string {
 		const formatter = Dates.getFormatter(new Date(lastFetched));
-		if (Date.now() - lastFetched < Dates.MillisecondsPerDay) {
+		if (Date.now() - lastFetched < millisecondsPerDay) {
 			return formatter.fromNow();
 		}
 
@@ -164,8 +168,8 @@ export class Repository implements Disposable {
 
 	static getLastFetchedUpdateInterval(lastFetched: number): number {
 		const timeDiff = Date.now() - lastFetched;
-		return timeDiff < Dates.MillisecondsPerDay
-			? (timeDiff < Dates.MillisecondsPerHour ? Dates.MillisecondsPerMinute : Dates.MillisecondsPerHour) / 2
+		return timeDiff < millisecondsPerDay
+			? (timeDiff < millisecondsPerHour ? millisecondsPerMinute : millisecondsPerHour) / 2
 			: 0;
 	}
 

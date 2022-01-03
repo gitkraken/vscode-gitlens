@@ -1,4 +1,5 @@
 'use strict';
+import { DateTimeFormat } from './system/date';
 
 export const enum OutputLevel {
 	Silent = 'silent',
@@ -12,7 +13,7 @@ export interface Config {
 	blame: {
 		avatars: boolean;
 		compact: boolean;
-		dateFormat: string | null;
+		dateFormat: DateTimeFormat | string | null;
 		format: string;
 		heatmap: {
 			enabled: boolean;
@@ -41,12 +42,12 @@ export interface Config {
 		scrollable: boolean;
 	};
 	debug: boolean;
-	defaultDateFormat: string | null;
-	defaultDateShortFormat: string | null;
+	defaultDateFormat: DateTimeFormat | string | null;
+	defaultDateShortFormat: DateTimeFormat | string | null;
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
-	defaultTimeFormat: string | null;
+	defaultTimeFormat: DateTimeFormat | string | null;
 	fileAnnotations: {
 		command: string | null;
 	};
@@ -127,7 +128,7 @@ export interface Config {
 	statusBar: {
 		alignment: 'left' | 'right';
 		command: StatusBarCommand;
-		dateFormat: string | null;
+		dateFormat: DateTimeFormat | string | null;
 		enabled: boolean;
 		format: string;
 		reduceFlicker: boolean;

@@ -86,8 +86,8 @@ export class GitContributor {
 		return this.dateFormatter.format(format);
 	}
 
-	formatDateFromNow(locale?: string) {
-		return this.dateFormatter.fromNow(locale);
+	formatDateFromNow(short?: boolean) {
+		return this.dateFormatter.fromNow(short);
 	}
 
 	getAvatarUri(options?: { defaultStyle?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {

@@ -195,8 +195,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.authorDateFormatter.format(format);
 	}
 
-	formatAuthorDateFromNow(locale?: string) {
-		return this.authorDateFormatter.fromNow(locale);
+	formatAuthorDateFromNow(short?: boolean) {
+		return this.authorDateFormatter.fromNow(short);
 	}
 
 	@memoize<GitCommit['formatCommitterDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
@@ -208,8 +208,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.committerDateFormatter.format(format);
 	}
 
-	formatCommitterDateFromNow(locale?: string) {
-		return this.committerDateFormatter.fromNow(locale);
+	formatCommitterDateFromNow(short?: boolean) {
+		return this.committerDateFormatter.fromNow(short);
 	}
 
 	@memoize<GitCommit['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
@@ -221,8 +221,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.dateFormatter.format(format);
 	}
 
-	formatDateFromNow(locale?: string) {
-		return this.dateFormatter.fromNow(locale);
+	formatDateFromNow(short?: boolean) {
+		return this.dateFormatter.fromNow(short);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
