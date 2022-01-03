@@ -35,7 +35,7 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
-			squoosh: false,
+			squoosh: true,
 			...env,
 		};
 
