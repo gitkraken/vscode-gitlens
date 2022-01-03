@@ -4,7 +4,7 @@ import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
-import { Dates, Functions, Iterables, Strings } from './system';
+import { Functions, Iterables, Strings } from './system';
 import { ContactPresenceStatus } from './vsls/vsls';
 
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
@@ -55,14 +55,18 @@ const presenceCache = new Map<ContactPresenceStatus, string>();
 
 const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
+const millisecondsPerMinute = 60 * 1000;
+const millisecondsPerHour = 60 * 60 * 1000;
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
 const retryDecay = [
-	Dates.MillisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
-	Dates.MillisecondsPerMinute,
-	Dates.MillisecondsPerMinute * 5,
-	Dates.MillisecondsPerMinute * 10,
-	Dates.MillisecondsPerHour,
-	Dates.MillisecondsPerDay,
-	Dates.MillisecondsPerDay * 7,
+	millisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
+	millisecondsPerMinute,
+	millisecondsPerMinute * 5,
+	millisecondsPerMinute * 10,
+	millisecondsPerHour,
+	millisecondsPerDay,
+	millisecondsPerDay * 7,
 ];
 
 export function getAvatarUri(
@@ -79,8 +83,8 @@ export function getAvatarUri(
 		const avatar = createOrUpdateAvatar(
 			`${missingGravatarHash}:${size}`,
 			undefined,
-			missingGravatarHash,
 			size,
+			missingGravatarHash,
 			defaultStyle,
 		);
 		return avatar.uri ?? avatar.fallback!;
@@ -89,13 +93,7 @@ export function getAvatarUri(
 	const hash = Strings.md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
 
-	const avatar = createOrUpdateAvatar(
-		key,
-		getAvatarUriFromGitHubNoReplyAddress(email, size),
-		hash,
-		size,
-		defaultStyle,
-	);
+	const avatar = createOrUpdateAvatar(key, email, size, hash, defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
 	let query = avatarQueue.get(key);
@@ -116,15 +114,15 @@ export function getAvatarUri(
 
 function createOrUpdateAvatar(
 	key: string,
-	uri: Uri | undefined,
-	hash: string,
+	email: string | undefined,
 	size: number,
+	hash: string,
 	defaultStyle?: GravatarDefaultStyle,
 ): Avatar {
 	let avatar = avatarCache!.get(key);
 	if (avatar == null) {
 		avatar = {
-			uri: uri,
+			uri: email != null && email.length !== 0 ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
 			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
 			timestamp: 0,
 			retries: 0,
