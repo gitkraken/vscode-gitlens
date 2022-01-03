@@ -430,6 +430,16 @@
 						"scope": "window",
 						"order": 72
 					},
+					"gitlens.codeLens.dateFormat": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies how to format absolute dates in the Git code lens. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"scope": "window",
+						"order": 73
+					},
 					"gitlens.codeLens.scopesByLanguage": {
 						"deprecationMessage": "Deprecated. Use per-language `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings instead",
 						"markdownDeprecationMessage": "Deprecated. Use the per-language `#gitlens.codeLens.scopes#` and `#gitlens.codeLens.symbolScopes#` settings instead"

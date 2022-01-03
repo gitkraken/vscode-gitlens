@@ -49,6 +49,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 		public readonly languageId: string,
 		public readonly symbol: DocumentSymbol | SymbolInformation,
 		public readonly uri: GitUri | undefined,
+		public readonly dateFormat: string | null,
 		private readonly blame: (() => GitBlameLines | undefined) | undefined,
 		public readonly blameRange: Range,
 		public readonly isFullRange: boolean,
@@ -227,6 +228,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 							document.languageId,
 							fileSymbol,
 							gitUri,
+							cfg.dateFormat,
 							blameForRangeFn,
 							blameRange,
 							true,
@@ -408,6 +410,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 						document.languageId,
 						symbol,
 						gitUri,
+						cfg.dateFormat,
 						blameForRangeFn,
 						blameRange,
 						false,
@@ -505,7 +508,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		// 	}
 		// }
 
-		let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
+		let title = `${recentCommit.author}, ${
+			lens.dateFormat == null ? recentCommit.formattedDate : recentCommit.formatDate(lens.dateFormat)
+		}`;
 		if (this.container.config.debug) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character

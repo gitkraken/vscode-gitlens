@@ -356,6 +356,7 @@ export interface CodeLensConfig {
 		enabled: boolean;
 		command: CodeLensCommand | false;
 	};
+	dateFormat: DateTimeFormat | string | null;
 	enabled: boolean;
 	includeSingleLineSymbols: boolean;
 	recentChange: {
