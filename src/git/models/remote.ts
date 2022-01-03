@@ -79,6 +79,10 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
+	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
+		return RichRemoteProvider.is(this.provider);
+	}
+
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
 		void (await Container.instance.context.workspaceState.update(
 			WorkspaceState.DefaultRemote,

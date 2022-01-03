@@ -1259,7 +1259,7 @@ export class GitProviderService implements Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasApi()) return undefined;
+			if (!provider?.hasRichApi()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -1311,7 +1311,7 @@ export class GitProviderService implements Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasApi()) return undefined;
+			if (!provider?.hasRichApi()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -1374,10 +1374,7 @@ export class GitProviderService implements Disposable {
 		if (Array.isArray(remotesOrRepoPath)) {
 			if (remotesOrRepoPath.length === 0) return undefined;
 
-			const repoPath = remotesOrRepoPath[0].repoPath;
-
-			const { provider } = this.getProvider(repoPath);
-			return provider.getRichRemoteProvider(remotesOrRepoPath, options);
+			remotesOrRepoPath = remotesOrRepoPath[0].repoPath;
 		}
 
 		const { provider, path } = this.getProvider(remotesOrRepoPath);

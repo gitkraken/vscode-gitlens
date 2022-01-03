@@ -2764,7 +2764,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasApi()) return undefined;
+			if (!provider?.hasRichApi()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -2816,7 +2816,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasApi()) return undefined;
+			if (!provider?.hasRichApi()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -2930,17 +2930,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
-		const cacheKey = `${includeDisconnected ? 'disconnected|' : ''}${
-			typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath
-		}`;
-		if (cacheKey != null) {
-			const remote = this._remotesWithApiProviderCache.get(cacheKey);
-			if (remote !== undefined) return remote ?? undefined;
+		const cacheKey = typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath;
+
+		let richRemote = this._remotesWithApiProviderCache.get(cacheKey);
+		if (richRemote != null) return richRemote;
+		if (richRemote === null && !includeDisconnected) return undefined;
+
+		if (includeDisconnected) {
+			richRemote = this._remotesWithApiProviderCache.get(`disconnected|${cacheKey}`);
+			if (richRemote !== undefined) return richRemote ?? undefined;
 		}
 
 		const remotes = (
 			typeof remotesOrRepoPath === 'string' ? await this.getRemotes(remotesOrRepoPath) : remotesOrRepoPath
-		).filter(r => r.provider != null);
+		).filter(
+			(
+				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
+		);
 
 		if (remotes.length === 0) return undefined;
 
@@ -2979,28 +2986,23 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			remote = bestRemote ?? null;
 		}
 
-		if (!remote?.provider?.hasApi()) {
-			if (cacheKey != null) {
-				this._remotesWithApiProviderCache.set(cacheKey, null);
-			}
+		if (!remote?.hasRichProvider()) {
+			this._remotesWithApiProviderCache.set(cacheKey, null);
 			return undefined;
 		}
 
 		const { provider } = remote;
-		if (!includeDisconnected) {
-			const connected = provider.maybeConnected ?? (await provider.isConnected());
-			if (!connected) {
-				if (cacheKey != null) {
-					this._remotesWithApiProviderCache.set(cacheKey, null);
-				}
-				return undefined;
-			}
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (connected) {
+			this._remotesWithApiProviderCache.set(cacheKey, remote);
+		} else {
+			this._remotesWithApiProviderCache.set(cacheKey, null);
+			this._remotesWithApiProviderCache.set(`disconnected|${cacheKey}`, remote);
+
+			if (!includeDisconnected) return undefined;
 		}
 
-		if (cacheKey != null) {
-			this._remotesWithApiProviderCache.set(cacheKey, remote as GitRemote<RichRemoteProvider>);
-		}
-		return remote as GitRemote<RichRemoteProvider>;
+		return remote;
 	}
 
 	@log()

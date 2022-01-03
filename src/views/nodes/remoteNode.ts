@@ -121,7 +121,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 							light: this.view.container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 					  };
 
-			if (provider.hasApi()) {
+			if (provider.hasRichApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;

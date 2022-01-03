@@ -143,7 +143,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		void (await env.clipboard.writeText(url));
 	}
 
-	hasApi(): this is RichRemoteProvider {
+	hasRichApi(): this is RichRemoteProvider {
 		return RichRemoteProvider.is(this);
 	}
 

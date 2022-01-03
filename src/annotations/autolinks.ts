@@ -55,7 +55,7 @@ export class Autolinks implements Disposable {
 		},
 	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
-		if (!remote.provider?.hasApi()) return undefined;
+		if (!remote.hasRichProvider()) return undefined;
 
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
