@@ -395,7 +395,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			// Make sure there is only 1 lens per line
 			if (lenses.length && lenses[lenses.length - 1].range.start.line === line.lineNumber) return;
 
-			// Anchor the code lens to the start of the line -- so that the range won't change with edits (otherwise the code lens will be removed and re-added)
+			// Anchor the CodeLens to the start of the line -- so that the range won't change with edits (otherwise the CodeLens will be removed and re-added)
 			let startChar = 0;
 
 			let blameForRangeFn: (() => GitBlameLines | undefined) | undefined;

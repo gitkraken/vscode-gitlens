@@ -58,7 +58,7 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-		// Only reset if we have saved, since the code lens won't naturally be re-rendered
+		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
 		if (this._provider === undefined || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');

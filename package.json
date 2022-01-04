@@ -1,7 +1,7 @@
 {
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
-	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
+	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
 	"version": "11.7.0",
 	"author": {
 		"name": "Eric Amodio",
@@ -250,20 +250,20 @@
 			},
 			{
 				"id": "git-code-lens",
-				"title": "Git Code Lens",
+				"title": "Git CodeLens",
 				"order": 11,
 				"properties": {
 					"gitlens.codeLens.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide any Git code lens, by default. Use the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
+						"markdownDescription": "Specifies whether to provide any Git CodeLens, by default. Use the `Toggle Git CodeLens` command (`gitlens.toggleCodeLens`) to toggle the Git CodeLens on and off for the current window",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.codeLens.authors.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide an _authors_ code lens, showing number of authors of the file or code block and the most prominent author (if there is more than one)",
+						"markdownDescription": "Specifies whether to provide an _authors_ CodeLens, showing number of authors of the file or code block and the most prominent author (if there is more than one)",
 						"scope": "window",
 						"order": 20
 					},
@@ -309,14 +309,14 @@
 							"Copies the remote file url to the clipboard (when available)"
 						],
 						"default": "gitlens.toggleFileBlame",
-						"markdownDescription": "Specifies the command to be executed when an _authors_ code lens is clicked",
+						"markdownDescription": "Specifies the command to be executed when an _authors_ CodeLens is clicked",
 						"scope": "window",
 						"order": 21
 					},
 					"gitlens.codeLens.recentChange.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide a _recent change_ code lens, showing the author and date of the most recent commit for the file or code block",
+						"markdownDescription": "Specifies whether to provide a _recent change_ CodeLens, showing the author and date of the most recent commit for the file or code block",
 						"scope": "window",
 						"order": 30
 					},
@@ -362,7 +362,7 @@
 							"Copies the remote file url to the clipboard (when available)"
 						],
 						"default": "gitlens.showQuickCommitFileDetails",
-						"markdownDescription": "Specifies the command to be executed when a _recent change_ code lens is clicked",
+						"markdownDescription": "Specifies the command to be executed when a _recent change_ CodeLens is clicked",
 						"scope": "window",
 						"order": 31
 					},
@@ -380,15 +380,15 @@
 								"blocks"
 							],
 							"enumDescriptions": [
-								"Adds code lens at the top of the document",
-								"Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
-								"Adds code lens at the start of block-like symbols (functions, methods, etc) lines"
+								"Adds CodeLens at the top of the document",
+								"Adds CodeLens at the start of container-like symbols (modules, classes, interfaces, etc)",
+								"Adds CodeLens at the start of block-like symbols (functions, methods, etc) lines"
 							]
 						},
 						"minItems": 0,
 						"maxItems": 3,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies where Git code lens will be shown in the document",
+						"markdownDescription": "Specifies where Git CodeLens will be shown in the document",
 						"scope": "language-overridable",
 						"order": 40
 					},
@@ -398,35 +398,35 @@
 							"type": "string"
 						},
 						"uniqueItems": true,
-						"markdownDescription": "Specifies a set of document symbols where Git code lens will or will not be shown in the document. Prefix with `!` to avoid providing a Git code lens for the symbol. Must be a member of `SymbolKind`",
+						"markdownDescription": "Specifies a set of document symbols where Git CodeLens will or will not be shown in the document. Prefix with `!` to avoid providing a Git CodeLens for the symbol. Must be a member of `SymbolKind`",
 						"scope": "language-overridable",
 						"order": 50
 					},
 					"gitlens.codeLens.includeSingleLineSymbols": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to provide any Git code lens on symbols that span only a single line",
+						"markdownDescription": "Specifies whether to provide any Git CodeLens on symbols that span only a single line",
 						"scope": "window",
 						"order": 60
 					},
 					"gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
 						"type": "string",
 						"default": "$(ellipsis)",
-						"markdownDescription": "Specifies the string to be shown in place of both the _recent change_ and _authors_ code lens when there are unsaved changes",
+						"markdownDescription": "Specifies the string to be shown in place of both the _recent change_ and _authors_ CodeLens when there are unsaved changes",
 						"scope": "window",
 						"order": 70
 					},
 					"gitlens.strings.codeLens.unsavedChanges.recentChangeOnly": {
 						"type": "string",
 						"default": "$(ellipsis)",
-						"markdownDescription": "Specifies the string to be shown in place of the _recent change_ code lens when there are unsaved changes",
+						"markdownDescription": "Specifies the string to be shown in place of the _recent change_ CodeLens when there are unsaved changes",
 						"scope": "window",
 						"order": 71
 					},
 					"gitlens.strings.codeLens.unsavedChanges.authorsOnly": {
 						"type": "string",
 						"default": "$(ellipsis)",
-						"markdownDescription": "Specifies the string to be shown in place of the _authors_ code lens when there are unsaved changes",
+						"markdownDescription": "Specifies the string to be shown in place of the _authors_ CodeLens when there are unsaved changes",
 						"scope": "window",
 						"order": 72
 					},
@@ -436,7 +436,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates in the Git code lens. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how to format absolute dates in the Git CodeLens. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 						"scope": "window",
 						"order": 73
 					},
@@ -514,7 +514,7 @@
 							"Toggles file heatmap",
 							"Toggles file changes since before the commit",
 							"Toggles file changes from the commit",
-							"Toggles Git code lens",
+							"Toggles Git CodeLens",
 							"Compares the current line commit with the previous",
 							"Compares the current line commit with the working tree",
 							"Reveals the commit in the Side Bar",
@@ -2667,7 +2667,7 @@
 									},
 									"codeLens": {
 										"type": "boolean",
-										"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+										"description": "Specifies whether to show any Git CodeLens when this user-defined mode is active"
 									},
 									"currentLine": {
 										"type": "boolean",
@@ -2700,7 +2700,7 @@
 									},
 									"codeLens": {
 										"type": "boolean",
-										"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+										"description": "Specifies whether to show any Git CodeLens when this user-defined mode is active"
 									},
 									"currentLine": {
 										"type": "boolean",
@@ -2751,7 +2751,7 @@
 								},
 								"codeLens": {
 									"type": "boolean",
-									"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+									"description": "Specifies whether to show any Git CodeLens when this user-defined mode is active"
 								},
 								"currentLine": {
 									"type": "boolean",
@@ -3821,7 +3821,7 @@
 			},
 			{
 				"command": "gitlens.toggleCodeLens",
-				"title": "Toggle Git Code Lens",
+				"title": "Toggle Git CodeLens",
 				"category": "GitLens"
 			},
 			{
