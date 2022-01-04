@@ -70,12 +70,8 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 async function findGitDarwin(): Promise<GitLocation> {
 	try {
-		let path = await run<string>('which', ['git'], 'utf8');
-		path = path.replace(/^\s+|\s+$/g, '');
-
-		if (path !== '/usr/bin/git') {
-			return findSpecificGit(path);
-		}
+		const path = (await run<string>('which', ['git'], 'utf8')).trim();
+		if (path !== '/usr/bin/git') return findSpecificGit(path);
 
 		try {
 			await run<string>('xcode-select', ['-p'], 'utf8');
