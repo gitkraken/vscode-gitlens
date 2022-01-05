@@ -3,12 +3,15 @@
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
 	"version": "11.7.0",
+	"engines": {
+		"vscode": "^1.63.1"
+	},
+	"license": "SEE LICENSE IN LICENSE",
+	"publisher": "eamodio",
 	"author": {
 		"name": "Eric Amodio",
 		"email": "eamodio@gmail.com"
 	},
-	"publisher": "eamodio",
-	"license": "SEE LICENSE IN LICENSE",
 	"homepage": "https://gitlens.amod.io/",
 	"bugs": {
 		"url": "https://github.com/eamodio/vscode-gitlens/issues"
@@ -16,9 +19,6 @@
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
-	},
-	"engines": {
-		"vscode": "^1.63.1"
 	},
 	"main": "./dist/gitlens.js",
 	"browser": "./dist/browser/gitlens.js",
@@ -10125,8 +10125,8 @@
 		"clean": "npx rimraf .eslintcache* tsconfig*.tsbuildinfo",
 		"copy:images": "webpack --config webpack.config.images.js",
 		"lint": "eslint src/**/*.ts --fix",
-		"pack": "vsce package --yarn",
-		"pack-insiders": "yarn run patch-insiders && yarn run pack",
+		"package": "vsce package --yarn",
+		"package-insiders": "yarn run patch-insiders && yarn run package",
 		"patch-insiders": "node ./scripts/applyPatchForInsiders.js",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"pub": "vsce publish --yarn",
@@ -10165,7 +10165,6 @@
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"copy-webpack-plugin": "10.2.0",
-		"cross-env": "7.0.3",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.5.1",
 		"esbuild": "0.14.10",

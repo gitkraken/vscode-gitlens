@@ -25,7 +25,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 module.exports =
 	/**
 	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
-	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
+	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig[] }
 	 */
 	function (env, argv) {
@@ -199,6 +199,9 @@ function getExtensionConfig(target, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
 		plugins: plugins,
+		infrastructureLogging: {
+			level: 'log', // enables logging required for problem matchers
+		},
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
@@ -478,6 +481,9 @@ function getWebviewsConfig(mode, env) {
 			modules: [basePath, 'node_modules'],
 		},
 		plugins: plugins,
+		infrastructureLogging: {
+			level: 'log', // enables logging required for problem matchers
+		},
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
@@ -486,9 +492,6 @@ function getWebviewsConfig(mode, env) {
 			errorsCount: true,
 			warningsCount: true,
 			timings: true,
-		},
-		infrastructureLogging: {
-			level: 'log', // enables logging required for problem matchers
 		},
 	};
 }

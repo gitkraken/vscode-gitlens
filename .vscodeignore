@@ -1,6 +1,7 @@
 .github/**
 .vscode/**
 .vscode-clean/**
+.vscode-test/**
 .yarn/**
 dist/webviews/*.css
 emoji/**
@@ -25,10 +26,9 @@ test/**
 .yarnrc
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
-generateEmojiShortcodeMap.js
+esbuild.js
 README.insiders.md
-tsconfig.eslint.json
 tsconfig*.json
 tsconfig*.tsbuildinfo
-webpack.config.js
+webpack.config*.js
 yarn.lock
