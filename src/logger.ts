@@ -190,7 +190,7 @@ export class Logger {
 		};
 	}
 
-	static showOutputChannel() {
+	static showOutputChannel(): void {
 		this.output?.show();
 	}
 
@@ -227,11 +227,7 @@ export class Logger {
 	}
 
 	private static get timestamp(): string {
-		const now = new Date();
-		return `[${now
-			.toISOString()
-			.replace(/T/, ' ')
-			.replace(/\..+/, emptyStr)}:${`00${now.getUTCMilliseconds()}`.slice(-3)}]`;
+		return `[${new Date().toISOString().replace(/T/, ' ').slice(0, -1)}]`;
 	}
 
 	private static toLoggableParams(debugOnly: boolean, params: any[]) {
