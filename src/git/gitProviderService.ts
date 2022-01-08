@@ -966,13 +966,13 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getCommitForFile(
 		repoPath: string | Uri | undefined,
-		fileName: string,
+		uri: Uri,
 		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean },
 	): Promise<GitLogCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitForFile(path, fileName, options);
+		return provider.getCommitForFile(path, uri, options);
 	}
 
 	@log()

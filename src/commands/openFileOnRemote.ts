@@ -84,13 +84,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					if (gitUri.repoPath) {
 						if (gitUri.sha == null) {
-							const commit = await Container.instance.git.getCommitForFile(
-								gitUri.repoPath,
-								gitUri.fsPath,
-								{
-									firstIfNotFound: true,
-								},
-							);
+							const commit = await Container.instance.git.getCommitForFile(gitUri.repoPath, gitUri, {
+								firstIfNotFound: true,
+							});
 
 							if (commit != null) {
 								args.sha = commit.sha;

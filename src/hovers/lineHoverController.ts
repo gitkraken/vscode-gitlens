@@ -119,7 +119,7 @@ export class LineHoverController implements Disposable {
 		// Get the full commit message -- since blame only returns the summary
 		let logCommit = lineState?.logCommit;
 		if (logCommit == null && !commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
+			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
 				ref: commit.sha,
 			});
 			if (logCommit != null) {

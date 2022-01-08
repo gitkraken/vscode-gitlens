@@ -86,7 +86,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				ref = `${ref}^`;
 				commit = await this.container.git.getCommitForFile(
 					this.trackedDocument.uri.repoPath,
-					this.trackedDocument.uri.fsPath,
+					this.trackedDocument.uri,
 					{ ref: ref },
 				);
 				if (commit != null) {
@@ -110,7 +110,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 				if (commits?.length) {
 					commit = await this.container.git.getCommitForFile(
 						this.trackedDocument.uri.repoPath,
-						this.trackedDocument.uri.fsPath,
+						this.trackedDocument.uri,
 					);
 					ref1 = 'HEAD';
 				} else if (this.trackedDocument.dirty) {
@@ -124,7 +124,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		if (!localChanges) {
 			commit = await this.container.git.getCommitForFile(
 				this.trackedDocument.uri.repoPath,
-				this.trackedDocument.uri.fsPath,
+				this.trackedDocument.uri,
 				{
 					ref: ref2 ?? ref1,
 				},

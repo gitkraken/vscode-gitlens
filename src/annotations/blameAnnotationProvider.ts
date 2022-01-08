@@ -176,7 +176,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		// Get the full commit message -- since blame only returns the summary
 		let logCommit: GitCommit | undefined = undefined;
 		if (!commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
+			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
 				ref: commit.sha,
 			});
 			if (logCommit != null) {

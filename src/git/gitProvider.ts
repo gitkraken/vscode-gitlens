@@ -136,7 +136,7 @@ export interface GitProvider {
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(
 		repoPath: string,
-		fileName: string,
+		uri: Uri,
 		options?: {
 			ref?: string | undefined;
 			firstIfNotFound?: boolean | undefined;

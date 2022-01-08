@@ -1186,13 +1186,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getCommitForFile(
 		repoPath: string | undefined,
-		fileName: string,
+		uri: Uri,
 		options: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean } = {},
 	): Promise<GitLogCommit | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		try {
-			const log = await this.getLogForFile(repoPath, fileName, {
+			const log = await this.getLogForFile(repoPath, uri.fsPath, {
 				limit: 2,
 				ref: options.ref,
 				range: options.range,
