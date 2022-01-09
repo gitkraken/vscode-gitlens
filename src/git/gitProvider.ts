@@ -104,21 +104,23 @@ export interface GitProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
 	/**
 	 * Returns the blame of a file
-	 * @param uri The uri of the file to blame
+	 * @param uri Uri of the file to blame
 	 */
 	getBlameForFile(uri: GitUri): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
-	 * @param uri The uri of the file to blame
-	 * @param contents The editor contents to use
+	 * @param uri Uri of the file to blame
+	 * @param contents Contents from the editor to use
 	 */
 	getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a single line
-	 * @param uri The uri of the file to blame
-	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	getBlameForLine(
 		uri: GitUri,
@@ -127,9 +129,9 @@ export interface GitProvider {
 	): Promise<GitBlameLine | undefined>;
 	/**
 	 * Returns the blame of a single line, using the editor contents (for dirty editors)
-	 * @param uri The uri of the file to blame
-	 * @param line The editor line number (0-based) to blame (Git is 1-based)
-	 * @param contents The editor contents to use
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param contents Contents from the editor to use
 	 */
 	getBlameForLineContents(
 		uri: GitUri,
@@ -152,7 +154,6 @@ export interface GitProvider {
 		ref: string,
 		options?: { mode?: 'contains' | 'pointsAt' | undefined; remotes?: boolean | undefined },
 	): Promise<string[]>;
-	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(
 		repoPath: string,
@@ -164,7 +165,7 @@ export interface GitProvider {
 			reverse?: boolean | undefined;
 		},
 	): Promise<GitLogCommit | undefined>;
-	getOldestUnpushedRefForFile(repoPath: string, fileName: string): Promise<string | undefined>;
+	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getConfig(key: string, repoPath?: string): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,
@@ -172,24 +173,32 @@ export interface GitProvider {
 	): Promise<GitContributor[]>;
 	getCurrentUser(repoPath: string): Promise<GitUser | undefined>;
 	getDefaultBranchName(repoPath: string | undefined, remote?: string): Promise<string | undefined>;
-	getDiffForFile(
-		uri: GitUri,
-		ref1: string | undefined,
-		ref2?: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined>;
-	getDiffForFileContents(
-		uri: GitUri,
-		ref: string,
-		contents: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined>;
+	/**
+	 * Returns a file diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
+	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined>;
+	/**
+	 * Returns a file diff between a commit and the specified contents
+	 * @param uri Uri of the file to diff
+	 * @param ref Commit to diff from
+	 * @param contents Contents to use for the diff
+	 */
+	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined>;
+	/**
+	 * Returns a line diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
 	getDiffForLine(
 		uri: GitUri,
 		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-		originalFileName?: string,
 	): Promise<GitDiffHunkLine | undefined>;
 	getDiffStatus(
 		repoPath: string,
@@ -197,7 +206,7 @@ export interface GitProvider {
 		ref2?: string,
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
-	getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined>;
+	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
 	getLog(
 		repoPath: string,
 		options?: {
@@ -280,51 +289,6 @@ export interface GitProvider {
 		editorLine?: number,
 		firstParent?: boolean,
 	): Promise<GitUri | undefined>;
-	// getPullRequestForBranch(
-	// 	branch: string,
-	// 	remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	// 	options?: {
-	// 		avatarSize?: number | undefined;
-	// 		include?: PullRequestState[] | undefined;
-	// 		limit?: number | undefined;
-	// 		timeout?: number | undefined;
-	// 	},
-	// ): Promise<PullRequest | undefined>;
-	// getPullRequestForBranch(
-	// 	branch: string,
-	// 	provider: RichRemoteProvider,
-	// 	options?: {
-	// 		avatarSize?: number | undefined;
-	// 		include?: PullRequestState[] | undefined;
-	// 		limit?: number | undefined;
-	// 		timeout?: number | undefined;
-	// 	},
-	// ): Promise<PullRequest | undefined>;
-	// getPullRequestForBranch(
-	// 	branch: string,
-	// 	remoteOrProvider: RichRemoteProvider | GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	// 	options?: {
-	// 		avatarSize?: number | undefined;
-	// 		include?: PullRequestState[] | undefined;
-	// 		limit?: number | undefined;
-	// 		timeout?: number | undefined;
-	// 	},
-	// ): Promise<PullRequest | undefined>;
-	// getPullRequestForCommit(
-	// 	ref: string,
-	// 	remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	// 	options?: { timeout?: number | undefined },
-	// ): Promise<PullRequest | undefined>;
-	// getPullRequestForCommit(
-	// 	ref: string,
-	// 	provider: RichRemoteProvider,
-	// 	options?: { timeout?: number | undefined },
-	// ): Promise<PullRequest | undefined>;
-	// getPullRequestForCommit(
-	// 	ref: string,
-	// 	remoteOrProvider: RichRemoteProvider | GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	// 	{ timeout }?: { timeout?: number | undefined },
-	// ): Promise<PullRequest | undefined>;
 	getIncomingActivity(
 		repoPath: string,
 		options?: {
@@ -356,39 +320,7 @@ export interface GitProvider {
 		providers?: RemoteProviders,
 		options?: { sort?: boolean | undefined },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]>;
-	// getRepoPath(filePath: string, options?: { ref?: string | undefined }): Promise<string | undefined>;
-	// getRepoPath(uri: Uri | undefined, options?: { ref?: string | undefined }): Promise<string | undefined>;
-	// getRepoPath(
-	// 	filePathOrUri: string | Uri | undefined,
-	// 	options?: { ref?: string | undefined },
-	// ): Promise<string | undefined>;
-
 	getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined>;
-
-	// getRepoPathOrActive(uri: Uri | undefined, editor: TextEditor | undefined): Promise<string | undefined>;
-	// getRepositories(predicate?: (repo: Repository) => boolean): Promise<Iterable<Repository>>;
-	// getOrderedRepositories(): Promise<Repository[]>;
-	// getRepository(
-	// 	repoPath: string,
-	// 	options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	// ): Promise<Repository | undefined>;
-	// getRepository(
-	// 	uri: Uri,
-	// 	options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	// ): Promise<Repository | undefined>;
-	// getRepository(
-	// 	repoPathOrUri: string | Uri,
-	// 	options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	// ): Promise<Repository | undefined>;
-	// getRepository(
-	// 	repoPathOrUri: string | Uri,
-	// 	options?: { ref?: string | undefined; skipCacheUpdate?: boolean | undefined },
-	// ): Promise<Repository | undefined>;
-	// getLocalInfoFromRemoteUri(
-	// 	uri: Uri,
-	// 	options?: { validate?: boolean | undefined },
-	// ): Promise<{ uri: Uri; startLine?: number | undefined; endLine?: number | undefined } | undefined>;
-	// getRepositoryCount(): Promise<number>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined>;

@@ -51,7 +51,7 @@ export namespace Hovers {
 
 			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
+			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
 			if (hunkLine == null && ref == null) {
@@ -60,7 +60,6 @@ export namespace Hovers {
 					editorLine,
 					undefined,
 					GitRevision.uncommittedStaged,
-					originalFileName,
 				);
 			}
 		}

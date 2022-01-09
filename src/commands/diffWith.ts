@@ -104,7 +104,7 @@ export class DiffWithCommand extends Command {
 				// Ensure that the file still exists in this commit
 				const status = await Container.instance.git.getFileStatusForCommit(
 					args.repoPath,
-					args.rhs.uri.fsPath,
+					args.rhs.uri,
 					args.rhs.sha,
 				);
 				if (status?.status === 'D') {

@@ -766,7 +766,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	/**
 	 * Returns the blame of a file
-	 * @param uri The uri of the file to blame
+	 * @param uri Uri of the file to blame
 	 */
 	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
@@ -776,8 +776,8 @@ export class GitProviderService implements Disposable {
 	@log<GitProviderService['getBlameForFileContents']>({ args: { 1: '<contents>' } })
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
-	 * @param uri The uri of the file to blame
-	 * @param contents The editor contents to use
+	 * @param uri Uri of the file to blame
+	 * @param contents Contents from the editor to use
 	 */
 	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
@@ -787,8 +787,9 @@ export class GitProviderService implements Disposable {
 	@log()
 	/**
 	 * Returns the blame of a single line
-	 * @param uri The uri of the file to blame
-	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	async getBlameForLine(
 		uri: GitUri,
@@ -802,9 +803,10 @@ export class GitProviderService implements Disposable {
 	@log<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	/**
 	 * Returns the blame of a single line, using the editor contents (for dirty editors)
-	 * @param uri The uri of the file to blame
-	 * @param line The editor line number (0-based) to blame (Git is 1-based)
-	 * @param contents The editor contents to use
+	 * @param uri Uri of the file to blame
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param contents Contents from the editor to use
+	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	async getBlameForLineContents(
 		uri: GitUri,
@@ -995,9 +997,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(repoPath: string | Uri, fileName: string): Promise<string | undefined> {
+	async getOldestUnpushedRefForFile(repoPath: string | Uri, uri: Uri): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getOldestUnpushedRefForFile(path, fileName);
+		return provider.getOldestUnpushedRefForFile(path, uri);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
@@ -1034,37 +1036,45 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getDiffForFile(
-		uri: GitUri,
-		ref1: string | undefined,
-		ref2?: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	/**
+	 * Returns a file diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
+	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getDiffForFile(uri, ref1, ref2, originalFileName);
+		return provider.getDiffForFile(uri, ref1, ref2);
 	}
 
 	@log<GitProviderService['getDiffForFileContents']>({ args: { 1: '<contents>' } })
-	async getDiffForFileContents(
-		uri: GitUri,
-		ref: string,
-		contents: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	/**
+	 * Returns a file diff between a commit and the specified contents
+	 * @param uri Uri of the file to diff
+	 * @param ref Commit to diff from
+	 * @param contents Contents to use for the diff
+	 */
+	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getDiffForFile(uri, ref, contents, originalFileName);
+		return provider.getDiffForFileContents(uri, ref, contents);
 	}
 
 	@log()
+	/**
+	 * Returns a line diff between two commits
+	 * @param uri Uri of the file to diff
+	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param ref1 Commit to diff from
+	 * @param ref2 Commit to diff to
+	 */
 	async getDiffForLine(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
+		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-		originalFileName?: string,
 	): Promise<GitDiffHunkLine | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getDiffForLine(uri, editorLine, ref1, ref2, originalFileName);
+		return provider.getDiffForLine(uri, editorLine, ref1, ref2);
 	}
 
 	@log()
@@ -1079,11 +1089,11 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getFileStatusForCommit(repoPath: string | Uri, fileName: string, ref: string): Promise<GitFile | undefined> {
+	async getFileStatusForCommit(repoPath: string | Uri, uri: Uri, ref: string): Promise<GitFile | undefined> {
 		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getFileStatusForCommit(path, fileName, ref);
+		return provider.getFileStatusForCommit(path, uri, ref);
 	}
 
 	@log()

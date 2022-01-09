@@ -80,7 +80,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		if (localChanges) {
 			let ref = await this.container.git.getOldestUnpushedRefForFile(
 				this.trackedDocument.uri.repoPath!,
-				this.trackedDocument.uri.fsPath,
+				this.trackedDocument.uri,
 			);
 			if (ref != null) {
 				ref = `${ref}^`;

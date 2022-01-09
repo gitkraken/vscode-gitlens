@@ -611,6 +611,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return Git.fetch(repoPath, opts);
 	}
 
+	@log<LocalGitProvider['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
+	getAheadBehindCommitCount(
+		repoPath: string,
+		refs: string[],
+	): Promise<{ ahead: number; behind: number } | undefined> {
+		return Git.rev_list__left_right(repoPath, refs);
+	}
+
 	@log()
 	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -1175,14 +1183,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			.filter(<T>(i?: T): i is T => Boolean(i));
 	}
 
-	@log<LocalGitProvider['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
-	getAheadBehindCommitCount(
-		repoPath: string,
-		refs: string[],
-	): Promise<{ ahead: number; behind: number } | undefined> {
-		return Git.rev_list__left_right(repoPath, refs);
-	}
-
 	@log()
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
 		return Git.rev_list__count(repoPath, ref);
@@ -1222,8 +1222,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(repoPath: string, fileName: string): Promise<string | undefined> {
-		const data = await Git.log__file(repoPath, fileName, '@{push}..', {
+	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
+		const data = await Git.log__file(repoPath, uri.fsPath, '@{push}..', {
 			format: 'refs',
 			ordering: this.container.config.advanced.commitOrdering,
 			renames: true,
@@ -1364,12 +1364,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getDiffForFile(
-		uri: GitUri,
-		ref1: string | undefined,
-		ref2?: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		let key = 'diff';
@@ -1402,7 +1397,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			uri.fsPath,
 			ref1,
 			ref2,
-			originalFileName,
 			{ encoding: GitProviderService.getEncoding(uri) },
 			doc,
 			key,
@@ -1426,7 +1420,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		fileName: string,
 		ref1: string | undefined,
 		ref2: string | undefined,
-		originalFileName: string | undefined,
 		options: { encoding?: string },
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
@@ -1435,12 +1428,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [file, root] = Paths.splitPath(fileName, repoPath, false);
 
 		try {
-			// let data;
-			// if (ref2 == null && ref1 != null && !GitRevision.isUncommittedStaged(ref1)) {
-			// 	data = await Git.show__diff(root, file, ref1, originalFileName, {
-			// 		similarityThreshold: this.container.config.advanced.similarityThreshold,
-			// 	});
-			// } else {
 			const data = await Git.diff(root, file, ref1, ref2, {
 				...options,
 				filters: ['M'],
@@ -1472,12 +1459,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
-	async getDiffForFileContents(
-		uri: GitUri,
-		ref: string,
-		contents: string,
-		originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		const key = `diff:${Strings.md5(contents)}`;
@@ -1504,7 +1486,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			uri.fsPath,
 			ref,
 			contents,
-			originalFileName,
 			{ encoding: GitProviderService.getEncoding(uri) },
 			doc,
 			key,
@@ -1523,12 +1504,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return promise;
 	}
 
-	async getDiffForFileContentsCore(
+	private async getDiffForFileContentsCore(
 		repoPath: string | undefined,
 		fileName: string,
 		ref: string,
 		contents: string,
-		originalFileName: string | undefined,
 		options: { encoding?: string },
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
@@ -1567,13 +1547,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getDiffForLine(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
+		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-		originalFileName?: string,
 	): Promise<GitDiffHunkLine | undefined> {
 		try {
-			const diff = await this.getDiffForFile(uri, ref1, ref2, originalFileName);
+			const diff = await this.getDiffForFile(uri, ref1, ref2);
 			if (diff == null) return undefined;
 
 			const line = editorLine + 1;
@@ -1606,10 +1585,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined> {
+	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
 		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return undefined;
 
-		const data = await Git.show__name_status(repoPath, fileName, ref);
+		const data = await Git.show__name_status(repoPath, uri.fsPath, ref);
 		if (!data) return undefined;
 
 		const files = GitDiffParser.parseNameStatus(data, repoPath);
