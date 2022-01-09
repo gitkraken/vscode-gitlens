@@ -296,7 +296,6 @@ export class ActionRunners implements Disposable {
 								placeholder = 'Choose what you would like to do';
 								break;
 							default:
-								// eslint-disable-next-line no-debugger
 								debugger;
 								break;
 						}

@@ -605,7 +605,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		if (CommitFormatter.has(template, 'avatar') && dateFormatOrOptions?.markdown) {
-			// eslint-disable-next-line no-debugger
 			debugger;
 			throw new Error("Invalid template token 'avatar' used in non-async call");
 		}

@@ -572,7 +572,6 @@ export class GitProviderService implements Disposable {
 
 	static getProviderId(repoPath: string | Uri): GitProviderId {
 		if (repoPath == null) {
-			// eslint-disable-next-line no-debugger
 			debugger;
 			throw new Error('Unsupported provider; no repository path');
 		}

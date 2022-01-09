@@ -33,7 +33,7 @@
 		"no-console": "off",
 		"no-constant-condition": ["warn", { "checkLoops": false }],
 		"no-caller": "error",
-		"no-debugger": "warn",
+		"no-debugger": "off",
 		"no-dupe-class-members": "off",
 		"no-else-return": "warn",
 		"no-empty": ["warn", { "allowEmptyCatch": true }],
