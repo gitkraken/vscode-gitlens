@@ -24,7 +24,7 @@ import type {
 } from '../../../@types/vscode.git';
 import { configuration } from '../../../configuration';
 import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../../constants';
-import { Container } from '../../../container';
+import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
 	GitProvider,
@@ -729,7 +729,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return promise;
 	}
 
-	async getBlameForFileContentsCore(
+	private async getBlameForFileContentsCore(
 		uri: GitUri,
 		contents: string,
 		document: TrackedDocument<GitDocumentState>,
@@ -774,10 +774,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getBlameForLine(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
-		options: { skipCache?: boolean } = {},
+		editorLine: number,
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		if (!options.skipCache && this.useCaching) {
+		if (!options?.forceSingleLine && this.useCaching) {
 			const blame = await this.getBlameForFile(uri);
 			if (blame == null) return undefined;
 
@@ -824,11 +824,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log<LocalGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
+		editorLine: number,
 		contents: string,
-		options: { skipCache?: boolean } = {},
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		if (!options.skipCache && this.useCaching) {
+		if (!options?.forceSingleLine && this.useCaching) {
 			const blame = await this.getBlameForFileContents(uri, contents);
 			if (blame == null) return undefined;
 

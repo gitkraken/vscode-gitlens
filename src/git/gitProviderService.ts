@@ -25,7 +25,7 @@ import {
 	setContext,
 	WorkspaceState,
 } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '../system';
@@ -764,33 +764,53 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	/**
+	 * Returns the blame of a file
+	 * @param uri The uri of the file to blame
+	 */
 	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForFile(uri);
 	}
 
 	@log<GitProviderService['getBlameForFileContents']>({ args: { 1: '<contents>' } })
+	/**
+	 * Returns the blame of a file, using the editor contents (for dirty editors)
+	 * @param uri The uri of the file to blame
+	 * @param contents The editor contents to use
+	 */
 	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForFileContents(uri, contents);
 	}
 
 	@log()
+	/**
+	 * Returns the blame of a single line
+	 * @param uri The uri of the file to blame
+	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 */
 	async getBlameForLine(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
-		options?: { skipCache?: boolean },
+		editorLine: number,
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForLine(uri, editorLine, options);
 	}
 
 	@log<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })
+	/**
+	 * Returns the blame of a single line, using the editor contents (for dirty editors)
+	 * @param uri The uri of the file to blame
+	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 * @param contents The editor contents to use
+	 */
 	async getBlameForLineContents(
 		uri: GitUri,
-		editorLine: number, // editor lines are 0-based
+		editorLine: number,
 		contents: string,
-		options?: { skipCache?: boolean },
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getBlameForLineContents(uri, editorLine, contents, options);

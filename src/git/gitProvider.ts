@@ -104,18 +104,38 @@ export interface GitProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	/**
+	 * Returns the blame of a file
+	 * @param uri The uri of the file to blame
+	 */
 	getBlameForFile(uri: GitUri): Promise<GitBlame | undefined>;
+	/**
+	 * Returns the blame of a file, using the editor contents (for dirty editors)
+	 * @param uri The uri of the file to blame
+	 * @param contents The editor contents to use
+	 */
 	getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
+	/**
+	 * Returns the blame of a single line
+	 * @param uri The uri of the file to blame
+	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 */
 	getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
-		options?: { skipCache?: boolean | undefined },
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined>;
+	/**
+	 * Returns the blame of a single line, using the editor contents (for dirty editors)
+	 * @param uri The uri of the file to blame
+	 * @param line The editor line number (0-based) to blame (Git is 1-based)
+	 * @param contents The editor contents to use
+	 */
 	getBlameForLineContents(
 		uri: GitUri,
 		editorLine: number,
 		contents: string,
-		options?: { skipCache?: boolean | undefined },
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined>;
 	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
 	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
