@@ -7,13 +7,13 @@ import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: RepositoriesView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {

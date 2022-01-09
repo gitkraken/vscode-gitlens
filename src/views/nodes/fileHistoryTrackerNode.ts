@@ -9,7 +9,7 @@ import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
@@ -17,7 +17,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {
@@ -92,7 +92,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != unknownGitUri;
+		return this._uri != GitUri.unknown;
 	}
 
 	@gate()
@@ -235,7 +235,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? unknownGitUri;
+		this._uri = uri ?? GitUri.unknown;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}
 }

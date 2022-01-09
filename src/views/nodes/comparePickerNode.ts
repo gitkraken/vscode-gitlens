@@ -1,8 +1,9 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars, NamedRef } from '../../constants';
+import { GitUri } from '../../git/gitUri';
 import { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
-import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 interface RepoRef {
 	label: string;
@@ -15,7 +16,7 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 	readonly pinned: boolean = false;
 
 	constructor(view: SearchAndCompareView, parent: SearchAndCompareViewNode, public readonly selectedRef: RepoRef) {
-		super(unknownGitUri, view, parent);
+		super(GitUri.unknown, view, parent);
 	}
 
 	get canDismiss(): boolean {

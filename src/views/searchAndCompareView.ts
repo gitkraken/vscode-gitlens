@@ -4,6 +4,7 @@ import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import { GitLog, GitRevision } from '../git/models';
 import { SearchPattern } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
@@ -14,7 +15,6 @@ import {
 	RepositoryFolderNode,
 	ResultsFilesNode,
 	SearchResultsNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { ComparePickerNode } from './nodes/comparePickerNode';
@@ -36,7 +36,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	private _children: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined;

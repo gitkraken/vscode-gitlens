@@ -19,11 +19,11 @@ export interface GitCommitish {
 }
 
 interface UriComponents {
-	scheme: string;
-	authority: string;
-	path: string;
-	query: string;
-	fragment: string;
+	scheme?: string;
+	authority?: string;
+	path?: string;
+	query?: string;
+	fragment?: string;
 }
 
 interface UriEx {
@@ -34,6 +34,11 @@ interface UriEx {
 }
 
 export class GitUri extends (Uri as any as UriEx) {
+	private static readonly _unknown = new GitUri();
+	static get unknown() {
+		return this._unknown;
+	}
+
 	static is(uri: any): uri is GitUri {
 		return uri instanceof GitUri;
 	}
@@ -47,7 +52,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	constructor(uri: Uri, repoPath: string | undefined);
 	constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
 		if (uri == null) {
-			super('unknown', emptyStr, emptyStr, emptyStr, emptyStr);
+			super({ scheme: 'unknown' });
 
 			return;
 		}

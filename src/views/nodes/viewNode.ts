@@ -83,8 +83,6 @@ export const enum ContextValues {
 	Tags = 'gitlens:tags',
 }
 
-export const unknownGitUri = new GitUri();
-
 export interface ViewNode {
 	readonly id?: string;
 }
@@ -538,7 +536,7 @@ export abstract class RepositoriesSubscribeableNode<
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override async getSplattedChild() {
