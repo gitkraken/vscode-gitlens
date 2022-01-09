@@ -1234,11 +1234,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	getConfig(key: string, repoPath?: string): Promise<string | undefined> {
-		return Git.config__get(key, repoPath);
-	}
-
-	@log()
 	async getContributors(
 		repoPath: string,
 		options?: { all?: boolean; ref?: string; stats?: boolean },

@@ -166,7 +166,6 @@ export interface GitProvider {
 		},
 	): Promise<GitLogCommit | undefined>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
-	getConfig(key: string, repoPath?: string): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,
 		options?: { all?: boolean | undefined; ref?: string | undefined; stats?: boolean | undefined },

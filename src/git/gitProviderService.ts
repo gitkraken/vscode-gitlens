@@ -1002,13 +1002,6 @@ export class GitProviderService implements Disposable {
 		return provider.getOldestUnpushedRefForFile(path, uri);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	@log()
-	async getConfig(_key: string, _repoPath?: string): Promise<string | undefined> {
-		// return Git.config__get(key, repoPath);
-		return undefined;
-	}
-
 	@log()
 	async getContributors(
 		repoPath: string | Uri,
