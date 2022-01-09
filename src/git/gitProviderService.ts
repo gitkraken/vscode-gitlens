@@ -26,11 +26,11 @@ import {
 	WorkspaceState,
 } from '../constants';
 import { Container } from '../container';
+import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '../system';
 import { PromiseOrValue } from '../system/promise';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
-import { ProviderNotFoundError } from './errors';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
 import { GitUri } from './gitUri';
 import {
