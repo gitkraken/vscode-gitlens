@@ -1068,9 +1068,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._branchesCache.set(repoPath, resultsPromise);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._branchesCache.delete(repoPath);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._branchesCache.delete(repoPath);
+					}
+				});
 			}
 		}
 
@@ -1270,9 +1272,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._contributorsCache.set(key, contributors);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._contributorsCache.delete(key);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._contributorsCache.delete(key);
+					}
+				});
 			}
 		}
 
@@ -2291,9 +2295,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._mergeStatusCache.set(repoPath, status ?? null);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._mergeStatusCache.delete(repoPath);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._mergeStatusCache.delete(repoPath);
+					}
+				});
 			}
 		}
 
@@ -2370,9 +2376,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._rebaseStatusCache.set(repoPath, status ?? null);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._rebaseStatusCache.delete(repoPath);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._rebaseStatusCache.delete(repoPath);
+					}
+				});
 			}
 		}
 
@@ -3169,9 +3177,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._stashesCache.delete(repoPath);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._stashesCache.delete(repoPath);
+					}
+				});
 			}
 		}
 
@@ -3257,9 +3267,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._tagsCache.set(repoPath, resultsPromise);
 
-				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
-					this._tagsCache.delete(repoPath);
-				}
+				queueMicrotask(async () => {
+					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+						this._tagsCache.delete(repoPath);
+					}
+				});
 			}
 		}
 
