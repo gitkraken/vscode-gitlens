@@ -323,7 +323,7 @@ export interface AdvancedConfig {
 	caching: {
 		enabled: boolean;
 	};
-	commitOrdering: string | null;
+	commitOrdering: 'date' | 'author-date' | 'topo' | null;
 	externalDiffTool: string | null;
 	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
