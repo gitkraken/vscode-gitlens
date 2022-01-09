@@ -104,7 +104,8 @@ import { Git, GitErrors, maxGitCliLength } from './git';
 import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists, RunError } from './shell';
 
-const emptyStr = '';
+const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
 const RepoSearchWarnings = {
 	doesNotExist: /no such file or directory/i,
@@ -115,7 +116,6 @@ const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
-const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
 
 export class LocalGitProvider implements GitProvider, Disposable {
@@ -126,13 +126,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this._onDidChangeRepository.event;
 	}
 
-	private readonly _branchesCache = new Map<string, Promise<GitBranch[]>>();
+	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
 	private readonly _contributorsCache = new Map<string, Promise<GitContributor[]>>();
 	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
 	private readonly _rebaseStatusCache = new Map<string, GitRebaseStatus | null>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
-	private readonly _tagsCache = new Map<string, Promise<GitTag[]>>();
+	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
 	private readonly _trackedCache = new Map<string, PromiseOrValue<boolean>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
@@ -339,7 +339,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		prefix: (context, folder) => `${context.prefix}(${folder.uri.fsPath})`,
 		exit: result =>
 			`returned ${result.length} repositories${
-				result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : emptyStr
+				result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : ''
 			}`,
 	})
 	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
@@ -382,9 +382,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			repoPaths = await this.repositorySearchCore(uri.fsPath, depth, excludes);
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? emptyStr;
+			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
-				Logger.log(cc, `FAILED${msg ? ` Error: ${msg}` : emptyStr}`);
+				Logger.log(cc, `FAILED${msg ? ` Error: ${msg}` : ''}`);
 			} else {
 				Logger.error(ex, cc, 'FAILED');
 			}
@@ -480,7 +480,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2);
 			void (await Git.apply(uri.repoPath, patch));
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? emptyStr;
+			const msg: string = ex?.toString() ?? '';
 			if (patch && /patch does not apply/i.test(msg)) {
 				const result = await window.showWarningMessage(
 					'Unable to apply changes cleanly. Retry and allow conflicts?',
@@ -525,7 +525,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			await Git.checkout(repoPath, ref, options);
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? emptyStr;
+			const msg: string = ex?.toString() ?? '';
 			if (/overwritten by checkout/i.test(msg)) {
 				void Messages.showGenericErrorMessage(
 					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
@@ -592,9 +592,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async fetch(
 		repoPath: string,
-		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string } = {},
+		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
-		const { branch: branchRef, ...opts } = options;
+		const { branch: branchRef, ...opts } = options ?? {};
 		if (GitReference.isBranch(branchRef)) {
 			const repo = await this.container.git.getRepository(repoPath);
 			const branch = await repo?.getBranch(branchRef?.name);
@@ -604,7 +604,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				branch: branch.getNameWithoutRemote(),
 				remote: branch.getRemoteName()!,
 				upstream: branch.getTrackingWithoutRemote()!,
-				pull: options.pull,
+				pull: options?.pull,
 			});
 		}
 
@@ -1010,16 +1010,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log({ args: { 1: false } })
 	async getBranches(
 		repoPath: string | undefined,
-		options: {
+		options?: {
 			filter?: (b: GitBranch) => boolean;
 			sort?: boolean | BranchSortOptions;
-		} = {},
+		},
 	): Promise<PagedResult<GitBranch>> {
-		if (repoPath == null) return { values: [] };
+		if (repoPath == null) return emptyPagedResult;
 
-		let branchesPromise = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
-		if (branchesPromise == null) {
-			async function load(this: LocalGitProvider) {
+		let resultsPromise = this.useCaching ? this._branchesCache.get(repoPath) : undefined;
+		if (resultsPromise == null) {
+			async function load(this: LocalGitProvider): Promise<PagedResult<GitBranch>> {
 				try {
 					const data = await Git.for_each_ref__branch(repoPath!, { all: true });
 					// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
@@ -1052,21 +1052,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							);
 						}
 
-						return current != null ? [current] : [];
+						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					return GitBranchParser.parse(data, repoPath!);
+					return { values: GitBranchParser.parse(data, repoPath!) };
 				} catch (ex) {
 					this._branchesCache.delete(repoPath!);
 
-					return [];
+					return emptyPagedResult;
 				}
 			}
 
-			branchesPromise = load.call(this);
+			resultsPromise = load.call(this);
 
 			if (this.useCaching) {
-				this._branchesCache.set(repoPath, branchesPromise);
+				this._branchesCache.set(repoPath, resultsPromise);
 
 				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
 					this._branchesCache.delete(repoPath);
@@ -1074,17 +1074,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		let branches = await branchesPromise;
-		if (options.filter != null) {
-			branches = branches.filter(options.filter);
+		let result = await resultsPromise;
+		if (options?.filter != null) {
+			result = {
+				...result,
+				values: result.values.filter(options.filter),
+			};
 		}
 
 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-		if (options.sort) {
-			GitBranch.sort(branches, typeof options.sort === 'boolean' ? undefined : options.sort);
+		if (options?.sort) {
+			GitBranch.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
-		return { values: branches };
+		return result;
 	}
 
 	// @log()
@@ -1187,23 +1190,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
-		options: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean } = {},
+		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean },
 	): Promise<GitLogCommit | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		try {
 			const log = await this.getLogForFile(repoPath, uri.fsPath, {
 				limit: 2,
-				ref: options.ref,
-				range: options.range,
-				reverse: options.reverse,
+				ref: options?.ref,
+				range: options?.range,
+				reverse: options?.reverse,
 			});
 			if (log == null) return undefined;
 
-			const commit = options.ref ? log.commits.get(options.ref) : undefined;
-			if (commit == null && !options.firstIfNotFound && options.ref) {
-				// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-				if (GitRevision.isSha(options.ref) || GitRevision.isUncommitted(options.ref)) return undefined;
+			let commit;
+			if (options?.ref) {
+				const commit = log.commits.get(options.ref);
+				if (commit == null && !options?.firstIfNotFound) {
+					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
+					if (GitRevision.isSha(options.ref) || GitRevision.isUncommitted(options.ref)) return undefined;
+				}
 			}
 
 			return commit ?? Iterables.first(log.commits.values());
@@ -1581,7 +1587,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		options: { filters?: GitDiffFilter[]; similarityThreshold?: number } = {},
+		options?: { filters?: GitDiffFilter[]; similarityThreshold?: number },
 	): Promise<GitFile[] | undefined> {
 		try {
 			const data = await Git.diff__name_status(repoPath, ref1, ref2, {
@@ -1611,10 +1617,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLog(
 		repoPath: string,
-		{
-			ref,
-			...options
-		}: {
+		options?: {
 			all?: boolean;
 			authors?: string[];
 			limit?: number;
@@ -1623,16 +1626,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 			reverse?: boolean;
 			since?: string;
-		} = {},
+		},
 	): Promise<GitLog | undefined> {
-		const limit = options.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
 
 		try {
-			const data = await Git.log(repoPath, ref, {
+			const data = await Git.log(repoPath, options?.ref, {
 				...options,
 				limit: limit,
-				merges: options.merges == null ? true : options.merges,
-				ordering: options.ordering ?? this.container.config.advanced.commitOrdering,
+				merges: options?.merges == null ? true : options.merges,
+				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
 			const log = GitLogParser.parse(
@@ -1640,18 +1643,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				GitCommitType.Log,
 				repoPath,
 				undefined,
-				ref,
+				options?.ref,
 				await this.getCurrentUser(repoPath),
 				limit,
-				options.reverse!,
+				options?.reverse ?? false,
 				undefined,
 			);
 
 			if (log != null) {
-				const opts = { ...options, ref: ref };
-				log.query = (limit: number | undefined) => this.getLog(repoPath, { ...opts, limit: limit });
+				log.query = (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit });
 				if (log.hasMore) {
-					log.more = this.getLogMoreFn(log, opts);
+					log.more = this.getLogMoreFn(log, options);
 				}
 			}
 
@@ -1664,10 +1666,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogRefsOnly(
 		repoPath: string,
-		{
-			ref,
-			...options
-		}: {
+		options?: {
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
@@ -1675,20 +1674,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 			reverse?: boolean;
 			since?: string;
-		} = {},
+		},
 	): Promise<Set<string> | undefined> {
-		const limit = options.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
 
 		try {
-			const data = await Git.log(repoPath, ref, {
-				authors: options.authors,
+			const data = await Git.log(repoPath, options?.ref, {
+				authors: options?.authors,
 				format: 'refs',
 				limit: limit,
-				merges: options.merges == null ? true : options.merges,
-				reverse: options.reverse,
+				merges: options?.merges == null ? true : options.merges,
+				reverse: options?.reverse,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
-				since: options.since,
-				ordering: options.ordering ?? this.container.config.advanced.commitOrdering,
+				since: options?.since,
+				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
 			});
 			const commits = GitLogParser.parseRefsOnly(data);
 			return new Set(commits);
@@ -1699,7 +1698,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private getLogMoreFn(
 		log: GitLog,
-		options: {
+		options?: {
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
@@ -1722,7 +1721,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (GitRevision.isRange(log.sha)) {
 				const moreLog = await this.getLog(log.repoPath, {
 					...options,
-					limit: moreLimit === 0 ? 0 : (options.limit ?? 0) + moreLimit,
+					limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
 				});
 				// If we can't find any more, assume we have everything
 				if (moreLog == null) return { ...log, hasMore: false };
@@ -1773,12 +1772,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		options: { limit?: number; ordering?: string | null; skip?: number } = {},
+		options?: { limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
 		try {
-			const limit = options.limit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			const limit = options?.limit ?? this.container.config.advanced.maxSearchItems ?? 0;
 			const similarityThreshold = this.container.config.advanced.similarityThreshold;
 
 			const operations = SearchPattern.parseSearchOperations(search.pattern);
@@ -1893,7 +1892,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogForSearchMoreFn(
 		log: GitLog,
 		search: SearchPattern,
-		options: { limit?: number; ordering?: string | null },
+		options?: { limit?: number; ordering?: string | null },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? this.container.config.advanced.maxSearchItems ?? 0;
@@ -1942,7 +1941,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getLogForFile(
 		repoPath: string | undefined,
 		fileName: string,
-		options: {
+		options?: {
 			all?: boolean;
 			limit?: number;
 			ordering?: string | null;
@@ -1952,7 +1951,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			reverse?: boolean;
 			since?: string;
 			skip?: number;
-		} = {},
+		},
 	): Promise<GitLog | undefined> {
 		if (repoPath != null && repoPath === Strings.normalizePath(fileName)) {
 			throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
@@ -2011,7 +2010,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (options.ref != null || options.limit != null) {
 					// Since we are looking for partial log, see if we have the log of the whole file
 					const cachedLog = doc.state.get<CachedLog>(
-						`log${options.renames ? ':follow' : emptyStr}${options.reverse ? ':reverse' : emptyStr}`,
+						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
 						if (options.ref == null) {
@@ -2033,12 +2032,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									log.commits.entries(),
 									([ref, c]) => {
 										if (skip) {
-											if (ref !== options.ref) return undefined;
+											if (ref !== options?.ref) return undefined;
 											skip = false;
 										}
 
 										i++;
-										if (options.limit != null && i > options.limit) {
+										if (options?.limit != null && i > options.limit) {
 											return undefined;
 										}
 
@@ -2199,10 +2198,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
 				skip: options.all ? log.count : undefined,
 			});
-			if (moreLog == null) {
-				// If we can't find any more, assume we have everything
-				return { ...log, hasMore: false };
-			}
+			// If we can't find any more, assume we have everything
+			if (moreLog == null) return { ...log, hasMore: false };
 
 			// Merge authors
 			const authors = new Map([...log.authors]);
@@ -2247,7 +2244,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getMergeBase(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
+	async getMergeBase(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
 		const cc = Logger.getCorrelationContext();
 
 		try {
@@ -2708,7 +2705,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: editorLine != null ? editorLine + 1 : undefined,
 			});
 		} catch (ex) {
-			const msg: string = ex?.toString() ?? emptyStr;
+			const msg: string = ex?.toString() ?? '';
 			// If the line count is invalid just fallback to the most recent commit
 			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
 				if (ref == null) {
@@ -2809,7 +2806,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getPullRequestForCommit(
 		ref: string,
 		remoteOrProvider: GitRemote | RichRemoteProvider,
-		{ timeout }: { timeout?: number } = {},
+		options?: { timeout?: number },
 	): Promise<PullRequest | undefined> {
 		if (GitRevision.isUncommitted(ref)) return undefined;
 
@@ -2826,8 +2823,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return promiseOrPR;
 		}
 
-		if (timeout != null && timeout > 0) {
-			promiseOrPR = Promises.cancellable(promiseOrPR, timeout);
+		if (options?.timeout != null && options.timeout > 0) {
+			promiseOrPR = Promises.cancellable(promiseOrPR, options.timeout);
 		}
 
 		try {
@@ -2844,14 +2841,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string,
-		{
-			limit,
-			...options
-		}: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number } = {},
+		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitReflog | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		limit = limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
 		try {
 			// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
 			const data = await Git.reflog(repoPath, {
@@ -2875,7 +2869,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private getReflogMoreFn(
 		reflog: GitReflog,
-		options: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
+		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? this.container.config.advanced.maxSearchItems ?? 0;
@@ -2926,7 +2920,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	})
 	async getRichRemoteProvider(
 		remotesOrRepoPath: GitRemote[] | string | undefined,
-		{ includeDisconnected }: { includeDisconnected?: boolean } = {},
+		options?: { includeDisconnected?: boolean },
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
@@ -2934,9 +2928,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let richRemote = this._remotesWithApiProviderCache.get(cacheKey);
 		if (richRemote != null) return richRemote;
-		if (richRemote === null && !includeDisconnected) return undefined;
+		if (richRemote === null && !options?.includeDisconnected) return undefined;
 
-		if (includeDisconnected) {
+		if (options?.includeDisconnected) {
 			richRemote = this._remotesWithApiProviderCache.get(`disconnected|${cacheKey}`);
 			if (richRemote !== undefined) return richRemote ?? undefined;
 		}
@@ -2999,23 +2993,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._remotesWithApiProviderCache.set(cacheKey, null);
 			this._remotesWithApiProviderCache.set(`disconnected|${cacheKey}`, remote);
 
-			if (!includeDisconnected) return undefined;
+			if (!options?.includeDisconnected) return undefined;
 		}
 
 		return remote;
 	}
 
 	@log()
-	async getRemotes(
-		repoPath: string | undefined,
-		options: { sort?: boolean } = {},
-	): Promise<GitRemote<RemoteProvider>[]> {
+	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote<RemoteProvider>[]> {
 		if (repoPath == null) return [];
 
 		const repository = await this.container.git.getRepository(repoPath);
 		const remotes = await (repository != null
-			? repository.getRemotes({ sort: options.sort })
-			: this.getRemotesCore(repoPath, undefined, { sort: options.sort }));
+			? repository.getRemotes(options)
+			: this.getRemotesCore(repoPath, undefined, options));
 
 		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider>[];
 	}
@@ -3023,7 +3014,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getRemotesCore(
 		repoPath: string | undefined,
 		providers?: RemoteProviders,
-		options: { sort?: boolean } = {},
+		options?: { sort?: boolean },
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
@@ -3034,7 +3025,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const remotes = GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
 			if (remotes == null) return [];
 
-			if (options.sort) {
+			if (options?.sort) {
 				GitRemote.sort(remotes);
 			}
 
@@ -3244,27 +3235,27 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | undefined,
-		options: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions } = {},
+		options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
 	): Promise<PagedResult<GitTag>> {
-		if (repoPath == null) return { values: [] };
+		if (repoPath == null) return emptyPagedResult;
 
-		let tagsPromise = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
-		if (tagsPromise == null) {
-			async function load(this: LocalGitProvider) {
+		let resultsPromise = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
+		if (resultsPromise == null) {
+			async function load(this: LocalGitProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const data = await Git.tag(repoPath!);
-					return GitTagParser.parse(data, repoPath!) ?? [];
+					return { values: GitTagParser.parse(data, repoPath!) ?? [] };
 				} catch (ex) {
 					this._tagsCache.delete(repoPath!);
 
-					return [];
+					return emptyPagedResult;
 				}
 			}
 
-			tagsPromise = load.call(this);
+			resultsPromise = load.call(this);
 
 			if (this.useCaching) {
-				this._tagsCache.set(repoPath, tagsPromise);
+				this._tagsCache.set(repoPath, resultsPromise);
 
 				if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
 					this._tagsCache.delete(repoPath);
@@ -3272,17 +3263,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		let tags = await tagsPromise;
-		if (options.filter != null) {
-			tags = tags.filter(options.filter);
+		let result = await resultsPromise;
+		if (options?.filter != null) {
+			result = {
+				...result,
+				values: result.values.filter(options.filter),
+			};
 		}
 
 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-		if (options.sort) {
-			GitTag.sort(tags, typeof options.sort === 'boolean' ? undefined : options.sort);
+		if (options?.sort) {
+			GitTag.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
-		return { values: tags };
+		return result;
 	}
 
 	@log()
@@ -3382,19 +3376,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log({ args: { 1: false } })
 	async hasBranchOrTag(
 		repoPath: string | undefined,
-		{
-			filter,
-		}: {
+		options?: {
 			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
-		} = {},
+		},
 	) {
 		const [{ values: branches }, { values: tags }] = await Promise.all([
 			this.getBranches(repoPath, {
-				filter: filter?.branches,
+				filter: options?.filter?.branches,
 				sort: false,
 			}),
 			this.getTags(repoPath, {
-				filter: filter?.tags,
+				filter: options?.filter?.tags,
 				sort: false,
 			}),
 		]);
@@ -3477,7 +3469,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let tracked = this._trackedCache.get(cacheKey);
 		if (tracked != null) return tracked;
 
-		tracked = this.isTrackedCore(relativeFilePath, repoPath ?? emptyStr, ref);
+		tracked = this.isTrackedCore(relativeFilePath, repoPath ?? '', ref);
 		this._trackedCache.set(cacheKey, tracked);
 
 		tracked = await tracked;
@@ -3518,20 +3510,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async openDiffTool(
 		repoPath: string,
 		uri: Uri,
-		options: { ref1?: string; ref2?: string; staged?: boolean; tool?: string } = {},
+		options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
 	): Promise<void> {
 		try {
-			if (!options.tool) {
+			let tool = options?.tool;
+			if (!tool) {
 				const cc = Logger.getCorrelationContext();
 
-				options.tool = this.container.config.advanced.externalDiffTool || (await this.getDiffTool(repoPath));
-				if (options.tool == null) throw new Error('No diff tool found');
+				tool = this.container.config.advanced.externalDiffTool || (await this.getDiffTool(repoPath));
+				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.log(cc, `Using tool=${options.tool}`);
+				Logger.log(cc, `Using tool=${tool}`);
 			}
 
-			const { tool, ...opts } = options;
-			await Git.difftool(repoPath, uri.fsPath, tool, opts);
+			await Git.difftool(repoPath, uri.fsPath, tool, options);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
@@ -3689,13 +3681,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async stashApply(
-		repoPath: string,
-		stashName: string,
-		{ deleteAfter }: { deleteAfter?: boolean } = {},
-	): Promise<void> {
+	async stashApply(repoPath: string, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		try {
-			await Git.stash__apply(repoPath, stashName, Boolean(deleteAfter));
+			await Git.stash__apply(repoPath, stashName, Boolean(options?.deleteAfter));
 		} catch (ex) {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
@@ -3739,7 +3727,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
-		options: { includeUntracked?: boolean; keepIndex?: boolean } = {},
+		options?: { includeUntracked?: boolean; keepIndex?: boolean },
 	): Promise<void> {
 		if (uris == null) return Git.stash__push(repoPath, message, options);
 
