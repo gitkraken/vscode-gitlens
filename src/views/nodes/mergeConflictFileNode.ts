@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { dirname } from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
@@ -81,7 +81,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = dirname(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

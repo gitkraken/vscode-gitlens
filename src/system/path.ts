@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { Strings } from '../system';
 import { normalizePath } from './string';
@@ -74,6 +74,10 @@ export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | strin
 	);
 }
 
+export function isFolderGlob(path: string) {
+	return basename(path) === '*';
+}
+
 export function splitPath(filePath: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
 	if (repoPath) {
 		filePath = normalizePath(filePath);
@@ -84,8 +88,8 @@ export function splitPath(filePath: string, repoPath: string | undefined, extrac
 			filePath = filePath.substring(normalizedRepoPath.length);
 		}
 	} else {
-		repoPath = normalizePath(extract ? paths.dirname(filePath) : repoPath!);
-		filePath = normalizePath(extract ? paths.basename(filePath) : filePath);
+		repoPath = normalizePath(extract ? dirname(filePath) : repoPath!);
+		filePath = normalizePath(extract ? basename(filePath) : filePath);
 	}
 
 	return [filePath, repoPath];

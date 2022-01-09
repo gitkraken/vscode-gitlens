@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -147,10 +147,10 @@ export class DiffWithCommand extends Command {
 			}
 
 			if (args.lhs.title == null && (lhs != null || lhsSuffix.length !== 0)) {
-				args.lhs.title = `${paths.basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
+				args.lhs.title = `${basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
 			}
 			if (args.rhs.title == null) {
-				args.rhs.title = `${paths.basename(args.rhs.uri.fsPath)}${rhsSuffix ? ` (${rhsSuffix})` : ''}`;
+				args.rhs.title = `${basename(args.rhs.uri.fsPath)}${rhsSuffix ? ` (${rhsSuffix})` : ''}`;
 			}
 
 			const title =

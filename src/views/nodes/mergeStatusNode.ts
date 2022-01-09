@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
@@ -48,7 +48,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
@@ -111,7 +111,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

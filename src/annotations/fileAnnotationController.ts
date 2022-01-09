@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import {
 	ConfigurationChangeEvent,
 	DecorationRangeBehavior,
@@ -534,7 +534,7 @@ export class FileAnnotationController implements Disposable {
 			}
 
 			progress.report({
-				message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`,
+				message: `Computing ${annotationsLabel} for ${basename(editor.document.fileName)}`,
 			});
 		}
 

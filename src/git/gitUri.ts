@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename, dirname, isAbsolute, join as joinPaths, relative } from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
@@ -140,7 +140,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	get fileName(): string {
-		return paths.basename(this.relativeFsPath);
+		return basename(this.relativeFsPath);
 	}
 
 	@memoize()
@@ -155,9 +155,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	private get relativeFsPath() {
-		return this.repoPath == null || this.repoPath.length === 0
-			? this.fsPath
-			: paths.relative(this.repoPath, this.fsPath);
+		return this.repoPath == null || this.repoPath.length === 0 ? this.fsPath : relative(this.repoPath, this.fsPath);
 	}
 
 	@memoize()
@@ -325,7 +323,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static getDirectory(fileName: string, relativeTo?: string): string {
-		let directory: string | undefined = paths.dirname(fileName);
+		let directory: string | undefined = dirname(fileName);
 		directory = relativeTo != null ? GitUri.relativeTo(directory, relativeTo) : Strings.normalizePath(directory);
 		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
 	}
@@ -346,7 +344,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			fileName = fileNameOrUri;
 		}
 
-		let file = paths.basename(fileName);
+		let file = basename(fileName);
 		if (truncateTo != null && file.length >= truncateTo) {
 			return Strings.truncateMiddle(file, truncateTo);
 		}
@@ -379,7 +377,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			fileName = fileNameOrUri;
 		}
 
-		let file = paths.basename(fileName);
+		let file = basename(fileName);
 		if (truncateTo != null && file.length >= truncateTo) {
 			return Strings.truncateMiddle(file, truncateTo);
 		}
@@ -407,9 +405,9 @@ export class GitUri extends (Uri as any as UriEx) {
 	static relativeTo(fileNameOrUri: string | Uri, relativeTo: string | undefined): string {
 		const fileName = fileNameOrUri instanceof Uri ? fileNameOrUri.fsPath : fileNameOrUri;
 		const relativePath =
-			relativeTo == null || relativeTo.length === 0 || !paths.isAbsolute(fileName)
+			relativeTo == null || relativeTo.length === 0 || !isAbsolute(fileName)
 				? fileName
-				: paths.relative(relativeTo, fileName);
+				: relative(relativeTo, fileName);
 		return Strings.normalizePath(relativePath);
 	}
 
@@ -436,7 +434,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
 
-		return Strings.normalizePath(paths.join(normalizedRepoPath, normalizedFileName));
+		return Strings.normalizePath(joinPaths(normalizedRepoPath, normalizedFileName));
 	}
 
 	static resolveToUri(fileName: string, repoPath?: string) {

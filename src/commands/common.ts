@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { extname } from 'path';
 import {
 	commands,
 	Disposable,
@@ -715,7 +715,7 @@ export async function openEditor(
 			uri = uri.documentUri();
 		}
 
-		if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[paths.extname(uri.fsPath)]) {
+		if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
 			await commands.executeCommand(BuiltInCommands.Open, uri);
 
 			return undefined;

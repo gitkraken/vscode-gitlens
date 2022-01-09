@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { relative } from 'path';
 import {
 	Disposable,
 	Event,
@@ -70,7 +70,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		const items = [
 			...Iterables.map<GitTree, [string, FileType]>(tree, t => [
-				path != null && path.length !== 0 ? Strings.normalizePath(paths.relative(path, t.path)) : t.path,
+				path != null && path.length !== 0 ? Strings.normalizePath(relative(path, t.path)) : t.path,
 				typeToFileType(t.type),
 			]),
 		];

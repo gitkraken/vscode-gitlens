@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
-import * as paths from 'path';
+import { dirname, isAbsolute, join as joinPaths } from 'path';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
@@ -250,8 +250,8 @@ export namespace Git {
 				let supported = await Git.isAtLeastVersion('2.23');
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
-					if (!paths.isAbsolute(ignoreRevsFile)) {
-						ignoreRevsFile = paths.join(repoPath ?? emptyStr, ignoreRevsFile);
+					if (!isAbsolute(ignoreRevsFile)) {
+						ignoreRevsFile = joinPaths(repoPath ?? emptyStr, ignoreRevsFile);
 					}
 
 					const exists = ignoreRevsFileMap.get(ignoreRevsFile);
@@ -852,7 +852,7 @@ export namespace Git {
 		if (format !== 'refs') {
 			if (startLine == null) {
 				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
-				if (format === 'simple' || isFolderGlob(file)) {
+				if (format === 'simple' || Paths.isFolderGlob(file)) {
 					params.push('--name-status');
 				} else {
 					params.push('--numstat', '--summary');
@@ -1258,7 +1258,7 @@ export namespace Git {
 				let exists = inDotGit ? false : await fsExists(cwd);
 				if (!exists) {
 					do {
-						const parent = paths.dirname(cwd);
+						const parent = dirname(cwd);
 						if (parent === cwd || parent.length === 0) return undefined;
 
 						cwd = parent;
@@ -1521,7 +1521,7 @@ export namespace Git {
 		options?: { numeric?: boolean; throw?: boolean; trim?: boolean },
 	): Promise<string | number | undefined> {
 		try {
-			const bytes = await workspace.fs.readFile(Uri.file(paths.join(...[repoPath, '.git', ...pathParts])));
+			const bytes = await workspace.fs.readFile(Uri.file(joinPaths(...[repoPath, '.git', ...pathParts])));
 			let contents = textDecoder.decode(bytes);
 			contents = options?.trim ?? true ? contents.trim() : contents;
 
@@ -1537,8 +1537,4 @@ export namespace Git {
 			return undefined;
 		}
 	}
-}
-
-export function isFolderGlob(path: string) {
-	return paths.basename(path) === '*';
 }

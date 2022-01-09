@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename, join as joinPaths, relative } from 'path';
 import {
 	commands,
 	ConfigurationChangeEvent,
@@ -217,14 +217,14 @@ export class Repository implements Disposable {
 		suspended: boolean,
 		closed: boolean = false,
 	) {
-		const relativePath = paths.relative(folder.uri.fsPath, path);
+		const relativePath = relative(folder.uri.fsPath, path);
 		if (root) {
 			// Check if the repository is not contained by a workspace folder
 			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
 			if (repoFolder == null) {
 				// If it isn't within a workspace folder we can't get change events, see: https://github.com/Microsoft/vscode/issues/3025
 				this._supportsChangeEvents = false;
-				this.formattedName = this.name = paths.basename(path);
+				this.formattedName = this.name = basename(path);
 			} else {
 				this.formattedName = this.name = folder.name;
 			}
@@ -582,7 +582,7 @@ export class Repository implements Disposable {
 		}
 
 		try {
-			const stat = await workspace.fs.stat(Uri.file(paths.join(this.path, '.git/FETCH_HEAD')));
+			const stat = await workspace.fs.stat(Uri.file(joinPaths(this.path, '.git/FETCH_HEAD')));
 			// If the file is empty, assume the fetch failed, and don't update the timestamp
 			if (stat.size > 0) {
 				this._lastFetched = stat.mtime;

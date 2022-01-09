@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
@@ -37,7 +37,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 export class CommitFileQuickPickItem extends CommandQuickPickItem {
 	constructor(readonly commit: GitLogCommit, readonly file: GitFile, picked?: boolean) {
 		super({
-			label: `${Strings.pad(GitFile.getStatusCodicon(file.status), 0, 2)}${paths.basename(file.fileName)}`,
+			label: `${Strings.pad(GitFile.getStatusCodicon(file.status), 0, 2)}${basename(file.fileName)}`,
 			description: GitFile.getFormattedDirectory(file, true),
 			picked: picked,
 		});

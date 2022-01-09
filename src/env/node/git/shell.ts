@@ -1,8 +1,8 @@
 'use strict';
 import { ExecException, execFile } from 'child_process';
-import * as fs from 'fs';
-import * as paths from 'path';
-import * as iconv from 'iconv-lite';
+import { exists, existsSync, Stats, statSync } from 'fs';
+import { join as joinPaths } from 'path';
+import { decode } from 'iconv-lite';
 import { Logger } from '../../../logger';
 
 export const isWindows = process.platform === 'win32';
@@ -28,9 +28,9 @@ function runDownPath(exe: string): string {
 	// Files with any directory path don't get this applied
 	if (slashesRegex.test(exe)) return exe;
 
-	const target = paths.join('.', exe);
+	const target = joinPaths('.', exe);
 	try {
-		const stats = fs.statSync(target);
+		const stats = statSync(target);
 		if (stats?.isFile() && isExecutable(stats)) return target;
 	} catch {}
 
@@ -39,9 +39,9 @@ function runDownPath(exe: string): string {
 		const haystack = path.split(isWindows ? ';' : ':');
 		let stats;
 		for (const p of haystack) {
-			const needle = paths.join(p, exe);
+			const needle = joinPaths(p, exe);
 			try {
-				stats = fs.statSync(needle);
+				stats = statSync(needle);
 				if (stats?.isFile() && isExecutable(stats)) return needle;
 			} catch {}
 		}
@@ -50,7 +50,7 @@ function runDownPath(exe: string): string {
 	return exe;
 }
 
-function isExecutable(stats: fs.Stats) {
+function isExecutable(stats: Stats) {
 	if (isWindows) return true;
 
 	const isGroup = stats.gid ? process.getgid != null && stats.gid === process.getgid() : true;
@@ -72,7 +72,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 	// POSIX can just execute scripts directly, no need for silly goosery
 	if (!isWindows) return { cmd: runDownPath(exe), args: args };
 
-	if (!fs.existsSync(exe)) {
+	if (!existsSync(exe)) {
 		// NB: When you write something like `surf-client ... -- surf-build` on Windows,
 		// a shell would normally convert that to surf-build.cmd, but since it's passed
 		// in as an argument, it doesn't happen
@@ -80,12 +80,12 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 		for (const ext of possibleExts) {
 			const possibleFullPath = runDownPath(`${exe}${ext}`);
 
-			if (fs.existsSync(possibleFullPath)) return findExecutable(possibleFullPath, args);
+			if (existsSync(possibleFullPath)) return findExecutable(possibleFullPath, args);
 		}
 	}
 
 	if (ps1Regex.test(exe)) {
-		const cmd = paths.join(
+		const cmd = joinPaths(
 			process.env.SYSTEMROOT ?? 'C:\\WINDOWS',
 			'System32',
 			'WindowsPowerShell',
@@ -98,7 +98,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 	}
 
 	if (batOrCmdRegex.test(exe)) {
-		const cmd = paths.join(process.env.SYSTEMROOT ?? 'C:\\WINDOWS', 'System32', 'cmd.exe');
+		const cmd = joinPaths(process.env.SYSTEMROOT ?? 'C:\\WINDOWS', 'System32', 'cmd.exe');
 		const cmdArgs = ['/C', exe, ...args];
 
 		return { cmd: cmd, args: cmdArgs };
@@ -191,10 +191,10 @@ export function run<TOut extends string | Buffer>(
 						error,
 						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
 							? stdout
-							: iconv.decode(Buffer.from(stdout, 'binary'), encoding),
+							: decode(Buffer.from(stdout, 'binary'), encoding),
 						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
 							? stderr
-							: iconv.decode(Buffer.from(stderr, 'binary'), encoding),
+							: decode(Buffer.from(stderr, 'binary'), encoding),
 					),
 				);
 
@@ -208,7 +208,7 @@ export function run<TOut extends string | Buffer>(
 			resolve(
 				encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
 					? (stdout as TOut)
-					: (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut),
+					: (decode(Buffer.from(stdout, 'binary'), encoding) as TOut),
 			);
 		});
 
@@ -219,5 +219,5 @@ export function run<TOut extends string | Buffer>(
 }
 
 export function fsExists(path: string) {
-	return new Promise<boolean>(resolve => fs.exists(path, exists => resolve(exists)));
+	return new Promise<boolean>(resolve => exists(path, exists => resolve(exists)));
 }

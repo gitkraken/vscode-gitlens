@@ -1,7 +1,7 @@
 'use strict';
-import * as fs from 'fs';
-import * as os from 'os';
-import * as paths from 'path';
+import { readdir, realpath, stat, Stats } from 'fs';
+import { hostname, userInfo } from 'os';
+import { dirname, relative, resolve as resolvePath } from 'path';
 import {
 	Disposable,
 	env,
@@ -100,7 +100,7 @@ import {
 	GitDocumentState,
 	TrackedDocument,
 } from '../../../trackers/gitDocumentTracker';
-import { Git, GitErrors, isFolderGlob, maxGitCliLength } from './git';
+import { Git, GitErrors, maxGitCliLength } from './git';
 import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists, RunError } from './shell';
 
@@ -393,7 +393,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		for (let p of repoPaths) {
-			p = paths.dirname(p);
+			p = dirname(p);
 			// If we are the same as the root, skip it
 			if (Strings.normalizePath(p) === rootPath) continue;
 
@@ -420,7 +420,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		return new Promise<string[]>((resolve, reject) => {
-			fs.readdir(root, { withFileTypes: true }, async (err, files) => {
+			readdir(root, { withFileTypes: true }, async (err, files) => {
 				if (err != null) {
 					reject(err);
 					return;
@@ -438,10 +438,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					if (!f.isDirectory()) continue;
 
 					if (f.name === '.git') {
-						repositories.push(paths.resolve(root, f.name));
+						repositories.push(resolvePath(root, f.name));
 					} else if (depth >= 0 && excludes[f.name] !== true) {
 						try {
-							await this.repositorySearchCore(paths.resolve(root, f.name), depth, excludes, repositories);
+							await this.repositorySearchCore(resolvePath(root, f.name), depth, excludes, repositories);
 						} catch (ex) {
 							Logger.error(ex, cc, 'FAILED');
 						}
@@ -1299,7 +1299,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			} while (true);
 		} else {
 			user.name =
-				process.env.GIT_AUTHOR_NAME || process.env.GIT_COMMITTER_NAME || os.userInfo()?.username || undefined;
+				process.env.GIT_AUTHOR_NAME || process.env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 			if (!user.name) {
 				// If we found no user data, mark it so we won't bother trying again
 				this._userMapCache.set(repoPath, null);
@@ -1310,7 +1310,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				process.env.GIT_AUTHOR_EMAIL ||
 				process.env.GIT_COMMITTER_EMAIL ||
 				process.env.EMAIL ||
-				`${user.name}@${os.hostname()}`;
+				`${user.name}@${hostname()}`;
 		}
 
 		const author = `${user.name} <${user.email}>`;
@@ -2130,7 +2130,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const log = GitLogParser.parse(
 				data,
 				// If this is the log of a folder, parse it as a normal log rather than a file log
-				isFolderGlob(file) ? GitCommitType.Log : GitCommitType.LogFile,
+				Paths.isFolderGlob(file) ? GitCommitType.Log : GitCommitType.LogFile,
 				root,
 				file,
 				ref,
@@ -3056,10 +3056,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (isDirectory) {
 				path = filePath;
 			} else {
-				const stat = await new Promise<fs.Stats | undefined>(resolve =>
-					fs.stat(filePath, (err, stat) => resolve(err == null ? stat : undefined)),
+				const stats = await new Promise<Stats | undefined>(resolve =>
+					stat(filePath, (err, stats) => resolve(err == null ? stats : undefined)),
 				);
-				path = stat?.isDirectory() ? filePath : paths.dirname(filePath);
+				path = stats?.isDirectory() ? filePath : dirname(filePath);
 			}
 
 			repoPath = await Git.rev_parse__show_toplevel(path);
@@ -3078,7 +3078,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 						try {
 							const networkPath = await new Promise<string | undefined>(resolve =>
-								fs.realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
+								realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
 									resolve(err != null ? undefined : resolvedPath),
 								),
 							);
@@ -3103,7 +3103,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
 			repoPath = await new Promise<string | undefined>(resolve => {
-				fs.realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
+				realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
 					if (err != null) {
 						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
 						resolve(repoPath);
@@ -3616,7 +3616,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const fileName =
 			typeof fileNameOrUri === 'string'
 				? fileNameOrUri
-				: Strings.normalizePath(paths.relative(repoPath, fileNameOrUri.fsPath));
+				: Strings.normalizePath(relative(repoPath, fileNameOrUri.fsPath));
 
 		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
 		if (blob == null) return GitRevision.deletedOrMissing;

@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
 import { Stopwatch } from '../../../system';
@@ -93,7 +93,7 @@ async function findGitDarwin(): Promise<GitLocation> {
 
 function findSystemGitWin32(basePath: string | null | undefined): Promise<GitLocation> {
 	if (basePath == null || basePath.length === 0) return Promise.reject(new UnableToFindGitError());
-	return findSpecificGit(paths.join(basePath, 'Git', 'cmd', 'git.exe'));
+	return findSpecificGit(joinPaths(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
 function findGitWin32(): Promise<GitLocation> {

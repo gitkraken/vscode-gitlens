@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { dirname, join as joinPaths } from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';
@@ -69,8 +69,8 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 
 		const icon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-			light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 		};
 
 		item.command = this.getCommand();
@@ -100,7 +100,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = dirname(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

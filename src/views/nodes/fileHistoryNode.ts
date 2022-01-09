@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename, join as joinPaths } from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
@@ -151,7 +151,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	get label() {
 		// Check if this is a base folder
 		if (this.folder && this.uri.fileName === '') {
-			return `${paths.basename(this.uri.fsPath)}${
+			return `${basename(this.uri.fsPath)}${
 				this.uri.sha
 					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
@@ -242,7 +242,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? paths.join(this.uri.fsPath, '*') : this.uri.fsPath;
+		return this.folder ? joinPaths(this.uri.fsPath, '*') : this.uri.fsPath;
 	}
 
 	get hasMore() {

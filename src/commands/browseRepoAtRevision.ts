@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
@@ -73,7 +73,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 
 			openWorkspace(uri, {
 				location: args.openInNewWindow ? OpenWorkspaceLocation.NewWindow : OpenWorkspaceLocation.AddToWorkspace,
-				name: `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
+				name: `${basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
 			});
 
 			if (!args.openInNewWindow) {

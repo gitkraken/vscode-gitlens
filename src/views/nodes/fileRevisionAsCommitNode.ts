@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import {
 	Command,
 	MarkdownString,
@@ -120,8 +120,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		if (item.iconPath == null) {
 			const icon = GitFile.getStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-				light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 			};
 		}
 

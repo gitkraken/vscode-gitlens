@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename, relative } from 'path';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
@@ -42,7 +42,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
+			const fileName = Strings.normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 
 			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
@@ -83,11 +83,11 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		// Check to see if this file has been renamed
 		const files = await Container.instance.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
-			const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
+			const fileName = Strings.normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 			const rename = files.find(s => s.fileName === fileName);
 			if (rename?.originalFileName != null) {
 				renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
-				renamedTitle = `${paths.basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
+				renamedTitle = `${basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
 			}
 		}
 
@@ -96,7 +96,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: sha,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle ?? `${paths.basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
+				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
 			},
 			rhs: {
 				sha: '',
