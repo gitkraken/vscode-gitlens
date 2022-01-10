@@ -1,9 +1,10 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitReference, GitStatus, Repository } from '../../git/git';
+import { GitReference, GitStatus, Repository } from '../../git/models';
 import { CommandQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickRepositoryStep,
@@ -16,6 +17,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	status: GitStatus;
 	title: string;
 }
@@ -55,7 +57,8 @@ export class StatusGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			status: undefined!,
 			title: this.title,
 		};

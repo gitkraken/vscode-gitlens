@@ -1,25 +1,19 @@
 'use strict';
 import { graphql } from '@octokit/graphql';
 import {
-	AuthenticationError,
-	ClientError,
-	DefaultBranch,
-	IssueOrPullRequest,
+	type DefaultBranch,
+	type IssueOrPullRequest,
+	type IssueOrPullRequestType,
 	PullRequest,
 	PullRequestState,
-	RichRemoteProvider,
-} from '../git/git';
-import { Account } from '../git/models/author';
+} from '../git/models';
+import type { Account } from '../git/models/author';
+import { AuthenticationError, ClientError, type RichRemoteProvider } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { debug } from '../system';
 
 export class GitHubApi {
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: RichRemoteProvider,
 		token: string,
@@ -91,20 +85,15 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
 		provider: RichRemoteProvider,
 		token: string,
@@ -170,20 +159,15 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
 		provider: RichRemoteProvider,
 		token: string,
@@ -232,20 +216,15 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
 		provider: RichRemoteProvider,
 		token: string,
@@ -264,28 +243,30 @@ export class GitHubApi {
 
 		try {
 			const query = `query getIssueOrPullRequest(
-	$owner: String!
-	$repo: String!
-	$number: Int!
-) {
-	repository(name: $repo, owner: $owner) {
-		issueOrPullRequest(number: $number) {
-			__typename
-			... on Issue {
-				createdAt
-				closed
-				closedAt
-				title
-			}
-			... on PullRequest {
-				createdAt
-				closed
-				closedAt
-				title
+		$owner: String!
+		$repo: String!
+		$number: Int!
+	) {
+		repository(name: $repo, owner: $owner) {
+			issueOrPullRequest(number: $number) {
+				__typename
+				... on Issue {
+					createdAt
+					closed
+					closedAt
+					title
+					url
+				}
+				... on PullRequest {
+					createdAt
+					closed
+					closedAt
+					title
+					url
+				}
 			}
 		}
-	}
-}`;
+	}`;
 
 			const rsp = await graphql<QueryResult>(query, {
 				...options,
@@ -301,29 +282,25 @@ export class GitHubApi {
 			return {
 				provider: provider,
 				type: issue.type,
-				id: number,
+				id: String(number),
 				date: new Date(issue.createdAt),
 				title: issue.title,
 				closed: issue.closed,
 				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
+				url: issue.url,
 			};
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
 		provider: RichRemoteProvider,
 		token: string,
@@ -421,20 +398,15 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
 		}
 	}
 
-	@debug({
-		args: {
-			0: (p: RichRemoteProvider) => p.name,
-			1: _ => '<token>',
-		},
-	})
+	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
 		provider: RichRemoteProvider,
 		token: string,
@@ -525,8 +497,8 @@ export class GitHubApi {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex.code >= 400 && ex.code <= 500) {
-				if (ex.code === 401) throw new AuthenticationError(ex);
+			if (ex.status >= 400 && ex.status <= 500) {
+				if (ex.status === 401) throw new AuthenticationError(ex);
 				throw new ClientError(ex);
 			}
 			throw ex;
@@ -535,12 +507,13 @@ export class GitHubApi {
 }
 
 interface GitHubIssueOrPullRequest {
-	type: 'Issue' | 'PullRequest';
+	type: IssueOrPullRequestType;
 	number: number;
 	createdAt: string;
 	closed: boolean;
 	closedAt: string | null;
 	title: string;
+	url: string;
 }
 
 type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';

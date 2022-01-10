@@ -3,7 +3,6 @@ import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
-import { GitHubPullRequest } from '../../github/github';
 import {
 	Account,
 	DefaultBranch,
@@ -12,7 +11,7 @@ import {
 	PullRequest,
 	PullRequestState,
 	Repository,
-} from '../models/models';
+} from '../models';
 import { RichRemoteProvider } from './provider';
 
 const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;
@@ -111,26 +110,29 @@ export class GitHubRemote extends RichRemoteProvider {
 			}
 		}
 
-		const branches = new Set<string>(
-			(
-				await repository.getBranches({
-					filter: b => b.remote,
-				})
-			).map(b => b.getNameWithoutRemote()),
-		);
-
 		// Check for a link with branch (and deal with branch names with /)
 		let branch;
+		const possibleBranches = new Map<string, string>();
 		index = path.length;
 		do {
 			index = path.lastIndexOf('/', index - 1);
 			branch = path.substring(1, index);
 
-			if (branches.has(branch)) {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+			possibleBranches.set(branch, path.substr(index));
+		} while (index > 0);
+
+		if (possibleBranches.size !== 0) {
+			const { values: branches } = await repository.getBranches({
+				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+			});
+			for (const branch of branches) {
+				const path = possibleBranches.get(branch.getNameWithoutRemote());
+				if (path == null) continue;
+
+				const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
-		} while (index > 0);
+		}
 
 		return undefined;
 	}
@@ -188,7 +190,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
+		return (await Container.instance.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -202,7 +204,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
+		return (await Container.instance.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -212,7 +214,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getDefaultBranch(this, accessToken, owner, repo, {
+		return (await Container.instance.github)?.getDefaultBranch(this, accessToken, owner, repo, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -221,7 +223,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
+		return (await Container.instance.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -237,7 +239,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		return (await Container.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
+		const GitHubPullRequest = (await import('../../github/github')).GitHubPullRequest;
+		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
@@ -249,7 +252,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
+		return (await Container.instance.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}

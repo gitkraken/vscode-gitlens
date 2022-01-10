@@ -53,3 +53,5 @@ export interface GitDiffShortStat {
 	readonly insertions: number;
 	readonly deletions: number;
 }
+
+export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';

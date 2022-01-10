@@ -9,11 +9,14 @@ import {
 	PreviewConfigurationCommandType,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { getDateFormatter } from '../shared/date';
+import { getFormatter } from '../shared/date';
 import { App } from './appBase';
 import { DOM } from './dom';
 
-const dateFormatter = getDateFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
+const offset = (new Date().getTimezoneOffset() / 60) * 100;
+const dateFormatter = getFormatter(
+	new Date(`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`),
+);
 
 let ipcSequence = 0;
 function nextIpcId() {

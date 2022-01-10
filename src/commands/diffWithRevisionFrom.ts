@@ -1,12 +1,12 @@
 'use strict';
-import * as paths from 'path';
+import { basename, relative } from 'path';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitReference, GitRevision } from '../git/models';
 import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
+import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
@@ -14,6 +14,7 @@ import { DiffWithCommandArgs } from './diffWith';
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
+	stash?: boolean;
 }
 
 @command()
@@ -38,41 +39,64 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
-		const pick = await ReferencePicker.show(
-			gitUri.repoPath,
-			`${title}${gitUri.getFormattedFilename({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-			'Choose a branch or tag to compare with',
-			{
-				allowEnteringRefs: true,
-				// checkmarks: false,
-			},
-		);
-		if (pick == null) return;
+		let ref;
+		let sha;
+		if (args?.stash) {
+			const fileName = Strings.normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 
-		const ref = pick.ref;
+			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const pick = await StashPicker.show(
+				Container.instance.git.getStash(gitUri.repoPath),
+				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+				'Choose a stash to compare with',
+				{
+					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
+					filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName),
+				},
+			);
+			if (pick == null) return;
+
+			ref = pick.ref;
+			sha = ref;
+		} else {
+			const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const pick = await ReferencePicker.show(
+				gitUri.repoPath,
+				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
+				'Choose a branch or tag to compare with',
+				{
+					allowEnteringRefs: true,
+					// checkmarks: false,
+				},
+			);
+			if (pick == null) return;
+
+			ref = pick.ref;
+			sha = GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref;
+		}
+
 		if (ref == null) return;
 
 		let renamedUri: Uri | undefined;
 		let renamedTitle: string | undefined;
 
 		// Check to see if this file has been renamed
-		const files = await Container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
+		const files = await Container.instance.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
-			const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
+			const fileName = Strings.normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 			const rename = files.find(s => s.fileName === fileName);
 			if (rename?.originalFileName != null) {
 				renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
-				renamedTitle = `${paths.basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
+				renamedTitle = `${basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
 			}
 		}
 
 		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: gitUri.repoPath,
 			lhs: {
-				sha: GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref,
+				sha: sha,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle ?? `${paths.basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
+				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
 			},
 			rhs: {
 				sha: '',

@@ -9,7 +9,8 @@ import {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import { GitUri } from '../../git/gitUri';
 import {
 	GitFile,
 	GitReference,
@@ -19,15 +20,16 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, log, logName, Strings } from '../../system';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
-export enum ContextValues {
+export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
+	AutolinkedItems = 'gitlens:autolinked:items',
+	AutolinkedIssue = 'gitlens:autolinked:issue',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
@@ -80,8 +82,6 @@ export enum ContextValues {
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
 }
-
-export const unknownGitUri = new GitUri();
 
 export interface ViewNode {
 	readonly id?: string;
@@ -173,7 +173,7 @@ export interface PageableViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;
-	loadMore(limit?: number | { until?: any }): Promise<void>;
+	loadMore(limit?: number | { until?: string | undefined }): Promise<void>;
 }
 
 export namespace PageableViewNode {
@@ -229,6 +229,9 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
 		if (!this.loaded) return;
 
+		if (reset && !this.view.visible) {
+			this._pendingReset = reset;
+		}
 		await super.triggerChange(reset, force);
 	}
 
@@ -247,14 +250,29 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 	}
 
-	protected get requiresResetOnVisible(): boolean {
-		return false;
+	private _etag: number | undefined;
+	protected abstract etag(): number;
+
+	private _pendingReset: boolean = false;
+	private get requiresResetOnVisible(): boolean {
+		let reset = this._pendingReset;
+		this._pendingReset = false;
+
+		const etag = this.etag();
+		if (etag !== this._etag) {
+			this._etag = etag;
+			reset = true;
+		}
+
+		return reset;
 	}
 
 	protected abstract subscribe(): Disposable | undefined | Promise<Disposable | undefined>;
 
 	@debug()
 	protected async unsubscribe(): Promise<void> {
+		this._etag = this.etag();
+
 		if (this.subscription != null) {
 			const subscriptionPromise = this.subscription;
 			this.subscription = undefined;
@@ -308,7 +326,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		if (this.subscription != null) return;
 
 		this.subscription = Promise.resolve(this.subscribe());
-		await this.subscription;
+		void (await this.subscription);
 	}
 
 	@gate()
@@ -357,7 +375,7 @@ export abstract class RepositoryFolderNode<
 
 		let expand = this.repo.starred;
 		const [active, branch] = await Promise.all([
-			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
+			expand ? undefined : this.view.container.git.isActiveRepoPath(this.uri.repoPath),
 			this.repo.getBranch(),
 		]);
 
@@ -394,7 +412,9 @@ export abstract class RepositoryFolderNode<
 
 			let providerName;
 			if (branch.upstream != null) {
-				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
+				const providers = GitRemote.getHighlanderProviders(
+					await this.view.container.git.getRemotes(branch.repoPath),
+				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
 				const remote = await branch.getRemote();
@@ -481,22 +501,14 @@ export abstract class RepositoryFolderNode<
 		return this.repo.onDidChange(this.onRepositoryChanged, this);
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
+	protected override etag(): number {
+		return this.repo.etag;
 	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
 
 	protected abstract changed(e: RepositoryChangeEvent): boolean;
 
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) => e.toString(),
-		},
-	})
+	@debug<RepositoryFolderNode['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
 		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
@@ -513,6 +525,50 @@ export abstract class RepositoryFolderNode<
 		if (this.changed(e)) {
 			void (this.loaded ? this : this.parent ?? this).triggerChange(true);
 		}
+	}
+}
+
+export abstract class RepositoriesSubscribeableNode<
+	TView extends View = View,
+	TChild extends ViewNode & Disposable = ViewNode & Disposable,
+> extends SubscribeableViewNode<TView> {
+	protected override splatted = true;
+	protected children: TChild[] | undefined;
+
+	constructor(view: TView) {
+		super(GitUri.unknown, view);
+	}
+
+	override async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	override refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
+	}
+
+	protected override etag(): number {
+		return this.view.container.git.etag;
+	}
+
+	@debug()
+	protected subscribe(): Disposable | Promise<Disposable> {
+		return this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this);
+	}
+
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
+		void this.triggerChange(true);
 	}
 }
 

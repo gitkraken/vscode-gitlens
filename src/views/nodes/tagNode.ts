@@ -2,10 +2,9 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/models';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { TagsView } from '../tagsView';
@@ -45,7 +44,10 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.tag.name);
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(
+			this.uri.repoPath,
+			this.tag.name,
+		);
 		const children = [
 			...insertDateMarkers(
 				Iterables.map(
@@ -59,7 +61,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		if (log.hasMore) {
 			children.push(
 				new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-					Container.git.getCommitCount(this.tag.repoPath, this.tag.name),
+					this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
 				),
 			);
 		}
@@ -95,7 +97,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.tag.name,
 			});

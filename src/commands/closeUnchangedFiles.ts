@@ -28,7 +28,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Close All Unchanged Files');
 				if (!repoPath) return;
 
-				const status = await Container.git.getStatusForRepo(repoPath);
+				const status = await Container.instance.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 
@@ -130,7 +130,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 	private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
 		return new Promise<TextEditor | undefined>(resolve => {
-			let timer: NodeJS.Timer | undefined;
+			let timer: any | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {
 				if (timer != null) {

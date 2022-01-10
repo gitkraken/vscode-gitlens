@@ -4,9 +4,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
+import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from '../models';
 import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
-import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from './models';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;
@@ -234,7 +234,7 @@ export class GitStatus {
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 
-		const remotes = await Container.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotes(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
 		const remoteName = GitBranch.getRemote(this.upstream);

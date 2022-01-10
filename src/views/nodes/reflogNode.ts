@@ -1,8 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Container } from '../../container';
-import { GitReflog, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitReflog, Repository } from '../../git/models';
 import { debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { LoadMoreNode, MessageNode } from './common';
@@ -52,8 +51,8 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		item.contextValue = ContextValues.Reflog;
 		item.description = 'experimental';
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-activity.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-activity.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-activity.svg'),
 		};
 
 		return item;
@@ -71,7 +70,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	private _reflog: GitReflog | undefined;
 	private async getReflog() {
 		if (this._reflog === undefined) {
-			this._reflog = await Container.git.getIncomingActivity(this.repo.path, {
+			this._reflog = await this.view.container.git.getIncomingActivity(this.repo.path, {
 				all: true,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 			});

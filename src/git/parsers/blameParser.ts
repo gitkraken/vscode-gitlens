@@ -1,7 +1,7 @@
 'use strict';
-import * as paths from 'path';
+import { relative } from 'path';
 import { debug, Strings } from '../../system';
-import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../git';
+import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../models';
 
 const emptyStr = '';
 const slash = '/';
@@ -131,7 +131,7 @@ export class GitBlameParser {
 								emptyStr,
 							),
 						);
-						relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
+						relativeFileName = Strings.normalizePath(relative(repoPath, fileName));
 					} else {
 						relativeFileName = entry.fileName;
 					}

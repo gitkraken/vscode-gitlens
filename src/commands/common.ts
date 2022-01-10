@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { extname } from 'path';
 import {
 	commands,
 	Disposable,
@@ -16,16 +16,25 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { Action, ActionContext } from '../api/gitlens';
+import type { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitReference, GitRemote, GitTag, Repository } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import {
+	GitBranch,
+	GitCommit,
+	GitContributor,
+	GitFile,
+	GitReference,
+	GitRemote,
+	GitTag,
+	Repository,
+} from '../git/models';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
-export enum Commands {
+export const enum Commands {
 	ActionPrefix = 'gitlens.action.',
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
@@ -34,7 +43,6 @@ export enum Commands {
 	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
-	CloseUpdatesView = 'gitlens.closeUpdatesView',
 	CloseWelcomeView = 'gitlens.closeWelcomeView',
 	CompareWith = 'gitlens.compareWith',
 	CompareHeadWith = 'gitlens.compareHeadWith',
@@ -50,6 +58,7 @@ export enum Commands {
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
 	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
 	CopyRemoteFileUrlFrom = 'gitlens.copyRemoteFileUrlFrom',
+	CopyRemoteIssueUrl = 'gitlens.copyRemoteIssueUrl',
 	CopyRemotePullRequestUrl = 'gitlens.copyRemotePullRequestUrl',
 	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
@@ -93,6 +102,7 @@ export enum Commands {
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
 	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
+	OpenIssueOnRemote = 'gitlens.openIssueOnRemote',
 	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
 	OpenAssociatedPullRequestOnRemote = 'gitlens.openAssociatedPullRequestOnRemote',
 	OpenRepoOnRemote = 'gitlens.openRepoOnRemote',
@@ -161,7 +171,6 @@ export enum Commands {
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
-	SupportGitLens = 'gitlens.supportGitLens',
 	SwitchMode = 'gitlens.switchMode',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
@@ -232,7 +241,7 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 }
 
 export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
-	const repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+	const repoPath = await Container.instance.git.getRepoPathOrActive(uri, editor);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);
@@ -245,7 +254,7 @@ export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: 
 }
 
 export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
-	const repoPath = await Container.git.getRepoPath(uri);
+	const repoPath = await Container.instance.git.getRepoPath(uri);
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);
@@ -706,7 +715,7 @@ export async function openEditor(
 			uri = uri.documentUri();
 		}
 
-		if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[paths.extname(uri.fsPath)]) {
+		if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
 			await commands.executeCommand(BuiltInCommands.Open, uri);
 
 			return undefined;
@@ -734,16 +743,22 @@ export async function openEditor(
 	}
 }
 
-export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
-	if (options.openInNewWindow) {
-		void commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+export const enum OpenWorkspaceLocation {
+	CurrentWindow = 'currentWindow',
+	NewWindow = 'newWindow',
+	AddToWorkspace = 'addToWorkspace',
+}
 
-		return true;
+export function openWorkspace(
+	uri: Uri,
+	options: { location?: OpenWorkspaceLocation; name?: string } = { location: OpenWorkspaceLocation.CurrentWindow },
+): void {
+	if (options?.location === OpenWorkspaceLocation.AddToWorkspace) {
+		const count = workspace.workspaceFolders?.length ?? 0;
+		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
-	return workspace.updateWorkspaceFolders(
-		workspace.workspaceFolders != null ? workspace.workspaceFolders.length : 0,
-		null,
-		{ uri: uri, name: name },
-	);
+	return void commands.executeCommand(BuiltInCommands.OpenFolder, uri, {
+		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
+	});
 }

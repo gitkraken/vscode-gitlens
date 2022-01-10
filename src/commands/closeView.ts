@@ -6,7 +6,7 @@ import { command, Command, CommandContext, Commands } from './common';
 @command()
 export class CloseViewCommand extends Command {
 	constructor() {
-		super([Commands.CloseWelcomeView, Commands.CloseUpdatesView]);
+		super([Commands.CloseWelcomeView]);
 	}
 
 	protected override preExecute(context: CommandContext) {
@@ -16,12 +16,8 @@ export class CloseViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.CloseWelcomeView:
-				await Container.context.globalState.update(SyncedState.WelcomeViewVisible, false);
+				await Container.instance.context.globalState.update(SyncedState.WelcomeViewVisible, false);
 				await setContext(ContextKeys.ViewsWelcomeVisible, false);
-				break;
-			case Commands.CloseUpdatesView:
-				await Container.context.globalState.update(SyncedState.UpdatesViewVisible, false);
-				await setContext(ContextKeys.ViewsUpdatesVisible, false);
 				break;
 		}
 	}

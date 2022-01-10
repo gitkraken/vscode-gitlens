@@ -3,9 +3,9 @@ import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRemote, IssueOrPullRequest } from '../git/git';
+import { GitRemote, IssueOrPullRequest } from '../git/models';
 import { Logger } from '../logger';
-import { Dates, debug, Iterables, Promises, Strings } from '../system';
+import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
 
 const numRegex = /<num>/g;
 
@@ -31,7 +31,7 @@ export class Autolinks implements Disposable {
 	protected _disposable: Disposable | undefined;
 	private _references: CacheableAutolinkReference[] = [];
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
 		this.onConfigurationChanged();
@@ -43,19 +43,19 @@ export class Autolinks implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
-			this._references = Container.config.autolinks ?? [];
+			this._references = this.container.config.autolinks ?? [];
 		}
 	}
 
-	@debug({
+	@debug<Autolinks['getIssueOrPullRequestLinks']>({
 		args: {
-			0: (message: string) => message.substring(0, 50),
-			1: _ => false,
-			2: ({ timeout }) => timeout,
+			0: '<message>',
+			1: false,
+			2: options => options?.timeout,
 		},
 	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
-		if (!remote.provider?.hasApi()) return undefined;
+		if (!remote.hasRichProvider()) return undefined;
 
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
@@ -101,11 +101,12 @@ export class Autolinks implements Disposable {
 		return issuesOrPullRequests;
 	}
 
-	@debug({
+	@debug<Autolinks['linkify']>({
 		args: {
-			0: (text: string) => text.substring(0, 30),
-			2: _ => false,
-			3: _ => false,
+			0: '<text>',
+			2: remotes => remotes?.length,
+			3: issuesOrPullRequests => issuesOrPullRequests?.size,
+			4: footnotes => footnotes?.size,
 		},
 	})
 	linkify(
@@ -157,7 +158,7 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${ref.url.replace(numRegex, '$2')}${
+				const replacement = `[$1](${Encoding.encodeUrl(ref.url.replace(numRegex, '$2'))}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
@@ -174,7 +175,7 @@ export class Autolinks implements Disposable {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
 
-						const issueUrl = ref.url.replace(numRegex, num);
+						const issueUrl = Encoding.encodeUrl(ref.url.replace(numRegex, num));
 
 						let title = '';
 						if (ref.title) {
@@ -190,9 +191,9 @@ export class Autolinks implements Disposable {
 										index = footnotes.size + 1;
 										footnotes.set(
 											index,
-											`[**${
-												issue.type === 'PullRequest' ? '$(git-pull-request)' : '$(info)'
-											} ${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+											`${IssueOrPullRequest.getMarkdownIcon(
+												issue,
+											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
 												5,
 											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
 												issue.closedDate ?? issue.date,

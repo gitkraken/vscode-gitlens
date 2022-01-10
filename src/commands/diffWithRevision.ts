@@ -2,14 +2,15 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 
 export interface DiffWithRevisionCommandArgs {
 	line?: number;
@@ -34,20 +35,20 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const log = Container.git
+			const log = Container.instance.git
 				.getLogForFile(gitUri.repoPath, gitUri.fsPath)
 				.then(
 					log =>
 						log ??
 						(gitUri.sha
-							? Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
+							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
 							: undefined),
 				);
 
 			const title = `Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await CommitPicker.show(
 				log,
-				`${title}${gitUri.getFormattedFilename({
+				`${title}${gitUri.getFormattedFileName({
 					suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
 					truncateTo: quickPickTitleMaxChars - title.length,
 				})}`,
@@ -70,10 +71,14 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							showOptions: args!.showOptions,
 						}));
 					},
-					showOtherReferences: CommandQuickPickItem.fromCommand(
-						'Choose a branch or tag...',
-						Commands.DiffWithRevisionFrom,
-					),
+					showOtherReferences: [
+						CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffWithRevisionFrom),
+						CommandQuickPickItem.fromCommand<DiffWithRevisionFromCommandArgs>(
+							'Choose a Stash...',
+							Commands.DiffWithRevisionFrom,
+							{ stash: true },
+						),
+					],
 				},
 			);
 			if (pick == null) return;

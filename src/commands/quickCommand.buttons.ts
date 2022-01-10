@@ -20,8 +20,8 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		const icon = this.getToggledState().icon;
 		return typeof icon === 'string'
 			? {
-					dark: Uri.file(Container.context.asAbsolutePath(`images/dark/${icon}.svg`)),
-					light: Uri.file(Container.context.asAbsolutePath(`images/light/${icon}.svg`)),
+					dark: Uri.file(Container.instance.context.asAbsolutePath(`images/dark/${icon}.svg`)),
+					light: Uri.file(Container.instance.context.asAbsolutePath(`images/light/${icon}.svg`)),
 			  }
 			: icon;
 	}
@@ -37,6 +37,9 @@ export class ToggleQuickInputButton implements QuickInputButton {
 		this._on = value;
 	}
 
+	/**
+	 * @returns `true` if the step should be retried (refreshed)
+	 */
 	onDidClick?(quickInput: QuickInput): boolean | void | Promise<boolean | void>;
 
 	private getState() {
@@ -81,6 +84,11 @@ export namespace QuickCommandButtons {
 		constructor(on = false) {
 			super('Match using Regular Expressions', { off: 'icon-match-regex', on: 'icon-match-regex-selected' }, on);
 		}
+	};
+
+	export const PickCommit: QuickInputButton = {
+		iconPath: new ThemeIcon('git-commit'),
+		tooltip: 'Choose a Specific Commit',
 	};
 
 	export const PickCommitToggle = class extends ToggleQuickInputButton {
@@ -133,15 +141,17 @@ export namespace QuickCommandButtons {
 					on: {
 						tooltip: 'Will confirm',
 						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
+							dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-check.svg')),
+							light: Uri.file(Container.instance.context.asAbsolutePath('images/light/icon-check.svg')),
 						},
 					},
 					off: {
 						tooltip: 'Skips confirm',
 						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-no-check.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg')),
+							dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-no-check.svg')),
+							light: Uri.file(
+								Container.instance.context.asAbsolutePath('images/light/icon-no-check.svg'),
+							),
 						},
 					},
 				}),

@@ -1,10 +1,9 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
-import { GitFile } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitFile } from '../../git/models';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
@@ -79,18 +78,14 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort(
-				(a, b) =>
-					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -120,7 +115,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
-				ex.promise.then(() => setTimeout(() => this.triggerChange(false), 0));
+				ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
 			label = 'files changed';
@@ -184,14 +179,18 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		const ref = this.filter === 'left' ? this.ref2 : this.ref1;
 
-		const mergeBase = await Container.git.getMergeBase(this.repoPath, this.ref1 || 'HEAD', this.ref2 || 'HEAD');
+		const mergeBase = await this.view.container.git.getMergeBase(
+			this.repoPath,
+			this.ref1 || 'HEAD',
+			this.ref2 || 'HEAD',
+		);
 		if (mergeBase != null) {
-			const files = await Container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
+			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {
 				filterTo = new Set<string>(files.map(f => f.fileName));
 			}
 		} else {
-			const commit = await Container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
+			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
 			if (commit?.files != null) {
 				filterTo = new Set<string>(commit.files.map(f => f.fileName));
 			}

@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import {
 	Command,
 	MarkdownString,
@@ -12,16 +12,9 @@ import {
 } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Colors, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import {
-	CommitFormatter,
-	GitBranch,
-	GitFile,
-	GitLogCommit,
-	GitRevisionReference,
-	StatusFileFormatter,
-} from '../../git/git';
+import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';
@@ -71,8 +64,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		if (!this.commit.hasConflicts) return [];
 
 		const [mergeStatus, rebaseStatus] = await Promise.all([
-			Container.git.getMergeStatus(this.commit.repoPath),
-			Container.git.getRebaseStatus(this.commit.repoPath),
+			this.view.container.git.getMergeStatus(this.commit.repoPath),
+			this.view.container.git.getRebaseStatus(this.commit.repoPath),
 		]);
 		if (mergeStatus == null && rebaseStatus == null) return [];
 
@@ -87,7 +80,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			// Try to get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit == null) {
-				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -101,7 +94,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 				messageTruncateAtNewLine: true,
 			}),
@@ -111,7 +104,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		item.contextValue = this.contextValue;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: this.view.container.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -121,14 +114,14 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
 				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
-				: await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle });
+				: await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle });
 		}
 
 		if (item.iconPath == null) {
 			const icon = GitFile.getStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-				light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 			};
 		}
 
@@ -210,21 +203,21 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	async getConflictBaseUri(): Promise<Uri | undefined> {
 		if (!this.commit.hasConflicts) return undefined;
 
-		const mergeBase = await Container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+		const mergeBase = await this.view.container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 
 	private async getTooltip() {
-		const remotes = await Container.git.getRemotes(this.commit.repoPath);
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+		const remotes = await this.view.container.git.getRemotes(this.commit.repoPath);
+		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				Container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
-				Container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.view.container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
+				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
 			]);
 		}
 
@@ -234,7 +227,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,
@@ -246,6 +239,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		);
 
 		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 
 		return markdown;

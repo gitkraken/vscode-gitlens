@@ -1,6 +1,6 @@
 'use strict';
 import { window } from 'vscode';
-import { RemoteResourceType } from '../git/git';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { ResultsCommitsNode } from '../views/nodes';
 import { Command, command, CommandContext, Commands, executeCommand } from './common';

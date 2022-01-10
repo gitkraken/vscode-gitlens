@@ -1,8 +1,9 @@
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
@@ -21,7 +22,7 @@ export class MessageNode extends ViewNode {
 			| ThemeIcon,
 		private readonly _contextValue?: string,
 	) {
-		super(unknownGitUri, view, parent);
+		super(GitUri.unknown, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -90,7 +91,7 @@ export class UpdateableMessageNode extends ViewNode {
 			  }
 			| ThemeIcon,
 	) {
-		super(unknownGitUri, view, parent);
+		super(GitUri.unknown, view, parent);
 		this.id = id;
 	}
 
@@ -145,10 +146,10 @@ export abstract class PagerNode extends ViewNode {
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
 		protected readonly previousNode?: ViewNode,
-		protected readonly pageSize: number = Container.config.views.pageItemLimit,
+		protected readonly pageSize: number = Container.instance.config.views.pageItemLimit,
 		protected readonly countFn?: () => Promise<number | undefined>,
 	) {
-		super(unknownGitUri, view, parent);
+		super(GitUri.unknown, view, parent);
 	}
 
 	async loadAll() {

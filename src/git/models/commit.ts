@@ -4,9 +4,9 @@ import { getAvatarUri } from '../../avatars';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
 import { Dates, memoize } from '../../system';
-import { CommitFormatter } from '../formatters/formatters';
+import { CommitFormatter } from '../formatters';
 import { GitUri } from '../gitUri';
-import { GitReference, GitRevision, GitRevisionReference, PullRequest } from './models';
+import { GitReference, GitRevision, GitRevisionReference, PullRequest } from '../models';
 
 export interface GitAuthor {
 	name: string;
@@ -21,7 +21,7 @@ export interface GitCommitLine {
 	code?: string;
 }
 
-export enum GitCommitType {
+export const enum GitCommitType {
 	Blame = 'blame',
 	Log = 'log',
 	LogFile = 'logFile',
@@ -148,10 +148,10 @@ export abstract class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
-		const remote = await Container.git.getRichRemoteProvider(this.repoPath);
+		const remote = await Container.instance.git.getRichRemoteProvider(this.repoPath);
 		if (remote?.provider == null) return undefined;
 
-		return Container.git.getPullRequestForCommit(this.ref, remote, options);
+		return Container.instance.git.getPullRequestForCommit(this.ref, remote, options);
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
@@ -160,14 +160,14 @@ export abstract class GitCommit implements GitRevisionReference {
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
+		return Container.instance.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
 	}
 
 	@memoize()
 	getWorkingUri(): Promise<Uri | undefined> {
 		if (!this.isFile) return Promise.resolve(undefined);
 
-		return Container.git.getWorkingUri(this.repoPath, this.uri);
+		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
 	@memoize()
@@ -195,8 +195,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.authorDateFormatter.format(format);
 	}
 
-	formatAuthorDateFromNow(locale?: string) {
-		return this.authorDateFormatter.fromNow(locale);
+	formatAuthorDateFromNow(short?: boolean) {
+		return this.authorDateFormatter.fromNow(short);
 	}
 
 	@memoize<GitCommit['formatCommitterDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
@@ -208,8 +208,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.committerDateFormatter.format(format);
 	}
 
-	formatCommitterDateFromNow(locale?: string) {
-		return this.committerDateFormatter.fromNow(locale);
+	formatCommitterDateFromNow(short?: boolean) {
+		return this.committerDateFormatter.fromNow(short);
 	}
 
 	@memoize<GitCommit['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
@@ -221,8 +221,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.dateFormatter.format(format);
 	}
 
-	formatDateFromNow(locale?: string) {
-		return this.dateFormatter.fromNow(locale);
+	formatDateFromNow(short?: boolean) {
+		return this.dateFormatter.fromNow(short);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {

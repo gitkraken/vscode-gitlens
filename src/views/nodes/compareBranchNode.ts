@@ -2,9 +2,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../configuration';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
-import { Container } from '../../container';
-import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitRevision } from '../../git/models';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
 import { debug, gate, log, Strings } from '../../system';
 import { BranchesView } from '../branchesView';
@@ -67,12 +66,13 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await Container.git.getAheadBehindCommitCount(this.branch.repoPath, [
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.branch.repoPath, [
 				GitRevision.createRange(behind.ref1, behind.ref2, '...'),
 			]);
 			const mergeBase =
-				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, { forkPoint: true })) ??
-				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
+				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
+					forkPoint: true,
+				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
 			this._children = [
 				new ResultsCommitsNode(
@@ -247,13 +247,13 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.git.getDiffStatus(
+		let files = await this.view.container.git.getDiffStatus(
 			this.repoPath,
 			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...'),
 		);
 
 		if (this.compareWithWorkingTree) {
-			const workingFiles = await Container.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = await this.view.container.git.getDiffStatus(this.repoPath, 'HEAD');
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
@@ -277,7 +277,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		const files = await Container.git.getDiffStatus(
+		const files = await this.view.container.git.getDiffStatus(
 			this.uri.repoPath!,
 			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
 		);
@@ -291,7 +291,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
 		const repoPath = this.uri.repoPath!;
 		return async (limit: number | undefined) => {
-			const log = await Container.git.getLog(repoPath, {
+			const log = await this.view.container.git.getLog(repoPath, {
 				limit: limit,
 				ref: range,
 			});
@@ -321,7 +321,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			comparison = `${this._compareWith!.ref}..${this.branch.ref}`;
 		}
 
-		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
+		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
 			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
@@ -330,7 +330,9 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private loadCompareWith() {
-		const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
+		const comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
+			WorkspaceState.BranchComparisons,
+		);
 
 		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
 		const compareWith = comparisons?.[id];
@@ -348,7 +350,9 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async updateCompareWith(compareWith: BranchComparison | undefined) {
 		this._compareWith = compareWith;
 
-		let comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
+		let comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
+			WorkspaceState.BranchComparisons,
+		);
 		if (comparisons == null) {
 			comparisons = Object.create(null) as BranchComparisons;
 		}
@@ -361,6 +365,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
-		await Container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);
+		await this.view.container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);
 	}
 }

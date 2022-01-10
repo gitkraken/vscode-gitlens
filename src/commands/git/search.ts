@@ -1,10 +1,12 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, SearchPattern } from '../../git/git';
+import { GitLog, GitLogCommit, Repository } from '../../git/models';
+import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 import { SearchResultsNode } from '../../views/nodes';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
@@ -22,6 +24,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	commit: GitLogCommit | undefined;
 	resultsKey: string | undefined;
 	resultsPromise: Promise<GitLog | undefined> | undefined;
@@ -91,14 +94,15 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.searchAndCompareView,
 			commit: undefined,
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,
 		};
 
-		const cfg = Container.config.gitCommands.search;
+		const cfg = Container.instance.config.gitCommands.search;
 		if (state.matchAll == null) {
 			state.matchAll = cfg.matchAll;
 		}
@@ -166,7 +170,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
-				void Container.searchAndCompareView.search(
+				void Container.instance.searchAndCompareView.search(
 					state.repo.path,
 					search,
 					{
@@ -189,13 +193,13 @@ export class SearchGitCommand extends QuickCommand<State> {
 						log == null
 							? `No results for ${state.pattern}`
 							: `${Strings.pluralize('result', log.count, {
-									number: log.hasMore ? `${log.count}+` : undefined,
+									format: c => (log.hasMore ? `${c}+` : undefined),
 							  })} for ${state.pattern}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void Container.searchAndCompareView.search(
+							void Container.instance.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
@@ -212,7 +216,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
-							void Container.searchAndCompareView.search(
+							void Container.instance.searchAndCompareView.search(
 								repoPath,
 								search,
 								{

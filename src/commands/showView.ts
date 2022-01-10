@@ -29,28 +29,28 @@ export class ShowViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.ShowBranchesView:
-				return Container.branchesView.show();
+				return Container.instance.branchesView.show();
 			case Commands.ShowCommitsView:
-				return Container.commitsView.show();
+				return Container.instance.commitsView.show();
 			case Commands.ShowContributorsView:
-				return Container.contributorsView.show();
+				return Container.instance.contributorsView.show();
 			case Commands.ShowFileHistoryView:
-				return Container.fileHistoryView.show();
+				return Container.instance.fileHistoryView.show();
 			case Commands.ShowLineHistoryView:
-				return Container.lineHistoryView.show();
+				return Container.instance.lineHistoryView.show();
 			case Commands.ShowRemotesView:
-				return Container.remotesView.show();
+				return Container.instance.remotesView.show();
 			case Commands.ShowRepositoriesView:
-				return Container.repositoriesView.show();
+				return Container.instance.repositoriesView.show();
 			case Commands.ShowSearchAndCompareView:
-				return Container.searchAndCompareView.show();
+				return Container.instance.searchAndCompareView.show();
 			case Commands.ShowStashesView:
-				return Container.stashesView.show();
+				return Container.instance.stashesView.show();
 			case Commands.ShowTagsView:
-				return Container.tagsView.show();
+				return Container.instance.tagsView.show();
 			case Commands.ShowWelcomeView:
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
-				void Container.context.globalState.update(SyncedState.WelcomeViewVisible, true);
+				void Container.instance.context.globalState.update(SyncedState.WelcomeViewVisible, true);
 				void (await commands.executeCommand('gitlens.views.welcome.focus'));
 		}
 

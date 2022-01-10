@@ -29,7 +29,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
-			args.sha = Container.config.advanced.abbreviateShaOnCopy
+			args.sha = Container.instance.config.advanced.abbreviateShaOnCopy
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);
@@ -53,10 +53,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		try {
 			// If we don't have an editor then get the sha of the last commit to the branch
 			if (uri == null) {
-				const repoPath = await Container.git.getActiveRepoPath(editor);
+				const repoPath = await Container.instance.git.getActiveRepoPath(editor);
 				if (!repoPath) return;
 
-				const log = await Container.git.getLog(repoPath, { limit: 1 });
+				const log = await Container.instance.git.getLog(repoPath, { limit: 1 });
 				if (log == null) return;
 
 				args.sha = Iterables.first(log.commits.values()).sha;
@@ -67,8 +67,12 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 				try {
 					const gitUri = await GitUri.fromUri(uri);
 					const blame = editor?.document.isDirty
-						? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-						: await Container.git.getBlameForLine(gitUri, blameline);
+						? await Container.instance.git.getBlameForLineContents(
+								gitUri,
+								blameline,
+								editor.document.getText(),
+						  )
+						: await Container.instance.git.getBlameForLine(gitUri, blameline);
 					if (blame == null) return;
 
 					args.sha = blame.commit.sha;

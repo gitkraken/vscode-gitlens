@@ -1,6 +1,6 @@
 'use strict';
 
-export { findLastIndex, intersection } from 'lodash-es';
+export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
@@ -28,6 +28,10 @@ export function countUniques<T>(source: T[], accessor: (item: T) => string): Rec
 		uniqueCounts[value] = (uniqueCounts[value] ?? 0) + 1;
 	}
 	return uniqueCounts;
+}
+
+export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
+	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
 export function filterMap<T, TMapped>(

@@ -1,6 +1,4 @@
 'use strict';
-import { randomBytes } from 'crypto';
-import { TextDecoder } from 'util';
 import {
 	commands,
 	ConfigurationChangeEvent,
@@ -14,10 +12,12 @@ import {
 	window,
 	workspace,
 } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { CommitFormatter, GitBlameCommit, PullRequest, PullRequestState } from '../git/git';
+import { CommitFormatter } from '../git/formatters';
+import { GitBlameCommit, PullRequest, PullRequestState } from '../git/models';
 import { Logger } from '../logger';
 import {
 	DidChangeConfigurationNotificationType,
@@ -54,7 +54,7 @@ export abstract class WebviewBase implements Disposable {
 	private _disposablePanel: Disposable | undefined;
 	private _panel: WebviewPanel | undefined;
 
-	constructor(showCommand: Commands, private readonly _column?: ViewColumn) {
+	constructor(showCommand: Commands, protected readonly container: Container, private readonly _column?: ViewColumn) {
 		this.disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -62,7 +62,7 @@ export abstract class WebviewBase implements Disposable {
 		);
 	}
 
-	abstract get filename(): string;
+	abstract get fileName(): string;
 	abstract get id(): string;
 	abstract get title(): string;
 
@@ -103,8 +103,8 @@ export abstract class WebviewBase implements Disposable {
 					'rebaseEditor.enabled',
 					{
 						name: 'workbench.editorAssociations',
-						enabled: () => Container.rebaseEditor.enabled,
-						update: Container.rebaseEditor.setEnabled,
+						enabled: () => this.container.rebaseEditor.enabled,
+						update: this.container.rebaseEditor.setEnabled,
 					},
 				],
 			]);
@@ -214,10 +214,10 @@ export abstract class WebviewBase implements Disposable {
 							let includePullRequest = false;
 							switch (params.key) {
 								case configuration.name('currentLine.format'):
-									includePullRequest = Container.config.currentLine.pullRequests.enabled;
+									includePullRequest = this.container.config.currentLine.pullRequests.enabled;
 									break;
 								case configuration.name('statusBar.format'):
-									includePullRequest = Container.config.statusBar.pullRequests.enabled;
+									includePullRequest = this.container.config.statusBar.pullRequests.enabled;
 									break;
 							}
 
@@ -243,7 +243,7 @@ export abstract class WebviewBase implements Disposable {
 							let preview;
 							try {
 								preview = CommitFormatter.fromTemplate(params.format, commit, {
-									dateFormat: Container.config.defaultDateFormat,
+									dateFormat: this.container.config.defaultDateFormat,
 									pullRequestOrRemote: pr,
 									messageTruncateAtNewLine: true,
 								});
@@ -301,7 +301,7 @@ export abstract class WebviewBase implements Disposable {
 				},
 			);
 
-			this._panel.iconPath = Uri.file(Container.context.asAbsolutePath('images/gitlens-icon.png'));
+			this._panel.iconPath = Uri.file(this.container.context.asAbsolutePath('images/gitlens-icon.png'));
 			this._disposablePanel = Disposable.from(
 				this._panel,
 				this._panel.onDidDispose(this.onPanelDisposed, this),
@@ -323,7 +323,7 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	private async getHtml(webview: Webview): Promise<string> {
-		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', this.filename);
+		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', this.fileName);
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		const [head, body, endOfBody] = await Promise.all([
@@ -333,8 +333,8 @@ export abstract class WebviewBase implements Disposable {
 		]);
 
 		const cspSource = webview.cspSource;
-		const cspNonce = randomBytes(16).toString('base64');
-		const root = webview.asWebviewUri(Container.context.extensionUri).toString();
+		const cspNonce = getNonce();
+		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
 
 		const html = content
 			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {

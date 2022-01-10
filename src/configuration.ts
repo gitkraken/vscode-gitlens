@@ -303,7 +303,7 @@ type SubPath<T, Key extends keyof T> = Key extends string
 		: never
 	: never;
 
-type Path<T> = SubPath<T, keyof T> | keyof T extends string | keyof T ? SubPath<T, keyof T> | keyof T : keyof T;
+type Path<T> = SubPath<T, keyof T> | keyof T;
 
 type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
 	? Key extends keyof T

@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { relative } from 'path';
 import { Range } from 'vscode';
 import { Arrays, debug, Strings } from '../../system';
 import {
@@ -12,7 +12,7 @@ import {
 	GitLogCommitLine,
 	GitRevision,
 	GitUser,
-} from '../git';
+} from '../models';
 
 const emptyEntry: LogEntry = {};
 const emptyStr = '';
@@ -346,7 +346,7 @@ export class GitLogParser {
 								emptyStr,
 							),
 						);
-						relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
+						relativeFileName = Strings.normalizePath(relative(repoPath, fileName));
 					} else {
 						relativeFileName = entry.fileName!;
 					}

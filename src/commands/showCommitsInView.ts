@@ -2,8 +2,8 @@
 import { TextEditor, Uri } from 'vscode';
 import { executeGitCommand } from '../commands';
 import { Container } from '../container';
-import { SearchPattern } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
@@ -35,12 +35,12 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 				try {
 					// Check for any uncommitted changes in the range
 					const blame = editor.document.isDirty
-						? await Container.git.getBlameForRangeContents(
+						? await Container.instance.git.getBlameForRangeContents(
 								gitUri,
 								editor.selection,
 								editor.document.getText(),
 						  )
-						: await Container.git.getBlameForRange(gitUri, editor.selection);
+						: await Container.instance.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
 						return Messages.showFileNotUnderSourceControlWarningMessage('Unable to find commits');
 					}

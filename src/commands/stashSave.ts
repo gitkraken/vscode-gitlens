@@ -1,5 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
+import type { ScmResource } from '../@types/vscode.git.resources';
+import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { GitActions } from '../commands';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -12,12 +14,6 @@ import {
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
 } from './common';
-
-const enum ResourceGroupType {
-	Merge,
-	Index,
-	WorkingTree,
-}
 
 export interface StashSaveCommandArgs {
 	message?: string;
@@ -46,11 +42,15 @@ export class StashSaveCommand extends Command {
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
-			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+			args.repoPath = await Container.instance.git.getRepoPath(args.uris[0].fsPath);
 
-			const status = await Container.git.getStatusForRepo(args.repoPath);
+			const status = await Container.instance.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {
-				if (!context.scmResourceStates.some(s => (s as any).resourceGroupType === ResourceGroupType.Index)) {
+				if (
+					!context.scmResourceStates.some(
+						s => (s as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
+					)
+				) {
 					args.keepStaged = true;
 				}
 			}
@@ -60,9 +60,9 @@ export class StashSaveCommand extends Command {
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
 				[],
 			);
-			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+			args.repoPath = await Container.instance.git.getRepoPath(args.uris[0].fsPath);
 
-			const status = await Container.git.getStatusForRepo(args.repoPath);
+			const status = await Container.instance.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {
 				if (!context.scmResourceGroups.some(g => g.id === 'index')) {
 					args.keepStaged = true;

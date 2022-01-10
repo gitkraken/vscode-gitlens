@@ -3,7 +3,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run GitLens",
+			"name": "Run",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -26,7 +26,7 @@
 			"trace": true
 		},
 		{
-			"name": "Run GitLens (Sandboxed)",
+			"name": "Run (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -49,7 +49,7 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens",
+			"name": "Watch & Run",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -73,7 +73,7 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens (sandboxed)",
+			"name": "Watch & Run (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",

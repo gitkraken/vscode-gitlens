@@ -3,6 +3,7 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	Event,
 	EventEmitter,
 	ProgressLocation,
@@ -20,12 +21,14 @@ import { Container } from '../container';
 import {
 	GitBranch,
 	GitBranchReference,
+	GitContributor,
 	GitLogCommit,
 	GitReference,
+	GitRemote,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-} from '../git/git';
+} from '../git/models';
 import { gate } from '../system';
 import {
 	BranchesNode,
@@ -33,6 +36,7 @@ import {
 	BranchOrTagFolderNode,
 	BranchTrackingStatusNode,
 	CompareBranchNode,
+	ContributorNode,
 	ContributorsNode,
 	ReflogNode,
 	RemoteNode,
@@ -48,8 +52,8 @@ import { ViewBase } from './viewBase';
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
-	constructor() {
-		super('gitlens.views.repositories', 'Repositories');
+	constructor(container: Container) {
+		super('gitlens.views.repositories', 'Repositories', container);
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -57,177 +61,187 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return this._onDidChangeAutoRefresh.event;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new RepositoriesNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesLayoutToList'),
-			() => this.setBranchesLayout(ViewBranchesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesLayoutToTree'),
-			() => this.setBranchesLayout(ViewBranchesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setAutoRefreshToOn'),
-			() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setAutoRefreshToOff'),
-			() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOn'),
-			() => this.setShowBranchComparison(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchComparisonOff'),
-			() => this.setShowBranchComparison(false),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesShowBranchComparisonOn'),
-			() => this.setBranchShowBranchComparison(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesShowBranchComparisonOff'),
-			() => this.setBranchShowBranchComparison(false),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				() => {
+					this.container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setBranchesLayoutToList'),
+				() => this.setBranchesLayout(ViewBranchesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setBranchesLayoutToTree'),
+				() => this.setBranchesLayout(ViewBranchesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setAutoRefreshToOn'),
+				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setAutoRefreshToOff'),
+				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOn'),
+				() => this.setShowBranchComparison(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOff'),
+				() => this.setShowBranchComparison(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setBranchesShowBranchComparisonOn'),
+				() => this.setBranchShowBranchComparison(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setBranchesShowBranchComparisonOff'),
+				() => this.setBranchShowBranchComparison(false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchesOn'),
-			() => this.toggleSection('showBranches', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchesOff'),
-			() => this.toggleSection('showBranches', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchesOn'),
+				() => this.toggleSection('showBranches', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchesOff'),
+				() => this.toggleSection('showBranches', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowCommitsOn'),
-			() => this.toggleSection('showCommits', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowCommitsOff'),
-			() => this.toggleSection('showCommits', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowCommitsOn'),
+				() => this.toggleSection('showCommits', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowCommitsOff'),
+				() => this.toggleSection('showCommits', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowContributorsOn'),
-			() => this.toggleSection('showContributors', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowContributorsOff'),
-			() => this.toggleSection('showContributors', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowContributorsOn'),
+				() => this.toggleSection('showContributors', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowContributorsOff'),
+				() => this.toggleSection('showContributors', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowRemotesOn'),
-			() => this.toggleSection('showRemotes', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowRemotesOff'),
-			() => this.toggleSection('showRemotes', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowRemotesOn'),
+				() => this.toggleSection('showRemotes', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowRemotesOff'),
+				() => this.toggleSection('showRemotes', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowStashesOn'),
-			() => this.toggleSection('showStashes', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowStashesOff'),
-			() => this.toggleSection('showStashes', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowStashesOn'),
+				() => this.toggleSection('showStashes', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowStashesOff'),
+				() => this.toggleSection('showStashes', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowTagsOn'),
-			() => this.toggleSection('showTags', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowTagsOff'),
-			() => this.toggleSection('showTags', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowTagsOn'),
+				() => this.toggleSection('showTags', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowTagsOff'),
+				() => this.toggleSection('showTags', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowUpstreamStatusOn'),
-			() => this.toggleSection('showUpstreamStatus', true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowUpstreamStatusOff'),
-			() => this.toggleSection('showUpstreamStatus', false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowUpstreamStatusOn'),
+				() => this.toggleSection('showUpstreamStatus', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowUpstreamStatusOff'),
+				() => this.toggleSection('showUpstreamStatus', false),
+				this,
+			),
 
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowSectionOff'),
-			(
-				node:
-					| BranchesNode
-					| BranchNode
-					| BranchTrackingStatusNode
-					| CompareBranchNode
-					| ContributorsNode
-					| ReflogNode
-					| RemotesNode
-					| StashesNode
-					| TagsNode,
-			) => this.toggleSectionByNode(node, false),
-			this,
-		);
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowSectionOff'),
+				(
+					node:
+						| BranchesNode
+						| BranchNode
+						| BranchTrackingStatusNode
+						| CompareBranchNode
+						| ContributorsNode
+						| ReflogNode
+						| RemotesNode
+						| StashesNode
+						| TagsNode,
+				) => this.toggleSectionByNode(node, false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -251,7 +265,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
-			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
+			void this.setAutoRefresh(this.container.config.views.repositories.autoRefresh);
 		}
 
 		super.onConfigurationChanged(e);
@@ -260,7 +274,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	get autoRefresh() {
 		return (
 			this.config.autoRefresh &&
-			Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
+			this.container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
 		);
 	}
 
@@ -317,7 +331,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on
-		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		let branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 				allowPaging: true,
@@ -348,7 +362,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		}
 
 		// If we didn't find the commit on any local branches, check remote branches
-		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
@@ -357,7 +371,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			allowPaging: true,
 			maxDepth: 8,
 			canTraverse: n => {
-				// Only search for commit nodes in the same repo within BranchNodes
+				// Only search for commit nodes in the same repo within BranchNode/RemoteNode
 				if (n instanceof RepositoriesNode) return true;
 
 				if (n instanceof RemoteNode) {
@@ -369,6 +383,45 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 				}
 
 				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	findContributor(contributor: GitContributor, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
+
+		return this.findNode(ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for contributor nodes in the same repo within a ContributorsNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof ContributorsNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	findRemote(remote: GitRemote, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(remote.repoPath);
+
+		return this.findNode((n: any) => n.remote?.name === remote.name, {
+			allowPaging: true,
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for remote nodes in the same repo within a RemotesNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof RemotesNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -429,7 +482,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(branch, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -487,11 +543,66 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(commit, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
+	}
+
+	@gate(() => '')
+	async revealContributor(
+		contributor: GitContributor,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findContributor(contributor, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
+	}
+
+	@gate(() => '')
+	revealRemote(
+		remote: GitRemote,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing remote '${remote.name}' in the side bar...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findRemote(remote, token);
 				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
@@ -514,16 +625,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 		const node = await this.findNode(repoNodeId, {
 			maxDepth: 1,
-			canTraverse: n => {
-				// Only search for branches nodes in the same repo
-				if (n instanceof RepositoriesNode) return true;
-
-				// if (n instanceof RepositoryNode) {
-				// 	return n.id.startsWith(repoNodeId);
-				// }
-
-				return false;
-			},
+			canTraverse: n => n instanceof RepositoriesNode,
 		});
 
 		if (node !== undefined) {
@@ -545,7 +647,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(stash, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -603,7 +708,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(tag, {
+					icon: false,
+					quoted: true,
+				})} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -652,12 +760,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
-				workspaceEnabled = Container.context.workspaceState.get<boolean>(
+				workspaceEnabled = this.container.context.workspaceState.get<boolean>(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					true,
 				);
 			} else {
-				await Container.context.workspaceState.update(
+				await this.container.context.workspaceState.update(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					workspaceEnabled,
 				);

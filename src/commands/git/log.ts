@@ -1,9 +1,10 @@
 'use strict';
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/models';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
 import {
 	PartialStepState,
@@ -18,6 +19,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	selectedBranchOrTag: GitReference | undefined;
 	title: string;
@@ -76,7 +78,8 @@ export class LogGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			selectedBranchOrTag: undefined,
 			title: this.title,
@@ -140,7 +143,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			)}`;
 
 			if (state.fileName) {
-				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName, {
+				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName, {
 					truncateTo: quickPickTitleMaxChars - context.title.length - 3,
 				})}`;
 			}
@@ -152,8 +155,8 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? Container.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
-							: Container.git.getLog(state.repo.path, { ref: ref });
+							? Container.instance.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
+							: Container.instance.git.getLog(state.repo.path, { ref: ref });
 					context.cache.set(ref, log);
 				}
 
@@ -175,7 +178,7 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitLogCommit) || state.reference.isFile) {
-				state.reference = await Container.git.getCommit(state.repo.path, state.reference.ref);
+				state.reference = await Container.instance.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
 			const result = yield* GitCommandsCommand.getSteps(

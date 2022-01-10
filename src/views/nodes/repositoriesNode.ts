@@ -1,19 +1,19 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Container } from '../../container';
+import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: RepositoriesView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {
@@ -34,9 +34,9 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		this._children = undefined;
 	}
 
-	async getChildren(): Promise<ViewNode[]> {
+	getChildren(): ViewNode[] {
 		if (this._children === undefined) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
 			this._children = repositories.map(r => new RepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r));
@@ -65,7 +65,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 			return;
 		}
 
-		const repositories = await Container.git.getOrderedRepositories();
+		const repositories = this.view.container.git.openRepositories;
 		if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
 		if (repositories.length === 0) {
@@ -98,7 +98,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	protected subscribe() {
-		const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
+		const subscriptions = [this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
 		if (this.view.config.autoReveal) {
 			subscriptions.push(
@@ -109,8 +109,8 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...subscriptions);
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return true;
+	protected override etag(): number {
+		return this.view.container.git.etag;
 	}
 
 	@debug({ args: false })
@@ -141,7 +141,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	@debug()
-	private onRepositoriesChanged() {
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange();
 	}
 }

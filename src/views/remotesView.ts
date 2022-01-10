@@ -3,6 +3,7 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -11,6 +12,7 @@ import {
 import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitBranchReference,
@@ -21,17 +23,16 @@ import {
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
+} from '../git/models';
+import { gate, Strings } from '../system';
 import {
 	BranchNode,
 	BranchOrTagFolderNode,
 	RemoteNode,
 	RemotesNode,
+	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
 	RepositoryNode,
-	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { ViewBase } from './viewBase';
@@ -56,17 +57,10 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 	}
 }
 
-export class RemotesViewNode extends ViewNode<RemotesView> {
-	protected override splatted = true;
-	private children: RemotesRepositoryNode[] | undefined;
-
-	constructor(view: RemotesView) {
-		super(unknownGitUri, view);
-	}
-
+export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, RemotesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No remotes could be found.';
 
@@ -111,91 +105,86 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
-	constructor() {
-		super('gitlens.views.remotes', 'Remotes');
+	constructor(container: Container) {
+		super('gitlens.views.remotes', 'Remotes', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showRemotes');
+	}
+
+	protected getRoot() {
 		return new RemotesViewNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('branches', 'remotes');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToList'),
-			() => this.setLayout(ViewBranchesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setLayoutToTree'),
-			() => this.setLayout(ViewBranchesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOn'),
-			() => this.setShowBranchPullRequest(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setShowBranchPullRequestOff'),
-			() => this.setShowBranchPullRequest(false),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				() => {
+					this.container.git.resetCaches('branches', 'remotes');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToList'),
+				() => this.setLayout(ViewBranchesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setLayoutToTree'),
+				() => this.setLayout(ViewBranchesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOn'),
+				() => this.setShowBranchPullRequest(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOff'),
+				() => this.setShowBranchPullRequest(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -248,7 +237,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the remote branches the commit is on
-		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
@@ -312,7 +301,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -338,7 +327,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -364,7 +353,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote ${remote.name} in the side bar...`,
+				title: `Revealing remote '${remote.name}' in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -376,6 +365,23 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 				return node;
 			},
 		);
+	}
+
+	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof RemotesViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
 	}
 
 	private setLayout(layout: ViewBranchesLayout) {

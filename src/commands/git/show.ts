@@ -1,7 +1,8 @@
 'use strict';
 import { Container } from '../../container';
-import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
+import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/models';
 import { CommandQuickPickItem, CommitFilesQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickCommitStep,
@@ -17,6 +18,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
@@ -76,7 +78,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			title: this.title,
 		};
 
@@ -110,7 +113,10 @@ export class ShowGitCommand extends QuickCommand<State> {
 				state.reference.isFile
 			) {
 				if (state.reference != null && (!GitLogCommit.is(state.reference) || state.reference.isFile)) {
-					state.reference = await Container.git.getCommit(state.reference.repoPath, state.reference.ref);
+					state.reference = await Container.instance.git.getCommit(
+						state.reference.repoPath,
+						state.reference.ref,
+					);
 				}
 
 				if (state.counter < 2 || state.reference == null) {

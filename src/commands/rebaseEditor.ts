@@ -9,7 +9,7 @@ export class DisableRebaseEditorCommand extends Command {
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(false);
+		return Container.instance.rebaseEditor.setEnabled(false);
 	}
 }
 
@@ -20,6 +20,6 @@ export class EnableRebaseEditorCommand extends Command {
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(true);
+		return Container.instance.rebaseEditor.setEnabled(true);
 	}
 }

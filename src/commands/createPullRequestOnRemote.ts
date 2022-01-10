@@ -1,6 +1,7 @@
 'use strict';
 import { Container } from '../container';
-import { GitRemote, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
+import { GitRemote } from '../git/models';
+import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Command, command, Commands, executeCommand } from './common';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
@@ -22,7 +23,7 @@ export class CreatePullRequestOnRemoteCommand extends Command {
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
 		if (args?.repoPath == null) return;
 
-		const repo = await Container.git.getRepository(args.repoPath);
+		const repo = await Container.instance.git.getRepository(args.repoPath);
 		if (repo == null) return;
 
 		const compareRemote = await repo.getRemote(args.remote);

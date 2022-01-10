@@ -1,11 +1,11 @@
 'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
 import { ViewShowBranchComparison } from './config';
-import { SearchPattern } from './git/git';
+import { SearchPattern } from './git/search';
 
 export const quickPickTitleMaxChars = 80;
 
-export enum BuiltInCommands {
+export const enum BuiltInCommands {
 	CloseActiveEditor = 'workbench.action.closeActiveEditor',
 	CloseAllEditors = 'workbench.action.closeAllEditors',
 	CursorMove = 'cursorMove',
@@ -27,7 +27,7 @@ export enum BuiltInCommands {
 	ShowReferences = 'editor.action.showReferences',
 }
 
-export enum BuiltInGitCommands {
+export const enum BuiltInGitCommands {
 	Publish = 'git.publish',
 	Pull = 'git.pull',
 	PullRebase = 'git.pullRebase',
@@ -36,13 +36,13 @@ export enum BuiltInGitCommands {
 	UndoCommit = 'git.undoCommit',
 }
 
-export enum BuiltInGitConfiguration {
+export const enum BuiltInGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
 
-export enum ContextKeys {
+export const enum ContextKeys {
 	ActionPrefix = 'gitlens:action:',
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
@@ -63,7 +63,6 @@ export enum ContextKeys {
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsUpdatesVisible = 'gitlens:views:updates:visible',
 	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
 	Vsls = 'gitlens:vsls',
 }
@@ -72,7 +71,7 @@ export function setContext(key: ContextKeys | string, value: any) {
 	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
-export enum Colors {
+export const enum Colors {
 	GutterBackgroundColor = 'gitlens.gutterBackgroundColor',
 	GutterForegroundColor = 'gitlens.gutterForegroundColor',
 	GutterUncommittedForegroundColor = 'gitlens.gutterUncommittedForegroundColor',
@@ -80,7 +79,9 @@ export enum Colors {
 	TrailingLineForegroundColor = 'gitlens.trailingLineForegroundColor',
 	LineHighlightBackgroundColor = 'gitlens.lineHighlightBackgroundColor',
 	LineHighlightOverviewRulerColor = 'gitlens.lineHighlightOverviewRulerColor',
+	ClosedAutolinkedIssueIconColor = 'gitlens.closedAutolinkedIssueIconColor',
 	ClosedPullRequestIconColor = 'gitlens.closedPullRequestIconColor',
+	OpenAutolinkedIssueIconColor = 'gitlens.openAutolinkedIssueIconColor',
 	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
 	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
 	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
@@ -88,7 +89,7 @@ export enum Colors {
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
-export enum DocumentSchemes {
+export const enum DocumentSchemes {
 	DebugConsole = 'debug',
 	File = 'file',
 	Git = 'git',
@@ -96,6 +97,7 @@ export enum DocumentSchemes {
 	Output = 'output',
 	PRs = 'pr',
 	Vsls = 'vsls',
+	VirtualFS = 'vscode-vfs',
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
@@ -106,6 +108,12 @@ export function getEditorIfActive(document: TextDocument): TextEditor | undefine
 export function isActiveDocument(document: TextDocument): boolean {
 	const editor = window.activeTextEditor;
 	return editor != null && editor.document === document;
+}
+
+export function isVisibleDocument(document: TextDocument): boolean {
+	if (window.visibleTextEditors.length === 0) return false;
+
+	return window.visibleTextEditors.some(e => e.document === document);
 }
 
 export function isTextEditor(editor: TextEditor): boolean {
@@ -166,15 +174,14 @@ export const enum GlyphChars {
 	ZeroWidthSpace = '\u200b',
 }
 
-export enum SyncedState {
-	UpdatesViewVisible = 'gitlens:views:updates:visible',
+export const enum SyncedState {
 	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
-export enum GlobalState {
+export const enum GlobalState {
 	Avatars = 'gitlens:avatars',
 	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
@@ -249,7 +256,9 @@ export interface Usage {
 	[id: string]: number;
 }
 
-export enum WorkspaceState {
+export const enum WorkspaceState {
+	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
+
 	BranchComparisons = 'gitlens:branch:comparisons',
 	ConnectedPrefix = 'gitlens:connected:',
 	DefaultRemote = 'gitlens:remote:default',

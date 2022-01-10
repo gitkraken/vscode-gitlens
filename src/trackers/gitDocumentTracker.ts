@@ -1,5 +1,5 @@
 'use strict';
-import { GitBlame, GitDiff, GitLog } from '../git/git';
+import { GitBlame, GitDiff, GitLog } from '../git/models';
 import { DocumentTracker } from './documentTracker';
 
 export * from './documentTracker';

@@ -1,6 +1,9 @@
 'use strict';
-import { BinaryToTextEncoding, createHash } from 'crypto';
-import { isWindows } from '../git/shell';
+import ansiRegex from 'ansi-regex';
+import { md5 as _md5 } from '@env/crypto';
+import { isWindows } from '@env/platform';
+
+export { fromBase64, base64 } from '@env/base64';
 
 const emptyStr = '';
 
@@ -19,10 +22,22 @@ export const enum CharCode {
 	z = 122,
 }
 
-export function base64(s: string): string {
-	const buffer = Buffer.from(s);
-	return buffer.toString('base64');
+const compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
+export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
+	const result = compareCollator.compare(a, b);
+	// Intl.Collator.compare isn't guaranteed to always return 1 or -1 on all platforms so normalize it
+	return result === 0 ? 0 : result > 0 ? 1 : -1;
 }
+
+export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {
+	// Treat `null` & `undefined` as equivalent
+	if (a == null && b == null) return true;
+	if (a == null || b == null) return false;
+	return compareIgnoreCase(a, b) === 0;
+}
+
+export const sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+export const sortCompare = sortCollator.compare;
 
 export function compareSubstring(
 	a: string,
@@ -112,12 +127,6 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 
 	// Keep under the same block-quote but with line breaks
 	return s.replace(markdownQuotedRegex, '\t\n>  ');
-}
-
-export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {
-	if (a == null && b == null) return true;
-	if (a == null || b == null) return false;
-	return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
 }
 
 export function escapeRegex(s: string) {
@@ -272,31 +281,26 @@ export function* lines(s: string, char: string = '\n'): IterableIterator<string>
 	}
 }
 
-export function md5(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
-	return createHash('md5').update(s).digest(encoding);
+export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
+	return _md5(s, encoding);
 }
 
-export function normalizePath(
-	fileName: string,
-	options: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean } = { stripTrailingSlash: true },
-) {
+export function normalizePath(fileName: string, options?: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean }) {
 	if (fileName == null || fileName.length === 0) return fileName;
 
 	let normalized = fileName.replace(pathNormalizeRegex, '/');
 
-	const { addLeadingSlash, stripTrailingSlash } = { stripTrailingSlash: true, ...options };
-
-	if (stripTrailingSlash) {
+	if (options?.stripTrailingSlash ?? true) {
 		normalized = normalized.replace(pathStripTrailingSlashRegex, emptyStr);
 	}
 
-	if (addLeadingSlash && normalized.charCodeAt(0) !== CharCode.Slash) {
+	if ((options?.addLeadingSlash ?? false) && normalized.charCodeAt(0) !== CharCode.Slash) {
 		normalized = `/${normalized}`;
 	}
 
 	if (isWindows) {
 		// Ensure that drive casing is normalized (lower case)
-		normalized = normalized.replace(driveLetterNormalizeRegex, (drive: string) => drive.toLowerCase());
+		normalized = normalized.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
 	}
 
 	return normalized;
@@ -345,13 +349,25 @@ export function padRightOrTruncate(s: string, max: number, padding?: string, wid
 export function pluralize(
 	s: string,
 	count: number,
-	options?: { infix?: string; number?: string; plural?: string; zero?: string },
+	options?: {
+		/** Controls the character/string between the count and the string */
+		infix?: string;
+		/** Formats the count */
+		format?: (count: number) => string | undefined;
+		/** Controls if only the string should be included */
+		only?: boolean;
+		/** Controls the plural version of the string */
+		plural?: string;
+		/** Controls the string for a zero value */
+		zero?: string;
+	},
 ) {
 	if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
 
-	return `${
-		count === 0 ? (options.zero != null ? options.zero : count) : options.number != null ? options.number : count
-	}${options.infix ?? ' '}${count === 1 ? s : options.plural ?? `${s}s`}`;
+	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
+	if (options.only) return suffix;
+
+	return `${count === 0 ? options.zero ?? count : options.format?.(count) ?? count}${options.infix ?? ' '}${suffix}`;
 }
 
 // Removes \ / : * ? " < > | and C0 and C1 control codes
@@ -361,10 +377,6 @@ const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 export function sanitizeForFileSystem(s: string, replacement: string = '_') {
 	if (!s) return s;
 	return s.replace(illegalCharsForFSRegex, replacement);
-}
-
-export function sha1(s: string, encoding: BinaryToTextEncoding = 'base64'): string {
-	return createHash('sha1').update(s).digest(encoding);
 }
 
 export function splitLast(s: string, splitter: string) {
@@ -434,10 +446,7 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 }
 
-// See chalk/ansi-regex
-const ansiRegex =
-	// eslint-disable-next-line no-control-regex
-	/[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
+const cachedAnsiRegex = ansiRegex();
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
 // See sindresorhus/string-width
@@ -447,7 +456,7 @@ export function getWidth(s: string): number {
 	// Shortcut to avoid needless string `RegExp`s, replacements, and allocations
 	if (!containsNonAsciiRegex.test(s)) return s.length;
 
-	s = s.replace(ansiRegex, emptyStr);
+	s = s.replace(cachedAnsiRegex, emptyStr);
 
 	let count = 0;
 	let emoji = 0;

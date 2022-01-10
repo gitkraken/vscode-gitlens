@@ -1,10 +1,10 @@
 'use strict';
-import * as paths from 'path';
+import { dirname, join as joinPaths } from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitLogCommit } from '../../git/models';
 import { Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
@@ -111,8 +111,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {
-					dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-					light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+					dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+					light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 				};
 			}
 
@@ -151,7 +151,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = dirname(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

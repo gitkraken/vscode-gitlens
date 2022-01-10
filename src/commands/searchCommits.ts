@@ -1,7 +1,7 @@
 'use strict';
 import { executeGitCommand } from '../commands';
 import { Container } from '../container';
-import { SearchPattern } from '../git/git';
+import { SearchPattern } from '../git/search';
 import { SearchResultsNode } from '../views/nodes';
 import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 
@@ -50,7 +50,7 @@ export class SearchCommitsCommand extends Command {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					Container.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					Container.instance.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
 			},
 		}));
 	}

@@ -2,7 +2,7 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import { GitUri } from '../../git/gitUri';
 import {
 	BranchDateFormatting,
 	GitBranch,
@@ -11,8 +11,7 @@ import {
 	GitRemote,
 	GitRemoteType,
 	PullRequestState,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
@@ -131,18 +130,18 @@ export class BranchNode
 		if (this._children == null) {
 			const children = [];
 
-			const range = await Container.git.getBranchAheadRange(this.branch);
+			const range = await this.view.container.git.getBranchAheadRange(this.branch);
 			const [log, getBranchAndTagTips, status, mergeStatus, rebaseStatus, pr, unpublishedCommits] =
 				await Promise.all([
 					this.getLog(),
-					Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
+					this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
 					this.options.showStatus && this.branch.current
-						? Container.git.getStatusForRepo(this.uri.repoPath)
+						? this.view.container.git.getStatusForRepo(this.uri.repoPath)
 						: undefined,
 					this.options.showStatus && this.branch.current
-						? Container.git.getMergeStatus(this.uri.repoPath!)
+						? this.view.container.git.getMergeStatus(this.uri.repoPath!)
 						: undefined,
-					this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
+					this.options.showStatus ? this.view.container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
 					this.view.config.pullRequests.enabled &&
 					this.view.config.pullRequests.showForBranches &&
 					(this.branch.upstream != null || this.branch.remote)
@@ -151,7 +150,7 @@ export class BranchNode
 						  )
 						: undefined,
 					range && !this.branch.remote
-						? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+						? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 								limit: 0,
 								ref: range,
 						  })
@@ -183,7 +182,7 @@ export class BranchNode
 						this,
 						this.branch,
 						mergeStatus,
-						status ?? (await Container.git.getStatusForRepo(this.uri.repoPath)),
+						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
 					),
 				);
@@ -198,7 +197,7 @@ export class BranchNode
 						this,
 						this.branch,
 						rebaseStatus,
-						status ?? (await Container.git.getStatusForRepo(this.uri.repoPath)),
+						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
 					),
 				);
@@ -260,7 +259,7 @@ export class BranchNode
 			if (log.hasMore) {
 				children.push(
 					new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-						Container.git.getCommitCount(this.branch.repoPath, this.branch.name),
+						this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
 					),
 				);
 			}
@@ -370,7 +369,7 @@ export class BranchNode
 				}
 			} else {
 				const providers = GitRemote.getHighlanderProviders(
-					await Container.git.getRemotes(this.branch.repoPath),
+					await this.view.container.git.getRemotes(this.branch.repoPath),
 				);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
@@ -389,6 +388,9 @@ export class BranchNode
 		}
 
 		tooltip = new MarkdownString(tooltip, true);
+		tooltip.supportHtml = true;
+		tooltip.isTrusted = true;
+
 		if (this.branch.starred) {
 			tooltip.appendMarkdown('\\\n$(star-full) Favorited');
 		}
@@ -403,8 +405,8 @@ export class BranchNode
 		item.iconPath = this.options.showAsCommits
 			? new ThemeIcon('git-commit', color)
 			: {
-					dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
-					light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
+					dark: this.view.container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
+					light: this.view.container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
 			  };
 		item.tooltip = tooltip;
 		item.resourceUri = Uri.parse(
@@ -450,7 +452,7 @@ export class BranchNode
 				limit = Math.min(this.branch.state.ahead + 1, limit * 2);
 			}
 
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: limit,
 				ref: this.ref.ref,
 				authors: this.options?.authors,

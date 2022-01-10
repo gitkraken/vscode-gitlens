@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import {
 	Command,
 	commands,
@@ -13,17 +13,16 @@ import {
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import { CommitFormatter } from '../../git/formatters';
+import { GitUri } from '../../git/gitUri';
 import {
-	CommitFormatter,
 	GitBranch,
 	GitLogCommit,
 	GitRebaseStatus,
 	GitReference,
 	GitRevisionReference,
 	GitStatus,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
+} from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
@@ -66,19 +65,17 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
-		const commit = await Container.git.getCommit(
+		const commit = await this.view.container.git.getCommit(
 			this.rebaseStatus.repoPath,
 			this.rebaseStatus.steps.current.commit.ref,
 		);
@@ -106,7 +103,8 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Rebasing ${
 				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
 			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${
@@ -121,6 +119,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}
@@ -163,7 +165,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			})}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
 			this.commit,
 			{
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				messageIndent: 4,
 			},
 		);
@@ -180,16 +182,14 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;

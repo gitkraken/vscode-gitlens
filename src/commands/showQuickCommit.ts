@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitCommit, GitLog, GitLogCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -89,7 +89,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			if (blameline < 0) return;
 
 			try {
-				const blame = await Container.git.getBlameForLine(gitUri, blameline);
+				const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit');
 
@@ -126,7 +126,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await Container.git.getCommit(repoPath!, args.sha);
+					args.commit = await Container.instance.git.getCommit(repoPath!, args.sha);
 				}
 			}
 

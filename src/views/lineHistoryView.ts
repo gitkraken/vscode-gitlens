@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, LineHistoryViewConfig } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
@@ -11,8 +11,8 @@ const pinnedSuffix = ' (pinned)';
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
-	constructor() {
-		super('gitlens.views.lineHistory', 'Line History');
+	constructor(container: Container) {
+		super('gitlens.views.lineHistory', 'Line History', container);
 
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}
@@ -21,32 +21,42 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		return false;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new LineHistoryTrackerNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
-		commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOn'),
-			() => this.setEditorFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setEditorFollowingOff'),
-			() => this.setEditorFollowing(false),
-			this,
-		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOn'),
+				() => this.setEditorFollowing(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setEditorFollowingOff'),
+				() => this.setEditorFollowing(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOn'),
+				() => this.setShowAvatars(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowAvatarsOff'),
+				() => this.setShowAvatars(false),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {

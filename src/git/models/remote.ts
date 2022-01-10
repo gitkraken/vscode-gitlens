@@ -1,9 +1,10 @@
 'use strict';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { RemoteProvider, RichRemoteProvider } from '../remotes/factory';
+import { Strings } from '../../system';
+import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
 
-export enum GitRemoteType {
+export const enum GitRemoteType {
 	Fetch = 'fetch',
 	Push = 'push',
 }
@@ -43,7 +44,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
 				(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+				Strings.sortCompare(a.name, b.name),
 		);
 	}
 
@@ -59,7 +60,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
+		const defaultRemote = Container.instance.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
 		return this.id === defaultRemote;
 	}
 
@@ -78,13 +79,20 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return bestUrl!;
 	}
 
+	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
+		return RichRemoteProvider.is(this.provider);
+	}
+
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.context.workspaceState.update(WorkspaceState.DefaultRemote, state ? this.id : undefined));
+		void (await Container.instance.context.workspaceState.update(
+			WorkspaceState.DefaultRemote,
+			state ? this.id : undefined,
+		));
 
 		// TODO@eamodio this is UGLY
 		if (updateViews) {
-			void (await Container.remotesView.refresh());
-			void (await Container.repositoriesView.refresh());
+			void (await Container.instance.remotesView.refresh());
+			void (await Container.instance.repositoriesView.refresh());
 		}
 	}
 }

@@ -3,14 +3,15 @@ import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { GitActions } from './gitCommands';
+import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -57,7 +58,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				if (blameline >= 0) {
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
-						const blame = await Container.git.getBlameForLine(gitUri, blameline);
+						const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 						if (blame != null && !blame.commit.isUncommitted && blame.commit.previousSha != null) {
 							args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
 						}
@@ -82,22 +83,22 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = Container.git
-					.getLogForFile(gitUri.repoPath, gitUri.fsPath)
-					.then(
-						log =>
-							log ??
-							(gitUri.sha
-								? Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
-								: undefined),
-					);
+				const log = Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
+					log =>
+						log ??
+						(gitUri.sha
+							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+									ref: gitUri.sha,
+							  })
+							: undefined),
+				);
 
 				const title = `Open ${
 					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
 				} at Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await CommitPicker.show(
 					log,
-					`${title}${gitUri.getFormattedFilename({
+					`${title}${gitUri.getFormattedFileName({
 						suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
 						truncateTo: quickPickTitleMaxChars - title.length,
 					})}`,
@@ -115,10 +116,17 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								preview: false,
 							}));
 						},
-						showOtherReferences: CommandQuickPickItem.fromCommand(
-							'Choose a branch or tag...',
-							Commands.OpenFileAtRevisionFrom,
-						),
+						showOtherReferences: [
+							CommandQuickPickItem.fromCommand(
+								'Choose a Branch or Tag...',
+								Commands.OpenFileAtRevisionFrom,
+							),
+							CommandQuickPickItem.fromCommand<OpenFileAtRevisionFromCommandArgs>(
+								'Choose a Stash...',
+								Commands.OpenFileAtRevisionFrom,
+								{ stash: true },
+							),
+						],
 					},
 				);
 				if (pick == null) return;

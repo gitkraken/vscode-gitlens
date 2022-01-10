@@ -135,7 +135,7 @@ export class LineTracker<T> implements Disposable {
 				this.onStart?.() ?? { dispose: () => {} },
 			);
 
-			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+			queueMicrotask(() => this.onActiveTextEditorChanged(window.activeTextEditor));
 		}
 
 		return disposable;
@@ -202,7 +202,7 @@ export class LineTracker<T> implements Disposable {
 
 	private onLinesChanged(e: LinesChangeEvent) {
 		if (e.selections === undefined) {
-			setImmediate(() => {
+			queueMicrotask(() => {
 				if (window.activeTextEditor !== e.editor) return;
 
 				if (this._linesChangedDebounced !== undefined) {

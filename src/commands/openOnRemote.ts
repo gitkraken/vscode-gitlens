@@ -1,14 +1,11 @@
 'use strict';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
+import { GitRemote, GitRevision } from '../git/models';
+import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	CopyOrOpenRemoteCommandQuickPickItem,
-	RemoteProviderPicker,
-	SetADefaultRemoteCommandQuickPickItem,
-} from '../quickpicks';
+import { RemoteProviderPicker } from '../quickpicks';
 import { Strings } from '../system';
 import { Command, command, Commands } from './common';
 
@@ -37,7 +34,7 @@ export class OpenOnRemoteCommand extends Command {
 	async execute(args?: OpenOnRemoteCommandArgs) {
 		if (args?.resource == null) return;
 
-		let remotes = 'remotes' in args ? args.remotes : await Container.git.getRemotes(args.repoPath);
+		let remotes = 'remotes' in args ? args.remotes : await Container.instance.git.getRemotes(args.repoPath);
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);
@@ -64,7 +61,7 @@ export class OpenOnRemoteCommand extends Command {
 					const file = commit?.files.find(f => f.fileName === fileName);
 					if (file?.status === 'D') {
 						// Resolve to the previous commit to that file
-						args.resource.sha = await Container.git.resolveReference(
+						args.resource.sha = await Container.instance.git.resolveReference(
 							commit.repoPath,
 							`${commit.sha}^`,
 							fileName,
@@ -157,20 +154,6 @@ export class OpenOnRemoteCommand extends Command {
 			}
 
 			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
-
-			if (pick instanceof SetADefaultRemoteCommandQuickPickItem) {
-				const remote = await pick.execute();
-				if (remote != null) {
-					void (await new CopyOrOpenRemoteCommandQuickPickItem(
-						remote,
-						args.resource,
-						args.clipboard,
-					).execute());
-				}
-
-				return;
-			}
-
 			void (await pick?.execute());
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');

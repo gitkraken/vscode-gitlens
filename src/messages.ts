@@ -1,10 +1,10 @@
 'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
-import { GitCommit } from './git/git';
+import { GitCommit } from './git/models';
 import { Logger } from './logger';
 
-export enum SuppressedMessages {
+export const enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
 	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
 	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
@@ -134,7 +134,7 @@ export class Messages {
 	static showInsidersErrorMessage() {
 		return Messages.showMessage(
 			'error',
-			'GitLens (Insiders) cannot be used while GitLens is also installed. Please ensure that only one version of GitLens is installed.',
+			'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
 			SuppressedMessages.GitDisabledWarning,
 		);
 	}
@@ -164,22 +164,17 @@ export class Messages {
 	}
 
 	static async showWhatsNewMessage(version: string) {
-		const actions: MessageItem[] = [{ title: "What's New" }, { title: '❤ Sponsor' }];
-
+		const whatsnew = { title: "What's New" };
 		const result = await Messages.showMessage(
 			'info',
 			`GitLens has been updated to v${version} — check out what's new!`,
 			undefined,
 			null,
-			...actions,
+			whatsnew,
 		);
 
-		if (result != null) {
-			if (result === actions[0]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
-			} else if (result === actions[1]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
-			}
+		if (result === whatsnew) {
+			await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 		}
 	}
 

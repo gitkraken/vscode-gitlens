@@ -3,6 +3,7 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -11,16 +12,23 @@ import {
 import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { GitUri } from '../git/gitUri';
 import {
 	GitReference,
 	GitStashReference,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { debug, gate, Strings } from '../system';
-import { RepositoryFolderNode, RepositoryNode, StashesNode, StashNode, unknownGitUri, ViewNode } from './nodes';
+} from '../git/models';
+import { gate, Strings } from '../system';
+import {
+	RepositoriesSubscribeableNode,
+	RepositoryFolderNode,
+	RepositoryNode,
+	StashesNode,
+	StashNode,
+	ViewNode,
+} from './nodes';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
@@ -37,17 +45,10 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 	}
 }
 
-export class StashesViewNode extends ViewNode<StashesView> {
-	protected override splatted = true;
-	private children: StashesRepositoryNode[] | undefined;
-
-	constructor(view: StashesView) {
-		super(unknownGitUri, view);
-	}
-
+export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, StashesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
-			const repositories = await Container.git.getOrderedRepositories();
+			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
 				this.view.message = 'No stashes could be found.';
 
@@ -92,69 +93,56 @@ export class StashesViewNode extends ViewNode<StashesView> {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
-
-	override async getSplattedChild() {
-		if (this.children == null) {
-			await this.getChildren();
-		}
-
-		return this.children?.length === 1 ? this.children[0] : undefined;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
-		}
-	}
 }
 
 export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
-	constructor() {
-		super('gitlens.views.stashes', 'Stashes');
+	constructor(container: Container) {
+		super('gitlens.views.stashes', 'Stashes', container);
 	}
 
-	getRoot() {
+	override get canReveal(): boolean {
+		return this.config.reveal || !configuration.get('views.repositories.showStashes');
+	}
+
+	protected getRoot() {
 		return new StashesViewNode(this);
 	}
 
-	protected registerCommands() {
-		void Container.viewCommands;
+	protected registerCommands(): Disposable[] {
+		void this.container.viewCommands;
 
-		commands.registerCommand(
-			this.getQualifiedCommand('copy'),
-			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('refresh'),
-			async () => {
-				await Container.git.resetCaches('stashes');
-				return this.refresh(true);
-			},
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToAuto'),
-			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToList'),
-			() => this.setFilesLayout(ViewFilesLayout.List),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setFilesLayoutToTree'),
-			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this,
-		);
+		return [
+			commands.registerCommand(
+				this.getQualifiedCommand('copy'),
+				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('refresh'),
+				() => {
+					this.container.git.resetCaches('stashes');
+					return this.refresh(true);
+				},
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToAuto'),
+				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToList'),
+				() => this.setFilesLayout(ViewFilesLayout.List),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setFilesLayoutToTree'),
+				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				this,
+			),
+		];
 	}
 
 	protected override filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -193,6 +181,23 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	}
 
 	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+	) {
+		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+			maxDepth: 1,
+			canTraverse: n => n instanceof StashesViewNode || n instanceof RepositoryFolderNode,
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
 	async revealStash(
 		stash: GitStashReference,
 		options?: {
@@ -204,7 +209,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the side bar...`,
+				title: `Revealing ${GitReference.toString(stash, { icon: false, quoted: true })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

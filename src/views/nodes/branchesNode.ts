@@ -1,8 +1,8 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
-import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { Repository } from '../../git/models';
 import { Arrays, debug, gate } from '../../system';
 import { BranchesView } from '../branchesView';
 import { RepositoriesView } from '../repositoriesView';
@@ -44,9 +44,10 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 				filter: b => !b.remote,
 				sort: { current: false },
 			});
-			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
-			const branchNodes = branches.map(
+			// TODO@eamodio handle paging
+			const branchNodes = branches.values.map(
 				b =>
 					new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
 						showComparison:

@@ -1,9 +1,10 @@
 'use strict';
 import { QuickInputButtons, QuickPickItem } from 'vscode';
 import { Container } from '../../container';
-import { GitReference, GitTagReference, Repository } from '../../git/git';
+import { GitReference, GitTagReference, Repository } from '../../git/models';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -23,6 +24,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -127,7 +129,8 @@ export class TagGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.tagsView,
 			showTags: false,
 			title: this.title,
 		};
@@ -225,6 +228,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					placeholder: context =>
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
+					titleContext: ' from',
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -349,7 +353,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Tag', state.references.length, { number: '' }).trim(),
+				Strings.pluralize('Tag', state.references.length, { only: true }),
 				state.subcommand,
 			);
 

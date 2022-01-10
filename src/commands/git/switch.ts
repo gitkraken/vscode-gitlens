@@ -2,8 +2,9 @@
 import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/git';
+import { GitReference, Repository } from '../../git/models';
 import { Arrays } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	inputBranchNameStep,
@@ -21,6 +22,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -88,7 +90,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: Container.instance.git.openRepositories,
+			associatedView: Container.instance.commitsView,
 			showTags: false,
 			title: this.title,
 		};
@@ -146,7 +149,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
-				const branches = await Container.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await Container.instance.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: BranchSorting.DateDesc },
 				});

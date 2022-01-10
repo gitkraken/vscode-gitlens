@@ -1,10 +1,10 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Container } from '../../container';
-import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitLog } from '../../git/models';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
+import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -69,8 +69,13 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return [];
 
-		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [];
+
+		const remote = await this.view.container.git.getRichRemoteProvider(this.repoPath);
+		if (remote != null) {
+			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, remote, log));
+		}
 
 		const { files } = this._results;
 		if (files != null) {
@@ -160,7 +165,9 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResults == null) {
-			this._commitsQueryResults = this._results.query(this.limit ?? Container.config.advanced.maxSearchItems);
+			this._commitsQueryResults = this._results.query(
+				this.limit ?? this.view.container.config.advanced.maxSearchItems,
+			);
 			const results = await this._commitsQueryResults;
 			this._hasMore = results.hasMore;
 

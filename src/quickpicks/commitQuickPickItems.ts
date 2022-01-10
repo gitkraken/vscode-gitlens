@@ -1,10 +1,11 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitFile, GitLogCommit, GitStatusFile } from '../git/git';
+import { CommitFormatter } from '../git/formatters';
+import { GitFile, GitLogCommit, GitStatusFile } from '../git/models';
 import { Keys } from '../keyboard';
 import { Strings } from '../system';
 import { CommandQuickPickItem } from './quickPicksItems';
@@ -36,7 +37,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 export class CommitFileQuickPickItem extends CommandQuickPickItem {
 	constructor(readonly commit: GitLogCommit, readonly file: GitFile, picked?: boolean) {
 		super({
-			label: `${Strings.pad(GitFile.getStatusCodicon(file.status), 0, 2)}${paths.basename(file.fileName)}`,
+			label: `${Strings.pad(GitFile.getStatusCodicon(file.status), 0, 2)}${basename(file.fileName)}`,
 			description: GitFile.getFormattedDirectory(file, true),
 			picked: picked,
 		});
@@ -101,7 +102,7 @@ export class CommitCompareWithHEADCommandQuickPickItem extends CommandQuickPickI
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return Container.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
+		return Container.instance.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
 	}
 }
 
@@ -111,7 +112,7 @@ export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPi
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return Container.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, '');
+		return Container.instance.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, '');
 	}
 }
 

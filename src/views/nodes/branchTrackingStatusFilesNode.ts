@@ -1,10 +1,9 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
-import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
@@ -45,7 +44,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await Container.git.getLog(this.repoPath, {
+		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
 			ref: GitRevision.createRange(
 				this.status.upstream,
@@ -85,25 +84,21 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, false);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort(
-				(a, b) =>
-					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const stats = await Container.git.getChangedFilesCount(
+		const stats = await this.view.container.git.getChangedFilesCount(
 			this.repoPath,
 			`${this.status.upstream}${this.direction === 'behind' ? '..' : '...'}`,
 		);

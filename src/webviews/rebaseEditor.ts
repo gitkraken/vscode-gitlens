@@ -1,6 +1,4 @@
 'use strict';
-import { randomBytes } from 'crypto';
-import { TextDecoder } from 'util';
 import {
 	CancellationToken,
 	commands,
@@ -16,11 +14,12 @@ import {
 	workspace,
 	WorkspaceEdit,
 } from 'vscode';
+import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/git';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { debug, gate, Iterables, Strings } from '../system';
@@ -97,7 +96,7 @@ interface RebaseEditorContext {
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
 	private readonly _disposable: Disposable;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			window.registerCustomEditorProvider('gitlens.rebase', this, {
 				supportsMultipleEditorsPerDocument: false,
@@ -163,10 +162,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
+	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
-		const repo = await Container.git.getRepository(repoPath);
+		const repo = await this.container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
@@ -242,8 +241,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async parseState(context: RebaseEditorContext): Promise<RebaseState> {
-		const branch = await Container.git.getBranch(context.repoPath);
-		const state = await parseRebaseTodo(context.document.getText(), context.repoPath, branch?.name);
+		const branch = await this.container.git.getBranch(context.repoPath);
+		const state = await parseRebaseTodo(this.container, context.document.getText(), context.repoPath, branch?.name);
 		return state;
 	}
 
@@ -474,13 +473,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async getHtml(context: RebaseEditorContext): Promise<string> {
-		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
+		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		const bootstrap = await this.parseState(context);
 		const cspSource = context.panel.webview.cspSource;
-		const cspNonce = randomBytes(16).toString('base64');
-		const root = context.panel.webview.asWebviewUri(Container.context.extensionUri).toString();
+		const cspNonce = getNonce();
+		const root = context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString();
 
 		const html = content
 			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
@@ -511,6 +510,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 }
 
 async function parseRebaseTodo(
+	container: Container,
 	contents: string | { entries: RebaseEntry[]; onto: string },
 	repoPath: string,
 	branch: string | undefined,
@@ -527,7 +527,7 @@ async function parseRebaseTodo(
 	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
 
-	const log = await Container.git.getLogForSearch(repoPath, {
+	const log = await container.git.getLogForSearch(repoPath, {
 		pattern: `${onto ? `#:${onto} ` : ''}${Iterables.join(
 			Iterables.map(entries, e => `#:${e.ref}`),
 			' ',
@@ -541,7 +541,7 @@ async function parseRebaseTodo(
 			authors.set(ontoCommit.author, {
 				author: ontoCommit.author,
 				avatarUrl: (
-					await ontoCommit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
 				email: ontoCommit.email,
 			});
@@ -550,7 +550,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: ontoCommit.ref,
 			author: ontoCommit.author,
-			date: ontoCommit.formatDate(Container.config.defaultDateFormat),
+			date: ontoCommit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
 		});
@@ -570,7 +570,7 @@ async function parseRebaseTodo(
 			authors.set(commit.author, {
 				author: commit.author,
 				avatarUrl: (
-					await commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
 				email: commit.email,
 			});
@@ -579,7 +579,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: commit.ref,
 			author: commit.author,
-			date: commit.formatDate(Container.config.defaultDateFormat),
+			date: commit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message,
 		});

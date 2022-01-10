@@ -2,6 +2,7 @@
 import { commands, Disposable, workspace } from 'vscode';
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
+import { Container } from '../container';
 import {
 	IpcMessage,
 	onIpcCommand,
@@ -16,8 +17,8 @@ const anchorRegex = /.*?#(.*)/;
 export class SettingsWebview extends WebviewBase {
 	private _pendingJumpToAnchor: string | undefined;
 
-	constructor() {
-		super(Commands.ShowSettingsPage);
+	constructor(container: Container) {
+		super(Commands.ShowSettingsPage, container);
 
 		this.disposable = Disposable.from(
 			this.disposable,
@@ -74,7 +75,7 @@ export class SettingsWebview extends WebviewBase {
 		}
 	}
 
-	get filename(): string {
+	get fileName(): string {
 		return 'settings.html';
 	}
 

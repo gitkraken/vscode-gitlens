@@ -24,7 +24,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		if (blameline < 0) return;
 
 		try {
-			const blame = await Container.git.getBlameForLine(gitUri, blameline);
+			const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
 			if (blame == null) return;
 
 			await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {

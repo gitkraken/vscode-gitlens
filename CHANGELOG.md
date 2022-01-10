@@ -4,6 +4,76 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a new _Autolinked Issues and Pull Requests_ node to comparisons to list autolinked issues in commit messages and associated pull requests
+  - Currently only supported for connected GitHub remote providers
+- Adds the ability to choose a stash when opening or comparing file revisions, via the _Open Changes with Revision..._ & _Open File at Revision..._ commands
+- Adds improved hover information shown on pull requests in the GitLens views
+- Adds an easier method to choose a specific commit to the _Git Command Palette_'s _merge_ & _rebase_ commands
+
+### Changed
+
+- Refactors GitLens internals into a new flexible Git provider model (read: lots of internal changes) to ultimately allow GitLens to work on the web in vscode.dev/github.dev
+- Changes the icon of the _Open Changes_ action on the hovers to be clearer
+- Changes footnotes in hovers to be above the command bar rather than below
+- Improves GitLens view refreshing when folders are added or removed from a workspace
+
+### Fixed
+
+- Fixes [#1506](https://github.com/gitkraken/vscode-gitlens/issues/1506) - Annoying Github login request
+- Fixes [#1735](https://github.com/gitkraken/vscode-gitlens/issues/1735) - "gitlens.hovers.detailsMarkdownFormat" edit error
+- Fixes [#1745](https://github.com/gitkraken/vscode-gitlens/issues/1745) - autolinks.url encodes hash char
+- Fixes [#1572](https://github.com/gitkraken/vscode-gitlens/issues/1572) - Forced regular expression search in changes
+- Fixes [#1473](https://github.com/gitkraken/vscode-gitlens/issues/1473) - Support VSCodium in interactive rebase editor
+- Fixes [#1699](https://github.com/gitkraken/vscode-gitlens/issues/1699) - Exception has occurred: RangeError [ERR_OUT_OF_RANGE]
+- Fixes [#1601](https://github.com/gitkraken/vscode-gitlens/issues/1601) - Add a better time sample in "Dates & Times" setting
+- Fixes performance issue with the rich hover on the status bar blame
+- Fixes cross repository branch switching via the _Git Command Palette_
+- Fixes an issue with TOC entries in the VS Code settings editor
+- Fixes issues using quotes when searching for commits in certain scenarios
+- Fixes issues when revealing items in GitLens views the item wouldn't get selected properly
+- Fixes issues with retries on _Git Command Palette_ command steps
+
+## [11.7.0] - 2021-11-18
+
+### Added
+
+- Adds a new rich commit details hover to the blame information in the status bar
+  - Adds a `gitlens.statusBar.tooltipFormat` setting to specify the format (in markdown) of hover shown over the blame information in the status bar
+- Adds a new rich hover to the GitLens mode in the status bar
+- Adds functional groupings to all GitLens settings when using the VS Code settings UI. Groups will be displayed in the table of contents in the settings UI &mdash; thanks to Raymond Zhao ([@rzhao271](https://github.com/rzhao271)) on the VS Code team for allowing extensions to add groups to VS Code settings UI
+- Adds new action buttons on many quick pick menu options, including in the _Git Command Palette_ &mdash; thanks to Tyler Leonhardt ([@tylerLeonhardt](https://github.com/tylerLeonhardt)) on the VS Code team for the API support
+- Adds [Gerrit](https://www.gerritcodereview.com/) remote provider support &mdash; closes [#720](https://github.com/gitkraken/vscode-gitlens/issues/720) thanks to [PR #1535](https://github.com/gitkraken/vscode-gitlens/pull/1535) by Andrew Savage ([@andrewsavage1](https://github.com/andrewsavage1))
+- Adds new _Open File_ command (with _Open Revision_ as an `alt-click`) to files in comparisons &mdash; closes [#1710](https://github.com/gitkraken/vscode-gitlens/issues/1710)
+- Adds a new _Cherry Pick without Committing_ confirmation option to the _Git Command Palette_'s _cherry-pick_ command &mdash; closes [#1693](https://github.com/gitkraken/vscode-gitlens/issues/1693)
+- Adds a new _Merge without Fast-Forwarding or Committing_ confirmation option to the _Git Command Palette_'s _merge_ command &mdash; closes [#1178](https://github.com/gitkraken/vscode-gitlens/issues/1178) thanks to [PR #1621](https://github.com/gitkraken/vscode-gitlens/pull/1621) by Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov))
+- Adds commit message autolinking of merged pull requests for Azure Repos &mdash; closes [#1486](https://github.com/gitkraken/vscode-gitlens/issues/1486) thanks to [PR #1487](https://github.com/gitkraken/vscode-gitlens/pull/1487) by Mark Molinaro ([@markjm](https://github.com/markjm))
+- Adds a new `AzureDevOps` type to `gitlens.remotes` to better support Azure DevOps remote matching &mdash; thanks to [PR #1487](https://github.com/gitkraken/vscode-gitlens/pull/1487) by Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD))
+
+### Changed
+
+- Changes the _No Fast-forward Merge_ confirmation option in the _Git Command Palette_'s _merge_ command to _Merge without Fast-Forwarding_
+
+### Fixed
+
+- Fixes [#1669](https://github.com/gitkraken/vscode-gitlens/issues/1669) - Workitem Link (Hover ) for Repository (DevOps) with Blank is broken
+- Fixes [#1695](https://github.com/gitkraken/vscode-gitlens/issues/1695) - gitlens.remotes: ${repo} has '%2520' instead of '%20' for a space
+- Fixes [#1531](https://github.com/gitkraken/vscode-gitlens/issues/1531) - Typo in `gitlens.defaultGravatarsStyle` options &mdash; thanks to [PR #1532](https://github.com/gitkraken/vscode-gitlens/pull/1532) by Alwin Wang ([@alwinw](https://github.com/alwinw))
+- Fixes [#1511](https://github.com/gitkraken/vscode-gitlens/issues/1511) - Avatars are blurry on retina displays &mdash; thanks to [PR #1595](https://github.com/gitkraken/vscode-gitlens/pull/1595) by Adaex Yang ([@adaex](https://github.com/adaex))
+- Fixes [#1609](https://github.com/gitkraken/vscode-gitlens/issues/1609) - X.globalState.setKeysForSync is not a function &mdash; thanks to [PR #1610](https://github.com/gitkraken/vscode-gitlens/pull/1610) by Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky))
+- Fixes [#1131](https://github.com/gitkraken/vscode-gitlens/issues/1131) - Order matters for search filters in 'search commits' &mdash; with help from [PR #1575](https://github.com/gitkraken/vscode-gitlens/pull/1575) by Lior Kletter ([@Git-Lior](https://github.com/Git-Lior))
+- Fixes [#1583](https://github.com/gitkraken/vscode-gitlens/issues/1583) - Should hide the context menu on unrelated tabs &mdash; thanks to [PR #1589](https://github.com/gitkraken/vscode-gitlens/pull/1589) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
+- Fixes [#1587](https://github.com/gitkraken/vscode-gitlens/issues/1587) - Hover on blame can duplicate &mdash; thanks to [PR #1588](https://github.com/gitkraken/vscode-gitlens/pull/1588) by Takashi Tamura ([@tamuratak](https://github.com/tamuratak))
+
+## [11.6.1] - 2021-10-08
+
+### Changed
+
+- GitLens joins forces with GitKraken! &mdash; [Learn more](https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code)
+
 ## [11.6.0] - 2021-07-13
 
 ### Added
@@ -99,7 +169,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1448](https://github.com/eamodio/vscode-gitlens/issues/1448) - Hashes (#) are percent encoded in custom remote urls
 - Fixes [#1447](https://github.com/eamodio/vscode-gitlens/issues/1447) - _Open File on Remote From..._ is missing remote branches
 - Fixes [#1442](https://github.com/eamodio/vscode-gitlens/issues/1442) - Interactive Rebase Editor not opened but plain text file when called from terminal
-- Fixes [#1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee C. ([MeltingMosaic](https://github.com/MeltingMosaic))
+- Fixes [#1439](https://github.com/eamodio/vscode-gitlens/issues/1439) - Copying a remote file URL for a file on Azure DevOps does not work &mdash; thanks to [PR #1440](https://github.com/eamodio/vscode-gitlens/pull/1440) by Lee Chang ([MeltingMosaic](https://github.com/MeltingMosaic))
 - Fixes [#1445](https://github.com/eamodio/vscode-gitlens/issues/1439) - Improve documentation for hiding default added editor actions
 - Fixes [#1411](https://github.com/eamodio/vscode-gitlens/issues/1411) - Click on branch compare node does not expand the tree
 - Fixes an issue where the _Changes to pull from \*_'s _\* files changed_ was always 0
@@ -124,7 +194,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `U` + green colorization &mdash; indicates that the file is untracked
 - Adds a new built-in _Create Pull Request_ flow that starts opening a pull request on github.com
 - Adds a new _Open Blame Prior to Change_ command (`gitlens.openBlamePriorToChange`) to open the blame of prior revision of the selected line in the current file &mdash; closes [#1014](https://github.com/eamodio/vscode-gitlens/issues/1014)
-- Adds new Git code lens action options
+- Adds new Git CodeLens action options
   - _Opens the commit on the remote service (when available)_ and _Copies the remote commit url to the clipboard (when available)_
   - _Opens the file revision on the remote service (when available)_ and _Copies the remote file revision url to the clipboard (when available)_
   - _Toggles the file heatmap_
@@ -244,7 +314,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes the outdated documentation url on the _Connect Remote Provider_ quick pick menu &mdash; thanks to [PR #1300](https://github.com/eamodio/vscode-gitlens/pull/1300) by Ahmadou Waly NDIAYE ([@sir-kain](https://github.com/sir-kain))
+- Fixes the outdated documentation url on the _Connect Remote Provider_ quick pick menu &mdash; thanks to [PR #1300](https://github.com/eamodio/vscode-gitlens/pull/1300) by Ahmadou Waly Ndiaye ([@sir-kain](https://github.com/sir-kain))
 
 ## [11.1.1] - 2021-01-02
 
@@ -543,8 +613,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds alternative `alt+click` commands for many of the _Open \* on Remote_ commands to alternatively copy the url to the clipboard
 - Adds an _Open Commit on Remote_ command (with an _Copy Remote Commit Url_ `alt+click` command) to commits in the VS Code Timeline view
 - Adds ability to set the default remote from any of the _Open \* on Remote_ command quick pick menus
-- Adds _Git Code Lens_ to markdown headers
-- Adds new _Git Code Lens_ options to disable the click actions on both the recent change and authors code lens &mdash; closes [#989](https://github.com/eamodio/vscode-gitlens/issues/989) thanks to [PR #1009](https://github.com/eamodio/vscode-gitlens/pull/1009) by Abdulrahman (Abdu) Assabri ([@abdusabri](https://github.com/abdusabri))
+- Adds _Git CodeLens_ to markdown headers
+- Adds new _Git CodeLens_ options to disable the click actions on both the recent change and authors CodeLens &mdash; closes [#989](https://github.com/eamodio/vscode-gitlens/issues/989) thanks to [PR #1009](https://github.com/eamodio/vscode-gitlens/pull/1009) by Abdulrahman (Abdu) Assabri ([@abdusabri](https://github.com/abdusabri))
 - Adds per-language customizations to the `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings &mdash; closes [#977](https://github.com/eamodio/vscode-gitlens/issues/977)
 - Adds new click behavior for changed files in GitLens views to open a diff of all contained changes
 - Adds a new `gitlens.hovers.avatarSize` setting to customize the size of avatars shown in hovers
@@ -566,7 +636,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes all comparisons results to be split into ahead and behind groups
-- Changes _Git Code Lens_ to be less intrusive when they are unavailable because of unsaved changes, via new defaults for the `gitlens.strings.codeLens.unsavedChanges.*` settings
+- Changes _Git CodeLens_ to be less intrusive when they are unavailable because of unsaved changes, via new defaults for the `gitlens.strings.codeLens.unsavedChanges.*` settings
 - Refines all the GitLens contributed menus to reduce noise and improve usability
 - Changes to use VS Code's built-in icons (codicons) where possible &mdash; closes [#985](https://github.com/eamodio/vscode-gitlens/issues/985)
 - Changes to use codicons in hovers &mdash; closes [#954](https://github.com/eamodio/vscode-gitlens/issues/954)
@@ -646,7 +716,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes directory compare from waiting for external tool to exit
 - Fixes [#996](https://github.com/eamodio/vscode-gitlens/issues/996) - Rename branch should show existing name highlighted
 - Fixes issues with folders that end with a space
-- Fixes typo in contributing search tag link &mdash; thanks to [PR #981](https://github.com/eamodio/vscode-gitlens/pull/981) by Guillem ([@guillemglez](https://github.com/guillemglez))
+- Fixes typo in contributing search tag link &mdash; thanks to [PR #981](https://github.com/eamodio/vscode-gitlens/pull/981) by Guillem González Vela ([@guillemglez](https://github.com/guillemglez))
 - Fixes [#970](https://github.com/eamodio/vscode-gitlens/issues/970) - Stashes doesn't honor files layout
 - Fixes _Load more_ in GitLens views with range notation comparisons
 - Fixes `ignoreCase` flag on autolinks
@@ -778,7 +848,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#826](https://github.com/eamodio/vscode-gitlens/issues/826) - Deleting stash doesn't remove the stash from the list - have to refresh
 - Fixes [#769](https://github.com/eamodio/vscode-gitlens/issues/769) - compacting causes duplicate names
 - Fixes issues with issue linking in hovers
-- Fixes issues with the _Show commits in Search Commits view_ Git code lens action with uncommitted changes
+- Fixes issues with the _Show commits in Search Commits view_ Git CodeLens action with uncommitted changes
 - Fixes missing prefix while search nodes are loading
 
 ## [10.0.1] - 2019-09-24
@@ -860,11 +930,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Reveal Commit in Repositories View_ command to the commit context menu in the views
   - Adds _Reveal Commit in Repositories View_ command in commit quick pick menu
 - Adds a _Show Commits within Selection in Search Commits View_ (`gitlens.showCommitsInView`) command to show all the commits within the current selection in the _Search Commits_ view
-- Adds new actions options to the Git Code Lens
-  - Adds a `gitlens.showCommitsInView` option to the recent change code lens to show the recent commit in the _Search Commits_ view
-  - Adds a `gitlens.showCommitsInView` option to the authors code lens to show the commits within the range of the code lens block in the _Search Commits_ view
-  - Adds a `gitlens.revealCommitInView` option to the recent change code lens to reveal the recent commit in the _Repositories_ view
-  - Adds a `gitlens.revealCommitInView` option to the authors code lens to reveal the primary author's commit in the _Repositories_ view
+- Adds new actions options to the Git CodeLens
+  - Adds a `gitlens.showCommitsInView` option to the recent change CodeLens to show the recent commit in the _Search Commits_ view
+  - Adds a `gitlens.showCommitsInView` option to the authors CodeLens to show the commits within the range of the CodeLens block in the _Search Commits_ view
+  - Adds a `gitlens.revealCommitInView` option to the recent change CodeLens to reveal the recent commit in the _Repositories_ view
+  - Adds a `gitlens.revealCommitInView` option to the authors CodeLens to reveal the primary author's commit in the _Repositories_ view
 - Adds the _Open Changes with Working File_ command to the inline toolbar for files in views
 - Adds the _Open Revision_ command to the editor toolbar and tabs context menu when a revision file is active in the diff editor
 - Adds this _Explore Repository from Revision_ command to the editor toolbar and tabs context menu when a revision file is active
@@ -880,7 +950,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes _Stash All Changes_ commands in the Source Control view to toggle --keep-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
-- Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
+- Changes Ansible files to use document scope for CodeLens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Changes fetch commands to use the _fetch_ Git command
 - Changes pull commands to use the _pull_ Git command
 - Changes push commands to use the _push_ Git command
@@ -1022,7 +1092,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#776](https://github.com/eamodio/vscode-gitlens/issues/776) - File history sidebar having "Open file" instead of "Open revision"
-- Fixes [#692](https://github.com/eamodio/vscode-gitlens/issues/692) - Can't open remote on bitbucket &mdash; thanks to [PR #767](https://github.com/eamodio/vscode-gitlens/pull/767) by grozan ([@grozan](https://github.com/grozan))
+- Fixes [#692](https://github.com/eamodio/vscode-gitlens/issues/692) - Can't open remote on bitbucket &mdash; thanks to [PR #767](https://github.com/eamodio/vscode-gitlens/pull/767) by Guillaume Rozan ([@grozan](https://github.com/grozan))
 - Fixes a parsing issue with certain renamed files
 - Fixes some issues with emoji rendering
 
@@ -1529,7 +1599,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for Azure DevOps (formerly VSTS) remotes &mdash; closes [#501](https://github.com/eamodio/vscode-gitlens/issues/501)
 - Adds better detection of on-prem BitBucket and GitLab remotes &mdash; closes [#214](https://github.com/eamodio/vscode-gitlens/issues/214)
 - Adds some missing gitmojis &mdash; thanks to [PR #510](https://github.com/eamodio/vscode-gitlens/pull/510) by Loris Bettazza ([@Pustur](https://github.com/Pustur))
-- Adds a `gitlens.codeLens.includeSingleLineSymbols` setting to specify whether to provide any Git code lens on symbols that span only a single line
+- Adds a `gitlens.codeLens.includeSingleLineSymbols` setting to specify whether to provide any Git CodeLens on symbols that span only a single line
 - Adds smooth scrolling to the interactive settings editor when using the _Jump To_ links
 
 ### Changed
@@ -1739,7 +1809,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#362](https://github.com/eamodio/vscode-gitlens/issues/362) - Too many code lenses in postcss files
+- Fixes [#362](https://github.com/eamodio/vscode-gitlens/issues/362) - Too many CodeLenses in postcss files
 - Fixes [#381](https://github.com/eamodio/vscode-gitlens/issues/381) - Can't stash single files with older versions of Git
 - Fixes [#384](https://github.com/eamodio/vscode-gitlens/issues/384) - Absolute dates not always honored in _GitLens Results_ explorer
 - Fixes [#385](https://github.com/eamodio/vscode-gitlens/issues/385) - Wrong git command to delete remote branch
@@ -1876,7 +1946,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#320](https://github.com/eamodio/vscode-gitlens/issues/320) - Stashes with a single untracked file created with "stash push" aren't shown in the GitLens explorer
-- Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - Code lens shows on every import in Python
+- Fixes [#331](https://github.com/eamodio/vscode-gitlens/issues/331) - CodeLens shows on every import in Python
 - Fixes issues where quick pick menu progress indicators will get stuck in some cases because of a vscode api change in [Microsoft/vscode#46102](https://github.com/Microsoft/vscode/pull/46102)
 
 ## [8.2.0] - 2018-03-31
@@ -2150,7 +2220,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where GitLens wouldn't detect the creation of a Git repository if there were no other repositories open
 - Fixes issue where some GitLens commands would show in the palette even though there was no repository
 - Fixes issue where navigating the history of a renamed file could cause errors
-- Fixes issue with using the `gitlens.diffWithPrevious` command option for Git code lens
+- Fixes issue with using the `gitlens.diffWithPrevious` command option for Git CodeLens
 
 ## [7.5.5] - 2018-01-18
 
@@ -2185,7 +2255,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
 - Adds `gitlens.annotations.file.gutter.gravatars` setting to specify whether to show gravatar images in the gutter blame annotations
-- Adds support for providing blame annotations, code lens, etc on files with unsaved changes &mdash; closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
+- Adds support for providing blame annotations, CodeLens, etc on files with unsaved changes &mdash; closes [#112](https://github.com/eamodio/vscode-gitlens/issues/112)
 - Adds `gitlens.defaultDateStyle` setting to specify how dates will be displayed by default &mdash; closes [#89](https://github.com/eamodio/vscode-gitlens/issues/89)
 - Adds _Compare with Working Tree_ command (`gitlens.explorers.compareWithWorking`) to branch, tag, and revision (commit) nodes in the _GitLens_ explorer to compare the current selection with the current working tree in the _GitLens Results_ explorer
 - Adds _Compare Selected Ancestor with Working Tree_ command (`gitlens.explorers.compareSelectedAncestorWithWorking`) to branch nodes in the _GitLens_ explorer once another branch within the same repository has been selected to compare the [merge base](https://git-scm.com/docs/git-merge-base) of current and previously selected branches with the working tree in the _GitLens Results_ explorer &mdash; closes [#240](https://github.com/eamodio/vscode-gitlens/issues/240)
@@ -2214,7 +2284,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#238](https://github.com/eamodio/vscode-gitlens/issues/238) - Show merge commits in file history
 - Fixes issue where the Tags node of the _GitLens_ explorer wasn't updated on changes
 - Fixes issue where changes to .gitignore weren't detected properly
-- Fixes [#241](https://github.com/eamodio/vscode-gitlens/issues/241) - Adds default setting for .jsonc files to match Git code lens of .json files
+- Fixes [#241](https://github.com/eamodio/vscode-gitlens/issues/241) - Adds default setting for .jsonc files to match Git CodeLens of .json files
 - Fixes issue where blame annotations and commands were missing from vscode Git staged revision documents
 - Fixes issue where opening changes for renamed files in the _GitLens_ explorer and _GitLens Results_ explorer wouldn't work properly
 - Fixes issue where file-specific menu commands show up on folders in the explorer
@@ -2363,7 +2433,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for vscode's Git file revisions (e.g. _Open File (HEAD)_) and diffs (e.g. _Open Changes_)
   - Adds new entry in the **History View** of the _GitLens_ explorer
   - Adds blame annotations, navigation & comparison commands, etc
-- Adds Git code lens to Git file revisions (GitLens or vscode's)
+- Adds Git CodeLens to Git file revisions (GitLens or vscode's)
 
 ### Fixed
 
@@ -2402,7 +2472,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#211](https://github.com/eamodio/vscode-gitlens/issues/211) - Unsaved code lens appears on untracked files
+- Fixes [#211](https://github.com/eamodio/vscode-gitlens/issues/211) - Unsaved CodeLens appears on untracked files
 - Fixes issue where _Open \* in Remote_ commands are sometimes missing
 
 ## [6.1.2] - 2017-11-21
@@ -2478,7 +2548,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes jumpy code lens when deleting characters from a line with a Git code lens
+- Fixes jumpy CodeLens when deleting characters from a line with a Git CodeLens
 - Fixes [#178](https://github.com/eamodio/vscode-gitlens/issues/178) - Slight but noticeable keyboard lag with Gitlens
 - Fixes [#183](https://github.com/eamodio/vscode-gitlens/issues/183) - Remote with same url should only show once
 - Fixes [#185](https://github.com/eamodio/vscode-gitlens/issues/185) - Wrong relative date shows on mouse hover
@@ -2824,7 +2894,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#114](https://github.com/eamodio/vscode-gitlens/issues/114) - Stylus files makes code lens freak out
+- Fixes [#114](https://github.com/eamodio/vscode-gitlens/issues/114) - Stylus files makes CodeLens freak out
 
 ## 4.4.0 - 2017-08-18
 
@@ -2958,7 +3028,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all the lines changed in the most recent commit
-  - Can customize the [layout](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can customize the [layout](https://github.com/eamodio/vscode-gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds _Toggle Recent File Changes Annotations_ command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Adds ability to press `Escape` to quickly toggle any whole-file annotations off
 - Improves performance
@@ -2983,13 +3053,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new, beautiful, highly customizable and themable, file blame annotations
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#file-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds all-new configurability and themeability to the current line blame annotations
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#line-blame-annotation-settings), as well as the [theme](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#line-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
 - Adds all-new configurability to the status bar blame information
-  - Can now fully customize the [layout and content](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#status-bar-settings)
-- Adds all-new [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
-- Adds better [configurability](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#code-lens-settings) over where Git code lens will be shown &mdash; both by default and per language
+  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#status-bar-settings)
+- Adds all-new [configurability](https://github.com/eamodio/vscode-gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
+- Adds better [configurability](https://github.com/eamodio/vscode-gitlens#code-lens-settings) over where Git CodeLens will be shown &mdash; both by default and per language
 - Adds an all-new **changes** (diff) hover annotation to the current line - provides instant access to the line's previous version
 - Adds _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
 - Adds _Show Line Blame Annotations_ command (`gitlens.showLineBlame`) - shows the current line blame annotations
@@ -3004,10 +3074,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#extension-settings)`
-- Changes the positioning of the Git code lens to try to be at the end of any other code lens on the same line
+- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens#extension-settings)`
+- Changes the positioning of the Git CodeLens to try to be at the end of any other CodeLens on the same line
 - Changes the position of the _Open File in Remote_ command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
-- Changes the _Toggle Git Code Lens_ command (`gitlens.toggleCodeLens`) to always toggle the Git code lens on and off
+- Changes the _Toggle Git CodeLens_ command (`gitlens.toggleCodeLens`) to always toggle the Git CodeLens on and off
 - Changes the default of `gitlens.advanced.toggleWhitespace.enabled` back to `true`, but automatically disables whitespace toggling if whitespace rendering is not on
 
 ### Removed
@@ -3057,7 +3127,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes certain code lens actions to be unavailable (unclickable) when the commit referenced is uncommitted - avoids unwanted error messages
+- Changes certain CodeLens actions to be unavailable (unclickable) when the commit referenced is uncommitted - avoids unwanted error messages
 - Debounces more events when tracking the active line to further reduce lag
 
 ### Fixed
@@ -3143,12 +3213,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Completely overhauls the [GitLens documentation](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
+- Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 
 ### Changed
 
-- Changes _Toggle Git Code Lens_ command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
+- Changes _Toggle Git CodeLens_ command to work when `gitlens.codeLens.visibility` is set to `auto` (the default)
 - Renames _Compare with..._ command to _Compare File with..._
 - Renames _Compare with Next Commit_ command to _Compare File with Next Commit_
 - Renames _Compare with Previous Commit_ command to _Compare File with Previous Commit_
@@ -3298,7 +3368,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds file status rollup information to the commit details quick pick menu
 - Adds _Compare with..._ (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick menu)
 - Adds branch quick pick menu to _Directory Compare_ (`gitlens.diffDirectory`) command
-- Adds support for `gitlens.showQuickFileHistory` command execution via code lens to limit results to the code lens block
+- Adds support for `gitlens.showQuickFileHistory` command execution via CodeLens to limit results to the CodeLens block
 - Adds current branch to branch quick pick menu placeholder
 - Adds _Show Branch History_ command to the branch history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
 - Adds _Show File History_ command to the file history quick pick menu when showing only limited commits (e.g. starting at a specified commit)
@@ -3311,7 +3381,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes issue with `gitlens.diffWithPrevious` command execution via code lens when the code lens was not at the document/file level
+- Fixes issue with `gitlens.diffWithPrevious` command execution via CodeLens when the CodeLens was not at the document/file level
 - Fixes issue where full shas were displayed on the file/blame history explorers
 - Fixes [#30](https://github.com/eamodio/vscode-gitlens/issues/30) - Diff with Working Tree fails from repo/commit quick pick list if file was renamed (and the commit was before the rename)
 - Fixes various other quick pick menu command issues when a file was renamed
@@ -3323,13 +3393,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level code lens from `html` and `vue` language files
+- Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level CodeLens from `html` and `vue` language files
 
 ## 2.12.1
 
 ### Added
 
-- Adds `gitlens.advanced.codeLens.debug` setting to control whether to show debug information in code lens
+- Adds `gitlens.advanced.codeLens.debug` setting to control whether to show debug information in CodeLens
 
 ### Fixed
 
@@ -3389,7 +3459,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds `gitlens.showQuickCommitFileDetails` command to show a quick pick menu of details for a file commit
-- Adds `gitlens.showQuickCommitFileDetails` command to code lens
+- Adds `gitlens.showQuickCommitFileDetails` command to CodeLens
 - Adds `gitlens.showQuickCommitFileDetails` command to the status bar
 - Adds `gitlens.closeUnchangedFiles` command to close any editors that don't have uncommitted changes
 - Adds `gitlens.openChangedFiles` command to open all files that have uncommitted changes
@@ -3420,9 +3490,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level code lens isn't using the blame of the whole file as it should
+- Fixes [#43](https://github.com/eamodio/vscode-gitlens/issues/43) - File-level CodeLens isn't using the blame of the whole file as it should
 - Fixes issue with single quotes (') in annotations
-- Fixes output channel logging (also adds more debug information to code lens &mdash; when enabled)
+- Fixes output channel logging (also adds more debug information to CodeLens &mdash; when enabled)
 
 ## 2.10.0
 
@@ -3445,7 +3515,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - To accommodate the realization that blame information is invalid when a file has unsaved changes, the following behavior changes have been made
   - Status bar blame information will hide
-  - Code lens change to a `Cannot determine...` message and become unclickable
+  - CodeLens change to a `Cannot determine...` message and become unclickable
   - Many menu choices and commands will hide
 
 ### Fixed
@@ -3494,7 +3564,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes some issue where some editors opened by the quick pick would not be opened in preview tabs
 - Fixes issue where copy to clipboard commands would fail if there was no active editor
 - Fixes issue where active line annotations would show for opened versioned files
-- Fixes issue where code lens compare commands on opened versioned files would fail
+- Fixes issue where CodeLens compare commands on opened versioned files would fail
 
 ## 2.7.1
 
@@ -3604,7 +3674,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds icons for some commands
 - Adds `gitlens.diffWithPrevious` command to the editor content menu
 - Adds `gitlens.diffWithWorking` command to the editor content menu
-- Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to code lens
+- Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to CodeLens
 - Adds `gitlens.showQuickRepoHistory` and `gitlens.showQuickCommitDetails` commands to the status bar
 
 ### Changed
@@ -3623,7 +3693,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with certain git commands not working on Windows
 - Fixes [#31](https://github.com/eamodio/vscode-gitlens/issues/31) - Disable gitlens if the project does not have `.git` folder
 - Fixes issue where quick pick menus could fail if there was no active editor
-- Fixes code lens not updating in response to configuration changes
+- Fixes CodeLens not updating in response to configuration changes
 
 ## 2.1.1
 
@@ -3690,7 +3760,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes issue where the status bar blame would get stuck switching between editors
-- Fixes issue where code lens aren't updated properly after a file is saved
+- Fixes issue where CodeLens aren't updated properly after a file is saved
 
 ## 1.4.3
 
@@ -3802,18 +3872,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds ability to show multiple blame annotation at the same time (one per vscode editor)
 - Adds new `gitlens.showFileHistory` command to open the history explorer
 - Adds new `gitlens.showFileHistory` option to the `gitlens.codeLens.recentChange.command`, `gitlens.codeLens.authors.command`, and `gitlens.statusBar.command` settings
-- Adds per-language code lens location customization using the `gitlens.codeLens.languageLocations` setting
+- Adds per-language CodeLens location customization using the `gitlens.codeLens.languageLocations` setting
 - Adds new `gitlens.diffLineWithPrevious` command for line sensitive diffs
 - Adds new `gitlens.diffLineWithWorking` command for line sensitive diffs
 - Adds `gitlens.diffWithPrevious` command to the explorer context menu
 - Adds output channel logging, controlled by the `gitlens.advanced.output.level` setting
-- Improves performance of the code lens support
-- Improves performance (significantly) when only showing code lens at the document level
+- Improves performance of the CodeLens support
+- Improves performance (significantly) when only showing CodeLens at the document level
 - Improves performance of status bar blame support
 
 ### Changed
 
-- Switches on-demand code lens to be a global toggle (rather than per file)
+- Switches on-demand CodeLens to be a global toggle (rather than per file)
 - Complete rewrite of the blame annotation provider to reduce overhead and provide better performance
 - Changes `gitlens.diffWithPrevious` command to always be file sensitive diffs
 - Changes `gitlens.diffWithWorking` command to always be file sensitive diffs
@@ -3885,8 +3955,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds new code lens visibility & location settings &mdash; see **Extension Settings** for details
-- Adds new command to toggle code lens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
+- Adds new CodeLens visibility & location settings &mdash; see **Extension Settings** for details
+- Adds new command to toggle CodeLens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
 
 ## 0.2.0
 
@@ -3898,7 +3968,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#1](https://github.com/eamodio/vscode-gitlens/issues/1) - Support blame on files outside the workspace repository
 - Fixes failures with Diff with Previous command
-- Fixes issues with blame explorer code lens when dealing with previous commits
+- Fixes issues with blame explorer CodeLens when dealing with previous commits
 - Fixes display issues with compact blame annotations (now skips blank lines)
 
 ## 0.1.3
@@ -3935,7 +4005,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Removes code lens from fields and single-line properties to reduce visual noise
+- Removes CodeLens from fields and single-line properties to reduce visual noise
 - Automatically turns off blame only when required now
 
 ### Fixed

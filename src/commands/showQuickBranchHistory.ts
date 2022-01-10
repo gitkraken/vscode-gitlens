@@ -1,8 +1,8 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitReference } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitReference } from '../git/models';
 import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { executeGitCommand } from './gitCommands';
 
@@ -32,7 +32,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.git.getHighlanderRepoPath();
+		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.instance.git.highlanderRepoPath;
 		let ref: GitReference | 'HEAD' | undefined;
 		if (repoPath != null) {
 			if (args?.branch != null) {

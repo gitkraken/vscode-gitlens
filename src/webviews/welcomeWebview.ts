@@ -5,11 +5,11 @@ import { WelcomeState } from './protocol';
 import { WebviewBase } from './webviewBase';
 
 export class WelcomeWebview extends WebviewBase {
-	constructor() {
-		super(Commands.ShowWelcomePage);
+	constructor(container: Container) {
+		super(Commands.ShowWelcomePage, container);
 	}
 
-	get filename(): string {
+	get fileName(): string {
 		return 'welcome.html';
 	}
 
@@ -23,7 +23,7 @@ export class WelcomeWebview extends WebviewBase {
 
 	override renderEndOfBody() {
 		const bootstrap: WelcomeState = {
-			config: Container.config,
+			config: this.container.config,
 		};
 		return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
 			bootstrap,

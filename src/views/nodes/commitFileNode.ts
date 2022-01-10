@@ -1,10 +1,10 @@
 'use strict';
-import * as paths from 'path';
+import { dirname, join as joinPaths } from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { GitBranch, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
@@ -49,7 +49,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			// Try to get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit == null) {
-				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -69,8 +69,8 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 
 		const icon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 		};
 
 		item.command = this.getCommand();
@@ -100,7 +100,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = dirname(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

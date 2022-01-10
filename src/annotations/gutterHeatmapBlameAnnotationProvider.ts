@@ -1,9 +1,10 @@
 'use strict';
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { GitBlameCommit } from '../git/git';
+import { Container } from '../container';
+import { GitBlameCommit } from '../git/models';
 import { Logger } from '../logger';
-import { log, Strings } from '../system';
+import { log, Stopwatch } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
 import { AnnotationContext } from './annotationProvider';
@@ -11,8 +12,8 @@ import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
-		super(FileAnnotationType.Heatmap, editor, trackedDocument);
+	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
+		super(FileAnnotationType.Heatmap, editor, trackedDocument, container);
 	}
 
 	@log()
@@ -24,7 +25,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		let start = process.hrtime();
+		const sw = new Stopwatch(cc!);
 
 		const decorationsMap = new Map<
 			string,
@@ -48,17 +49,15 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			);
 		}
 
-		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute heatmap annotations`);
+		sw.restart({ suffix: ' to compute heatmap annotations' });
 
 		if (decorationsMap.size) {
-			start = process.hrtime();
-
 			this.setDecorations([...decorationsMap.values()]);
 
-			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
+			sw.stop({ suffix: ' to apply all heatmap annotations' });
 		}
 
-		// this.registerHoverProviders(Container.config.hovers.annotations);
+		// this.registerHoverProviders(this.container.config.hovers.annotations);
 		return true;
 	}
 

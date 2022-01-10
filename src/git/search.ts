@@ -1,6 +1,5 @@
 'use strict';
-import { GitRevision } from './git';
-import { GitRevisionReference } from './models/models';
+import { GitRevision, GitRevisionReference } from './models';
 
 export type SearchOperators =
 	| ''
@@ -37,12 +36,22 @@ export interface SearchPattern {
 }
 
 export namespace SearchPattern {
-	const emptyStr = '';
+	const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
+		['', 'message:'],
+		['=:', 'message:'],
+		['message:', 'message:'],
+		['@:', 'author:'],
+		['author:', 'author:'],
+		['#:', 'commit:'],
+		['commit:', 'commit:'],
+		['?:', 'file:'],
+		['file:', 'file:'],
+		['~:', 'change:'],
+		['change:', 'change:'],
+	]);
 
-	const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/;
-	const searchMessageValuesRegex = /(".+"|[^\b\s]+)/g;
 	const searchOperationRegex =
-		/((?:=|message|@|author|#|commit|\?|file|~|change):)\s?(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/g;
+		/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+\b}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
 
 	export function fromCommit(ref: string): string;
 	export function fromCommit(commit: GitRevisionReference): string;
@@ -59,81 +68,34 @@ export namespace SearchPattern {
 	export function parseSearchOperations(search: string): Map<string, string[]> {
 		const operations = new Map<string, string[]>();
 
-		let op;
-		let value;
+		let op: SearchOperators | undefined;
+		let value: string | undefined;
+		let text: string | undefined;
 
-		let match = searchMessageOperationRegex.exec(search);
-		if (match != null && match[1] !== '') {
-			[, value] = match;
+		let match;
+		do {
+			match = searchOperationRegex.exec(search);
+			if (match?.groups == null) break;
 
-			if (GitRevision.isSha(value)) {
-				let values = operations.get('commit:');
-				if (values === undefined) {
-					values = [value];
-					operations.set('commit:', values);
+			op = normalizeSearchOperatorsMap.get(match.groups.op as SearchOperators);
+			({ value, text } = match.groups);
+
+			if (text) {
+				op = GitRevision.isSha(text) ? 'commit:' : 'message:';
+				value = text;
+			}
+
+			if (op && value) {
+				const values = operations.get(op);
+				if (values == null) {
+					operations.set(op, [value]);
 				} else {
 					values.push(value);
 				}
-			} else {
-				parseSearchMessageOperations(value, operations);
 			}
-		}
-
-		do {
-			match = searchOperationRegex.exec(search);
-			if (match == null) break;
-
-			[, op, value] = match;
-
-			if (op !== undefined) {
-				op = normalizeSearchOperatorsMap.get(op as SearchOperators)!;
-
-				if (op === 'message:') {
-					parseSearchMessageOperations(value, operations);
-				} else {
-					let values = operations.get(op);
-					if (values === undefined) {
-						values = [value];
-						operations.set(op, values);
-					} else {
-						values.push(value);
-					}
-				}
-			}
-		} while (true);
+		} while (match != null);
 
 		return operations;
-	}
-
-	function parseSearchMessageOperations(message: string, operations: Map<string, string[]>) {
-		let values = operations.get('message:');
-
-		if (message === emptyStr) {
-			if (values === undefined) {
-				values = [''];
-				operations.set('message:', values);
-			} else {
-				values.push('');
-			}
-
-			return;
-		}
-
-		let match;
-		let value;
-		do {
-			match = searchMessageValuesRegex.exec(message);
-			if (match == null) break;
-
-			[, value] = match;
-
-			if (values === undefined) {
-				values = [value];
-				operations.set('message:', values);
-			} else {
-				values.push(value);
-			}
-		} while (true);
 	}
 
 	export function toKey(search: SearchPattern) {
@@ -142,16 +104,3 @@ export namespace SearchPattern {
 		}`;
 	}
 }
-export const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
-	['', 'message:'],
-	['=:', 'message:'],
-	['message:', 'message:'],
-	['@:', 'author:'],
-	['author:', 'author:'],
-	['#:', 'commit:'],
-	['commit:', 'commit:'],
-	['?:', 'file:'],
-	['file:', 'file:'],
-	['~:', 'change:'],
-	['change:', 'change:'],
-]);

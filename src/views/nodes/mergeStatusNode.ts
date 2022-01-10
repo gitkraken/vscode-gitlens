@@ -1,9 +1,9 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
@@ -48,16 +48,14 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -80,7 +78,8 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`${`Merging ${
 				this.mergeStatus.incoming != null ? GitReference.toString(this.mergeStatus.incoming) : ''
 			}into ${GitReference.toString(this.mergeStatus.current)}`}${
@@ -90,6 +89,10 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 
 		return item;
 	}

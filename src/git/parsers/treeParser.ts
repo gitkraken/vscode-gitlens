@@ -1,6 +1,6 @@
 'use strict';
 import { debug } from '../../system';
-import { GitTree } from '../git';
+import { GitTree } from '../models';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;

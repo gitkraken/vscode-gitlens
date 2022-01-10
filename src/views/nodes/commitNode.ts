@@ -1,11 +1,11 @@
 'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
+import { GitBranch, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
@@ -57,16 +57,14 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			const hierarchy = Arrays.makeHierarchical(
 				children as FileNode[],
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			(children as FileNode[]).sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
-			);
+			(children as FileNode[]).sort((a, b) => Strings.sortCompare(a.label!, b.label!));
 		}
 
 		if (!(this.view instanceof TagsView) && !(this.view instanceof FileHistoryView)) {
@@ -83,7 +81,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: this.view.container.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -98,14 +96,14 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: this.view.container.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
 			? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
 			: this.view.config.avatars
-			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+			? await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
 		// item.tooltip = this.tooltip;
 
@@ -137,25 +135,25 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	private async getTooltip() {
-		const remotes = await Container.git.getRemotes(this.commit.repoPath);
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+		const remotes = await this.view.container.git.getRemotes(this.commit.repoPath);
+		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				Container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
-				Container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.view.container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
+				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
 			]);
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${'$(git-commit) 'id}\${' via 'pullRequest}\${ \u2022 changesDetail}\${'&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			`\${'\`$(git-commit) 'id\`}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: this.view.container.config.defaultDateFormat,
 				getBranchAndTagTips: this.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,
@@ -167,6 +165,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		);
 
 		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 
 		return markdown;

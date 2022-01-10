@@ -1,9 +1,10 @@
 'use strict';
-import * as paths from 'path';
+import { dirname } from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
-import { GitFile, GitMergeStatus, GitRebaseStatus, StatusFileFormatter } from '../../git/git';
+import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitMergeStatus, GitRebaseStatus } from '../../git/models';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
@@ -80,7 +81,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = dirname(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

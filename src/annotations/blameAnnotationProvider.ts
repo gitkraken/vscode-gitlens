@@ -2,8 +2,8 @@
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { GitBlame, GitBlameCommit, GitCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -18,12 +18,13 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		annotationType: FileAnnotationType,
 		editor: TextEditor,
 		trackedDocument: TrackedDocument<GitDocumentState>,
+		protected readonly container: Container,
 	) {
 		super(annotationType, editor, trackedDocument);
 
 		this.blame = editor.document.isDirty
-			? Container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
-			: Container.git.getBlameForFile(this.trackedDocument.uri);
+			? this.container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
+			: this.container.git.getBlameForFile(this.trackedDocument.uri);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -69,7 +70,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		dates.sort((a, b) => a.getTime() - b.getTime());
 
 		const coldThresholdDate = new Date();
-		coldThresholdDate.setDate(coldThresholdDate.getDate() - (Container.config.heatmap.ageThreshold || 90));
+		coldThresholdDate.setDate(coldThresholdDate.getDate() - (this.container.config.heatmap.ageThreshold || 90));
 		const coldThresholdTimestamp = coldThresholdDate.getTime();
 
 		const hotDates: Date[] = [];
@@ -122,8 +123,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 	registerHoverProviders(providers: { details: boolean; changes: boolean }) {
 		if (
-			!Container.config.hovers.enabled ||
-			!Container.config.hovers.annotations.enabled ||
+			!this.container.config.hovers.enabled ||
+			!this.container.config.hovers.annotations.enabled ||
 			(!providers.details && !providers.changes)
 		) {
 			return;
@@ -144,7 +145,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		position: Position,
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
-		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+
+		if (this.document.uri.toString() !== document.uri.toString()) return undefined;
 
 		const blame = await this.getBlame();
 		if (blame == null) return undefined;
@@ -173,7 +176,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		// Get the full commit message -- since blame only returns the summary
 		let logCommit: GitCommit | undefined = undefined;
 		if (!commit.isUncommitted) {
-			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
+			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
 				ref: commit.sha,
 			});
 			if (logCommit != null) {
@@ -192,7 +195,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			logCommit ?? commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
-			Container.config.defaultDateFormat,
+			this.container.config.hovers.detailsMarkdownFormat,
+			this.container.config.defaultDateFormat,
+			{
+				autolinks: this.container.config.hovers.autolinks.enabled,
+				pullRequests: {
+					enabled: this.container.config.hovers.pullRequests.enabled,
+				},
+			},
 		);
 	}
 }

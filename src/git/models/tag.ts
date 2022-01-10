@@ -1,7 +1,7 @@
 'use strict';
 import { configuration, DateStyle, TagSorting } from '../../configuration';
-import { Dates, memoize } from '../../system';
-import { GitReference, GitTagReference } from './models';
+import { Dates, memoize, Strings } from '../../system';
+import { GitReference, GitTagReference } from '../models';
 
 export const TagDateFormatting = {
 	dateFormat: undefined! as string | null,
@@ -34,13 +34,9 @@ export class GitTag implements GitTagReference {
 			case TagSorting.DateAsc:
 				return tags.sort((a, b) => a.date.getTime() - b.date.getTime());
 			case TagSorting.NameAsc:
-				return tags.sort((a, b) =>
-					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
-				);
+				return tags.sort((a, b) => Strings.sortCompare(a.name, b.name));
 			case TagSorting.NameDesc:
-				return tags.sort((a, b) =>
-					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
-				);
+				return tags.sort((a, b) => Strings.sortCompare(b.name, a.name));
 			case TagSorting.DateDesc:
 			default:
 				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());

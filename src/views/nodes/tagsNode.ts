@@ -1,8 +1,8 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
-import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { Repository } from '../../git/models';
 import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { TagsView } from '../tagsView';
@@ -35,9 +35,10 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const tags = await this.repo.getTags({ sort: true });
-			if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
+			if (tags.values.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
-			const tagNodes = tags.map(
+			// TODO@eamodio handle paging
+			const tagNodes = tags.values.map(
 				t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t),
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;

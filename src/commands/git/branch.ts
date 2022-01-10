@@ -1,9 +1,10 @@
 'use strict';
 import { QuickInputButtons } from 'vscode';
 import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/models';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
+import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -24,6 +25,7 @@ import {
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
 	title: string;
 }
@@ -148,7 +150,8 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			associatedView: Container.instance.branchesView,
+			repos: Container.instance.git.openRepositories,
 			showTags: false,
 			title: this.title,
 		};
@@ -353,10 +356,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Branch', state.references.length, {
-					number: '',
-					plural: 'Branches',
-				}).trim(),
+				Strings.pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
 				state.subcommand,
 			);
 

@@ -95,7 +95,7 @@ yarn run bundle
 To generate a VSIX (installation package) run the following from a terminal:
 
 ```
-yarn run pack
+yarn run package
 ```
 
 ### Debugging
@@ -104,7 +104,7 @@ yarn run pack
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
-3. Choose the `Watch & Launch GitLens` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
 
 ## Submitting a Pull Request
 

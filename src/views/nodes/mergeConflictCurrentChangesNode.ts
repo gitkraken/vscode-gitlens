@@ -2,9 +2,9 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { BuiltInCommands, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { CommitFormatter, GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/git';
+import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
+import { GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/models';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';
@@ -25,7 +25,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const commit = await Container.git.getCommit(this.status.repoPath, 'HEAD');
+		const commit = await this.view.container.git.getCommit(this.status.repoPath, 'HEAD');
 
 		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
@@ -33,10 +33,11 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			commit != null ? ` (${GitReference.toString(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })) ??
+			? (await commit?.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
-		item.tooltip = new MarkdownString(
+
+		const markdown = new MarkdownString(
 			`Current changes to $(file)${GlyphChars.Space}${this.file.fileName} on ${GitReference.toString(
 				this.status.current,
 			)}${
@@ -46,7 +47,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 							commit,
 							{
 								avatarSize: 16,
-								dateFormat: Container.config.defaultDateFormat,
+								dateFormat: this.view.container.config.defaultDateFormat,
 								markdown: true,
 								// messageAutolinks: true,
 								messageIndent: 4,
@@ -56,6 +57,10 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			}`,
 			true,
 		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
 		item.command = this.getCommand();
 
 		return item;

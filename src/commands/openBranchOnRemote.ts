@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import {

@@ -2,14 +2,16 @@
 import { CancellationToken } from 'vscode';
 import { map } from './iterable';
 
-export class CancellationError<TPromise = any> extends Error {
-	constructor(public readonly promise: TPromise, message: string) {
+export type PromiseOrValue<T> = Promise<T> | T;
+
+export class CancellationError<T extends Promise<any> = Promise<any>> extends Error {
+	constructor(public readonly promise: T, message: string) {
 		super(message);
 	}
 }
 
-export class CancellationErrorWithId<T, TPromise = any> extends CancellationError<TPromise> {
-	constructor(public readonly id: T, promise: TPromise, message: string) {
+export class CancellationErrorWithId<TKey, T extends Promise<any> = Promise<any>> extends CancellationError<T> {
+	constructor(public readonly id: TKey, promise: T, message: string) {
 		super(promise, message);
 	}
 }
@@ -26,9 +28,9 @@ export function cancellable<T>(
 
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
-		let timer: NodeJS.Timer | undefined;
+		let timer: any | undefined;
 		if (typeof timeoutOrToken === 'number') {
-			timer = global.setTimeout(() => {
+			timer = globalThis.setTimeout(() => {
 				if (typeof options.onDidCancel === 'function') {
 					options.onDidCancel(resolve, reject);
 				} else {
@@ -81,8 +83,8 @@ export function first<T>(promises: Promise<T>[], predicate: (value: T) => boolea
 	return Promise.race(newPromises);
 }
 
-export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
-	return obj != null && typeof (obj as Promise<T>).then === 'function';
+export function is<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
+	return obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function';
 }
 
 export function raceAll<TPromise>(

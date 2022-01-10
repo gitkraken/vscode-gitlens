@@ -1,5 +1,5 @@
 'use strict';
-import * as paths from 'path';
+import { basename } from 'path';
 import {
 	ConfigurationChangeEvent,
 	DecorationRangeBehavior,
@@ -45,7 +45,7 @@ import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
 import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 
-export enum AnnotationClearReason {
+export const enum AnnotationClearReason {
 	User = 'User',
 	BlameabilityChanged = 'BlameabilityChanged',
 	ColumnChanged = 'ColumnChanged',
@@ -79,11 +79,13 @@ export class FileAnnotationController implements Disposable {
 	private readonly _toggleModes: Map<FileAnnotationType, AnnotationsToggleMode>;
 	private _windowAnnotationType?: FileAnnotationType | undefined = undefined;
 
-	constructor() {
-		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
+	constructor(private readonly container: Container) {
+		this._disposable = Disposable.from(
+			container.onReady(this.onReady, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+		);
 
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
-		this.onConfigurationChanged();
 	}
 
 	dispose() {
@@ -99,8 +101,12 @@ export class FileAnnotationController implements Disposable {
 		this._disposable?.dispose();
 	}
 
+	private onReady(): void {
+		this.onConfigurationChanged();
+	}
+
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		const cfg = Container.config;
+		const cfg = this.container.config;
 
 		if (configuration.changed(e, 'blame.highlight')) {
 			Decorations.gutterBlameHighlight?.dispose();
@@ -274,7 +280,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private onTextDocumentClosed(document: TextDocument) {
-		if (!Container.git.isTrackable(document.uri)) return;
+		if (!this.container.git.isTrackable(document.uri)) return;
 
 		for (const [key, p] of this._annotationProviders) {
 			if (p.document !== document) continue;
@@ -302,7 +308,7 @@ export class FileAnnotationController implements Disposable {
 		void provider.restore(e.textEditor);
 	}
 
-	private onVisibleTextEditorsChanged(editors: TextEditor[]) {
+	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
 		let provider: AnnotationProviderBase | undefined;
 		for (const e of editors) {
 			provider = this.getProvider(e);
@@ -340,7 +346,7 @@ export class FileAnnotationController implements Disposable {
 		const provider = this.getProvider(editor);
 		if (provider == null) return undefined;
 
-		const trackedDocument = await Container.tracker.get(editor!.document);
+		const trackedDocument = await this.container.tracker.get(editor!.document);
 		if (trackedDocument == null || !trackedDocument.isBlameable) return undefined;
 
 		return provider.annotationType;
@@ -385,7 +391,7 @@ export class FileAnnotationController implements Disposable {
 		if (editor == null) return false; // || editor.viewColumn == null) return false;
 		this._editor = editor;
 
-		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) return false;
 
 		const currentProvider = this.getProvider(editor);
@@ -433,7 +439,7 @@ export class FileAnnotationController implements Disposable {
 		on?: boolean,
 	): Promise<boolean> {
 		if (editor != null) {
-			const trackedDocument = await Container.tracker.getOrAdd(editor.document);
+			const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 			if ((type === FileAnnotationType.Changes && !trackedDocument.isTracked) || !trackedDocument.isBlameable) {
 				return false;
 			}
@@ -459,7 +465,7 @@ export class FileAnnotationController implements Disposable {
 	private async attachKeyboardHook() {
 		// Allows pressing escape to exit the annotations
 		if (this._keyboardScope == null) {
-			this._keyboardScope = await Container.keyboard.beginScope({
+			this._keyboardScope = await this.container.keyboard.beginScope({
 				escape: {
 					onDidPressKey: async () => {
 						const e = this._editor;
@@ -528,27 +534,27 @@ export class FileAnnotationController implements Disposable {
 			}
 
 			progress.report({
-				message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`,
+				message: `Computing ${annotationsLabel} for ${basename(editor.document.fileName)}`,
 			});
 		}
 
 		// Allows pressing escape to exit the annotations
 		await this.attachKeyboardHook();
 
-		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
+		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 
 		let provider: AnnotationProviderBase | undefined = undefined;
 		switch (type) {
 			case FileAnnotationType.Blame:
-				provider = new GutterBlameAnnotationProvider(editor, trackedDocument);
+				provider = new GutterBlameAnnotationProvider(editor, trackedDocument, this.container);
 				break;
 
 			case FileAnnotationType.Changes:
-				provider = new GutterChangesAnnotationProvider(editor, trackedDocument);
+				provider = new GutterChangesAnnotationProvider(editor, trackedDocument, this.container);
 				break;
 
 			case FileAnnotationType.Heatmap:
-				provider = new GutterHeatmapBlameAnnotationProvider(editor, trackedDocument);
+				provider = new GutterHeatmapBlameAnnotationProvider(editor, trackedDocument, this.container);
 				break;
 		}
 		if (provider == null || !(await provider.validate())) return undefined;
@@ -565,8 +571,8 @@ export class FileAnnotationController implements Disposable {
 				window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
 				window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleTextEditorsChanged, 50), this),
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
-				Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-				Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+				this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+				this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
 			);
 		}
 

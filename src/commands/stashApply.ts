@@ -1,6 +1,6 @@
 'use strict';
 import { GitActions } from '../commands';
-import { GitStashCommit, GitStashReference } from '../git/git';
+import { GitStashCommit, GitStashReference } from '../git/models';
 import { CommandQuickPickItem } from '../quickpicks';
 import {
 	command,
