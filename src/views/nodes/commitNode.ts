@@ -1,5 +1,4 @@
 'use strict';
-import { join as joinPaths } from 'path';
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
@@ -7,6 +6,7 @@ import { Colors, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitBranch, GitLogCommit, GitRevisionReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
+import { joinPaths, normalizePath } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
 import { ViewsWithCommits } from '../viewBase';
@@ -57,7 +57,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			const hierarchy = Arrays.makeHierarchical(
 				children as FileNode[],
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

@@ -1,5 +1,6 @@
 'use strict';
 import { Arrays, debug, Strings } from '../../system';
+import { normalizePath } from '../../system/path';
 import { GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../models';
 import { fileStatusRegex } from './logParser';
 // import { Logger } from './logger';
@@ -46,7 +47,7 @@ export class GitStashParser {
 		if (next.done) return undefined;
 
 		if (repoPath !== undefined) {
-			repoPath = Strings.normalizePath(repoPath);
+			repoPath = normalizePath(repoPath);
 		}
 
 		const commits = new Map<string, GitStashCommit>();

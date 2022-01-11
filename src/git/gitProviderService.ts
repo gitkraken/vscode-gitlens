@@ -28,7 +28,8 @@ import {
 import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
-import { Arrays, debug, gate, Iterables, log, Paths, Promises, Strings } from '../system';
+import { Arrays, debug, gate, Iterables, log, Promises } from '../system';
+import { isDescendent, normalizePath } from '../system/path';
 import { PromiseOrValue } from '../system/promise';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
@@ -1473,14 +1474,14 @@ export class GitProviderService implements Disposable {
 
 		let filePath: string;
 		if (typeof repoPathOrUri === 'string') {
-			filePath = Strings.normalizePath(repoPathOrUri);
+			filePath = normalizePath(repoPathOrUri);
 		} else {
 			if (GitUri.is(repoPathOrUri) && repoPathOrUri.repoPath) {
 				repo = this.getCachedRepository(repoPathOrUri.repoPath);
 				if (repo != null) return repo;
 			}
 
-			filePath = Strings.normalizePath(repoPathOrUri.fsPath);
+			filePath = normalizePath(repoPathOrUri.fsPath);
 			isVslsScheme = repoPathOrUri.scheme === DocumentSchemes.Vsls;
 		}
 
@@ -1556,7 +1557,7 @@ export class GitProviderService implements Disposable {
 		function findBySubPath(repositories: Map<string, Repository>, path: string) {
 			const repos = [...repositories.values()].sort((a, b) => a.path.length - b.path.length);
 			for (const repo of repos) {
-				if (Paths.isDescendent(path, repo.path)) return repo;
+				if (isDescendent(path, repo.path)) return repo;
 			}
 
 			return undefined;
@@ -1566,7 +1567,7 @@ export class GitProviderService implements Disposable {
 		// If we can't find the repo and we are a guest, check if we are a "root" workspace
 		if (repo == null && isVslsScheme !== false && this.container.vsls.isMaybeGuest) {
 			if (!vslsUriPrefixRegex.test(path)) {
-				path = Strings.normalizePath(path);
+				path = normalizePath(path);
 				const vslsPath = `/~0${path.startsWith(slash) ? path : `/${path}`}`;
 				repo = findBySubPath(this._repositories, vslsPath);
 			}

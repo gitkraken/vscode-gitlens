@@ -1,10 +1,10 @@
 'use strict';
-import { dirname, join as joinPaths } from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
+import { dirname, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';

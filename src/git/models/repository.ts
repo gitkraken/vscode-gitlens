@@ -1,5 +1,4 @@
 'use strict';
-import { basename, join as joinPaths, relative } from 'path';
 import {
 	commands,
 	ConfigurationChangeEvent,
@@ -21,6 +20,7 @@ import { Container } from '../../container';
 import { Logger, LogLevel } from '../../logger';
 import { Messages } from '../../messages';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
+import { basename, joinPaths, relative } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import { GitProviderDescriptor } from '../gitProvider';
 import { GitUri } from '../gitUri';

@@ -1,10 +1,10 @@
 'use strict';
-import { join as joinPaths } from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/models';
 import { Arrays, Strings } from '../../system';
+import { joinPaths, normalizePath } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { FileNode, FolderNode } from './folderNode';
@@ -48,7 +48,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

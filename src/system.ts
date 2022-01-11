@@ -29,7 +29,6 @@ export * as Encoding from './system/encoding';
 export * as Functions from './system/function';
 export * as Iterables from './system/iterable';
 export * as Objects from './system/object';
-export * as Paths from './system/path';
 export * as Promises from './system/promise';
 export * from './system/searchTree';
 export * from './system/stopwatch';
