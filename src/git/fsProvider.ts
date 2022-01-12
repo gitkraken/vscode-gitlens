@@ -1,5 +1,4 @@
 'use strict';
-import { relative } from 'path';
 import {
 	Disposable,
 	Event,
@@ -15,7 +14,8 @@ import {
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { debug, Iterables, Strings, TernarySearchTree } from '../system';
+import { debug, Iterables, TernarySearchTree } from '../system';
+import { normalizePath, relative } from '../system/path';
 import { GitRevision, GitTree } from './models';
 
 const emptyArray = new Uint8Array(0);
@@ -70,7 +70,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		const items = [
 			...Iterables.map<GitTree, [string, FileType]>(tree, t => [
-				path != null && path.length !== 0 ? Strings.normalizePath(relative(path, t.path)) : t.path,
+				path != null && path.length !== 0 ? normalizePath(relative(path, t.path)) : t.path,
 				typeToFileType(t.type),
 			]),
 		];

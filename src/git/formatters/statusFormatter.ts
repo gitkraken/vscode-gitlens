@@ -1,7 +1,7 @@
 'use strict';
-import { basename } from 'path';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
+import { basename } from '../../system/path';
 import { GitFile, GitFileWithCommit } from '../models/file';
 import { FormatOptions, Formatter } from './formatter';
 

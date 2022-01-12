@@ -1,5 +1,4 @@
 'use strict';
-import { join as joinPaths } from 'path';
 import {
 	Command,
 	MarkdownString,
@@ -15,6 +14,7 @@ import { Colors, GlyphChars } from '../../constants';
 import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
+import { joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';

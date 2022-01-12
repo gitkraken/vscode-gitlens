@@ -1,5 +1,4 @@
 'use strict';
-import { basename } from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
@@ -7,6 +6,7 @@ import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { basename } from '../system/path';
 import {
 	ActiveEditorCommand,
 	command,

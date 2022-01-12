@@ -1,5 +1,4 @@
 'use strict';
-import { relative } from 'path';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
@@ -9,6 +8,7 @@ import { GitReference } from '../git/models';
 import { Messages } from '../messages';
 import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
+import { normalizePath, relative } from '../system/path';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { GitActions } from './gitCommands';
 
@@ -44,7 +44,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		if (args.reference == null) {
 			if (args?.stash) {
-				const fileName = Strings.normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
+				const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 
 				const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await StashPicker.show(

@@ -1,5 +1,4 @@
 'use strict';
-import { basename, join as joinPaths } from 'path';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
@@ -14,6 +13,7 @@ import {
 } from '../../git/models';
 import { Logger } from '../../logger';
 import { Arrays, debug, gate, Iterables, memoize } from '../../system';
+import { basename, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';

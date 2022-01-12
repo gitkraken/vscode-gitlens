@@ -1,5 +1,4 @@
 'use strict';
-import { basename } from 'path';
 import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -7,6 +6,7 @@ import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { basename } from '../system/path';
 import { command, Command, Commands } from './common';
 
 export interface DiffWithCommandArgsRevision {

@@ -1,5 +1,4 @@
 'use strict';
-import { basename } from 'path';
 import {
 	ConfigurationChangeEvent,
 	DecorationRangeBehavior,
@@ -30,6 +29,7 @@ import { Container } from '../container';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
+import { basename } from '../system/path';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyStateChangeEvent,

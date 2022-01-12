@@ -2,7 +2,7 @@
 import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/models';
-import { Strings } from '../../system';
+import { normalizePath } from '../../system/path';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
@@ -104,7 +104,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		if (scmRepositories.length) {
 			// Filter out any repo's that are not known to the built-in git
 			context.repos = context.repos.filter(repo =>
-				scmRepositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
+				scmRepositories.find(r => normalizePath(r.rootUri.fsPath) === repo.path),
 			);
 
 			// Ensure that the active repo is known to the built-in git

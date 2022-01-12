@@ -1,5 +1,4 @@
 'use strict';
-import { extname } from 'path';
 import {
 	commands,
 	Disposable,
@@ -32,6 +31,7 @@ import {
 } from '../git/models';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
+import { extname } from '../system/path';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export const enum Commands {

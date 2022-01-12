@@ -1,10 +1,10 @@
 'use strict';
-import { join as joinPaths } from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
 import { Arrays, Iterables, Strings } from '../../system';
+import { joinPaths, normalizePath } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatus } from './branchTrackingStatusNode';
@@ -84,7 +84,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

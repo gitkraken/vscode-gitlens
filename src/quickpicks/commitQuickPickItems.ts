@@ -1,5 +1,4 @@
 'use strict';
-import { basename } from 'path';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
@@ -8,6 +7,7 @@ import { CommitFormatter } from '../git/formatters';
 import { GitFile, GitLogCommit, GitStatusFile } from '../git/models';
 import { Keys } from '../keyboard';
 import { Strings } from '../system';
+import { basename } from '../system/path';
 import { CommandQuickPickItem } from './quickPicksItems';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {

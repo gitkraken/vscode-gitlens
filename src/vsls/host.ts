@@ -5,7 +5,8 @@ import type { LiveShare, SharedService } from '../@types/vsls';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { debug, Iterables, log, Strings } from '../system';
+import { debug, Iterables, log } from '../system';
+import { normalizePath } from '../system/path';
 import {
 	GitCommandRequest,
 	GitCommandRequestType,
@@ -111,8 +112,8 @@ export class VslsHostService implements Disposable {
 		let localPath;
 		let sharedPath;
 		for (const f of workspace.workspaceFolders) {
-			localPath = Strings.normalizePath(f.uri.fsPath);
-			sharedPath = Strings.normalizePath(this.convertLocalUriToShared(f.uri).fsPath);
+			localPath = normalizePath(f.uri.fsPath);
+			sharedPath = normalizePath(this.convertLocalUriToShared(f.uri).fsPath);
 
 			Logger.debug(cc, `shared='${sharedPath}' \u2194 local='${localPath}'`);
 			this._localToSharedPaths.set(localPath, sharedPath);
@@ -142,7 +143,7 @@ export class VslsHostService implements Disposable {
 		if (options.cwd !== undefined && options.cwd.length > 0 && this._sharedToLocalPaths !== undefined) {
 			// This is all so ugly, but basically we are converting shared paths to local paths
 			if (this._sharedPathsRegex?.test(options.cwd)) {
-				options.cwd = Strings.normalizePath(options.cwd).replace(this._sharedPathsRegex, (match, shared) => {
+				options.cwd = normalizePath(options.cwd).replace(this._sharedPathsRegex, (match, shared) => {
 					if (!isRootWorkspace) {
 						isRootWorkspace = shared === '/~0';
 					}
@@ -180,7 +181,7 @@ export class VslsHostService implements Disposable {
 					args.splice(
 						i,
 						1,
-						Strings.normalizePath(arg).replace(this._sharedPathsRegex, (match, shared) => {
+						normalizePath(arg).replace(this._sharedPathsRegex, (match, shared) => {
 							const local = this._sharedToLocalPaths.get(shared);
 							return local != null ? local : shared;
 						}),
@@ -212,7 +213,7 @@ export class VslsHostService implements Disposable {
 		_cancellation: CancellationToken,
 	): Promise<RepositoriesInFolderResponse> {
 		const uri = this.convertSharedUriToLocal(Uri.parse(request.folderUri));
-		const normalized = Strings.normalizePath(uri.fsPath, { stripTrailingSlash: true }).toLowerCase();
+		const normalized = normalizePath(uri.fsPath).toLowerCase();
 
 		const repos = [
 			...Iterables.filterMap(this.container.git.repositories, r => {

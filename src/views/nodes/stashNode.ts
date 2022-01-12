@@ -1,10 +1,10 @@
 'use strict';
-import { join as joinPaths } from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters';
 import { GitStashCommit, GitStashReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
+import { joinPaths, normalizePath } from '../../system/path';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
@@ -43,7 +43,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			const hierarchy = Arrays.makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(joinPaths(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 

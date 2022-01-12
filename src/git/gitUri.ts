@@ -1,11 +1,12 @@
 'use strict';
-import { basename, dirname, isAbsolute, join as joinPaths, relative } from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug, memoize, Strings } from '../system';
+import { basename, dirname, isAbsolute, joinPaths, normalizePath, relative } from '../system/path';
+import { CharCode } from '../system/string';
 import { GitCommit, GitFile, GitRevision } from './models';
 
 const emptyStr = '';
@@ -165,7 +166,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	get relativePath() {
-		return Strings.normalizePath(this.relativeFsPath);
+		return normalizePath(this.relativeFsPath);
 	}
 
 	@memoize()
@@ -308,7 +309,7 @@ export class GitUri extends (Uri as any as UriEx) {
 					remoteName: string;
 				} = JSON.parse(uri.query);
 
-				let repoPath = Strings.normalizePath(uri.fsPath);
+				let repoPath = normalizePath(uri.fsPath);
 				if (repoPath.endsWith(data.fileName)) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
@@ -329,7 +330,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	static getDirectory(fileName: string, relativeTo?: string): string {
 		let directory: string | undefined = dirname(fileName);
-		directory = relativeTo != null ? GitUri.relativeTo(directory, relativeTo) : Strings.normalizePath(directory);
+		directory = relativeTo != null ? GitUri.relativeTo(directory, relativeTo) : normalizePath(directory);
 		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
 	}
 
@@ -413,7 +414,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			relativeTo == null || relativeTo.length === 0 || !isAbsolute(fileName)
 				? fileName
 				: relative(relativeTo, fileName);
-		return Strings.normalizePath(relativePath);
+		return normalizePath(relativePath);
 	}
 
 	static git(fileName: string, repoPath?: string) {
@@ -431,15 +432,15 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static resolve(fileName: string, repoPath?: string) {
-		const normalizedFileName = Strings.normalizePath(fileName);
+		const normalizedFileName = normalizePath(fileName);
 		if (repoPath === undefined) return normalizedFileName;
 
-		const normalizedRepoPath = Strings.normalizePath(repoPath);
+		const normalizedRepoPath = normalizePath(repoPath);
 		if (normalizedFileName == null || normalizedFileName.length === 0) return normalizedRepoPath;
 
 		if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
 
-		return Strings.normalizePath(joinPaths(normalizedRepoPath, normalizedFileName));
+		return normalizePath(joinPaths(normalizedRepoPath, normalizedFileName));
 	}
 
 	static resolveToUri(fileName: string, repoPath?: string) {
@@ -450,7 +451,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	static toKey(uri: Uri): string;
 	static toKey(fileNameOrUri: string | Uri): string;
 	static toKey(fileNameOrUri: string | Uri): string {
-		return Strings.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath);
+		return normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath);
 
 		// return typeof fileNameOrUri === 'string'
 		//     ? GitUri.file(fileNameOrUri).toString(true)
@@ -493,11 +494,15 @@ export class GitUri extends (Uri as any as UriEx) {
 			return GitRevision.isUncommittedStaged(ref) ? GitUri.git(fileName, repoPath) : Uri.file(fileName);
 		}
 
-		const filePath = Strings.normalizePath(fileName, { addLeadingSlash: true });
+		let filePath = normalizePath(fileName);
+		if (filePath.charCodeAt(0) !== CharCode.Slash) {
+			filePath = `/${filePath}`;
+		}
+
 		const data: UriRevisionData = {
 			path: filePath,
 			ref: ref,
-			repoPath: Strings.normalizePath(repoPath!),
+			repoPath: normalizePath(repoPath!),
 		};
 
 		const uri = Uri.parse(

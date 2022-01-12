@@ -22,7 +22,8 @@ import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { debug, gate, Iterables, Strings } from '../system';
+import { debug, gate, Iterables } from '../system';
+import { normalizePath } from '../system/path';
 import {
 	Author,
 	Commit,
@@ -164,7 +165,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
+		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
 		const repo = await this.container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];

@@ -1,7 +1,7 @@
 'use strict';
-import { relative } from 'path';
 import { Range } from 'vscode';
 import { Arrays, debug, Strings } from '../../system';
+import { normalizePath, relative } from '../../system/path';
 import {
 	GitAuthor,
 	GitCommitType,
@@ -112,7 +112,7 @@ export class GitLogParser {
 		if (next.done) return undefined;
 
 		if (repoPath !== undefined) {
-			repoPath = Strings.normalizePath(repoPath);
+			repoPath = normalizePath(repoPath);
 		}
 
 		const authors = new Map<string, GitAuthor>();
@@ -340,13 +340,13 @@ export class GitLogParser {
 
 					if (first && repoPath === undefined && type === GitCommitType.LogFile && fileName !== undefined) {
 						// Try to get the repoPath from the most recent commit
-						repoPath = Strings.normalizePath(
+						repoPath = normalizePath(
 							fileName.replace(
 								fileName.startsWith(slash) ? `/${entry.fileName}` : entry.fileName!,
 								emptyStr,
 							),
 						);
-						relativeFileName = Strings.normalizePath(relative(repoPath, fileName));
+						relativeFileName = normalizePath(relative(repoPath, fileName));
 					} else {
 						relativeFileName = entry.fileName!;
 					}

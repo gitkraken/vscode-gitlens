@@ -1,6 +1,6 @@
 'use strict';
-import { relative } from 'path';
 import { debug, Strings } from '../../system';
+import { normalizePath, relative } from '../../system/path';
 import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../models';
 
 const emptyStr = '';
@@ -125,13 +125,13 @@ export class GitBlameParser {
 
 					if (first && repoPath === undefined) {
 						// Try to get the repoPath from the most recent commit
-						repoPath = Strings.normalizePath(
+						repoPath = normalizePath(
 							fileName.replace(
 								fileName.startsWith(slash) ? `/${entry.fileName}` : entry.fileName,
 								emptyStr,
 							),
 						);
-						relativeFileName = Strings.normalizePath(relative(repoPath, fileName));
+						relativeFileName = normalizePath(relative(repoPath, fileName));
 					} else {
 						relativeFileName = entry.fileName;
 					}

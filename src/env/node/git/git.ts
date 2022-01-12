@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
-import { dirname, isAbsolute, join as joinPaths } from 'path';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
@@ -9,7 +8,8 @@ import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions
 import { GitDiffFilter, GitRevision } from '../../../git/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from '../../../git/parsers';
 import { Logger } from '../../../logger';
-import { Paths, Strings, Versions } from '../../../system';
+import { Strings, Versions } from '../../../system';
+import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { GitLocation } from './locator';
 import { fsExists, run, RunError, RunOptions } from './shell';
 
@@ -231,7 +231,7 @@ export namespace Git {
 		ref?: string,
 		options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -303,7 +303,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -401,7 +401,7 @@ export namespace Git {
 			params.push(ref, '--');
 
 			if (fileName) {
-				[fileName, repoPath] = Paths.splitPath(fileName, repoPath);
+				[fileName, repoPath] = splitPath(fileName, repoPath);
 
 				params.push(fileName);
 			}
@@ -804,7 +804,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		const params = [
 			'log',
@@ -852,7 +852,7 @@ export namespace Git {
 		if (format !== 'refs') {
 			if (startLine == null) {
 				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
-				if (format === 'simple' || Paths.isFolderGlob(file)) {
+				if (format === 'simple' || isFolderGlob(file)) {
 					params.push('--name-status');
 				} else {
 					params.push('--numstat', '--summary');
@@ -1257,7 +1257,7 @@ export namespace Git {
 
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			result = Strings.normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+			result = normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
 
 			// MSYS2 Git (not Git for Windows) rev-parse returns Cygwin style path. (Git for Windows returns Windows style path with rev-parse)
 			// Convert Cygwin style path -> Windows style path
@@ -1313,7 +1313,7 @@ export namespace Git {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
 		} = {},
 	): Promise<TOut | undefined> {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			ref = ':';
@@ -1497,7 +1497,7 @@ export namespace Git {
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
 	): Promise<string> {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
 		if (await Git.isAtLeastVersion('2.18')) {

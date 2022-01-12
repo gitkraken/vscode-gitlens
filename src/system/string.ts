@@ -1,7 +1,6 @@
 'use strict';
 import ansiRegex from 'ansi-regex';
 import { md5 as _md5 } from '@env/crypto';
-import { isWindows } from '@env/platform';
 
 export { fromBase64, base64 } from '@env/base64';
 
@@ -159,9 +158,6 @@ export function getSuperscript(num: number) {
 	return superscripts[num - 1] ?? '';
 }
 
-const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
-const pathNormalizeRegex = /\\/g;
-const pathStripTrailingSlashRegex = /\/$/g;
 const tokenRegex = /\$\{('.*?[^\\]'|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?('.*?[^\\]'|\W*)?\}/g;
 const tokenSanitizeRegex = /\$\{(?:'.*?[^\\]'|\W*)?(\w*?)(?:'.*?[^\\]'|[\W\d]*)\}/g;
 const tokenGroupCharacter = "'";
@@ -283,27 +279,6 @@ export function* lines(s: string, char: string = '\n'): IterableIterator<string>
 
 export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
 	return _md5(s, encoding);
-}
-
-export function normalizePath(fileName: string, options?: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean }) {
-	if (fileName == null || fileName.length === 0) return fileName;
-
-	let normalized = fileName.replace(pathNormalizeRegex, '/');
-
-	if (options?.stripTrailingSlash ?? true) {
-		normalized = normalized.replace(pathStripTrailingSlashRegex, emptyStr);
-	}
-
-	if ((options?.addLeadingSlash ?? false) && normalized.charCodeAt(0) !== CharCode.Slash) {
-		normalized = `/${normalized}`;
-	}
-
-	if (isWindows) {
-		// Ensure that drive casing is normalized (lower case)
-		normalized = normalized.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
-	}
-
-	return normalized;
 }
 
 export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
