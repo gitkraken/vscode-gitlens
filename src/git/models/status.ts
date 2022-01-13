@@ -45,6 +45,10 @@ export class GitStatus {
 		return this.files.filter(f => f.conflicted);
 	}
 
+	get hasChanges() {
+		return this.files.length !== 0;
+	}
+
 	@memoize()
 	get hasConflicts() {
 		return this.files.some(f => f.conflicted);
