@@ -1,6 +1,7 @@
 'use strict';
 import ansiRegex from 'ansi-regex';
 import { md5 as _md5 } from '@env/crypto';
+import { hrtime } from '@env/hrtime';
 
 export { fromBase64, base64 } from '@env/base64';
 
@@ -148,7 +149,7 @@ export function getCommonBase(s1: string, s2: string, delimiter: string) {
 }
 
 export function getDurationMilliseconds(start: [number, number]) {
-	const [secs, nanosecs] = process.hrtime(start);
+	const [secs, nanosecs] = hrtime(start);
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
