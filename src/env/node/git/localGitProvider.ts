@@ -28,12 +28,13 @@ import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
 	GitProvider,
+	GitProviderDescriptor,
 	GitProviderId,
 	PagedResult,
 	RepositoryInitWatcher,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { GitProviderDescriptor, GitProviderService } from '../../../git/gitProviderService';
+import { GitProviderService } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import {
 	BranchSortOptions,

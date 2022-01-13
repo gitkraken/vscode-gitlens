@@ -76,10 +76,6 @@ import { RemoteProviders } from './remotes/factory';
 import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import { SearchPattern } from './search';
 
-export { type GitProviderDescriptor, GitProviderId };
-
-const slash = '/';
-
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
 	['master', maxDefaultBranchWeight],
@@ -174,7 +170,7 @@ export class GitProviderService implements Disposable {
 				}
 
 				this.resetCaches('providers');
-				void this.updateContext();
+				this.updateContext();
 			}),
 		);
 
@@ -182,7 +178,7 @@ export class GitProviderService implements Disposable {
 		CommitDateFormatting.reset();
 		PullRequestDateFormatting.reset();
 
-		void this.updateContext();
+		this.updateContext();
 	}
 
 	dispose() {
@@ -249,7 +245,7 @@ export class GitProviderService implements Disposable {
 			}
 
 			if (removed.length) {
-				void this.updateContext();
+				this.updateContext();
 
 				// Defer the event trigger enough to let everything unwind
 				queueMicrotask(() => {
@@ -321,6 +317,9 @@ export class GitProviderService implements Disposable {
 	 */
 	@log({ args: { 1: false }, singleLine: true })
 	register(id: GitProviderId, provider: GitProvider): Disposable {
+		if (id !== provider.descriptor.id) {
+			throw new Error(`Id '${id}' must match provider id '${provider.descriptor.id}'`);
+		}
 		if (this._providers.has(id)) throw new Error(`Provider '${id}' has already been registered`);
 
 		this._providers.set(id, provider);
@@ -347,7 +346,7 @@ export class GitProviderService implements Disposable {
 			...disposables,
 			provider.onDidChangeRepository(e => {
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
-					void this.updateContext();
+					this.updateContext();
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
@@ -378,7 +377,7 @@ export class GitProviderService implements Disposable {
 					}
 				}
 
-				void this.updateContext();
+				this.updateContext();
 
 				if (removed.length) {
 					// Defer the event trigger enough to let everything unwind
@@ -413,7 +412,23 @@ export class GitProviderService implements Disposable {
 			}
 		}
 
-		void this.updateContext();
+		this.updateContext();
+	}
+
+	getOpenProviders(): GitProvider[] {
+		const map = this.getOpenRepositoriesByProvider();
+		return [...map.keys()].map(id => this._providers.get(id)!);
+	}
+
+	getOpenRepositories(id: GitProviderId): Iterable<Repository> {
+		return Iterables.filter(this.repositories, r => !r.closed && (id == null || id === r.provider.id));
+	}
+
+	getOpenRepositoriesByProvider(): Map<GitProviderId, Repository[]> {
+		const repositories = [...Iterables.filter(this.repositories, r => !r.closed)];
+		if (repositories.length === 0) return new Map();
+
+		return Arrays.groupByMap(repositories, r => r.provider.id);
 	}
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
@@ -451,7 +466,7 @@ export class GitProviderService implements Disposable {
 			this._repositories.set(repository.path, repository);
 		}
 
-		void this.updateContext();
+		this.updateContext();
 
 		if (added.length === 0) return;
 
@@ -510,9 +525,9 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	private async updateContext() {
+	private updateContext() {
 		const hasRepositories = this.openRepositoryCount !== 0;
-		await this.setEnabledContext(hasRepositories);
+		void this.setEnabledContext(hasRepositories);
 
 		// Don't bother trying to set the values if we're still starting up
 		if (!hasRepositories && this._initializing) return;
@@ -557,6 +572,8 @@ export class GitProviderService implements Disposable {
 		}
 
 		void updateRemoteContext.call(this);
+
+		this._providers.forEach(p => p.updateContext?.());
 	}
 
 	private getProvider(repoPath: string | Uri): GitProviderResult {
@@ -1532,7 +1549,7 @@ export class GitProviderService implements Disposable {
 			} else {
 				folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
 				if (folder == null) {
-					const parts = rp.split(slash);
+					const parts = rp.split('/');
 					folder = {
 						uri: GitUri.file(rp, isVslsScheme),
 						name: parts[parts.length - 1],
@@ -1545,7 +1562,7 @@ export class GitProviderService implements Disposable {
 			repo = provider.createRepository(folder, rp, false);
 			this._repositories.set(rp, repo);
 
-			void this.updateContext();
+			this.updateContext();
 			// Send a notification that the repositories changed
 			queueMicrotask(() => this.fireRepositoriesChanged([repo!]));
 
@@ -1577,7 +1594,7 @@ export class GitProviderService implements Disposable {
 		if (repo == null && isVslsScheme !== false && this.container.vsls.isMaybeGuest) {
 			if (!vslsUriPrefixRegex.test(path)) {
 				path = normalizePath(path);
-				const vslsPath = `/~0${path.startsWith(slash) ? path : `/${path}`}`;
+				const vslsPath = `/~0${path.startsWith('/') ? path : `/${path}`}`;
 				repo = findBySubPath(this._repositories, vslsPath);
 			}
 		}

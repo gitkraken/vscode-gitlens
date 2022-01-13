@@ -71,6 +71,7 @@ export interface GitProvider {
 	readonly supportedSchemes: string[];
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
+	updateContext?(): void;
 	createRepository(
 		folder: WorkspaceFolder,
 		path: string,

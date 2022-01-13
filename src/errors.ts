@@ -1,6 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GitProviderId, GitProviderService } from './git/gitProviderService';
+import { GitProviderId } from './git/gitProvider';
+import { GitProviderService } from './git/gitProviderService';
 
 export class ProviderNotFoundError extends Error {
 	readonly id: GitProviderId;
