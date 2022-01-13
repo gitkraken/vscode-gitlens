@@ -9,9 +9,6 @@ import { basename, dirname, isAbsolute, joinPaths, normalizePath, relative } fro
 import { CharCode } from '../system/string';
 import { GitCommit, GitFile, GitRevision } from './models';
 
-const emptyStr = '';
-const slash = '/';
-
 export interface GitCommitish {
 	fileName?: string;
 	repoPath: string;
@@ -113,15 +110,15 @@ export class GitUri extends (Uri as any as UriEx) {
 			case 'http':
 			case 'file':
 				if (!fsPath) {
-					path = slash;
-				} else if (!fsPath.startsWith(slash)) {
+					path = '/';
+				} else if (fsPath.charCodeAt(0) !== CharCode.Slash) {
 					path = `/${fsPath}`;
 				} else {
 					path = fsPath;
 				}
 				break;
 			default:
-				path = fsPath;
+				path = fsPath.charCodeAt(0) !== CharCode.Slash ? `/${fsPath}` : fsPath;
 				break;
 		}
 
@@ -174,9 +171,9 @@ export class GitUri extends (Uri as any as UriEx) {
 		return GitRevision.shorten(this.sha);
 	}
 
-	@memoize<GitUri['documentUri']>(options => `${options?.useVersionedPath ? 'versioned' : ''}`)
-	documentUri({ useVersionedPath }: { useVersionedPath?: boolean } = {}) {
-		if (useVersionedPath && this.versionedPath !== undefined) return GitUri.file(this.versionedPath);
+	@memoize<GitUri['documentUri']>(useVersionedPath => `${useVersionedPath ? 'versioned' : ''}`)
+	documentUri(useVersionedPath: boolean = false) {
+		if (useVersionedPath && this.versionedPath != null) return GitUri.file(this.versionedPath);
 		if (this.scheme !== 'file') return this;
 
 		return GitUri.file(this.fsPath);
@@ -203,14 +200,14 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
 		// Check for authority as used in UNC shares or use the path as given
-		if (fsPath[0] === slash && fsPath[1] === slash) {
-			const index = fsPath.indexOf(slash, 2);
+		if (fsPath.charCodeAt(0) === CharCode.Slash && fsPath.charCodeAt(1) === CharCode.Slash) {
+			const index = fsPath.indexOf('/', 2);
 			if (index === -1) {
 				authority = fsPath.substring(2);
-				fsPath = slash;
+				fsPath = '/';
 			} else {
 				authority = fsPath.substring(2, index);
-				fsPath = fsPath.substring(index) || slash;
+				fsPath = fsPath.substring(index) || '/';
 			}
 		}
 
@@ -274,7 +271,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 				let ref;
 				switch (data.ref) {
-					case emptyStr:
+					case '':
 					case '~':
 						ref = GitRevision.uncommittedStaged;
 						break;
@@ -331,18 +328,16 @@ export class GitUri extends (Uri as any as UriEx) {
 	static getDirectory(fileName: string, relativeTo?: string): string {
 		let directory: string | undefined = dirname(fileName);
 		directory = relativeTo != null ? GitUri.relativeTo(directory, relativeTo) : normalizePath(directory);
-		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
+		return directory == null || directory.length === 0 || directory === '.' ? '' : directory;
 	}
 
 	static getFormattedFileName(
 		fileNameOrUri: string | Uri,
-		options: {
+		options?: {
 			suffix?: string;
 			truncateTo?: number;
-		} = {},
+		},
 	): string {
-		const { suffix = emptyStr, truncateTo } = options;
-
 		let fileName: string;
 		if (fileNameOrUri instanceof Uri) {
 			fileName = fileNameOrUri.fsPath;
@@ -351,16 +346,16 @@ export class GitUri extends (Uri as any as UriEx) {
 		}
 
 		let file = basename(fileName);
-		if (truncateTo != null && file.length >= truncateTo) {
-			return Strings.truncateMiddle(file, truncateTo);
+		if (options?.truncateTo != null && file.length >= options.truncateTo) {
+			return Strings.truncateMiddle(file, options.truncateTo);
 		}
 
-		if (suffix) {
-			if (truncateTo != null && file.length + suffix.length >= truncateTo) {
-				return `${Strings.truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
+		if (options?.suffix) {
+			if (options?.truncateTo != null && file.length + options.suffix.length >= options?.truncateTo) {
+				return `${Strings.truncateMiddle(file, options.truncateTo - options.suffix.length)}${options.suffix}`;
 			}
 
-			file += suffix;
+			file += options.suffix;
 		}
 
 		return file;
@@ -374,7 +369,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			truncateTo?: number;
 		},
 	): string {
-		const { relativeTo, suffix = emptyStr, truncateTo } = options;
+		const { relativeTo, suffix, truncateTo } = options;
 
 		let fileName: string;
 		if (fileNameOrUri instanceof Uri) {
@@ -421,7 +416,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		const path = GitUri.resolve(fileName, repoPath);
 		return Uri.parse(
 			// Change encoded / back to / otherwise uri parsing won't work properly
-			`${DocumentSchemes.Git}:/${encodeURIComponent(path).replace(/%2F/g, slash)}?${encodeURIComponent(
+			`${DocumentSchemes.Git}:/${encodeURIComponent(path).replace(/%2F/g, '/')}?${encodeURIComponent(
 				JSON.stringify({
 					// Ensure we use the fsPath here, otherwise the url won't open properly
 					path: Uri.file(path).fsPath,
@@ -509,7 +504,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			// Replace / in the authority with a similar unicode characters otherwise parsing will be wrong
 			`${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha.replace(/\//g, '\u200A\u2215\u200A'))}${
 				// Change encoded / back to / otherwise uri parsing won't work properly
-				filePath === slash ? emptyStr : encodeURIComponent(filePath).replace(/%2F/g, slash)
+				filePath === '/' ? '' : encodeURIComponent(filePath).replace(/%2F/g, '/')
 			}?${encodeURIComponent(JSON.stringify(data))}`,
 		);
 		return uri;
