@@ -285,13 +285,6 @@ export class Repository implements Disposable {
 	dispose() {
 		this.stopWatchingFileSystem();
 
-		// // Clean up any disposables in storage
-		// for (const item of this.storage.values()) {
-		//     if (item != null && typeof item.dispose === 'function') {
-		//         item.dispose();
-		//     }
-		// }
-
 		this._remotesDisposable?.dispose();
 		this._repoWatcherDisposable?.dispose();
 		this._disposable.dispose();
@@ -337,78 +330,69 @@ export class Repository implements Disposable {
 	private onRepositoryChanged(uri: Uri | undefined) {
 		this._lastFetched = undefined;
 
-		if (uri == null) {
-			this.fireChange(RepositoryChange.Unknown);
+		const match =
+			uri != null
+				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags))/.exec(
+						uri.path,
+				  )
+				: undefined;
+		if (match?.groups != null) {
+			const { ignore, type } = match.groups;
 
-			return;
-		}
+			if (ignore) {
+				this.fireChange(RepositoryChange.Ignores);
+				return;
+			}
 
-		if (uri.path.endsWith('.git/config')) {
-			this.resetCaches();
-			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+			switch (type) {
+				case 'config':
+					this.resetCaches();
+					this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
+					return;
 
-			return;
-		}
+				case 'index':
+					this.fireChange(RepositoryChange.Index);
+					return;
 
-		if (uri.path.endsWith('.git/index')) {
-			this.fireChange(RepositoryChange.Index);
+				case 'FETCH_HEAD':
+					// Ignore any changes to FETCH_HEAD as unless other things change, nothing changes that we care about
+					return;
 
-			return;
-		}
-
-		if (uri.path.endsWith('.git/HEAD') || uri.path.endsWith('.git/ORIG_HEAD')) {
-			this.resetCaches('branches');
-			this.fireChange(RepositoryChange.Heads);
-
-			return;
-		}
-
-		if (uri.path.endsWith('.git/refs/stash')) {
-			this.fireChange(RepositoryChange.Stash);
-
-			return;
-		}
-
-		if (uri.path.endsWith('.git/CHERRY_PICK_HEAD')) {
-			this.fireChange(RepositoryChange.CherryPick, RepositoryChange.Status);
-
-			return;
-		}
-
-		if (uri.path.endsWith('.git/MERGE_HEAD')) {
-			this.fireChange(RepositoryChange.Merge, RepositoryChange.Status);
-
-			return;
-		}
-
-		if (uri.path.endsWith('.git/REBASE_HEAD') || /\.git\/rebase-merge/.test(uri.path)) {
-			this.fireChange(RepositoryChange.Rebase, RepositoryChange.Status);
-
-			return;
-		}
-
-		if (uri.path.endsWith('/.gitignore')) {
-			this.fireChange(RepositoryChange.Ignores);
-
-			return;
-		}
-
-		const match = /\.git\/refs\/(heads|remotes|tags)/.exec(uri.path);
-		if (match != null) {
-			switch (match[1]) {
-				case 'heads':
+				case 'HEAD':
+				case 'ORIG_HEAD':
 					this.resetCaches('branches');
 					this.fireChange(RepositoryChange.Heads);
-
 					return;
-				case 'remotes':
+
+				case 'CHERRY_PICK_HEAD':
+					this.fireChange(RepositoryChange.CherryPick, RepositoryChange.Status);
+					return;
+
+				case 'MERGE_HEAD':
+					this.fireChange(RepositoryChange.Merge, RepositoryChange.Status);
+					return;
+
+				case 'REBASE_HEAD':
+				case 'rebase-merge':
+					this.fireChange(RepositoryChange.Rebase, RepositoryChange.Status);
+					return;
+
+				case 'refs/heads':
+					this.resetCaches('branches');
+					this.fireChange(RepositoryChange.Heads);
+					return;
+
+				case 'refs/remotes':
 					this.resetCaches();
 					this.fireChange(RepositoryChange.Remotes);
-
 					return;
-				case 'tags':
-					this.fireChange(RepositoryChange.Tags);
 
+				case 'refs/stash':
+					this.fireChange(RepositoryChange.Stash);
+					return;
+
+				case 'refs/tags':
+					this.fireChange(RepositoryChange.Tags);
 					return;
 			}
 		}
