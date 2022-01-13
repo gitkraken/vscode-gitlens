@@ -68,6 +68,7 @@ export interface GitProvider {
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 
 	readonly descriptor: GitProviderDescriptor;
+	readonly supportedSchemes: string[];
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
 	createRepository(

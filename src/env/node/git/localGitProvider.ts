@@ -33,7 +33,7 @@ import {
 	RepositoryInitWatcher,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { GitProviderService } from '../../../git/gitProviderService';
+import { GitProviderDescriptor, GitProviderService } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import {
 	BranchSortOptions,
@@ -120,7 +120,14 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const reflogCommands = ['merge', 'pull'];
 
 export class LocalGitProvider implements GitProvider, Disposable {
-	descriptor = { id: GitProviderId.Git, name: 'Git' };
+	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git' };
+	readonly supportedSchemes: string[] = [
+		DocumentSchemes.File,
+		DocumentSchemes.Git,
+		DocumentSchemes.GitLens,
+		DocumentSchemes.PRs,
+		DocumentSchemes.Vsls,
+	];
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -3415,14 +3422,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
-		const { scheme } = uri;
-		return (
-			scheme === DocumentSchemes.File ||
-			scheme === DocumentSchemes.Git ||
-			scheme === DocumentSchemes.GitLens ||
-			scheme === DocumentSchemes.PRs ||
-			scheme === DocumentSchemes.Vsls
-		);
+		return this.supportedSchemes.includes(uri.scheme);
 	}
 
 	private async isTracked(filePath: string, repoPath?: string, ref?: string): Promise<boolean>;

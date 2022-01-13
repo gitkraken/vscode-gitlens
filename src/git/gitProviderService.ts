@@ -99,6 +99,11 @@ export type RepositoriesChangeEvent = {
 	readonly removed: readonly Repository[];
 };
 
+export interface GitProviderResult {
+	provider: GitProvider;
+	path: string;
+}
+
 export class GitProviderService implements Disposable {
 	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
@@ -156,6 +161,7 @@ export class GitProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Map<string, Repository>();
+	private readonly _supportedSchemes = new Set<string>();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -318,6 +324,9 @@ export class GitProviderService implements Disposable {
 		if (this._providers.has(id)) throw new Error(`Provider '${id}' has already been registered`);
 
 		this._providers.set(id, provider);
+		for (const scheme of provider.supportedSchemes) {
+			this._supportedSchemes.add(scheme);
+		}
 
 		const disposables = [];
 
@@ -550,7 +559,7 @@ export class GitProviderService implements Disposable {
 		void updateRemoteContext.call(this);
 	}
 
-	private getProvider(repoPath: string | Uri): { provider: GitProvider; path: string } {
+	private getProvider(repoPath: string | Uri): GitProviderResult {
 		const id = GitProviderService.getProviderId(repoPath);
 
 		const provider = this._providers.get(id);
@@ -1720,6 +1729,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
+		const { scheme } = uri;
+		if (!this._supportedSchemes.has(scheme)) return false;
+
 		const { provider } = this.getProvider(uri);
 		return provider.isTrackable(uri);
 	}
