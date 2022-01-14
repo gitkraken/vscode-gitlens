@@ -294,6 +294,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					repoPath: this._item.repoPath,
 					line: this._options.editor?.line,
 				})} "Open Changes with Previous Revision")`;
+
+				commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+					GitUri.toRevisionUri(diffUris.previous),
+					FileAnnotationType.Blame,
+					this._options.editor?.line,
+				)} "Open Blame Prior to this Change")`;
 			} else {
 				commands = `\`${this._padOrTruncate(
 					GitRevision.shorten(

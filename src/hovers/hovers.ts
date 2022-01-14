@@ -37,6 +37,7 @@ export namespace Hovers {
 				}
 			} else {
 				ref = commit.previousSha;
+				if (ref == null) return undefined;
 			}
 
 			const line = editorLine + 1;
@@ -73,9 +74,7 @@ export namespace Hovers {
 		let current;
 		if (commit.isUncommitted) {
 			const diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, documentRef);
-			if (diffUris == null || diffUris.previous == null) {
-				return undefined;
-			}
+			if (diffUris?.previous == null) return undefined;
 
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {

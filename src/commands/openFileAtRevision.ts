@@ -54,16 +54,40 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		if (context.command === Commands.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: FileAnnotationType.Blame };
 			if (args.revisionUri == null && context.editor != null) {
-				const blameline = context.editor.selection.active.line;
-				if (blameline >= 0) {
+				const editorLine = context.editor.selection.active.line;
+				if (editorLine >= 0) {
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
-						const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
-						if (blame != null && !blame.commit.isUncommitted && blame.commit.previousSha != null) {
-							args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
+						const blame = await Container.instance.git.getBlameForLine(gitUri, editorLine);
+						if (blame != null) {
+							if (blame.commit.isUncommitted) {
+								const diffUris = await blame.commit.getPreviousLineDiffUris(
+									gitUri,
+									editorLine,
+									gitUri.sha,
+								);
+								if (diffUris?.previous != null) {
+									args.revisionUri = GitUri.toRevisionUri(diffUris.previous);
+								} else {
+									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									return undefined;
+								}
+							} else if (blame?.commit.previousSha != null) {
+								args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
+							} else {
+								void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+								return undefined;
+							}
 						}
-					} catch {}
+					} catch (ex) {
+						Logger.error(ex, 'OpenBlamePriorToChangeCommand');
+					}
 				}
+			}
+
+			if (args.revisionUri == null) {
+				void Messages.showGenericErrorMessage('Unable to open blame');
+				return undefined;
 			}
 		}
 
