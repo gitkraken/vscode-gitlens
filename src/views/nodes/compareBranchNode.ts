@@ -181,8 +181,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	@log()
 	async clear() {
-		if (this._compareWith == null) return;
-
 		this._compareWith = undefined;
 		await this.updateCompareWith(undefined);
 
@@ -354,6 +352,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			WorkspaceState.BranchComparisons,
 		);
 		if (comparisons == null) {
+			if (compareWith == null) return;
+
 			comparisons = Object.create(null) as BranchComparisons;
 		}
 
@@ -362,6 +362,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		if (compareWith != null) {
 			comparisons[id] = { ...compareWith };
 		} else {
+			if (comparisons[id] == null) return;
+
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
