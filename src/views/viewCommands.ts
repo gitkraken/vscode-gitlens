@@ -218,6 +218,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
 		commands.registerCommand('gitlens.views.revert', this.revert, this);
 		commands.registerCommand('gitlens.views.undoCommit', this.undoCommit, this);
+		commands.registerCommand('gitlens.views.fixupCommit', this.fixupCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 
@@ -686,6 +687,21 @@ export class ViewCommands {
 		}
 
 		await commands.executeCommand(BuiltInGitCommands.UndoCommit, node.repoPath);
+	}
+
+	@debug()
+	private fixupCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+
+		return GitActions.commit(
+			node.repoPath,
+			GitReference.create(`${node.ref.ref}^`, node.ref.repoPath, {
+				refType: 'revision',
+				name: `${node.ref.name}^`,
+				message: node.ref.message,
+			}),
+			true,
+		);
 	}
 
 	@debug()

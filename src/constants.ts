@@ -34,6 +34,7 @@ export const enum BuiltInGitCommands {
 	Push = 'git.push',
 	PushForce = 'git.pushForce',
 	UndoCommit = 'git.undoCommit',
+	FixupCommit = 'git.fixupCommit',
 }
 
 export const enum BuiltInGitConfiguration {

@@ -4740,6 +4740,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.fixupCommit",
+				"title": "Create fixup Commit to Commit...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.revert",
 				"title": "Revert Commit...",
 				"category": "GitLens"
@@ -6395,6 +6400,10 @@
 				},
 				{
 					"command": "gitlens.views.resetToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fixupCommit",
 					"when": "false"
 				},
 				{
@@ -8297,6 +8306,11 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.views.fixupCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.views.push",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/",
 					"group": "1_gitlens_actions@2"
@@ -9267,6 +9281,11 @@
 					"command": "gitlens.views.revert",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.views.fixupCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.resetToCommit",

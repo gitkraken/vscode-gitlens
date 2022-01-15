@@ -10,6 +10,7 @@ import { command, Command, CommandContext, Commands } from './common';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
+import { CommitGitCommand, CommitGitCommandArgs } from './git/commit';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
 import { LogGitCommand, LogGitCommandArgs } from './git/log';
 import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
@@ -57,7 +58,8 @@ export type GitCommandsCommandArgs =
 	| StashGitCommandArgs
 	| StatusGitCommandArgs
 	| SwitchGitCommandArgs
-	| TagGitCommandArgs;
+	| TagGitCommandArgs
+	| CommitGitCommandArgs;
 
 function* nullSteps(): StepGenerator {
 	/* noop */
@@ -759,6 +761,7 @@ class PickCommandStep implements QuickPickStep {
 			new PushGitCommand(args?.command === 'push' ? args : undefined),
 			new RebaseGitCommand(args?.command === 'rebase' ? args : undefined),
 			new ResetGitCommand(args?.command === 'reset' ? args : undefined),
+			new CommitGitCommand(args?.command === 'commit' ? args : undefined),
 			new RevertGitCommand(args?.command === 'revert' ? args : undefined),
 			new SearchGitCommand(args?.command === 'search' || args?.command === 'grep' ? args : undefined),
 			new ShowGitCommand(args?.command === 'show' ? args : undefined),

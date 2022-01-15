@@ -813,6 +813,11 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('reset', ...args);
 	}
 
+	@log()
+	commit(...args: string[]) {
+		this.runTerminalCommand('commit', ...args);
+	}
+
 	resetCaches(...cache: ('branches' | 'remotes')[]) {
 		if (cache.length === 0 || cache.includes('branches')) {
 			this._branch = undefined;
