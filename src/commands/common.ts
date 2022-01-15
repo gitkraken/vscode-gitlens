@@ -119,6 +119,7 @@ export const enum Commands {
 	GitCommandsCherryPick = 'gitlens.gitCommands.cherryPick',
 	GitCommandsMerge = 'gitlens.gitCommands.merge',
 	GitCommandsRebase = 'gitlens.gitCommands.rebase',
+	GitCommandsInteractiveRebase = 'gitlens.gitCommands.interactiveRebase',
 	GitCommandsReset = 'gitlens.gitCommands.reset',
 	GitCommandsRevert = 'gitlens.gitCommands.revert',
 	GitCommandsSwitch = 'gitlens.gitCommands.switch',
