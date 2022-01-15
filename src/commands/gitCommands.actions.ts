@@ -93,6 +93,13 @@ export namespace GitActions {
 		});
 	}
 
+	export function commit(repo?: string | Repository, ref?: GitRevisionReference, fixup: boolean = false) {
+		return executeGitCommand({
+			command: 'commit',
+			state: { repo: repo, reference: ref, flags: fixup ? ['--fixup'] : [] },
+		});
+	}
+
 	export function revert(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
 		return executeGitCommand({
 			command: 'revert',
