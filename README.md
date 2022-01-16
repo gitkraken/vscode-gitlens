@@ -486,7 +486,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the ahead commits
   - **# files changed** &mdash; lists all of the files changed between the compared references
-  - Comparision results can be provided by the following commands
+  - Comparison results can be provided by the following commands
     - _Compare with Upstream_ command (`gitlens.views.compareWithUpstream`)
     - _Compare with Working Tree_ command (`gitlens.views.compareWithWorking`)
     - _Compare with HEAD_ command (`gitlens.views.compareWithHead`)
