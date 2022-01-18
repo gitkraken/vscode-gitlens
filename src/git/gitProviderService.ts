@@ -1889,10 +1889,7 @@ export class GitProviderService implements Disposable {
 		return provider.getOrOpenScmRepository(path);
 	}
 
-	static getEncoding(repoPath: string, fileName: string): string;
-	static getEncoding(uri: Uri): string;
-	static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
-		const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
+	static getEncoding(uri: Uri): string {
 		const encoding = configuration.getAny<string>('files.encoding', uri);
 		return encoding != null && encodingExists(encoding) ? encoding : 'utf8';
 	}
