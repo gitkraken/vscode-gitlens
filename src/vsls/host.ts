@@ -155,7 +155,7 @@ export class VslsHostService implements Disposable {
 				const localCwd = this._sharedToLocalPaths.get('/~0');
 				if (localCwd !== undefined) {
 					isRootWorkspace = true;
-					options.cwd = GitUri.resolve(options.cwd, localCwd);
+					options.cwd = GitUri.resolvePath(options.cwd, localCwd);
 				}
 			}
 		}

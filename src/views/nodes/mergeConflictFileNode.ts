@@ -53,7 +53,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 			this.file,
 		);
 		// Use the file icon and decorations
-		item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+		item.resourceUri = GitUri.resolve(this.file.fileName, this.repoPath);
 		item.iconPath = ThemeIcon.File;
 		item.command = this.getCommand();
 
@@ -115,7 +115,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 			title: 'Open File',
 			command: BuiltInCommands.Open,
 			arguments: [
-				GitUri.resolveToUri(this.file.fileName, this.repoPath),
+				GitUri.resolve(this.file.fileName, this.repoPath),
 				{
 					preserveFocus: true,
 					preview: true,

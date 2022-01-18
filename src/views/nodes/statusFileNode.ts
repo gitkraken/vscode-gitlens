@@ -87,7 +87,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			}
 
 			// Use the file icon and decorations
-			item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+			item.resourceUri = GitUri.resolve(this.file.fileName, this.repoPath);
 			item.iconPath = ThemeIcon.File;
 
 			item.command = this.getCommand();
@@ -104,7 +104,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 				}
 
 				// Use the file icon and decorations
-				item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+				item.resourceUri = GitUri.resolve(this.file.fileName, this.repoPath);
 				item.iconPath = ThemeIcon.File;
 			} else {
 				item.contextValue = ContextValues.StatusFileCommits;

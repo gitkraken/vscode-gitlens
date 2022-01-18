@@ -90,7 +90,7 @@ export class GitLogCommit extends GitCommit {
 	}
 
 	get nextUri(): Uri {
-		return this.nextFileName ? GitUri.resolveToUri(this.nextFileName, this.repoPath) : this.uri;
+		return this.nextFileName ? GitUri.resolve(this.nextFileName, this.repoPath) : this.uri;
 	}
 
 	override get previousFileSha(): string {

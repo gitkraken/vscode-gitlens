@@ -126,7 +126,7 @@ export abstract class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	get originalUri(): Uri {
-		return this.originalFileName ? GitUri.resolveToUri(this.originalFileName, this.repoPath) : this.uri;
+		return this.originalFileName ? GitUri.resolve(this.originalFileName, this.repoPath) : this.uri;
 	}
 
 	get previousFileSha(): string {
@@ -138,12 +138,12 @@ export abstract class GitCommit implements GitRevisionReference {
 	}
 
 	get previousUri(): Uri {
-		return this.previousFileName ? GitUri.resolveToUri(this.previousFileName, this.repoPath) : this.uri;
+		return this.previousFileName ? GitUri.resolve(this.previousFileName, this.repoPath) : this.uri;
 	}
 
 	@memoize()
 	get uri(): Uri {
-		return GitUri.resolveToUri(this.fileName, this.repoPath);
+		return GitUri.resolve(this.fileName, this.repoPath);
 	}
 
 	@memoize()

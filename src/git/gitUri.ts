@@ -99,10 +99,20 @@ export class GitUri extends (Uri as any as UriEx) {
 			return;
 		}
 
-		const [authority, fsPath] = GitUri.ensureValidUNCPath(
-			uri.authority,
-			GitUri.resolve(commitOrRepoPath.fileName ?? uri.fsPath, commitOrRepoPath.repoPath),
-		);
+		let authority = uri.authority;
+		let fsPath = GitUri.resolvePath(commitOrRepoPath.fileName ?? uri.fsPath, commitOrRepoPath.repoPath);
+
+		// Check for authority as used in UNC shares or use the path as given
+		if (fsPath.charCodeAt(0) === CharCode.Slash && fsPath.charCodeAt(1) === CharCode.Slash) {
+			const index = fsPath.indexOf('/', 2);
+			if (index === -1) {
+				authority = fsPath.substring(2);
+				fsPath = '/';
+			} else {
+				authority = fsPath.substring(2, index);
+				fsPath = fsPath.substring(index) || '/';
+			}
+		}
 
 		let path;
 		switch (uri.scheme) {
@@ -198,22 +208,6 @@ export class GitUri extends (Uri as any as UriEx) {
 		return GitUri.file(this.fsPath);
 	}
 
-	private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
-		// Check for authority as used in UNC shares or use the path as given
-		if (fsPath.charCodeAt(0) === CharCode.Slash && fsPath.charCodeAt(1) === CharCode.Slash) {
-			const index = fsPath.indexOf('/', 2);
-			if (index === -1) {
-				authority = fsPath.substring(2);
-				fsPath = '/';
-			} else {
-				authority = fsPath.substring(2, index);
-				fsPath = fsPath.substring(index) || '/';
-			}
-		}
-
-		return [authority, fsPath];
-	}
-
 	static file(path: string, useVslsScheme?: boolean) {
 		const uri = Uri.file(path);
 		if (Container.instance.vsls.isMaybeGuest && useVslsScheme !== false) {
@@ -233,7 +227,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static fromFile(file: string | GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
-		const uri = GitUri.resolveToUri(
+		const uri = GitUri.resolve(
 			typeof file === 'string' ? file : (original && file.originalFileName) || file.fileName,
 			repoPath,
 		);
@@ -413,7 +407,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static git(fileName: string, repoPath?: string) {
-		const path = GitUri.resolve(fileName, repoPath);
+		const path = GitUri.resolvePath(fileName, repoPath);
 		return Uri.parse(
 			// Change encoded / back to / otherwise uri parsing won't work properly
 			`${DocumentSchemes.Git}:/${encodeURIComponent(path).replace(/%2F/g, '/')}?${encodeURIComponent(
@@ -426,7 +420,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		);
 	}
 
-	static resolve(fileName: string, repoPath?: string) {
+	static resolvePath(fileName: string, repoPath?: string) {
 		const normalizedFileName = normalizePath(fileName);
 		if (repoPath === undefined) return normalizedFileName;
 
@@ -438,8 +432,8 @@ export class GitUri extends (Uri as any as UriEx) {
 		return normalizePath(joinPaths(normalizedRepoPath, normalizedFileName));
 	}
 
-	static resolveToUri(fileName: string, repoPath?: string) {
-		return GitUri.file(this.resolve(fileName, repoPath));
+	static resolve(fileName: string, repoPath?: string) {
+		return GitUri.file(this.resolvePath(fileName, repoPath));
 	}
 
 	static toKey(fileName: string): string;
@@ -466,7 +460,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				fileName = fileNameOrFile;
 			} else {
 				//if (fileNameOrFile!.status === 'D') {
-				fileName = GitUri.resolve(fileNameOrFile!.originalFileName ?? fileNameOrFile!.fileName, repoPath);
+				fileName = GitUri.resolvePath(fileNameOrFile!.originalFileName ?? fileNameOrFile!.fileName, repoPath);
 				// } else {
 				// 	fileName = GitUri.resolve(fileNameOrFile!.fileName, repoPath);
 			}

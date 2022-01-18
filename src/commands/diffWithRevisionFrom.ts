@@ -86,7 +86,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 			const rename = files.find(s => s.fileName === fileName);
 			if (rename?.originalFileName != null) {
-				renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
+				renamedUri = GitUri.resolve(rename.originalFileName, gitUri.repoPath);
 				renamedTitle = `${basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
 			}
 		}

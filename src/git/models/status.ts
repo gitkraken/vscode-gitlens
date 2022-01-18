@@ -403,7 +403,7 @@ export class GitStatusFile implements GitFile {
 
 	@memoize()
 	get uri(): Uri {
-		return GitUri.resolveToUri(this.fileName, this.repoPath);
+		return GitUri.resolve(this.fileName, this.repoPath);
 	}
 
 	getFormattedDirectory(includeOriginal: boolean = false): string {

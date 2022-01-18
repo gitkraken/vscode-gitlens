@@ -2624,7 +2624,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			else {
 				ref = blameLine.commit.sha;
 				fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
-				uri = GitUri.resolveToUri(fileName, repoPath);
+				uri = GitUri.resolve(fileName, repoPath);
 				editorLine = blameLine.line.originalLine - 1;
 
 				if (skip === 0 && blameLine.commit.previousSha) {
@@ -2653,7 +2653,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Diff with line ref with previous
 			ref = blameLine.commit.sha;
 			fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
-			uri = GitUri.resolveToUri(fileName, repoPath);
+			uri = GitUri.resolve(fileName, repoPath);
 			editorLine = blameLine.line.originalLine - 1;
 
 			if (skip === 0 && blameLine.commit.previousSha) {
@@ -3367,7 +3367,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			fileName = foundFile;
 		} while (true);
 
-		uri = GitUri.resolveToUri(fileName, repoPath);
+		uri = GitUri.resolve(fileName, repoPath);
 		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
