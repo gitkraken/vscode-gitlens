@@ -15,6 +15,7 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
+import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
 import {
@@ -26,7 +27,6 @@ import {
 	WorkspaceState,
 } from '../constants';
 import type { Container } from '../container';
-import { isWeb } from '../env/node/platform';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Promises } from '../system';
