@@ -46,8 +46,16 @@ export class AuthenticationError extends Error {
 }
 
 export class ProviderNotFoundError extends Error {
-	constructor(pathOrUri: string | Uri) {
-		super(`No provider registered for '${typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)}'`);
+	constructor(pathOrUri: string | Uri | undefined) {
+		super(
+			`No provider registered for '${
+				pathOrUri == null
+					? String(pathOrUri)
+					: typeof pathOrUri === 'string'
+					? pathOrUri
+					: pathOrUri.toString(true)
+			}'`,
+		);
 
 		Error.captureStackTrace?.(this, ProviderNotFoundError);
 	}

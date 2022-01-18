@@ -26,6 +26,7 @@ import {
 	WorkspaceState,
 } from '../constants';
 import type { Container } from '../container';
+import { isWeb } from '../env/node/platform';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Promises } from '../system';
@@ -578,7 +579,20 @@ export class GitProviderService implements Disposable {
 	}
 
 	private getProvider(repoPath: string | Uri): GitProviderResult {
-		const id = GitProviderService.getProviderId(repoPath);
+		if (repoPath == null || (typeof repoPath !== 'string' && !this._supportedSchemes.has(repoPath.scheme))) {
+			debugger;
+			throw new ProviderNotFoundError(repoPath);
+		}
+
+		let id = !isWeb ? GitProviderId.Git : undefined;
+		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
+			if (repoPath.authority.startsWith('github')) {
+				id = GitProviderId.GitHub;
+			} else {
+				throw new ProviderNotFoundError(repoPath);
+			}
+		}
+		if (id == null) throw new ProviderNotFoundError(repoPath);
 
 		const provider = this._providers.get(id);
 		if (provider == null) throw new ProviderNotFoundError(repoPath);
@@ -596,23 +610,6 @@ export class GitProviderService implements Disposable {
 					path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
 				};
 		}
-	}
-
-	static getProviderId(repoPath: string | Uri): GitProviderId {
-		if (repoPath == null) {
-			debugger;
-			throw new Error('Unsupported provider; no repository path');
-		}
-
-		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
-			if (repoPath.authority.startsWith('github')) {
-				return GitProviderId.GitHub;
-			}
-
-			throw new Error(`Unsupported provider: ${repoPath.scheme}`);
-		}
-
-		return GitProviderId.Git;
 	}
 
 	@log()
