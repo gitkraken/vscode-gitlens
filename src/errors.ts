@@ -53,10 +53,18 @@ export class ProviderNotFoundError extends Error {
 	}
 }
 
-export class ProviderRequestError extends Error {
+export class ProviderRequestClientError extends Error {
 	constructor(public readonly original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, ProviderRequestError);
+		Error.captureStackTrace?.(this, ProviderRequestClientError);
+	}
+}
+
+export class ProviderRequestNotFoundError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, ProviderRequestNotFoundError);
 	}
 }

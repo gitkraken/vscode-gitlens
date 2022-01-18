@@ -13,7 +13,7 @@ import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { AuthenticationError, ProviderRequestError } from '../../errors';
+import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
 import { debug, Encoding, gate, log, Promises } from '../../system';
 import {
@@ -381,7 +381,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -416,7 +416,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -446,7 +446,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -472,7 +472,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -505,7 +505,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -552,7 +552,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			this._prsByCommit.delete(ref);
 
-			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return null;

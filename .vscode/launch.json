@@ -78,6 +78,7 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
+				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
 				"--disable-extension=eamodio.gitlens-insiders",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionDevelopmentKind=web"
@@ -88,7 +89,7 @@
 				"sourceMaps": true,
 				"webRoot": "${workspaceFolder}/src"
 			},
-			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",

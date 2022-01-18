@@ -5,7 +5,12 @@ import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
 import fetch from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { AuthenticationError, AuthenticationErrorReason, ProviderRequestError } from '../errors';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	ProviderRequestClientError,
+	ProviderRequestNotFoundError,
+} from '../errors';
 import {
 	type DefaultBranch,
 	type IssueOrPullRequest,
@@ -88,8 +93,7 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -156,8 +160,7 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -207,8 +210,7 @@ export class GitHubApi {
 				name: defaultBranch,
 			};
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -277,8 +279,7 @@ export class GitHubApi {
 				url: issue.url,
 			};
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -377,8 +378,7 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -470,8 +470,7 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -525,17 +524,20 @@ export class GitHubApi {
 		return octokit;
 	}
 
-	private async graphql<T>(
-		token: string,
-		query: string,
-		variables: { [key: string]: any },
-		cc?: LogCorrelationContext,
-	): Promise<T | undefined> {
+	private async graphql<T>(token: string, query: string, variables: { [key: string]: any }): Promise<T | undefined> {
 		try {
 			return await this.octokit(token).graphql<T>(query, variables);
 		} catch (ex) {
-			debugger;
-			throw this.handleRequestErrors(ex, cc);
+			if (ex instanceof GraphqlResponseError) {
+				switch (ex.errors?.[0]?.type) {
+					case 'NOT_FOUND':
+						throw new ProviderRequestNotFoundError(ex);
+					case 'FORBIDDEN':
+						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+				}
+			}
+
+			throw ex;
 		}
 	}
 
@@ -547,42 +549,37 @@ export class GitHubApi {
 		try {
 			return (await this.octokit(token).request<R>(route, options)) as any;
 		} catch (ex) {
-			this.handleRequestErrors(ex);
+			if (ex instanceof RequestError) {
+				switch (ex.status) {
+					case 404: // Not found
+					case 410: // Gone
+						throw new ProviderRequestNotFoundError(ex);
+					// case 429: //Too Many Requests
+					case 401: // Unauthorized
+						throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
+					case 403: // Forbidden
+						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+					case 500: // Internal Server Error
+						if (ex.response != null) {
+							// TODO@eamodio: Handle GitHub down errors
+						}
+						break;
+					default:
+						if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+						break;
+				}
+			}
+
 			throw ex;
 		}
 	}
 
-	private handleRequestErrors(
-		ex: unknown | RequestError | GraphqlResponseError<any>,
-		cc?: LogCorrelationContext,
-	): unknown {
+	private handleRequestError<T>(ex: unknown | Error, cc: LogCorrelationContext | undefined, defaultValue: T): T {
+		if (ex instanceof ProviderRequestNotFoundError) return defaultValue;
+
 		Logger.error(ex, cc);
 		debugger;
-
-		if (ex instanceof RequestError) {
-			switch (ex.status) {
-				case 401:
-					return new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
-				case 403:
-					return new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
-				case 500:
-					if (ex.response != null) {
-						// TODO@eamodio: Handle GitHub down errors
-					}
-					break;
-				default:
-					if (ex.status >= 400 && ex.status <= 500) return new ProviderRequestError(ex);
-					break;
-			}
-
-			return ex;
-		}
-
-		if (ex instanceof GraphqlResponseError && ex.errors?.[0]?.type === 'FORBIDDEN') {
-			return new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
-		}
-
-		return ex;
+		throw ex;
 	}
 }
 
