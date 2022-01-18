@@ -73,6 +73,33 @@
 			"trace": true
 		},
 		{
+			"name": "Watch & Run (web)",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--disable-extension=eamodio.gitlens-insiders",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web"
+			],
+			"cwd": "${workspaceFolder}",
+			"debugWebWorkerHost": true,
+			"rendererDebugOptions": {
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}/src"
+			},
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "${defaultBuildTask}",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
 			"name": "Watch & Run (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",

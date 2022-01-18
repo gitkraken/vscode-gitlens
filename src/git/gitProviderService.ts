@@ -31,6 +31,7 @@ import { Logger } from '../logger';
 import { Arrays, debug, gate, Iterables, log, Promises } from '../system';
 import { isDescendent, normalizePath } from '../system/path';
 import { PromiseOrValue } from '../system/promise';
+import { CharCode } from '../system/string';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
 import { GitUri } from './gitUri';
@@ -580,7 +581,7 @@ export class GitProviderService implements Disposable {
 		const id = GitProviderService.getProviderId(repoPath);
 
 		const provider = this._providers.get(id);
-		if (provider == null) throw new ProviderNotFoundError(id);
+		if (provider == null) throw new ProviderNotFoundError(repoPath);
 
 		switch (id) {
 			case GitProviderId.Git:
@@ -603,7 +604,7 @@ export class GitProviderService implements Disposable {
 			throw new Error('Unsupported provider; no repository path');
 		}
 
-		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.VirtualFS) {
+		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
 			if (repoPath.authority.startsWith('github')) {
 				return GitProviderId.GitHub;
 			}
@@ -1526,7 +1527,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		async function findRepoPath(this: GitProviderService): Promise<string | null> {
-			const { provider, path } = this.getProvider(filePath);
+			const { provider, path } = this.getProvider(repoPathOrUri);
 			rp = (await provider.getRepoPath(path)) ?? null;
 			// Store the found repoPath for this filePath, so we can avoid future lookups for the filePath
 			this._pathToRepoPathCache.set(filePath, rp);
@@ -1547,11 +1548,12 @@ export class GitProviderService implements Disposable {
 				// rp = root.path;
 				folder = root.folder;
 			} else {
-				folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
+				const uri = GitUri.file(rp, isVslsScheme);
+				folder = workspace.getWorkspaceFolder(uri);
 				if (folder == null) {
 					const parts = rp.split('/');
 					folder = {
-						uri: GitUri.file(rp, isVslsScheme),
+						uri: uri,
 						name: parts[parts.length - 1],
 						index: this.repositoryCount,
 					};
@@ -1594,7 +1596,7 @@ export class GitProviderService implements Disposable {
 		if (repo == null && isVslsScheme !== false && this.container.vsls.isMaybeGuest) {
 			if (!vslsUriPrefixRegex.test(path)) {
 				path = normalizePath(path);
-				const vslsPath = `/~0${path.startsWith('/') ? path : `/${path}`}`;
+				const vslsPath = `/~0${path.charCodeAt(0) === CharCode.Slash ? path : `/${path}`}`;
 				repo = findBySubPath(this._repositories, vslsPath);
 			}
 		}
@@ -1746,8 +1748,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
-		const { scheme } = uri;
-		if (!this._supportedSchemes.has(scheme)) return false;
+		if (!this._supportedSchemes.has(uri.scheme)) return false;
 
 		const { provider } = this.getProvider(uri);
 		return provider.isTrackable(uri);

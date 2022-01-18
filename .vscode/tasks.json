@@ -37,6 +37,35 @@
 			},
 			"isBackground": true,
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
+		},
+		{
+			"label": "Run (vscode.dev)",
+			"group": "test",
+			"dependsOn": ["npm: web:serve", "npm: web:tunnel"],
+			"dependsOrder": "parallel",
+			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "web:serve",
+			"group": "test",
+			"isBackground": true,
+			"problemMatcher": [],
+			"presentation": {
+				"group": "web",
+				"reveal": "never"
+			}
+		},
+		{
+			"type": "npm",
+			"script": "web:tunnel",
+			"group": "test",
+			"isBackground": true,
+			"problemMatcher": [],
+			"presentation": {
+				"group": "web",
+				"reveal": "always"
+			}
 		}
 	]
 }

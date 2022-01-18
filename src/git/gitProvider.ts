@@ -147,7 +147,11 @@ export interface GitProvider {
 	getBranch(repoPath: string): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
-		options?: { filter?: ((b: GitBranch) => boolean) | undefined; sort?: boolean | BranchSortOptions | undefined },
+		options?: {
+			cursor?: string;
+			filter?: ((b: GitBranch) => boolean) | undefined;
+			sort?: boolean | BranchSortOptions | undefined;
+		},
 	): Promise<PagedResult<GitBranch>>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined>;
@@ -213,6 +217,7 @@ export interface GitProvider {
 		options?: {
 			all?: boolean | undefined;
 			authors?: string[] | undefined;
+			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
 			ordering?: string | null | undefined;
@@ -225,6 +230,7 @@ export interface GitProvider {
 		repoPath: string,
 		options?: {
 			authors?: string[] | undefined;
+			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
 			ordering?: string | null | undefined;
@@ -243,6 +249,7 @@ export interface GitProvider {
 		fileName: string,
 		options?: {
 			all?: boolean | undefined;
+			cursor?: string | undefined;
 			limit?: number | undefined;
 			ordering?: string | null | undefined;
 			range?: Range | undefined;
@@ -333,7 +340,7 @@ export interface GitProvider {
 	getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]>;
 	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined>;
-	getVersionedUri(repoPath: string | undefined, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
+	getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
 	hasBranchOrTag(

@@ -97,7 +97,7 @@ export const enum DocumentSchemes {
 	Output = 'output',
 	PRs = 'pr',
 	Vsls = 'vsls',
-	VirtualFS = 'vscode-vfs',
+	Virtual = 'vscode-vfs',
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {

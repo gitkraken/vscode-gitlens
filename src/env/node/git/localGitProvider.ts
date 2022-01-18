@@ -1028,6 +1028,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getBranches(
 		repoPath: string | undefined,
 		options?: {
+			cursor?: string;
 			filter?: (b: GitBranch) => boolean;
 			sort?: boolean | BranchSortOptions;
 		},
@@ -1083,7 +1084,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			resultsPromise = load.call(this);
 
 			if (this.useCaching) {
-				this._branchesCache.set(repoPath, resultsPromise);
+				if (options?.cursor == null) {
+					this._branchesCache.set(repoPath, resultsPromise);
+				}
 
 				queueMicrotask(async () => {
 					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
@@ -1607,6 +1610,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: {
 			all?: boolean;
 			authors?: string[];
+			cursor?: string;
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -1655,6 +1659,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: {
 			authors?: string[];
+			cursor?: string;
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -1930,6 +1935,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		fileName: string,
 		options?: {
 			all?: boolean;
+			cursor?: string;
 			limit?: number;
 			ordering?: string | null;
 			range?: Range;
@@ -2081,6 +2087,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			...options
 		}: {
 			all?: boolean;
+			cursor?: string;
 			limit?: number;
 			ordering?: string | null;
 			range?: Range;
@@ -3297,11 +3304,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getVersionedUri(
-		repoPath: string | undefined,
-		fileName: string,
-		ref: string | undefined,
-	): Promise<Uri | undefined> {
+	async getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		if (
@@ -3310,11 +3313,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			(GitRevision.isUncommitted(ref) && !GitRevision.isUncommittedStaged(ref))
 		) {
 			// Make sure the file exists in the repo
-			let data = await Git.ls_files(repoPath!, fileName);
+			let data = await Git.ls_files(repoPath, fileName);
 			if (data != null) return GitUri.file(fileName);
 
 			// Check if the file exists untracked
-			data = await Git.ls_files(repoPath!, fileName, { untracked: true });
+			data = await Git.ls_files(repoPath, fileName, { untracked: true });
 			if (data != null) return GitUri.file(fileName);
 
 			return undefined;
@@ -3324,7 +3327,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return GitUri.git(fileName, repoPath);
 		}
 
-		return GitUri.toRevisionUri(ref, fileName, repoPath!);
+		return GitUri.toRevisionUri(ref, fileName, repoPath);
 	}
 
 	@log()

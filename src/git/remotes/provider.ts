@@ -13,6 +13,7 @@ import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { AuthenticationError, ProviderRequestError } from '../../errors';
 import { Logger } from '../../logger';
 import { debug, Encoding, gate, log, Promises } from '../../system';
 import {
@@ -259,22 +260,6 @@ export class Authentication {
 	}
 }
 
-export class AuthenticationError extends Error {
-	constructor(private original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, AuthenticationError);
-	}
-}
-
-export class ClientError extends Error {
-	constructor(private original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, ClientError);
-	}
-}
-
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RichRemoteProvider extends RemoteProvider {
@@ -396,7 +381,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -431,7 +416,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -461,7 +446,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -487,7 +472,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -520,7 +505,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -567,7 +552,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			this._prsByCommit.delete(ref);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof ProviderRequestError || ex instanceof AuthenticationError) {
 				this.handleClientException();
 			}
 			return null;

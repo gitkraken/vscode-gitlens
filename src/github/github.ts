@@ -1,5 +1,11 @@
 'use strict';
-import { graphql } from '@octokit/graphql';
+import { Octokit } from '@octokit/core';
+import { GraphqlResponseError } from '@octokit/graphql';
+import { RequestError } from '@octokit/request-error';
+import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
+import fetch from '@env/fetch';
+import { isWeb } from '@env/platform';
+import { AuthenticationError, AuthenticationErrorReason, ProviderRequestError } from '../errors';
 import {
 	type DefaultBranch,
 	type IssueOrPullRequest,
@@ -8,9 +14,9 @@ import {
 	PullRequestState,
 } from '../git/models';
 import type { Account } from '../git/models/author';
-import { AuthenticationError, ClientError, type RichRemoteProvider } from '../git/remotes/provider';
-import { Logger } from '../logger';
-import { debug } from '../system';
+import type { RichRemoteProvider } from '../git/remotes/provider';
+import { LogCorrelationContext, Logger, LogLevel } from '../logger';
+import { debug, Stopwatch } from '../system';
 
 export class GitHubApi {
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -65,9 +71,8 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -83,13 +88,8 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
-			}
-			throw ex;
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
 		}
 	}
 
@@ -139,9 +139,8 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				emailQuery: `in:email ${email}`,
@@ -157,13 +156,8 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
-			}
-			throw ex;
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
 		}
 	}
 
@@ -199,9 +193,8 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 			});
@@ -214,13 +207,8 @@ export class GitHubApi {
 				name: defaultBranch,
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
-			}
-			throw ex;
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
 		}
 	}
 
@@ -268,9 +256,8 @@ export class GitHubApi {
 		}
 	}`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				number: number,
@@ -290,13 +277,8 @@ export class GitHubApi {
 				url: issue.url,
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
-			}
-			throw ex;
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
 		}
 	}
 
@@ -369,9 +351,8 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				branch: branch,
@@ -396,13 +377,8 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
-			}
-			throw ex;
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
 		}
 	}
 
@@ -470,9 +446,8 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await graphql<QueryResult>(query, {
+			const rsp = await this.graphql<QueryResult>(token, query, {
 				...options,
-				headers: { authorization: `Bearer ${token}` },
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -495,14 +470,119 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
+		}
+	}
 
-			if (ex.status >= 400 && ex.status <= 500) {
-				if (ex.status === 401) throw new AuthenticationError(ex);
-				throw new ClientError(ex);
+	private _octokits = new Map<string, Octokit>();
+	private octokit(token: string, options?: ConstructorParameters<typeof Octokit>[0]): Octokit {
+		let octokit = this._octokits.get(token);
+		if (octokit == null) {
+			let defaults;
+			if (isWeb) {
+				function fetchCore(url: string, options: { headers?: Record<string, string> }) {
+					if (options.headers != null) {
+						// Strip out the user-agent (since it causes warnings in a webworker)
+						const { 'user-agent': userAgent, ...headers } = options.headers;
+						if (userAgent) {
+							options.headers = headers;
+						}
+					}
+					return fetch(url, options);
+				}
+
+				defaults = Octokit.defaults({
+					auth: `token ${token}`,
+					request: { fetch: fetchCore },
+				});
+			} else {
+				defaults = Octokit.defaults({ auth: `token ${token}` });
 			}
+
+			octokit = new defaults(options);
+			this._octokits.set(token, octokit);
+
+			if (Logger.logLevel === LogLevel.Debug || Logger.isDebugging) {
+				octokit.hook.wrap('request', async (request, options) => {
+					const stopwatch = new Stopwatch(`[GITHUB] ${options.method} ${options.url}`, { log: false });
+					try {
+						return await request(options);
+					} finally {
+						let message;
+						try {
+							if (typeof options.query === 'string') {
+								const match = /(^[^({\n]+)/.exec(options.query);
+								message = ` ${match?.[1].trim() ?? options.query}`;
+							}
+						} catch {}
+						stopwatch.stop({ message: message });
+					}
+				});
+			}
+		}
+
+		return octokit;
+	}
+
+	private async graphql<T>(
+		token: string,
+		query: string,
+		variables: { [key: string]: any },
+		cc?: LogCorrelationContext,
+	): Promise<T | undefined> {
+		try {
+			return await this.octokit(token).graphql<T>(query, variables);
+		} catch (ex) {
+			debugger;
+			throw this.handleRequestErrors(ex, cc);
+		}
+	}
+
+	private async request<R extends string>(
+		token: string,
+		route: keyof Endpoints | R,
+		options?: R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters,
+	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<unknown>> {
+		try {
+			return (await this.octokit(token).request<R>(route, options)) as any;
+		} catch (ex) {
+			this.handleRequestErrors(ex);
 			throw ex;
 		}
+	}
+
+	private handleRequestErrors(
+		ex: unknown | RequestError | GraphqlResponseError<any>,
+		cc?: LogCorrelationContext,
+	): unknown {
+		Logger.error(ex, cc);
+		debugger;
+
+		if (ex instanceof RequestError) {
+			switch (ex.status) {
+				case 401:
+					return new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
+				case 403:
+					return new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+				case 500:
+					if (ex.response != null) {
+						// TODO@eamodio: Handle GitHub down errors
+					}
+					break;
+				default:
+					if (ex.status >= 400 && ex.status <= 500) return new ProviderRequestError(ex);
+					break;
+			}
+
+			return ex;
+		}
+
+		if (ex instanceof GraphqlResponseError && ex.errors?.[0]?.type === 'FORBIDDEN') {
+			return new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+		}
+
+		return ex;
 	}
 }
 

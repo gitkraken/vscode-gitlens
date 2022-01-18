@@ -19,7 +19,7 @@ import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } 
 import { Container } from '../../container';
 import { Logger, LogLevel } from '../../logger';
 import { Messages } from '../../messages';
-import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
+import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName, memoize } from '../../system';
 import { basename, joinPaths, relative } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import { GitProviderDescriptor } from '../gitProvider';
@@ -290,6 +290,7 @@ export class Repository implements Disposable {
 		this._disposable.dispose();
 	}
 
+	@memoize()
 	get uri(): Uri {
 		return Uri.file(this.path);
 	}
