@@ -96,7 +96,7 @@ export class DocumentTracker<T> implements Disposable {
 		this.onActiveTextEditorChanged(window.activeTextEditor);
 	}
 
-	private _timer: any | undefined;
+	private _timer: ReturnType<typeof setTimeout> | undefined;
 	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
 		if (editor != null && !isTextEditor(editor)) return;
 

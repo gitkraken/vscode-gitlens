@@ -152,26 +152,26 @@ export function propOf<T, K extends Extract<keyof T, string>>(o: T, key: K) {
 }
 
 export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
-	let timer: any | undefined;
+	let timer: ReturnType<typeof setInterval> | undefined;
 	const disposable = {
 		dispose: () => {
-			if (timer !== undefined) {
+			if (timer != null) {
 				clearInterval(timer);
 				timer = undefined;
 			}
 		},
 	};
-	timer = globalThis.setInterval(fn, ms);
+	timer = setInterval(fn, ms);
 
 	return disposable;
 }
 
 export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
 	return new Promise((resolve, reject) => {
-		let timer: any | undefined;
-		timer = globalThis.setInterval(() => {
+		let timer: ReturnType<typeof setInterval> | undefined;
+		timer = setInterval(() => {
 			if (onProgress()) {
-				if (timer !== undefined) {
+				if (timer != null) {
 					clearInterval(timer);
 					timer = undefined;
 				}
@@ -180,7 +180,7 @@ export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress:
 
 		promise.then(
 			() => {
-				if (timer !== undefined) {
+				if (timer != null) {
 					clearInterval(timer);
 					timer = undefined;
 				}
@@ -188,7 +188,7 @@ export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress:
 				resolve(promise);
 			},
 			ex => {
-				if (timer !== undefined) {
+				if (timer != null) {
 					clearInterval(timer);
 					timer = undefined;
 				}

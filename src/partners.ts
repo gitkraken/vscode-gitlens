@@ -12,12 +12,15 @@ export async function installExtension<T>(
 	vsix?: Uri,
 ): Promise<Extension<T> | undefined> {
 	try {
-		let timer: any = 0;
+		let timer: ReturnType<typeof setTimeout> | undefined = undefined;
 		const extension = new Promise<Extension<any> | undefined>(resolve => {
 			const disposable = extensions.onDidChange(() => {
 				const extension = extensions.getExtension(extensionId);
 				if (extension != null) {
-					clearTimeout(timer);
+					if (timer != null) {
+						clearTimeout(timer);
+						timer = undefined;
+					}
 					disposable.dispose();
 
 					resolve(extension);
@@ -33,7 +36,10 @@ export async function installExtension<T>(
 
 		await commands.executeCommand(BuiltInCommands.InstallExtension, vsix ?? extensionId);
 		// Wait for extension activation until timeout expires
-		timer = setTimeout(() => tokenSource.cancel(), timeout);
+		timer = setTimeout(() => {
+			timer = undefined;
+			tokenSource.cancel();
+		}, timeout);
 
 		return extension;
 	} catch {

@@ -28,9 +28,9 @@ export function cancellable<T>(
 
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
-		let timer: any | undefined;
+		let timer: ReturnType<typeof setTimeout> | undefined;
 		if (typeof timeoutOrToken === 'number') {
-			timer = globalThis.setTimeout(() => {
+			timer = setTimeout(() => {
 				if (typeof options.onDidCancel === 'function') {
 					options.onDidCancel(resolve, reject);
 				} else {
@@ -52,14 +52,14 @@ export function cancellable<T>(
 		promise.then(
 			() => {
 				fulfilled = true;
-				if (timer !== undefined) {
+				if (timer != null) {
 					clearTimeout(timer);
 				}
 				resolve(promise);
 			},
 			ex => {
 				fulfilled = true;
-				if (timer !== undefined) {
+				if (timer != null) {
 					clearTimeout(timer);
 				}
 				reject(ex);

@@ -25,7 +25,7 @@ import { LinesChangeEvent } from '../trackers/gitLineTracker';
 export class StatusBarController implements Disposable {
 	private _pullRequestCancellation: CancellationTokenSource | undefined;
 	private _tooltipCancellation: CancellationTokenSource | undefined;
-	private _tooltipDelayTimer: any | undefined;
+	private _tooltipDelayTimer: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _disposable: Disposable;
 	private _statusBarBlame: StatusBarItem | undefined;
@@ -305,10 +305,13 @@ export class StatusBarController implements Disposable {
 
 		this._statusBarBlame.tooltip = tooltip;
 
-		clearTimeout(this._tooltipDelayTimer);
+		if (this._tooltipDelayTimer != null) {
+			clearTimeout(this._tooltipDelayTimer);
+		}
 		this._tooltipCancellation?.cancel();
 
 		this._tooltipDelayTimer = setTimeout(() => {
+			this._tooltipDelayTimer = undefined;
 			this._tooltipCancellation = new CancellationTokenSource();
 
 			void this.updateCommitTooltip(
