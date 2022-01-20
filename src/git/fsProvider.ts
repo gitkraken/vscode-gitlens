@@ -83,10 +83,8 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		if (ref === GitRevision.deletedOrMissing) return emptyArray;
 
-		const buffer = await this.container.git.getVersionedFileBuffer(repoPath, path, ref);
-		if (buffer === undefined) return emptyArray;
-
-		return buffer;
+		const data = await this.container.git.getRevisionContent(repoPath, path, ref);
+		return data != null ? data : emptyArray;
 	}
 
 	rename(): void | Thenable<void> {

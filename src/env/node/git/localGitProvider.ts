@@ -3299,8 +3299,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined> {
-		return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
+	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
+		return Git.show<Buffer>(repoPath, path, ref, { encoding: 'buffer' });
 	}
 
 	@log()

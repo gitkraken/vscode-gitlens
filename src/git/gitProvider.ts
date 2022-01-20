@@ -339,7 +339,7 @@ export interface GitProvider {
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined>;
+	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 

@@ -1675,9 +1675,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getVersionedFileBuffer(repoPath: string | Uri, fileName: string, ref: string) {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getVersionedFileBuffer(path, fileName, ref);
+	getRevisionContent(repoPath: string | Uri, path: string, ref: string): Promise<Uint8Array | undefined> {
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getRevisionContent(rp, path, ref);
 	}
 
 	@log()
