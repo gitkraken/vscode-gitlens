@@ -34,8 +34,10 @@ export interface CoAuthorsGitCommandArgs {
 type CoAuthorStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class CoAuthorsGitCommand extends QuickCommand<State> {
-	constructor(args?: CoAuthorsGitCommandArgs) {
-		super('co-authors', 'co-authors', 'Add Co-Authors', { description: 'adds co-authors to a commit message' });
+	constructor(container: Container, args?: CoAuthorsGitCommandArgs) {
+		super(container, 'co-authors', 'co-authors', 'Add Co-Authors', {
+			description: 'adds co-authors to a commit message',
+		});
 
 		let counter = 0;
 		if (args?.state?.repo != null) {
@@ -61,7 +63,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: CoAuthorStepState) {
-		const repo = await Container.instance.git.getOrOpenScmRepository(state.repo.path);
+		const repo = await this.container.git.getOrOpenScmRepository(state.repo.path);
 		if (repo == null) return;
 
 		let message = repo.inputBox.value;
@@ -94,13 +96,13 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
+			repos: this.container.git.openRepositories,
 			activeRepo: undefined,
-			associatedView: Container.instance.contributorsView,
+			associatedView: this.container.contributorsView,
 			title: this.title,
 		};
 
-		const scmRepositories = await Container.instance.git.getOpenScmRepositories();
+		const scmRepositories = await this.container.git.getOpenScmRepositories();
 		if (scmRepositories.length) {
 			// Filter out any repo's that are not known to the built-in git
 			context.repos = context.repos.filter(repo =>
@@ -108,7 +110,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			);
 
 			// Ensure that the active repo is known to the built-in git
-			context.activeRepo = await Container.instance.git.getActiveRepository();
+			context.activeRepo = await this.container.git.getActiveRepository();
 			if (
 				context.activeRepo != null &&
 				!scmRepositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)

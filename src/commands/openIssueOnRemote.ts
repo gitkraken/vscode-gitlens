@@ -1,5 +1,6 @@
 'use strict';
 import { env, Uri } from 'vscode';
+import type { Container } from '../container';
 import { AutolinkedItemNode } from '../views/nodes/autolinkedItemNode';
 import { Command, command, CommandContext, Commands } from './common';
 
@@ -10,7 +11,7 @@ export interface OpenIssueOnRemoteCommandArgs {
 
 @command()
 export class OpenIssueOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenIssueOnRemote, Commands.CopyRemoteIssueUrl]);
 	}
 

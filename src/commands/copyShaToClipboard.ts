@@ -1,6 +1,6 @@
 'use strict';
 import { env, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -22,14 +22,14 @@ export interface CopyShaToClipboardCommandArgs {
 
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CopyShaToClipboard);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
-			args.sha = Container.instance.config.advanced.abbreviateShaOnCopy
+			args.sha = this.container.config.advanced.abbreviateShaOnCopy
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);
@@ -53,10 +53,10 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		try {
 			// If we don't have an editor then get the sha of the last commit to the branch
 			if (uri == null) {
-				const repoPath = await Container.instance.git.getActiveRepoPath(editor);
+				const repoPath = await this.container.git.getActiveRepoPath(editor);
 				if (!repoPath) return;
 
-				const log = await Container.instance.git.getLog(repoPath, { limit: 1 });
+				const log = await this.container.git.getLog(repoPath, { limit: 1 });
 				if (log == null) return;
 
 				args.sha = Iterables.first(log.commits.values()).sha;
@@ -67,12 +67,8 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 				try {
 					const gitUri = await GitUri.fromUri(uri);
 					const blame = editor?.document.isDirty
-						? await Container.instance.git.getBlameForLineContents(
-								gitUri,
-								blameline,
-								editor.document.getText(),
-						  )
-						: await Container.instance.git.getBlameForLine(gitUri, blameline);
+						? await this.container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+						: await this.container.git.getBlameForLine(gitUri, blameline);
 					if (blame == null) return;
 
 					args.sha = blame.commit.sha;

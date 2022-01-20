@@ -59,8 +59,8 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class SearchGitCommand extends QuickCommand<State> {
-	constructor(args?: SearchGitCommandArgs) {
-		super('search', 'search', 'Commit Search', {
+	constructor(container: Container, args?: SearchGitCommandArgs) {
+		super(container, 'search', 'search', 'Commit Search', {
 			description: 'aka grep, searches for commits',
 		});
 
@@ -94,15 +94,15 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.searchAndCompareView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,
 		};
 
-		const cfg = Container.instance.config.gitCommands.search;
+		const cfg = this.container.config.gitCommands.search;
 		if (state.matchAll == null) {
 			state.matchAll = cfg.matchAll;
 		}
@@ -170,7 +170,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
-				void Container.instance.searchAndCompareView.search(
+				void this.container.searchAndCompareView.search(
 					state.repo.path,
 					search,
 					{
@@ -199,7 +199,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void Container.instance.searchAndCompareView.search(
+							void this.container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
@@ -216,7 +216,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
-							void Container.instance.searchAndCompareView.search(
+							void this.container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
@@ -240,6 +240,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			}
 
 			const result = yield* GitCommandsCommand.getSteps(
+				this.container,
 				{
 					command: 'show',
 					state: {

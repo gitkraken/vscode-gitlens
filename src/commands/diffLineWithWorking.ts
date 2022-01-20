@@ -1,6 +1,6 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
@@ -17,7 +17,7 @@ export interface DiffLineWithWorkingCommandArgs {
 
 @command()
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffLineWithWorking);
 	}
 
@@ -38,8 +38,8 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 			try {
 				const blame = editor?.document.isDirty
-					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.instance.git.getBlameForLine(gitUri, blameline);
+					? await this.container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
@@ -50,7 +50,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, change the previous commit
 				if (args.commit.isUncommitted) {
-					const status = await Container.instance.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+					const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
 					args.commit = args.commit.with({
 						sha: status?.indexStatus != null ? GitRevision.uncommittedStaged : args.commit.previousSha!,
 						fileName: args.commit.previousFileName!,

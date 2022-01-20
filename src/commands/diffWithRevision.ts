@@ -1,7 +1,7 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
@@ -19,7 +19,7 @@ export interface DiffWithRevisionCommandArgs {
 
 @command()
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffWithRevision);
 	}
 
@@ -35,13 +35,13 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const log = Container.instance.git
+			const log = this.container.git
 				.getLogForFile(gitUri.repoPath, gitUri.fsPath)
 				.then(
 					log =>
 						log ??
 						(gitUri.sha
-							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
+							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
 							: undefined),
 				);
 

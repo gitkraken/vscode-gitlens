@@ -83,8 +83,8 @@ export interface BranchGitCommandArgs {
 export class BranchGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
-	constructor(args?: BranchGitCommandArgs) {
-		super('branch', 'branch', 'Branch', {
+	constructor(container: Container, args?: BranchGitCommandArgs) {
+		super(container, 'branch', 'branch', 'Branch', {
 			description: 'create, rename, or delete branches',
 		});
 
@@ -150,8 +150,8 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			associatedView: Container.instance.branchesView,
-			repos: Container.instance.git.openRepositories,
+			associatedView: this.container.branchesView,
+			repos: this.container.git.openRepositories,
 			showTags: false,
 			title: this.title,
 		};

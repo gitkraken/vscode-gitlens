@@ -36,8 +36,8 @@ export interface ShowGitCommandArgs {
 type ShowStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class ShowGitCommand extends QuickCommand<State> {
-	constructor(args?: ShowGitCommandArgs) {
-		super('show', 'show', 'Show', {
+	constructor(container: Container, args?: ShowGitCommandArgs) {
+		super(container, 'show', 'show', 'Show', {
 			description: 'shows information about a git reference',
 		});
 
@@ -78,8 +78,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 
@@ -113,10 +113,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				state.reference.isFile
 			) {
 				if (state.reference != null && (!GitLogCommit.is(state.reference) || state.reference.isFile)) {
-					state.reference = await Container.instance.git.getCommit(
-						state.reference.repoPath,
-						state.reference.ref,
-					);
+					state.reference = await this.container.git.getCommit(state.reference.repoPath, state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {

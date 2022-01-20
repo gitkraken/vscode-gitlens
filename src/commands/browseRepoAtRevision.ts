@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri } from 'vscode';
 import { BuiltInCommands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -26,7 +26,7 @@ export interface BrowseRepoAtRevisionCommandArgs {
 
 @command()
 export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.BrowseRepoAtRevision,
 			Commands.BrowseRepoAtRevisionInNewWindow,
@@ -66,7 +66,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			if (gitUri.sha == null) return;
 
 			const sha = args?.before
-				? await Container.instance.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
+				? await this.container.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
 				: gitUri.sha;
 			uri = toGitLensFSUri(sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);

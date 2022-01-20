@@ -1,6 +1,6 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Keys } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 
@@ -102,6 +102,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	private _stepsIterator: StepGenerator | undefined;
 
 	constructor(
+		protected readonly container: Container,
 		public readonly key: string,
 		public readonly label: string,
 		public readonly title: string,
@@ -154,7 +155,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 		return override != null
 			? override
-			: !Container.instance.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
+			: !this.container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string) {

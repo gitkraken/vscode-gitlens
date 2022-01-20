@@ -2,7 +2,7 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models';
 import { Messages } from '../messages';
@@ -23,7 +23,7 @@ export interface OpenFileAtRevisionFromCommandArgs {
 
 @command()
 export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.OpenFileAtRevisionFrom);
 	}
 
@@ -48,7 +48,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 				const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await StashPicker.show(
-					Container.instance.git.getStash(gitUri.repoPath),
+					this.container.git.getStash(gitUri.repoPath),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
 					{ filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName) },

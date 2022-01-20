@@ -2,6 +2,7 @@
 import { QuickInputButton, QuickPickItem } from 'vscode';
 import { Commands, GitCommandsCommand, GitCommandsCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { emojify } from '../emojis';
 import {
 	GitBranch,
@@ -25,7 +26,7 @@ export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCo
 	}
 
 	executeSteps(pickedVia: 'menu' | 'command') {
-		return GitCommandsCommand.getSteps(this.args![0], pickedVia);
+		return GitCommandsCommand.getSteps(Container.instance, this.args![0], pickedVia);
 	}
 }
 

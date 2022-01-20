@@ -3,7 +3,7 @@ import { Range, TextEditor, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBranch, GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
@@ -33,7 +33,7 @@ export interface OpenFileOnRemoteCommandArgs {
 
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.OpenFileOnRemote,
 			Commands.Deprecated_OpenFileInRemote,
@@ -84,7 +84,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const gitUri = await GitUri.fromUri(uri);
 					if (gitUri.repoPath) {
 						if (gitUri.sha == null) {
-							const commit = await Container.instance.git.getCommitForFile(gitUri.repoPath, gitUri, {
+							const commit = await this.container.git.getCommitForFile(gitUri.repoPath, gitUri, {
 								firstIfNotFound: true,
 							});
 
@@ -116,7 +116,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		args = { range: true, ...args };
 
 		try {
-			let remotes = await Container.instance.git.getRemotes(gitUri.repoPath);
+			let remotes = await this.container.git.getRemotes(gitUri.repoPath);
 			const range =
 				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
 					? new Range(
@@ -144,7 +144,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
 				let branch;
 				if (!args.pickBranchOrTag) {
-					branch = await Container.instance.git.getBranch(gitUri.repoPath);
+					branch = await this.container.git.getBranch(gitUri.repoPath);
 				}
 
 				if (branch?.upstream == null) {

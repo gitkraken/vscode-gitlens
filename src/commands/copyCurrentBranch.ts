@@ -1,13 +1,13 @@
 'use strict';
 import { env, TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CopyCurrentBranch);
 	}
 
@@ -20,7 +20,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			const branch = await Container.instance.git.getBranch(repoPath);
+			const branch = await this.container.git.getBranch(repoPath);
 			if (branch?.name) {
 				await env.clipboard.writeText(branch.name);
 			}

@@ -1,5 +1,6 @@
 'use strict';
 import { GitActions } from '../commands';
+import type { Container } from '../container';
 import { GitStashCommit, GitStashReference } from '../git/models';
 import { CommandQuickPickItem } from '../quickpicks';
 import {
@@ -21,7 +22,7 @@ export interface StashApplyCommandArgs {
 
 @command()
 export class StashApplyCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.StashApply);
 	}
 

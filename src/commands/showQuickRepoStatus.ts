@@ -1,5 +1,6 @@
 'use strict';
 import { executeGitCommand } from '../commands';
+import type { Container } from '../container';
 import { Command, command, Commands } from './common';
 
 export interface ShowQuickRepoStatusCommandArgs {
@@ -8,7 +9,7 @@ export interface ShowQuickRepoStatusCommandArgs {
 
 @command()
 export class ShowQuickRepoStatusCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ShowQuickRepoStatus);
 	}
 

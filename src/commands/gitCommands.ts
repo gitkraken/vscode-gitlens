@@ -2,7 +2,7 @@
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { configuration, GitCommandSorting } from '../configuration';
 import { Usage, WorkspaceState } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { log, Promises } from '../system';
@@ -65,8 +65,8 @@ function* nullSteps(): StepGenerator {
 
 @command()
 export class GitCommandsCommand extends Command {
-	static getSteps(args: GitCommandsCommandArgs, pickedVia: 'menu' | 'command'): StepGenerator {
-		const commandsStep = new PickCommandStep(args);
+	static getSteps(container: Container, args: GitCommandsCommandArgs, pickedVia: 'menu' | 'command'): StepGenerator {
+		const commandsStep = new PickCommandStep(container, args);
 
 		const command = commandsStep.find(args.command);
 		if (command == null) return nullSteps();
@@ -78,7 +78,7 @@ export class GitCommandsCommand extends Command {
 
 	private startedWith: 'menu' | 'command' = 'menu';
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.GitCommands,
 			Commands.GitCommandsBranch,
@@ -125,7 +125,7 @@ export class GitCommandsCommand extends Command {
 
 	@log({ args: false, correlate: true, singleLine: true, timed: false })
 	async execute(args?: GitCommandsCommandArgs) {
-		const commandsStep = new PickCommandStep(args);
+		const commandsStep = new PickCommandStep(this.container, args);
 
 		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
 		this.startedWith = command != null ? 'command' : 'menu';
@@ -310,7 +310,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.instance.keyboard.createScope(mapping);
+				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
 
 				disposables.push(
@@ -459,7 +459,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.instance.keyboard.createScope(mapping);
+				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
 
 				let overrideItems = false;
@@ -747,29 +747,32 @@ class PickCommandStep implements QuickPickStep {
 	readonly placeholder = 'Choose a git command';
 	readonly title = 'GitLens';
 
-	constructor(args?: GitCommandsCommandArgs) {
+	constructor(private readonly container: Container, args?: GitCommandsCommandArgs) {
 		this.items = [
-			new BranchGitCommand(args?.command === 'branch' ? args : undefined),
-			new CherryPickGitCommand(args?.command === 'cherry-pick' ? args : undefined),
-			new CoAuthorsGitCommand(args?.command === 'co-authors' ? args : undefined),
-			new FetchGitCommand(args?.command === 'fetch' ? args : undefined),
-			new LogGitCommand(args?.command === 'log' ? args : undefined),
-			new MergeGitCommand(args?.command === 'merge' ? args : undefined),
-			new PullGitCommand(args?.command === 'pull' ? args : undefined),
-			new PushGitCommand(args?.command === 'push' ? args : undefined),
-			new RebaseGitCommand(args?.command === 'rebase' ? args : undefined),
-			new ResetGitCommand(args?.command === 'reset' ? args : undefined),
-			new RevertGitCommand(args?.command === 'revert' ? args : undefined),
-			new SearchGitCommand(args?.command === 'search' || args?.command === 'grep' ? args : undefined),
-			new ShowGitCommand(args?.command === 'show' ? args : undefined),
-			new StashGitCommand(args?.command === 'stash' ? args : undefined),
-			new StatusGitCommand(args?.command === 'status' ? args : undefined),
-			new SwitchGitCommand(args?.command === 'switch' || args?.command === 'checkout' ? args : undefined),
-			new TagGitCommand(args?.command === 'tag' ? args : undefined),
+			new BranchGitCommand(container, args?.command === 'branch' ? args : undefined),
+			new CherryPickGitCommand(container, args?.command === 'cherry-pick' ? args : undefined),
+			new CoAuthorsGitCommand(container, args?.command === 'co-authors' ? args : undefined),
+			new FetchGitCommand(container, args?.command === 'fetch' ? args : undefined),
+			new LogGitCommand(container, args?.command === 'log' ? args : undefined),
+			new MergeGitCommand(container, args?.command === 'merge' ? args : undefined),
+			new PullGitCommand(container, args?.command === 'pull' ? args : undefined),
+			new PushGitCommand(container, args?.command === 'push' ? args : undefined),
+			new RebaseGitCommand(container, args?.command === 'rebase' ? args : undefined),
+			new ResetGitCommand(container, args?.command === 'reset' ? args : undefined),
+			new RevertGitCommand(container, args?.command === 'revert' ? args : undefined),
+			new SearchGitCommand(container, args?.command === 'search' || args?.command === 'grep' ? args : undefined),
+			new ShowGitCommand(container, args?.command === 'show' ? args : undefined),
+			new StashGitCommand(container, args?.command === 'stash' ? args : undefined),
+			new StatusGitCommand(container, args?.command === 'status' ? args : undefined),
+			new SwitchGitCommand(
+				container,
+				args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
+			),
+			new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
 		];
 
-		if (Container.instance.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
+			const usage = this.container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -809,12 +812,12 @@ class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		let usage = this.container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
 		if (usage === undefined) {
 			usage = Object.create(null) as Usage;
 		}
 
 		usage[id] = timestamp;
-		await Container.instance.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
+		await this.container.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
 	}
 }

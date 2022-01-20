@@ -44,8 +44,8 @@ export interface PushGitCommandArgs {
 type PushStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
 export class PushGitCommand extends QuickCommand<State> {
-	constructor(args?: PushGitCommandArgs) {
-		super('push', 'push', 'Push', {
+	constructor(container: Container, args?: PushGitCommandArgs) {
+		super(container, 'push', 'push', 'Push', {
 			description: 'pushes changes from the current branch to a remote',
 		});
 
@@ -66,14 +66,14 @@ export class PushGitCommand extends QuickCommand<State> {
 		if (index !== -1) {
 			if (!GitReference.isBranch(state.reference)) return Promise.resolve();
 
-			return Container.instance.git.pushAll(state.repos, {
+			return this.container.git.pushAll(state.repos, {
 				force: false,
 				publish: { remote: state.flags[index + 1] },
 				reference: state.reference,
 			});
 		}
 
-		return Container.instance.git.pushAll(state.repos, {
+		return this.container.git.pushAll(state.repos, {
 			force: state.flags.includes('--force'),
 			reference: state.reference,
 		});
@@ -81,8 +81,8 @@ export class PushGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 

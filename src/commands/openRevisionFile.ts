@@ -1,7 +1,7 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -18,7 +18,7 @@ export interface OpenRevisionFileCommandArgs {
 
 @command()
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenRevisionFile, Commands.OpenRevisionFileInDiffLeft, Commands.OpenRevisionFileInDiffRight]);
 	}
 
@@ -36,7 +36,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		try {
 			if (args.revisionUri == null) {
 				if (gitUri?.sha) {
-					const commit = await Container.instance.git.getCommit(gitUri.repoPath!, gitUri.sha);
+					const commit = await this.container.git.getCommit(gitUri.repoPath!, gitUri.sha);
 
 					args.revisionUri =
 						commit != null && commit.status === 'D'

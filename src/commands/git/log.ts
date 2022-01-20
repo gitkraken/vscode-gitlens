@@ -40,8 +40,8 @@ export interface LogGitCommandArgs {
 }
 
 export class LogGitCommand extends QuickCommand<State> {
-	constructor(args?: LogGitCommandArgs) {
-		super('log', 'history', 'Commits', {
+	constructor(container: Container, args?: LogGitCommandArgs) {
+		super(container, 'log', 'history', 'Commits', {
 			description: 'aka log, shows commit history',
 		});
 
@@ -78,8 +78,8 @@ export class LogGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			selectedBranchOrTag: undefined,
 			title: this.title,
@@ -155,8 +155,8 @@ export class LogGitCommand extends QuickCommand<State> {
 				if (log == null) {
 					log =
 						state.fileName != null
-							? Container.instance.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
-							: Container.instance.git.getLog(state.repo.path, { ref: ref });
+							? this.container.git.getLogForFile(state.repo.path, state.fileName, { ref: ref })
+							: this.container.git.getLog(state.repo.path, { ref: ref });
 					context.cache.set(ref, log);
 				}
 
@@ -178,10 +178,11 @@ export class LogGitCommand extends QuickCommand<State> {
 			}
 
 			if (!(state.reference instanceof GitLogCommit) || state.reference.isFile) {
-				state.reference = await Container.instance.git.getCommit(state.repo.path, state.reference.ref);
+				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
 			const result = yield* GitCommandsCommand.getSteps(
+				this.container,
 				{
 					command: 'show',
 					state: {

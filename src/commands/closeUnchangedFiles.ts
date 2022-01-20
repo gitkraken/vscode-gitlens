@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Functions } from '../system';
@@ -16,7 +16,7 @@ export interface CloseUnchangedFilesCommandArgs {
 export class CloseUnchangedFilesCommand extends Command {
 	private _onEditorChangedFn: ((editor: TextEditor | undefined) => void) | undefined;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CloseUnchangedFiles);
 	}
 
@@ -28,7 +28,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Close All Unchanged Files');
 				if (!repoPath) return;
 
-				const status = await Container.instance.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 

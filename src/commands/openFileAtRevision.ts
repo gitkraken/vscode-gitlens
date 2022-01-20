@@ -2,7 +2,7 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
@@ -46,7 +46,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		return super.getMarkdownCommandArgsCore<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenFileAtRevision, Commands.OpenBlamePriorToChange]);
 	}
 
@@ -58,7 +58,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				if (editorLine >= 0) {
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
-						const blame = await Container.instance.git.getBlameForLine(gitUri, editorLine);
+						const blame = await this.container.git.getBlameForLine(gitUri, editorLine);
 						if (blame != null) {
 							if (blame.commit.isUncommitted) {
 								const diffUris = await blame.commit.getPreviousLineDiffUris(
@@ -107,11 +107,11 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
+				const log = this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
 					log =>
 						log ??
 						(gitUri.sha
-							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
 									ref: gitUri.sha,
 							  })
 							: undefined),

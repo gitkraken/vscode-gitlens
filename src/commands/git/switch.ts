@@ -42,8 +42,8 @@ export interface SwitchGitCommandArgs {
 }
 
 export class SwitchGitCommand extends QuickCommand<State> {
-	constructor(args?: SwitchGitCommandArgs) {
-		super('switch', 'switch', 'Switch', {
+	constructor(container: Container, args?: SwitchGitCommandArgs) {
+		super(container, 'switch', 'switch', 'Switch', {
 			description: 'aka checkout, switches the current branch to a specified branch',
 		});
 
@@ -90,8 +90,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			showTags: false,
 			title: this.title,
 		};
@@ -149,7 +149,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
-				const { values: branches } = await Container.instance.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: BranchSorting.DateDesc },
 				});

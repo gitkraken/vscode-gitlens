@@ -1,6 +1,6 @@
 'use strict';
 import { executeGitCommand } from '../commands';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { SearchPattern } from '../git/search';
 import { SearchResultsNode } from '../views/nodes';
 import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
@@ -16,7 +16,7 @@ export interface SearchCommitsCommandArgs {
 
 @command()
 export class SearchCommitsCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
 	}
 
@@ -50,7 +50,7 @@ export class SearchCommitsCommand extends Command {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					Container.instance.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					this.container.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
 			},
 		}));
 	}

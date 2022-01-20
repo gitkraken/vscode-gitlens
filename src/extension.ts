@@ -98,7 +98,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 
 	const container = Container.create(context, cfg);
 	container.onReady(() => {
-		registerCommands(context);
+		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
 

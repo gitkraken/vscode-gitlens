@@ -1,19 +1,19 @@
 'use strict';
 import { SourceControl } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { command, Command, Commands } from './common';
 import { executeGitCommand } from './gitCommands';
 
 @command()
 export class AddAuthorsCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.AddAuthors);
 	}
 
 	async execute(sourceControl: SourceControl) {
 		let repo;
 		if (sourceControl?.rootUri != null) {
-			repo = await Container.instance.git.getRepository(sourceControl.rootUri);
+			repo = await this.container.git.getRepository(sourceControl.rootUri);
 		}
 
 		return executeGitCommand({

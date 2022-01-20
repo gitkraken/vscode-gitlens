@@ -1,5 +1,6 @@
 'use strict';
 import { window } from 'vscode';
+import type { Container } from '../container';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { ResultsCommitsNode } from '../views/nodes';
@@ -16,7 +17,7 @@ export interface OpenComparisonOnRemoteCommandArgs {
 
 @command()
 export class OpenComparisonOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
 	}
 

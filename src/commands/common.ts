@@ -2,7 +2,6 @@
 import {
 	commands,
 	Disposable,
-	ExtensionContext,
 	GitTimelineItem,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
@@ -218,7 +217,7 @@ export function executeEditorCommand<T>(command: Commands, uri: Uri | undefined,
 }
 
 interface CommandConstructor {
-	new (): Command;
+	new (container: Container): Command;
 }
 
 const registrableCommands: CommandConstructor[] = [];
@@ -229,10 +228,8 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommands(context: ExtensionContext): void {
-	for (const c of registrableCommands) {
-		context.subscriptions.push(new c());
-	}
+export function registerCommands(container: Container): Disposable[] {
+	return registrableCommands.map(c => new c(container));
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {

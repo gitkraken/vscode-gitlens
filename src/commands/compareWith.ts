@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -19,7 +19,7 @@ export interface CompareWithCommandArgs {
 
 @command()
 export class CompareWithCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.CompareWith,
 			Commands.CompareHeadWith,
@@ -76,9 +76,9 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
-				void (await Container.instance.searchAndCompareView.compare(repoPath, args.ref1, args.ref2));
+				void (await this.container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2));
 			} else {
-				Container.instance.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
+				this.container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');

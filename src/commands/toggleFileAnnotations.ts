@@ -5,14 +5,14 @@ import { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotation
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
 import { isTextEditor } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, EditorCommand } from './common';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
 	}
 
@@ -28,7 +28,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		}
 
 		try {
-			void (await Container.instance.fileAnnotations.clear(editor));
+			void (await this.container.fileAnnotations.clear(editor));
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
 			void Messages.showGenericErrorMessage('Unable to clear file annotations');
@@ -61,12 +61,12 @@ export type ToggleFileAnnotationCommandArgs =
 
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ToggleFileBlame, Commands.ToggleFileBlameInDiffLeft, Commands.ToggleFileBlameInDiffRight]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameAnnotationCommandArgs): Promise<void> {
-		return toggleFileAnnotations<ToggleFileBlameAnnotationCommandArgs>(editor, uri, {
+		return toggleFileAnnotations<ToggleFileBlameAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
 			type: FileAnnotationType.Blame,
 		});
@@ -75,12 +75,12 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 
 @command()
 export class ToggleFileChangesCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ToggleFileChanges);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileChangesAnnotationCommandArgs): Promise<void> {
-		return toggleFileAnnotations<ToggleFileChangesAnnotationCommandArgs>(editor, uri, {
+		return toggleFileAnnotations<ToggleFileChangesAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
 			type: FileAnnotationType.Changes,
 		});
@@ -89,7 +89,7 @@ export class ToggleFileChangesCommand extends ActiveEditorCommand {
 
 @command()
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.ToggleFileHeatmap,
 			Commands.ToggleFileHeatmapInDiffLeft,
@@ -98,7 +98,7 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileHeatmapAnnotationCommandArgs): Promise<void> {
-		return toggleFileAnnotations<ToggleFileHeatmapAnnotationCommandArgs>(editor, uri, {
+		return toggleFileAnnotations<ToggleFileHeatmapAnnotationCommandArgs>(this.container, editor, uri, {
 			...args,
 			type: FileAnnotationType.Heatmap,
 		});
@@ -106,6 +106,7 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 }
 
 async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandArgs>(
+	container: Container,
 	editor: TextEditor,
 	uri: Uri | undefined,
 	args: TArgs,
@@ -123,7 +124,7 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 	try {
 		args = { type: FileAnnotationType.Blame, ...(args as any) };
 
-		void (await Container.instance.fileAnnotations.toggle(
+		void (await container.fileAnnotations.toggle(
 			editor,
 			args.type,
 			{

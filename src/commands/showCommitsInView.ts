@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { executeGitCommand } from '../commands';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
@@ -16,7 +16,7 @@ export interface ShowCommitsInViewCommandArgs {
 
 @command()
 export class ShowCommitsInViewCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ShowCommitInView, Commands.ShowCommitsInView]);
 	}
 
@@ -35,12 +35,12 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 				try {
 					// Check for any uncommitted changes in the range
 					const blame = editor.document.isDirty
-						? await Container.instance.git.getBlameForRangeContents(
+						? await this.container.git.getBlameForRangeContents(
 								gitUri,
 								editor.selection,
 								editor.document.getText(),
 						  )
-						: await Container.instance.git.getBlameForRange(gitUri, editor.selection);
+						: await this.container.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
 						return Messages.showFileNotUnderSourceControlWarningMessage('Unable to find commits');
 					}

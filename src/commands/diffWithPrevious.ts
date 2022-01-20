@@ -1,6 +1,6 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
@@ -27,7 +27,7 @@ export interface DiffWithPreviousCommandArgs {
 
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
 	}
 
@@ -83,7 +83,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// }
 
 		try {
-			const diffUris = await Container.instance.git.getPreviousDiffUris(
+			const diffUris = await this.container.git.getPreviousDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

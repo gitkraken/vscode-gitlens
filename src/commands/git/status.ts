@@ -34,8 +34,8 @@ export interface StatusGitCommandArgs {
 type StatusStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class StatusGitCommand extends QuickCommand<State> {
-	constructor(args?: StatusGitCommandArgs) {
-		super('status', 'status', 'Status', {
+	constructor(container: Container, args?: StatusGitCommandArgs) {
+		super(container, 'status', 'status', 'Status', {
 			description: 'shows status information about a repository',
 		});
 
@@ -57,8 +57,8 @@ export class StatusGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			status: undefined!,
 			title: this.title,
 		};

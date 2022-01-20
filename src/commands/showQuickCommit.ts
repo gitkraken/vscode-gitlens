@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitLog, GitLogCommit } from '../git/models';
 import { Logger } from '../logger';
@@ -32,7 +32,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		return super.getMarkdownCommandArgsCore<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.RevealCommitInView, Commands.ShowQuickCommit]);
 	}
 
@@ -89,7 +89,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			if (blameline < 0) return;
 
 			try {
-				const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit');
 
@@ -126,7 +126,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await Container.instance.git.getCommit(repoPath!, args.sha);
+					args.commit = await this.container.git.getCommit(repoPath!, args.sha);
 				}
 			}
 

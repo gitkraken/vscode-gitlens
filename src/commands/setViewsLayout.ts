@@ -1,6 +1,7 @@
 'use strict';
 import { commands, window } from 'vscode';
 import { viewsConfigKeys } from '../configuration';
+import type { Container } from '../container';
 import { command, Command, Commands } from './common';
 
 enum ViewsLayout {
@@ -14,7 +15,7 @@ export interface SetViewsLayoutCommandArgs {
 
 @command()
 export class SetViewsLayoutCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.SetViewsLayout);
 	}
 

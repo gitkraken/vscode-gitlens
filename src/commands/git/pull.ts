@@ -42,8 +42,8 @@ export interface PullGitCommandArgs {
 type PullStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
 export class PullGitCommand extends QuickCommand<State> {
-	constructor(args?: PullGitCommandArgs) {
-		super('pull', 'pull', 'Pull', {
+	constructor(container: Container, args?: PullGitCommandArgs) {
+		super(container, 'pull', 'pull', 'Pull', {
 			description: 'fetches and integrates changes from a remote into the current branch',
 		});
 
@@ -70,13 +70,13 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return Container.instance.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
+		return this.container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 

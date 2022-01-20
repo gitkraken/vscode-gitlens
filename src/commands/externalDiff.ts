@@ -2,7 +2,7 @@
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
 import { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
@@ -31,7 +31,7 @@ export interface ExternalDiffCommandArgs {
 
 @command()
 export class ExternalDiffCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
 	}
 
@@ -92,7 +92,7 @@ export class ExternalDiffCommand extends Command {
 				const repoPath = await getRepoPathOrPrompt('Open All Changes (difftool)');
 				if (!repoPath) return undefined;
 
-				const status = await Container.instance.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repoPath);
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}
@@ -130,11 +130,11 @@ export class ExternalDiffCommand extends Command {
 				const editor = window.activeTextEditor;
 				if (editor == null) return;
 
-				repoPath = await Container.instance.git.getRepoPathOrActive(undefined, editor);
+				repoPath = await this.container.git.getRepoPathOrActive(undefined, editor);
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await Container.instance.git.getStatusForFile(repoPath, uri.fsPath);
+				const status = await this.container.git.getStatusForFile(repoPath, uri.fsPath);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 
@@ -150,13 +150,12 @@ export class ExternalDiffCommand extends Command {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = await Container.instance.git.getRepoPath(args.files[0].uri.fsPath);
+				repoPath = await this.container.git.getRepoPath(args.files[0].uri.fsPath);
 				if (!repoPath) return;
 			}
 
 			const tool =
-				Container.instance.config.advanced.externalDiffTool ||
-				(await Container.instance.git.getDiffTool(repoPath));
+				this.container.config.advanced.externalDiffTool || (await this.container.git.getDiffTool(repoPath));
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -173,7 +172,7 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			for (const file of args.files) {
-				void Container.instance.git.openDiffTool(repoPath, file.uri, {
+				void this.container.git.openDiffTool(repoPath, file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,

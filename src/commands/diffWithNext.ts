@@ -1,6 +1,6 @@
 'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitLogCommit } from '../git/models';
 import { Logger } from '../logger';
@@ -19,7 +19,7 @@ export interface DiffWithNextCommandArgs {
 
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft, Commands.DiffWithNextInDiffRight]);
 	}
 
@@ -42,7 +42,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		const gitUri = args.commit != null ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
 		try {
-			const diffUris = await Container.instance.git.getNextDiffUris(
+			const diffUris = await this.container.git.getNextDiffUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

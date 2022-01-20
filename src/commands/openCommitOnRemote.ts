@@ -1,6 +1,6 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
@@ -31,7 +31,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		return super.getMarkdownCommandArgsCore<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
@@ -72,8 +72,8 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				if (blameline < 0) return;
 
 				const blame = editor?.document.isDirty
-					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.instance.git.getBlameForLine(gitUri, blameline);
+					? await this.container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage(
 						'Unable to open commit on remote provider',

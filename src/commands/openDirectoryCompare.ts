@@ -1,6 +1,7 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { GitActions } from '../commands';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ReferencePicker } from '../quickpicks';
@@ -22,7 +23,7 @@ export interface OpenDirectoryCompareCommandArgs {
 
 @command()
 export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.DiffDirectory,
 			Commands.DiffDirectoryWithHead,

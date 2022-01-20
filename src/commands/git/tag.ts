@@ -68,8 +68,8 @@ export interface TagGitCommandArgs {
 export class TagGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
-	constructor(args?: TagGitCommandArgs) {
-		super('tag', 'tag', 'Tag', {
+	constructor(container: Container, args?: TagGitCommandArgs) {
+		super(container, 'tag', 'tag', 'Tag', {
 			description: 'create, or delete tags',
 		});
 
@@ -129,8 +129,8 @@ export class TagGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.tagsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.tagsView,
 			showTags: false,
 			title: this.title,
 		};

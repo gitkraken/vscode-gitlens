@@ -1,5 +1,6 @@
 'use strict';
 import { executeGitCommand } from '../commands';
+import type { Container } from '../container';
 import { Command, command, Commands } from './common';
 
 export interface ShowQuickStashListCommandArgs {
@@ -8,7 +9,7 @@ export interface ShowQuickStashListCommandArgs {
 
 @command()
 export class ShowQuickStashListCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ShowQuickStashList);
 	}
 

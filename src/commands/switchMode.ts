@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { ModePicker } from '../quickpicks';
 import { log } from '../system';
@@ -9,7 +9,7 @@ import { command, Command, Commands } from './common';
 
 @command()
 export class SwitchModeCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.SwitchMode);
 	}
 
@@ -24,17 +24,17 @@ export class SwitchModeCommand extends Command {
 			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 
-		const active = Container.instance.config.mode.active;
+		const active = this.container.config.mode.active;
 		if (active === pick.key) return;
 
 		// Check if we have applied any annotations and clear them if we won't be applying them again
 		if (active != null && active.length !== 0) {
-			const activeAnnotations = Container.instance.config.modes?.[active].annotations;
+			const activeAnnotations = this.container.config.modes?.[active].annotations;
 			if (activeAnnotations != null) {
 				const newAnnotations =
-					pick.key != null ? Container.instance.config.modes?.[pick.key].annotations : undefined;
+					pick.key != null ? this.container.config.modes?.[pick.key].annotations : undefined;
 				if (activeAnnotations !== newAnnotations) {
-					await Container.instance.fileAnnotations.clearAll();
+					await this.container.fileAnnotations.clearAll();
 				}
 			}
 		}
@@ -45,37 +45,34 @@ export class SwitchModeCommand extends Command {
 
 @command()
 export class ToggleReviewModeCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ToggleReviewMode);
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (
-			Container.instance.config.modes == null ||
-			!Object.keys(Container.instance.config.modes).includes('review')
-		) {
+		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('review')) {
 			return;
 		}
 
-		const mode = Container.instance.config.mode.active === 'review' ? undefined : 'review';
+		const mode = this.container.config.mode.active === 'review' ? undefined : 'review';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }
 
 @command()
 export class ToggleZenModeCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ToggleZenMode);
 	}
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (Container.instance.config.modes == null || !Object.keys(Container.instance.config.modes).includes('zen')) {
+		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('zen')) {
 			return;
 		}
 
-		const mode = Container.instance.config.mode.active === 'zen' ? undefined : 'zen';
+		const mode = this.container.config.mode.active === 'zen' ? undefined : 'zen';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }

@@ -1,5 +1,6 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
@@ -22,7 +23,7 @@ export interface OpenRepoOnRemoteCommandArgs {
 
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 

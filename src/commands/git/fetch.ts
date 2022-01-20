@@ -41,8 +41,8 @@ export interface FetchGitCommandArgs {
 type FetchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
 export class FetchGitCommand extends QuickCommand<State> {
-	constructor(args?: FetchGitCommandArgs) {
-		super('fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
+	constructor(container: Container, args?: FetchGitCommandArgs) {
+		super(container, 'fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
 
 		let counter = 0;
 		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
@@ -61,7 +61,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			return state.repos[0].fetch({ branch: state.reference });
 		}
 
-		return Container.instance.git.fetchAll(state.repos, {
+		return this.container.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
 		});
@@ -69,8 +69,8 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 

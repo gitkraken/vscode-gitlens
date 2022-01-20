@@ -48,8 +48,8 @@ export interface MergeGitCommandArgs {
 type MergeStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class MergeGitCommand extends QuickCommand<State> {
-	constructor(args?: MergeGitCommandArgs) {
-		super('merge', 'merge', 'Merge', {
+	constructor(container: Container, args?: MergeGitCommandArgs) {
+		super(container, 'merge', 'merge', 'Merge', {
 			description: 'integrates changes from a specified branch into the current branch',
 		});
 
@@ -79,8 +79,8 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
@@ -165,7 +165,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -201,7 +201,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const aheadBehind = await Container.instance.git.getAheadBehindCommitCount(state.repo.path, [
+		const aheadBehind = await this.container.git.getAheadBehindCommitCount(state.repo.path, [
 			GitRevision.createRange(context.destination.name, state.reference.name),
 		]);
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;

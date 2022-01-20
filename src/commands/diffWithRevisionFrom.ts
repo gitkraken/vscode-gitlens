@@ -1,7 +1,7 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models';
 import { Messages } from '../messages';
@@ -19,7 +19,7 @@ export interface DiffWithRevisionFromCommandArgs {
 
 @command()
 export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffWithRevisionFrom);
 	}
 
@@ -46,7 +46,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
-				Container.instance.git.getStash(gitUri.repoPath),
+				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a stash to compare with',
 				{
@@ -81,7 +81,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let renamedTitle: string | undefined;
 
 		// Check to see if this file has been renamed
-		const files = await Container.instance.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
+		const files = await this.container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
 			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
 			const rename = files.find(s => s.fileName === fileName);
