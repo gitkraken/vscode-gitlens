@@ -64,7 +64,7 @@ import {
 	GitStatus,
 	GitStatusFile,
 	GitTag,
-	GitTree,
+	GitTreeEntry,
 	GitUser,
 	PullRequest,
 	PullRequestState,
@@ -3282,16 +3282,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined> {
-		if (repoPath == null || fileName == null || fileName.length === 0) return undefined;
+	async getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined> {
+		if (repoPath == null || !path) return undefined;
 
-		const data = await Git.ls_tree(repoPath, ref, { fileName: fileName });
+		const data = await Git.ls_tree(repoPath, ref, { fileName: path });
 		const trees = GitTreeParser.parse(data);
 		return trees?.length ? trees[0] : undefined;
 	}
 
 	@log()
-	async getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]> {
+	async getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]> {
 		if (repoPath == null) return [];
 
 		const data = await Git.ls_tree(repoPath, ref);

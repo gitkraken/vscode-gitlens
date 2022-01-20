@@ -63,7 +63,7 @@ import {
 	GitStatus,
 	GitStatusFile,
 	GitTag,
-	GitTree,
+	GitTreeEntry,
 	GitUser,
 	PullRequest,
 	PullRequestDateFormatting,
@@ -1655,19 +1655,19 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getTreeFileForRevision(
+	async getTreeEntryForRevision(
 		repoPath: string | Uri | undefined,
-		fileName: string,
+		path: string,
 		ref: string,
-	): Promise<GitTree | undefined> {
-		if (repoPath == null || fileName == null || fileName.length === 0) return undefined;
+	): Promise<GitTreeEntry | undefined> {
+		if (repoPath == null || !path) return undefined;
 
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getTreeFileForRevision(path, fileName, ref);
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getTreeEntryForRevision(rp, path, ref);
 	}
 
 	@log()
-	async getTreeForRevision(repoPath: string | Uri | undefined, ref: string): Promise<GitTree[]> {
+	async getTreeForRevision(repoPath: string | Uri | undefined, ref: string): Promise<GitTreeEntry[]> {
 		if (repoPath == null) return [];
 
 		const { provider, path } = this.getProvider(repoPath);

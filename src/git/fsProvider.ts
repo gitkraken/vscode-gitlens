@@ -16,7 +16,7 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { debug, Iterables, TernarySearchTree } from '../system';
 import { normalizePath, relative } from '../system/path';
-import { GitRevision, GitTree } from './models';
+import { GitRevision, GitTreeEntry } from './models';
 
 const emptyArray = new Uint8Array(0);
 
@@ -31,7 +31,7 @@ export function toGitLensFSUri(ref: string, repoPath: string): Uri {
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	private readonly _disposable: Disposable;
-	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTree>>>();
+	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTreeEntry>>>();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -69,7 +69,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		if (tree === undefined) throw FileSystemError.FileNotFound(uri);
 
 		const items = [
-			...Iterables.map<GitTree, [string, FileType]>(tree, t => [
+			...Iterables.map<GitTreeEntry, [string, FileType]>(tree, t => [
 				path != null && path.length !== 0 ? normalizePath(relative(path, t.path)) : t.path,
 				typeToFileType(t.type),
 			]),
@@ -125,7 +125,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 				};
 			}
 
-			treeItem = await this.container.git.getTreeFileForRevision(repoPath, path, ref);
+			treeItem = await this.container.git.getTreeEntryForRevision(repoPath, path, ref);
 		}
 
 		if (treeItem === undefined) {
@@ -153,7 +153,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 
 	private async createSearchTree(ref: string, repoPath: string) {
-		const searchTree = TernarySearchTree.forPaths<GitTree>();
+		const searchTree = TernarySearchTree.forPaths<GitTreeEntry>();
 		const trees = await this.container.git.getTreeForRevision(repoPath, ref);
 
 		// Add a fake root folder so that searches will work

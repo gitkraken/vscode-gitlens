@@ -24,7 +24,7 @@ import {
 	GitStatus,
 	GitStatusFile,
 	GitTag,
-	GitTree,
+	GitTreeEntry,
 	GitUser,
 	Repository,
 	RepositoryChangeEvent,
@@ -337,8 +337,8 @@ export interface GitProvider {
 		repoPath: string | undefined,
 		options?: { filter?: ((t: GitTag) => boolean) | undefined; sort?: boolean | TagSortOptions | undefined },
 	): Promise<PagedResult<GitTag>>;
-	getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined>;
-	getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]>;
+	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
+	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
 	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined>;
 	getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
