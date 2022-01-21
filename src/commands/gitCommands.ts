@@ -85,6 +85,7 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsCherryPick,
 			Commands.GitCommandsMerge,
 			Commands.GitCommandsRebase,
+			Commands.GitCommandsInteractiveRebase,
 			Commands.GitCommandsReset,
 			Commands.GitCommandsRevert,
 			Commands.GitCommandsSwitch,
@@ -105,6 +106,9 @@ export class GitCommandsCommand extends Command {
 				break;
 			case Commands.GitCommandsRebase:
 				args = { command: 'rebase' };
+				break;
+			case Commands.GitCommandsInteractiveRebase:
+				args = { command: 'rebase', state: { flags: ['--interactive'] } };
 				break;
 			case Commands.GitCommandsReset:
 				args = { command: 'reset' };

@@ -211,8 +211,11 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.pushToCommit', this.pushToCommit, this);
 
 		commands.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
+		commands.registerCommand('gitlens.views.interactiveRebaseOntoBranch', this.interactiveRebase, this);
 		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
+		commands.registerCommand('gitlens.views.interactiveRebaseOntoUpstream', this.rebaseToRemote, this);
 		commands.registerCommand('gitlens.views.rebaseOntoCommit', this.rebase, this);
+		commands.registerCommand('gitlens.views.interactiveRebaseOntoCommit', this.interactiveRebase, this);
 
 		commands.registerCommand('gitlens.views.resetCommit', this.resetCommit, this);
 		commands.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
@@ -527,6 +530,20 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private interactiveRebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
+		if (
+			!(node instanceof BranchNode) &&
+			!(node instanceof CommitNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
+			!(node instanceof TagNode)
+		) {
+			return Promise.resolve();
+		}
+
+		return GitActions.rebase(node.repoPath, node.ref, true);
+	}
+
+	@debug()
 	private rebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
 		if (
 			!(node instanceof BranchNode) &&
@@ -538,6 +555,24 @@ export class ViewCommands {
 		}
 
 		return GitActions.rebase(node.repoPath, node.ref);
+	}
+
+	@debug()
+	private interactiveRebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return Promise.resolve();
+
+		const upstream = node instanceof BranchNode ? node.branch.upstream?.name : node.status.upstream;
+		if (upstream == null) return Promise.resolve();
+
+		return GitActions.rebase(
+			node.repoPath,
+			GitReference.create(upstream, node.repoPath, {
+				refType: 'branch',
+				name: upstream,
+				remote: true,
+			}),
+			true,
+		);
 	}
 
 	@debug()

@@ -3850,6 +3850,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.gitCommands.interactiveRebase",
+				"title": "Git Interactive Rebase...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.gitCommands.reset",
 				"title": "Git Reset...",
 				"category": "GitLens"
@@ -4720,13 +4725,28 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.interactiveRebaseOntoBranch",
+				"title": "Interactively Rebase Current Branch onto Branch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.rebaseOntoCommit",
 				"title": "Rebase Current Branch onto Commit...",
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.interactiveRebaseOntoCommit",
+				"title": "Interactively Rebase Current Branch onto Commit...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.rebaseOntoUpstream",
 				"title": "Rebase Current Branch onto Upstream...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.interactiveRebaseOntoUpstream",
+				"title": "Interactively Rebase Current Branch onto Upstream...",
 				"category": "GitLens"
 			},
 			{
@@ -5834,6 +5854,10 @@
 					"when": "!gitlens:disabled && !gitlens:readonly"
 				},
 				{
+					"command": "gitlens.gitCommands.interactiveRebase",
+					"when": "!gitlens:disabled && !gitlens:readonly"
+				},
+				{
 					"command": "gitlens.gitCommands.reset",
 					"when": "!gitlens:disabled && !gitlens:readonly"
 				},
@@ -6382,11 +6406,23 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.interactiveRebaseOntoBranch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoCommit",
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.interactiveRebaseOntoCommit",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoUpstream",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.interactiveRebaseOntoUpstream",
 					"when": "false"
 				},
 				{
@@ -8149,7 +8185,17 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.views.interactiveRebaseOntoBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoUpstream",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.views.interactiveRebaseOntoUpstream",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
 					"group": "1_gitlens_actions@4"
 				},
@@ -8323,6 +8369,11 @@
 				},
 				{
 					"command": "gitlens.views.rebaseOntoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.views.interactiveRebaseOntoCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions@6"
 				},
@@ -9280,6 +9331,11 @@
 				},
 				{
 					"command": "gitlens.views.rebaseOntoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.views.interactiveRebaseOntoCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@6"
 				},
