@@ -25,7 +25,7 @@
 
 # GitLens
 
-[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
+[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) developed by [GitKraken](https://www.gitkraken.com?utm_source=github&utm_medium=gitlen_repo&utm_campaign=rebrand_updates_jan_2022).
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
@@ -173,7 +173,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 
 - Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible over the current line
 
-#### Details Hover
+### Details Hover
 
   <p align="center">
     <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
@@ -184,7 +184,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
   - Click the commit SHA to execute the _Show Commit_ command
 
-#### Changes (diff) Hover
+### Changes (diff) Hover
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
@@ -270,15 +270,15 @@ GitLens adds many side bar views to provide additional rich functionality. The d
   <img src="images/docs/views-layout-gitlens.png" alt="Views Layout: GitLens" />
 </p>
 
-### Commits view [#](#commits-view- 'Commits view')
+### Commits View [#](#commits-view- 'Commits view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view.png" alt="Commits view" />
 </p>
 
-A [customizable](#commits-view-settings- 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits
+A [customizable](#commits-view-settings- 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits.
 
-The _Commits_ view lists all of the commits on the current branch, and additionally provides,
+The _Commits_ view lists all of the commits on the current branch, and additionally provides:
 
 - a toggle to switch between showing all commits or just your own commits
 - a toggle to change the file layout: list, tree, auto
@@ -301,20 +301,20 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 
 ---
 
-### Repositories view [#](#repositories-view- 'Repositories view')
+### Repositories View [#](#repositories-view- 'Repositories view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
-A hidden by default, [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories
+A hidden by default, [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories.
 
-The Repositories view lists opened Git repositories, and additionally provides,
+The Repositories view lists opened Git repositories, and additionally provides:
 
 - a toggle to automatically refresh the repository on changes
 - a toggle to change the file layout: list, tree, auto
 - an icon overlay indicator to show the current branch's upstream status (if available)
-  - _No dot_ &mdash; no changes or the branch is unpushlished
+  - _No dot_ &mdash; no changes or the branch is unpublished
   - _Green dot_ &mdash; has changes unpushed (ahead)
   - _Red dot_ &mdash; has changes unpulled (behind)
   - _Yellow dot_ &mdash; both unpushed and unpulled changes
@@ -342,15 +342,15 @@ The Repositories view lists opened Git repositories, and additionally provides,
 
 ---
 
-### File History view [#](#file-history-view- 'File History view')
+### File History View [#](#file-history-view- 'File History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png" alt="File History view" />
 </p>
 
-A [customizable](#file-history-view-settings- 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
+A [customizable](#file-history-view-settings- 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file.
 
-The file history view lists all of the commits that changed the current file on the current branch, and additionally provides,
+The file history view lists all of the commits that changed the current file on the current branch, and additionally provides:
 
 - a toggle to pin (pause) the automatic tracking of the current editor
 - a toggle to switch between file and line history, i.e. show all commits of the current file, or just the selected lines of the current file
@@ -363,15 +363,15 @@ The file history view lists all of the commits that changed the current file on 
 
 ---
 
-### Line History view [#](#line-history-view- 'Line History view')
+### Line History View [#](#line-history-view- 'Line History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/line-history-view.png" alt="Line History view" />
 </p>
 
-A hidden by default, [customizable](#line-history-view-settings- 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file
+A hidden by default, [customizable](#line-history-view-settings- 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file.
 
-The line history view lists all of the commits that changed the selected lines of the current file on the current branch, and additionally provides,
+The line history view lists all of the commits that changed the selected lines of the current file on the current branch, and additionally provides:
 
 - a toggle to pin (pause) the automatic tracking of the current editor
 - the ability to change the current base branch or reference when computing the line history
@@ -380,20 +380,20 @@ The line history view lists all of the commits that changed the selected lines o
 
 ---
 
-### Branches view [#](#branches-view- 'Branches view')
+### Branches view [#](#branches-view- 'Branches View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/branches-view.png" alt="Branches view" />
 </p>
 
-A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches
+A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches.
 
-The _Branches_ view lists all of the local branches, and additionally provides,
+The _Branches_ view lists all of the local branches, and additionally provides:
 
 - a toggle to change the branch layout: list or tree
 - a toggle to change the file layout: list, tree, auto
 - an icon overlay indicator to show the branch's upstream status (if available)
-  - _No dot_ &mdash; no changes or the branch is unpushlished
+  - _No dot_ &mdash; no changes or the branch is unpublished
   - _Green dot_ &mdash; has changes unpushed (ahead)
   - _Red dot_ &mdash; has changes unpulled (behind)
   - _Yellow dot_ &mdash; both unpushed and unpulled changes
@@ -418,15 +418,15 @@ The _Branches_ view lists all of the local branches, and additionally provides,
 
 ---
 
-### Remotes view [#](#remotes-view- 'Remotes view')
+### Remotes view [#](#remotes-view- 'Remotes View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/remotes-view.png" alt="Remotes view" />
 </p>
 
-A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches
+A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches.
 
-The _Remotes_ view lists all of the remotes and their remote branches, and additionally provides,
+The _Remotes_ view lists all of the remotes and their remote branches, and additionally provides:
 
 - a toggle to change the branch layout: list or tree
 - a toggle to change the file layout: list, tree, auto
@@ -434,58 +434,58 @@ The _Remotes_ view lists all of the remotes and their remote branches, and addit
 
 ---
 
-### Stashes view [#](#stashes-view- 'Stashes view')
+### Stashes View [#](#stashes-view- 'Stashes View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/stashes-view.png" alt="Stashes view" />
 </p>
 
-A [customizable](#stashes-view-settings- 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes
+A [customizable](#stashes-view-settings- 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes.
 
-The _Stashes_ view lists all of the stashes, and additionally provides,
+The _Stashes_ view lists all of the stashes, and additionally provides:
 
 - a toggle to change the file layout: list, tree, auto
 
 ---
 
-### Tags view [#](#tags-view- 'Tags view')
+### Tags View [#](#tags-view- 'Tags View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/tags-view.png" alt="Tags view" />
 </p>
 
-A [customizable](#tags-view-settings- 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags
+A [customizable](#tags-view-settings- 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags.
 
-The _Tags_ view lists all of the tags, and additionally provides,
+The _Tags_ view lists all of the tags, and additionally provides:
 
 - a toggle to change the tag layout: list or tree
 - a toggle to change the file layout: list, tree, auto
 
 ---
 
-### Contributors view [#](#contributors-view- 'Contributors view')
+### Contributors View [#](#contributors-view- 'Contributors View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
 </p>
 
-A hidden by default, [customizable](#contributors-view-settings- 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors
+A hidden by default, [customizable](#contributors-view-settings- 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors.
 
-The _Contributors_ view lists all of the contributors, and additionally provides,
+The _Contributors_ view lists all of the contributors, and additionally provides:
 
 - a toggle to change the file layout: list, tree, auto
 
 ---
 
-### Search & Compare view [#](#search--compare-view- 'Search & Compare view')
+### Search & Compare View [#](#search--compare-view- 'Search & Compare View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A hidden by default, [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+A hidden by default, [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more.
 
-The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides,
+The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides:
 
 - a toggle to keep previous results when new results are added
 - a toggle to change the file layout: list, tree, auto
@@ -505,7 +505,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the ahead commits
   - **# files changed** &mdash; lists all of the files changed between the compared references
-  - Comparision results can be provided by the following commands
+  - Comparison results can be provided by the following commands
     - _Compare with Upstream_ command (`gitlens.views.compareWithUpstream`)
     - _Compare with Working Tree_ command (`gitlens.views.compareWithWorking`)
     - _Compare with HEAD_ command (`gitlens.views.compareWithHead`)
@@ -612,7 +612,7 @@ GitLens provides rich integrations with many remote providers, including GitHub,
 
 Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, associate pull requests with branches and commits, and provide avatars.
 
-Additionally, these integrations provide commands to copy the url of or open, files, commits, branches, and the repository on the remote provider.
+Additionally, these integrations provide commands to copy the url of or open files, commits, branches, and the repository on the remote provider.
 
 - _Open File from Remote_ command (`gitlens.openFileFromRemote`) &mdash; opens the local file from a url of a file on a remote provider
 - _Open File on Remote_ command (`gitlens.openFileOnRemote`) &mdash; opens a file or revision on the remote provider
