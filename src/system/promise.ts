@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationToken } from 'vscode';
+import { CancellationToken, Disposable } from 'vscode';
 import { map } from './iterable';
 
 export type PromiseOrValue<T> = Promise<T> | T;
@@ -29,6 +29,8 @@ export function cancellable<T>(
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
+		let disposable: Disposable | undefined;
+
 		if (typeof timeoutOrToken === 'number') {
 			timer = setTimeout(() => {
 				if (typeof options.onDidCancel === 'function') {
@@ -38,7 +40,8 @@ export function cancellable<T>(
 				}
 			}, timeoutOrToken);
 		} else {
-			timeoutOrToken.onCancellationRequested(() => {
+			disposable = timeoutOrToken.onCancellationRequested(() => {
+				disposable?.dispose();
 				if (fulfilled) return;
 
 				if (typeof options.onDidCancel === 'function') {
@@ -55,6 +58,7 @@ export function cancellable<T>(
 				if (timer != null) {
 					clearTimeout(timer);
 				}
+				disposable?.dispose();
 				resolve(promise);
 			},
 			ex => {
@@ -62,6 +66,7 @@ export function cancellable<T>(
 				if (timer != null) {
 					clearTimeout(timer);
 				}
+				disposable?.dispose();
 				reject(ex);
 			},
 		);
