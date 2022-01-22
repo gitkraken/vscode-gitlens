@@ -642,6 +642,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return Git.rev_list__left_right(repoPath, refs);
 	}
 
+	@gate()
 	@log()
 	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -802,6 +803,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@gate()
 	@log()
 	async getBlameForLine(
 		uri: GitUri,
