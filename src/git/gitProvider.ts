@@ -322,6 +322,7 @@ export interface GitProvider {
 		options?: { sort?: boolean | undefined },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]>;
 	getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined>;
+	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined>;
@@ -332,7 +333,6 @@ export interface GitProvider {
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 

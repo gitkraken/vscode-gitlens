@@ -2904,6 +2904,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider>[];
 	}
 
+	@debug({ args: { 1: false } })
 	async getRemotesCore(
 		repoPath: string | undefined,
 		providers?: RemoteProviders,
@@ -3045,6 +3046,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				await Messages.showIncorrectWorkspaceCasingWarningMessage();
 			}
 		}
+	}
+
+	@gate()
+	@log()
+	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
+		return Git.show<Buffer>(repoPath, path, ref, { encoding: 'buffer' });
 	}
 
 	@gate()
@@ -3191,11 +3198,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const data = await Git.ls_tree(repoPath, ref);
 		return GitTreeParser.parse(data) ?? [];
-	}
-
-	@log()
-	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined> {
-		return Git.show<Buffer>(repoPath, path, ref, { encoding: 'buffer' });
 	}
 
 	@log()
