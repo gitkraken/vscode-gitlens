@@ -78,8 +78,8 @@ export class DocumentTracker<T> implements Disposable {
 			workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
-			this.container.git.onDidChangeRepositories(Functions.debounce(this.onRepositoriesChanged, 250), this),
-			this.container.git.onDidChangeRepository(Functions.debounce(this.onRepositoryChanged, 250), this),
+			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 		);
 
 		this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
@@ -144,8 +144,12 @@ export class DocumentTracker<T> implements Disposable {
 		}
 	}
 
-	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
-		this.reset('repository');
+	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
+		this.reset(
+			'repository',
+			e.added.length ? new Set<string>(e.added.map(r => r.path)) : undefined,
+			e.removed.length ? new Set<string>(e.removed.map(r => r.path)) : undefined,
+		);
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
@@ -158,9 +162,7 @@ export class DocumentTracker<T> implements Disposable {
 				RepositoryChangeComparisonMode.Any,
 			)
 		) {
-			void Promise.allSettled(
-				Iterables.map(this._documentMap.values(), async d => (await d).reset('repository')),
-			);
+			void this.reset('repository', new Set([e.repository.path]));
 		}
 	}
 
@@ -201,14 +203,8 @@ export class DocumentTracker<T> implements Disposable {
 		this.fireDocumentDirtyStateChanged({ editor: editor, document: doc, dirty: doc.dirty });
 	}
 
-	private async onTextDocumentClosed(document: TextDocument) {
-		const doc = this._documentMap.get(document);
-		if (doc == null) return;
-
-		this._documentMap.delete(document);
-		this._documentMap.delete(GitUri.toKey(document.uri));
-
-		(await doc).dispose();
+	private onTextDocumentClosed(document: TextDocument) {
+		void this.remove(document);
 	}
 
 	private async onTextDocumentSaved(document: TextDocument) {
@@ -272,6 +268,18 @@ export class DocumentTracker<T> implements Disposable {
 			key = GitUri.toKey(key);
 		}
 		return this._documentMap.has(key);
+	}
+
+	private async remove(document: TextDocument, tracked?: TrackedDocument<T>): Promise<void> {
+		let promise;
+		if (tracked != null) {
+			promise = this._documentMap.get(document);
+		}
+
+		this._documentMap.delete(document);
+		this._documentMap.delete(GitUri.toKey(document.uri));
+
+		(tracked ?? (await promise))?.dispose();
 	}
 
 	private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
@@ -386,11 +394,21 @@ export class DocumentTracker<T> implements Disposable {
 		this._dirtyStateChangedDebounced(e);
 	}
 
-	private reset(reason: 'config' | 'dispose' | 'document' | 'repository') {
+	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
 		void Promise.allSettled(
 			Iterables.map(
 				Iterables.filter(this._documentMap, ([key]) => typeof key === 'string'),
-				async ([, d]) => (await d).reset(reason),
+				async ([, promise]) => {
+					const doc = await promise;
+					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
+						void this.remove(doc.document, doc);
+						return;
+					}
+
+					if (changedRepoPaths == null || changedRepoPaths.has(doc.uri.repoPath!)) {
+						doc.reset(reason);
+					}
+				},
 			),
 		);
 	}
