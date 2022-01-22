@@ -44,7 +44,7 @@ export class StatusBarController implements Disposable {
 		this._statusBarBlame?.dispose();
 		this._statusBarMode?.dispose();
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 		this._disposable.dispose();
 	}
 
@@ -118,13 +118,13 @@ export class StatusBarController implements Disposable {
 			this._statusBarBlame.command = this.container.config.statusBar.command;
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
-				this.container.lineTracker.start(
+				this.container.lineTracker.subscribe(
 					this,
 					this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 		} else if (configuration.changed(e, 'statusBar.enabled')) {
-			this.container.lineTracker.stop(this);
+			this.container.lineTracker.unsubscribe(this);
 
 			this._statusBarBlame?.dispose();
 			this._statusBarBlame = undefined;

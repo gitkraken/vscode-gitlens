@@ -48,7 +48,7 @@ export class LineAnnotationController implements Disposable {
 	dispose() {
 		this.clearAnnotations(this._editor);
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 		this._disposable.dispose();
 	}
 
@@ -318,8 +318,8 @@ export class LineAnnotationController implements Disposable {
 
 	private setLineTracker(enabled: boolean) {
 		if (enabled) {
-			if (!this.container.lineTracker.isSubscribed(this)) {
-				this.container.lineTracker.start(
+			if (!this.container.lineTracker.subscribed(this)) {
+				this.container.lineTracker.subscribe(
 					this,
 					this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
@@ -328,7 +328,7 @@ export class LineAnnotationController implements Disposable {
 			return;
 		}
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 	}
 
 	private async waitForAnyPendingPullRequests(

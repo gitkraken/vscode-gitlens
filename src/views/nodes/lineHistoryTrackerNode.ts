@@ -218,11 +218,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	protected subscribe() {
-		if (this.view.container.lineTracker.isSubscribed(this)) return undefined;
+		if (this.view.container.lineTracker.subscribed(this)) return undefined;
 
 		const onActiveLinesChanged = Functions.debounce(this.onActiveLinesChanged.bind(this), 250);
 
-		return this.view.container.lineTracker.start(
+		return this.view.container.lineTracker.subscribe(
 			this,
 			this.view.container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
 				if (e.pending) return;

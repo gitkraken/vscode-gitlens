@@ -35,7 +35,7 @@ export class LineHoverController implements Disposable {
 	dispose() {
 		this.unregister();
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 		this._disposable.dispose();
 	}
 
@@ -49,14 +49,14 @@ export class LineHoverController implements Disposable {
 		}
 
 		if (this.container.config.hovers.enabled && this.container.config.hovers.currentLine.enabled) {
-			this.container.lineTracker.start(
+			this.container.lineTracker.subscribe(
 				this,
 				this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 			);
 
 			this.register(window.activeTextEditor);
 		} else {
-			this.container.lineTracker.stop(this);
+			this.container.lineTracker.unsubscribe(this);
 			this.unregister();
 		}
 	}
