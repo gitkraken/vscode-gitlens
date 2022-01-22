@@ -13,7 +13,6 @@ export interface GitCommitish {
 	fileName?: string;
 	repoPath: string;
 	sha?: string;
-	versionedPath?: string;
 }
 
 interface UriComponents {
@@ -43,7 +42,6 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	readonly repoPath?: string;
 	readonly sha?: string;
-	readonly versionedPath?: string;
 
 	constructor(uri?: Uri);
 	constructor(uri: Uri, commit: GitCommitish);
@@ -140,7 +138,6 @@ export class GitUri extends (Uri as any as UriEx) {
 			fragment: uri.fragment,
 		});
 		this.repoPath = commitOrRepoPath.repoPath;
-		this.versionedPath = commitOrRepoPath.versionedPath;
 		if (GitRevision.isUncommittedStaged(commitOrRepoPath.sha) || !GitRevision.isUncommitted(commitOrRepoPath.sha)) {
 			this.sha = commitOrRepoPath.sha;
 		}
@@ -181,12 +178,15 @@ export class GitUri extends (Uri as any as UriEx) {
 		return GitRevision.shorten(this.sha);
 	}
 
-	@memoize<GitUri['documentUri']>(useVersionedPath => `${useVersionedPath ? 'versioned' : ''}`)
-	documentUri(useVersionedPath: boolean = false) {
-		if (useVersionedPath && this.versionedPath != null) return GitUri.file(this.versionedPath);
-		if (this.scheme !== 'file') return this;
-
-		return GitUri.file(this.fsPath);
+	@memoize()
+	documentUri() {
+		return Uri.from({
+			scheme: this.scheme,
+			authority: this.authority,
+			path: this.path,
+			query: this.query,
+			fragment: this.fragment,
+		});
 	}
 
 	equals(uri: Uri | undefined) {

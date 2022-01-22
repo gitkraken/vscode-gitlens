@@ -286,7 +286,7 @@ export class DocumentTracker<T> implements Disposable {
 		let document;
 		if (GitUri.is(documentOrId)) {
 			try {
-				document = await workspace.openTextDocument(documentOrId.documentUri(true));
+				document = await workspace.openTextDocument(documentOrId.documentUri());
 			} catch (ex) {
 				const msg: string = ex?.toString() ?? '';
 				if (msg.includes('File seems to be binary and cannot be opened as text')) {
@@ -319,7 +319,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _get(documentOrId: string | TextDocument | Uri) {
 		if (GitUri.is(documentOrId)) {
-			documentOrId = GitUri.toKey(documentOrId.documentUri(true));
+			documentOrId = GitUri.toKey(documentOrId.documentUri());
 		} else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
 			documentOrId = GitUri.toKey(documentOrId);
 		}
@@ -426,7 +426,7 @@ class EmptyTextDocument implements TextDocument {
 	readonly version: number;
 
 	constructor(public readonly gitUri: GitUri) {
-		this.uri = gitUri.documentUri(true);
+		this.uri = gitUri.documentUri();
 
 		this.eol = EndOfLine.LF;
 		this.fileName = this.uri.fsPath;
