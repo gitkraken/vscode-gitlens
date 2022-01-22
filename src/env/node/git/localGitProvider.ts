@@ -23,7 +23,7 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { configuration } from '../../../configuration';
-import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars } from '../../../constants';
+import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars, WorkspaceState } from '../../../constants';
 import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
@@ -94,7 +94,7 @@ import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
 import { Arrays, debug, Functions, gate, Iterables, log, Promises, Strings, Versions } from '../../../system';
 import { isFolderGlob, normalizePath, splitPath } from '../../../system/path';
-import { PromiseOrValue } from '../../../system/promise';
+import { any, PromiseOrValue } from '../../../system/promise';
 import {
 	CachedBlame,
 	CachedDiff,
@@ -215,16 +215,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const scmPromise = this.getScmGitApi();
 
-		// Try to use the same git as the built-in vscode git extension, but only wait for a bit
-		const timeout = 100;
-		let gitPath;
-		try {
-			const gitApi = await Promises.cancellable(scmPromise, timeout);
-			gitPath = gitApi?.git.path;
-		} catch {
-			Logger.log(cc, `Stopped waiting for built-in Git, after ${timeout} ms...`);
-		}
-
 		async function subscribeToScmOpenCloseRepository(
 			container: Container,
 			apiPromise: Promise<BuiltInGitApi | undefined>,
@@ -249,8 +239,34 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		void subscribeToScmOpenCloseRepository(this.container, scmPromise);
 
+		const potentialGitPaths =
+			configuration.getAny<string | string[]>('git.path') ??
+			this.container.context.workspaceState.get(WorkspaceState.GitPath, undefined);
+
 		const start = hrtime();
-		const location = await findGitPath(gitPath ?? configuration.getAny<string | string[]>('git.path'));
+
+		const findGitPromise = findGitPath(potentialGitPaths);
+		// Try to use the same git as the built-in vscode git extension, but don't wait for it if we find something faster
+		const findGitFromSCMPromise = scmPromise.then(gitApi => {
+			const path = gitApi?.git.path;
+			if (!path) return findGitPromise;
+
+			if (potentialGitPaths != null) {
+				if (typeof potentialGitPaths === 'string') {
+					if (path === potentialGitPaths) return findGitPromise;
+				} else if (potentialGitPaths.includes(path)) {
+					return findGitPromise;
+				}
+			}
+
+			return findGitPath(path, false);
+		});
+
+		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
+		// Save the found git path, but let things settle first to not impact startup performance
+		setTimeout(() => {
+			void this.container.context.workspaceState.update(WorkspaceState.GitPath, location.path);
+		}, 1000);
 
 		if (cc != null) {
 			cc.exitDetails = ` ${GlyphChars.Dot} Git found (${Strings.getDurationMilliseconds(start)} ms): ${

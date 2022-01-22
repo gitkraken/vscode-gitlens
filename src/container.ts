@@ -139,9 +139,7 @@ export class Container {
 
 		this._ready = true;
 		this.registerGitProviders();
-		queueMicrotask(() => {
-			this._onReady.fire();
-		});
+		queueMicrotask(() => this._onReady.fire());
 	}
 
 	@log()

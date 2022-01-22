@@ -3,6 +3,7 @@ import { join as joinPaths } from 'path';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
 import { Stopwatch } from '../../../system';
+import { any } from '../../../system/promise';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {
@@ -103,20 +104,29 @@ function findGitWin32(): Promise<GitLocation> {
 		.then(null, () => findSpecificGit('git'));
 }
 
-export async function findGitPath(paths?: string | string[]): Promise<GitLocation> {
+export async function findGitPath(
+	paths: string | string[] | null | undefined,
+	search: boolean = true,
+): Promise<GitLocation> {
 	try {
 		if (paths == null || typeof paths === 'string') {
 			return await findSpecificGit(paths ?? 'git');
 		}
 
-		for (const path of paths) {
-			try {
-				return await findSpecificGit(path);
-			} catch {}
+		try {
+			return any(...paths.map(p => findSpecificGit(p)));
+		} catch (ex) {
+			throw new UnableToFindGitError(ex);
+		}
+	} catch (ex) {
+		if (!search) {
+			return Promise.reject(
+				ex instanceof InvalidGitConfigError || ex instanceof UnableToFindGitError
+					? ex
+					: new UnableToFindGitError(ex),
+			);
 		}
 
-		throw new UnableToFindGitError();
-	} catch {
 		try {
 			switch (process.platform) {
 				case 'darwin':

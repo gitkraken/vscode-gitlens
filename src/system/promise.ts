@@ -4,6 +4,35 @@ import { map } from './iterable';
 
 export type PromiseOrValue<T> = Promise<T> | T;
 
+export function any<T>(...promises: Promise<T>[]): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const errors: Error[] = [];
+		let settled = false;
+
+		for (const promise of promises) {
+			// eslint-disable-next-line no-loop-func
+			void (async () => {
+				try {
+					const result = await promise;
+					if (settled) return;
+
+					resolve(result);
+					settled = true;
+				} catch (ex) {
+					errors.push(ex);
+				} finally {
+					if (!settled) {
+						if (promises.length - errors.length < 1) {
+							reject(new AggregateError(errors));
+							settled = true;
+						}
+					}
+				}
+			})();
+		}
+	});
+}
+
 export class CancellationError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(public readonly promise: T, message: string) {
 		super(message);
@@ -73,21 +102,6 @@ export function cancellable<T>(
 	});
 }
 
-export function first<T>(promises: Promise<T>[], predicate: (value: T) => boolean): Promise<T | undefined> {
-	const newPromises: Promise<T | undefined>[] = promises.map(
-		p =>
-			new Promise<T>((resolve, reject) =>
-				p.then(value => {
-					if (predicate(value)) {
-						resolve(value);
-					}
-				}, reject),
-			),
-	);
-	newPromises.push(Promise.all(promises).then(() => undefined));
-	return Promise.race(newPromises);
-}
-
 export function is<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 	return obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function';
 }
@@ -153,4 +167,12 @@ export async function raceAll<TPromise, T>(
 					]),
 			  ),
 	);
+}
+
+export class AggregateError extends Error {
+	constructor(readonly errors: Error[]) {
+		super(`AggregateError(${errors.length})\n${errors.map(e => `\t${String(e)}`).join('\n')}`);
+
+		Error.captureStackTrace?.(this, AggregateError);
+	}
 }
