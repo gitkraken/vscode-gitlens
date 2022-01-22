@@ -244,10 +244,12 @@ export class Logger {
 	static logGitCommand(command: string, duration: number, ex?: Error): void {
 		if (this.level < OrderedLevel.Debug && !this.isDebugging) return;
 
+		const slow = duration > Logger.slowCallWarningThreshold;
+
 		if (this.isDebugging) {
 			if (ex != null) {
 				console.error(this.timestamp, gitConsolePrefix, command ?? emptyStr, ex);
-			} else if (duration > Logger.slowCallWarningThreshold) {
+			} else if (slow) {
 				console.warn(this.timestamp, gitConsolePrefix, command ?? emptyStr);
 			} else {
 				console.log(this.timestamp, gitConsolePrefix, command ?? emptyStr);
@@ -257,7 +259,11 @@ export class Logger {
 		if (this.gitOutput == null) {
 			this.gitOutput = window.createOutputChannel(gitOutputChannelName);
 		}
-		this.gitOutput.appendLine(`${this.timestamp} ${command}${ex != null ? `\n\n${ex.toString()}` : emptyStr}`);
+		this.gitOutput.appendLine(
+			`${this.timestamp} [${slow ? '*' : ' '}${duration.toString().padStart(6)}ms] ${command}${
+				ex != null ? `\n\n${ex.toString()}` : emptyStr
+			}`,
+		);
 	}
 }
 

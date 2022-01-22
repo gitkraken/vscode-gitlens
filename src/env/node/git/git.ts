@@ -113,7 +113,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		pendingCommands.set(command, promise);
 	} else {
 		waiting = true;
-		Logger.debug(`${gitCommand} ${GlyphChars.Dot} waiting...`);
+		Logger.debug(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} waiting...`);
 	}
 
 	let exception: Error | undefined;
@@ -140,22 +140,25 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		pendingCommands.delete(command);
 
 		const duration = Strings.getDurationMilliseconds(start);
-		const elapsed = `${duration} ms ${waiting ? '(waited) ' : ''}`;
+		const slow = duration > Logger.slowCallWarningThreshold;
+		const status =
+			slow || waiting ? ` (${slow ? `slow${waiting ? ', waiting' : ''}` : ''}${waiting ? 'waiting' : ''})` : '';
+
 		if (exception != null) {
 			Logger.error(
 				'',
-				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || '')
+				`[GIT  ] [${runOpts.cwd}] git ${(exception.message || exception.toString() || '')
 					.trim()
 					.replace(/fatal: /g, '')
-					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${elapsed}`,
+					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
 			);
-		} else if (duration > Logger.slowCallWarningThreshold) {
-			Logger.warn(`${gitCommand} ${GlyphChars.Dot} ${elapsed} (slow)`);
+		} else if (slow) {
+			Logger.warn(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
 		} else {
-			Logger.log(`${gitCommand} ${GlyphChars.Dot} ${elapsed}`);
+			Logger.log(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
 		}
 		Logger.logGitCommand(
-			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : ''}${elapsed}`,
+			`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}${waiting ? ' (waited)' : ''}`,
 			duration,
 			exception,
 		);
