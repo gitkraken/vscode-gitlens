@@ -366,19 +366,7 @@ export interface GitProvider {
 	resolveReference(
 		repoPath: string,
 		ref: string,
-		fileName?: string,
-		options?: { timeout?: number | undefined },
-	): Promise<string>;
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		uri?: Uri,
-		options?: { timeout?: number | undefined },
-	): Promise<string>;
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		fileNameOrUri?: string | Uri,
+		pathOrUri?: string | Uri,
 		options?: { timeout?: number | undefined },
 	): Promise<string>;
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;

@@ -1784,7 +1784,7 @@ export class GitProviderService implements Disposable {
 	async resolveReference(
 		repoPath: string,
 		ref: string,
-		fileName?: string,
+		path?: string,
 		options?: { timeout?: number },
 	): Promise<string>;
 	async resolveReference(repoPath: string, ref: string, uri?: Uri, options?: { timeout?: number }): Promise<string>;
@@ -1792,15 +1792,15 @@ export class GitProviderService implements Disposable {
 	async resolveReference(
 		repoPath: string | Uri,
 		ref: string,
-		fileNameOrUri?: string | Uri,
+		pathOrUri?: string | Uri,
 		options?: { timeout?: number },
 	) {
-		if (ref == null || ref.length === 0 || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+		if (!ref || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
 			return ref;
 		}
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.resolveReference(path, ref, fileNameOrUri, options);
+		return provider.resolveReference(path, ref, pathOrUri, options);
 	}
 
 	@log()

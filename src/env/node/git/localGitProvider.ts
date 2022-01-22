@@ -3463,34 +3463,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		fileName?: string,
-		options?: { timeout?: number },
-	): Promise<string>;
-	async resolveReference(repoPath: string, ref: string, uri?: Uri, options?: { timeout?: number }): Promise<string>;
 	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		fileNameOrUri?: string | Uri,
-		options?: { timeout?: number },
-	) {
-		if (ref == null || ref.length === 0 || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+	async resolveReference(repoPath: string, ref: string, pathOrUri?: string | Uri, options?: { timeout?: number }) {
+		if (!ref || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
 			return ref;
 		}
 
-		if (fileNameOrUri == null) {
+		if (pathOrUri == null) {
 			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
 			return (await Git.rev_parse__verify(repoPath, ref)) ?? ref;
 		}
 
-		const fileName =
-			typeof fileNameOrUri === 'string' ? fileNameOrUri : normalizePath(relative(repoPath, fileNameOrUri.fsPath));
+		const path = typeof pathOrUri === 'string' ? pathOrUri : normalizePath(relative(repoPath, pathOrUri.fsPath));
 
-		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
+		const blob = await Git.rev_parse__verify(repoPath, ref, path);
 		if (blob == null) return GitRevision.deletedOrMissing;
 
 		let promise: Promise<string | void | undefined> = Git.log__find_object(
@@ -3498,7 +3485,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			blob,
 			ref,
 			this.container.config.advanced.commitOrdering,
-			fileName,
+			path,
 		);
 		if (options?.timeout != null) {
 			promise = Promise.race([promise, Functions.wait(options.timeout)]);
