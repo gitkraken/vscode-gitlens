@@ -308,15 +308,8 @@ export interface GitProvider {
 		},
 	): Promise<GitReflog | undefined>;
 	getRichRemoteProvider(
-		repoPath: string | undefined,
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	getRichRemoteProvider(
-		remotes: GitRemote<RemoteProvider | RichRemoteProvider | undefined>[],
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	getRichRemoteProvider(
-		remotesOrRepoPath: string | GitRemote<RemoteProvider | RichRemoteProvider | undefined>[] | undefined,
+		repoPath: string,
+		remotes: GitRemote<RemoteProvider | RichRemoteProvider | undefined>[] | undefined,
 		options?: { includeDisconnected?: boolean | undefined },
 	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	getRemotes(

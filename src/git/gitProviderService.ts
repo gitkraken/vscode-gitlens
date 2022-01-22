@@ -1402,9 +1402,13 @@ export class GitProviderService implements Disposable {
 	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	@gate<GitProviderService['getRichRemoteProvider']>(
 		(remotesOrRepoPath, options) =>
-			`${typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath}:${
-				options?.includeDisconnected ?? false
-			}`,
+			`${
+				remotesOrRepoPath == null || typeof remotesOrRepoPath === 'string'
+					? remotesOrRepoPath
+					: remotesOrRepoPath instanceof Uri
+					? remotesOrRepoPath.toString()
+					: `${remotesOrRepoPath[0]?.repoPath}|${remotesOrRepoPath?.map(r => r.id).join(',') ?? ''}`
+			}|${options?.includeDisconnected ?? false}`,
 	)
 	@log<GitProviderService['getRichRemoteProvider']>({
 		args: {
@@ -1418,14 +1422,16 @@ export class GitProviderService implements Disposable {
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
+		let remotes;
 		if (Array.isArray(remotesOrRepoPath)) {
 			if (remotesOrRepoPath.length === 0) return undefined;
 
+			remotes = remotesOrRepoPath;
 			remotesOrRepoPath = remotesOrRepoPath[0].repoPath;
 		}
 
 		const { provider, path } = this.getProvider(remotesOrRepoPath);
-		return provider.getRichRemoteProvider(path, options);
+		return provider.getRichRemoteProvider(path, remotes, options);
 	}
 
 	@log()

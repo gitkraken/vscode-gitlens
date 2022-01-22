@@ -66,8 +66,6 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
-	PullRequest,
-	PullRequestState,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
@@ -92,7 +90,7 @@ import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provide
 import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
-import { Arrays, debug, Functions, gate, Iterables, log, Promises, Strings, Versions } from '../../../system';
+import { Arrays, debug, Functions, gate, Iterables, log, Strings, Versions } from '../../../system';
 import { isFolderGlob, normalizePath, splitPath } from '../../../system/path';
 import { any, PromiseOrValue } from '../../../system/promise';
 import {
@@ -2807,33 +2805,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		};
 	}
 
-	async getRichRemoteProvider(
-		repoPath: string | undefined,
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	async getRichRemoteProvider(
-		remotes: GitRemote[],
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	@gate<LocalGitProvider['getRichRemoteProvider']>(
-		(remotesOrRepoPath, options) =>
-			`${typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath}:${
-				options?.includeDisconnected ?? false
-			}`,
+		(repoPath, remotes, options) =>
+			`${repoPath}|${remotes?.map(r => r.id).join(',') ?? ''}|${options?.includeDisconnected ?? false}`,
 	)
-	@log<LocalGitProvider['getRichRemoteProvider']>({
-		args: {
-			0: remotesOrRepoPath =>
-				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
-		},
-	})
+	@log<LocalGitProvider['getRichRemoteProvider']>({ args: { 1: remotes => remotes?.map(r => r.name).join(',') } })
 	async getRichRemoteProvider(
-		remotesOrRepoPath: GitRemote[] | string | undefined,
-		options?: { includeDisconnected?: boolean },
+		repoPath: string,
+		remotes: GitRemote<RemoteProvider | RichRemoteProvider | undefined>[] | undefined,
+		options?: { includeDisconnected?: boolean | undefined },
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		if (remotesOrRepoPath == null) return undefined;
+		if (repoPath == null) return undefined;
 
-		const cacheKey = typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath;
+		const cacheKey = repoPath;
 
 		let richRemote = this._remotesWithApiProviderCache.get(cacheKey);
 		if (richRemote != null) return richRemote;
@@ -2844,9 +2828,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (richRemote !== undefined) return richRemote ?? undefined;
 		}
 
-		const remotes = (
-			typeof remotesOrRepoPath === 'string' ? await this.getRemotes(remotesOrRepoPath) : remotesOrRepoPath
-		).filter(
+		remotes = (remotes ?? (await this.getRemotes(repoPath))).filter(
 			(
 				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
 			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
