@@ -15,7 +15,7 @@ import { fsExists, run, RunError, RunOptions } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
-const emptyStr = '';
+
 export const maxGitCliLength = 30000;
 
 const textDecoder = new TextDecoder('utf8');
@@ -61,7 +61,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			}
 		} else {
 			// Since we will have a live share path here, just blank it out
-			options.cwd = emptyStr;
+			options.cwd = '';
 		}
 	}
 
@@ -85,7 +85,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 
 	const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
 
-	const command = `${correlationKey !== undefined ? `${correlationKey}:` : emptyStr}${gitCommand}`;
+	const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${gitCommand}`;
 
 	let waiting;
 	let promise = pendingCommands.get(command);
@@ -125,7 +125,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		switch (errorHandling) {
 			case GitErrorHandling.Ignore:
 				exception = undefined;
-				return emptyStr as TOut;
+				return '' as TOut;
 
 			case GitErrorHandling.Throw:
 				throw ex;
@@ -140,11 +140,11 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		pendingCommands.delete(command);
 
 		const duration = Strings.getDurationMilliseconds(start);
-		const elapsed = `${duration} ms ${waiting ? '(waited) ' : emptyStr}`;
+		const elapsed = `${duration} ms ${waiting ? '(waited) ' : ''}`;
 		if (exception != null) {
 			Logger.error(
 				'',
-				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || emptyStr)
+				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || '')
 					.trim()
 					.replace(/fatal: /g, '')
 					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${elapsed}`,
@@ -155,7 +155,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			Logger.log(`${gitCommand} ${GlyphChars.Dot} ${elapsed}`);
 		}
 		Logger.logGitCommand(
-			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${elapsed}`,
+			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : ''}${elapsed}`,
 			duration,
 			exception,
 		);
@@ -167,14 +167,14 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	if (msg != null && msg.length !== 0) {
 		for (const warning of Object.values(GitWarnings)) {
 			if (warning.test(msg)) {
-				const duration = start !== undefined ? `${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
+				const duration = start !== undefined ? `${Strings.getDurationMilliseconds(start)} ms` : '';
 				Logger.warn(
 					`[${cwd}] Git ${msg
 						.trim()
 						.replace(/fatal: /g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`,
 				);
-				return emptyStr;
+				return '';
 			}
 		}
 
@@ -183,7 +183,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 			const [, ref] = match;
 
 			// Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-			if (ref?.endsWith('^3')) return emptyStr;
+			if (ref?.endsWith('^3')) return '';
 		}
 	}
 
@@ -251,7 +251,7 @@ export namespace Git {
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
 					if (!isAbsolute(ignoreRevsFile)) {
-						ignoreRevsFile = joinPaths(repoPath ?? emptyStr, ignoreRevsFile);
+						ignoreRevsFile = joinPaths(repoPath ?? '', ignoreRevsFile);
 					}
 
 					const exists = ignoreRevsFileMap.get(ignoreRevsFile);
@@ -379,7 +379,7 @@ export namespace Git {
 
 		try {
 			const data = await git<string>(
-				{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Throw, local: true },
+				{ cwd: repoPath ?? '', errors: GitErrorHandling.Throw, local: true },
 				...params,
 				ref,
 			);
@@ -412,7 +412,7 @@ export namespace Git {
 
 	export async function config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
 		const data = await git<string>(
-			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get',
 			key,
@@ -422,7 +422,7 @@ export namespace Git {
 
 	export async function config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
 		const data = await git<string>(
-			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get-regex',
 			pattern,
@@ -454,7 +454,7 @@ export namespace Git {
 		}
 
 		if (options.filters != null && options.filters.length !== 0) {
-			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
 		if (ref1) {
@@ -510,7 +510,7 @@ export namespace Git {
 		];
 
 		if (options.filters != null && options.filters.length !== 0) {
-			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
 		// // <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
@@ -567,7 +567,7 @@ export namespace Git {
 			'--no-ext-diff',
 		];
 		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${filters.join('')}`);
 		}
 		if (ref1) {
 			params.push(ref1);
@@ -846,7 +846,7 @@ export namespace Git {
 		}
 
 		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${filters.join('')}`);
 		}
 
 		if (format !== 'refs') {
