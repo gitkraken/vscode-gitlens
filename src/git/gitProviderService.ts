@@ -1288,20 +1288,17 @@ export class GitProviderService implements Disposable {
 		provider: RichRemoteProvider,
 		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
 	): Promise<PullRequest | undefined>;
-	@gate<GitProviderService['getPullRequestForBranch']>((ref, remoteOrProvider, options) => {
+	@gate<GitProviderService['getPullRequestForBranch']>((branch, remoteOrProvider, options) => {
 		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
-		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}${
-			options != null ? `|${options.limit ?? -1}:${options.include?.join(',')}` : ''
-		}`;
+		return `${branch}${
+			provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''
+		}|${JSON.stringify(options)}`;
 	})
 	@debug<GitProviderService['getPullRequestForBranch']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
 	async getPullRequestForBranch(
 		branch: string,
 		remoteOrProvider: GitRemote | RichRemoteProvider,
-		{
-			timeout,
-			...options
-		}: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number } = {},
+		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
 	): Promise<PullRequest | undefined> {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
@@ -1309,6 +1306,11 @@ export class GitProviderService implements Disposable {
 			if (!provider?.hasRichApi()) return undefined;
 		} else {
 			provider = remoteOrProvider;
+		}
+
+		let timeout;
+		if (options != null) {
+			({ timeout, ...options } = options);
 		}
 
 		let promiseOrPR = provider.getPullRequestForBranch(branch, options);
@@ -1351,7 +1353,7 @@ export class GitProviderService implements Disposable {
 	async getPullRequestForCommit(
 		ref: string,
 		remoteOrProvider: GitRemote | RichRemoteProvider,
-		{ timeout }: { timeout?: number } = {},
+		options?: { timeout?: number },
 	): Promise<PullRequest | undefined> {
 		if (GitRevision.isUncommitted(ref)) return undefined;
 
@@ -1368,8 +1370,8 @@ export class GitProviderService implements Disposable {
 			return promiseOrPR;
 		}
 
-		if (timeout != null && timeout > 0) {
-			promiseOrPR = Promises.cancellable(promiseOrPR, timeout);
+		if (options?.timeout != null && options.timeout > 0) {
+			promiseOrPR = Promises.cancellable(promiseOrPR, options.timeout);
 		}
 
 		try {
