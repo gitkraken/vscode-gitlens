@@ -422,7 +422,7 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 }
 
-const cachedAnsiRegex = ansiRegex();
+let cachedAnsiRegex: RegExp | undefined;
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
 // See sindresorhus/string-width
@@ -432,6 +432,9 @@ export function getWidth(s: string): number {
 	// Shortcut to avoid needless string `RegExp`s, replacements, and allocations
 	if (!containsNonAsciiRegex.test(s)) return s.length;
 
+	if (cachedAnsiRegex == null) {
+		cachedAnsiRegex = ansiRegex();
+	}
 	s = s.replace(cachedAnsiRegex, emptyStr);
 
 	let count = 0;

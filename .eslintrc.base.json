@@ -266,5 +266,5 @@
 			}
 		}
 	},
-	"ignorePatterns": ["dist/*", "**/@types/*", "emojis.json", "tsconfig*.tsbuildinfo"]
+	"ignorePatterns": ["dist/*", "out/*", "**/@types/*", "emojis.json", "tsconfig*.tsbuildinfo", "webpack.config*.js"]
 }

@@ -93,6 +93,7 @@ export const enum DocumentSchemes {
 	DebugConsole = 'debug',
 	File = 'file',
 	Git = 'git',
+	GitHub = 'github',
 	GitLens = 'gitlens',
 	Output = 'output',
 	PRs = 'pr',

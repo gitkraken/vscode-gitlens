@@ -36,6 +36,9 @@
 				"isDefault": true
 			},
 			"isBackground": true,
+			"presentation": {
+				"group": "watchers"
+			},
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
@@ -50,22 +53,32 @@
 			"script": "web:serve",
 			"group": "test",
 			"isBackground": true,
-			"problemMatcher": [],
 			"presentation": {
 				"group": "web",
 				"reveal": "never"
-			}
+			},
+			"problemMatcher": []
 		},
 		{
 			"type": "npm",
 			"script": "web:tunnel",
 			"group": "test",
 			"isBackground": true,
-			"problemMatcher": [],
 			"presentation": {
 				"group": "web",
 				"reveal": "always"
-			}
+			},
+			"problemMatcher": []
+		},
+		{
+			"type": "npm",
+			"script": "watch:tests",
+			"group": "build",
+			"isBackground": true,
+			"presentation": {
+				"group": "watchers"
+			},
+			"problemMatcher": "$tsc-watch" //["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }

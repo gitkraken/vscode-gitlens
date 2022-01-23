@@ -1,0 +1,12 @@
+{
+	"extends": ["../../.eslintrc.base.json"],
+	"env": {
+		"node": true
+	},
+	"parserOptions": {
+		"project": "tsconfig.test.json"
+	},
+	"rules": {
+		"@typescript-eslint/no-unused-vars": "off"
+	}
+}

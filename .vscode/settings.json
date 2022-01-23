@@ -6,6 +6,10 @@
 	"files.associations": {
 		".eslintrc*.json": "jsonc"
 	},
+	"files.exclude": {
+		"**/.vscode-test": true,
+		"**/.vscode-test-web": true
+	},
 	"files.trimTrailingWhitespace": true,
 	"githubIssues.queries": [
 		{

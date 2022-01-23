@@ -9,6 +9,7 @@ emoji/**
 images/docs/**
 images/originals/**
 node_modules/**
+out/**
 scripts/**
 src/**
 test/**

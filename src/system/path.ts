@@ -2,19 +2,21 @@
 import { basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { isWindows } from '@env/platform';
-import { CharCode } from './string';
+// TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
+// import { CharCode } from './string';
 
 export { basename, dirname, extname, isAbsolute, join as joinPaths, relative } from 'path';
 
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const pathNormalizeRegex = /\\/g;
+const slash = 47; //slash;
 
 export function isChild(uri: Uri, baseUri: Uri): boolean;
 export function isChild(uri: Uri, basePath: string): boolean;
 export function isChild(path: string, basePath: string): boolean;
 export function isChild(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean {
 	if (typeof baseUriOrPath === 'string') {
-		if (baseUriOrPath.charCodeAt(0) !== CharCode.Slash) {
+		if (baseUriOrPath.charCodeAt(0) !== slash) {
 			baseUriOrPath = `/${baseUriOrPath}`;
 		}
 
@@ -41,14 +43,14 @@ export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | strin
 export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean {
 	if (typeof baseUriOrPath === 'string') {
 		baseUriOrPath = normalizePath(baseUriOrPath);
-		if (baseUriOrPath.charCodeAt(0) !== CharCode.Slash) {
+		if (baseUriOrPath.charCodeAt(0) !== slash) {
 			baseUriOrPath = `/${baseUriOrPath}`;
 		}
 	}
 
 	if (typeof uriOrPath === 'string') {
 		uriOrPath = normalizePath(uriOrPath);
-		if (uriOrPath.charCodeAt(0) !== CharCode.Slash) {
+		if (uriOrPath.charCodeAt(0) !== slash) {
 			uriOrPath = `/${uriOrPath}`;
 		}
 	}
@@ -81,21 +83,20 @@ export function isFolderGlob(path: string): boolean {
 	return basename(path) === '*';
 }
 
-export function normalizePath(fileName: string): string {
-	if (fileName == null || fileName.length === 0) return fileName;
+export function normalizePath(path: string): string {
+	if (!path) return path;
 
-	let normalized = fileName.replace(pathNormalizeRegex, '/');
-
-	if (normalized.charCodeAt(normalized.length - 1) === CharCode.Slash) {
-		normalized = normalized.slice(0, -1);
+	path = path.replace(pathNormalizeRegex, '/');
+	if (path.charCodeAt(path.length - 1) === slash) {
+		path = path.slice(0, -1);
 	}
 
 	if (isWindows) {
 		// Ensure that drive casing is normalized (lower case)
-		normalized = normalized.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
+		path = path.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
 	}
 
-	return normalized;
+	return path;
 }
 
 export function splitPath(filePath: string, repoPath: string | undefined, extract: boolean = true): [string, string] {
@@ -104,7 +105,7 @@ export function splitPath(filePath: string, repoPath: string | undefined, extrac
 		repoPath = normalizePath(repoPath);
 
 		const normalizedRepoPath = (
-			repoPath.charCodeAt(repoPath.length - 1) === CharCode.Slash ? repoPath : `${repoPath}/`
+			repoPath.charCodeAt(repoPath.length - 1) === slash ? repoPath : `${repoPath}/`
 		).toLowerCase();
 		if (filePath.toLowerCase().startsWith(normalizedRepoPath)) {
 			filePath = filePath.substring(normalizedRepoPath.length);
