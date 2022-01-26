@@ -32,7 +32,9 @@ import {
 	GitProviderDescriptor,
 	GitProviderId,
 	PagedResult,
+	RepositoryCloseEvent,
 	RepositoryInitWatcher,
+	RepositoryOpenEvent,
 	ScmRepository,
 } from '../../../git/gitProvider';
 import { GitProviderService } from '../../../git/gitProviderService';
@@ -136,6 +138,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this._onDidChangeRepository.event;
 	}
 
+	private _onDidCloseRepository = new EventEmitter<RepositoryCloseEvent>();
+	get onDidCloseRepository(): Event<RepositoryCloseEvent> {
+		return this._onDidCloseRepository.event;
+	}
+
+	private _onDidOpenRepository = new EventEmitter<RepositoryOpenEvent>();
+	get onDidOpenRepository(): Event<RepositoryOpenEvent> {
+		return this._onDidOpenRepository.event;
+	}
+
 	private readonly _branchesCache = new Map<string, Promise<PagedResult<GitBranch>>>();
 	private readonly _contributorsCache = new Map<string, Promise<GitContributor[]>>();
 	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
@@ -146,11 +158,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
+	private _disposables: Disposable[] = [];
+
 	constructor(private readonly container: Container) {
 		Git.setLocator(this.ensureGit.bind(this));
 	}
 
-	dispose() {}
+	dispose() {
+		Disposable.from(...this._disposables).dispose();
+	}
 
 	private get useCaching() {
 		return this.container.config.advanced.caching.enabled;
@@ -214,31 +230,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			throw new UnableToFindGitError();
 		}
 
-		const scmPromise = this.getScmGitApi();
+		const scmGitPromise = this.getScmGitApi();
 
-		async function subscribeToScmOpenCloseRepository(
-			container: Container,
-			apiPromise: Promise<BuiltInGitApi | undefined>,
-		) {
-			const gitApi = await apiPromise;
-			if (gitApi == null) return;
+		async function subscribeToScmOpenCloseRepository(this: LocalGitProvider) {
+			const scmGit = await scmGitPromise;
+			if (scmGit == null) return;
 
-			container.context.subscriptions.push(
-				gitApi.onDidCloseRepository(e => {
-					const repository = container.git.getCachedRepository(normalizePath(e.rootUri.fsPath));
-					if (repository != null) {
-						repository.closed = true;
-					}
-				}),
-				gitApi.onDidOpenRepository(e => {
-					const repository = container.git.getCachedRepository(normalizePath(e.rootUri.fsPath));
-					if (repository != null) {
-						repository.closed = false;
-					}
-				}),
+			this._disposables.push(
+				scmGit.onDidCloseRepository(e => this._onDidCloseRepository.fire({ uri: e.rootUri })),
+				scmGit.onDidOpenRepository(e => this._onDidOpenRepository.fire({ uri: e.rootUri })),
 			);
+
+			for (const scmRepository of scmGit.repositories) {
+				this._onDidOpenRepository.fire({ uri: scmRepository.rootUri });
+			}
 		}
-		void subscribeToScmOpenCloseRepository(this.container, scmPromise);
+		void subscribeToScmOpenCloseRepository.call(this);
 
 		const potentialGitPaths =
 			configuration.getAny<string | string[]>('git.path') ??
@@ -248,7 +255,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const findGitPromise = findGitPath(potentialGitPaths);
 		// Try to use the same git as the built-in vscode git extension, but don't wait for it if we find something faster
-		const findGitFromSCMPromise = scmPromise.then(gitApi => {
+		const findGitFromSCMPromise = scmGitPromise.then(gitApi => {
 			const path = gitApi?.git.path;
 			if (!path) return findGitPromise;
 
@@ -294,14 +301,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (uri.scheme !== DocumentSchemes.File) return [];
 
-		const autoRepositoryDetection =
-			configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-				BuiltInGitConfiguration.AutoRepositoryDetection,
-			) ?? true;
-		if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
-
 		try {
 			void (await this.ensureGit());
+
+			const autoRepositoryDetection =
+				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+					BuiltInGitConfiguration.AutoRepositoryDetection,
+				) ?? true;
+			if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
 
 			const repositories = await this.repositorySearch(workspace.getWorkspaceFolder(uri)!);
 			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {

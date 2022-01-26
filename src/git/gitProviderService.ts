@@ -308,6 +308,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		const disposable = Disposable.from(
+			provider,
 			...disposables,
 			provider.onDidChangeRepository(e => {
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
@@ -318,6 +319,20 @@ export class GitProviderService implements Disposable {
 				}
 
 				this._onDidChangeRepository.fire(e);
+			}),
+			provider.onDidCloseRepository(e => {
+				const repository = this._repositories.get(e.uri);
+				if (repository != null) {
+					repository.closed = true;
+				}
+			}),
+			provider.onDidOpenRepository(e => {
+				const repository = this._repositories.get(e.uri);
+				if (repository != null) {
+					repository.closed = false;
+				} else {
+					void this.getOrCreateRepository(e.uri);
+				}
 			}),
 		);
 
