@@ -11,6 +11,7 @@ import {
 	Uri,
 	workspace,
 } from 'vscode';
+import { isLinux } from '@env/platform';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -36,7 +37,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			workspace.registerFileSystemProvider(DocumentSchemes.GitLens, this, {
-				isCaseSensitive: true,
+				isCaseSensitive: isLinux,
 				isReadonly: true,
 			}),
 		);
