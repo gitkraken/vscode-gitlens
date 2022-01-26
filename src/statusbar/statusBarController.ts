@@ -19,7 +19,8 @@ import { CommitFormatter } from '../git/formatters';
 import { GitBlameCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
-import { debug, Promises } from '../system';
+import { debug } from '../system/decorators/log';
+import { PromiseCancelledError } from '../system/promise';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
@@ -333,7 +334,7 @@ export class StatusBarController implements Disposable {
 	private async getPullRequest(
 		commit: GitBlameCommit,
 		{ timeout }: { timeout?: number } = {},
-	): Promise<PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined> {
+	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
 		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
 		if (remote?.provider == null) return undefined;
 
@@ -341,7 +342,7 @@ export class StatusBarController implements Disposable {
 		try {
 			return await this.container.git.getPullRequestForCommit(commit.ref, provider, { timeout: timeout });
 		} catch (ex) {
-			return ex instanceof Promises.CancellationError ? ex : undefined;
+			return ex instanceof PromiseCancelledError ? ex : undefined;
 		}
 	}
 
@@ -357,7 +358,7 @@ export class StatusBarController implements Disposable {
 			| undefined,
 		pullRequests: {
 			enabled: boolean;
-			pr: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined | undefined;
+			pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined | undefined;
 		},
 		cancellationToken: CancellationToken,
 	) {
@@ -386,12 +387,12 @@ export class StatusBarController implements Disposable {
 	private async waitForPendingPullRequest(
 		editor: TextEditor,
 		commit: GitBlameCommit,
-		pr: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined,
+		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
 		cancellationToken: CancellationToken,
 		timeout: number,
 		cc: LogCorrelationContext | undefined,
 	) {
-		if (cancellationToken.isCancellationRequested || !(pr instanceof Promises.CancellationError)) return;
+		if (cancellationToken.isCancellationRequested || !(pr instanceof PromiseCancelledError)) return;
 
 		// If the PR timed out, refresh the status bar once it completes
 		Logger.debug(cc, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);

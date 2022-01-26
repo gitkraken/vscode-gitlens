@@ -18,7 +18,8 @@ import { CommitFormatter } from '../git/formatters';
 import { GitBlameCommit, PullRequest } from '../git/models';
 import { Authentication } from '../git/remotes/provider';
 import { LogCorrelationContext, Logger } from '../logger';
-import { debug, Iterables, log, Promises } from '../system';
+import { debug, Iterables, log } from '../system';
+import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 
@@ -170,7 +171,7 @@ export class LineAnnotationController implements Disposable {
 		if (refs.size === 0) return undefined;
 
 		const { provider } = remote;
-		const prs = await Promises.raceAll(
+		const prs = await raceAll(
 			refs.values(),
 			ref => this.container.git.getPullRequestForCommit(ref, provider),
 			timeout,
@@ -335,21 +336,21 @@ export class LineAnnotationController implements Disposable {
 		editor: TextEditor,
 		prs: Map<
 			string,
-			PullRequest | Promises.CancellationErrorWithId<string, Promise<PullRequest | undefined>> | undefined
+			PullRequest | PromiseCancelledErrorWithId<string, Promise<PullRequest | undefined>> | undefined
 		>,
 		cancellationToken: CancellationToken,
 		timeout: number,
 		cc: LogCorrelationContext | undefined,
 	) {
 		// If there are any PRs that timed out, refresh the annotation(s) once they complete
-		const count = Iterables.count(prs.values(), pr => pr instanceof Promises.CancellationError);
+		const count = Iterables.count(prs.values(), pr => pr instanceof PromiseCancelledError);
 		if (cancellationToken.isCancellationRequested || count === 0) return;
 
 		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries took too long (over ${timeout} ms)`);
 
 		const resolved = new Map<string, PullRequest | undefined>();
 		for (const [key, value] of prs) {
-			resolved.set(key, value instanceof Promises.CancellationError ? await value.promise : value);
+			resolved.set(key, value instanceof PromiseCancelledError ? await value.promise : value);
 		}
 
 		if (cancellationToken.isCancellationRequested || editor !== this._editor) return;

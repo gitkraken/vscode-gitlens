@@ -2,7 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitLog } from '../../git/models';
-import { debug, gate, Iterables, Promises } from '../../system';
+import { debug, gate, Iterables } from '../../system';
+import { cancellable, PromiseCancelledError } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
@@ -126,7 +127,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		} else {
 			try {
 				let log;
-				({ label, log } = await Promises.cancellable(this.getCommitsQueryResults(), 100));
+				({ label, log } = await cancellable(this.getCommitsQueryResults(), 100));
 				state =
 					log == null || log.count === 0
 						? TreeItemCollapsibleState.None
@@ -134,7 +135,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 						? TreeItemCollapsibleState.Expanded
 						: TreeItemCollapsibleState.Collapsed;
 			} catch (ex) {
-				if (ex instanceof Promises.CancellationError) {
+				if (ex instanceof PromiseCancelledError) {
 					ex.promise.then(() => this.triggerChange(false));
 				}
 

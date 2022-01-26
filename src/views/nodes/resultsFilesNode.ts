@@ -3,8 +3,9 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitFile } from '../../git/models';
-import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
+import { Arrays, debug, gate, Iterables, Strings } from '../../system';
 import { joinPaths, normalizePath } from '../../system/path';
+import { cancellable, PromiseCancelledError } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
@@ -98,7 +99,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		let state;
 
 		try {
-			const results = await Promises.cancellable(this.getFilesQueryResults(), 100);
+			const results = await cancellable(this.getFilesQueryResults(), 100);
 			label = results.label;
 			files = (this.filtered ? results.filtered?.files : undefined) ?? results.files;
 
@@ -114,7 +115,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					? TreeItemCollapsibleState.Expanded
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
-			if (ex instanceof Promises.CancellationError) {
+			if (ex instanceof PromiseCancelledError) {
 				ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 

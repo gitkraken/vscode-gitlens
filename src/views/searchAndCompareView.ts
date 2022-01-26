@@ -8,7 +8,10 @@ import { GitUri } from '../git/gitUri';
 import { GitLog, GitRevision } from '../git/models';
 import { SearchPattern } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
-import { debug, gate, Iterables, log, Promises } from '../system';
+import { filterMap } from '../system/array';
+import { gate } from '../system/decorators/gate';
+import { debug, log } from '../system/decorators/log';
+import { isPromise } from '../system/promise';
 import {
 	CompareResultsNode,
 	ContextValues,
@@ -121,9 +124,9 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		if (this.children.length === 0) return;
 
 		const promises: Promise<any>[] = [
-			...Iterables.filterMap(this.children, c => {
+			...filterMap(this.children, c => {
 				const result = c.refresh === undefined ? false : c.refresh();
-				return Promises.is<boolean | void>(result) ? result : undefined;
+				return isPromise<boolean | void>(result) ? result : undefined;
 			}),
 		];
 		await Promise.all(promises);

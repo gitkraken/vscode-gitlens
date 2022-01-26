@@ -29,9 +29,12 @@ import {
 import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
-import { Arrays, debug, gate, Iterables, log, Promises } from '../system';
+import { groupByFilterMap, groupByMap } from '../system/array';
+import { gate } from '../system/decorators/gate';
+import { debug, log } from '../system/decorators/log';
+import { count, filter, flatMap, map } from '../system/iterable';
 import { isDescendent, normalizePath } from '../system/path';
-import { PromiseOrValue } from '../system/promise';
+import { cancellable, isPromise, PromiseCancelledError, PromiseOrValue } from '../system/promise';
 import { CharCode } from '../system/string';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
@@ -117,7 +120,7 @@ export class GitProviderService implements Disposable {
 			} else if (added?.length) {
 				// If a provider was added, only preserve paths with a resolved repoPath
 				for (const [key, value] of this._pathToRepoPathCache) {
-					if (value === null || Promises.is(value)) {
+					if (value === null || isPromise(value)) {
 						this._pathToRepoPathCache.delete(key);
 					}
 				}
@@ -141,7 +144,7 @@ export class GitProviderService implements Disposable {
 			} else if (added?.length) {
 				// If a repository was added, only preserve paths with a resolved repoPath
 				for (const [key, value] of this._pathToRepoPathCache) {
-					if (value === null || Promises.is(value)) {
+					if (value === null || isPromise(value)) {
 						this._pathToRepoPathCache.delete(key);
 					}
 				}
@@ -263,18 +266,18 @@ export class GitProviderService implements Disposable {
 	}
 
 	get registeredProviders(): GitProviderDescriptor[] {
-		return [...Iterables.map(this._providers.values(), p => ({ ...p.descriptor }))];
+		return [...map(this._providers.values(), p => ({ ...p.descriptor }))];
 	}
 
 	get openRepositories(): Repository[] {
-		const repositories = [...Iterables.filter(this.repositories, r => !r.closed)];
+		const repositories = [...filter(this.repositories, r => !r.closed)];
 		if (repositories.length === 0) return repositories;
 
 		return Repository.sort(repositories);
 	}
 
 	get openRepositoryCount(): number {
-		return Iterables.count(this.repositories, r => !r.closed);
+		return count(this.repositories, r => !r.closed);
 	}
 
 	get repositories(): Iterable<Repository> {
@@ -423,14 +426,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	getOpenRepositories(id: GitProviderId): Iterable<Repository> {
-		return Iterables.filter(this.repositories, r => !r.closed && (id == null || id === r.provider.id));
+		return filter(this.repositories, r => !r.closed && (id == null || id === r.provider.id));
 	}
 
 	getOpenRepositoriesByProvider(): Map<GitProviderId, Repository[]> {
-		const repositories = [...Iterables.filter(this.repositories, r => !r.closed)];
+		const repositories = [...filter(this.repositories, r => !r.closed)];
 		if (repositories.length === 0) return new Map();
 
-		return Arrays.groupByMap(repositories, r => r.provider.id);
+		return groupByMap(repositories, r => r.provider.id);
 	}
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
@@ -451,8 +454,8 @@ export class GitProviderService implements Disposable {
 
 		const results = await Promise.allSettled(promises);
 
-		const repositories = Iterables.flatMap<PromiseFulfilledResult<Repository[]>, Repository>(
-			Iterables.filter<PromiseSettledResult<Repository[]>, PromiseFulfilledResult<Repository[]>>(
+		const repositories = flatMap<PromiseFulfilledResult<Repository[]>, Repository>(
+			filter<PromiseSettledResult<Repository[]>, PromiseFulfilledResult<Repository[]>>(
 				results,
 				(r): r is PromiseFulfilledResult<Repository[]> => r.status === 'fulfilled',
 			),
@@ -927,7 +930,7 @@ export class GitProviderService implements Disposable {
 			this.getTags(repoPath),
 		]);
 
-		const branchesAndTagsBySha = Arrays.groupByFilterMap(
+		const branchesAndTagsBySha = groupByFilterMap(
 			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
 			bt => bt.sha,
 			bt => {
@@ -1314,18 +1317,18 @@ export class GitProviderService implements Disposable {
 		}
 
 		let promiseOrPR = provider.getPullRequestForBranch(branch, options);
-		if (promiseOrPR == null || !Promises.is(promiseOrPR)) {
+		if (promiseOrPR == null || !isPromise(promiseOrPR)) {
 			return promiseOrPR;
 		}
 
 		if (timeout != null && timeout > 0) {
-			promiseOrPR = Promises.cancellable(promiseOrPR, timeout);
+			promiseOrPR = cancellable(promiseOrPR, timeout);
 		}
 
 		try {
 			return await promiseOrPR;
 		} catch (ex) {
-			if (ex instanceof Promises.CancellationError) {
+			if (ex instanceof PromiseCancelledError) {
 				throw ex;
 			}
 
@@ -1366,18 +1369,18 @@ export class GitProviderService implements Disposable {
 		}
 
 		let promiseOrPR = provider.getPullRequestForCommit(ref);
-		if (promiseOrPR == null || !Promises.is(promiseOrPR)) {
+		if (promiseOrPR == null || !isPromise(promiseOrPR)) {
 			return promiseOrPR;
 		}
 
 		if (options?.timeout != null && options.timeout > 0) {
-			promiseOrPR = Promises.cancellable(promiseOrPR, options.timeout);
+			promiseOrPR = cancellable(promiseOrPR, options.timeout);
 		}
 
 		try {
 			return await promiseOrPR;
 		} catch (ex) {
-			if (ex instanceof Promises.CancellationError) {
+			if (ex instanceof PromiseCancelledError) {
 				throw ex;
 			}
 
@@ -1522,7 +1525,7 @@ export class GitProviderService implements Disposable {
 
 		let repoPathOrPromise = this._pathToRepoPathCache.get(filePath);
 		if (repoPathOrPromise !== undefined) {
-			rp = Promises.is(repoPathOrPromise) ? await repoPathOrPromise : repoPathOrPromise;
+			rp = isPromise(repoPathOrPromise) ? await repoPathOrPromise : repoPathOrPromise;
 			// If the repoPath is explicitly null, then we know no repo exists
 			if (rp === null) return undefined;
 
@@ -1878,8 +1881,8 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
 		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));
-		const repositories = Iterables.flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
-			Iterables.filter<PromiseSettledResult<ScmRepository[]>, PromiseFulfilledResult<ScmRepository[]>>(
+		const repositories = flatMap<PromiseFulfilledResult<ScmRepository[]>, ScmRepository>(
+			filter<PromiseSettledResult<ScmRepository[]>, PromiseFulfilledResult<ScmRepository[]>>(
 				results,
 				(r): r is PromiseFulfilledResult<ScmRepository[]> => r.status === 'fulfilled',
 			),

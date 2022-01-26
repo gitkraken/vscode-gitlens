@@ -34,7 +34,9 @@ import {
 } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, log, Promises } from '../system';
+import { debug, log } from '../system/decorators/log';
+import { debounce } from '../system/function';
+import { cancellable, isPromise } from '../system/promise';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
@@ -240,7 +242,7 @@ export abstract class ViewBase<
 				this.onConfigurationChanged(e);
 			}, this),
 			this.tree,
-			this.tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
+			this.tree.onDidChangeVisibility(debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this.tree.onDidExpandElement(this.onElementExpanded, this),
 		);
@@ -394,7 +396,7 @@ export abstract class ViewBase<
 			if (predicate(node)) return node;
 			if (canTraverse != null) {
 				const traversable = canTraverse(node);
-				if (Promises.is(traversable)) {
+				if (isPromise(traversable)) {
 					if (!(await traversable)) continue;
 				} else if (!traversable) {
 					continue;
@@ -418,13 +420,9 @@ export abstract class ViewBase<
 
 						await this.loadMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await Promises.cancellable(
-							Promise.resolve(node.getChildren()),
-							token ?? 60000,
-							{
-								onDidCancel: resolve => resolve([]),
-							},
-						);
+						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), token ?? 60000, {
+							onDidCancel: resolve => resolve([]),
+						});
 
 						child = pagedChildren.find(predicate);
 						if (child != null) return child;

@@ -15,7 +15,10 @@ import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
-import { debug, Encoding, gate, log, Promises } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { encodeUrl } from '../../system/encoding';
+import { isPromise } from '../../system/promise';
 import {
 	Account,
 	DefaultBranch,
@@ -235,7 +238,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected encodeUrl(url: string): string;
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
-		return Encoding.encodeUrl(url)?.replace(/#/g, '%23');
+		return encodeUrl(url)?.replace(/#/g, '%23');
 	}
 }
 
@@ -530,7 +533,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			pr = this.getPullRequestForCommitCore(ref);
 			this._prsByCommit.set(ref, pr);
 		}
-		if (pr == null || !Promises.is(pr)) return pr ?? undefined;
+		if (pr == null || !isPromise(pr)) return pr ?? undefined;
 
 		return pr.then(pr => pr ?? undefined);
 	}

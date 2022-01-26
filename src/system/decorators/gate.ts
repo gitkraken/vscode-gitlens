@@ -1,5 +1,5 @@
 'use strict';
-import { is as isPromise } from '../promise';
+import { isPromise } from '../promise';
 import { resolveProp } from './resolver';
 
 export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {

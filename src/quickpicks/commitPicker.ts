@@ -11,7 +11,8 @@ import {
 	DirectiveQuickPickItem,
 	getQuickPickIgnoreFocusOut,
 } from '../quickpicks';
-import { Iterables, Promises } from '../system';
+import { filter, map } from '../system/iterable';
+import { isPromise } from '../system/promise';
 
 export namespace CommitPicker {
 	export async function show(
@@ -33,7 +34,7 @@ export namespace CommitPicker {
 		quickpick.matchOnDescription = true;
 		quickpick.matchOnDetail = true;
 
-		if (Promises.is(log)) {
+		if (isPromise(log)) {
 			quickpick.busy = true;
 			quickpick.enabled = false;
 			quickpick.show();
@@ -56,7 +57,7 @@ export namespace CommitPicker {
 				? [DirectiveQuickPickItem.create(Directive.Cancel)]
 				: [
 						...(options?.showOtherReferences ?? []),
-						...Iterables.map(log.commits.values(), commit =>
+						...map(log.commits.values(), commit =>
 							CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
 								compact: true,
 								icon: true,
@@ -206,7 +207,7 @@ export namespace StashPicker {
 		quickpick.matchOnDescription = true;
 		quickpick.matchOnDetail = true;
 
-		if (Promises.is(stash)) {
+		if (isPromise(stash)) {
 			quickpick.busy = true;
 			quickpick.enabled = false;
 			quickpick.show();
@@ -217,10 +218,8 @@ export namespace StashPicker {
 		if (stash != null) {
 			quickpick.items = [
 				...(options?.showOtherReferences ?? []),
-				...Iterables.map(
-					options?.filter != null
-						? Iterables.filter(stash.commits.values(), options.filter)
-						: stash.commits.values(),
+				...map(
+					options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
 					commit =>
 						CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
 							compact: true,

@@ -3,7 +3,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitLog, GitRemote, IssueOrPullRequest, PullRequest } from '../../git/models';
 import { RichRemoteProvider } from '../../git/remotes/provider';
-import { debug, gate, Promises } from '../../system';
+import { debug, gate } from '../../system';
+import { PromiseCancelledErrorWithId } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { MessageNode } from './common';
@@ -53,7 +54,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 
 				if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
 					for (const [id, issue] of autolinkedMapResult.value) {
-						if (issue == null || issue instanceof Promises.CancellationErrorWithId) continue;
+						if (issue == null || issue instanceof PromiseCancelledErrorWithId) continue;
 
 						items.set(id, issue);
 					}

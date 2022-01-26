@@ -5,7 +5,8 @@ import { Usage, WorkspaceState } from '../constants';
 import type { Container } from '../container';
 import { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { log, Promises } from '../system';
+import { log } from '../system/decorators/log';
+import { isPromise } from '../system/promise';
 import { command, Command, CommandContext, Commands } from './common';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
@@ -334,7 +335,7 @@ export class GitCommandsCommand extends Command {
 								return;
 							}
 
-							if (Promises.is(result)) {
+							if (isPromise(result)) {
 								input.buttons = this.getButtons(step, commandsStep.command);
 							}
 
@@ -506,7 +507,7 @@ export class GitCommandsCommand extends Command {
 								return;
 							}
 
-							if (Promises.is(result)) {
+							if (isPromise(result)) {
 								quickpick.buttons = this.getButtons(
 									activeCommand != null ? activeCommand.value : step,
 									activeCommand ?? commandsStep.command,

@@ -17,7 +17,8 @@ import {
 	PullRequest,
 } from '../git/models';
 import { Logger, LogLevel } from '../logger';
-import { Iterables, Promises, Strings } from '../system';
+import { Iterables, Strings } from '../system';
+import { PromiseCancelledError } from '../system/promise';
 
 export namespace Hovers {
 	export async function changesMessage(
@@ -190,7 +191,7 @@ export namespace Hovers {
 			cancellationToken?: CancellationToken;
 			pullRequests?: {
 				enabled: boolean;
-				pr?: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>>;
+				pr?: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>>;
 			};
 			getBranchAndTagTips?: (
 				sha: string,
@@ -296,7 +297,7 @@ export namespace Hovers {
 
 			if (autolinks != null && Logger.enabled(LogLevel.Debug)) {
 				// If there are any issues/PRs that timed out, log it
-				const count = Iterables.count(autolinks.values(), pr => pr instanceof Promises.CancellationError);
+				const count = Iterables.count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
 				if (count !== 0) {
 					Logger.debug(
 						cc,
@@ -309,7 +310,7 @@ export namespace Hovers {
 
 					// const pending = [
 					// 	...Iterables.map(autolinks.values(), issueOrPullRequest =>
-					// 		issueOrPullRequest instanceof Promises.CancellationError
+					// 		issueOrPullRequest instanceof CancelledPromiseError
 					// 			? issueOrPullRequest.promise
 					// 			: undefined,
 					// 	),
@@ -376,7 +377,7 @@ export namespace Hovers {
 
 			return pr;
 		} catch (ex) {
-			if (ex instanceof Promises.CancellationError) {
+			if (ex instanceof PromiseCancelledError) {
 				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 				return ex;

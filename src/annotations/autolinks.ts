@@ -5,7 +5,8 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRemote, IssueOrPullRequest } from '../git/models';
 import { Logger } from '../logger';
-import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
+import { Dates, debug, Encoding, Iterables, Strings } from '../system';
+import { PromiseCancelledError, raceAll } from '../system/promise';
 
 const numRegex = /<num>/g;
 
@@ -89,11 +90,7 @@ export class Autolinks implements Disposable {
 
 		if (ids.size === 0) return undefined;
 
-		const issuesOrPullRequests = await Promises.raceAll(
-			ids.values(),
-			id => provider.getIssueOrPullRequest(id),
-			timeout,
-		);
+		const issuesOrPullRequests = await raceAll(ids.values(), id => provider.getIssueOrPullRequest(id), timeout);
 		if (issuesOrPullRequests.size === 0 || Iterables.every(issuesOrPullRequests.values(), pr => pr === undefined)) {
 			return undefined;
 		}
@@ -113,7 +110,7 @@ export class Autolinks implements Disposable {
 		text: string,
 		markdown: boolean,
 		remotes?: GitRemote[],
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 		footnotes?: Map<number, string>,
 	) {
 		for (const ref of this._references) {
@@ -143,7 +140,7 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 
@@ -182,7 +179,7 @@ export class Autolinks implements Disposable {
 							title = ` "${ref.title.replace(numRegex, num)}`;
 
 							if (issue != null) {
-								if (issue instanceof Promises.CancellationError) {
+								if (issue instanceof PromiseCancelledError) {
 									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 								} else {
 									const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
@@ -225,7 +222,7 @@ export class Autolinks implements Disposable {
 					footnotes.set(
 						index,
 						`${linkText}: ${
-							issue instanceof Promises.CancellationError
+							issue instanceof PromiseCancelledError
 								? 'Details timed out'
 								: `${issue.title}  ${GlyphChars.Dot}  ${
 										issue.closed ? 'Closed' : 'Opened'

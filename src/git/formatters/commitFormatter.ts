@@ -16,7 +16,8 @@ import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { Iterables, Promises, Strings } from '../../system';
+import { Iterables, Strings } from '../../system';
+import { PromiseCancelledError } from '../../system/promise';
 import { ContactPresence } from '../../vsls/vsls';
 import { GitUri } from '../gitUri';
 import { GitCommit, GitLogCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
@@ -26,7 +27,7 @@ import { FormatOptions, Formatter } from './formatter';
 const emptyStr = '';
 
 export interface CommitFormatOptions extends FormatOptions {
-	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
+	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>;
 	avatarSize?: number;
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
@@ -36,7 +37,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	messageAutolinks?: boolean;
 	messageIndent?: number;
 	messageTruncateAtNewLine?: boolean;
-	pullRequestOrRemote?: PullRequest | Promises.CancellationError | GitRemote;
+	pullRequestOrRemote?: PullRequest | PromiseCancelledError | GitRemote;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
 	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
@@ -358,7 +359,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
-			} else if (pr instanceof Promises.CancellationError) {
+			} else if (pr instanceof PromiseCancelledError) {
 				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
 			} else if (pr.provider != null && Container.instance.config.integrations.enabled) {
 				commands += `${separator}[$(plug) Connect to ${pr.provider.name}${
@@ -540,7 +541,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			} else {
 				text = `PR #${pr.id}`;
 			}
-		} else if (pr instanceof Promises.CancellationError) {
+		} else if (pr instanceof PromiseCancelledError) {
 			text = this._options.markdown
 				? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
 				: this._options?.pullRequestPendingMessage ?? emptyStr;

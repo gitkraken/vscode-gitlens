@@ -3,7 +3,7 @@ import { hrtime } from '@env/hrtime';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { filterMap } from '../array';
 import { getParameters } from '../function';
-import { is as isPromise } from '../promise';
+import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
 const emptyStr = '';
