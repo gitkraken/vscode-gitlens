@@ -262,7 +262,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 
 			if (data?.path) {
-				const repository = await Container.instance.git.getOrCreateRepository(Uri.file(data.path));
+				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.path));
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
@@ -310,7 +310,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 
 			if (data?.fileName) {
-				const repository = await Container.instance.git.getOrCreateRepository(Uri.file(data.fileName));
+				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.fileName));
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
@@ -321,7 +321,7 @@ export class GitUri extends (Uri as any as UriEx) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
 					// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-					repoPath = (await Container.instance.git.getOrCreateRepository(uri))?.path!;
+					repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path!;
 					if (!repoPath) {
 						debugger;
 					}
@@ -336,7 +336,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			}
 		}
 
-		const repository = await Container.instance.git.getOrCreateRepository(uri);
+		const repository = await Container.instance.git.getOrOpenRepository(uri);
 		return new GitUri(uri, repository?.path);
 	}
 

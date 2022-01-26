@@ -42,7 +42,7 @@ export class StashSaveCommand extends Command {
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
-			args.repoPath = (await this.container.git.getOrCreateRepository(args.uris[0]))?.path;
+			args.repoPath = (await this.container.git.getOrOpenRepository(args.uris[0]))?.path;
 
 			const status = await this.container.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {
@@ -60,7 +60,7 @@ export class StashSaveCommand extends Command {
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
 				[],
 			);
-			args.repoPath = (await this.container.git.getOrCreateRepository(args.uris[0]))?.path;
+			args.repoPath = (await this.container.git.getOrOpenRepository(args.uris[0]))?.path;
 
 			const status = await this.container.git.getStatusForRepo(args.repoPath);
 			if (status?.computeWorkingTreeStatus().staged) {

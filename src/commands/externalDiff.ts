@@ -150,7 +150,7 @@ export class ExternalDiffCommand extends Command {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = (await this.container.git.getOrCreateRepository(args.files[0].uri))?.path;
+				repoPath = (await this.container.git.getOrOpenRepository(args.files[0].uri))?.path;
 				if (!repoPath) return;
 			}
 

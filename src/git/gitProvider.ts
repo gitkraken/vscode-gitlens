@@ -82,14 +82,8 @@ export interface GitProvider extends Disposable {
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
 	updateContext?(): void;
-	createRepository(
-		folder: WorkspaceFolder,
-		uri: Uri,
-		root: boolean,
-		suspended?: boolean,
-		closed?: boolean,
-	): Repository;
-	createRepositoryInitWatcher?(): RepositoryInitWatcher;
+	openRepository(folder: WorkspaceFolder, uri: Uri, root: boolean, suspended?: boolean, closed?: boolean): Repository;
+	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 

@@ -338,7 +338,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	createRepository(
+	openRepository(
 		folder: WorkspaceFolder,
 		uri: Uri,
 		root: boolean,
@@ -358,7 +358,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	createRepositoryInitWatcher(): RepositoryInitWatcher {
+	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
 		return {
 			onDidCreate: watcher.onDidCreate,
@@ -386,7 +386,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const uri = await this.findRepositoryUri(folder.uri, true);
 		if (uri != null) {
 			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
-			repositories.push(this.createRepository(folder, uri, true));
+			repositories.push(this.openRepository(folder, uri, true));
 		}
 
 		if (depth <= 0) return repositories;
@@ -443,7 +443,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (rp == null) continue;
 
 			Logger.log(cc, `found repository in '${rp.fsPath}'`);
-			repositories.push(this.createRepository(folder, rp, false));
+			repositories.push(this.openRepository(folder, rp, false));
 		}
 
 		return repositories;
@@ -3363,7 +3363,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						// If we didn't find it, check it as close to the file as possible (will find nested repos)
 						tracked = Boolean(await Git.ls_files(newRepoPath, newRelativePath));
 						if (tracked) {
-							repository = await this.container.git.getOrCreateRepository(Uri.file(path), true);
+							repository = await this.container.git.getOrOpenRepository(Uri.file(path), true);
 							if (repository != null) {
 								return splitPath(path, repository.path);
 							}
@@ -3388,7 +3388,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						const index = relativePath.indexOf('/');
 						if (index < 0 || index === relativePath.length - 1) return undefined;
 
-						const nested = await this.container.git.getOrCreateRepository(Uri.file(path), true);
+						const nested = await this.container.git.getOrOpenRepository(Uri.file(path), true);
 						if (nested != null && nested !== repository) {
 							[relativePath, repoPath] = splitPath(path, repository.path);
 							repository = undefined;

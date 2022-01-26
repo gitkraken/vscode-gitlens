@@ -253,7 +253,7 @@ export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: 
 export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
 	if (uri == null) return Container.instance.git.highlander?.path;
 
-	const repoPath = (await Container.instance.git.getOrCreateRepository(uri))?.path;
+	const repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path;
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);

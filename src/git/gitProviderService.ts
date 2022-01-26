@@ -294,7 +294,7 @@ export class GitProviderService implements Disposable {
 
 		const disposables = [];
 
-		const watcher = provider.createRepositoryInitWatcher?.();
+		const watcher = provider.openRepositoryInitWatcher?.();
 		if (watcher != null) {
 			disposables.push(
 				watcher,
@@ -331,7 +331,7 @@ export class GitProviderService implements Disposable {
 				if (repository != null) {
 					repository.closed = false;
 				} else {
-					void this.getOrCreateRepository(e.uri);
+					void this.getOrOpenRepository(e.uri);
 				}
 			}),
 		);
@@ -1424,8 +1424,8 @@ export class GitProviderService implements Disposable {
 
 	private _pendingRepositories = new Map<string, Promise<Repository | undefined>>();
 
-	@log<GitProviderService['getRepository']>({ exit: r => `returned ${r?.path}` })
-	async getOrCreateRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
+	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
+	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		const folderPath = dirname(uri.fsPath);
@@ -1480,7 +1480,7 @@ export class GitProviderService implements Disposable {
 				}
 
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
-				repository = provider.createRepository(folder, repoUri, false);
+				repository = provider.openRepository(folder, repoUri, false);
 				this._repositories.add(repository);
 
 				this._pendingRepositories.delete(key);
@@ -1499,15 +1499,15 @@ export class GitProviderService implements Disposable {
 		return promise;
 	}
 
-	@log<GitProviderService['getOrCreateRepositoryForEditor']>({
+	@log<GitProviderService['getOrOpenRepositoryForEditor']>({
 		args: { 0: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined) },
 	})
-	async getOrCreateRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
+	async getOrOpenRepositoryForEditor(editor?: TextEditor): Promise<Repository | undefined> {
 		editor = editor ?? window.activeTextEditor;
 
 		if (editor == null) return this.highlander;
 
-		return this.getOrCreateRepository(editor.document.uri);
+		return this.getOrOpenRepository(editor.document.uri);
 	}
 
 	getRepository(uri: Uri): Repository | undefined;

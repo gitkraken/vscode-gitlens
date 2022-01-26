@@ -1131,7 +1131,7 @@ export async function* pickRepositoryStep<
 		state.repo = Container.instance.git.getRepository(state.repo);
 		if (state.repo != null) return state.repo;
 	}
-	const active = state.repo ?? (await Container.instance.git.getOrCreateRepositoryForEditor());
+	const active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
 
 	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
@@ -1194,7 +1194,7 @@ export async function* pickRepositoriesStep<
 			actives = state.repos;
 		}
 	} else {
-		const active = await Container.instance.git.getOrCreateRepositoryForEditor();
+		const active = await Container.instance.git.getOrOpenRepositoryForEditor();
 		actives = active != null ? [active] : [];
 	}
 
