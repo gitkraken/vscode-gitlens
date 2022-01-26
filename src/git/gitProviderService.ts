@@ -264,11 +264,6 @@ export class GitProviderService implements Disposable {
 		return this.repositoryCount === 1 ? first(this._repositories.values()) : undefined;
 	}
 
-	@log()
-	get highlanderRepoPath(): string | undefined {
-		return this.highlander?.path;
-	}
-
 	// get readonly() {
 	// 	return true;
 	// 	// return this.container.vsls.readonly;

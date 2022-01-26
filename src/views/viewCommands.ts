@@ -656,7 +656,7 @@ export class ViewCommands {
 	@debug()
 	private switch(node?: ViewRefNode | BranchesNode) {
 		if (node == null) {
-			return GitActions.switchTo(this.container.git.highlanderRepoPath);
+			return GitActions.switchTo(this.container.git.highlander);
 		}
 
 		if (!(node instanceof ViewRefNode) && !(node instanceof BranchesNode)) return Promise.resolve();
