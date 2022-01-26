@@ -1245,6 +1245,13 @@ export namespace Git {
 		}
 	}
 
+	export async function rev_parse__git_dir(cwd: string): Promise<string | undefined> {
+		const data = await git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--git-dir');
+		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+		// Keep trailing spaces which are part of the directory name
+		return data.length === 0 ? undefined : normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+	}
+
 	export async function rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
 		try {
 			const data = await git<string>(

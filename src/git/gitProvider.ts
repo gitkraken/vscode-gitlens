@@ -223,6 +223,7 @@ export interface GitProvider extends Disposable {
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	getLog(
 		repoPath: string,
 		options?: {

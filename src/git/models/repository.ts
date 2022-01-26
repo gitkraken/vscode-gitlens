@@ -535,11 +535,10 @@ export class Repository implements Disposable {
 		}
 
 		try {
-			// TODO@eamodio: Need to move this into an explicit provider call
-			const stats = await workspace.fs.stat(this.container.git.getAbsoluteUri('.git/FETCH_HEAD', this.path));
-			// If the file is empty, assume the fetch failed, and don't update the timestamp
-			if (stats.size > 0) {
-				this._lastFetched = stats.mtime;
+			const lastFetched = await this.container.git.getLastFetchedTimestamp(this.path);
+			// If we don't get a number, assume the fetch failed, and don't update the timestamp
+			if (lastFetched != null) {
+				this._lastFetched = lastFetched;
 			}
 		} catch {
 			this._lastFetched = undefined;

@@ -1138,6 +1138,12 @@ export class GitProviderService implements Disposable {
 		return provider.getFileStatusForCommit(path, uri, ref);
 	}
 
+	@debug()
+	getLastFetchedTimestamp(repoPath: string | Uri): Promise<number | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getLastFetchedTimestamp(path);
+	}
+
 	@log()
 	async getLog(
 		repoPath: string | Uri,

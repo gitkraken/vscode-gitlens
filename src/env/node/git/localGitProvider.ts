@@ -125,6 +125,11 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
 const reflogCommands = ['merge', 'pull'];
 
+interface RepositoryInfo {
+	gitDir?: string;
+	user?: GitUser | null;
+}
+
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git' };
 	readonly supportedSchemes: string[] = [
@@ -155,10 +160,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
 	private readonly _rebaseStatusCache = new Map<string, GitRebaseStatus | null>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
+	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
 	private readonly _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
-	private readonly _userMapCache = new Map<string, GitUser | null>();
 
 	private _disposables: Disposable[] = [];
 
@@ -176,7 +181,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
-			this._userMapCache.delete(repo.path);
+			this._repoInfoCache.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
@@ -757,7 +762,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (cache.length === 0) {
 			this._trackedPaths.clear();
-			this._userMapCache.clear();
+			this._repoInfoCache.clear();
 		}
 	}
 
@@ -1546,7 +1551,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate()
 	@log()
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
-		let user = this._userMapCache.get(repoPath);
+		const repo = this._repoInfoCache.get(repoPath);
+
+		let user = repo?.user;
 		if (user != null) return user;
 		// If we found the repo, but no user data was found just return
 		if (user === null) return undefined;
@@ -1572,7 +1579,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				process.env.GIT_AUTHOR_NAME || process.env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 			if (!user.name) {
 				// If we found no user data, mark it so we won't bother trying again
-				this._userMapCache.set(repoPath, null);
+				this._repoInfoCache.set(repoPath, { ...repo, user: null });
 				return undefined;
 			}
 
@@ -1593,7 +1600,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		this._userMapCache.set(repoPath, user);
+		this._repoInfoCache.set(repoPath, { ...repo, user: user });
 		return user;
 	}
 
@@ -1855,6 +1862,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (files == null || files.length === 0) return undefined;
 
 		return files[0];
+	}
+
+	@debug()
+	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
+		try {
+			const gitDir = await this.getGitDir(repoPath);
+			const stats = await workspace.fs.stat(this.container.git.getAbsoluteUri(`${gitDir}/FETCH_HEAD`, repoPath));
+			// If the file is empty, assume the fetch failed, and don't update the timestamp
+			if (stats.size > 0) return stats.mtime;
+		} catch {}
+
+		return undefined;
+	}
+
+	private async getGitDir(repoPath: string): Promise<string> {
+		const repo = this._repoInfoCache.get(repoPath);
+		if (repo?.gitDir != null) return repo.gitDir;
+
+		const gitDir = normalizePath((await Git.rev_parse__git_dir(repoPath)) || '.git');
+		this._repoInfoCache.set(repoPath, { ...repo, gitDir: gitDir });
+
+		return gitDir;
 	}
 
 	@log()
