@@ -38,71 +38,65 @@ export function commonBaseIndex(s1: string, s2: string, delimiter: string, ignor
 	return index;
 }
 
-export function isChild(uri: Uri, baseUri: Uri): boolean;
-export function isChild(uri: Uri, basePath: string): boolean;
-export function isChild(path: string, basePath: string): boolean;
-export function isChild(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean {
-	if (typeof baseUriOrPath === 'string') {
-		if (baseUriOrPath.charCodeAt(0) !== slash) {
-			baseUriOrPath = `/${baseUriOrPath}`;
+export function isChild(path: string, base: string | Uri): boolean;
+export function isChild(uri: Uri, base: string | Uri): boolean;
+export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
+	if (typeof base === 'string') {
+		if (base.charCodeAt(0) !== slash) {
+			base = `/${base}`;
 		}
 
 		return (
-			isDescendent(uriOrPath, baseUriOrPath) &&
-			(typeof uriOrPath === 'string' ? uriOrPath : uriOrPath.path)
-				.substr(baseUriOrPath.length + (baseUriOrPath.endsWith('/') ? 0 : 1))
+			isDescendent(pathOrUri, base) &&
+			(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
+				.substr(base.length + (base.endsWith('/') ? 0 : 1))
 				.split('/').length === 1
 		);
 	}
 
 	return (
-		isDescendent(uriOrPath, baseUriOrPath) &&
-		(typeof uriOrPath === 'string' ? uriOrPath : uriOrPath.path)
-			.substr(baseUriOrPath.path.length + (baseUriOrPath.path.endsWith('/') ? 0 : 1))
+		isDescendent(pathOrUri, base) &&
+		(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
+			.substr(base.path.length + (base.path.endsWith('/') ? 0 : 1))
 			.split('/').length === 1
 	);
 }
 
-export function isDescendent(uri: Uri, baseUri: Uri): boolean;
-export function isDescendent(uri: Uri, basePath: string): boolean;
-export function isDescendent(path: string, basePath: string): boolean;
-export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean;
-export function isDescendent(uriOrPath: Uri | string, baseUriOrPath: Uri | string): boolean {
-	if (typeof baseUriOrPath === 'string') {
-		baseUriOrPath = normalizePath(baseUriOrPath);
-		if (baseUriOrPath.charCodeAt(0) !== slash) {
-			baseUriOrPath = `/${baseUriOrPath}`;
+export function isDescendent(path: string, base: string | Uri): boolean;
+export function isDescendent(uri: Uri, base: string | Uri): boolean;
+export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean;
+export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean {
+	if (typeof base === 'string') {
+		base = normalizePath(base);
+		if (base.charCodeAt(0) !== slash) {
+			base = `/${base}`;
 		}
 	}
 
-	if (typeof uriOrPath === 'string') {
-		uriOrPath = normalizePath(uriOrPath);
-		if (uriOrPath.charCodeAt(0) !== slash) {
-			uriOrPath = `/${uriOrPath}`;
+	if (typeof pathOrUri === 'string') {
+		pathOrUri = normalizePath(pathOrUri);
+		if (pathOrUri.charCodeAt(0) !== slash) {
+			pathOrUri = `/${pathOrUri}`;
 		}
 	}
 
-	if (typeof baseUriOrPath === 'string') {
+	if (typeof base === 'string') {
 		return (
-			baseUriOrPath.length === 1 ||
-			(typeof uriOrPath === 'string' ? uriOrPath : uriOrPath.path).startsWith(
-				baseUriOrPath.endsWith('/') ? baseUriOrPath : `${baseUriOrPath}/`,
+			base.length === 1 ||
+			(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path).startsWith(
+				base.endsWith('/') ? base : `${base}/`,
 			)
 		);
 	}
 
-	if (typeof uriOrPath === 'string') {
-		return (
-			baseUriOrPath.path.length === 1 ||
-			uriOrPath.startsWith(baseUriOrPath.path.endsWith('/') ? baseUriOrPath.path : `${baseUriOrPath.path}/`)
-		);
+	if (typeof pathOrUri === 'string') {
+		return base.path.length === 1 || pathOrUri.startsWith(base.path.endsWith('/') ? base.path : `${base.path}/`);
 	}
 
 	return (
-		baseUriOrPath.scheme === uriOrPath.scheme &&
-		baseUriOrPath.authority === uriOrPath.authority &&
-		(baseUriOrPath.path.length === 1 ||
-			uriOrPath.path.startsWith(baseUriOrPath.path.endsWith('/') ? baseUriOrPath.path : `${baseUriOrPath.path}/`))
+		base.scheme === pathOrUri.scheme &&
+		base.authority === pathOrUri.authority &&
+		(base.path.length === 1 || pathOrUri.path.startsWith(base.path.endsWith('/') ? base.path : `${base.path}/`))
 	);
 }
 
