@@ -12,7 +12,10 @@ import {
 	GitRemoteType,
 	PullRequestState,
 } from '../../git/models';
-import { debug, gate, Iterables, log, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
+import { pad } from '../../system/string';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
 import { RemotesView } from '../remotesView';
@@ -130,9 +133,22 @@ export class BranchNode
 		if (this._children == null) {
 			const children = [];
 
-			const range = await this.view.container.git.getBranchAheadRange(this.branch);
-			const [log, getBranchAndTagTips, status, mergeStatus, rebaseStatus, pr, unpublishedCommits] =
-				await Promise.all([
+			let prPromise;
+			if (
+				this.view.config.pullRequests.enabled &&
+				this.view.config.pullRequests.showForBranches &&
+				(this.branch.upstream != null || this.branch.remote)
+			) {
+				prPromise = this.branch.getAssociatedPullRequest(
+					this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+				);
+			}
+
+			const range = !this.branch.remote
+				? await this.view.container.git.getBranchAheadRange(this.branch)
+				: undefined;
+			const [log, getBranchAndTagTips, status, mergeStatus, rebaseStatus, unpublishedCommits] = await Promise.all(
+				[
 					this.getLog(),
 					this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
 					this.options.showStatus && this.branch.current
@@ -142,23 +158,20 @@ export class BranchNode
 						? this.view.container.git.getMergeStatus(this.uri.repoPath!)
 						: undefined,
 					this.options.showStatus ? this.view.container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
-					this.view.config.pullRequests.enabled &&
-					this.view.config.pullRequests.showForBranches &&
-					(this.branch.upstream != null || this.branch.remote)
-						? this.branch.getAssociatedPullRequest(
-								this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
-						  )
-						: undefined,
-					range && !this.branch.remote
+					range
 						? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 								limit: 0,
 								ref: range,
 						  })
 						: undefined,
-				]);
+				],
+			);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
+			let prInsertIndex = 0;
+
 			if (this.options.showComparison !== false && !(this.view instanceof RemotesView)) {
+				prInsertIndex++;
 				children.push(
 					new CompareBranchNode(
 						this.uri,
@@ -169,10 +182,6 @@ export class BranchNode
 						this.splatted,
 					),
 				);
-			}
-
-			if (pr != null) {
-				children.push(new PullRequestNode(this.view, this, pr, this.branch));
 			}
 
 			if (this.options.showStatus && mergeStatus != null) {
@@ -240,7 +249,7 @@ export class BranchNode
 
 			children.push(
 				...insertDateMarkers(
-					Iterables.map(
+					map(
 						log.commits.values(),
 						c =>
 							new CommitNode(
@@ -262,6 +271,27 @@ export class BranchNode
 						this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
 					),
 				);
+			}
+
+			if (prPromise != null) {
+				const pr = await prPromise;
+				if (pr != null) {
+					children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, this.branch));
+				}
+
+				// const pr = await Promise.race([
+				// 	prPromise,
+				// 	new Promise<null>(resolve => setTimeout(() => resolve(null), 100)),
+				// ]);
+				// if (pr != null) {
+				// 	children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, this.branch));
+				// } else if (pr === null) {
+				// 	void prPromise.then(pr => {
+				// 		if (pr == null) return;
+
+				// 		void this.triggerChange();
+				// 	});
+				// }
 			}
 
 			this._children = children;
@@ -331,8 +361,8 @@ export class BranchNode
 
 				description = this.options.showAsCommits
 					? `${this.branch.getTrackingStatus({
-							suffix: Strings.pad(GlyphChars.Dot, 1, 1),
-					  })}${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}${Strings.pad(
+							suffix: pad(GlyphChars.Dot, 1, 1),
+					  })}${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}${pad(
 							arrows,
 							2,
 							2,
@@ -378,7 +408,7 @@ export class BranchNode
 		}
 
 		if (this.branch.date != null) {
-			description = `${description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}` : ''}${
+			description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${
 				this.branch.formattedDate
 			}`;
 
@@ -433,6 +463,7 @@ export class BranchNode
 	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
+		debugger;
 		this._children = undefined;
 		if (reset) {
 			this._log = undefined;
