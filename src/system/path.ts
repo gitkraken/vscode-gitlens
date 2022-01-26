@@ -130,7 +130,7 @@ export function splitPath(
 		path = normalizePath(path);
 		repoPath = normalizePath(repoPath);
 
-		const index = commonBaseIndex(`${repoPath}/`, path, '/', ignoreCase);
+		const index = commonBaseIndex(`${repoPath}/`, `${path}/`, '/', ignoreCase);
 		if (index > 0) {
 			repoPath = path.substring(0, index);
 			path = path.substring(index + 1);
