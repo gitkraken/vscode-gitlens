@@ -273,12 +273,6 @@ export class GitProviderService implements Disposable {
 	// 	return this.container.config.advanced.caching.enabled;
 	// }
 
-	getCachedRepository(repoPath: string): Repository | undefined {
-		return repoPath && this._repositories.count !== 0
-			? this._repositories.getClosest(Uri.file(repoPath))
-			: undefined;
-	}
-
 	/**
 	 * Registers a {@link GitProvider}
 	 * @param id A unique indentifier for the provider
