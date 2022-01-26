@@ -11,11 +11,11 @@ import {
 } from 'vscode';
 import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
-import { debug, gate, Strings } from '../system';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
 import {
 	ContributorNode,
 	ContributorsNode,
@@ -74,10 +74,6 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
-
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
 
 			const children = await child.getChildren();
 

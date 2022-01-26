@@ -22,7 +22,9 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { debug, Functions, gate, Strings } from '../system';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
+import { disposableInterval } from '../system/function';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
@@ -86,7 +88,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				await super.subscribe(),
-				Functions.interval(() => {
+				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
@@ -149,15 +151,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
 					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}${
-					child.repo.supportsChangeEvents
-						? ''
-						: `${Strings.pad(GlyphChars.Warning, 3, 2)}Auto-refresh unavailable`
-				}`;
-			} else {
-				this.view.description = child.repo.supportsChangeEvents
-					? undefined
-					: `${Strings.pad(GlyphChars.Warning, 1, 2)}Auto-refresh unavailable`;
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
 			}
 
 			return child.getChildren();

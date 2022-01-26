@@ -10,7 +10,6 @@ import {
 	window,
 } from 'vscode';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -20,7 +19,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { gate, Strings } from '../system';
+import { gate } from '../system/decorators/gate';
 import {
 	BranchOrTagFolderNode,
 	RepositoriesSubscribeableNode,
@@ -65,10 +64,6 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
-
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
 
 			const tags = await child.repo.getTags();
 			if (tags.values.length === 0) {

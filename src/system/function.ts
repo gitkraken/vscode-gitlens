@@ -151,7 +151,7 @@ export function propOf<T, K extends Extract<keyof T, string>>(o: T, key: K) {
 	return propOfCore(o, key);
 }
 
-export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
+export function disposableInterval(fn: (...args: any[]) => void, ms: number): Disposable {
 	let timer: ReturnType<typeof setInterval> | undefined;
 	const disposable = {
 		dispose: () => {

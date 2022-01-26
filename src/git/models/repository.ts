@@ -17,7 +17,7 @@ import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Logger, LogLevel } from '../../logger';
+import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName, memoize } from '../../system';
 import { basename, joinPaths, relative } from '../../system/path';
@@ -90,21 +90,8 @@ export class RepositoryChangeEvent {
 	}
 
 	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]) {
-		let affected = args.slice(0, -1) as RepositoryChange[];
+		const affected = args.slice(0, -1) as RepositoryChange[];
 		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
-
-		// If we don't support file watching, then treat Unknown as acceptable for any change other than Closed/Ignores/Starred, i.e. any changes that require file watching
-		if (!this.repository.supportsChangeEvents) {
-			if (this._changes.has(RepositoryChange.Unknown)) {
-				affected = affected.filter(
-					c =>
-						c === RepositoryChange.Closed ||
-						c === RepositoryChange.Ignores ||
-						c === RepositoryChange.Starred,
-				);
-				if (affected.length === 0) return true;
-			}
-		}
 
 		if (mode === RepositoryChangeComparisonMode.Any) {
 			return Iterables.some(this._changes, c => affected.includes(c));
@@ -222,8 +209,6 @@ export class Repository implements Disposable {
 			// Check if the repository is not contained by a workspace folder
 			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
 			if (repoFolder == null) {
-				// If it isn't within a workspace folder we can't get change events, see: https://github.com/Microsoft/vscode/issues/3025
-				this._supportsChangeEvents = false;
 				this.formattedName = this.name = basename(path);
 			} else {
 				this.formattedName = this.name = folder.name;
@@ -240,11 +225,9 @@ export class Repository implements Disposable {
 		this._suspended = suspended;
 		this._closed = closed;
 
-		// TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
-		// https://github.com/Microsoft/vscode/issues/3025
 		const watcher = workspace.createFileSystemWatcher(
 			new RelativePattern(
-				folder,
+				this.uri,
 				'{\
 **/.git/config,\
 **/.git/index,\
@@ -266,20 +249,6 @@ export class Repository implements Disposable {
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 		this.onConfigurationChanged();
-
-		if (!this.supportsChangeEvents) {
-			void this.tryWatchingForChangesViaBuiltInApi();
-
-			if (Logger.enabled(LogLevel.Debug)) {
-				Logger.debug(
-					`Repository(${
-						this.id
-					}) doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
-						?.map(wf => wf.uri.fsPath)
-						.join('; ')}`,
-				);
-			}
-		}
 	}
 
 	dispose() {
@@ -293,11 +262,6 @@ export class Repository implements Disposable {
 	@memoize()
 	get uri(): Uri {
 		return Uri.file(this.path);
-	}
-
-	private _supportsChangeEvents: boolean = true;
-	get supportsChangeEvents(): boolean {
-		return this._supportsChangeEvents;
 	}
 
 	get etag(): number {
@@ -530,7 +494,7 @@ export class Repository implements Disposable {
 			return branch;
 		}
 
-		if (this._branch == null || !this.supportsChangeEvents) {
+		if (this._branch == null) {
 			this._branch = this.container.git.getBranch(this.path);
 		}
 		return this._branch;
@@ -592,7 +556,7 @@ export class Repository implements Disposable {
 	}
 
 	async getRemotes(options: { filter?: (remote: GitRemote) => boolean; sort?: boolean } = {}): Promise<GitRemote[]> {
-		if (this._remotes == null || !this.supportsChangeEvents) {
+		if (this._remotes == null) {
 			if (this._providers == null) {
 				const remotesCfg = configuration.get('remotes', this.folder.uri);
 				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
@@ -953,9 +917,7 @@ export class Repository implements Disposable {
 	startWatchingFileSystem(): Disposable {
 		this._fsWatchCounter++;
 		if (this._fsWatcherDisposable == null) {
-			// TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
-			// https://github.com/Microsoft/vscode/issues/3025
-			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, '**'));
+			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**'));
 			this._fsWatcherDisposable = Disposable.from(
 				watcher,
 				watcher.onDidChange(this.onFileSystemChanged, this),
@@ -1078,22 +1040,5 @@ export class Repository implements Disposable {
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
-	}
-
-	private async tryWatchingForChangesViaBuiltInApi() {
-		const repo = await this.container.git.getOrOpenScmRepository(this.path);
-		if (repo != null) {
-			const internalRepo = (repo as any)._repository;
-			if (internalRepo != null && 'onDidChangeRepository' in internalRepo) {
-				try {
-					this._repoWatcherDisposable = internalRepo.onDidChangeRepository((e: Uri | undefined) =>
-						this.onRepositoryChanged(e),
-					);
-					this._supportsChangeEvents = true;
-
-					Logger.debug(`Repository(${this.id}) is now using fallback file watching`);
-				} catch {}
-			}
-		}
 	}
 }

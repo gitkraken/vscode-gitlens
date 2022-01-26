@@ -395,9 +395,7 @@ export abstract class RepositoryFolderNode<
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 
 			const status = branch.getTrackingStatus();
-			item.description = `${this.repo.supportsChangeEvents ? '' : Strings.pad(GlyphChars.Warning, 1, 2)}${
-				status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''
-			}${branch.name}${
+			item.description = `${status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
 				lastFetched
 					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 					: ''
@@ -440,21 +438,12 @@ export abstract class RepositoryFolderNode<
 								}`,
 						  })}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
-				}${
-					this.repo.supportsChangeEvents
-						? ''
-						: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 				}`,
 				true,
 			);
 		} else {
-			item.description = this.repo.supportsChangeEvents ? undefined : Strings.pad(GlyphChars.Warning, 1, 0);
 			item.tooltip = `${
 				this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
-			}${
-				this.repo.supportsChangeEvents
-					? ''
-					: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 			}`;
 		}
 
