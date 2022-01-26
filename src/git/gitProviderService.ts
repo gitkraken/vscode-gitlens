@@ -29,7 +29,7 @@ import {
 import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
-import { Repositories } from '../repositories';
+import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -1422,7 +1422,7 @@ export class GitProviderService implements Disposable {
 		return (editor != null ? this.getRepository(editor.document.uri) : undefined) ?? this.highlander;
 	}
 
-	private _pendingRepositories = new Map<string, Promise<Repository | undefined>>();
+	private _pendingRepositories = new Map<RepoComparisionKey, Promise<Repository | undefined>>();
 
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
@@ -1438,7 +1438,7 @@ export class GitProviderService implements Disposable {
 			return repository;
 		}
 
-		const key = asKey(uri);
+		const key = asRepoComparisonKey(uri);
 		let promise = this._pendingRepositories.get(key);
 		if (promise == null) {
 			async function findRepository(this: GitProviderService): Promise<Repository | undefined> {
@@ -1817,14 +1817,4 @@ export class GitProviderService implements Disposable {
 		const encoding = configuration.getAny<string>('files.encoding', uri);
 		return encoding != null && encodingExists(encoding) ? encoding : 'utf8';
 	}
-}
-
-export function asKey(uri: Uri): string;
-export function asKey(uri: Uri | undefined): string | undefined;
-export function asKey(uri: Uri | undefined): string | undefined {
-	if (uri === undefined) return undefined;
-	const hasTrailingSlash = uri.path.endsWith('/');
-	if (!hasTrailingSlash && !uri.fragment) return uri.toString();
-
-	return uri.with({ path: hasTrailingSlash ? uri.path.slice(0, -1) : uri.path, fragment: '' }).toString();
 }

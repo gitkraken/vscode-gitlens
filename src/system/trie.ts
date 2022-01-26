@@ -12,11 +12,25 @@ function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
 	switch (uri.scheme.toLowerCase()) {
 		case DocumentSchemes.File:
 			path = normalizePath(uri.fsPath);
-			return { path: uri.authority ? `${uri.authority}/${path}` : path, ignoreCase: !isLinux };
-		case DocumentSchemes.GitLens:
+			return { path: path, ignoreCase: !isLinux };
+
 		case DocumentSchemes.Git:
 			path = normalizePath(uri.fsPath);
+			// TODO@eamodio parse the ref out of the query
 			return { path: path, ignoreCase: !isLinux };
+
+		case DocumentSchemes.GitLens:
+			path = uri.path;
+			if (path.charCodeAt(path.length - 1) === slash) {
+				path = path.slice(0, -1);
+			}
+
+			if (!isLinux) {
+				path = path.toLowerCase();
+			}
+
+			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
+
 		case DocumentSchemes.Virtual:
 		case DocumentSchemes.GitHub:
 			path = uri.path;
@@ -24,6 +38,7 @@ function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
 				path = path.slice(0, -1);
 			}
 			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
+
 		default:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
