@@ -1,7 +1,7 @@
 'use strict';
 import { readdir, realpath } from 'fs';
 import { hostname, userInfo } from 'os';
-import { dirname, relative, resolve as resolvePath } from 'path';
+import { resolve as resolvePath } from 'path';
 import {
 	Disposable,
 	env,
@@ -35,10 +35,11 @@ import {
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
+	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { GitProviderService } from '../../../git/gitProviderService';
-import { GitUri } from '../../../git/gitUri';
+import { GitProviderService, isUriRegex } from '../../../git/gitProviderService';
+import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import {
 	BranchSortOptions,
 	GitAuthor,
@@ -94,9 +95,10 @@ import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
 import { Arrays, debug, Functions, gate, Iterables, log, Strings, Versions } from '../../../system';
-import { isFolderGlob, normalizePath, splitPath } from '../../../system/path';
+import { filterMap } from '../../../system/array';
+import { dirname, isAbsolute, isFolderGlob, normalizePath, relative, splitPath } from '../../../system/path';
 import { any, PromiseOrValue } from '../../../system/promise';
-import { equalsIgnoreCase } from '../../../system/string';
+import { CharCode, equalsIgnoreCase } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import {
 	CachedBlame,
@@ -488,6 +490,157 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				resolve(repositories);
 			});
 		});
+	}
+
+	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri {
+		// Convert the base to a Uri if it isn't one
+		if (typeof base === 'string') {
+			// If it looks like a Uri parse it
+			if (isUriRegex.test(base)) {
+				base = Uri.parse(base);
+			} else {
+				if (!isAbsolute(base)) {
+					debugger;
+					throw new Error(`Base path '${base}' must be an absolute path`);
+				}
+
+				base = Uri.file(base);
+			}
+		}
+
+		// Short-circuit if the path is relative
+		if (typeof pathOrUri === 'string' && !isAbsolute(pathOrUri) && !isUriRegex.test(pathOrUri)) {
+			return Uri.joinPath(base, pathOrUri);
+		}
+
+		const relativePath = this.getRelativePath(pathOrUri, base);
+
+		const uri = Uri.joinPath(base, relativePath);
+		// TODO@eamodio We need to move live share support to a separate provider
+		if (this.container.vsls.isMaybeGuest) {
+			return uri.with({ scheme: DocumentSchemes.Vsls });
+		}
+		return uri;
+	}
+
+	@log()
+	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
+		if (ref === GitRevision.deletedOrMissing) return undefined;
+
+		// TODO@eamodio Align this with isTrackedCore?
+		if (!ref || (GitRevision.isUncommitted(ref) && !GitRevision.isUncommittedStaged(ref))) {
+			// Make sure the file exists in the repo
+			let data = await Git.ls_files(repoPath, path);
+			if (data != null) return this.getAbsoluteUri(path, repoPath);
+
+			// Check if the file exists untracked
+			data = await Git.ls_files(repoPath, path, { untracked: true });
+			if (data != null) return this.getAbsoluteUri(path, repoPath);
+
+			return undefined;
+		}
+
+		if (GitRevision.isUncommittedStaged(ref)) return GitUri.git(path, repoPath);
+
+		return this.getRevisionUri(repoPath, path, ref);
+	}
+
+	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
+		// Convert the base to a Uri if it isn't one
+		if (typeof base === 'string') {
+			// If it looks like a Uri parse it
+			if (isUriRegex.test(base)) {
+				base = Uri.parse(base);
+			} else {
+				if (!isAbsolute(base)) {
+					debugger;
+					throw new Error(`Base path '${base}' must be an absolute path`);
+				}
+
+				base = Uri.file(base);
+			}
+		}
+
+		// Convert the path to a Uri if it isn't one
+		if (typeof pathOrUri === 'string') {
+			if (isUriRegex.test(pathOrUri)) {
+				pathOrUri = Uri.parse(pathOrUri);
+			} else {
+				if (!isAbsolute(pathOrUri)) return normalizePath(pathOrUri);
+
+				pathOrUri = Uri.file(pathOrUri);
+			}
+		}
+
+		const relativePath = relative(base.fsPath, pathOrUri.fsPath);
+		return normalizePath(relativePath);
+	}
+
+	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
+		if (GitRevision.isUncommitted(ref)) {
+			return GitRevision.isUncommittedStaged(ref)
+				? GitUri.git(path, repoPath)
+				: this.getAbsoluteUri(path, repoPath);
+		}
+
+		path = normalizePath(this.getAbsoluteUri(path, repoPath).fsPath);
+		if (path.charCodeAt(0) !== CharCode.Slash) {
+			path = `/${path}`;
+		}
+
+		const metadata: RevisionUriData = {
+			ref: ref,
+			repoPath: normalizePath(repoPath),
+		};
+
+		const uri = Uri.from({
+			scheme: DocumentSchemes.GitLens,
+			authority: encodeGitLensRevisionUriAuthority(metadata),
+			path: path,
+			query: ref ? JSON.stringify({ ref: GitRevision.shorten(ref) }) : undefined,
+		});
+		return uri;
+	}
+
+	@log()
+	async getWorkingUri(repoPath: string, uri: Uri) {
+		let fileName = GitUri.relativeTo(uri, repoPath);
+
+		let data;
+		let ref;
+		do {
+			data = await Git.ls_files(repoPath, fileName);
+			if (data != null) {
+				fileName = Strings.splitSingle(data, '\n')[0];
+				break;
+			}
+
+			// TODO: Add caching
+			// Get the most recent commit for this file name
+			ref = await Git.log__file_recent(repoPath, fileName, {
+				ordering: this.container.config.advanced.commitOrdering,
+				similarityThreshold: this.container.config.advanced.similarityThreshold,
+			});
+			if (ref == null) return undefined;
+
+			// Now check if that commit had any renames
+			data = await Git.log__file(repoPath, '.', ref, {
+				filters: ['R', 'C', 'D'],
+				format: 'simple',
+				limit: 1,
+				ordering: this.container.config.advanced.commitOrdering,
+			});
+			if (data == null || data.length === 0) break;
+
+			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, fileName);
+			if (foundStatus === 'D' && foundFile != null) return undefined;
+			if (foundRef == null || foundFile == null) break;
+
+			fileName = foundFile;
+		} while (true);
+
+		uri = this.getAbsoluteUri(fileName, repoPath);
+		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
 	@log()
@@ -1298,10 +1451,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await Git.branch__containsOrPointsAt(repoPath, ref, options);
 		if (!data) return [];
 
-		return data
-			.split('\n')
-			.map(b => b.trim())
-			.filter(<T>(i?: T): i is T => Boolean(i));
+		return filterMap(data.split('\n'), b => b.trim() || undefined);
 	}
 
 	@log()
@@ -2580,12 +2730,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const fileName = GitUri.relativeTo(uri, repoPath);
+		const path = this.getRelativePath(uri, repoPath);
 
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
-		if (ref == null || ref.length === 0) {
+		if (!ref) {
 			// First, check the file status to see if there is anything staged
-			const status = await this.getStatusForFile(repoPath, fileName);
+			const status = await this.getStatusForFile(repoPath, path);
 			if (status != null) {
 				// If the file is staged with working changes, diff working with staged (index)
 				// If the file is staged without working changes, diff staged with HEAD
@@ -2598,20 +2748,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					if (skip === 0) {
 						// Diff working with staged
 						return {
-							current: GitUri.fromFile(fileName, repoPath, undefined),
-							previous: GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged),
+							current: GitUri.fromFile(path, repoPath, undefined),
+							previous: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
 						};
 					}
 
 					return {
 						// Diff staged with HEAD (or prior if more skips)
-						current: GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged),
+						current: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
 						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent),
 					};
 				} else if (status.workingTreeStatus != null) {
 					if (skip === 0) {
 						return {
-							current: GitUri.fromFile(fileName, repoPath, undefined),
+							current: GitUri.fromFile(path, repoPath, undefined),
 							previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent),
 						};
 					}
@@ -2624,7 +2774,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		else if (GitRevision.isUncommittedStaged(ref)) {
 			const current =
 				skip === 0
-					? GitUri.fromFile(fileName, repoPath, ref)
+					? GitUri.fromFile(path, repoPath, ref)
 					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, undefined, firstParent))!;
 			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2637,7 +2787,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If we are at a commit, diff commit with previous
 		const current =
 			skip === 0
-				? GitUri.fromFile(fileName, repoPath, ref)
+				? GitUri.fromFile(path, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
 		if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2657,12 +2807,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		let fileName = GitUri.relativeTo(uri, repoPath);
+		let path = this.getRelativePath(uri, repoPath);
 
 		let previous;
 
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
-		if (ref == null || ref.length === 0) {
+		if (!ref) {
 			// First, check the blame on the current line to see if there are any working/staged changes
 			const gitUri = new GitUri(uri, repoPath);
 
@@ -2677,15 +2827,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// If the document is dirty (unsaved), use the status to determine where to go
 				if (document.isDirty) {
 					// Check the file status to see if there is anything staged
-					const status = await this.getStatusForFile(repoPath, fileName);
+					const status = await this.getStatusForFile(repoPath, path);
 					if (status != null) {
 						// If the file is staged, diff working with staged (index)
 						// If the file is not staged, diff working with HEAD
 						if (status.indexStatus != null) {
 							// Diff working with staged
 							return {
-								current: GitUri.fromFile(fileName, repoPath, undefined),
-								previous: GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged),
+								current: GitUri.fromFile(path, repoPath, undefined),
+								previous: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
 								line: editorLine,
 							};
 						}
@@ -2693,7 +2843,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					// Diff working with HEAD (or prior if more skips)
 					return {
-						current: GitUri.fromFile(fileName, repoPath, undefined),
+						current: GitUri.fromFile(path, repoPath, undefined),
 						previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
 						line: editorLine,
 					};
@@ -2715,19 +2865,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If line is committed, diff with line ref with previous
 			else {
 				ref = blameLine.commit.sha;
-				fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
-				uri = GitUri.resolve(fileName, repoPath);
+				path = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? path);
+				uri = this.getAbsoluteUri(path, repoPath);
 				editorLine = blameLine.line.originalLine - 1;
 
 				if (skip === 0 && blameLine.commit.previousSha) {
-					previous = GitUri.fromFile(fileName, repoPath, blameLine.commit.previousSha);
+					previous = GitUri.fromFile(path, repoPath, blameLine.commit.previousSha);
 				}
 			}
 		} else {
 			if (GitRevision.isUncommittedStaged(ref)) {
 				const current =
 					skip === 0
-						? GitUri.fromFile(fileName, repoPath, ref)
+						? GitUri.fromFile(path, repoPath, ref)
 						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
 				if (current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2744,18 +2894,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Diff with line ref with previous
 			ref = blameLine.commit.sha;
-			fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
-			uri = GitUri.resolve(fileName, repoPath);
+			path = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? path);
+			uri = this.getAbsoluteUri(path, repoPath);
 			editorLine = blameLine.line.originalLine - 1;
 
 			if (skip === 0 && blameLine.commit.previousSha) {
-				previous = GitUri.fromFile(fileName, repoPath, blameLine.commit.previousSha);
+				previous = GitUri.fromFile(path, repoPath, blameLine.commit.previousSha);
 			}
 		}
 
 		const current =
 			skip === 0
-				? GitUri.fromFile(fileName, repoPath, ref)
+				? GitUri.fromFile(path, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
 		if (current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2783,11 +2933,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref = undefined;
 		}
 
-		const fileName = GitUri.relativeTo(uri, repoPath);
+		const path = this.getRelativePath(uri, repoPath);
+
 		// TODO: Add caching
 		let data;
 		try {
-			data = await Git.log__file(repoPath, fileName, ref, {
+			data = await Git.log__file(repoPath, path, ref, {
 				firstParent: firstParent,
 				format: 'simple',
 				limit: skip + 2,
@@ -2799,16 +2950,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If the line count is invalid just fallback to the most recent commit
 			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
 				if (ref == null) {
-					const status = await this.getStatusForFile(repoPath, fileName);
+					const status = await this.getStatusForFile(repoPath, path);
 					if (status?.indexStatus != null) {
-						return GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged);
+						return GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged);
 					}
 				}
 
-				ref = await Git.log__file_recent(repoPath, fileName, {
+				ref = await Git.log__file_recent(repoPath, path, {
 					ordering: this.container.config.advanced.commitOrdering,
 				});
-				return GitUri.fromFile(fileName, repoPath, ref ?? GitRevision.deletedOrMissing);
+				return GitUri.fromFile(path, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
 			Logger.error(ex, cc);
@@ -2820,7 +2971,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If the previous ref matches the ref we asked for assume we are at the end of the history
 		if (ref != null && ref === previousRef) return undefined;
 
-		return GitUri.fromFile(file ?? fileName, repoPath, previousRef ?? GitRevision.deletedOrMissing);
+		return GitUri.fromFile(file ?? path, repoPath, previousRef ?? GitRevision.deletedOrMissing);
 	}
 
 	@log()
@@ -3148,74 +3299,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return GitTreeParser.parse(data) ?? [];
 	}
 
-	@log()
-	async getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
-
-		if (
-			ref == null ||
-			ref.length === 0 ||
-			(GitRevision.isUncommitted(ref) && !GitRevision.isUncommittedStaged(ref))
-		) {
-			// Make sure the file exists in the repo
-			let data = await Git.ls_files(repoPath, fileName);
-			if (data != null) return GitUri.file(fileName);
-
-			// Check if the file exists untracked
-			data = await Git.ls_files(repoPath, fileName, { untracked: true });
-			if (data != null) return GitUri.file(fileName);
-
-			return undefined;
-		}
-
-		if (GitRevision.isUncommittedStaged(ref)) {
-			return GitUri.git(fileName, repoPath);
-		}
-
-		return GitUri.toRevisionUri(ref, fileName, repoPath);
-	}
-
-	@log()
-	async getWorkingUri(repoPath: string, uri: Uri) {
-		let fileName = GitUri.relativeTo(uri, repoPath);
-
-		let data;
-		let ref;
-		do {
-			data = await Git.ls_files(repoPath, fileName);
-			if (data != null) {
-				fileName = Strings.splitSingle(data, '\n')[0];
-				break;
-			}
-
-			// TODO: Add caching
-			// Get the most recent commit for this file name
-			ref = await Git.log__file_recent(repoPath, fileName, {
-				ordering: this.container.config.advanced.commitOrdering,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
-			});
-			if (ref == null) return undefined;
-
-			// Now check if that commit had any renames
-			data = await Git.log__file(repoPath, '.', ref, {
-				filters: ['R', 'C', 'D'],
-				format: 'simple',
-				limit: 1,
-				ordering: this.container.config.advanced.commitOrdering,
-			});
-			if (data == null || data.length === 0) break;
-
-			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, fileName);
-			if (foundStatus === 'D' && foundFile != null) return undefined;
-			if (foundRef == null || foundFile == null) break;
-
-			fileName = foundFile;
-		} while (true);
-
-		uri = GitUri.resolve(fileName, repoPath);
-		return (await fsExists(uri.fsPath)) ? uri : undefined;
-	}
-
 	@log({ args: { 1: false } })
 	async hasBranchOrTag(
 		repoPath: string | undefined,
@@ -3467,7 +3550,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return (await Git.rev_parse__verify(repoPath, ref)) ?? ref;
 		}
 
-		const path = typeof pathOrUri === 'string' ? pathOrUri : normalizePath(relative(repoPath, pathOrUri.fsPath));
+		const path = normalizePath(this.getRelativePath(pathOrUri, repoPath));
 
 		const blob = await Git.rev_parse__verify(repoPath, ref, path);
 		if (blob == null) return GitRevision.deletedOrMissing;

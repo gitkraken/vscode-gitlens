@@ -1,12 +1,15 @@
 'use strict';
 import { Uri } from 'vscode';
+import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, memoize, Strings } from '../system';
-import { basename, dirname, isAbsolute, joinPaths, normalizePath, relative } from '../system/path';
-import { CharCode } from '../system/string';
+import { debug } from '../system/decorators/log';
+import { memoize } from '../system/decorators/memoize';
+import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
+import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
+import { RevisionUriData } from './gitProvider';
 import { GitCommit, GitFile, GitRevision } from './models';
 
 export interface GitCommitish {
@@ -54,30 +57,18 @@ export class GitUri extends (Uri as any as UriEx) {
 		}
 
 		if (uri.scheme === DocumentSchemes.GitLens) {
-			const data = JSON.parse(uri.query) as UriRevisionData;
-
-			// Fixes issues with uri.query:
-			// When Uri's come from the FileSystemProvider, the uri.query only contains the root repo info (not the actual file path)
-			// When Uri's come from breadcrumbs (via the FileSystemProvider), the uri.query contains the wrong file path
-			if (data.path !== uri.path) {
-				if (data.path.startsWith('//') && !uri.path.startsWith('//')) {
-					data.path = `/${uri.path}`;
-				} else {
-					data.path = uri.path;
-				}
-			}
-
 			super({
 				scheme: uri.scheme,
 				authority: uri.authority,
-				path: data.path,
-				query: JSON.stringify(data),
+				path: uri.path,
+				query: uri.query,
 				fragment: uri.fragment,
 			});
 
-			this.repoPath = data.repoPath;
-			if (GitRevision.isUncommittedStaged(data.ref) || !GitRevision.isUncommitted(data.ref)) {
-				this.sha = data.ref;
+			const metadata = decodeGitLensRevisionUriAuthority<RevisionUriData>(uri.authority);
+			this.repoPath = metadata.repoPath;
+			if (GitRevision.isUncommittedStaged(metadata.ref) || !GitRevision.isUncommitted(metadata.ref)) {
+				this.sha = metadata.ref;
 			}
 
 			return;
@@ -98,7 +89,10 @@ export class GitUri extends (Uri as any as UriEx) {
 		}
 
 		let authority = uri.authority;
-		let fsPath = GitUri.resolvePath(commitOrRepoPath.fileName ?? uri.fsPath, commitOrRepoPath.repoPath);
+		let fsPath = normalizePath(
+			Container.instance.git.getAbsoluteUri(commitOrRepoPath.fileName ?? uri.fsPath, commitOrRepoPath.repoPath)
+				.fsPath,
+		);
 
 		// Check for authority as used in UNC shares or use the path as given
 		if (fsPath.charCodeAt(0) === CharCode.Slash && fsPath.charCodeAt(1) === CharCode.Slash) {
@@ -165,7 +159,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	private get relativeFsPath() {
-		return this.repoPath == null || this.repoPath.length === 0 ? this.fsPath : relative(this.repoPath, this.fsPath);
+		return !this.repoPath ? this.fsPath : relative(this.repoPath, this.fsPath);
 	}
 
 	@memoize()
@@ -180,6 +174,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	documentUri() {
+		// TODO@eamodio which is correct?
 		return Uri.from({
 			scheme: this.scheme,
 			authority: this.authority,
@@ -187,6 +182,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			query: this.query,
 			fragment: this.fragment,
 		});
+		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
 	equals(uri: Uri | undefined) {
@@ -205,7 +201,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	toFileUri() {
-		return GitUri.file(this.fsPath);
+		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
 	static file(path: string, useVslsScheme?: boolean) {
@@ -227,7 +223,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static fromFile(file: string | GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
-		const uri = GitUri.resolve(
+		const uri = Container.instance.git.getAbsoluteUri(
 			typeof file === 'string' ? file : (original && file.originalFileName) || file.fileName,
 			repoPath,
 		);
@@ -237,9 +233,9 @@ export class GitUri extends (Uri as any as UriEx) {
 	}
 
 	static fromRepoPath(repoPath: string, ref?: string) {
-		return ref == null || ref.length === 0
-			? new GitUri(GitUri.file(repoPath), repoPath)
-			: new GitUri(GitUri.file(repoPath), { repoPath: repoPath, sha: ref });
+		return !ref
+			? new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), repoPath)
+			: new GitUri(Container.instance.git.getAbsoluteUri(repoPath, repoPath), { repoPath: repoPath, sha: ref });
 	}
 
 	static fromRevisionUri(uri: Uri): GitUri {
@@ -362,12 +358,12 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		let file = basename(fileName);
 		if (options?.truncateTo != null && file.length >= options.truncateTo) {
-			return Strings.truncateMiddle(file, options.truncateTo);
+			return truncateMiddle(file, options.truncateTo);
 		}
 
 		if (options?.suffix) {
 			if (options?.truncateTo != null && file.length + options.suffix.length >= options?.truncateTo) {
-				return `${Strings.truncateMiddle(file, options.truncateTo - options.suffix.length)}${options.suffix}`;
+				return `${truncateMiddle(file, options.truncateTo - options.suffix.length)}${options.suffix}`;
 			}
 
 			file += options.suffix;
@@ -395,12 +391,12 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		let file = basename(fileName);
 		if (truncateTo != null && file.length >= truncateTo) {
-			return Strings.truncateMiddle(file, truncateTo);
+			return truncateMiddle(file, truncateTo);
 		}
 
 		if (suffix) {
 			if (truncateTo != null && file.length + suffix.length >= truncateTo) {
-				return `${Strings.truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
+				return `${truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
 			}
 
 			file += suffix;
@@ -412,7 +408,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		file = `/${file}`;
 
 		if (truncateTo != null && file.length + directory.length >= truncateTo) {
-			return `${Strings.truncateLeft(directory, truncateTo - file.length)}${file}`;
+			return `${truncateLeft(directory, truncateTo - file.length)}${file}`;
 		}
 
 		return `${directory}${file}`;
@@ -427,34 +423,17 @@ export class GitUri extends (Uri as any as UriEx) {
 		return normalizePath(relativePath);
 	}
 
-	static git(fileName: string, repoPath?: string) {
-		const path = GitUri.resolvePath(fileName, repoPath);
-		return Uri.parse(
-			// Change encoded / back to / otherwise uri parsing won't work properly
-			`${DocumentSchemes.Git}:/${encodeURIComponent(path).replace(/%2F/g, '/')}?${encodeURIComponent(
-				JSON.stringify({
-					// Ensure we use the fsPath here, otherwise the url won't open properly
-					path: Uri.file(path).fsPath,
-					ref: '~',
-				}),
-			)}`,
-		);
-	}
-
-	static resolvePath(fileName: string, repoPath?: string) {
-		const normalizedFileName = normalizePath(fileName);
-		if (repoPath === undefined) return normalizedFileName;
-
-		const normalizedRepoPath = normalizePath(repoPath);
-		if (normalizedFileName == null || normalizedFileName.length === 0) return normalizedRepoPath;
-
-		if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
-
-		return normalizePath(joinPaths(normalizedRepoPath, normalizedFileName));
-	}
-
-	static resolve(fileName: string, repoPath?: string) {
-		return GitUri.file(this.resolvePath(fileName, repoPath));
+	static git(path: string, repoPath?: string): Uri {
+		const uri = Container.instance.git.getAbsoluteUri(path, repoPath);
+		return Uri.from({
+			scheme: DocumentSchemes.Git,
+			path: uri.path,
+			query: JSON.stringify({
+				// Ensure we use the fsPath here, otherwise the url won't open properly
+				path: uri.scheme === DocumentSchemes.File ? uri.fsPath : uri.path,
+				ref: '~',
+			}),
+		});
 	}
 
 	static toKey(fileName: string): string;
@@ -467,67 +446,12 @@ export class GitUri extends (Uri as any as UriEx) {
 		//     ? GitUri.file(fileNameOrUri).toString(true)
 		//     : fileNameOrUri.toString(true);
 	}
-
-	static toRevisionUri(uri: GitUri): Uri;
-	static toRevisionUri(ref: string, fileName: string, repoPath: string): Uri;
-	static toRevisionUri(ref: string, file: GitFile, repoPath: string): Uri;
-	static toRevisionUri(uriOrRef: string | GitUri, fileNameOrFile?: string | GitFile, repoPath?: string): Uri {
-		let fileName: string;
-		let ref: string | undefined;
-		let shortSha: string | undefined;
-
-		if (typeof uriOrRef === 'string') {
-			if (typeof fileNameOrFile === 'string') {
-				fileName = fileNameOrFile;
-			} else {
-				//if (fileNameOrFile!.status === 'D') {
-				fileName = GitUri.resolvePath(fileNameOrFile!.originalFileName ?? fileNameOrFile!.fileName, repoPath);
-				// } else {
-				// 	fileName = GitUri.resolve(fileNameOrFile!.fileName, repoPath);
-			}
-
-			ref = uriOrRef;
-			shortSha = GitRevision.shorten(ref);
-		} else {
-			fileName = uriOrRef.fsPath;
-
-			ref = uriOrRef.sha;
-			shortSha = uriOrRef.shortSha;
-			repoPath = uriOrRef.repoPath!;
-		}
-
-		if (ref == null || ref.length === 0) {
-			return Uri.file(fileName);
-		}
-
-		if (GitRevision.isUncommitted(ref)) {
-			return GitRevision.isUncommittedStaged(ref) ? GitUri.git(fileName, repoPath) : Uri.file(fileName);
-		}
-
-		let filePath = normalizePath(fileName);
-		if (filePath.charCodeAt(0) !== CharCode.Slash) {
-			filePath = `/${filePath}`;
-		}
-
-		const data: UriRevisionData = {
-			path: filePath,
-			ref: ref,
-			repoPath: normalizePath(repoPath!),
-		};
-
-		const uri = Uri.parse(
-			// Replace / in the authority with a similar unicode characters otherwise parsing will be wrong
-			`${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha.replace(/\//g, '\u200A\u2215\u200A'))}${
-				// Change encoded / back to / otherwise uri parsing won't work properly
-				filePath === '/' ? '' : encodeURIComponent(filePath).replace(/%2F/g, '/')
-			}?${encodeURIComponent(JSON.stringify(data))}`,
-		);
-		return uri;
-	}
 }
 
-interface UriRevisionData {
-	path: string;
-	ref?: string;
-	repoPath: string;
+export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {
+	return JSON.parse(decodeUtf8Hex(authority)) as T;
+}
+
+export function encodeGitLensRevisionUriAuthority<T>(metadata: T): string {
+	return encodeUtf8Hex(JSON.stringify(metadata));
 }

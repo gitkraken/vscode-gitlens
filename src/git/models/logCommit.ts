@@ -1,5 +1,6 @@
 'use strict';
 import { Uri } from 'vscode';
+import { Container } from '../../container';
 import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitReference } from '../models';
@@ -90,7 +91,7 @@ export class GitLogCommit extends GitCommit {
 	}
 
 	get nextUri(): Uri {
-		return this.nextFileName ? GitUri.resolve(this.nextFileName, this.repoPath) : this.uri;
+		return this.nextFileName ? Container.instance.git.getAbsoluteUri(this.nextFileName, this.repoPath) : this.uri;
 	}
 
 	override get previousFileSha(): string {

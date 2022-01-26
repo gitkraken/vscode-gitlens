@@ -83,7 +83,13 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			return {
 				title: 'Open Revision',
 				command: BuiltInCommands.Open,
-				arguments: [GitUri.toRevisionUri(this.status.HEAD.ref, this.file.fileName, this.status.repoPath)],
+				arguments: [
+					this.view.container.git.getRevisionUri(
+						this.status.HEAD.ref,
+						this.file.fileName,
+						this.status.repoPath,
+					),
+				],
 			};
 		}
 

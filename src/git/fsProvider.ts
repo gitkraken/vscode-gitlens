@@ -26,10 +26,6 @@ export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPat
 	return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
 }
 
-export function toGitLensFSUri(ref: string, repoPath: string): Uri {
-	return GitUri.toRevisionUri(ref, repoPath, repoPath);
-}
-
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	private readonly _disposable: Disposable;
 	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTreeEntry>>>();

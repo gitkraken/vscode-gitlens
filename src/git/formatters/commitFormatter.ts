@@ -19,7 +19,7 @@ import { emojify } from '../../emojis';
 import { Iterables, Strings } from '../../system';
 import { PromiseCancelledError } from '../../system/promise';
 import { ContactPresence } from '../../vsls/vsls';
-import { GitUri } from '../gitUri';
+import type { GitUri } from '../gitUri';
 import { GitCommit, GitLogCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
 import { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
@@ -297,7 +297,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				})} "Open Changes with Previous Revision")`;
 
 				commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
-					GitUri.toRevisionUri(diffUris.previous),
+					Container.instance.git.getRevisionUri(diffUris.previous),
 					FileAnnotationType.Blame,
 					this._options.editor?.line,
 				)} "Open Blame Prior to this Change")`;
@@ -325,7 +325,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		)} "Open Changes with Previous Revision")`;
 
 		if (this._item.previousSha != null) {
-			const uri = GitUri.toRevisionUri(
+			const uri = Container.instance.git.getRevisionUri(
 				this._item.previousSha,
 				this._item.previousUri.fsPath,
 				this._item.repoPath,
@@ -394,7 +394,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		commands += `${separator}[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs({
-			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true),
+			revisionUri: Container.instance.git.getRevisionUri(this._item.toGitUri()).toString(true),
 		})} "Show More Actions")`;
 
 		return this._padOrTruncate(commands, this._options.tokenOptions.commands);

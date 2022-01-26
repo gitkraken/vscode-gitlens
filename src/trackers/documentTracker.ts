@@ -67,6 +67,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _dirtyIdleTriggerDelay: number;
 	private readonly _disposable: Disposable;
+	// TODO@eamodio: replace with a trie?
 	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
 
 	constructor(protected readonly container: Container) {

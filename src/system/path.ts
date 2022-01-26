@@ -5,7 +5,7 @@ import { isLinux, isWindows } from '@env/platform';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 
-export { basename, dirname, extname, isAbsolute, join as joinPaths, relative } from 'path';
+export { basename, dirname, extname, isAbsolute, join as joinPaths } from 'path';
 
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const pathNormalizeRegex = /\\/g;
@@ -118,6 +118,14 @@ export function normalizePath(path: string): string {
 	}
 
 	return path;
+}
+
+export function relative(from: string, to: string, ignoreCase?: boolean): string {
+	from = normalizePath(from);
+	to = normalizePath(to);
+
+	const index = commonBaseIndex(`${to}/`, `${from}/`, '/', ignoreCase);
+	return index > 0 ? to.substring(index + 1) : to;
 }
 
 export function splitPath(

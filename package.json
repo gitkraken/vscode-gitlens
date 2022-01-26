@@ -9965,7 +9965,7 @@
 				"scheme": "gitlens",
 				"authority": "*",
 				"formatting": {
-					"label": "${path} (${authority})",
+					"label": "${path} (${query.ref})",
 					"separator": "/",
 					"workspaceSuffix": "GitLens",
 					"stripPathStartingSeparator": true

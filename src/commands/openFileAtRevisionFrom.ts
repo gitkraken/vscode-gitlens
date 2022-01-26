@@ -69,7 +69,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 							const [item] = quickpick.activeItems;
 							if (item != null) {
 								void (await GitActions.Commit.openFileAtRevision(
-									GitUri.toRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
+									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
 										annotationType: args!.annotationType,
 										line: args!.line,
@@ -88,7 +88,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		void (await GitActions.Commit.openFileAtRevision(
-			GitUri.toRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
+			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
 			{
 				annotationType: args.annotationType,
 				line: args.line,

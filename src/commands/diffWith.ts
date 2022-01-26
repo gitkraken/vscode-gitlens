@@ -2,7 +2,6 @@
 import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -119,8 +118,8 @@ export class DiffWithCommand extends Command {
 			}
 
 			const [lhs, rhs] = await Promise.all([
-				this.container.git.getVersionedUri(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
-				this.container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha),
+				this.container.git.getBestRevisionUri(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
+				this.container.git.getBestRevisionUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha),
 			]);
 
 			let rhsSuffix = GitRevision.shorten(rhsSha, { strings: { uncommitted: 'Working Tree' } });
@@ -172,8 +171,10 @@ export class DiffWithCommand extends Command {
 
 			void (await commands.executeCommand(
 				BuiltInCommands.Diff,
-				lhs ?? GitUri.toRevisionUri(GitRevision.deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
-				rhs ?? GitUri.toRevisionUri(GitRevision.deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
+				lhs ??
+					this.container.git.getRevisionUri(GitRevision.deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
+				rhs ??
+					this.container.git.getRevisionUri(GitRevision.deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
 				title,
 				args.showOptions,
 			));

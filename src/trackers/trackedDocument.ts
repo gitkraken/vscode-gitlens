@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
-import { Functions } from '../system';
+import { debounce, Deferrable } from '../system/function';
 
 export interface DocumentBlameStateChangeEvent<T> {
 	readonly editor: TextEditor;
@@ -115,7 +115,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	private _updateDebounced:
-		| Functions.Deferrable<({ forceBlameChange }?: { forceBlameChange?: boolean | undefined }) => Promise<void>>
+		| Deferrable<({ forceBlameChange }?: { forceBlameChange?: boolean | undefined }) => Promise<void>>
 		| undefined;
 
 	reset(reason: 'config' | 'document' | 'repository') {
@@ -130,7 +130,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		if (reason === 'repository' && isActiveDocument(this.document)) {
 			if (this._updateDebounced == null) {
-				this._updateDebounced = Functions.debounce(this.update.bind(this), 250);
+				this._updateDebounced = debounce(this.update.bind(this), 250);
 			}
 
 			void this._updateDebounced();

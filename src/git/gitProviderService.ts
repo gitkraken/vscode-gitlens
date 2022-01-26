@@ -34,7 +34,7 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map } from '../system/iterable';
-import { basename, dirname, normalizePath } from '../system/path';
+import { basename, dirname, isAbsolute, normalizePath } from '../system/path';
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { CharCode } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
@@ -82,6 +82,8 @@ import {
 import { RemoteProviders } from './remotes/factory';
 import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import { SearchPattern } from './search';
+
+export const isUriRegex = /^(\w[\w\d+.-]{1,}?):\/\//;
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
@@ -587,6 +589,80 @@ export class GitProviderService implements Disposable {
 					path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
 				};
 		}
+	}
+
+	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri {
+		if (base == null) {
+			if (typeof pathOrUri === 'string') {
+				if (isUriRegex.test(pathOrUri)) {
+					debugger;
+					return Uri.parse(pathOrUri, true);
+				}
+
+				// I think it is safe to assume this should be file://
+				return Uri.file(pathOrUri);
+			}
+
+			return pathOrUri;
+		}
+
+		// Short-circuit if the base is already a Uri and the path is relative
+		if (typeof base !== 'string' && typeof pathOrUri === 'string' && !isAbsolute(pathOrUri)) {
+			return Uri.joinPath(base, pathOrUri);
+		}
+
+		const { provider } = this.getProvider(base);
+		return provider.getAbsoluteUri(pathOrUri, base);
+	}
+
+	@log()
+	async getBestRevisionUri(
+		repoPath: string | Uri | undefined,
+		path: string,
+		ref: string | undefined,
+	): Promise<Uri | undefined> {
+		if (repoPath == null || ref === GitRevision.deletedOrMissing) return undefined;
+
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getBestRevisionUri(rp, provider.getRelativePath(path, rp), ref);
+	}
+
+	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string {
+		const { provider } = this.getProvider(pathOrUri instanceof Uri ? pathOrUri : base);
+		return provider.getRelativePath(pathOrUri, base);
+	}
+
+	getRevisionUri(uri: GitUri): Uri;
+	getRevisionUri(ref: string, path: string, repoPath: string): Uri;
+	getRevisionUri(ref: string, file: GitFile, repoPath: string): Uri;
+	@log()
+	getRevisionUri(refOrUri: string | GitUri, pathOrFile?: string | GitFile, repoPath?: string): Uri {
+		let path: string;
+		let ref: string | undefined;
+
+		if (typeof refOrUri === 'string') {
+			ref = refOrUri;
+
+			if (typeof pathOrFile === 'string') {
+				path = pathOrFile;
+			} else {
+				path = pathOrFile!.originalFileName ?? pathOrFile!.fileName;
+			}
+		} else {
+			ref = refOrUri.sha;
+			repoPath = refOrUri.repoPath!;
+
+			path = refOrUri.scheme === DocumentSchemes.File ? refOrUri.fsPath : refOrUri.path;
+		}
+
+		const { provider, path: rp } = this.getProvider(repoPath!);
+		return provider.getRevisionUri(rp, provider.getRelativePath(path, rp), ref!);
+	}
+
+	@log()
+	async getWorkingUri(repoPath: string | Uri, uri: Uri) {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getWorkingUri(path, uri);
 	}
 
 	@log()
@@ -1521,7 +1597,7 @@ export class GitProviderService implements Disposable {
 		if (typeof pathOrUri === 'string') {
 			if (!pathOrUri) return undefined;
 
-			return this._repositories.getClosest(Uri.file(normalizePath(pathOrUri)));
+			return this._repositories.getClosest(this.getAbsoluteUri(pathOrUri));
 		}
 
 		return this._repositories.getClosest(pathOrUri);
@@ -1590,7 +1666,7 @@ export class GitProviderService implements Disposable {
 		if (repoPath == null || !path) return undefined;
 
 		const { provider, path: rp } = this.getProvider(repoPath);
-		return provider.getTreeEntryForRevision(rp, path, ref);
+		return provider.getTreeEntryForRevision(rp, provider.getRelativePath(path, rp), ref);
 	}
 
 	@log()
@@ -1601,28 +1677,11 @@ export class GitProviderService implements Disposable {
 		return provider.getTreeForRevision(path, ref);
 	}
 
+	@gate()
 	@log()
 	getRevisionContent(repoPath: string | Uri, path: string, ref: string): Promise<Uint8Array | undefined> {
 		const { provider, path: rp } = this.getProvider(repoPath);
 		return provider.getRevisionContent(rp, path, ref);
-	}
-
-	@log()
-	async getVersionedUri(
-		repoPath: string | Uri | undefined,
-		fileName: string,
-		ref: string | undefined,
-	): Promise<Uri | undefined> {
-		if (repoPath == null || ref === GitRevision.deletedOrMissing) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getVersionedUri(path, fileName, ref);
-	}
-
-	@log()
-	async getWorkingUri(repoPath: string | Uri, uri: Uri) {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getWorkingUri(path, uri);
 	}
 
 	@log({ args: { 1: false } })

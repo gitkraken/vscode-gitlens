@@ -1090,16 +1090,16 @@ export class ViewCommands {
 		let uri = options.revisionUri;
 		if (uri == null) {
 			if (node instanceof ResultsFileNode || node instanceof MergeConflictFileNode) {
-				uri = GitUri.toRevisionUri(node.uri);
+				uri = Container.instance.git.getRevisionUri(node.uri);
 			} else {
 				uri =
 					node.commit.status === 'D'
-						? GitUri.toRevisionUri(
+						? Container.instance.git.getRevisionUri(
 								node.commit.previousSha!,
 								node.commit.previousUri.fsPath,
 								node.commit.repoPath,
 						  )
-						: GitUri.toRevisionUri(node.uri);
+						: Container.instance.git.getRevisionUri(node.uri);
 			}
 		}
 

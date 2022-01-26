@@ -19,8 +19,14 @@ import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } 
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName, memoize } from '../../system';
-import { basename, joinPaths, relative } from '../../system/path';
+import { filterMap, groupByMap } from '../../system/array';
+import { getFormatter } from '../../system/date';
+import { gate } from '../../system/decorators/gate';
+import { debug, log, logName } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { debounce } from '../../system/function';
+import { filter, join, some } from '../../system/iterable';
+import { basename } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import { GitProviderDescriptor } from '../gitProvider';
 import { GitUri } from '../gitUri';
@@ -85,8 +91,8 @@ export class RepositoryChangeEvent {
 
 	toString(changesOnly: boolean = false): string {
 		return changesOnly
-			? `changes=${Iterables.join(this._changes, ', ')}`
-			: `{ repository: ${this.repository?.name ?? ''}, changes: ${Iterables.join(this._changes, ', ')} }`;
+			? `changes=${join(this._changes, ', ')}`
+			: `{ repository: ${this.repository?.name ?? ''}, changes: ${join(this._changes, ', ')} }`;
 	}
 
 	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]) {
@@ -94,7 +100,7 @@ export class RepositoryChangeEvent {
 		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
 
 		if (mode === RepositoryChangeComparisonMode.Any) {
-			return Iterables.some(this._changes, c => affected.includes(c));
+			return some(this._changes, c => affected.includes(c));
 		}
 
 		let changes = this._changes;
@@ -116,7 +122,7 @@ export class RepositoryChangeEvent {
 			}
 		}
 
-		const intersection = [...Iterables.filter(changes, c => affected.includes(c))];
+		const intersection = [...filter(changes, c => affected.includes(c))];
 		return mode === RepositoryChangeComparisonMode.Exclusive
 			? intersection.length === changes.size
 			: intersection.length === affected.length;
@@ -135,7 +141,7 @@ export interface RepositoryFileSystemChangeEvent {
 @logName<Repository>((r, name) => `${name}(${r.id})`)
 export class Repository implements Disposable {
 	static formatLastFetched(lastFetched: number, short: boolean = true): string {
-		const formatter = Dates.getFormatter(new Date(lastFetched));
+		const formatter = getFormatter(new Date(lastFetched));
 		if (Date.now() - lastFetched < millisecondsPerDay) {
 			return formatter.fromNow();
 		}
@@ -204,7 +210,7 @@ export class Repository implements Disposable {
 		suspended: boolean,
 		closed: boolean = false,
 	) {
-		const relativePath = relative(folder.uri.fsPath, path);
+		const relativePath = container.git.getRelativePath(folder.uri, path);
 		if (root) {
 			// Check if the repository is not contained by a workspace folder
 			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
@@ -261,7 +267,7 @@ export class Repository implements Disposable {
 
 	@memoize()
 	get uri(): Uri {
-		return Uri.file(this.path);
+		return this.container.git.getAbsoluteUri(this.path);
 	}
 
 	get etag(): number {
@@ -402,9 +408,7 @@ export class Repository implements Disposable {
 			if (remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
 				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b =>
-						GitBranch.getRemote(b.upstream!.name),
-					);
+					const branchesByOrigin = groupByMap(trackingBranches, b => GitBranch.getRemote(b.upstream!.name));
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
 						this.runTerminalCommand(
@@ -420,7 +424,7 @@ export class Repository implements Disposable {
 
 		const remoteBranches = branches.filter(b => b.remote);
 		if (remoteBranches.length !== 0) {
-			const branchesByOrigin = Arrays.groupByMap(remoteBranches, b => GitBranch.getRemote(b.name));
+			const branchesByOrigin = groupByMap(remoteBranches, b => GitBranch.getRemote(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
 				this.runTerminalCommand(
@@ -440,7 +444,7 @@ export class Repository implements Disposable {
 
 	containsUri(uri: Uri) {
 		if (GitUri.is(uri)) {
-			uri = uri.repoPath != null ? GitUri.file(uri.repoPath) : uri.documentUri();
+			uri = uri.repoPath != null ? this.container.git.getAbsoluteUri(uri.repoPath) : uri.documentUri();
 		}
 
 		return this.folder === workspace.getWorkspaceFolder(uri);
@@ -531,10 +535,11 @@ export class Repository implements Disposable {
 		}
 
 		try {
-			const stat = await workspace.fs.stat(Uri.file(joinPaths(this.path, '.git/FETCH_HEAD')));
+			// TODO@eamodio: Need to move this into an explicit provider call
+			const stats = await workspace.fs.stat(this.container.git.getAbsoluteUri('.git/FETCH_HEAD', this.path));
 			// If the file is empty, assume the fetch failed, and don't update the timestamp
-			if (stat.size > 0) {
-				this._lastFetched = stat.mtime;
+			if (stats.size > 0) {
+				this._lastFetched = stats.mtime;
 			}
 		} catch {
 			this._lastFetched = undefined;
@@ -581,7 +586,7 @@ export class Repository implements Disposable {
 		this._remotesDisposable = undefined;
 
 		this._remotesDisposable = Disposable.from(
-			...Iterables.filterMap(await remotes, r => {
+			...filterMap(await remotes, r => {
 				if (!RichRemoteProvider.is(r.provider)) return undefined;
 
 				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.RemoteProviders));
@@ -879,7 +884,7 @@ export class Repository implements Disposable {
 	}
 
 	toAbsoluteUri(path: string, options?: { validate?: boolean }): Uri | undefined {
-		const uri = Uri.joinPath(GitUri.file(this.path), path);
+		const uri = this.container.git.getAbsoluteUri(path, this.path);
 		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
 	}
 
@@ -964,7 +969,7 @@ export class Repository implements Disposable {
 		this._updatedAt = Date.now();
 
 		if (this._fireChangeDebounced == null) {
-			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
+			this._fireChangeDebounced = debounce(this.fireChangeCore.bind(this), 250);
 		}
 
 		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
@@ -997,7 +1002,7 @@ export class Repository implements Disposable {
 		this._updatedAt = Date.now();
 
 		if (this._fireFileSystemChangeDebounced == null) {
-			this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
+			this._fireFileSystemChangeDebounced = debounce(this.fireFileSystemChangeCore.bind(this), 2500);
 		}
 
 		if (this._pendingFileSystemChange == null) {

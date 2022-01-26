@@ -2,7 +2,6 @@
 import { commands, TextEditor, Uri } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import type { Container } from '../container';
-import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -68,7 +67,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			const sha = args?.before
 				? await this.container.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
 				: gitUri.sha;
-			uri = toGitLensFSUri(sha, gitUri.repoPath!);
+			uri = this.container.git.getRevisionUri(sha, gitUri.repoPath!, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, {

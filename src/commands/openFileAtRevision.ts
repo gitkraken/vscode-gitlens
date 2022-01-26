@@ -67,13 +67,15 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									gitUri.sha,
 								);
 								if (diffUris?.previous != null) {
-									args.revisionUri = GitUri.toRevisionUri(diffUris.previous);
+									args.revisionUri = this.container.git.getRevisionUri(diffUris.previous);
 								} else {
 									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 									return undefined;
 								}
 							} else if (blame?.commit.previousSha != null) {
-								args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
+								args.revisionUri = this.container.git.getRevisionUri(
+									GitUri.fromCommit(blame.commit, true),
+								);
 							} else {
 								void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 								return undefined;

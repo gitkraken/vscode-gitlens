@@ -2,8 +2,8 @@
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { memoize, Strings } from '../../system';
-import { GitUri } from '../gitUri';
+import { memoize } from '../../system/decorators/memoize';
+import { pluralize } from '../../system/string';
 import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from '../models';
 import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
@@ -205,13 +205,13 @@ export class GitStatus {
 		if (expand) {
 			let status = '';
 			if (added) {
-				status += `${Strings.pluralize('file', added)} added`;
+				status += `${pluralize('file', added)} added`;
 			}
 			if (changed) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', changed)} changed`;
+				status += `${status.length === 0 ? '' : separator}${pluralize('file', changed)} changed`;
 			}
 			if (deleted) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
+				status += `${status.length === 0 ? '' : separator}${pluralize('file', deleted)} deleted`;
 			}
 			return `${prefix}${status}${suffix}`;
 		}
@@ -282,12 +282,12 @@ export class GitStatus {
 				status = 'missing';
 			} else {
 				if (state.behind) {
-					status += `${Strings.pluralize('commit', state.behind, {
+					status += `${pluralize('commit', state.behind, {
 						infix: icons ? '$(arrow-down) ' : undefined,
 					})} behind`;
 				}
 				if (state.ahead) {
-					status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
+					status += `${status.length === 0 ? '' : separator}${pluralize('commit', state.ahead, {
 						infix: icons ? '$(arrow-up) ' : undefined,
 					})} ahead`;
 					if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
@@ -403,7 +403,7 @@ export class GitStatusFile implements GitFile {
 
 	@memoize()
 	get uri(): Uri {
-		return GitUri.resolve(this.fileName, this.repoPath);
+		return Container.instance.git.getAbsoluteUri(this.fileName, this.repoPath);
 	}
 
 	getFormattedDirectory(includeOriginal: boolean = false): string {

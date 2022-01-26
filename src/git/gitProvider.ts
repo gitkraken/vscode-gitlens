@@ -87,6 +87,12 @@ export interface GitProvider extends Disposable {
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 
+	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri;
+	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
+	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
+	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
+
 	addRemote(repoPath: string, name: string, url: string): Promise<void>;
 	pruneRemote(repoPath: string, remoteName: string): Promise<void>;
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
@@ -336,8 +342,6 @@ export interface GitProvider extends Disposable {
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	getVersionedUri(repoPath: string, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
-	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
 	hasBranchOrTag(
 		repoPath: string | undefined,
@@ -394,4 +398,9 @@ export interface GitProvider extends Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined },
 	): Promise<void>;
+}
+
+export interface RevisionUriData {
+	ref?: string;
+	repoPath: string;
 }

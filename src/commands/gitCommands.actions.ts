@@ -531,7 +531,7 @@ export namespace GitActions {
 					file = fileOrRevisionUri;
 				}
 
-				uri = GitUri.toRevisionUri(
+				uri = Container.instance.git.getRevisionUri(
 					file.status === 'D' ? commit.previousFileSha : commit.sha,
 					file,
 					commit.repoPath,
@@ -624,7 +624,9 @@ export namespace GitActions {
 			}
 
 			findOrOpenEditors(
-				files.map(file => GitUri.toRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!)),
+				files.map(file =>
+					Container.instance.git.getRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!),
+				),
 			);
 		}
 
