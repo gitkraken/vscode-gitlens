@@ -116,7 +116,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		args = { range: true, ...args };
 
 		try {
-			let remotes = await this.container.git.getRemotes(gitUri.repoPath);
+			let remotes = await this.container.git.getRemotesWithProviders(gitUri.repoPath);
 			const range =
 				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
 					? new Range(

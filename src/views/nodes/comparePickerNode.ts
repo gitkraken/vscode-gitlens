@@ -27,14 +27,14 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 		return [];
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
+	getTreeItem(): TreeItem {
 		const selectedRef = this.selectedRef;
 		const repoPath = selectedRef?.repoPath;
 
 		let description;
 		if (repoPath !== undefined) {
 			if (this.view.container.git.repositoryCount > 1) {
-				const repo = await this.view.container.git.getRepository(repoPath);
+				const repo = this.view.container.git.getRepository(repoPath);
 				description = repo?.formattedName ?? repoPath;
 			}
 		}

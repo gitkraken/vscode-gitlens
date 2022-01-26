@@ -35,8 +35,10 @@ export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<v
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
 }
 
-async function ensureRepo(repo: string | Repository): Promise<Repository> {
-	return typeof repo === 'string' ? (await Container.instance.git.getRepository(repo))! : repo;
+function ensureRepo(repo: string | Repository): Repository {
+	const repository = typeof repo === 'string' ? Container.instance.git.getRepository(repo) : repo;
+	if (repository == null) throw new Error('Repository not found');
+	return repository;
 }
 
 export namespace GitActions {
@@ -711,7 +713,7 @@ export namespace GitActions {
 			});
 			if (url == null || url.length === 0) return undefined;
 
-			repo = await ensureRepo(repo);
+			repo = ensureRepo(repo);
 			void (await Container.instance.git.addRemote(repo.path, name, url));
 			void (await repo.fetch({ remote: name }));
 
@@ -720,7 +722,7 @@ export namespace GitActions {
 
 		export async function fetch(repo: string | Repository, remote: string) {
 			if (typeof repo === 'string') {
-				const r = await Container.instance.git.getRepository(repo);
+				const r = Container.instance.git.getRepository(repo);
 				if (r == null) return;
 
 				repo = r;

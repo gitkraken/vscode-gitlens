@@ -79,13 +79,16 @@ export class ConnectRemoteProviderCommand extends Command {
 		} else {
 			repoPath = args.repoPath;
 
-			remotes = await this.container.git.getRemotes(repoPath);
+			remotes = await this.container.git.getRemotesWithProviders(repoPath);
 			remote = remotes.find(r => r.id === args.remote) as GitRemote<RichRemoteProvider> | undefined;
 			if (!remote?.hasRichProvider()) return false;
 		}
 
 		const connected = await remote.provider.connect();
-		if (connected && !(remotes ?? (await this.container.git.getRemotes(repoPath))).some(r => r.default)) {
+		if (
+			connected &&
+			!(remotes ?? (await this.container.git.getRemotesWithProviders(repoPath))).some(r => r.default)
+		) {
 			await remote.setAsDefault(true);
 		}
 		return connected;
@@ -167,7 +170,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else {
 			repoPath = args.repoPath;
 
-			remote = (await this.container.git.getRemotes(repoPath)).find(r => r.id === args.remote) as
+			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.id === args.remote) as
 				| GitRemote<RichRemoteProvider>
 				| undefined;
 			if (!remote?.hasRichProvider()) return undefined;

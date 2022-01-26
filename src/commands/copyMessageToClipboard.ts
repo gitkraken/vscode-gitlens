@@ -53,7 +53,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			let repoPath;
 			// If we don't have an editor then get the message of the last commit to the branch
 			if (uri == null) {
-				repoPath = await this.container.git.getActiveRepoPath(editor);
+				repoPath = this.container.git.getBestRepository(editor)?.path;
 				if (!repoPath) return;
 
 				const log = await this.container.git.getLog(repoPath, { limit: 1 });

@@ -293,7 +293,7 @@ export class ViewCommands {
 				: undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? (await this.container.git.getActiveRepoPath()),
+				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
 			);
 			from = branch;
 		}
@@ -343,7 +343,7 @@ export class ViewCommands {
 				: undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? (await this.container.git.getActiveRepoPath()),
+				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
 			);
 			from = branch;
 		}

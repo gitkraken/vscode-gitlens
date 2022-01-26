@@ -369,7 +369,7 @@ export class BranchNode
 				}
 			} else {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(this.branch.repoPath),
+					await this.view.container.git.getRemotesWithProviders(this.branch.repoPath),
 				);
 				const providerName = providers?.length ? providers[0].name : undefined;
 

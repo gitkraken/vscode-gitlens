@@ -133,7 +133,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		item.id = this.id;
 		item.contextValue = `${ContextValues.SearchResults}${this._pinned ? '+pinned' : ''}`;
 		if (this.view.container.git.repositoryCount > 1) {
-			const repo = await this.view.container.git.getRepository(this.repoPath);
+			const repo = this.view.container.git.getRepository(this.repoPath);
 			item.description = repo?.formattedName ?? this.repoPath;
 		}
 		if (this._pinned) {

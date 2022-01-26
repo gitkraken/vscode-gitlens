@@ -211,7 +211,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			let providerName;
 			if (status.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(status.repoPath),
+					await this.view.container.git.getRemotesWithProviders(status.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {

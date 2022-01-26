@@ -74,7 +74,7 @@ export interface GitProvider {
 	updateContext?(): void;
 	createRepository(
 		folder: WorkspaceFolder,
-		path: string,
+		uri: Uri,
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
@@ -106,6 +106,7 @@ export interface GitProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
 	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
 	/**
 	 * Returns the blame of a file
@@ -314,14 +315,12 @@ export interface GitProvider {
 	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	getRemotes(
 		repoPath: string | undefined,
-		options?: { sort?: boolean | undefined },
-	): Promise<GitRemote<RemoteProvider>[]>;
-	getRemotesCore(
-		repoPath: string | undefined,
-		providers?: RemoteProviders,
-		options?: { sort?: boolean | undefined },
+		options?: { providers?: RemoteProviders; sort?: boolean },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]>;
-	getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined>;
+	getRemotesWithProviders(
+		repoPath: string | undefined,
+		options?: { force?: boolean; providers?: RemoteProviders; sort?: boolean | undefined },
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined>;
@@ -344,8 +343,6 @@ export interface GitProvider {
 				| undefined;
 		},
 	): Promise<boolean>;
-	hasRemotes(repoPath: string | undefined): Promise<boolean>;
-	hasTrackingBranch(repoPath: string | undefined): Promise<boolean>;
 	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;
 
 	isTrackable(uri: Uri): boolean;

@@ -1,5 +1,5 @@
 'use strict';
-import { readdir, realpath, stat, Stats } from 'fs';
+import { readdir, realpath } from 'fs';
 import { hostname, userInfo } from 'os';
 import { dirname, relative, resolve as resolvePath } from 'path';
 import {
@@ -8,6 +8,7 @@ import {
 	Event,
 	EventEmitter,
 	extensions,
+	FileType,
 	Range,
 	TextEditor,
 	Uri,
@@ -16,7 +17,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode';
 import { hrtime } from '@env/hrtime';
-import { isWindows } from '@env/platform';
+import { isLinux, isWindows } from '@env/platform';
 import type {
 	API as BuiltInGitApi,
 	Repository as BuiltInGitRepository,
@@ -93,6 +94,8 @@ import { Messages } from '../../../messages';
 import { Arrays, debug, Functions, gate, Iterables, log, Strings, Versions } from '../../../system';
 import { isFolderGlob, normalizePath, splitPath } from '../../../system/path';
 import { any, PromiseOrValue } from '../../../system/promise';
+import { equalsIgnoreCase } from '../../../system/string';
+import { PathTrie } from '../../../system/trie';
 import {
 	CachedBlame,
 	CachedDiff,
@@ -140,7 +143,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
-	private readonly _trackedCache = new Map<string, PromiseOrValue<boolean>>();
+	private readonly _trackedPaths = new PathTrie<PromiseOrValue<[string, string] | undefined>>();
 	private readonly _userMapCache = new Map<string, GitUser | null>();
 
 	constructor(private readonly container: Container) {
@@ -169,7 +172,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
-			this._trackedCache.clear();
+			this._trackedPaths.clear();
 		}
 
 		if (e.changed(RepositoryChange.Merge, RepositoryChangeComparisonMode.Any)) {
@@ -303,12 +306,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const repositories = await this.repositorySearch(workspace.getWorkspaceFolder(uri)!);
 			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
 				for (const repository of repositories) {
-					void this.openScmRepository(repository.path);
+					void this.openScmRepository(repository.uri);
 				}
 			}
 
 			if (repositories.length > 0) {
-				this._trackedCache.clear();
+				this._trackedPaths.clear();
 			}
 
 			return repositories;
@@ -330,18 +333,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	createRepository(
 		folder: WorkspaceFolder,
-		path: string,
+		uri: Uri,
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
 	): Repository {
-		void this.openScmRepository(path);
+		void this.openScmRepository(uri);
 		return new Repository(
 			this.container,
 			this.onRepositoryChanged.bind(this),
 			this.descriptor,
 			folder,
-			path,
+			uri.fsPath,
 			root,
 			suspended ?? !window.state.focused,
 			closed,
@@ -367,43 +370,42 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	})
 	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
 		const cc = Logger.getCorrelationContext();
-		const { uri } = folder;
-		const depth = configuration.get('advanced.repositorySearchDepth', uri);
+		const depth = configuration.get('advanced.repositorySearchDepth', folder.uri);
 
 		Logger.log(cc, `searching (depth=${depth})...`);
 
 		const repositories: Repository[] = [];
 
-		const rootPath = await this.getRepoPath(uri.fsPath, true);
-		if (rootPath != null) {
-			Logger.log(cc, `found root repository in '${rootPath}'`);
-			repositories.push(this.createRepository(folder, rootPath, true));
+		const uri = await this.findRepositoryUri(folder.uri, true);
+		if (uri != null) {
+			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
+			repositories.push(this.createRepository(folder, uri, true));
 		}
 
 		if (depth <= 0) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
-		let excludes = {
-			...configuration.getAny<Record<string, boolean>>('files.exclude', uri, {}),
-			...configuration.getAny<Record<string, boolean>>('search.exclude', uri, {}),
+		const excludedConfig = {
+			...configuration.getAny<Record<string, boolean>>('files.exclude', folder.uri, {}),
+			...configuration.getAny<Record<string, boolean>>('search.exclude', folder.uri, {}),
 		};
 
 		const excludedPaths = [
-			...Iterables.filterMap(Object.entries(excludes), ([key, value]) => {
+			...Iterables.filterMap(Object.entries(excludedConfig), ([key, value]) => {
 				if (!value) return undefined;
 				if (key.startsWith('**/')) return key.substring(3);
 				return key;
 			}),
 		];
 
-		excludes = excludedPaths.reduce((accumulator, current) => {
-			accumulator[current] = true;
+		const excludes = excludedPaths.reduce((accumulator, current) => {
+			accumulator.add(current);
 			return accumulator;
-		}, Object.create(null) as Record<string, boolean>);
+		}, new Set<string>());
 
 		let repoPaths;
 		try {
-			repoPaths = await this.repositorySearchCore(uri.fsPath, depth, excludes);
+			repoPaths = await this.repositorySearchCore(folder.uri.fsPath, depth, excludes);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
@@ -415,18 +417,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return repositories;
 		}
 
+		const rootPath = uri != null ? normalizePath(uri.fsPath) : undefined;
 		for (let p of repoPaths) {
 			p = dirname(p);
+			const normalized = normalizePath(p);
+
 			// If we are the same as the root, skip it
-			if (normalizePath(p) === rootPath) continue;
+			if (isLinux) {
+				if (normalized === rootPath) continue;
+			} else if (equalsIgnoreCase(normalized, rootPath)) {
+				continue;
+			}
 
 			Logger.log(cc, `searching in '${p}'...`);
-			Logger.debug(cc, `normalizedRepoPath=${normalizePath(p)}, rootPath=${rootPath}`);
+			Logger.debug(cc, `normalizedRepoPath=${normalized}, rootPath=${rootPath}`);
 
-			const rp = await this.getRepoPath(p, true);
+			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
-			Logger.log(cc, `found repository in '${rp}'`);
+			Logger.log(cc, `found repository in '${rp.fsPath}'`);
 			repositories.push(this.createRepository(folder, rp, false));
 		}
 
@@ -437,7 +446,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private repositorySearchCore(
 		root: string,
 		depth: number,
-		excludes: Record<string, boolean>,
+		excludes: Set<string>,
 		repositories: string[] = [],
 	): Promise<string[]> {
 		const cc = Logger.getCorrelationContext();
@@ -460,7 +469,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				for (f of files) {
 					if (f.name === '.git') {
 						repositories.push(resolvePath(root, f.name));
-					} else if (depth >= 0 && f.isDirectory() && excludes[f.name] !== true) {
+					} else if (depth >= 0 && f.isDirectory() && !excludes.has(f.name)) {
 						try {
 							await this.repositorySearchCore(resolvePath(root, f.name), depth, excludes, repositories);
 						} catch (ex) {
@@ -587,7 +596,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (cache.length === 0) {
-			this._trackedCache.clear();
+			this._trackedPaths.clear();
 			this._userMapCache.clear();
 		}
 	}
@@ -617,7 +626,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<void> {
 		const { branch: branchRef, ...opts } = options ?? {};
 		if (GitReference.isBranch(branchRef)) {
-			const repo = await this.container.git.getRepository(repoPath);
+			const repo = this.container.git.getRepository(repoPath);
 			const branch = await repo?.getBranch(branchRef?.name);
 			if (!branch?.remote && branch?.upstream == null) return undefined;
 
@@ -630,6 +639,119 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return Git.fetch(repoPath, opts);
+	}
+
+	@gate()
+	@debug()
+	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		let repoPath: string | undefined;
+		try {
+			if (!isDirectory) {
+				const stats = await workspace.fs.stat(uri);
+				uri = stats?.type === FileType.Directory ? uri : Uri.file(dirname(uri.fsPath));
+			}
+
+			repoPath = await Git.rev_parse__show_toplevel(uri.fsPath);
+			if (!repoPath) return undefined;
+
+			if (isWindows) {
+				// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
+				// So try to normalize it back to the mapped drive path, if possible
+
+				const repoUri = Uri.file(repoPath);
+
+				if (repoUri.authority.length !== 0 && uri.authority.length === 0) {
+					const match = driveLetterRegex.exec(uri.path);
+					if (match != null) {
+						const [, letter] = match;
+
+						try {
+							const networkPath = await new Promise<string | undefined>(resolve =>
+								realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
+									resolve(err != null ? undefined : resolvedPath),
+								),
+							);
+							if (networkPath != null) {
+								repoPath = normalizePath(
+									repoUri.fsPath.replace(
+										networkPath,
+										`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
+									),
+								);
+								return Uri.file(repoPath);
+							}
+						} catch {}
+					}
+
+					return Uri.file(normalizePath(uri.fsPath));
+				}
+
+				return repoUri;
+			}
+
+			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
+			// This is because VS Code will provide document Uris using the symlinked path
+			repoPath = await new Promise<string | undefined>(resolve => {
+				realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
+					if (err != null) {
+						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
+						resolve(repoPath);
+						return;
+					}
+
+					if (Strings.equalsIgnoreCase(uri.fsPath, resolvedPath)) {
+						Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
+						resolve(repoPath);
+						return;
+					}
+
+					const linkPath = normalizePath(resolvedPath);
+					repoPath = repoPath!.replace(linkPath, uri.fsPath);
+					Logger.debug(
+						cc,
+						`Symlink detected; repoPath=${repoPath}, path=${uri.fsPath}, resolvedPath=${resolvedPath}`,
+					);
+					resolve(repoPath);
+				});
+			});
+
+			return repoPath ? Uri.file(repoPath) : undefined;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			repoPath = undefined;
+			return repoPath;
+		} finally {
+			if (repoPath) {
+				void this.ensureProperWorkspaceCasing(repoPath, uri);
+			}
+		}
+	}
+
+	@gate(() => '')
+	private async ensureProperWorkspaceCasing(repoPath: string, uri: Uri) {
+		if (this.container.config.advanced.messages.suppressImproperWorkspaceCasingWarning) return;
+
+		const path = uri.fsPath.replace(/\\/g, '/');
+
+		let regexPath;
+		let testPath;
+		if (path > repoPath) {
+			regexPath = path;
+			testPath = repoPath;
+		} else {
+			testPath = path;
+			regexPath = repoPath;
+		}
+
+		let pathRegex = new RegExp(`^${regexPath}`);
+		if (!pathRegex.test(testPath)) {
+			pathRegex = new RegExp(pathRegex, 'i');
+			if (pathRegex.test(testPath)) {
+				await Messages.showIncorrectWorkspaceCasingWarningMessage();
+			}
+		}
 	}
 
 	@log<LocalGitProvider['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
@@ -687,12 +809,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		if (!(await this.isTracked(uri))) {
+		const paths = await this.isTracked(uri);
+		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = splitPath(uri.fsPath, uri.repoPath, false);
+		const [file, root] = paths;
 
 		try {
 			const data = await Git.blame(root, file, uri.sha, {
@@ -766,12 +889,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		if (!(await this.isTracked(uri))) {
+		const paths = await this.isTracked(uri);
+		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = splitPath(uri.fsPath, uri.repoPath, false);
+		const [file, root] = paths;
 
 		try {
 			const data = await Git.blame__contents(root, file, contents, {
@@ -1102,8 +1226,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					this._branchesCache.set(repoPath, resultsPromise);
 				}
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._branchesCache.delete(repoPath);
 					}
 				});
@@ -1293,8 +1417,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._contributorsCache.set(key, contributors);
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._contributorsCache.delete(key);
 					}
 				});
@@ -1446,7 +1570,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitDiff | undefined> {
-		const [file, root] = splitPath(fileName, repoPath, false);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		try {
 			const data = await Git.diff(root, file, ref1, ref2, {
@@ -1535,7 +1659,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitDiff | undefined> {
-		const [file, root] = splitPath(fileName, repoPath, false);
+		const [file, root] = splitPath(fileName, repoPath);
 
 		try {
 			const data = await Git.diff__contents(root, file, ref, contents, {
@@ -2115,12 +2239,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitLog | undefined> {
-		if (!(await this.isTracked(fileName, repoPath, ref))) {
-			Logger.log(cc, `Skipping log; '${fileName}' is not tracked`);
+		const paths = await this.isTracked(fileName, repoPath, ref);
+		if (paths == null) {
+			Logger.log(cc, `Skipping blame; '${fileName}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
 		}
 
-		const [file, root] = splitPath(fileName, repoPath, false);
+		const [file, root] = paths;
 
 		try {
 			if (range != null && range.start.line > range.end.line) {
@@ -2299,8 +2424,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._mergeStatusCache.set(repoPath, status ?? null);
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._mergeStatusCache.delete(repoPath);
 					}
 				});
@@ -2380,8 +2505,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._rebaseStatusCache.set(repoPath, status ?? null);
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._rebaseStatusCache.delete(repoPath);
 					}
 				});
@@ -2828,7 +2953,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (richRemote !== undefined) return richRemote ?? undefined;
 		}
 
-		remotes = (remotes ?? (await this.getRemotes(repoPath))).filter(
+		remotes = (remotes ?? (await this.getRemotesWithProviders(repoPath))).filter(
 			(
 				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
 			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
@@ -2890,27 +3015,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return remote;
 	}
 
-	@log()
-	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote<RemoteProvider>[]> {
-		if (repoPath == null) return [];
-
-		const repository = await this.container.git.getRepository(repoPath);
-		const remotes = await (repository != null
-			? repository.getRemotes(options)
-			: this.getRemotesCore(repoPath, undefined, options));
-
-		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider>[];
-	}
-
-	@debug({ args: { 1: false } })
-	async getRemotesCore(
+	@log({ args: { 1: false } })
+	async getRemotes(
 		repoPath: string | undefined,
-		providers?: RemoteProviders,
-		options?: { sort?: boolean },
-	): Promise<GitRemote[]> {
+		options?: { providers?: RemoteProviders; sort?: boolean },
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
 		if (repoPath == null) return [];
 
-		providers = providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
+		const providers = options?.providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
 
 		try {
 			const data = await Git.remote(repoPath);
@@ -2928,122 +3040,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@gate()
-	@debug()
-	async getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined> {
-		const cc = Logger.getCorrelationContext();
+	@log()
+	async getRemotesWithProviders(
+		repoPath: string | undefined,
+		options?: { sort?: boolean },
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
+		if (repoPath == null) return [];
 
-		let repoPath: string | undefined;
-		try {
-			let path: string;
-			if (isDirectory) {
-				path = filePath;
-			} else {
-				const stats = await new Promise<Stats | undefined>(resolve =>
-					stat(filePath, (err, stats) => resolve(err == null ? stats : undefined)),
-				);
-				path = stats?.isDirectory() ? filePath : dirname(filePath);
-			}
+		const repository = this.container.git.getRepository(repoPath);
+		const remotes = await (repository != null
+			? repository.getRemotes(options)
+			: this.getRemotes(repoPath, options));
 
-			repoPath = await Git.rev_parse__show_toplevel(path);
-			if (repoPath == null) return repoPath;
-
-			if (isWindows) {
-				// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
-				// So try to normalize it back to the mapped drive path, if possible
-
-				const repoUri = Uri.file(repoPath);
-				const pathUri = Uri.file(path);
-				if (repoUri.authority.length !== 0 && pathUri.authority.length === 0) {
-					const match = driveLetterRegex.exec(pathUri.path);
-					if (match != null) {
-						const [, letter] = match;
-
-						try {
-							const networkPath = await new Promise<string | undefined>(resolve =>
-								realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
-									resolve(err != null ? undefined : resolvedPath),
-								),
-							);
-							if (networkPath != null) {
-								repoPath = normalizePath(
-									repoUri.fsPath.replace(
-										networkPath,
-										`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
-									),
-								);
-								return repoPath;
-							}
-						} catch {}
-					}
-
-					repoPath = normalizePath(pathUri.fsPath);
-				}
-
-				return repoPath;
-			}
-
-			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
-			// This is because VS Code will provide document Uris using the symlinked path
-			repoPath = await new Promise<string | undefined>(resolve => {
-				realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
-					if (err != null) {
-						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
-						resolve(repoPath);
-						return;
-					}
-
-					if (Strings.equalsIgnoreCase(path, resolvedPath)) {
-						Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
-						resolve(repoPath);
-						return;
-					}
-
-					const linkPath = normalizePath(resolvedPath);
-					repoPath = repoPath!.replace(linkPath, path);
-					Logger.debug(
-						cc,
-						`Symlink detected; repoPath=${repoPath}, path=${path}, resolvedPath=${resolvedPath}`,
-					);
-					resolve(repoPath);
-				});
-			});
-
-			return repoPath;
-		} catch (ex) {
-			Logger.error(ex, cc);
-			repoPath = undefined;
-			return repoPath;
-		} finally {
-			if (repoPath) {
-				void this.ensureProperWorkspaceCasing(repoPath, filePath);
-			}
-		}
-	}
-
-	@gate(() => '')
-	private async ensureProperWorkspaceCasing(repoPath: string, filePath: string) {
-		if (this.container.config.advanced.messages.suppressImproperWorkspaceCasingWarning) return;
-
-		filePath = filePath.replace(/\\/g, '/');
-
-		let regexPath;
-		let testPath;
-		if (filePath > repoPath) {
-			regexPath = filePath;
-			testPath = repoPath;
-		} else {
-			testPath = filePath;
-			regexPath = repoPath;
-		}
-
-		let pathRegex = new RegExp(`^${regexPath}`);
-		if (!pathRegex.test(testPath)) {
-			pathRegex = new RegExp(pathRegex, 'i');
-			if (pathRegex.test(testPath)) {
-				await Messages.showIncorrectWorkspaceCasingWarningMessage();
-			}
-		}
+		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider | RichRemoteProvider>[];
 	}
 
 	@gate()
@@ -3067,8 +3076,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._stashesCache.delete(repoPath);
 					}
 				});
@@ -3157,8 +3166,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (this.useCaching) {
 				this._tagsCache.set(repoPath, resultsPromise);
 
-				queueMicrotask(async () => {
-					if (!(await this.container.git.getRepository(repoPath))?.supportsChangeEvents) {
+				queueMicrotask(() => {
+					if (!this.container.git.getRepository(repoPath)?.supportsChangeEvents) {
 						this._tagsCache.delete(repoPath);
 					}
 				});
@@ -3287,26 +3296,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
-	@log()
-	async hasRemotes(repoPath: string | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = await this.container.git.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasRemotes();
-	}
-
-	@log()
-	async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = await this.container.git.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasUpstreamBranch();
-	}
-
 	@log<LocalGitProvider['isActiveRepoPath']>({
 		args: { 1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined) },
 	})
@@ -3324,61 +3313,121 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.supportedSchemes.includes(uri.scheme);
 	}
 
-	private async isTracked(filePath: string, repoPath?: string, ref?: string): Promise<boolean>;
-	private async isTracked(uri: GitUri): Promise<boolean>;
-	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${tracked}` /*, singleLine: true }*/ })
-	private async isTracked(filePathOrUri: string | GitUri, repoPath?: string, ref?: string): Promise<boolean> {
-		let cacheKey: string;
-		let relativeFilePath: string;
+	private async isTracked(uri: GitUri): Promise<[string, string] | undefined>;
+	private async isTracked(path: string, repoPath?: string, ref?: string): Promise<[string, string] | undefined>;
+	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${Boolean(tracked)}` })
+	private async isTracked(
+		pathOrUri: string | GitUri,
+		repoPath?: string,
+		ref?: string,
+	): Promise<[string, string] | undefined> {
+		let relativePath: string;
+		let repository: Repository | undefined;
 
-		if (typeof filePathOrUri === 'string') {
-			if (ref === GitRevision.deletedOrMissing) return false;
+		if (typeof pathOrUri === 'string') {
+			if (ref === GitRevision.deletedOrMissing) return undefined;
 
-			cacheKey = ref ? `${ref}:${normalizePath(filePathOrUri)}` : normalizePath(filePathOrUri);
-			[relativeFilePath, repoPath] = splitPath(filePathOrUri, repoPath);
+			repository = this.container.git.getRepository(Uri.file(pathOrUri));
+			repoPath = repoPath || repository?.path;
+
+			[relativePath, repoPath] = splitPath(pathOrUri, repoPath);
 		} else {
-			if (!this.isTrackable(filePathOrUri)) return false;
+			if (!this.isTrackable(pathOrUri)) return undefined;
 
 			// Always use the ref of the GitUri
-			ref = filePathOrUri.sha;
-			cacheKey = ref ? `${ref}:${normalizePath(filePathOrUri.fsPath)}` : normalizePath(filePathOrUri.fsPath);
-			relativeFilePath = filePathOrUri.fsPath;
-			repoPath = filePathOrUri.repoPath;
+			ref = pathOrUri.sha;
+			if (ref === GitRevision.deletedOrMissing) return undefined;
+
+			repository = this.container.git.getRepository(pathOrUri);
+			repoPath = repoPath || repository?.path;
+
+			[relativePath, repoPath] = splitPath(pathOrUri.fsPath, repoPath);
 		}
 
-		if (ref != null) {
-			cacheKey = `${ref}:${cacheKey}`;
-		}
+		const path = repoPath ? `${repoPath}/${relativePath}` : relativePath;
 
-		let tracked = this._trackedCache.get(cacheKey);
+		let key = path;
+		key = `${ref ?? ''}:${key[0] === '/' ? key : `/${key}`}`;
+
+		let tracked = this._trackedPaths.get(key);
 		if (tracked != null) return tracked;
 
-		tracked = this.isTrackedCore(relativeFilePath, repoPath ?? '', ref);
-		this._trackedCache.set(cacheKey, tracked);
+		tracked = this.isTrackedCore(path, relativePath, repoPath ?? '', ref, repository);
+		this._trackedPaths.set(key, tracked);
 
 		tracked = await tracked;
-		this._trackedCache.set(cacheKey, tracked);
+		this._trackedPaths.set(key, tracked);
 		return tracked;
 	}
 
 	@debug()
-	private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
-		if (ref === GitRevision.deletedOrMissing) return false;
+	private async isTrackedCore(
+		path: string,
+		relativePath: string,
+		repoPath: string,
+		ref: string | undefined,
+		repository: Repository | undefined,
+	): Promise<[string, string] | undefined> {
+		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		try {
-			// Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-			let tracked = Boolean(await Git.ls_files(repoPath, fileName));
-			if (!tracked && ref != null && !GitRevision.isUncommitted(ref)) {
-				tracked = Boolean(await Git.ls_files(repoPath, fileName, { ref: ref }));
-				// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
-				if (!tracked) {
-					tracked = Boolean(await Git.ls_files(repoPath, fileName, { ref: `${ref}^` }));
+			while (true) {
+				if (!repoPath) {
+					[relativePath, repoPath] = splitPath(path, '', true);
 				}
+
+				// Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
+				let tracked = Boolean(await Git.ls_files(repoPath, relativePath));
+				if (tracked) return [relativePath, repoPath];
+
+				if (repoPath) {
+					const [newRelativePath, newRepoPath] = splitPath(path, '', true);
+					if (newRelativePath !== relativePath) {
+						// If we didn't find it, check it as close to the file as possible (will find nested repos)
+						tracked = Boolean(await Git.ls_files(newRepoPath, newRelativePath));
+						if (tracked) {
+							repository = await this.container.git.getOrCreateRepository(Uri.file(path), true);
+							if (repository != null) {
+								return splitPath(path, repository.path);
+							}
+
+							return [newRelativePath, newRepoPath];
+						}
+					}
+				}
+
+				if (!tracked && ref && !GitRevision.isUncommitted(ref)) {
+					tracked = Boolean(await Git.ls_files(repoPath, relativePath, { ref: ref }));
+					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
+					if (!tracked) {
+						tracked = Boolean(await Git.ls_files(repoPath, relativePath, { ref: `${ref}^` }));
+					}
+				}
+
+				// Since the file isn't tracked, make sure it isn't part of a nested repository we don't know about yet
+				if (!tracked) {
+					if (repository != null) {
+						// Don't look for a nested repository if the file isn't at least one folder deep
+						const index = relativePath.indexOf('/');
+						if (index < 0 || index === relativePath.length - 1) return undefined;
+
+						const nested = await this.container.git.getOrCreateRepository(Uri.file(path), true);
+						if (nested != null && nested !== repository) {
+							[relativePath, repoPath] = splitPath(path, repository.path);
+							repository = undefined;
+
+							continue;
+						}
+					}
+
+					return undefined;
+				}
+
+				return [relativePath, repoPath];
 			}
-			return tracked;
 		} catch (ex) {
 			Logger.error(ex);
-			return false;
+			return undefined;
 		}
 	}
 
@@ -3673,11 +3722,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	private async openScmRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
+	private async openScmRepository(uri: Uri): Promise<BuiltInGitRepository | undefined> {
 		const cc = Logger.getCorrelationContext();
 		try {
 			const gitApi = await this.getScmGitApi();
-			return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+			return (await gitApi?.openRepository?.(uri)) ?? undefined;
 		} catch (ex) {
 			Logger.error(ex, cc);
 			return undefined;

@@ -251,17 +251,22 @@ export class GitUri extends (Uri as any as UriEx) {
 	})
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (GitUri.is(uri)) return uri;
-
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
-
 		if (uri.scheme === DocumentSchemes.GitLens) return new GitUri(uri);
 
 		// If this is a git uri, find its repoPath
 		if (uri.scheme === DocumentSchemes.Git) {
+			let data: { path: string; ref: string } | undefined;
 			try {
-				const data: { path: string; ref: string } = JSON.parse(uri.query);
+				data = JSON.parse(uri.query);
+			} catch {}
 
-				const repoPath = await Container.instance.git.getRepoPath(data.path);
+			if (data?.path) {
+				const repository = await Container.instance.git.getOrCreateRepository(Uri.file(data.path));
+				if (repository == null) {
+					debugger;
+					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
+				}
 
 				let ref;
 				switch (data.ref) {
@@ -281,30 +286,45 @@ export class GitUri extends (Uri as any as UriEx) {
 
 				const commitish: GitCommitish = {
 					fileName: data.path,
-					repoPath: repoPath!,
+					repoPath: repository?.path,
 					sha: ref,
 				};
 				return new GitUri(uri, commitish);
-			} catch {}
+			}
 		}
 
 		if (uri.scheme === DocumentSchemes.PRs) {
+			let data:
+				| {
+						baseCommit: string;
+						headCommit: string;
+						isBase: boolean;
+						fileName: string;
+						prNumber: number;
+						status: number;
+						remoteName: string;
+				  }
+				| undefined;
 			try {
-				const data: {
-					baseCommit: string;
-					headCommit: string;
-					isBase: boolean;
-					fileName: string;
-					prNumber: number;
-					status: number;
-					remoteName: string;
-				} = JSON.parse(uri.query);
+				data = JSON.parse(uri.query);
+			} catch {}
+
+			if (data?.fileName) {
+				const repository = await Container.instance.git.getOrCreateRepository(Uri.file(data.fileName));
+				if (repository == null) {
+					debugger;
+					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
+				}
 
 				let repoPath = normalizePath(uri.fsPath);
 				if (repoPath.endsWith(data.fileName)) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
-					repoPath = (await Container.instance.git.getRepoPath(uri.fsPath))!;
+					// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+					repoPath = (await Container.instance.git.getOrCreateRepository(uri))?.path!;
+					if (!repoPath) {
+						debugger;
+					}
 				}
 
 				const commitish: GitCommitish = {
@@ -313,10 +333,11 @@ export class GitUri extends (Uri as any as UriEx) {
 					sha: data.isBase ? data.baseCommit : data.headCommit,
 				};
 				return new GitUri(uri, commitish);
-			} catch {}
+			}
 		}
 
-		return new GitUri(uri, await Container.instance.git.getRepoPath(uri));
+		const repository = await Container.instance.git.getOrCreateRepository(uri);
+		return new GitUri(uri, repository?.path);
 	}
 
 	static getDirectory(fileName: string, relativeTo?: string): string {

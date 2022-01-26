@@ -599,7 +599,7 @@ export class Repository implements Disposable {
 			}
 
 			// Since we are caching the results, always sort
-			this._remotes = this.container.git.getRemotesCore(this.path, this._providers, { sort: true });
+			this._remotes = this.container.git.getRemotes(this.path, { providers: this._providers, sort: true });
 			void this.subscribeToRemotes(this._remotes);
 		}
 

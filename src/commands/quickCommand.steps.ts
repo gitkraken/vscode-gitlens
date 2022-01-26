@@ -142,7 +142,7 @@ export async function getTags(
 }
 
 export async function getBranchesAndOrTags(
-	repos: Repository | Repository[],
+	repos: Repository | Repository[] | undefined,
 	include: ('tags' | 'branches')[],
 	{
 		buttons,
@@ -156,6 +156,8 @@ export async function getBranchesAndOrTags(
 		sort?: boolean | { branches?: BranchSortOptions; tags?: TagSortOptions };
 	} = {},
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
+	if (repos == null) return [];
+
 	let branches: GitBranch[] | undefined;
 	let tags: GitTag[] | undefined;
 
@@ -305,7 +307,7 @@ export async function getBranchesAndOrTags(
 }
 
 export function getValidateGitReferenceFn(
-	repos: Repository | Repository[],
+	repos: Repository | Repository[] | undefined,
 	options?: { buttons?: QuickInputButton[]; ranges?: boolean },
 ) {
 	return async (quickpick: QuickPick<any>, value: string) => {
@@ -315,6 +317,7 @@ export function getValidateGitReferenceFn(
 			value = value.substring(1);
 		}
 
+		if (repos == null) return false;
 		if (Array.isArray(repos)) {
 			if (repos.length !== 1) return false;
 
@@ -1125,10 +1128,10 @@ export async function* pickRepositoryStep<
 	Context extends { repos: Repository[]; title: string; associatedView: ViewsWithRepositoryFolders },
 >(state: State, context: Context, placeholder: string = 'Choose a repository'): AsyncStepResultGenerator<Repository> {
 	if (typeof state.repo === 'string') {
-		state.repo = await Container.instance.git.getRepository(state.repo);
+		state.repo = Container.instance.git.getRepository(state.repo);
 		if (state.repo != null) return state.repo;
 	}
-	const active = state.repo ?? (await Container.instance.git.getActiveRepository());
+	const active = state.repo ?? (await Container.instance.git.getOrCreateRepositoryForEditor());
 
 	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
@@ -1191,7 +1194,7 @@ export async function* pickRepositoriesStep<
 			actives = state.repos;
 		}
 	} else {
-		const active = await Container.instance.git.getActiveRepository();
+		const active = await Container.instance.git.getOrCreateRepositoryForEditor();
 		actives = active != null ? [active] : [];
 	}
 
@@ -1466,7 +1469,7 @@ async function getShowCommitOrStashStepItems<
 			}),
 		);
 	} else {
-		remotes = await Container.instance.git.getRemotes(state.repo.path, { sort: true });
+		remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 
 		items.push(
 			new RevealInSideBarQuickPickItem(state.reference),
@@ -1781,7 +1784,7 @@ async function getShowCommitOrStashFileStepItems<
 
 		items.push(new RevealInSideBarQuickPickItem(state.reference));
 	} else {
-		remotes = await Container.instance.git.getRemotes(state.repo.path, { sort: true });
+		remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 
 		items.push(
 			new RevealInSideBarQuickPickItem(state.reference),

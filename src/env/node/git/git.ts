@@ -234,7 +234,7 @@ export namespace Git {
 		ref?: string,
 		options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {},
 	) {
-		const [file, root] = splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -306,7 +306,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -404,7 +404,7 @@ export namespace Git {
 			params.push(ref, '--');
 
 			if (fileName) {
-				[fileName, repoPath] = splitPath(fileName, repoPath);
+				[fileName, repoPath] = splitPath(fileName, repoPath, true);
 
 				params.push(fileName);
 			}
@@ -807,7 +807,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = [
 			'log',
@@ -1303,7 +1303,7 @@ export namespace Git {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
 		} = {},
 	): Promise<TOut | undefined> {
-		const [file, root] = splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			ref = ':';
@@ -1487,7 +1487,7 @@ export namespace Git {
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
 	): Promise<string> {
-		const [file, root] = splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
 		if (await Git.isAtLeastVersion('2.18')) {

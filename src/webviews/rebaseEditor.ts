@@ -166,7 +166,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
-		const repo = await this.container.git.getRepository(repoPath);
+		const repo = this.container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {

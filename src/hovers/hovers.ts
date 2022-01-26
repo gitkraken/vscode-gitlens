@@ -203,7 +203,7 @@ export namespace Hovers {
 			dateFormat = 'MMMM Do, YYYY h:mma';
 		}
 
-		const remotes = await Container.instance.git.getRemotes(commit.repoPath, { sort: true });
+		const remotes = await Container.instance.git.getRemotesWithProviders(commit.repoPath, { sort: true });
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 

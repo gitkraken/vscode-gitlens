@@ -206,7 +206,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		const remotes = await Container.instance.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
 		return remotes.find(r => r.name === remoteName);
@@ -232,7 +232,7 @@ export class GitBranch implements GitBranchReference {
 			return GitBranchStatus.UpToDate;
 		}
 
-		const remotes = await Container.instance.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length > 0) return GitBranchStatus.Unpublished;
 
 		return GitBranchStatus.Local;
@@ -255,12 +255,12 @@ export class GitBranch implements GitBranchReference {
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	async star() {
-		await (await Container.instance.git.getRepository(this.repoPath))?.star(this);
+	star() {
+		return Container.instance.git.getRepository(this.repoPath)?.star(this);
 	}
 
-	async unstar() {
-		await (await Container.instance.git.getRepository(this.repoPath))?.unstar(this);
+	unstar() {
+		return Container.instance.git.getRepository(this.repoPath)?.unstar(this);
 	}
 
 	static formatDetached(sha: string): string {

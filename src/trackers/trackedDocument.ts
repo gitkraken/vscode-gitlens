@@ -173,7 +173,7 @@ export class TrackedDocument<T> implements Disposable {
 		const active = getEditorIfActive(this.document);
 		const wasBlameable = forceBlameChange ? undefined : this.isBlameable;
 
-		const repo = await this.container.git.getRepository(this._uri);
+		const repo = this.container.git.getRepository(this._uri);
 		if (repo == null) {
 			this._isTracked = false;
 			this._hasRemotes = false;

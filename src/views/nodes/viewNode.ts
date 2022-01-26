@@ -373,18 +373,11 @@ export abstract class RepositoryFolderNode<
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		let expand = this.repo.starred;
-		const [active, branch] = await Promise.all([
-			expand ? undefined : this.view.container.git.isActiveRepoPath(this.uri.repoPath),
-			this.repo.getBranch(),
-		]);
-
+		const branch = await this.repo.getBranch();
 		const ahead = (branch?.state.ahead ?? 0) > 0;
 		const behind = (branch?.state.behind ?? 0) > 0;
 
-		if (!expand && (active || ahead || behind)) {
-			expand = true;
-		}
+		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
@@ -413,7 +406,7 @@ export abstract class RepositoryFolderNode<
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(branch.repoPath),
+					await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {

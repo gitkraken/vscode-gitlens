@@ -2797,6 +2797,13 @@
 				"title": "Advanced",
 				"order": 1000,
 				"properties": {
+					"gitlens.detectNestedRepositories": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to attempt to detect nested repositories when opening files",
+						"scope": "resource",
+						"order": 0
+					},
 					"gitlens.advanced.messages": {
 						"type": "object",
 						"default": {
@@ -2878,7 +2885,7 @@
 						"additionalProperties": false,
 						"markdownDescription": "Specifies which messages should be suppressed",
 						"scope": "window",
-						"order": 0
+						"order": 1
 					},
 					"gitlens.advanced.repositorySearchDepth": {
 						"type": "number",

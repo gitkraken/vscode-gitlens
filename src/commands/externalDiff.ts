@@ -130,7 +130,7 @@ export class ExternalDiffCommand extends Command {
 				const editor = window.activeTextEditor;
 				if (editor == null) return;
 
-				repoPath = await this.container.git.getRepoPathOrActive(undefined, editor);
+				repoPath = this.container.git.getBestRepository(editor)?.path;
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
@@ -150,7 +150,7 @@ export class ExternalDiffCommand extends Command {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = await this.container.git.getRepoPath(args.files[0].uri.fsPath);
+				repoPath = (await this.container.git.getOrCreateRepository(args.files[0].uri))?.path;
 				if (!repoPath) return;
 			}
 

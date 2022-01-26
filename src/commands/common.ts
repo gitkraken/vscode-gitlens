@@ -238,8 +238,8 @@ export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 }
 
 export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
-	const repoPath = await Container.instance.git.getRepoPathOrActive(uri, editor);
-	if (repoPath) return repoPath;
+	const repository = Container.instance.git.getBestRepository(uri, editor);
+	if (repository != null) return repository.path;
 
 	const pick = await RepositoryPicker.show(title);
 	if (pick instanceof CommandQuickPickItem) {
@@ -251,7 +251,9 @@ export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: 
 }
 
 export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
-	const repoPath = await Container.instance.git.getRepoPath(uri);
+	if (uri == null) return Container.instance.git.highlander?.path;
+
+	const repoPath = (await Container.instance.git.getOrCreateRepository(uri))?.path;
 	if (repoPath) return repoPath;
 
 	const pick = await RepositoryPicker.show(title);

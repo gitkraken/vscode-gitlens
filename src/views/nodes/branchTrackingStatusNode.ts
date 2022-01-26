@@ -150,7 +150,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		let lastFetched = 0;
 
 		if (this.upstreamType !== 'none') {
-			const repo = await this.view.container.git.getRepository(this.repoPath);
+			const repo = this.view.container.git.getRepository(this.repoPath);
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
@@ -227,7 +227,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				break;
 			}
 			case 'none': {
-				const remotes = await this.view.container.git.getRemotes(this.branch.repoPath);
+				const remotes = await this.view.container.git.getRemotesWithProviders(this.branch.repoPath);
 				const providers = GitRemote.getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 

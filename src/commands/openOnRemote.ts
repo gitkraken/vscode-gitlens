@@ -34,7 +34,8 @@ export class OpenOnRemoteCommand extends Command {
 	async execute(args?: OpenOnRemoteCommandArgs) {
 		if (args?.resource == null) return;
 
-		let remotes = 'remotes' in args ? args.remotes : await this.container.git.getRemotes(args.repoPath);
+		let remotes =
+			'remotes' in args ? args.remotes : await this.container.git.getRemotesWithProviders(args.repoPath);
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);

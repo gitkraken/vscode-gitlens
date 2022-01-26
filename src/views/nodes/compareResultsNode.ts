@@ -141,10 +141,10 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		return this._children;
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
+	getTreeItem(): TreeItem {
 		let description;
 		if (this.view.container.git.repositoryCount > 1) {
-			const repo = await this.view.container.git.getRepository(this.uri.repoPath!);
+			const repo = this.uri.repoPath ? this.view.container.git.getRepository(this.uri.repoPath) : undefined;
 			description = repo?.formattedName ?? this.uri.repoPath;
 		}
 

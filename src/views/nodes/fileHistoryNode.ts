@@ -166,8 +166,8 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	}
 
 	@debug()
-	protected async subscribe() {
-		const repo = await this.view.container.git.getRepository(this.uri);
+	protected subscribe() {
+		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(

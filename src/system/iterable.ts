@@ -109,7 +109,7 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T>): T {
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
 	return source[Symbol.iterator]().next().value;
 }
 
@@ -163,7 +163,7 @@ export function last<T>(source: Iterable<T>): T | undefined {
 export function* map<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => TMapped,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield mapper(item);
 	}
