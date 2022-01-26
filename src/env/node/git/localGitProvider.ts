@@ -458,11 +458,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				let f;
 				for (f of files) {
-					if (!f.isDirectory()) continue;
-
 					if (f.name === '.git') {
 						repositories.push(resolvePath(root, f.name));
-					} else if (depth >= 0 && excludes[f.name] !== true) {
+					} else if (depth >= 0 && f.isDirectory() && excludes[f.name] !== true) {
 						try {
 							await this.repositorySearchCore(resolvePath(root, f.name), depth, excludes, repositories);
 						} catch (ex) {
