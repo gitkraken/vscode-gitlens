@@ -1,6 +1,7 @@
 import { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
 import { DocumentSchemes } from '../constants';
+import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
@@ -269,9 +270,12 @@ export class PathEntryTrie<T> {
 		}
 
 		if (node?.children == null) return [];
-		return [...node.children.values()]
-			.filter(n => n.value)
-			.map(n => ({ value: n.value!, path: n.path, fullPath: fullPath }));
+		return [
+			...filterMap(node.children.values(), n =>
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+				n.value ? { value: n.value, path: n.path, fullPath: fullPath } : undefined,
+			),
+		];
 	}
 
 	getClosest(
@@ -504,7 +508,8 @@ export class PathTrie<T> {
 		}
 
 		if (node?.children == null) return [];
-		return [...node.children.values()].filter(n => n.value).map(n => n.value!);
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+		return [...filterMap(node.children.values(), n => n.value || undefined)];
 	}
 
 	getClosest(
