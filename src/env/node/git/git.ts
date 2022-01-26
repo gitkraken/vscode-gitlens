@@ -1175,6 +1175,7 @@ export namespace Git {
 				'rev-parse',
 				'--abbrev-ref',
 				'--symbolic-full-name',
+				'--end-of-options',
 				'@',
 				'@{u}',
 				'--',
@@ -1284,6 +1285,7 @@ export namespace Git {
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
+			'--end-of-options',
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
