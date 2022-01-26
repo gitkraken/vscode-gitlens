@@ -2815,7 +2815,6 @@
 							"suppressGitDisabledWarning": false,
 							"suppressGitMissingWarning": false,
 							"suppressGitVersionWarning": false,
-							"suppressImproperWorkspaceCasingWarning": false,
 							"suppressLineUncommittedWarning": false,
 							"suppressNoRepositoryWarning": false,
 							"suppressRebaseSwitchToTextWarning": false
@@ -2860,11 +2859,6 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Git Version Warning"
-							},
-							"suppressImproperWorkspaceCasingWarning": {
-								"type": "boolean",
-								"default": false,
-								"description": "Improper Workspace Casing Warning"
 							},
 							"suppressLineUncommittedWarning": {
 								"type": "boolean",

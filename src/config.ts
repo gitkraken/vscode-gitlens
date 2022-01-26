@@ -340,7 +340,6 @@ export interface AdvancedConfig {
 		suppressGitDisabledWarning: boolean;
 		suppressGitMissingWarning: boolean;
 		suppressGitVersionWarning: boolean;
-		suppressImproperWorkspaceCasingWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
 		suppressNoRepositoryWarning: boolean;
 		suppressRebaseSwitchToTextWarning: boolean;

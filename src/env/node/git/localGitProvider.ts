@@ -720,37 +720,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return repoPath ? Uri.file(repoPath) : undefined;
 		} catch (ex) {
 			Logger.error(ex, cc);
-			repoPath = undefined;
-			return repoPath;
-		} finally {
-			if (repoPath) {
-				void this.ensureProperWorkspaceCasing(repoPath, uri);
-			}
-		}
-	}
-
-	@gate(() => '')
-	private async ensureProperWorkspaceCasing(repoPath: string, uri: Uri) {
-		if (this.container.config.advanced.messages.suppressImproperWorkspaceCasingWarning) return;
-
-		const path = uri.fsPath.replace(/\\/g, '/');
-
-		let regexPath;
-		let testPath;
-		if (path > repoPath) {
-			regexPath = path;
-			testPath = repoPath;
-		} else {
-			testPath = path;
-			regexPath = repoPath;
-		}
-
-		let pathRegex = new RegExp(`^${regexPath}`);
-		if (!pathRegex.test(testPath)) {
-			pathRegex = new RegExp(pathRegex, 'i');
-			if (pathRegex.test(testPath)) {
-				await Messages.showIncorrectWorkspaceCasingWarningMessage();
-			}
+			return undefined;
 		}
 	}
 
