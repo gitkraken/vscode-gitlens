@@ -34,13 +34,16 @@ export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean 
 			return { path: path, ignoreCase: !isLinux };
 
 		case DocumentSchemes.Virtual:
-		case DocumentSchemes.GitHub:
+		case DocumentSchemes.GitHub: {
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
 				path = path.slice(0, -1);
 			}
-			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
 
+			// TODO@eamodio Revisit this, as we can't strip off the authority details (e.g. metadata) ultimately (since you in theory could have a workspace with more than 1 virtual repo which are the same except for the authority)
+			const authority = uri.authority?.split('+', 1)[0];
+			return { path: authority ? `${authority}${path}` : path.slice(1), ignoreCase: false };
+		}
 		default:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {

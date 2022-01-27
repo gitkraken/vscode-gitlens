@@ -11,7 +11,11 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { Arrays, debug, gate, Iterables, memoize } from '../../system';
+import { uniqueBy } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { filterMap, flatMap } from '../../system/iterable';
 import { basename, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
@@ -75,8 +79,8 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
-				const commits = Arrays.uniqueBy(
-					[...Iterables.flatMap(fileStatuses, f => f.toPsuedoCommits(currentUser))],
+				const commits = uniqueBy(
+					[...flatMap(fileStatuses, f => f.toPsuedoCommits(currentUser))],
 					c => c.sha,
 					(original, c) => void original.files.push(...c.files),
 				);
@@ -97,7 +101,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
-					Iterables.map(log.commits.values(), c =>
+					filterMap(log.commits.values(), c =>
 						this.folder
 							? new CommitNode(
 									this.view as any,
@@ -110,11 +114,13 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 										expand: false,
 									},
 							  )
-							: new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
+							: c.files.length
+							? new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
 									branch: this.branch,
 									getBranchAndTagTips: getBranchAndTagTips,
 									unpublished: unpublishedCommits?.has(c.ref),
-							  }),
+							  })
+							: undefined,
 					),
 					this,
 				),

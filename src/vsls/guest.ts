@@ -1,4 +1,4 @@
-import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
+import { CancellationToken, Disposable, Uri, window, WorkspaceFolder } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';
 import { GitCommandOptions } from '../git/commandOptions';
@@ -80,7 +80,7 @@ export class VslsGuestService implements Disposable {
 					// TODO@eamodio add live share provider
 					undefined!,
 					folder,
-					r.path,
+					Uri.parse(r.uri),
 					r.root,
 					!window.state.focused,
 					r.closed,

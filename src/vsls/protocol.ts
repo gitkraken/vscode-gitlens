@@ -19,7 +19,7 @@ export const GitCommandRequestType = new RequestType<GitCommandRequest, GitComma
 
 export interface RepositoryProxy {
 	folderUri: string;
-	path: string;
+	uri: string;
 	root: boolean;
 	closed: boolean;
 }

@@ -1,6 +1,7 @@
 import { basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { isLinux, isWindows } from '@env/platform';
+import { DocumentSchemes } from '../constants';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 
@@ -9,6 +10,7 @@ export { basename, dirname, extname, isAbsolute, join as joinPaths } from 'path'
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const pathNormalizeRegex = /\\/g;
 const slash = 47; //slash;
+const uriSchemeRegex = /^(\w[\w\d+.-]{1,}?):\/\//;
 
 export function commonBase(s1: string, s2: string, delimiter: string, ignoreCase?: boolean): string | undefined {
 	const index = commonBaseIndex(s1, s2, delimiter, ignoreCase);
@@ -35,6 +37,10 @@ export function commonBaseIndex(s1: string, s2: string, delimiter: string, ignor
 	}
 
 	return index;
+}
+
+export function getBestPath(uri: Uri): string {
+	return uri.scheme === DocumentSchemes.File ? uri.fsPath : uri.path;
 }
 
 export function isChild(path: string, base: string | Uri): boolean;
@@ -120,8 +126,8 @@ export function normalizePath(path: string): string {
 }
 
 export function relative(from: string, to: string, ignoreCase?: boolean): string {
-	from = normalizePath(from);
-	to = normalizePath(to);
+	from = uriSchemeRegex.test(from) ? Uri.parse(from, true).path : normalizePath(from);
+	to = uriSchemeRegex.test(to) ? Uri.parse(to, true).path : normalizePath(to);
 
 	const index = commonBaseIndex(`${to}/`, `${from}/`, '/', ignoreCase);
 	return index > 0 ? to.substring(index + 1) : to;

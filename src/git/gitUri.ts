@@ -4,9 +4,10 @@ import { UriComparer } from '../comparers';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { GitHubAuthorityMetadata } from '../premium/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
-import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
+import { basename, dirname, getBestPath, isAbsolute, normalizePath, relative } from '../system/path';
 import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
 import { RevisionUriData } from './gitProvider';
 import { GitCommit, GitFile, GitRevision } from './models';
@@ -66,8 +67,34 @@ export class GitUri extends (Uri as any as UriEx) {
 
 			const metadata = decodeGitLensRevisionUriAuthority<RevisionUriData>(uri.authority);
 			this.repoPath = metadata.repoPath;
-			if (GitRevision.isUncommittedStaged(metadata.ref) || !GitRevision.isUncommitted(metadata.ref)) {
-				this.sha = metadata.ref;
+
+			let ref = metadata.ref;
+			if (commitOrRepoPath != null && typeof commitOrRepoPath !== 'string') {
+				ref = commitOrRepoPath.sha;
+			}
+
+			if (GitRevision.isUncommittedStaged(ref) || !GitRevision.isUncommitted(ref)) {
+				this.sha = ref;
+			}
+
+			return;
+		}
+
+		if (uri.scheme === DocumentSchemes.Virtual || uri.scheme === DocumentSchemes.GitHub) {
+			super(uri);
+
+			const [, owner, repo] = uri.path.split('/', 3);
+			this.repoPath = uri.with({ path: `/${owner}/${repo}` }).toString();
+
+			const data = decodeRemoteHubAuthority<GitHubAuthorityMetadata>(uri);
+
+			let ref = data.metadata?.ref?.id;
+			if (commitOrRepoPath != null && typeof commitOrRepoPath !== 'string') {
+				ref = commitOrRepoPath.sha;
+			}
+
+			if (ref && (GitRevision.isUncommittedStaged(ref) || !GitRevision.isUncommitted(ref))) {
+				this.sha = ref;
 			}
 
 			return;
@@ -429,7 +456,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			path: uri.path,
 			query: JSON.stringify({
 				// Ensure we use the fsPath here, otherwise the url won't open properly
-				path: uri.scheme === DocumentSchemes.File ? uri.fsPath : uri.path,
+				path: getBestPath(uri),
 				ref: '~',
 			}),
 		});
@@ -453,4 +480,18 @@ export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {
 
 export function encodeGitLensRevisionUriAuthority<T>(metadata: T): string {
 	return encodeUtf8Hex(JSON.stringify(metadata));
+}
+
+function decodeRemoteHubAuthority<T>(uri: Uri): { scheme: string; metadata: T | undefined } {
+	const [scheme, encoded] = uri.authority.split('+');
+
+	let metadata: T | undefined;
+	if (encoded) {
+		try {
+			const data = JSON.parse(decodeUtf8Hex(encoded));
+			metadata = data as T;
+		} catch {}
+	}
+
+	return { scheme: scheme, metadata: metadata };
 }

@@ -14,21 +14,20 @@ import {
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
-import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
+import { BuiltInGitCommands, BuiltInGitConfiguration, DocumentSchemes, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
+import { asRepoComparisonKey } from '../../repositories';
 import { filterMap, groupByMap } from '../../system/array';
 import { getFormatter } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { basename } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import { GitProviderDescriptor } from '../gitProvider';
-import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import { SearchPattern } from '../search';
@@ -183,7 +182,6 @@ export class Repository implements Disposable {
 	readonly id: string;
 	readonly index: number;
 	readonly name: string;
-	readonly normalizedPath: string;
 
 	private _branch: Promise<GitBranch | undefined> | undefined;
 	private readonly _disposable: Disposable;
@@ -203,29 +201,36 @@ export class Repository implements Disposable {
 		private readonly container: Container,
 		private readonly onDidRepositoryChange: (repo: Repository, e: RepositoryChangeEvent) => void,
 		public readonly provider: GitProviderDescriptor,
-		public readonly folder: WorkspaceFolder,
-		public readonly path: string,
+		public readonly folder: WorkspaceFolder | undefined,
+		public readonly uri: Uri,
 		public readonly root: boolean,
 		suspended: boolean,
 		closed: boolean = false,
 	) {
-		const relativePath = container.git.getRelativePath(folder.uri, path);
-		if (root) {
-			// Check if the repository is not contained by a workspace folder
-			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
-			if (repoFolder == null) {
-				this.formattedName = this.name = basename(path);
+		folder = workspace.getWorkspaceFolder(uri) ?? folder;
+		if (folder != null) {
+			this.name = folder.name;
+
+			if (root) {
+				this.formattedName = this.name;
 			} else {
-				this.formattedName = this.name = folder.name;
+				const relativePath = container.git.getRelativePath(folder.uri, uri);
+				this.formattedName = relativePath ? `${this.name} (${relativePath})` : this.name;
 			}
 		} else {
-			this.formattedName = relativePath ? `${folder.name} (${relativePath})` : folder.name;
-			this.name = folder.name;
-		}
-		this.index = folder.index;
+			this.name = basename(uri.path);
+			this.formattedName = this.name;
 
-		this.normalizedPath = (path.endsWith('/') ? path : `${path}/`).toLowerCase();
-		this.id = this.normalizedPath;
+			// TODO@eamodio should we create a fake workspace folder?
+			// folder = {
+			// 	uri: uri,
+			// 	name: this.name,
+			// 	index: container.git.repositoryCount,
+			// };
+		}
+		this.index = folder?.index ?? container.git.repositoryCount;
+
+		this.id = asRepoComparisonKey(uri);
 
 		this._suspended = suspended;
 		this._closed = closed;
@@ -264,9 +269,8 @@ export class Repository implements Disposable {
 		this._disposable.dispose();
 	}
 
-	@memoize()
-	get uri(): Uri {
-		return this.container.git.getAbsoluteUri(this.path);
+	get path(): string {
+		return this.uri.scheme === DocumentSchemes.File ? this.uri.fsPath : this.uri.toString();
 	}
 
 	get etag(): number {
@@ -279,8 +283,8 @@ export class Repository implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'remotes', this.folder.uri)) {
-			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
+		if (configuration.changed(e, 'remotes', this.folder?.uri)) {
+			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder?.uri));
 
 			if (e != null) {
 				this.resetCaches('remotes');
@@ -442,11 +446,7 @@ export class Repository implements Disposable {
 	}
 
 	containsUri(uri: Uri) {
-		if (GitUri.is(uri)) {
-			uri = uri.repoPath != null ? this.container.git.getAbsoluteUri(uri.repoPath) : uri.documentUri();
-		}
-
-		return this.folder === workspace.getWorkspaceFolder(uri);
+		return this === this.container.git.getRepository(uri);
 	}
 
 	@gate()
@@ -513,8 +513,8 @@ export class Repository implements Disposable {
 		return this.container.git.getBranches(this.path, options);
 	}
 
-	getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
-		return this.container.git.getChangedFilesCount(this.path, sha);
+	getChangedFilesCount(ref?: string): Promise<GitDiffShortStat | undefined> {
+		return this.container.git.getChangedFilesCount(this.path, ref);
 	}
 
 	getCommit(ref: string): Promise<GitLogCommit | undefined> {
@@ -561,7 +561,7 @@ export class Repository implements Disposable {
 	async getRemotes(options: { filter?: (remote: GitRemote) => boolean; sort?: boolean } = {}): Promise<GitRemote[]> {
 		if (this._remotes == null) {
 			if (this._providers == null) {
-				const remotesCfg = configuration.get('remotes', this.folder.uri);
+				const remotesCfg = configuration.get('remotes', this.folder?.uri);
 				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
 			}
 
@@ -781,12 +781,12 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('reset', ...args);
 	}
 
-	resetCaches(...cache: ('branches' | 'remotes')[]) {
-		if (cache.length === 0 || cache.includes('branches')) {
+	resetCaches(...affects: ('branches' | 'remotes')[]) {
+		if (affects.length === 0 || affects.includes('branches')) {
 			this._branch = undefined;
 		}
 
-		if (cache.length === 0 || cache.includes('remotes')) {
+		if (affects.length === 0 || affects.includes('remotes')) {
 			this._remotes = undefined;
 			this._remotesDisposable?.dispose();
 			this._remotesDisposable = undefined;

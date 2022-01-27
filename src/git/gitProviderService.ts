@@ -14,7 +14,6 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
 import {
@@ -33,7 +32,7 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map } from '../system/iterable';
-import { basename, dirname, isAbsolute, normalizePath } from '../system/path';
+import { dirname, getBestPath, isAbsolute, normalizePath } from '../system/path';
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { CharCode } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
@@ -137,8 +136,9 @@ export class GitProviderService implements Disposable {
 	private readonly _disposable: Disposable;
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
+	private readonly _richRemotesCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _supportedSchemes = new Set<string>();
-	private _visitedPaths = new VisitedPathsTrie();
+	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -312,6 +312,16 @@ export class GitProviderService implements Disposable {
 			provider,
 			...disposables,
 			provider.onDidChangeRepository(e => {
+				if (
+					e.changed(
+						RepositoryChange.Remotes,
+						RepositoryChange.RemoteProviders,
+						RepositoryChangeComparisonMode.Any,
+					)
+				) {
+					this._richRemotesCache.clear();
+				}
+
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 					this.updateContext();
 
@@ -556,47 +566,62 @@ export class GitProviderService implements Disposable {
 		this._providers.forEach(p => p.updateContext?.());
 	}
 
+	// private _pathToProvider = new Map<string, GitProviderResult>();
+
 	private getProvider(repoPath: string | Uri): GitProviderResult {
 		if (repoPath == null || (typeof repoPath !== 'string' && !this._supportedSchemes.has(repoPath.scheme))) {
 			debugger;
 			throw new ProviderNotFoundError(repoPath);
 		}
 
-		let id = !isWeb ? GitProviderId.Git : undefined;
-		if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
-			if (repoPath.authority.startsWith('github')) {
-				id = GitProviderId.GitHub;
-			} else {
-				throw new ProviderNotFoundError(repoPath);
-			}
+		// const key = repoPath.toString();
+		// let providerResult = this._pathToProvider.get(key);
+		// if (providerResult != null) return providerResult;
+
+		for (const provider of this._providers.values()) {
+			const path = provider.canHandlePathOrUri(repoPath);
+			if (path == null) continue;
+
+			const providerResult: GitProviderResult = { provider: provider, path: path };
+			// this._pathToProvider.set(key, providerResult);
+			return providerResult;
 		}
-		if (id == null) throw new ProviderNotFoundError(repoPath);
 
-		const provider = this._providers.get(id);
-		if (provider == null) throw new ProviderNotFoundError(repoPath);
+		debugger;
+		throw new ProviderNotFoundError(repoPath);
 
-		switch (id) {
-			case GitProviderId.Git:
-				return {
-					provider: provider,
-					path: typeof repoPath === 'string' ? repoPath : repoPath.fsPath,
-				};
+		// let id = !isWeb ? GitProviderId.Git : undefined;
+		// if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
+		// 	if (repoPath.authority.startsWith('github')) {
+		// 		id = GitProviderId.GitHub;
+		// 	} else {
+		// 		throw new ProviderNotFoundError(repoPath);
+		// 	}
+		// }
+		// if (id == null) throw new ProviderNotFoundError(repoPath);
 
-			default:
-				return {
-					provider: provider,
-					path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
-				};
-		}
+		// const provider = this._providers.get(id);
+		// if (provider == null) throw new ProviderNotFoundError(repoPath);
+
+		// switch (id) {
+		// 	case GitProviderId.Git:
+		// 		return {
+		// 			provider: provider,
+		// 			path: typeof repoPath === 'string' ? repoPath : repoPath.fsPath,
+		// 		};
+
+		// 	default:
+		// 		return {
+		// 			provider: provider,
+		// 			path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
+		// 		};
+		// }
 	}
 
 	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri {
 		if (base == null) {
 			if (typeof pathOrUri === 'string') {
-				if (isUriRegex.test(pathOrUri)) {
-					debugger;
-					return Uri.parse(pathOrUri, true);
-				}
+				if (isUriRegex.test(pathOrUri)) return Uri.parse(pathOrUri, true);
 
 				// I think it is safe to assume this should be file://
 				return Uri.file(pathOrUri);
@@ -651,7 +676,7 @@ export class GitProviderService implements Disposable {
 			ref = refOrUri.sha;
 			repoPath = refOrUri.repoPath!;
 
-			path = refOrUri.scheme === DocumentSchemes.File ? refOrUri.fsPath : refOrUri.path;
+			path = getBestPath(refOrUri);
 		}
 
 		const { provider, path: rp } = this.getProvider(repoPath!);
@@ -700,17 +725,23 @@ export class GitProviderService implements Disposable {
 
 	@log()
 	resetCaches(
-		...cache: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void {
-		const repoCache = cache.filter((c): c is 'branches' | 'remotes' => c === 'branches' || c === 'remotes');
+		if (affects.length === 0 || affects.includes('providers')) {
+			this._richRemotesCache.clear();
+		}
+
+		const repoAffects = affects.filter((c): c is 'branches' | 'remotes' => c === 'branches' || c === 'remotes');
 		// Delegate to the repos, if we are clearing everything or one of the per-repo caches
-		if (cache.length === 0 || repoCache.length > 0) {
+		if (affects.length === 0 || repoAffects.length > 0) {
 			for (const repo of this.repositories) {
-				repo.resetCaches(...repoCache);
+				repo.resetCaches(...repoAffects);
 			}
 		}
 
-		void Promise.allSettled([...this._providers.values()].map(provider => provider.resetCaches(...cache)));
+		for (const provider of this._providers.values()) {
+			provider.resetCaches(...affects);
+		}
 	}
 
 	@log<GitProviderService['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
@@ -878,10 +909,10 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameForRangeContents(uri, range, contents);
 	}
 
-	@log<GitProviderService['getBlameForRangeSync']>({ args: { 0: '<blame>' } })
-	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
+	@log<GitProviderService['getBlameRange']>({ args: { 0: '<blame>' } })
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
 		const { provider } = this.getProvider(uri);
-		return provider.getBlameForRangeSync(blame, uri, range);
+		return provider.getBlameRange(blame, uri, range);
 	}
 
 	@log()
@@ -1457,8 +1488,81 @@ export class GitProviderService implements Disposable {
 			remotesOrRepoPath = remotesOrRepoPath[0].repoPath;
 		}
 
-		const { provider, path } = this.getProvider(remotesOrRepoPath);
-		return provider.getRichRemoteProvider(path, remotes, options);
+		if (typeof remotesOrRepoPath === 'string') {
+			remotesOrRepoPath = this.getAbsoluteUri(remotesOrRepoPath);
+		}
+
+		const cacheKey = asRepoComparisonKey(remotesOrRepoPath);
+
+		let richRemote = this._richRemotesCache.get(cacheKey);
+		if (richRemote != null) return richRemote;
+		if (richRemote === null && !options?.includeDisconnected) return undefined;
+
+		if (options?.includeDisconnected) {
+			richRemote = this._richRemotesCache.get(`disconnected|${cacheKey}`);
+			if (richRemote !== undefined) return richRemote ?? undefined;
+		}
+
+		remotes = (remotes ?? (await this.getRemotesWithProviders(remotesOrRepoPath))).filter(
+			(
+				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
+		);
+
+		if (remotes.length === 0) return undefined;
+
+		let remote;
+		if (remotes.length === 1) {
+			remote = remotes[0];
+		} else {
+			const weightedRemotes = new Map<string, number>([
+				['upstream', 15],
+				['origin', 10],
+			]);
+
+			const branch = await this.getBranch(remotes[0].repoPath);
+			const branchRemote = branch?.getRemoteName();
+
+			if (branchRemote != null) {
+				weightedRemotes.set(branchRemote, 100);
+			}
+
+			let bestRemote;
+			let weight = 0;
+			for (const r of remotes) {
+				if (r.default) {
+					bestRemote = r;
+					break;
+				}
+
+				// Don't choose a remote unless its weighted above
+				const matchedWeight = weightedRemotes.get(r.name) ?? -1;
+				if (matchedWeight > weight) {
+					bestRemote = r;
+					weight = matchedWeight;
+				}
+			}
+
+			remote = bestRemote ?? null;
+		}
+
+		if (!remote?.hasRichProvider()) {
+			this._richRemotesCache.set(cacheKey, null);
+			return undefined;
+		}
+
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (connected) {
+			this._richRemotesCache.set(cacheKey, remote);
+		} else {
+			this._richRemotesCache.set(cacheKey, null);
+			this._richRemotesCache.set(`disconnected|${cacheKey}`, remote);
+
+			if (!options?.includeDisconnected) return undefined;
+		}
+
+		return remote;
 	}
 
 	@log({ args: { 1: false } })
@@ -1479,8 +1583,12 @@ export class GitProviderService implements Disposable {
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
 		if (repoPath == null) return [];
 
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getRemotesWithProviders(path, options);
+		const repository = this.container.git.getRepository(repoPath);
+		const remotes = await (repository != null
+			? repository.getRemotes(options)
+			: this.getRemotes(repoPath, options));
+
+		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider | RichRemoteProvider>[];
 	}
 
 	getBestRepository(): Repository | undefined;
@@ -1546,22 +1654,8 @@ export class GitProviderService implements Disposable {
 					}
 				}
 
-				let folder: WorkspaceFolder | undefined;
-				if (root != null) {
-					folder = root.folder;
-				} else {
-					folder = workspace.getWorkspaceFolder(repoUri);
-					if (folder == null) {
-						folder = {
-							uri: uri,
-							name: basename(normalizePath(repoUri.path)),
-							index: this.repositoryCount,
-						};
-					}
-				}
-
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
-				repository = provider.openRepository(folder, repoUri, false);
+				repository = provider.openRepository(root?.folder, repoUri, false);
 				this._repositories.add(repository);
 
 				this._pendingRepositories.delete(key);
@@ -1654,7 +1748,7 @@ export class GitProviderService implements Disposable {
 	@log({ args: { 1: false } })
 	async getTags(
 		repoPath: string | Uri | undefined,
-		options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
+		options?: { cursor?: string; filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions },
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return { values: [] };
 
@@ -1803,12 +1897,12 @@ export class GitProviderService implements Disposable {
 		return provider.validateReference(path, ref);
 	}
 
-	stageFile(repoPath: string | Uri, fileName: string): Promise<void>;
+	stageFile(repoPath: string | Uri, path: string): Promise<void>;
 	stageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	stageFile(repoPath: string | Uri, fileNameOrUri: string | Uri): Promise<void> {
+	stageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stageFile(path, fileNameOrUri);
+		return provider.stageFile(path, pathOrUri);
 	}
 
 	stageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
@@ -1819,12 +1913,12 @@ export class GitProviderService implements Disposable {
 		return provider.stageDirectory(path, directoryOrUri);
 	}
 
-	unStageFile(repoPath: string | Uri, fileName: string): Promise<void>;
+	unStageFile(repoPath: string | Uri, path: string): Promise<void>;
 	unStageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	unStageFile(repoPath: string | Uri, fileNameOrUri: string | Uri): Promise<void> {
+	unStageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.unStageFile(path, fileNameOrUri);
+		return provider.unStageFile(path, pathOrUri);
 	}
 
 	unStageDirectory(repoPath: string | Uri, directory: string): Promise<void>;

@@ -216,12 +216,12 @@ export class VslsHostService implements Disposable {
 
 		const repos = [
 			...filterMap(this.container.git.repositories, r => {
-				if (!r.normalizedPath.startsWith(normalized)) return undefined;
+				if (!r.id.startsWith(normalized)) return undefined;
 
-				const vslsUri = this.convertLocalUriToShared(r.folder.uri);
+				const vslsUri = this.convertLocalUriToShared(r.folder?.uri ?? r.uri);
 				return {
 					folderUri: vslsUri.toString(true),
-					path: vslsUri.path,
+					uri: vslsUri.toString(),
 					root: r.root,
 					closed: r.closed,
 				};

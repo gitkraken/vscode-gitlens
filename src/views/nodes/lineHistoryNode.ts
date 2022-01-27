@@ -14,7 +14,10 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { debug, gate, Iterables, memoize } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { filterMap } from '../../system/iterable';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { LoadMoreNode, MessageNode } from './common';
@@ -203,15 +206,15 @@ export class LineHistoryNode
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
-					Iterables.filterMap(
-						log.commits.values(),
-						c =>
-							new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
-								branch: this.branch,
-								getBranchAndTagTips: getBranchAndTagTips,
-								selection: selection,
-								unpublished: unpublishedCommits?.has(c.ref),
-							}),
+					filterMap(log.commits.values(), c =>
+						c.files.length
+							? new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
+									branch: this.branch,
+									getBranchAndTagTips: getBranchAndTagTips,
+									selection: selection,
+									unpublished: unpublishedCommits?.has(c.ref),
+							  })
+							: undefined,
 					),
 					this,
 				),

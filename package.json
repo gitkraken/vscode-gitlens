@@ -3117,6 +3117,20 @@
 						"markdownDeprecationMessage": "Deprecated. Use the [Insiders edition](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens-insiders) of GitLens instead"
 					}
 				}
+			},
+			{
+				"id": "experimental",
+				"title": "Experimental",
+				"order": 9999,
+				"properties": {
+					"gitlens.experimental.virtualRepositories.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable the experimental virtual repositories support",
+						"scope": "window",
+						"order": 0
+					}
+				}
 			}
 		],
 		"configurationDefaults": {

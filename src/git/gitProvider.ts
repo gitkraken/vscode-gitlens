@@ -1,4 +1,4 @@
-import { Disposable, Event, Range, TextEditor, Uri, WorkspaceFolder } from 'vscode';
+import { Disposable, Event, Range, Uri, WorkspaceFolder } from 'vscode';
 import { Commit, InputBox } from '../@types/vscode.git';
 import { GitUri } from './gitUri';
 import {
@@ -82,15 +82,23 @@ export interface GitProvider extends Disposable {
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
 	updateContext?(): void;
-	openRepository(folder: WorkspaceFolder, uri: Uri, root: boolean, suspended?: boolean, closed?: boolean): Repository;
+	openRepository(
+		folder: WorkspaceFolder | undefined,
+		uri: Uri,
+		root: boolean,
+		suspended?: boolean,
+		closed?: boolean,
+	): Repository;
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 
+	canHandlePathOrUri(pathOrUri: string | Uri): string | undefined;
 	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri;
 	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
 	addRemote(repoPath: string, name: string, url: string): Promise<void>;
@@ -103,7 +111,7 @@ export interface GitProvider extends Disposable {
 		options?: { createBranch?: string | undefined } | { fileName?: string | undefined },
 	): Promise<void>;
 	resetCaches(
-		...cache: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	fetch(
@@ -154,7 +162,7 @@ export interface GitProvider extends Disposable {
 	): Promise<GitBlameLine | undefined>;
 	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
 	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
-	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
 	getBranch(repoPath: string): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
@@ -319,27 +327,22 @@ export interface GitProvider extends Disposable {
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
-	getRichRemoteProvider(
-		repoPath: string,
-		remotes: GitRemote<RemoteProvider | RichRemoteProvider | undefined>[] | undefined,
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	getRemotes(
 		repoPath: string | undefined,
 		options?: { providers?: RemoteProviders; sort?: boolean },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]>;
-	getRemotesWithProviders(
-		repoPath: string | undefined,
-		options?: { force?: boolean; providers?: RemoteProviders; sort?: boolean | undefined },
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
-	getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined>;
+	getStatusForFile(repoPath: string, path: string): Promise<GitStatusFile | undefined>;
 	getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined>;
 	getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getTags(
 		repoPath: string | undefined,
-		options?: { filter?: ((t: GitTag) => boolean) | undefined; sort?: boolean | TagSortOptions | undefined },
+		options?: {
+			cursor?: string;
+			filter?: ((t: GitTag) => boolean) | undefined;
+			sort?: boolean | TagSortOptions | undefined;
+		},
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
@@ -352,7 +355,6 @@ export interface GitProvider extends Disposable {
 				| undefined;
 		},
 	): Promise<boolean>;
-	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;
 
 	isTrackable(uri: Uri): boolean;
 
@@ -378,17 +380,9 @@ export interface GitProvider extends Disposable {
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
-	stageFile(repoPath: string, fileName: string): Promise<void>;
-	stageFile(repoPath: string, uri: Uri): Promise<void>;
-	stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<void>;
-	stageDirectory(repoPath: string, directory: string): Promise<void>;
-	stageDirectory(repoPath: string, uri: Uri): Promise<void>;
+	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
-	unStageFile(repoPath: string, fileName: string): Promise<void>;
-	unStageFile(repoPath: string, uri: Uri): Promise<void>;
-	unStageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<void>;
-	unStageDirectory(repoPath: string, directory: string): Promise<void>;
-	unStageDirectory(repoPath: string, uri: Uri): Promise<void>;
+	unStageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
 	stashApply(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;

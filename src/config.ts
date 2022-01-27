@@ -48,6 +48,11 @@ export interface Config {
 	defaultGravatarsStyle: GravatarDefaultStyle;
 	defaultTimeFormat: DateTimeFormat | string | null;
 	detectNestedRepositories: boolean;
+	experimental: {
+		virtualRepositories: {
+			enabled: boolean;
+		};
+	};
 	fileAnnotations: {
 		command: string | null;
 	};
