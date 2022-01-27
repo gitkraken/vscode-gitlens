@@ -1,4 +1,3 @@
-'use strict';
 import { hrtime } from '@env/hrtime';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { filterMap } from '../array';

@@ -1,4 +1,3 @@
-'use strict';
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
 import { GlyphChars } from '../constants';

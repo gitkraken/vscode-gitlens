@@ -1,4 +1,3 @@
-'use strict';
 /*global window document*/
 import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { Disposable } from './events';

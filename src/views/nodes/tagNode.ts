@@ -1,4 +1,3 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';

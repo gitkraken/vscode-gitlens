@@ -1,4 +1,3 @@
-'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';

@@ -1,4 +1,3 @@
-'use strict';
 import { configuration } from '../../configuration';
 import { BuiltInGitConfiguration, GlyphChars } from '../../constants';
 import { Container } from '../../container';

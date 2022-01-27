@@ -1,5 +1,3 @@
-'use strict';
-
 export const enum StashApplyErrorReason {
 	WorkingChanges = 1,
 }

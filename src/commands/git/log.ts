@@ -1,4 +1,3 @@
-'use strict';
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';

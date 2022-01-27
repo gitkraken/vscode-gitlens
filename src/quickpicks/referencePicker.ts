@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
 import { GitActions } from '../commands';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';

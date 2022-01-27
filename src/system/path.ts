@@ -1,4 +1,3 @@
-'use strict';
 import { basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { isLinux, isWindows } from '@env/platform';

@@ -1,4 +1,3 @@
-'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
 import { GitCommit } from './git/models';

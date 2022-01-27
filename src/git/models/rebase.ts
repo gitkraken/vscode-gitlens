@@ -1,4 +1,3 @@
-'use strict';
 import { GitBranchReference, GitRevisionReference } from '../models';
 
 export interface GitRebaseStatus {

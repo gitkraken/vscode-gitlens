@@ -1,5 +1,3 @@
-'use strict';
-
 export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
 	let chunk: T[] = [];
 

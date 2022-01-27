@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';

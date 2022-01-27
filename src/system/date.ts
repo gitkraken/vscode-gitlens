@@ -1,5 +1,3 @@
-'use strict';
-
 // NOTE@eamodio If this changes we need to update the replacement function too (since its parameter number/order relies on the matching)
 const customDateTimeFormatParserRegex =
 	/(?<literal>\[.*?\])|(?<year>YYYY|YY)|(?<month>M{1,4})|(?<day>Do|DD?)|(?<weekday>d{2,4})|(?<hour>HH?|hh?)|(?<minute>mm?)|(?<second>ss?)|(?<fractionalSecond>SSS)|(?<dayPeriod>A|a)|(?<timeZoneName>ZZ?)/g;

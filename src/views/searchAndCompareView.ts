@@ -1,4 +1,3 @@
-'use strict';
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';

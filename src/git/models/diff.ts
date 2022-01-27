@@ -1,4 +1,3 @@
-'use strict';
 import { GitDiffParser } from '../parsers/diffParser';
 
 export interface GitDiffLine {

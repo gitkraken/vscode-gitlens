@@ -1,4 +1,3 @@
-'use strict';
 import { commands, TextEditor, Uri } from 'vscode';
 import { BuiltInCommands } from '../constants';
 import type { Container } from '../container';

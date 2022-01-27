@@ -1,4 +1,3 @@
-'use strict';
 import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
 import { getSupportedGitProviders } from '@env/git';
 import { Autolinks } from './annotations/autolinks';

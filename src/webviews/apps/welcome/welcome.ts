@@ -1,4 +1,3 @@
-'use strict';
 /*global window*/
 import '../scss/welcome.scss';
 import { WelcomeState } from '../../protocol';

@@ -1,4 +1,3 @@
-'use strict';
 import { GitStashCommit } from './stashCommit';
 
 export interface GitStash {

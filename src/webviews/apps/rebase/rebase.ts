@@ -1,4 +1,3 @@
-'use strict';
 /*global document window*/
 import '../scss/rebase.scss';
 import Sortable from 'sortablejs';

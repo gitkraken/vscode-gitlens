@@ -1,4 +1,3 @@
-'use strict';
 import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
 import { OutputLevel } from './configuration';
 import { getCorrelationContext, getNextCorrelationId } from './system';

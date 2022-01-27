@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
-'use strict';
 import { count, map, some } from './iterable';
 import { CharCode, compareSubstring, compareSubstringIgnoreCase } from './string';
 

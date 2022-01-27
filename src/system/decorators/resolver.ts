@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 
 function replacer(key: string, value: any): any {

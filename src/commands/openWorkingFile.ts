@@ -1,4 +1,3 @@
-'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import type { Container } from '../container';

@@ -1,4 +1,3 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars, NamedRef } from '../../constants';
 import { GitUri } from '../../git/gitUri';

@@ -1,4 +1,3 @@
-'use strict';
 import { Range } from 'vscode';
 import { GitAuthor } from './commit';
 import { GitLogCommit } from './logCommit';

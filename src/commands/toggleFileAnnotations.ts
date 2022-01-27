@@ -1,4 +1,3 @@
-'use strict';
 import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
 import { AnnotationContext } from '../annotations/annotationProvider';
 import { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';

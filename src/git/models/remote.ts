@@ -1,4 +1,3 @@
-'use strict';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';

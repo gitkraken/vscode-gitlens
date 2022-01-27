@@ -1,4 +1,3 @@
-'use strict';
 import { env, Range, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { command, Command, Commands, openEditor } from './common';

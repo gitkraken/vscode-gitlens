@@ -1,4 +1,3 @@
-'use strict';
 import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, LineHistoryViewConfig } from '../configuration';
 import { ContextKeys, setContext } from '../constants';

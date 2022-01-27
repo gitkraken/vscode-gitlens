@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscode';
 import { Commands, OpenOnRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';

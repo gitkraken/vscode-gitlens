@@ -1,4 +1,3 @@
-'use strict';
 import { env, Uri } from 'vscode';
 import type { Container } from '../container';
 import { AutolinkedItemNode } from '../views/nodes/autolinkedItemNode';

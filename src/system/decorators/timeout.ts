@@ -1,4 +1,3 @@
-'use strict';
 import { cancellable, isPromise } from '../promise';
 
 export function timeout(timeout: number): any;

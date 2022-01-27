@@ -1,4 +1,3 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../configuration';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';

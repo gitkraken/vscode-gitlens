@@ -1,4 +1,3 @@
-'use strict';
 import { debug } from '../../system';
 import { GitContributor, GitShortLog, GitUser } from '../models';
 

@@ -1,4 +1,3 @@
-'use strict';
 import { commands, Disposable, workspace } from 'vscode';
 import { Commands } from '../commands';
 import { configuration } from '../configuration';

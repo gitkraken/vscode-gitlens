@@ -1,4 +1,3 @@
-'use strict';
 import { GitRevision, GitRevisionReference } from './models';
 
 export type SearchOperators =

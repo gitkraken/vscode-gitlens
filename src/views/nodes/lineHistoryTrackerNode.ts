@@ -1,4 +1,3 @@
-'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys, setContext } from '../../constants';

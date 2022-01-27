@@ -1,4 +1,3 @@
-'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';

@@ -1,4 +1,3 @@
-'use strict';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';

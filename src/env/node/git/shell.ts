@@ -1,4 +1,3 @@
-'use strict';
 import { ExecException, execFile } from 'child_process';
 import { exists, existsSync, Stats, statSync } from 'fs';
 import { join as joinPaths } from 'path';

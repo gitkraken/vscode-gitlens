@@ -1,4 +1,3 @@
-'use strict';
 import { commands, window } from 'vscode';
 import { viewsConfigKeys } from '../configuration';
 import type { Container } from '../container';

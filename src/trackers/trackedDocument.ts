@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
 import { ContextKeys, getEditorIfActive, isActiveDocument, setContext } from '../constants';
 import { Container } from '../container';

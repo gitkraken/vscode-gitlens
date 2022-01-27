@@ -1,4 +1,3 @@
-'use strict';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';

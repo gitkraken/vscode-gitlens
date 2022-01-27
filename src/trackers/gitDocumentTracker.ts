@@ -1,4 +1,3 @@
-'use strict';
 import { GitBlame, GitDiff, GitLog } from '../git/models';
 import { DocumentTracker } from './documentTracker';
 

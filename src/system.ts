@@ -1,5 +1,3 @@
-'use strict';
-
 declare global {
 	export type PartialDeep<T> = T extends Record<string, unknown> ? { [K in keyof T]?: PartialDeep<T[K]> } : T;
 	export type PickPartialDeep<T, K extends keyof T> = Omit<Partial<T>, K> & { [P in K]?: Partial<T[P]> };

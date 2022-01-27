@@ -1,4 +1,3 @@
-'use strict';
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { BuiltInCommands, GlyphChars } from '../../constants';

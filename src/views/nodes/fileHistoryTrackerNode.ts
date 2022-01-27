@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys, setContext } from '../../constants';

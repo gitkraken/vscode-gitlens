@@ -1,5 +1,3 @@
-'use strict';
-
 export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {

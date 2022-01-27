@@ -1,4 +1,3 @@
-'use strict';
 import { env } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';

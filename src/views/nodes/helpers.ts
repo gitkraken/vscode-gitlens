@@ -1,4 +1,3 @@
-'use strict';
 import { GitLogCommit } from '../../git/models';
 import { MessageNode } from './common';
 import { ContextValues, ViewNode } from './viewNode';

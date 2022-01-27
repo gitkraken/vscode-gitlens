@@ -1,4 +1,3 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';

@@ -1,4 +1,3 @@
-'use strict';
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
 import { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';

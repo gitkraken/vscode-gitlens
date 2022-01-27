@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-'use strict';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';

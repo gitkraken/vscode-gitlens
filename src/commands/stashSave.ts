@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';

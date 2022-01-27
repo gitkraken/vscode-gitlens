@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { isTextEditor } from '../constants';
 import { Logger } from '../logger';

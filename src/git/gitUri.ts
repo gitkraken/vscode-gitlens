@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
 import { UriComparer } from '../comparers';

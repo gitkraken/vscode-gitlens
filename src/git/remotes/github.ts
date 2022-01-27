@@ -1,4 +1,3 @@
-'use strict';
 import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';

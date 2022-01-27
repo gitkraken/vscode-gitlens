@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';

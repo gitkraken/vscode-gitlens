@@ -1,4 +1,3 @@
-'use strict';
 import { debug } from '../../system';
 import { GitBranch } from '../models/branch';
 

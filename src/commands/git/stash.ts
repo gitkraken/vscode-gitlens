@@ -1,4 +1,3 @@
-'use strict';
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';

@@ -1,4 +1,3 @@
-'use strict';
 export * from './models/author';
 export * from './models/blame';
 export * from './models/blameCommit';

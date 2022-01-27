@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationTokenSource, commands, Extension, ExtensionContext, extensions, Uri } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
 import { Commands, executeCommand, InviteToLiveShareCommandArgs } from './commands';

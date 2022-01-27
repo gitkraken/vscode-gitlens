@@ -1,4 +1,3 @@
-'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { executeGitCommand } from '../commands';
 import type { Container } from '../container';

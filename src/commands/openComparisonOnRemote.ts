@@ -1,4 +1,3 @@
-'use strict';
 import { window } from 'vscode';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/remotes/provider';

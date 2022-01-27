@@ -1,4 +1,3 @@
-'use strict';
 import { QuickInputButtons } from 'vscode';
 import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/models';

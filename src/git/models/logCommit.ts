@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 import { Container } from '../../container';
 import { memoize, Strings } from '../../system';

@@ -1,4 +1,3 @@
-'use strict';
 import type { Container } from '../container';
 import { GitRemote } from '../git/models';
 import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';

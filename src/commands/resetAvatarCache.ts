@@ -1,4 +1,3 @@
-'use strict';
 import { resetAvatarCache } from '../avatars';
 import type { Container } from '../container';
 import { command, Command, Commands } from './common';

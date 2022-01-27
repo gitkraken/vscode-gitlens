@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';

@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationToken, MarkdownString } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';

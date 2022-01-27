@@ -1,4 +1,3 @@
-'use strict';
 import { debug } from '../../system';
 import { GitRemote } from '../models';
 import { GitRemoteType } from '../models/remote';

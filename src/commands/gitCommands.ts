@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { configuration, GitCommandSorting } from '../configuration';
 import { Usage, WorkspaceState } from '../constants';

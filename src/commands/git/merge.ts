@@ -1,4 +1,3 @@
-'use strict';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
 import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';

@@ -1,4 +1,3 @@
-'use strict';
 import { encodingExists } from 'iconv-lite';
 import {
 	ConfigurationChangeEvent,

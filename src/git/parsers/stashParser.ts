@@ -1,4 +1,3 @@
-'use strict';
 import { Arrays, debug, Strings } from '../../system';
 import { normalizePath } from '../../system/path';
 import { GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../models';

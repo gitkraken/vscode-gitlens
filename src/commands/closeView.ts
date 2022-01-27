@@ -1,4 +1,3 @@
-'use strict';
 import { ContextKeys, setContext, SyncedState } from '../constants';
 import type { Container } from '../container';
 import { command, Command, CommandContext, Commands } from './common';

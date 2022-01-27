@@ -1,4 +1,3 @@
-'use strict';
 import { join as joinPaths } from 'path';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';

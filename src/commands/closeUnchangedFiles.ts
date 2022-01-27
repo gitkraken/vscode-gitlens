@@ -1,4 +1,3 @@
-'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { TextEditorComparer, UriComparer } from '../comparers';
 import { BuiltInCommands } from '../constants';

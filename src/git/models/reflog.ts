@@ -1,4 +1,3 @@
-'use strict';
 import { DateStyle } from '../../config';
 import { Dates, memoize } from '../../system';
 import { CommitDateFormatting, GitRevision } from '../models';

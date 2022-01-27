@@ -1,4 +1,3 @@
-'use strict';
 import { Range, Uri } from 'vscode';
 import { RemotesUrlsConfig } from '../../configuration';
 import { Strings } from '../../system';

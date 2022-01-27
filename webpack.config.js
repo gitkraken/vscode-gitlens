@@ -5,7 +5,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
-'use strict';
 const { spawnSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');

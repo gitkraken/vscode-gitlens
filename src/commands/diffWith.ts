@@ -1,4 +1,3 @@
-'use strict';
 import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';

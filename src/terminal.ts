@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, Terminal, window } from 'vscode';
 import { Container } from './container';
 

@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';

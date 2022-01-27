@@ -1,4 +1,3 @@
-'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/models';

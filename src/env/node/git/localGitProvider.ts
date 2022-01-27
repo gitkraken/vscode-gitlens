@@ -1,4 +1,3 @@
-'use strict';
 import { readdir, realpath } from 'fs';
 import { hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';

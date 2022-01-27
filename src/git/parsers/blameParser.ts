@@ -1,4 +1,3 @@
-'use strict';
 import { debug, Strings } from '../../system';
 import { normalizePath, relative } from '../../system/path';
 import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision, GitUser } from '../models';

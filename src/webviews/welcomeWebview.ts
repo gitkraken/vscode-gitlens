@@ -1,4 +1,3 @@
-'use strict';
 import { Commands } from '../commands';
 import { Container } from '../container';
 import { WelcomeState } from './protocol';

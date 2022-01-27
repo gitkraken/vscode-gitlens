@@ -1,4 +1,3 @@
-'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';

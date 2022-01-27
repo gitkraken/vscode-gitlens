@@ -1,4 +1,3 @@
-'use strict';
 import { commands } from 'vscode';
 import type { Container } from '../container';
 import { command, Command, Commands } from './common';

@@ -1,4 +1,3 @@
-'use strict';
 import { commands, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider, window } from 'vscode';
 import {
 	Commands,

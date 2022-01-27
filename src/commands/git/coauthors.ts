@@ -1,4 +1,3 @@
-'use strict';
 import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/models';

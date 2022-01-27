@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 import type { HoverCommandsActionContext, OpenPullRequestActionContext } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';

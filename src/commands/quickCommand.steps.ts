@@ -1,4 +1,3 @@
-'use strict';
 import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';

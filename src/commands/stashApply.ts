@@ -1,4 +1,3 @@
-'use strict';
 import { GitActions } from '../commands';
 import type { Container } from '../container';
 import { GitStashCommit, GitStashReference } from '../git/models';

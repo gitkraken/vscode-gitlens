@@ -1,4 +1,3 @@
-'use strict';
 import { Container } from '../../container';
 import { gate, memoize } from '../../system';
 import { GitReference } from '../models';

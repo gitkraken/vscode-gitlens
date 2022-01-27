@@ -1,4 +1,3 @@
-'use strict';
 import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';

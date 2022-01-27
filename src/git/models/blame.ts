@@ -1,4 +1,3 @@
-'use strict';
 import { GitBlameCommit } from './blameCommit';
 import { GitAuthor, GitCommitLine } from './commit';
 

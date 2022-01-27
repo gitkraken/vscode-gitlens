@@ -1,5 +1,3 @@
-'use strict';
-
 export interface Disposable {
 	dispose(): void;
 }

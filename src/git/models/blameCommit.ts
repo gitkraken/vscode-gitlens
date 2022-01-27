@@ -1,4 +1,3 @@
-'use strict';
 import { GitCommit, GitCommitLine, GitCommitType } from './commit';
 
 export class GitBlameCommit extends GitCommit {

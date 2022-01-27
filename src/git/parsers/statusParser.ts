@@ -1,4 +1,3 @@
-'use strict';
 import { debug } from '../../system';
 import { normalizePath } from '../../system/path';
 import { GitStatus, GitStatusFile } from '../models';

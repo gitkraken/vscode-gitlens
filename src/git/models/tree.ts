@@ -1,5 +1,3 @@
-'use strict';
-
 export interface GitTreeEntry {
 	commitSha: string;
 	path: string;

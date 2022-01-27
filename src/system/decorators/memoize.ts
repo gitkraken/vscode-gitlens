@@ -1,4 +1,3 @@
-'use strict';
 import { resolveProp } from './resolver';
 
 export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {

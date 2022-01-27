@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 
 export const enum AuthenticationErrorReason {

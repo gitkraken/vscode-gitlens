@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';

@@ -9,18 +9,25 @@ import {
 	AuthenticationErrorReason,
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
-} from '../errors';
+} from '../../errors';
+import { PagedResult } from '../../git/gitProvider';
 import {
 	type DefaultBranch,
+	GitFileIndexStatus,
+	type GitUser,
 	type IssueOrPullRequest,
 	type IssueOrPullRequestType,
 	PullRequest,
 	PullRequestState,
-} from '../git/models';
-import type { Account } from '../git/models/author';
-import type { RichRemoteProvider } from '../git/remotes/provider';
-import { LogCorrelationContext, Logger, LogLevel } from '../logger';
-import { debug, Stopwatch } from '../system';
+} from '../../git/models';
+import type { Account } from '../../git/models/author';
+import type { RichRemoteProvider } from '../../git/remotes/provider';
+import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
+import { debug } from '../../system/decorators/log';
+import { Stopwatch } from '../../system/stopwatch';
+
+const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
+const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
 export class GitHubApi {
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -473,6 +480,590 @@ export class GitHubApi {
 		}
 	}
 
+	@debug<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
+	async getBlame(token: string, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			viewer: { name: string };
+			repository:
+				| {
+						object: {
+							blame: {
+								ranges: GitHubBlameRange[];
+							};
+						};
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getBlameRanges(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+	$path: String!
+) {
+	viewer { name }
+	repository(owner: $owner, name: $repo) {
+		object(expression: $ref) {
+			...on Commit {
+				blame(path: $path) {
+					ranges {
+						startingLine
+						endingLine
+						age
+						commit {
+							oid
+							parents(first: 3) { nodes { oid } }
+							message
+							author {
+								avatarUrl
+								date
+								email
+								name
+							}
+							committer { date }
+						}
+					}
+				}
+			}
+		}
+	}
+}`;
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+				path: path,
+			});
+			if (rsp == null) return emptyBlameResult;
+
+			const ranges = rsp.repository?.object?.blame?.ranges;
+			if (ranges == null || ranges.length === 0) return { ranges: [], viewer: rsp.viewer?.name };
+
+			return { ranges: ranges, viewer: rsp.viewer?.name };
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, emptyBlameResult);
+		}
+	}
+
+	@debug<GitHubApi['getBranches']>({ args: { 0: '<token>' } })
+	async getBranches(
+		token: string,
+		owner: string,
+		repo: string,
+		options?: { query?: string; cursor?: string; limit?: number },
+	): Promise<PagedResult<GitHubBranch>> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository:
+				| {
+						refs: {
+							pageInfo: {
+								endCursor: string;
+								hasNextPage: boolean;
+							};
+							nodes: GitHubBranch[];
+						};
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getBranches(
+	$owner: String!
+	$repo: String!
+	$branchQuery: String
+	$cursor: String
+	$limit: Int = 100
+) {
+	repository(owner: $owner, name: $repo) {
+		refs(query: $branchQuery, refPrefix: "refs/heads/", first: $limit, after: $cursor, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+			pageInfo {
+				endCursor
+				hasNextPage
+			}
+			nodes {
+				name
+				target {
+					oid
+					commitUrl
+					...on Commit {
+						authoredDate
+						committedDate
+					}
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				branchQuery: options?.query,
+				cursor: options?.cursor,
+				limit: Math.min(100, options?.limit ?? 100),
+			});
+			if (rsp == null) return emptyPagedResult;
+
+			const refs = rsp.repository?.refs;
+			if (refs == null) return emptyPagedResult;
+
+			return {
+				paging: {
+					cursor: refs.pageInfo.endCursor,
+					more: refs.pageInfo.hasNextPage,
+				},
+				values: refs.nodes,
+			};
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, emptyPagedResult);
+		}
+	}
+
+	@debug<GitHubApi['getCommit']>({ args: { 0: '<token>' } })
+	async getCommit(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const rsp = await this.request(token, 'GET /repos/{owner}/{repo}/commits/{ref}', {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+			});
+
+			const result = rsp?.data;
+			if (result == null) return undefined;
+
+			return {
+				oid: result.sha,
+				parents: { nodes: result.parents.map(p => ({ oid: p.sha })) },
+				message: result.commit.message,
+				additions: result.stats?.additions,
+				changedFiles: result.files?.length,
+				deletions: result.stats?.deletions,
+				author: {
+					date: result.commit.author?.date ?? result.commit.committer?.date ?? new Date().toString(),
+					email: result.commit.author?.email ?? undefined,
+					name: result.commit.author?.name ?? '',
+				},
+				committer: {
+					date: result.commit.committer?.date ?? result.commit.author?.date ?? new Date().toString(),
+				},
+				files: result.files,
+			};
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, undefined);
+		}
+
+		// const results = await this.getCommits(token, owner, repo, ref, { limit: 1 });
+		// if (results.values.length === 0) return undefined;
+
+		// return { ...results.values[0], viewer: results.viewer };
+	}
+
+	@debug<GitHubApi['getCommitForFile']>({ args: { 0: '<token>' } })
+	async getCommitForFile(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		path: string,
+	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
+		const results = await this.getCommits(token, owner, repo, ref, { limit: 1, path: path });
+		if (results.values.length === 0) return undefined;
+
+		const commit = await this.getCommit(token, owner, repo, results.values[0].oid);
+		return { ...(commit ?? results.values[0]), viewer: results.viewer };
+	}
+
+	@debug<GitHubApi['getCommits']>({ args: { 0: '<token>' } })
+	async getCommits(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		options?: { cursor?: string; path?: string; limit?: number },
+	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
+		const cc = Logger.getCorrelationContext();
+
+		if (options?.limit === 1 && options?.path == null) {
+			interface QueryResult {
+				viewer: { name: string };
+				repository: { object: GitHubCommit } | null | undefined;
+			}
+
+			try {
+				const query = `query getCommit(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+) {
+	viewer { name }
+	repository(name: $repo owner: $owner) {
+		object(expression: $ref) {
+			...on Commit {
+				oid
+				parents(first: 3) { nodes { oid } }
+				message
+				additions
+				changedFiles
+				deletions
+				author {
+					date
+					email
+					name
+				}
+				committer { date }
+			}
+		}
+	}
+}`;
+
+				const rsp = await this.graphql<QueryResult>(token, query, {
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				});
+				if (rsp == null) return emptyPagedResult;
+
+				const commit = rsp.repository?.object;
+				return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
+			} catch (ex) {
+				return this.handleRequestError(ex, cc, emptyPagedResult);
+			}
+		}
+
+		interface QueryResult {
+			viewer: { name: string };
+			repository:
+				| {
+						object:
+							| {
+									history: {
+										pageInfo: {
+											endCursor: string;
+											hasNextPage: boolean;
+										};
+										nodes: GitHubCommit[];
+									};
+							  }
+							| null
+							| undefined;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getCommits(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+	$path: String
+	$cursor: String
+	$limit: Int = 100
+) {
+	viewer { name }
+	repository(name: $repo, owner: $owner) {
+		object(expression: $ref) {
+			... on Commit {
+				history(first: $limit, path: $path, after: $cursor) {
+					pageInfo {
+						endCursor
+						hasNextPage
+					}
+					nodes { ... on Commit { ...commit } }
+				}
+			}
+		}
+	}
+}
+
+fragment commit on Commit {
+	oid
+	message
+	parents(first: 100) { nodes { oid } }
+	author {
+		date
+		email
+		name
+	}
+	committer { date }
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+				cursor: options?.cursor,
+				path: options?.path,
+				limit: Math.min(100, options?.limit ?? 100),
+			});
+			const history = rsp?.repository?.object?.history;
+			if (history == null) return emptyPagedResult;
+
+			return {
+				paging: {
+					cursor: history.pageInfo.endCursor,
+					more: history.pageInfo.hasNextPage,
+				},
+				values: history.nodes,
+				viewer: rsp?.viewer.name,
+			};
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, emptyPagedResult);
+		}
+	}
+
+	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
+	async getDefaultBranchName(token: string, owner: string, repo: string): Promise<string | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository: {
+				defaultBranchRef:
+					| {
+							name: string;
+							target: { oid: string };
+					  }
+					| null
+					| undefined;
+			};
+		}
+
+		try {
+			const query = `query getDefaultBranchAndTip(
+	$owner: String!
+	$repo: String!
+) {
+	repository(owner: $owner, name: $repo) {
+		defaultBranchRef {
+			name
+			target { oid }
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+			});
+			if (rsp == null) return undefined;
+
+			return rsp.repository?.defaultBranchRef?.name ?? undefined;
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
+	@debug<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
+	async getCurrentUser(token: string, owner: string, repo: string): Promise<GitUser | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			viewer: { name: string };
+			repository:
+				| {
+						viewerPermission: string;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getCurrentUser(
+	$owner: String!
+	$repo: String!
+) {
+	viewer { name }
+	repository(owner: $owner, name: $repo) {
+		viewerPermission
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+			});
+			if (rsp == null) return undefined;
+
+			return { name: rsp.viewer?.name, email: undefined };
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
+	@debug<GitHubApi['getTags']>({ args: { 0: '<token>' } })
+	async getTags(
+		token: string,
+		owner: string,
+		repo: string,
+		options?: { query?: string; cursor?: string; limit?: number },
+	): Promise<PagedResult<GitHubTag>> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository:
+				| {
+						refs: {
+							pageInfo: {
+								endCursor: string;
+								hasNextPage: boolean;
+							};
+							nodes: GitHubTag[];
+						};
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getTags(
+	$owner: String!
+	$repo: String!
+	$tagQuery: String
+	$cursor: String
+	$limit: Int = 100
+) {
+	repository(owner: $owner, name: $repo) {
+		refs(query: $tagQuery, refPrefix: "refs/tags/", first: $limit, after: $cursor, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+			pageInfo {
+				endCursor
+				hasNextPage
+			}
+			nodes {
+				name
+				target {
+					oid
+					commitUrl
+					...on Commit {
+						authoredDate
+						committedDate
+						message
+					}
+					...on Tag {
+						message
+						tagger { date }
+					}
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				tagQuery: options?.query,
+				cursor: options?.cursor,
+				limit: Math.min(100, options?.limit ?? 100),
+			});
+			if (rsp == null) return emptyPagedResult;
+
+			const refs = rsp.repository?.refs;
+			if (refs == null) return emptyPagedResult;
+
+			return {
+				paging: {
+					cursor: refs.pageInfo.endCursor,
+					more: refs.pageInfo.hasNextPage,
+				},
+				values: refs.nodes,
+			};
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, emptyPagedResult);
+		}
+	}
+
+	@debug<GitHubApi['resolveReference']>({ args: { 0: '<token>' } })
+	async resolveReference(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		path?: string,
+	): Promise<string | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			if (!path) {
+				interface QueryResult {
+					repository: { object: { oid: string } } | null | undefined;
+				}
+
+				const query = `query resolveReference(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+) {
+	repository(owner: $owner, name: $repo) {
+		object(expression: $ref) {
+			oid
+		}
+	}
+}`;
+
+				const rsp = await this.graphql<QueryResult>(token, query, {
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				});
+				return rsp?.repository?.object?.oid ?? undefined;
+			}
+
+			interface QueryResult {
+				repository:
+					| {
+							object: {
+								history: {
+									nodes: { oid: string }[];
+								};
+							};
+					  }
+					| null
+					| undefined;
+			}
+
+			const query = `query resolveReference(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+	$path: String!
+) {
+	repository(owner: $owner, name: $repo) {
+		object(expression: $ref) {
+			... on Commit {
+				history(first: 1, path: $path) {
+					nodes { oid }
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+				path: path,
+			});
+			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
 	private _octokits = new Map<string, Octokit>();
 	private octokit(token: string, options?: ConstructorParameters<typeof Octokit>[0]): Octokit {
 		let octokit = this._octokits.get(token);
@@ -552,6 +1143,7 @@ export class GitHubApi {
 				switch (ex.status) {
 					case 404: // Not found
 					case 410: // Gone
+					case 422: // Unprocessable Entity
 						throw new ProviderRequestNotFoundError(ex);
 					// case 429: //Too Many Requests
 					case 401: // Unauthorized
@@ -580,6 +1172,58 @@ export class GitHubApi {
 		debugger;
 		throw ex;
 	}
+}
+
+export interface GitHubBlame {
+	ranges: GitHubBlameRange[];
+	viewer?: string;
+}
+
+export interface GitHubBlameRange {
+	startingLine: number;
+	endingLine: number;
+	age: number;
+	commit: {
+		oid: string;
+		parents: { nodes: { oid: string }[] };
+		message: string;
+		author: {
+			avatarUrl: string;
+			date: string;
+			email: string;
+			name: string;
+		};
+		committer: {
+			date: string;
+		};
+	};
+}
+
+export interface GitHubBranch {
+	name: string;
+	target: {
+		oid: string;
+		commitUrl: string;
+		authoredDate: string;
+		committedDate: string;
+	};
+}
+
+export interface GitHubCommit {
+	oid: string;
+	parents: { nodes: { oid: string }[] };
+	message: string;
+	additions: number | undefined;
+	changedFiles: number | undefined;
+	deletions: number | undefined;
+	author: {
+		date: string;
+		email: string | undefined;
+		name: string;
+	};
+	committer: { date: string };
+
+	files?: Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
 }
 
 interface GitHubIssueOrPullRequest {
@@ -645,4 +1289,37 @@ export namespace GitHubPullRequest {
 	export function toState(state: PullRequestState): GitHubPullRequestState {
 		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
 	}
+}
+
+export interface GitHubTag {
+	name: string;
+	target: {
+		oid: string;
+		commitUrl: string;
+		authoredDate: string;
+		committedDate: string;
+		message?: string | null;
+		tagger?: {
+			date: string;
+		} | null;
+	};
+}
+
+export function fromCommitFileStatus(
+	status: NonNullable<Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files']>[0]['status'],
+): GitFileIndexStatus | undefined {
+	switch (status) {
+		case 'added':
+			return GitFileIndexStatus.Added;
+		case 'changed':
+		case 'modified':
+			return GitFileIndexStatus.Modified;
+		case 'removed':
+			return GitFileIndexStatus.Deleted;
+		case 'renamed':
+			return GitFileIndexStatus.Renamed;
+		case 'copied':
+			return GitFileIndexStatus.Copied;
+	}
+	return undefined;
 }

@@ -1,4 +1,3 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters';

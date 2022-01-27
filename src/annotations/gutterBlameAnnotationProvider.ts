@@ -1,4 +1,3 @@
-'use strict';
 import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';

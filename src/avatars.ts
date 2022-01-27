@@ -1,4 +1,3 @@
-'use strict';
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';

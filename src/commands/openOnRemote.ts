@@ -1,4 +1,3 @@
-'use strict';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitRemote, GitRevision } from '../git/models';

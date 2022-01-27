@@ -1,4 +1,3 @@
-'use strict';
 import { DateTimeFormat } from './system/date';
 
 export const enum OutputLevel {

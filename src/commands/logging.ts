@@ -1,4 +1,3 @@
-'use strict';
 import { configuration, OutputLevel } from '../configuration';
 import type { Container } from '../container';
 import { command, Command, Commands } from './common';

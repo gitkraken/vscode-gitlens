@@ -1,4 +1,3 @@
-'use strict';
 import { ThemeIcon, TreeItem } from 'vscode';
 import { executeGitCommand } from '../../commands';
 import { GitUri } from '../../git/gitUri';

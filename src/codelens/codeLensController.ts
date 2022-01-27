@@ -1,4 +1,3 @@
-'use strict';
 import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys, setContext } from '../constants';

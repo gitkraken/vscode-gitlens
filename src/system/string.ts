@@ -1,4 +1,3 @@
-'use strict';
 import ansiRegex from 'ansi-regex';
 import { md5 as _md5 } from '@env/crypto';
 import { hrtime } from '@env/hrtime';

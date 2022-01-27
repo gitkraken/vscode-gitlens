@@ -1,4 +1,3 @@
-'use strict';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../constants';
 import { LogCorrelationContext, Logger, LogLevel } from '../logger';

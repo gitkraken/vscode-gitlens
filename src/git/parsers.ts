@@ -1,5 +1,3 @@
-'use strict';
-
 export * from './parsers/blameParser';
 export * from './parsers/branchParser';
 export * from './parsers/diffParser';

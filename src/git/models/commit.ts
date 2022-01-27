@@ -1,4 +1,3 @@
-'use strict';
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';

@@ -1,4 +1,3 @@
-'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
 import { ViewShowBranchComparison } from './config';
 import { SearchPattern } from './git/search';

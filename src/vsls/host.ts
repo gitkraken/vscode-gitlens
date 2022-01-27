@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationToken, Disposable, Uri, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
 import { git } from '@env/git';
 import type { LiveShare, SharedService } from '../@types/vsls';

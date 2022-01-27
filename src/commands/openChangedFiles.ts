@@ -1,4 +1,3 @@
-'use strict';
 import { Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { Logger } from '../logger';

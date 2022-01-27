@@ -1,4 +1,3 @@
-'use strict';
 import { GitCommandOptions } from '../git/commandOptions';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars

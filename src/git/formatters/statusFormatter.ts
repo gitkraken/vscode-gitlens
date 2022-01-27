@@ -1,4 +1,3 @@
-'use strict';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
 import { basename } from '../../system/path';

@@ -1,4 +1,3 @@
-'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import type { Container } from '../container';
 import { Keys } from '../keyboard';

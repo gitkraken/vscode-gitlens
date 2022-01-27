@@ -1,4 +1,3 @@
-'use strict';
 /*global window document IntersectionObserver*/
 import '../scss/settings.scss';
 import { IpcMessage, onIpcNotification, SettingsDidRequestJumpToNotificationType, SettingsState } from '../../protocol';

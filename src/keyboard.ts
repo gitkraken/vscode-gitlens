@@ -1,4 +1,3 @@
-'use strict';
 import { commands, Disposable } from 'vscode';
 import { ContextKeys, setContext } from './constants';
 import { Logger } from './logger';

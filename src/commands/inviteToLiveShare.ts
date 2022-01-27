@@ -1,4 +1,3 @@
-'use strict';
 import type { Container } from '../container';
 import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasContributor } from './common';
 

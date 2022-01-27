@@ -1,5 +1,3 @@
-'use strict';
-
 import { configuration } from './configuration';
 
 export function getQuickPickIgnoreFocusOut() {

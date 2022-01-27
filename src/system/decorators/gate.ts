@@ -1,4 +1,3 @@
-'use strict';
 import { isPromise } from '../promise';
 import { resolveProp } from './resolver';
 

@@ -1,4 +1,3 @@
-'use strict';
 import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
 import { Commands } from '../commands/common';
 import { Config, configuration } from '../configuration';

@@ -1,4 +1,3 @@
-'use strict';
 import { commands, QuickPickItem } from 'vscode';
 import { Commands, GitActions } from '../commands';
 import { Container } from '../container';

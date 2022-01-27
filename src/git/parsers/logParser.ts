@@ -1,4 +1,3 @@
-'use strict';
 import { Range } from 'vscode';
 import { Arrays, debug, Strings } from '../../system';
 import { normalizePath, relative } from '../../system/path';

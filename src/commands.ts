@@ -1,4 +1,3 @@
-'use strict';
 import { Command } from 'vscode';
 
 export function command<T extends unknown[]>(command: Omit<Command, 'arguments'> & { arguments: [...T] }): Command {

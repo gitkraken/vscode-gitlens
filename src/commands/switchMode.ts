@@ -1,4 +1,3 @@
-'use strict';
 import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
 import type { Container } from '../container';

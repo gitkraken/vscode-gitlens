@@ -1,4 +1,3 @@
-'use strict';
 import { executeGitCommand } from '../commands';
 import type { Container } from '../container';
 import { command, Command, Commands } from './common';

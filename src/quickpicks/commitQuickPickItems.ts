@@ -1,4 +1,3 @@
-'use strict';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';

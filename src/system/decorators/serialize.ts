@@ -1,4 +1,3 @@
-'use strict';
 import { resolveProp } from './resolver';
 
 export function serialize<T extends (...arg: any) => any>(

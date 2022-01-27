@@ -1,4 +1,3 @@
-'use strict';
 import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import {

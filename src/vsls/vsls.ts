@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { ContextKeys, DocumentSchemes, setContext } from '../constants';

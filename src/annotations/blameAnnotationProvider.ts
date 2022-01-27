@@ -1,4 +1,3 @@
-'use strict';
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';

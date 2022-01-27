@@ -1,4 +1,3 @@
-'use strict';
 import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import { Container } from '../../container';

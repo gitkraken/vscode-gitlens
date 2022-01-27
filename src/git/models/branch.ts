@@ -1,4 +1,3 @@
-'use strict';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';

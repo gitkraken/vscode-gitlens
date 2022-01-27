@@ -1,4 +1,3 @@
-'use strict';
 import { commands } from 'vscode';
 import { ContextKeys, setContext, SyncedState } from '../constants';
 import type { Container } from '../container';

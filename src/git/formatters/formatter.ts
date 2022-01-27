@@ -1,4 +1,3 @@
-'use strict';
 import { Strings } from '../../system';
 
 const emptyStr = '';
