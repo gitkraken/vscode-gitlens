@@ -41,8 +41,7 @@ export class GerritRemote extends RemoteProvider {
 	}
 
 	private get reviewDomain(): string {
-		const [subdomain, secondLevelDomain, topLevelDomain] = this.domain.split('.');
-		return [`${subdomain}-review`, secondLevelDomain, topLevelDomain].join('.');
+		return this.domain;
 	}
 
 	private get baseReviewUrl(): string {
