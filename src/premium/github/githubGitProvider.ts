@@ -30,7 +30,6 @@ import {
 	RepositoryOpenEvent,
 	ScmRepository,
 } from '../../git/gitProvider';
-import { isUriRegex } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import {
 	BranchSortOptions,
@@ -74,7 +73,7 @@ import { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
 import { LogCorrelationContext, Logger } from '../../logger';
 import { debug, gate, Iterables, log } from '../../system';
-import { isAbsolute, isFolderGlob, normalizePath, relative } from '../../system/path';
+import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { CharCode } from '../../system/string';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../../trackers/trackedDocument';
@@ -135,7 +134,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
-		if (uri.scheme !== DocumentSchemes.Virtual) return [];
+		if (!this.supportedSchemes.includes(uri.scheme)) return [];
 
 		try {
 			void (await this.ensureRepositoryContext(uri.toString()));
@@ -172,17 +171,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	canHandlePathOrUri(pathOrUri: string | Uri): string | undefined {
-		let scheme;
-		if (typeof pathOrUri === 'string') {
-			const match = isUriRegex.exec(pathOrUri);
-			if (match == null) return undefined;
-
-			[, scheme] = match;
-		} else {
-			({ scheme } = pathOrUri);
-		}
-
+	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined {
 		if (!this.supportedSchemes.includes(scheme)) return undefined;
 		return typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString();
 	}
@@ -191,7 +180,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// Convert the base to a Uri if it isn't one
 		if (typeof base === 'string') {
 			// If it looks like a Uri parse it, otherwise throw
-			if (isUriRegex.test(base)) {
+			if (maybeUri(base)) {
 				base = Uri.parse(base, true);
 			} else {
 				debugger;
@@ -199,7 +188,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		if (typeof pathOrUri === 'string' && !isUriRegex.test(pathOrUri) && !isAbsolute(pathOrUri)) {
+		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri) && !isAbsolute(pathOrUri)) {
 			return Uri.joinPath(base, pathOrUri);
 		}
 
@@ -216,7 +205,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// Convert the base to a Uri if it isn't one
 		if (typeof base === 'string') {
 			// If it looks like a Uri parse it, otherwise throw
-			if (isUriRegex.test(base)) {
+			if (maybeUri(base)) {
 				base = Uri.parse(base, true);
 			} else {
 				debugger;
@@ -228,7 +217,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		// Convert the path to a Uri if it isn't one
 		if (typeof pathOrUri === 'string') {
-			if (isUriRegex.test(pathOrUri)) {
+			if (maybeUri(pathOrUri)) {
 				pathOrUri = Uri.parse(pathOrUri, true);
 			} else {
 				pathOrUri = normalizePath(pathOrUri);

@@ -91,6 +91,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		{ scheme: DocumentSchemes.GitLens },
 		{ scheme: DocumentSchemes.PRs },
 		{ scheme: DocumentSchemes.Vsls },
+		{ scheme: DocumentSchemes.VslsScc },
 		{ scheme: DocumentSchemes.Virtual },
 		{ scheme: DocumentSchemes.GitHub },
 	];

@@ -2,7 +2,7 @@ import { Uri } from 'vscode';
 import { DocumentSchemes } from './constants';
 import { isLinux } from './env/node/platform';
 import { Repository } from './git/models/repository';
-import { normalizePath } from './system/path';
+import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
@@ -44,6 +44,19 @@ export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean 
 			const authority = uri.authority?.split('+', 1)[0];
 			return { path: authority ? `${authority}${path}` : path.slice(1), ignoreCase: false };
 		}
+		case DocumentSchemes.Vsls:
+		case DocumentSchemes.VslsScc:
+			// Check if this is a root live share folder, if so add the required prefix (required to match repos correctly)
+			path = addVslsPrefixIfNeeded(uri.path);
+
+			if (path.charCodeAt(path.length - 1) === slash) {
+				path = path.slice(1, -1);
+			} else {
+				path = path.slice(1);
+			}
+
+			return { path: path, ignoreCase: false };
+
 		default:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {

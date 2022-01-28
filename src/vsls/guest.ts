@@ -1,12 +1,11 @@
-import { CancellationToken, Disposable, Uri, window, WorkspaceFolder } from 'vscode';
+import { CancellationToken, Disposable, Uri, window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';
 import { GitCommandOptions } from '../git/commandOptions';
-import { Repository, RepositoryChangeEvent } from '../git/models';
 import { Logger } from '../logger';
 import { debug, log } from '../system';
 import { VslsHostService } from './host';
-import { GitCommandRequestType, RepositoriesInFolderRequestType, RepositoryProxy, RequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType, RepositoryProxy, RequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
@@ -64,28 +63,12 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async getRepositoriesInFolder(
-		folder: WorkspaceFolder,
-		onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void,
-	): Promise<Repository[]> {
-		const response = await this.sendRequest(RepositoriesInFolderRequestType, {
-			folderUri: folder.uri.toString(true),
+	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
+		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
+			folderUri: uri.toString(),
 		});
 
-		return response.repositories.map(
-			(r: RepositoryProxy) =>
-				new Repository(
-					this.container,
-					onAnyRepositoryChanged,
-					// TODO@eamodio add live share provider
-					undefined!,
-					folder,
-					Uri.parse(r.uri),
-					r.root,
-					!window.state.focused,
-					r.closed,
-				),
-		);
+		return response.repositories;
 	}
 
 	@debug()

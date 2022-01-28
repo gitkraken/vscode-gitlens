@@ -101,8 +101,56 @@ export function cancellable<T>(
 	});
 }
 
+export interface Deferred<T> {
+	promise: Promise<T>;
+	fulfill: (value: T) => void;
+	cancel(): void;
+}
+
+export function defer<T>(): Deferred<T> {
+	const deferred: Deferred<T> = { promise: undefined!, fulfill: undefined!, cancel: undefined! };
+	deferred.promise = new Promise((resolve, reject) => {
+		deferred.fulfill = resolve;
+		deferred.cancel = reject;
+	});
+	return deferred;
+}
+
 export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 	return obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function';
+}
+
+export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
+	return new Promise((resolve, reject) => {
+		let timer: ReturnType<typeof setInterval> | undefined;
+		timer = setInterval(() => {
+			if (onProgress()) {
+				if (timer != null) {
+					clearInterval(timer);
+					timer = undefined;
+				}
+			}
+		}, intervalMs);
+
+		promise.then(
+			() => {
+				if (timer != null) {
+					clearInterval(timer);
+					timer = undefined;
+				}
+
+				resolve(promise);
+			},
+			ex => {
+				if (timer != null) {
+					clearInterval(timer);
+					timer = undefined;
+				}
+
+				reject(ex);
+			},
+		);
+	});
 }
 
 export function raceAll<TPromise>(
@@ -166,6 +214,10 @@ export async function raceAll<TPromise, T>(
 					]),
 			  ),
 	);
+}
+
+export async function wait(ms: number): Promise<void> {
+	await new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export class AggregateError extends Error {

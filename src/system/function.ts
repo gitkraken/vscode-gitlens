@@ -13,19 +13,6 @@ interface PropOfValue {
 	value: string | undefined;
 }
 
-export function cachedOnce<T>(fn: (...args: any[]) => Promise<T>, seed: T): (...args: any[]) => Promise<T> {
-	let cached: T | undefined = seed;
-	return (...args: any[]) => {
-		if (cached !== undefined) {
-			const promise = Promise.resolve(cached);
-			cached = undefined;
-
-			return promise;
-		}
-		return fn(...args);
-	};
-}
-
 export interface DebounceOptions {
 	leading?: boolean;
 	maxWait?: number;
@@ -163,41 +150,4 @@ export function disposableInterval(fn: (...args: any[]) => void, ms: number): Di
 	timer = setInterval(fn, ms);
 
 	return disposable;
-}
-
-export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
-	return new Promise((resolve, reject) => {
-		let timer: ReturnType<typeof setInterval> | undefined;
-		timer = setInterval(() => {
-			if (onProgress()) {
-				if (timer != null) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-			}
-		}, intervalMs);
-
-		promise.then(
-			() => {
-				if (timer != null) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-
-				resolve(promise);
-			},
-			ex => {
-				if (timer != null) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-
-				reject(ex);
-			},
-		);
-	});
-}
-
-export async function wait(ms: number) {
-	await new Promise(resolve => setTimeout(resolve, ms));
 }

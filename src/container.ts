@@ -1,5 +1,5 @@
 import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
-import { getSupportedGitProviders } from '@env/git';
+import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';

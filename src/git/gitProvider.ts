@@ -37,6 +37,7 @@ import { SearchPattern } from './search';
 export const enum GitProviderId {
 	Git = 'git',
 	GitHub = 'github',
+	Vsls = 'vsls',
 }
 
 export interface GitProviderDescriptor {
@@ -93,8 +94,8 @@ export interface GitProvider extends Disposable {
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 
-	canHandlePathOrUri(pathOrUri: string | Uri): string | undefined;
-	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri;
+	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
+	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
 	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
 	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri;

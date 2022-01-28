@@ -16,7 +16,7 @@ import {
 	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
-import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
+import { ContextKeys, isActiveDocument, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
@@ -170,9 +170,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private async onTextDocumentChanged(e: TextDocumentChangeEvent) {
 		const { scheme } = e.document.uri;
-		if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.Vsls) {
-			return;
-		}
+		if (!this.container.git.supportedSchemes.has(scheme)) return;
 
 		const doc = await (this._documentMap.get(e.document) ?? this.addCore(e.document));
 		doc.reset('document');

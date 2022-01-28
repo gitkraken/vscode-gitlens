@@ -230,15 +230,6 @@ export class GitUri extends (Uri as any as UriEx) {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	static file(path: string, useVslsScheme?: boolean) {
-		const uri = Uri.file(path);
-		if (Container.instance.vsls.isMaybeGuest && useVslsScheme !== false) {
-			return uri.with({ scheme: DocumentSchemes.Vsls });
-		}
-
-		return uri;
-	}
-
 	static fromCommit(commit: GitCommit, previous: boolean = false) {
 		if (!previous) return new GitUri(commit.uri, commit);
 

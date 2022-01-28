@@ -97,6 +97,7 @@ export const enum DocumentSchemes {
 	Output = 'output',
 	PRs = 'pr',
 	Vsls = 'vsls',
+	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',
 }
 

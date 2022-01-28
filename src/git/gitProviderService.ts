@@ -32,11 +32,9 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map } from '../system/iterable';
-import { dirname, getBestPath, isAbsolute, normalizePath } from '../system/path';
+import { dirname, getBestPath, getScheme, isAbsolute, maybeUri } from '../system/path';
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
-import { CharCode } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
-import { vslsUriPrefixRegex } from '../vsls/vsls';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
 import { GitUri } from './gitUri';
 import {
@@ -80,8 +78,6 @@ import {
 import { RemoteProviders } from './remotes/factory';
 import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import { SearchPattern } from './search';
-
-export const isUriRegex = /^(\w[\w\d+.-]{1,}?):\/\//;
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
@@ -133,11 +129,13 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeRepository.event;
 	}
 
+	readonly supportedSchemes = new Set<string>();
+
 	private readonly _disposable: Disposable;
+	private readonly _pendingRepositories = new Map<RepoComparisionKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _richRemotesCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
-	private readonly _supportedSchemes = new Set<string>();
 	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
@@ -290,7 +288,7 @@ export class GitProviderService implements Disposable {
 
 		this._providers.set(id, provider);
 		for (const scheme of provider.supportedSchemes) {
-			this._supportedSchemes.add(scheme);
+			this.supportedSchemes.add(scheme);
 		}
 
 		const disposables = [];
@@ -569,9 +567,16 @@ export class GitProviderService implements Disposable {
 	// private _pathToProvider = new Map<string, GitProviderResult>();
 
 	private getProvider(repoPath: string | Uri): GitProviderResult {
-		if (repoPath == null || (typeof repoPath !== 'string' && !this._supportedSchemes.has(repoPath.scheme))) {
+		if (repoPath == null || (typeof repoPath !== 'string' && !this.supportedSchemes.has(repoPath.scheme))) {
 			debugger;
 			throw new ProviderNotFoundError(repoPath);
+		}
+
+		let scheme;
+		if (typeof repoPath === 'string') {
+			scheme = getScheme(repoPath) ?? DocumentSchemes.File;
+		} else {
+			({ scheme } = repoPath);
 		}
 
 		// const key = repoPath.toString();
@@ -579,7 +584,7 @@ export class GitProviderService implements Disposable {
 		// if (providerResult != null) return providerResult;
 
 		for (const provider of this._providers.values()) {
-			const path = provider.canHandlePathOrUri(repoPath);
+			const path = provider.canHandlePathOrUri(scheme, repoPath);
 			if (path == null) continue;
 
 			const providerResult: GitProviderResult = { provider: provider, path: path };
@@ -621,7 +626,7 @@ export class GitProviderService implements Disposable {
 	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri {
 		if (base == null) {
 			if (typeof pathOrUri === 'string') {
-				if (isUriRegex.test(pathOrUri)) return Uri.parse(pathOrUri, true);
+				if (maybeUri(pathOrUri)) return Uri.parse(pathOrUri, true);
 
 				// I think it is safe to assume this should be file://
 				return Uri.file(pathOrUri);
@@ -1611,8 +1616,6 @@ export class GitProviderService implements Disposable {
 		return (editor != null ? this.getRepository(editor.document.uri) : undefined) ?? this.highlander;
 	}
 
-	private _pendingRepositories = new Map<RepoComparisionKey, Promise<Repository | undefined>>();
-
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -1642,17 +1645,7 @@ export class GitProviderService implements Disposable {
 				if (repository != null) return repository;
 
 				// If this new repo is inside one of our known roots and we we don't already know about, add it
-				let root = this._repositories.getClosest(uri);
-				// If we can't find the repo and we are a guest, check if we are a "root" workspace
-				if (root == null && (uri.scheme === DocumentSchemes.Vsls || this.container.vsls.isMaybeGuest)) {
-					// TODO@eamodio verify this works for live share
-					let path = uri.fsPath;
-					if (!vslsUriPrefixRegex.test(path)) {
-						path = normalizePath(path);
-						const vslsPath = `/~0${path.charCodeAt(0) === CharCode.Slash ? path : `/${path}`}`;
-						root = this._repositories.getClosest(Uri.file(vslsPath).with({ scheme: DocumentSchemes.Vsls }));
-					}
-				}
+				const root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
 
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
 				repository = provider.openRepository(root?.folder, repoUri, false);
@@ -1830,7 +1823,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
-		if (!this._supportedSchemes.has(uri.scheme)) return false;
+		if (!this.supportedSchemes.has(uri.scheme)) return false;
 
 		const { provider } = this.getProvider(uri);
 		return provider.isTrackable(uri);
