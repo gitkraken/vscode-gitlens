@@ -19,6 +19,7 @@ import type { Container } from '../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	ExtensionNotFoundError,
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
@@ -306,7 +307,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const rootUri = remotehub.getProviderRootUri(uri).with({ scheme: DocumentSchemes.Virtual });
 			return rootUri;
 		} catch (ex) {
-			debugger;
+			if (!(ex instanceof ExtensionNotFoundError)) {
+				debugger;
+			}
 			Logger.error(ex, cc);
 
 			return undefined;
@@ -1893,7 +1896,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			try {
 				remotehub = await this.ensureRemoteHubApi();
 			} catch (ex) {
-				debugger;
+				if (!(ex instanceof ExtensionNotFoundError)) {
+					debugger;
+				}
 				throw new OpenVirtualRepositoryError(
 					repoPath,
 					OpenVirtualRepositoryErrorReason.RemoteHubApiNotFound,

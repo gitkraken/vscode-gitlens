@@ -1,4 +1,5 @@
 import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
@@ -37,7 +38,10 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	});
 
 	const sw = new Stopwatch(`GitLens${insiders ? ' (Insiders)' : ''} v${gitlensVersion}`, {
-		log: { message: ' activating...' },
+		log: {
+			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
+			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+		},
 	});
 
 	if (insiders) {
@@ -127,8 +131,8 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	container.ready();
 
 	sw.stop({
-		message: ` activated; app=${env.appName}(${codeVersion})${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}${
-			exitMessage != null ? `, ${exitMessage}` : ''
+		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
+			cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''
 		}`,
 	});
 

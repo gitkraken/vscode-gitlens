@@ -65,8 +65,6 @@ export class VslsController implements Disposable {
 			this._api = this.getLiveShareApi();
 			const api = await this._api;
 			if (api == null) {
-				debugger;
-
 				void setContext(ContextKeys.Vsls, false);
 				// Tear it down if we can't talk to live share
 				this._ready.fulfill();
@@ -128,10 +126,12 @@ export class VslsController implements Disposable {
 		try {
 			const extension = extensions.getExtension<LiveShareExtension>('ms-vsliveshare.vsliveshare');
 			if (extension != null) {
-				const liveshareExtension = extension.isActive ? extension.exports : await extension.activate();
-				return (await liveshareExtension.getApi('1.0.4753')) ?? undefined;
+				const vslsExtension = extension.isActive ? extension.exports : await extension.activate();
+				return (await vslsExtension.getApi('1.0.4753')) ?? undefined;
 			}
-		} catch {}
+		} catch {
+			debugger;
+		}
 
 		return undefined;
 	}

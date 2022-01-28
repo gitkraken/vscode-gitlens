@@ -19,7 +19,9 @@ export async function getRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | 
 		return api;
 	} catch (ex) {
 		Logger.error(ex, 'Unable to get required api from the GitHub Repositories extension');
-		debugger;
+		if (!(ex instanceof ExtensionNotFoundError)) {
+			debugger;
+		}
 
 		if (silent) return undefined;
 		throw ex;
