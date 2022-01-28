@@ -73,7 +73,9 @@ import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factor
 import { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
 import { LogCorrelationContext, Logger } from '../../logger';
-import { debug, gate, Iterables, log } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { CharCode } from '../../system/string';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
@@ -336,7 +338,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (doc.state != null) {
-			const cachedBlame = doc.state.get<CachedBlame>(key);
+			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
 				Logger.debug(cc, `Cache hit: '${key}'`);
 				return cachedBlame.item;
@@ -357,7 +359,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
 			};
-			doc.state.set<CachedBlame>(key, value);
+			doc.state.setBlame(key, value);
 		}
 
 		return promise;
@@ -460,7 +462,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitBlame>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedBlame>(key, value);
+				document.state.setBlame(key, value);
 
 				document.setBlameFailure();
 
@@ -1053,7 +1055,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
 			let moreLimit = typeof limit === 'number' ? limit : undefined;
 
-			if (moreUntil && Iterables.some(log.commits.values(), c => c.ref === moreUntil)) {
+			if (moreUntil && some(log.commits.values(), c => c.ref === moreUntil)) {
 				return log;
 			}
 
@@ -1131,10 +1133,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogForFile(
 		repoPath: string | undefined,
-		fileName: string,
+		path: string,
 		options?: {
 			all?: boolean;
 			cursor?: string;
+			force?: boolean | undefined;
 			limit?: number;
 			ordering?: string | null;
 			range?: Range;
@@ -1145,8 +1148,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			skip?: number;
 		},
 	): Promise<GitLog | undefined> {
-		if (repoPath != null && repoPath === normalizePath(fileName)) {
-			throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
+		if (repoPath != null && repoPath === normalizePath(path)) {
+			throw new Error(`File name cannot match the repository path; fileName=${path}`);
 		}
 
 		const cc = Logger.getCorrelationContext();
@@ -1190,10 +1193,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:skip${options.skip}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(fileName, repoPath!, options.ref));
-		if (options.range == null) {
+		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(path, repoPath!, options.ref));
+		if (!options.force && options.range == null) {
 			if (doc.state != null) {
-				const cachedLog = doc.state.get<CachedLog>(key);
+				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
 					Logger.debug(cc, `Cache hit: '${key}'`);
 					return cachedLog.item;
@@ -1201,7 +1204,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 				if (options.ref != null || options.limit != null) {
 					// Since we are looking for partial log, see if we have the log of the whole file
-					const cachedLog = doc.state.get<CachedLog>(
+					const cachedLog = doc.state.getLog(
 						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
@@ -1220,7 +1223,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							let i = 0;
 							const authors = new Map<string, GitAuthor>();
 							const commits = new Map(
-								Iterables.filterMap<[string, GitLogCommit], [string, GitLogCommit]>(
+								filterMap<[string, GitLogCommit], [string, GitLogCommit]>(
 									log.commits.entries(),
 									([ref, c]) => {
 										if (skip) {
@@ -1247,7 +1250,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								commits: commits,
 								authors: authors,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, fileName, { ...opts, limit: limit }),
+									this.getLogForFile(repoPath, path, { ...opts, limit: limit }),
 							};
 
 							return log;
@@ -1263,7 +1266,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, fileName, doc, key, cc, options);
+		const promise = this.getLogForFileCore(repoPath, path, doc, key, cc, options);
 
 		if (doc.state != null && options.range == null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -1271,7 +1274,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
 			};
-			doc.state.set<CachedLog>(key, value);
+			doc.state.setLog(key, value);
 		}
 
 		return promise;
@@ -1397,7 +1400,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitLog>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedLog>(key, value);
+				document.state.setLog(key, value);
 
 				return emptyPromise as Promise<GitLog>;
 			}
@@ -1423,7 +1426,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
 			let moreLimit = typeof limit === 'number' ? limit : undefined;
 
-			if (moreUntil && Iterables.some(log.commits.values(), c => c.ref === moreUntil)) {
+			if (moreUntil && some(log.commits.values(), c => c.ref === moreUntil)) {
 				return log;
 			}
 

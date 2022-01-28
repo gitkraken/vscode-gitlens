@@ -69,7 +69,7 @@ export class DocumentTracker<T> implements Disposable {
 	private _dirtyIdleTriggerDelay: number;
 	private readonly _disposable: Disposable;
 	// TODO@eamodio: replace with a trie?
-	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
+	protected readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
 
 	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -232,99 +232,39 @@ export class DocumentTracker<T> implements Disposable {
 
 	add(document: TextDocument): Promise<TrackedDocument<T>>;
 	add(uri: Uri): Promise<TrackedDocument<T>>;
-	add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		const doc = this._add(documentOrId);
-		return doc;
-	}
-
-	async clear() {
-		for (const d of this._documentMap.values()) {
-			(await d).dispose();
-		}
-
-		this._documentMap.clear();
-	}
-
-	get(fileName: string): Promise<TrackedDocument<T>> | undefined;
-	get(document: TextDocument): Promise<TrackedDocument<T>> | undefined;
-	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
-	get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
-		const doc = this._get(documentOrId);
-		return doc;
-	}
-
-	async getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
-	async getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
-	async getOrAdd(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		const doc = this._get(documentOrId) ?? this._add(documentOrId);
-		return doc;
-	}
-
-	has(fileName: string): boolean;
-	has(document: TextDocument): boolean;
-	has(uri: Uri): boolean;
-	has(key: string | TextDocument | Uri): boolean {
-		if (typeof key === 'string' || key instanceof Uri) {
-			key = GitUri.toKey(key);
-		}
-		return this._documentMap.has(key);
-	}
-
-	private async remove(document: TextDocument, tracked?: TrackedDocument<T>): Promise<void> {
-		let promise;
-		if (tracked != null) {
-			promise = this._documentMap.get(document);
-		}
-
-		this._documentMap.delete(document);
-		this._documentMap.delete(GitUri.toKey(document.uri));
-
-		(tracked ?? (await promise))?.dispose();
-	}
-
-	private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
+	add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>>;
+	async add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
 		let document;
-		if (GitUri.is(documentOrId)) {
+		if (GitUri.is(documentOrUri)) {
 			try {
-				document = await workspace.openTextDocument(documentOrId.documentUri());
+				document = await workspace.openTextDocument(documentOrUri.documentUri());
 			} catch (ex) {
 				const msg: string = ex?.toString() ?? '';
 				if (msg.includes('File seems to be binary and cannot be opened as text')) {
-					document = new BinaryTextDocument(documentOrId);
+					document = new BinaryTextDocument(documentOrUri);
 				} else if (
 					msg.includes('File not found') ||
 					msg.includes('Unable to read file') ||
 					msg.includes('Unable to resolve non-existing file')
 				) {
 					// If we can't find the file, assume it is because the file has been renamed or deleted at some point
-					document = new MissingRevisionTextDocument(documentOrId);
+					document = new MissingRevisionTextDocument(documentOrUri);
 
-					// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrId, undefined, ref);
-					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
+					// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrUri, undefined, ref);
+					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrUri}`);
 
-					// documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+					// documentOrUri = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
 				} else {
 					throw ex;
 				}
 			}
-		} else if (documentOrId instanceof Uri) {
-			document = await workspace.openTextDocument(documentOrId);
+		} else if (documentOrUri instanceof Uri) {
+			document = await workspace.openTextDocument(documentOrUri);
 		} else {
-			document = documentOrId;
+			document = documentOrUri;
 		}
 
 		const doc = this.addCore(document);
-		return doc;
-	}
-
-	private _get(documentOrId: string | TextDocument | Uri) {
-		if (GitUri.is(documentOrId)) {
-			documentOrId = GitUri.toKey(documentOrId.documentUri());
-		} else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
-			documentOrId = GitUri.toKey(documentOrId);
-		}
-
-		const doc = this._documentMap.get(documentOrId);
 		return doc;
 	}
 
@@ -346,6 +286,59 @@ export class DocumentTracker<T> implements Disposable {
 		this._documentMap.set(key, doc);
 
 		return doc;
+	}
+
+	async clear() {
+		for (const d of this._documentMap.values()) {
+			(await d).dispose();
+		}
+
+		this._documentMap.clear();
+	}
+
+	get(document: TextDocument): Promise<TrackedDocument<T>> | undefined;
+	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
+	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined;
+	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
+		let key;
+		if (GitUri.is(documentOrUri)) {
+			key = GitUri.toKey(documentOrUri.documentUri());
+		} else if (documentOrUri instanceof Uri) {
+			key = GitUri.toKey(documentOrUri);
+		} else {
+			key = documentOrUri;
+		}
+
+		const doc = this._documentMap.get(key);
+		return doc;
+	}
+
+	getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
+	getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
+	async getOrAdd(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
+		const doc = this.get(documentOrUri) ?? this.add(documentOrUri);
+		return doc;
+	}
+
+	has(document: TextDocument): boolean;
+	has(uri: Uri): boolean;
+	has(documentOrUri: TextDocument | Uri): boolean {
+		if (documentOrUri instanceof Uri) {
+			return this._documentMap.has(GitUri.toKey(documentOrUri));
+		}
+		return this._documentMap.has(documentOrUri);
+	}
+
+	private async remove(document: TextDocument, tracked?: TrackedDocument<T>): Promise<void> {
+		let promise;
+		if (tracked != null) {
+			promise = this._documentMap.get(document);
+		}
+
+		this._documentMap.delete(document);
+		this._documentMap.delete(GitUri.toKey(document.uri));
+
+		(tracked ?? (await promise))?.dispose();
 	}
 
 	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;

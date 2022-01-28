@@ -1,5 +1,5 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { GitUri } from '../../git/gitUri';
+import type { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitCommitType,

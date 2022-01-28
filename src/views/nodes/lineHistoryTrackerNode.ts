@@ -146,6 +146,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
+			if (this._uri != null && this._uri !== GitUri.unknown) {
+				await this.view.container.tracker.resetCache(this._uri, 'log');
+			}
+
 			this.reset();
 		}
 

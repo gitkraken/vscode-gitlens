@@ -913,7 +913,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
-				const cachedBlame = doc.state.get<CachedBlame>(key);
+				const cachedBlame = doc.state.getBlame(key);
 				if (cachedBlame != null) {
 					Logger.debug(cc, `Cache hit: '${key}'`);
 					return cachedBlame.item;
@@ -935,7 +935,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
 			};
-			doc.state.set<CachedBlame>(key, value);
+			doc.state.setBlame(key, value);
 		}
 
 		return promise;
@@ -972,7 +972,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitBlame>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedBlame>(key, value);
+				document.state.setBlame(key, value);
 
 				document.setBlameFailure();
 
@@ -992,7 +992,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
-				const cachedBlame = doc.state.get<CachedBlame>(key);
+				const cachedBlame = doc.state.getBlame(key);
 				if (cachedBlame != null) {
 					Logger.debug(cc, `Cache hit: ${key}`);
 					return cachedBlame.item;
@@ -1014,7 +1014,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
 			};
-			doc.state.set<CachedBlame>(key, value);
+			doc.state.setBlame(key, value);
 		}
 
 		return promise;
@@ -1053,7 +1053,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitBlame>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedBlame>(key, value);
+				document.state.setBlame(key, value);
 
 				document.setBlameFailure();
 				return emptyPromise as Promise<GitBlame>;
@@ -1580,7 +1580,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
-				const cachedDiff = doc.state.get<CachedDiff>(key);
+				const cachedDiff = doc.state.getDiff(key);
 				if (cachedDiff != null) {
 					Logger.debug(cc, `Cache hit: '${key}'`);
 					return cachedDiff.item;
@@ -1611,7 +1611,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const value: CachedDiff = {
 				item: promise as Promise<GitDiff>,
 			};
-			doc.state.set<CachedDiff>(key, value);
+			doc.state.setDiff(key, value);
 		}
 
 		return promise;
@@ -1651,7 +1651,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitDiff>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedDiff>(key, value);
+				document.state.setDiff(key, value);
 
 				return emptyPromise as Promise<GitDiff>;
 			}
@@ -1669,7 +1669,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const doc = await this.container.tracker.getOrAdd(uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
-				const cachedDiff = doc.state.get<CachedDiff>(key);
+				const cachedDiff = doc.state.getDiff(key);
 				if (cachedDiff != null) {
 					Logger.debug(cc, `Cache hit: ${key}`);
 					return cachedDiff.item;
@@ -1700,7 +1700,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const value: CachedDiff = {
 				item: promise as Promise<GitDiff>,
 			};
-			doc.state.set<CachedDiff>(key, value);
+			doc.state.setDiff(key, value);
 		}
 
 		return promise;
@@ -1737,7 +1737,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitDiff>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedDiff>(key, value);
+				document.state.setDiff(key, value);
 
 				return emptyPromise as Promise<GitDiff>;
 			}
@@ -2159,10 +2159,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogForFile(
 		repoPath: string | undefined,
-		fileName: string,
+		path: string,
 		options?: {
 			all?: boolean;
 			cursor?: string;
+			force?: boolean | undefined;
 			limit?: number;
 			ordering?: string | null;
 			range?: Range;
@@ -2173,8 +2174,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			skip?: number;
 		},
 	): Promise<GitLog | undefined> {
-		if (repoPath != null && repoPath === normalizePath(fileName)) {
-			throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
+		if (repoPath != null && repoPath === normalizePath(path)) {
+			throw new Error(`File name cannot match the repository path; fileName=${path}`);
 		}
 
 		const cc = Logger.getCorrelationContext();
@@ -2218,10 +2219,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:skip${options.skip}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(fileName, repoPath!, options.ref));
-		if (this.useCaching && options.range == null) {
+		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(path, repoPath!, options.ref));
+		if (!options.force && this.useCaching && options.range == null) {
 			if (doc.state != null) {
-				const cachedLog = doc.state.get<CachedLog>(key);
+				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
 					Logger.debug(cc, `Cache hit: '${key}'`);
 					return cachedLog.item;
@@ -2229,7 +2230,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (options.ref != null || options.limit != null) {
 					// Since we are looking for partial log, see if we have the log of the whole file
-					const cachedLog = doc.state.get<CachedLog>(
+					const cachedLog = doc.state.getLog(
 						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
@@ -2275,7 +2276,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								commits: commits,
 								authors: authors,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, fileName, { ...opts, limit: limit }),
+									this.getLogForFile(repoPath, path, { ...opts, limit: limit }),
 							};
 
 							return log;
@@ -2291,7 +2292,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key, cc);
+		const promise = this.getLogForFileCore(repoPath, path, options, doc, key, cc);
 
 		if (doc.state != null && options.range == null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -2299,7 +2300,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
 			};
-			doc.state.set<CachedLog>(key, value);
+			doc.state.setLog(key, value);
 		}
 
 		return promise;
@@ -2381,7 +2382,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					item: emptyPromise as Promise<GitLog>,
 					errorMessage: msg,
 				};
-				document.state.set<CachedLog>(key, value);
+				document.state.setLog(key, value);
 
 				return emptyPromise as Promise<GitLog>;
 			}

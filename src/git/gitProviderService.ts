@@ -1227,9 +1227,10 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getLogForFile(
 		repoPath: string | Uri | undefined,
-		fileName: string,
+		path: string,
 		options?: {
 			all?: boolean;
+			force?: boolean;
 			limit?: number;
 			ordering?: string | null;
 			range?: Range;
@@ -1242,8 +1243,8 @@ export class GitProviderService implements Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLogForFile(path, fileName, options);
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return provider.getLogForFile(rp, path, options);
 	}
 
 	@log()
