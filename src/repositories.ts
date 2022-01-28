@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
+import { isLinux } from '@env/platform';
 import { DocumentSchemes } from './constants';
-import { isLinux } from './env/node/platform';
 import { Repository } from './git/models/repository';
 import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
