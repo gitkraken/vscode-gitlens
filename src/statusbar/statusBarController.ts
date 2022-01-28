@@ -19,6 +19,7 @@ import { GitBlameCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug } from '../system/decorators/log';
+import { once } from '../system/event';
 import { PromiseCancelledError } from '../system/promise';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
@@ -33,7 +34,7 @@ export class StatusBarController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}

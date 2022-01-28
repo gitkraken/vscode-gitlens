@@ -15,7 +15,8 @@ import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug } from '../system';
+import { debug } from '../system/decorators/log';
+import { once } from '../system/event';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
 
@@ -26,7 +27,7 @@ export class LineHoverController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}

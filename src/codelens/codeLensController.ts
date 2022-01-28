@@ -3,6 +3,7 @@ import { configuration } from '../configuration';
 import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { once } from '../system/event';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
@@ -18,7 +19,7 @@ export class GitCodeLensController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}

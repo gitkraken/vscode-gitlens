@@ -17,7 +17,9 @@ import { CommitFormatter } from '../git/formatters';
 import { GitBlameCommit, PullRequest } from '../git/models';
 import { Authentication } from '../git/remotes/provider';
 import { LogCorrelationContext, Logger } from '../logger';
-import { debug, Iterables, log } from '../system';
+import { debug, log } from '../system/decorators/log';
+import { once } from '../system/event';
+import { count, every, filterMap } from '../system/iterable';
 import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
@@ -38,7 +40,7 @@ export class LineAnnotationController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
 			Authentication.onDidChange(() => void this.refresh(window.activeTextEditor)),
@@ -175,7 +177,7 @@ export class LineAnnotationController implements Disposable {
 			ref => this.container.git.getPullRequestForCommit(ref, provider),
 			timeout,
 		);
-		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr == null)) return undefined;
+		if (prs.size === 0 || every(prs.values(), pr => pr == null)) return undefined;
 
 		return prs;
 	}
@@ -248,7 +250,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		const commitLines = [
-			...Iterables.filterMap<LineSelection, [number, GitBlameCommit]>(selections, selection => {
+			...filterMap<LineSelection, [number, GitBlameCommit]>(selections, selection => {
 				const state = this.container.lineTracker.getState(selection.active);
 				if (state?.commit == null) {
 					Logger.debug(cc, `Line ${selection.active} returned no commit`);
@@ -342,10 +344,10 @@ export class LineAnnotationController implements Disposable {
 		cc: LogCorrelationContext | undefined,
 	) {
 		// If there are any PRs that timed out, refresh the annotation(s) once they complete
-		const count = Iterables.count(prs.values(), pr => pr instanceof PromiseCancelledError);
-		if (cancellationToken.isCancellationRequested || count === 0) return;
+		const prCount = count(prs.values(), pr => pr instanceof PromiseCancelledError);
+		if (cancellationToken.isCancellationRequested || prCount === 0) return;
 
-		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries took too long (over ${timeout} ms)`);
+		Logger.debug(cc, `${GlyphChars.Dot} ${prCount} pull request queries took too long (over ${timeout} ms)`);
 
 		const resolved = new Map<string, PullRequest | undefined>();
 		for (const [key, value] of prs) {
@@ -354,7 +356,7 @@ export class LineAnnotationController implements Disposable {
 
 		if (cancellationToken.isCancellationRequested || editor !== this._editor) return;
 
-		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries completed; refreshing...`);
+		Logger.debug(cc, `${GlyphChars.Dot} ${prCount} pull request queries completed; refreshing...`);
 
 		void this.refresh(editor, { prs: resolved });
 	}

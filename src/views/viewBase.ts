@@ -34,6 +34,7 @@ import {
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug, log } from '../system/decorators/log';
+import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { cancellable, isPromise } from '../system/promise';
 import { BranchesView } from './branchesView';
@@ -103,7 +104,7 @@ export abstract class ViewBase<
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(public readonly id: string, public readonly name: string, public readonly container: Container) {
-		this.disposables.push(container.onReady(this.onReady, this));
+		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (Logger.isDebugging || this.container.config.debug) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {

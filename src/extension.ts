@@ -11,7 +11,9 @@ import { GitBranch, GitCommit } from './git/models';
 import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { Stopwatch, Versions } from './system';
+import { once } from './system/event';
+import { Stopwatch } from './system/stopwatch';
+import { compare } from './system/version';
 import { ViewNode } from './views/nodes';
 
 export function activate(context: ExtensionContext): Promise<GitLensApi | undefined> | undefined {
@@ -68,7 +70,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
 		previousVersion = syncedVersion ?? localVersion;
-	} else if (Versions.compare(syncedVersion, localVersion) === 1) {
+	} else if (compare(syncedVersion, localVersion) === 1) {
 		previousVersion = syncedVersion;
 	} else {
 		previousVersion = localVersion;
@@ -96,7 +98,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	// await migrateSettings(context, previousVersion);
 
 	const container = Container.create(context, cfg);
-	container.onReady(() => {
+	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
@@ -106,7 +108,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 		void context.globalState.update(GlobalState.Version, gitlensVersion);
 
 		// Only update our synced version if the new version is greater
-		if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
+		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
 			void context.globalState.update(SyncedState.Version, gitlensVersion);
 		}
 
@@ -141,10 +143,10 @@ export function deactivate() {
 // async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
 // 	if (previousVersion === undefined) return;
 
-// 	const previous = Versions.fromString(previousVersion);
+// 	const previous = fromString(previousVersion);
 
 // 	try {
-// 		if (Versions.compare(previous, Versions.from(11, 0, 0)) !== 1) {
+// 		if (compare(previous, from(11, 0, 0)) !== 1) {
 // 		}
 // 	} catch (ex) {
 // 		Logger.error(ex, 'migrateSettings');

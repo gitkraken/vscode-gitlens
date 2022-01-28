@@ -21,7 +21,9 @@ import { Container } from '../container';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
-import { Functions, Iterables } from '../system';
+import { once } from '../system/event';
+import { debounce, Deferrable } from '../system/function';
+import { filter, map } from '../system/iterable';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -71,11 +73,11 @@ export class DocumentTracker<T> implements Disposable {
 
 	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
-			// window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
-			workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
+			// window.onDidChangeVisibleTextEditors(debounce(this.onVisibleEditorsChanged, 5000), this),
+			workspace.onDidChangeTextDocument(debounce(this.onTextDocumentChanged, 50), this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
@@ -348,12 +350,8 @@ export class DocumentTracker<T> implements Disposable {
 		return doc;
 	}
 
-	private _dirtyIdleTriggeredDebounced:
-		| Functions.Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void>
-		| undefined;
-	private _dirtyStateChangedDebounced:
-		| Functions.Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void>
-		| undefined;
+	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;
+	private _dirtyStateChangedDebounced: Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void> | undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
 			queueMicrotask(() => {
@@ -365,7 +363,7 @@ export class DocumentTracker<T> implements Disposable {
 
 			if (this._dirtyIdleTriggerDelay > 0) {
 				if (this._dirtyIdleTriggeredDebounced == null) {
-					this._dirtyIdleTriggeredDebounced = Functions.debounce(
+					this._dirtyIdleTriggeredDebounced = debounce(
 						(e: DocumentDirtyIdleTriggerEvent<T>) => {
 							if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
 
@@ -384,7 +382,7 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		if (this._dirtyStateChangedDebounced == null) {
-			this._dirtyStateChangedDebounced = Functions.debounce((e: DocumentDirtyStateChangeEvent<T>) => {
+			this._dirtyStateChangedDebounced = debounce((e: DocumentDirtyStateChangeEvent<T>) => {
 				if (window.activeTextEditor !== e.editor) return;
 
 				this._onDidChangeDirtyState.fire(e);
@@ -396,8 +394,8 @@ export class DocumentTracker<T> implements Disposable {
 
 	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
 		void Promise.allSettled(
-			Iterables.map(
-				Iterables.filter(this._documentMap, ([key]) => typeof key === 'string'),
+			map(
+				filter(this._documentMap, ([key]) => typeof key === 'string'),
 				async ([, promise]) => {
 					const doc = await promise;
 					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
