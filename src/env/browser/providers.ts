@@ -10,8 +10,6 @@ export function git(_options: GitCommandOptions, ..._args: any[]): Promise<strin
 }
 
 export function getSupportedGitProviders(container: Container): GitProvider[] {
-	if (!container.config.experimental.virtualRepositories.enabled) return [];
-
 	GitHub.GitHubApi;
 	return [new GitHubGitProvider(container)];
 }
