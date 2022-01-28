@@ -105,7 +105,7 @@
 			"debugWebWorkerHost": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"webRoot": "${workspaceFolder}/src"
+				"webRoot": "${workspaceFolder}"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
