@@ -1,7 +1,8 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import { configuration, DateStyle } from '../../configuration';
 import { Colors } from '../../constants';
-import { Dates, memoize } from '../../system';
+import { formatDate, fromNow } from '../../system/date';
+import { memoize } from '../../system/decorators/memoize';
 import { RemoteProviderReference } from './remoteProvider';
 
 export const PullRequestDateFormatting = {
@@ -79,75 +80,43 @@ export class PullRequest {
 			: this.formatDateFromNow();
 	}
 
-	@memoize()
-	private get dateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.mergedDate ?? this.closedDate ?? this.date);
-	}
-
 	@memoize<PullRequest['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.dateFormatter.format(format);
+		return formatDate(this.mergedDate ?? this.closedDate ?? this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatDateFromNow() {
-		return this.dateFormatter.fromNow();
-	}
-
-	@memoize()
-	private get closedDateFormatter(): Dates.DateFormatter | undefined {
-		return this.closedDate === undefined ? undefined : Dates.getFormatter(this.closedDate);
+		return fromNow(this.mergedDate ?? this.closedDate ?? this.date);
 	}
 
 	@memoize<PullRequest['formatClosedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatClosedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.closedDateFormatter?.format(format) ?? '';
+		if (this.closedDate == null) return '';
+		return formatDate(this.closedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatClosedDateFromNow() {
-		return this.closedDateFormatter?.fromNow() ?? '';
-	}
-
-	@memoize()
-	private get mergedDateFormatter(): Dates.DateFormatter | undefined {
-		return this.mergedDate === undefined ? undefined : Dates.getFormatter(this.mergedDate);
+		if (this.closedDate == null) return '';
+		return fromNow(this.closedDate);
 	}
 
 	@memoize<PullRequest['formatMergedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatMergedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.mergedDateFormatter?.format(format) ?? '';
+		if (this.mergedDate == null) return '';
+		return formatDate(this.mergedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
 	formatMergedDateFromNow() {
-		return this.mergedDateFormatter?.fromNow() ?? '';
-	}
-
-	@memoize()
-	private get updatedDateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.date);
+		if (this.mergedDate == null) return '';
+		return fromNow(this.mergedDate);
 	}
 
 	@memoize<PullRequest['formatUpdatedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatUpdatedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.updatedDateFormatter.format(format);
+		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
 	formatUpdatedDateFromNow() {
-		return this.updatedDateFormatter.fromNow();
+		return fromNow(this.date);
 	}
 }

@@ -2,7 +2,8 @@ import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
-import { Dates, memoize } from '../../system';
+import { formatDate, fromNow } from '../../system/date';
+import { memoize } from '../../system/decorators/memoize';
 import { CommitFormatter } from '../formatters';
 import { GitUri } from '../gitUri';
 import { GitReference, GitRevision, GitRevisionReference, PullRequest } from '../models';
@@ -173,59 +174,34 @@ export abstract class GitCommit implements GitRevisionReference {
 		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
 	}
 
-	@memoize()
-	private get authorDateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.authorDate);
-	}
-
-	@memoize()
-	private get committerDateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.committerDate);
-	}
-
-	private get dateFormatter(): Dates.DateFormatter {
-		return CommitDateFormatting.dateSource === DateSource.Committed
-			? this.committerDateFormatter
-			: this.authorDateFormatter;
-	}
-
 	@memoize<GitCommit['formatAuthorDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatAuthorDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.authorDateFormatter.format(format);
+		return formatDate(this.authorDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatAuthorDateFromNow(short?: boolean) {
-		return this.authorDateFormatter.fromNow(short);
+		return fromNow(this.authorDate, short);
 	}
 
 	@memoize<GitCommit['formatCommitterDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatCommitterDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.committerDateFormatter.format(format);
+		return formatDate(this.committerDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatCommitterDateFromNow(short?: boolean) {
-		return this.committerDateFormatter.fromNow(short);
+		return fromNow(this.committerDate, short);
 	}
 
-	@memoize<GitCommit['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.dateFormatter.format(format);
+		return CommitDateFormatting.dateSource === DateSource.Committed
+			? this.formatCommitterDate(format)
+			: this.formatAuthorDate(format);
 	}
 
 	formatDateFromNow(short?: boolean) {
-		return this.dateFormatter.fromNow(short);
+		return CommitDateFormatting.dateSource === DateSource.Committed
+			? this.formatCommitterDateFromNow(short)
+			: this.formatAuthorDateFromNow(short);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {

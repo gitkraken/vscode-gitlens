@@ -2,7 +2,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/models';
 import { FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
+import { isStringArray } from '../../system/array';
+import { fromNow } from '../../system/date';
+import { pad } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -86,12 +88,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
@@ -137,9 +134,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		if (state.repos.length === 1) {
 			const lastFetched = await state.repos[0].getLastFetched();
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-					new Date(lastFetched),
-				).fromNow()}`;
+				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 			}
 		}
 

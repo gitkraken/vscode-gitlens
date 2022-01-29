@@ -4,8 +4,12 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRemote, IssueOrPullRequest } from '../git/models';
 import { Logger } from '../logger';
-import { Dates, debug, Encoding, Iterables, Strings } from '../system';
+import { fromNow } from '../system/date';
+import { debug } from '../system/decorators/log';
+import { encodeUrl } from '../system/encoding';
+import { every, join, map } from '../system/iterable';
 import { PromiseCancelledError, raceAll } from '../system/promise';
+import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const numRegex = /<num>/g;
 
@@ -70,9 +74,7 @@ export class Autolinks implements Disposable {
 
 			if (ref.messageRegex === undefined) {
 				ref.messageRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(ref.prefix)}([${
-						ref.alphanumeric ? '\\w' : '0-9'
-					}]+))\\b`,
+					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
 				);
 			}
@@ -90,7 +92,7 @@ export class Autolinks implements Disposable {
 		if (ids.size === 0) return undefined;
 
 		const issuesOrPullRequests = await raceAll(ids.values(), id => provider.getIssueOrPullRequest(id), timeout);
-		if (issuesOrPullRequests.size === 0 || Iterables.every(issuesOrPullRequests.values(), pr => pr === undefined)) {
+		if (issuesOrPullRequests.size === 0 || every(issuesOrPullRequests.values(), pr => pr === undefined)) {
 			return undefined;
 		}
 
@@ -146,7 +148,7 @@ export class Autolinks implements Disposable {
 		try {
 			if (ref.messageMarkdownRegex === undefined) {
 				ref.messageMarkdownRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(Strings.escapeMarkdown(ref.prefix))}([${
+					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
 						ref.alphanumeric ? '\\w' : '0-9'
 					}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
@@ -154,7 +156,7 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${Encoding.encodeUrl(ref.url.replace(numRegex, '$2'))}${
+				const replacement = `[$1](${encodeUrl(ref.url.replace(numRegex, '$2'))}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
@@ -171,7 +173,7 @@ export class Autolinks implements Disposable {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
 
-						const issueUrl = Encoding.encodeUrl(ref.url.replace(numRegex, num));
+						const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
 
 						let title = '';
 						if (ref.title) {
@@ -191,15 +193,15 @@ export class Autolinks implements Disposable {
 												issue,
 											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
 												5,
-											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
+											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
 												issue.closedDate ?? issue.date,
-											).fromNow()}`,
+											)}`,
 										);
 									}
 
 									title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
 										issue.closed ? 'Closed' : 'Opened'
-									}, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`;
+									}, ${fromNow(issue.closedDate ?? issue.date)}`;
 								}
 							}
 							title += '"';
@@ -223,17 +225,17 @@ export class Autolinks implements Disposable {
 						`${linkText}: ${
 							issue instanceof PromiseCancelledError
 								? 'Details timed out'
-								: `${issue.title}  ${GlyphChars.Dot}  ${
-										issue.closed ? 'Closed' : 'Opened'
-								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
+								: `${issue.title}  ${GlyphChars.Dot}  ${issue.closed ? 'Closed' : 'Opened'}, ${fromNow(
+										issue.closedDate ?? issue.date,
+								  )}`
 						}`,
 					);
-					return `${linkText}${Strings.getSuperscript(index)}`;
+					return `${linkText}${getSuperscript(index)}`;
 				});
 
 				return includeFootnotes && footnotes != null && footnotes.size !== 0
-					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${Iterables.join(
-							Iterables.map(footnotes, ([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`),
+					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${join(
+							map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
 							'\n',
 					  )}`
 					: text;

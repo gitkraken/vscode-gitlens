@@ -3,7 +3,9 @@ import { BuiltInGitConfiguration, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
 import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
+import { isStringArray } from '../../system/array';
+import { fromNow } from '../../system/date';
+import { pad, pluralize } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -98,12 +100,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
@@ -233,15 +230,10 @@ export class PushGitCommand extends QuickCommand<State> {
 											label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
 											description: `--force${useForceWithLease ? '-with-lease' : ''}`,
 											detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-												branch?.state.ahead
-													? ` ${Strings.pluralize('commit', branch.state.ahead)}`
-													: ''
+												branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''
 											}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
 												branch != null && branch.state.behind > 0
-													? `, overwriting ${Strings.pluralize(
-															'commit',
-															branch.state.behind,
-													  )}${
+													? `, overwriting ${pluralize('commit', branch.state.behind)}${
 															branch?.getRemoteName()
 																? ` on ${branch.getRemoteName()}`
 																: ''
@@ -255,17 +247,14 @@ export class PushGitCommand extends QuickCommand<State> {
 								label: `Cancel ${this.title}`,
 								detail: `Cannot push; ${GitReference.toString(
 									branch,
-								)} is behind ${branch.getRemoteName()} by ${Strings.pluralize(
-									'commit',
-									branch.state.behind,
-								)}`,
+								)} is behind ${branch.getRemoteName()} by ${pluralize('commit', branch.state.behind)}`,
 							}),
 						);
 					} else if (branch != null && branch?.state.ahead > 0) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 							FlagsQuickPickItem.create<Flags>(state.flags, [branch.getRemoteName()!], {
 								label: this.title,
-								detail: `Will push ${Strings.pluralize(
+								detail: `Will push ${pluralize(
 									'commit',
 									branch.state.ahead,
 								)} from ${GitReference.toString(branch)} to ${branch.getRemoteName()}`,
@@ -343,9 +332,7 @@ export class PushGitCommand extends QuickCommand<State> {
 
 					const lastFetched = await repo.getLastFetched();
 					if (lastFetched !== 0) {
-						lastFetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-							new Date(lastFetched),
-						).fromNow()}`;
+						lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 					}
 
 					let pushDetails;
@@ -358,9 +345,9 @@ export class PushGitCommand extends QuickCommand<State> {
 								: ''
 						}${status?.upstream ? ` to ${GitBranch.getRemote(status.upstream)}` : ''}`;
 					} else {
-						pushDetails = `${
-							status?.state.ahead ? ` ${Strings.pluralize('commit', status.state.ahead)}` : ''
-						}${status?.upstream ? ` to ${GitBranch.getRemote(status.upstream)}` : ''}`;
+						pushDetails = `${status?.state.ahead ? ` ${pluralize('commit', status.state.ahead)}` : ''}${
+							status?.upstream ? ` to ${GitBranch.getRemote(status.upstream)}` : ''
+						}`;
 					}
 
 					step = this.createConfirmStep(
@@ -379,7 +366,7 @@ export class PushGitCommand extends QuickCommand<State> {
 								description: `--force${useForceWithLease ? '-with-lease' : ''}`,
 								detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}${
 									status != null && status.state.behind > 0
-										? `, overwriting ${Strings.pluralize('commit', status.state.behind)}${
+										? `, overwriting ${pluralize('commit', status.state.behind)}${
 												status?.upstream ? ` on ${GitBranch.getRemote(status.upstream)}` : ''
 										  }`
 										: ''
@@ -391,7 +378,7 @@ export class PushGitCommand extends QuickCommand<State> {
 									label: `Cancel ${this.title}`,
 									detail: `Cannot push; ${GitReference.toString(branch)} is behind${
 										status?.upstream ? ` ${GitBranch.getRemote(status.upstream)}` : ''
-									} by ${Strings.pluralize('commit', status.state.behind)}`,
+									} by ${pluralize('commit', status.state.behind)}`,
 							  })
 							: undefined,
 					);
@@ -400,7 +387,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					step.onDidClickButton = async (quickpick, button) => {
 						if (button !== QuickCommandButtons.Fetch || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${
+						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
 							GlyphChars.Ellipsis
 						}`;
 

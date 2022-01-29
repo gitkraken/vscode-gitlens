@@ -2,7 +2,9 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
 import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
+import { isStringArray } from '../../system/array';
+import { fromNow } from '../../system/date';
+import { pad, pluralize } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -92,12 +94,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
@@ -182,10 +179,9 @@ export class PullGitCommand extends QuickCommand<State> {
 							label: this.title,
 							detail: `Will pull${
 								branch.state.behind
-									? ` ${Strings.pluralize(
-											'commit',
-											branch.state.behind,
-									  )} into ${GitReference.toString(branch)}`
+									? ` ${pluralize('commit', branch.state.behind)} into ${GitReference.toString(
+											branch,
+									  )}`
 									: ` into ${GitReference.toString(branch)}`
 							}`,
 						}),
@@ -198,14 +194,12 @@ export class PullGitCommand extends QuickCommand<State> {
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-					new Date(lastFetched),
-				).fromNow()}`;
+				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 			}
 
 			const pullDetails =
 				status?.state.behind != null
-					? ` ${Strings.pluralize('commit', status.state.behind)} into $(repo) ${repo.formattedName}`
+					? ` ${pluralize('commit', status.state.behind)} into $(repo) ${repo.formattedName}`
 					: ` into $(repo) ${repo.formattedName}`;
 
 			step = this.createConfirmStep(
@@ -227,7 +221,7 @@ export class PullGitCommand extends QuickCommand<State> {
 					onDidClickButton: async (quickpick, button) => {
 						if (button !== QuickCommandButtons.Fetch || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${
+						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
 							GlyphChars.Ellipsis
 						}`;
 

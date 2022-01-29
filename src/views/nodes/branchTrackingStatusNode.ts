@@ -2,7 +2,11 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/models';
-import { Dates, debug, gate, Iterables, Strings } from '../../system';
+import { fromNow } from '../../system/date';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { first, map } from '../../system/iterable';
+import { pluralize } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
@@ -82,7 +86,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					ref: commit.sha,
 				});
 				if (previousLog != null) {
-					commits[commits.length - 1] = Iterables.first(previousLog.commits.values());
+					commits[commits.length - 1] = first(previousLog.commits.values());
 				}
 			}
 		} else {
@@ -113,10 +117,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		} else {
 			children.push(
 				...insertDateMarkers(
-					Iterables.map(
-						commits,
-						c => new CommitNode(this.view, this, c, this.upstreamType === 'ahead', this.branch),
-					),
+					map(commits, c => new CommitNode(this.view, this, c, this.upstreamType === 'ahead', this.branch)),
 					this,
 					1,
 				),
@@ -166,12 +167,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				label = `Changes to push to ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
-				description = Strings.pluralize('commit', this.status.state.ahead);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${Strings.pluralize(
-					'commit',
-					this.status.state.ahead,
-					{ infix: '$(arrow-up) ' },
-				)} ahead of $(git-branch) ${this.status.upstream}${
+				description = pluralize('commit', this.status.state.ahead);
+				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.ahead, {
+					infix: '$(arrow-up) ',
+				})} ahead of $(git-branch) ${this.status.upstream}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 
@@ -189,12 +188,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				label = `Changes to pull from ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
-				description = Strings.pluralize('commit', this.status.state.behind);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${Strings.pluralize(
-					'commit',
-					this.status.state.behind,
-					{ infix: '$(arrow-down) ' },
-				)} behind $(git-branch) ${this.status.upstream}${
+				description = pluralize('commit', this.status.state.behind);
+				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.behind, {
+					infix: '$(arrow-down) ',
+				})} behind $(git-branch) ${this.status.upstream}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 
@@ -212,7 +209,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				label = `Up to date with ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
-				description = lastFetched ? `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}` : '';
+				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';
 				tooltip = `Branch $(git-branch) ${this.branch.name} is up to date with $(git-branch) ${
 					this.status.upstream
 				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
@@ -251,7 +248,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		item.contextValue = contextValue;
 		item.description = description;
 		if (lastFetched) {
-			tooltip += `\n\nLast fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
+			tooltip += `\n\nLast fetched ${fromNow(new Date(lastFetched))}`;
 		}
 		item.iconPath = icon;
 

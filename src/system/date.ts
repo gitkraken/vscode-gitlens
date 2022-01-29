@@ -25,114 +25,111 @@ export interface DateFormatter {
 	format(format: DateTimeFormat | string | null | undefined): string;
 }
 
-export function getFormatter(date: Date): DateFormatter {
-	return {
-		fromNow: function (short?: boolean) {
-			const elapsed = date.getTime() - new Date().getTime();
+export function fromNow(date: Date, short?: boolean): string {
+	const elapsed = date.getTime() - new Date().getTime();
 
-			for (const [unit, threshold, shortUnit] of relativeUnitThresholds) {
-				const elapsedABS = Math.abs(elapsed);
-				if (elapsedABS >= threshold || threshold === 1000 /* second */) {
-					if (short) {
-						if (locale == null) {
-							if (defaultShortRelativeTimeFormat != null) {
-								locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-							} else if (defaultRelativeTimeFormat != null) {
-								locale = defaultRelativeTimeFormat.resolvedOptions().locale;
-							} else {
-								defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
-									localeMatcher: 'best fit',
-									numeric: 'always',
-									style: 'narrow',
-								});
-								locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-							}
-						}
-
-						if (locale === 'en' || locale?.startsWith('en-')) {
-							const value = Math.round(elapsedABS / threshold);
-							return `${value}${shortUnit}`;
-						}
-
-						if (defaultShortRelativeTimeFormat == null) {
-							defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
-								localeMatcher: 'best fit',
-								numeric: 'always',
-								style: 'narrow',
-							});
-						}
-
-						return defaultShortRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
-					}
-
-					if (defaultRelativeTimeFormat == null) {
-						defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+	for (const [unit, threshold, shortUnit] of relativeUnitThresholds) {
+		const elapsedABS = Math.abs(elapsed);
+		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
+			if (short) {
+				if (locale == null) {
+					if (defaultShortRelativeTimeFormat != null) {
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+					} else if (defaultRelativeTimeFormat != null) {
+						locale = defaultRelativeTimeFormat.resolvedOptions().locale;
+					} else {
+						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
 							localeMatcher: 'best fit',
-							numeric: 'auto',
-							style: 'long',
+							numeric: 'always',
+							style: 'narrow',
 						});
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
 					}
-					return defaultRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
 				}
+
+				if (locale === 'en' || locale?.startsWith('en-')) {
+					const value = Math.round(elapsedABS / threshold);
+					return `${value}${shortUnit}`;
+				}
+
+				if (defaultShortRelativeTimeFormat == null) {
+					defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+						localeMatcher: 'best fit',
+						numeric: 'always',
+						style: 'narrow',
+					});
+				}
+
+				return defaultShortRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
+			}
+
+			if (defaultRelativeTimeFormat == null) {
+				defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+					localeMatcher: 'best fit',
+					numeric: 'auto',
+					style: 'long',
+				});
+			}
+			return defaultRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
+		}
+	}
+
+	return '';
+}
+
+export function formatDate(date: Date, format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined) {
+	format = format ?? undefined;
+
+	let formatter = dateTimeFormatCache.get(format);
+	if (formatter == null) {
+		const options = getDateTimeFormatOptionsFromFormatString(format);
+		formatter = new Intl.DateTimeFormat(undefined, options);
+		dateTimeFormatCache.set(format, formatter);
+	}
+
+	if (format == null || dateTimeFormatRegex.test(format)) {
+		return formatter.format(date);
+	}
+
+	const parts = formatter.formatToParts(date);
+	return format.replace(
+		customDateTimeFormatParserRegex,
+		(
+			_match,
+			literal,
+			_year,
+			_month,
+			_day,
+			_weekday,
+			_hour,
+			_minute,
+			_second,
+			_fractionalSecond,
+			_dayPeriod,
+			_timeZoneName,
+			_offset,
+			_s,
+			groups,
+		) => {
+			if (literal != null) return (literal as string).substring(1, literal.length - 1);
+
+			for (const key in groups) {
+				const value = groups[key];
+				if (value == null) continue;
+
+				const part = parts.find(p => p.type === key);
+
+				if (value === 'Do' && part?.type === 'day') {
+					return formatWithOrdinal(Number(part.value));
+				} else if (value === 'a' && part?.type === 'dayPeriod') {
+					return part.value.toLocaleLowerCase();
+				}
+				return part?.value ?? '';
 			}
 
 			return '';
 		},
-		format: function (format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined) {
-			format = format ?? undefined;
-
-			let formatter = dateTimeFormatCache.get(format);
-			if (formatter == null) {
-				const options = getDateTimeFormatOptionsFromFormatString(format);
-				formatter = new Intl.DateTimeFormat(undefined, options);
-				dateTimeFormatCache.set(format, formatter);
-			}
-
-			if (format == null || dateTimeFormatRegex.test(format)) {
-				return formatter.format(date);
-			}
-
-			const parts = formatter.formatToParts(date);
-			return format.replace(
-				customDateTimeFormatParserRegex,
-				(
-					_match,
-					literal,
-					_year,
-					_month,
-					_day,
-					_weekday,
-					_hour,
-					_minute,
-					_second,
-					_fractionalSecond,
-					_dayPeriod,
-					_timeZoneName,
-					_offset,
-					_s,
-					groups,
-				) => {
-					if (literal != null) return (literal as string).substring(1, literal.length - 1);
-
-					for (const key in groups) {
-						const value = groups[key];
-						if (value == null) continue;
-
-						const part = parts.find(p => p.type === key);
-
-						if (value === 'Do' && part?.type === 'day') {
-							return formatWithOrdinal(Number(part.value));
-						} else if (value === 'a' && part?.type === 'dayPeriod') {
-							return part.value.toLocaleLowerCase();
-						}
-						return part?.value ?? '';
-					}
-
-					return '';
-				},
-			);
-		},
-	};
+	);
 }
 
 function getDateTimeFormatOptionsFromFormatString(

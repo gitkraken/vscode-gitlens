@@ -1,5 +1,6 @@
 import { DateStyle } from '../../config';
 import { Dates, memoize } from '../../system';
+import { formatDate, fromNow } from '../../system/date';
 import { CommitDateFormatting, GitRevision } from '../models';
 
 export interface GitReflog {
@@ -28,15 +29,11 @@ export class GitReflogRecord {
 
 	@memoize<GitReflogRecord['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
 	formatDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.dateFormatter.format(format);
+		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatDateFromNow() {
-		return this.dateFormatter.fromNow();
+		return fromNow(this.date);
 	}
 
 	get formattedDate(): string {
@@ -85,10 +82,5 @@ export class GitReflogRecord {
 		if (selector !== undefined) {
 			this._selector = selector;
 		}
-	}
-
-	@memoize()
-	private get dateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.date);
 	}
 }

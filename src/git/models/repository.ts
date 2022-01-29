@@ -20,7 +20,7 @@ import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
 import { filterMap, groupByMap } from '../../system/array';
-import { getFormatter } from '../../system/date';
+import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
@@ -139,13 +139,13 @@ export interface RepositoryFileSystemChangeEvent {
 @logName<Repository>((r, name) => `${name}(${r.id})`)
 export class Repository implements Disposable {
 	static formatLastFetched(lastFetched: number, short: boolean = true): string {
-		const formatter = getFormatter(new Date(lastFetched));
+		const date = new Date(lastFetched);
 		if (Date.now() - lastFetched < millisecondsPerDay) {
-			return formatter.fromNow();
+			return fromNow(date);
 		}
 
 		if (short) {
-			return formatter.format(Container.instance.config.defaultDateShortFormat ?? 'MMM D, YYYY');
+			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'MMM D, YYYY');
 		}
 
 		let format =
@@ -154,7 +154,7 @@ export class Repository implements Disposable {
 		if (!/[hHm]/.test(format)) {
 			format += ` [at] ${Container.instance.config.defaultTimeFormat ?? 'h:mma'}`;
 		}
-		return formatter.format(format);
+		return formatDate(date, format);
 	}
 
 	static getLastFetchedUpdateInterval(lastFetched: number): number {
