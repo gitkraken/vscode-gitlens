@@ -2,8 +2,6 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch } from './branch';
 
-const emptyStr = '';
-
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
@@ -13,7 +11,7 @@ const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
 const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 
 function isMatch(regex: RegExp, ref: string | undefined) {
-	return ref == null || ref.length === 0 ? false : regex.test(ref);
+	return !ref ? false : regex.test(ref);
 }
 
 export namespace GitRevision {
@@ -46,11 +44,11 @@ export namespace GitRevision {
 	}
 
 	export function isUncommitted(ref: string | undefined) {
-		return isMatch(uncommittedRegex, ref);
+		return ref === uncommitted || isMatch(uncommittedRegex, ref);
 	}
 
 	export function isUncommittedStaged(ref: string | undefined): boolean {
-		return isMatch(uncommittedStagedRegex, ref);
+		return ref === uncommittedStaged || isMatch(uncommittedStagedRegex, ref);
 	}
 
 	export function shorten(
@@ -65,7 +63,7 @@ export namespace GitRevision {
 	) {
 		if (ref === deletedOrMissing) return '(deleted)';
 
-		if (ref == null || ref.length === 0) return strings.working ?? emptyStr;
+		if (!ref) return strings.working ?? '';
 		if (isUncommitted(ref)) {
 			return isUncommittedStaged(ref)
 				? strings.uncommittedStaged ?? 'Index'

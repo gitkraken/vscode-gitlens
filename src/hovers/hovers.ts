@@ -1,4 +1,4 @@
-import { CancellationToken, MarkdownString } from 'vscode';
+import { CancellationToken, MarkdownString, TextDocument } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { GlyphChars } from '../constants';
@@ -24,11 +24,13 @@ export namespace Hovers {
 		commit: GitBlameCommit | GitLogCommit,
 		uri: GitUri,
 		editorLine: number,
+		document: TextDocument,
 	): Promise<MarkdownString | undefined> {
 		const documentRef = uri.sha;
 
-		let hunkLine;
-		if (GitBlameCommit.is(commit)) {
+		async function getDiff() {
+			if (!GitBlameCommit.is(commit)) return undefined;
+
 			// TODO: Figure out how to optimize this
 			let ref;
 			if (commit.isUncommitted) {
@@ -37,7 +39,9 @@ export namespace Hovers {
 				}
 			} else {
 				ref = commit.previousSha;
-				if (ref == null) return undefined;
+				if (ref == null) {
+					return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
+				}
 			}
 
 			const line = editorLine + 1;
@@ -52,7 +56,7 @@ export namespace Hovers {
 
 			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
+			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
 			if (hunkLine == null && ref == null) {
@@ -63,11 +67,11 @@ export namespace Hovers {
 					GitRevision.uncommittedStaged,
 				);
 			}
+
+			return hunkLine != null ? getDiffFromHunkLine(hunkLine) : undefined;
 		}
 
-		if (hunkLine == null || commit.previousSha == null) return undefined;
-
-		const diff = getDiffFromHunkLine(hunkLine);
+		const diff = await getDiff();
 
 		let message;
 		let previous;
@@ -91,14 +95,16 @@ export namespace Hovers {
 
 			previous =
 				diffUris.previous.sha == null || diffUris.previous.isUncommitted
-					? `_${GitRevision.shorten(diffUris.previous.sha, {
+					? `  &nbsp;_${GitRevision.shorten(diffUris.previous.sha, {
 							strings: {
 								working: 'Working Tree',
 							},
-					  })}_`
-					: `[$(git-commit) ${GitRevision.shorten(
+					  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
+					: `  &nbsp;[$(git-commit) ${GitRevision.shorten(
 							diffUris.previous.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(diffUris.previous.sha || '')} "Show Commit")`;
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+							diffUris.previous.sha || '',
+					  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 			current =
 				diffUris.current.sha == null || diffUris.current.isUncommitted
@@ -116,16 +122,20 @@ export namespace Hovers {
 				editorLine,
 			)} "Open Changes")`;
 
-			previous = `[$(git-commit) ${commit.previousShortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-				commit.previousSha,
-			)} "Show Commit")`;
+			if (commit.previousSha) {
+				previous = `  &nbsp;[$(git-commit) ${
+					commit.previousShortSha
+				}](${ShowQuickCommitCommand.getMarkdownCommandArgs(commit.previousSha)} "Show Commit") &nbsp;${
+					GlyphChars.ArrowLeftRightLong
+				}&nbsp;`;
+			}
 
 			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				commit.sha,
 			)} "Show Commit")`;
 		}
 
-		message = `${diff}\n---\n\nChanges  &nbsp;${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
+		message = `${diff}\n---\n\nChanges${previous ?? ' added in '}${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
 
 		const markdown = new MarkdownString(message, true);
 		markdown.supportHtml = true;

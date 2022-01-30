@@ -37,14 +37,14 @@ export class GitDiffParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${hunk}`.substr(1),
 					{
-						count: currentCount,
+						count: currentCount === 0 ? 1 : currentCount,
 						position: {
 							start: currentStart,
 							end: currentStart + (currentCount > 0 ? currentCount - 1 : 0),
 						},
 					},
 					{
-						count: previousCount,
+						count: previousCount === 0 ? 1 : previousCount,
 						position: {
 							start: previousStart,
 							end: previousStart + (previousCount > 0 ? previousCount - 1 : 0),
@@ -65,8 +65,17 @@ export class GitDiffParser {
 
 	@debug({ args: false, singleLine: true })
 	static parseHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } {
-		const currentLines: (GitDiffLine | undefined)[] = [];
-		const previousLines: (GitDiffLine | undefined)[] = [];
+		const currentStart = hunk.current.position.start;
+		const previousStart = hunk.previous.position.start;
+
+		const currentLines: (GitDiffLine | undefined)[] =
+			currentStart > previousStart
+				? new Array(currentStart - previousStart).fill(undefined, 0, currentStart - previousStart)
+				: [];
+		const previousLines: (GitDiffLine | undefined)[] =
+			previousStart > currentStart
+				? new Array(previousStart - currentStart).fill(undefined, 0, previousStart - currentStart)
+				: [];
 
 		let hasAddedOrChanged;
 		let hasRemoved;
@@ -120,7 +129,7 @@ export class GitDiffParser {
 
 		const hunkLines: GitDiffHunkLine[] = [];
 
-		for (let i = 0; i < currentLines.length; i++) {
+		for (let i = 0; i < Math.max(currentLines.length, previousLines.length); i++) {
 			hunkLines.push({
 				hunk: hunk,
 				current: currentLines[i],

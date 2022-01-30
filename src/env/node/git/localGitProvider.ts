@@ -1637,7 +1637,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				renames: true,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
-			// }
 
 			const diff = GitDiffParser.parse(data);
 			return diff;
@@ -1761,7 +1760,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const hunk = diff.hunks.find(c => c.current.position.start <= line && c.current.position.end >= line);
 			if (hunk == null) return undefined;
 
-			return hunk.lines[line - hunk.current.position.start];
+			return hunk.lines[line - Math.min(hunk.current.position.start, hunk.previous.position.start)];
 		} catch (ex) {
 			return undefined;
 		}

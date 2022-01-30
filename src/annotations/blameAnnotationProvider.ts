@@ -160,7 +160,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await Promise.all([
 				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
 				providers.changes
-					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line)
+					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
 					: undefined,
 			])
 		).filter(<T>(m?: T): m is T => Boolean(m));

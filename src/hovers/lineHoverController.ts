@@ -193,7 +193,12 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await Hovers.changesMessage(commit, trackedDocument.uri, position.line);
+		const message = await Hovers.changesMessage(
+			commit,
+			trackedDocument.uri,
+			position.line,
+			trackedDocument.document,
+		);
 		if (message == null) return undefined;
 
 		return new Hover(message, range);
