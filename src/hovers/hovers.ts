@@ -6,8 +6,7 @@ import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import { GitUri } from '../git/gitUri';
 import {
-	GitBlameCommit,
-	GitCommit,
+	GitCommit2,
 	GitDiffHunk,
 	GitDiffHunkLine,
 	GitLogCommit,
@@ -16,12 +15,13 @@ import {
 	PullRequest,
 } from '../git/models';
 import { Logger, LogLevel } from '../logger';
-import { Iterables, Strings } from '../system';
+import { count } from '../system/iterable';
 import { PromiseCancelledError } from '../system/promise';
+import { getDurationMilliseconds } from '../system/string';
 
 export namespace Hovers {
 	export async function changesMessage(
-		commit: GitBlameCommit | GitLogCommit,
+		commit: GitCommit2,
 		uri: GitUri,
 		editorLine: number,
 		document: TextDocument,
@@ -29,7 +29,7 @@ export namespace Hovers {
 		const documentRef = uri.sha;
 
 		async function getDiff() {
-			if (!GitBlameCommit.is(commit)) return undefined;
+			if (commit.file == null) return undefined;
 
 			// TODO: Figure out how to optimize this
 			let ref;
@@ -38,7 +38,7 @@ export namespace Hovers {
 					ref = documentRef;
 				}
 			} else {
-				ref = commit.previousSha;
+				ref = commit.file.previousSha;
 				if (ref == null) {
 					return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
 				}
@@ -47,10 +47,10 @@ export namespace Hovers {
 			const line = editorLine + 1;
 			const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
-			let originalFileName = commit.originalFileName;
-			if (originalFileName == null) {
-				if (uri.fsPath !== commit.uri.fsPath) {
-					originalFileName = commit.fileName;
+			let originalPath = commit.file.originalPath;
+			if (originalPath == null) {
+				if (uri.fsPath !== commit.file.uri.fsPath) {
+					originalPath = commit.file.path;
 				}
 			}
 
@@ -96,9 +96,7 @@ export namespace Hovers {
 			previous =
 				diffUris.previous.sha == null || diffUris.previous.isUncommitted
 					? `  &nbsp;_${GitRevision.shorten(diffUris.previous.sha, {
-							strings: {
-								working: 'Working Tree',
-							},
+							strings: { working: 'Working Tree' },
 					  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 					: `  &nbsp;[$(git-commit) ${GitRevision.shorten(
 							diffUris.previous.sha || '',
@@ -122,10 +120,11 @@ export namespace Hovers {
 				editorLine,
 			)} "Open Changes")`;
 
-			if (commit.previousSha) {
-				previous = `  &nbsp;[$(git-commit) ${
-					commit.previousShortSha
-				}](${ShowQuickCommitCommand.getMarkdownCommandArgs(commit.previousSha)} "Show Commit") &nbsp;${
+			const previousSha = commit.file?.previousSha;
+			if (previousSha) {
+				previous = `  &nbsp;[$(git-commit) ${GitRevision.shorten(
+					previousSha,
+				)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "Show Commit") &nbsp;${
 					GlyphChars.ArrowLeftRightLong
 				}&nbsp;`;
 			}
@@ -190,7 +189,7 @@ export namespace Hovers {
 	}
 
 	export async function detailsMessage(
-		commit: GitCommit,
+		commit: GitCommit2,
 		uri: GitUri,
 		editorLine: number,
 		format: string,
@@ -212,13 +211,21 @@ export namespace Hovers {
 			dateFormat = 'MMMM Do, YYYY h:mma';
 		}
 
+		let message = commit.message ?? commit.summary;
+		if (commit.message == null && !commit.isUncommitted) {
+			await commit.ensureFullDetails();
+			message = commit.message ?? commit.summary;
+
+			if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+		}
+
 		const remotes = await Container.instance.git.getRemotesWithProviders(commit.repoPath, { sort: true });
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
-			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
+			getAutoLinkedIssuesOrPullRequests(message, remotes),
 			options?.pullRequests?.pr ??
 				getPullRequestForCommit(commit.ref, remotes, {
 					pullRequests:
@@ -232,7 +239,7 @@ export namespace Hovers {
 							'pullRequestState',
 						),
 				}),
-			Container.instance.vsls.maybeGetPresence(commit.email),
+			Container.instance.vsls.maybeGetPresence(commit.author.email),
 		]);
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
@@ -284,14 +291,14 @@ export namespace Hovers {
 			!Container.instance.config.hovers.autolinks.enhanced ||
 			!CommitFormatter.has(Container.instance.config.hovers.detailsMarkdownFormat, 'message')
 		) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
 		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -306,15 +313,15 @@ export namespace Hovers {
 
 			if (autolinks != null && Logger.enabled(LogLevel.Debug)) {
 				// If there are any issues/PRs that timed out, log it
-				const count = Iterables.count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
-				if (count !== 0) {
+				const prCount = count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
+				if (prCount !== 0) {
 					Logger.debug(
 						cc,
 						`timed out ${
 							GlyphChars.Dash
-						} ${count} issue/pull request queries took too long (over ${timeout} ms) ${
+						} ${prCount} issue/pull request queries took too long (over ${timeout} ms) ${
 							GlyphChars.Dot
-						} ${Strings.getDurationMilliseconds(start)} ms`,
+						} ${getDurationMilliseconds(start)} ms`,
 					);
 
 					// const pending = [
@@ -336,11 +343,11 @@ export namespace Hovers {
 				}
 			}
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return autolinks;
 		} catch (ex) {
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -359,14 +366,14 @@ export namespace Hovers {
 		const start = hrtime();
 
 		if (!options?.pullRequests) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
 		const remote = await Container.instance.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -374,7 +381,7 @@ export namespace Hovers {
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
 		if (!connected) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return remote;
 		}
@@ -382,17 +389,17 @@ export namespace Hovers {
 		try {
 			const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return pr;
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {
-				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 				return ex;
 			}
 
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}

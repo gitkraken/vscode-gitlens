@@ -1,7 +1,7 @@
 import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, GitLogCommit } from '../git/models';
+import { GitCommit2, GitLogCommit } from '../git/models';
 import { Logger } from '../logger';
 import { debug } from '../system';
 import {
@@ -16,7 +16,7 @@ import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
 export * from './lineTracker';
 
 export class GitLineState {
-	constructor(public readonly commit: GitBlameCommit | undefined, public logCommit?: GitLogCommit) {}
+	constructor(public readonly commit: GitCommit2 | undefined, public logCommit?: GitLogCommit) {}
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {

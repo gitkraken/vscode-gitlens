@@ -1,7 +1,7 @@
 import { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitLog, GitLogCommit } from '../git/models';
+import { GitCommit, GitCommit2, GitLog, GitLogCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -17,7 +17,7 @@ import { executeGitCommand, GitActions } from './gitCommands';
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;
 	sha?: string;
-	commit?: GitCommit | GitLogCommit;
+	commit?: GitCommit2 | GitCommit | GitLogCommit;
 	repoLog?: GitLog;
 	revealInView?: boolean;
 }
@@ -115,7 +115,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 		}
 
 		try {
-			if (args.commit == null || args.commit.isFile) {
+			if (args.commit == null || args.commit.file != null) {
 				if (args.repoLog != null) {
 					args.commit = args.repoLog.commits.get(args.sha);
 					// If we can't find the commit, kill the repoLog
@@ -148,7 +148,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			void (await executeGitCommand({
 				command: 'show',
 				state: {
-					repo: repoPath!,
+					repo: repoPath,
 					reference: args.commit as GitLogCommit,
 				},
 			}));

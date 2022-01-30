@@ -116,22 +116,22 @@ export class LineHoverController implements Disposable {
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
-		// Get the full commit message -- since blame only returns the summary
-		let logCommit = lineState?.logCommit;
-		if (logCommit == null && !commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
-				ref: commit.sha,
-			});
-			if (logCommit != null) {
-				// Preserve the previous commit from the blame commit
-				logCommit.previousSha = commit.previousSha;
-				logCommit.previousFileName = commit.previousFileName;
+		// // Get the full commit message -- since blame only returns the summary
+		// let logCommit = lineState?.logCommit;
+		// if (logCommit == null && !commit.isUncommitted) {
+		// 	logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
+		// 		ref: commit.sha,
+		// 	});
+		// 	if (logCommit != null) {
+		// 		// Preserve the previous commit from the blame commit
+		// 		logCommit.previousSha = commit.previousSha;
+		// 		logCommit.previousFileName = commit.previousFileName;
 
-				if (lineState != null) {
-					lineState.logCommit = logCommit;
-				}
-			}
-		}
+		// 		if (lineState != null) {
+		// 			lineState.logCommit = logCommit;
+		// 		}
+		// 	}
+		// }
 
 		let editorLine = position.line;
 		const line = editorLine + 1;
@@ -142,7 +142,7 @@ export class LineHoverController implements Disposable {
 		if (trackedDocument == null) return undefined;
 
 		const message = await Hovers.detailsMessage(
-			logCommit ?? commit,
+			commit,
 			trackedDocument.uri,
 			editorLine,
 			this.container.config.hovers.detailsMarkdownFormat,

@@ -109,9 +109,9 @@ export class LineHistoryNode
 
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
-						fileName: commit.fileName,
+						fileName: commit.file?.path ?? '',
 						indexStatus: status?.indexStatus,
-						originalFileName: commit.originalFileName,
+						originalFileName: commit.file?.originalPath,
 						repoPath: this.uri.repoPath!,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
@@ -123,16 +123,16 @@ export class LineHistoryNode
 							this.uri.repoPath!,
 							GitRevision.uncommittedStaged,
 							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
+							commit.author.email,
+							commit.author.date,
+							commit.committer.date,
+							commit.message ?? commit.summary,
+							file.fileName,
 							[file],
 							GitFileIndexStatus.Modified,
-							commit.originalFileName,
+							file.originalFileName,
 							commit.previousSha,
-							commit.originalFileName ?? commit.fileName,
+							file.originalFileName ?? file.fileName,
 						);
 
 						children.splice(
@@ -148,16 +148,16 @@ export class LineHistoryNode
 							this.uri.repoPath!,
 							GitRevision.uncommitted,
 							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
+							commit.author.email,
+							commit.author.date,
+							commit.committer.date,
+							commit.message ?? commit.summary,
+							file.fileName,
 							[file],
 							GitFileIndexStatus.Modified,
-							commit.originalFileName,
+							file.originalFileName,
 							GitRevision.uncommittedStaged,
-							commit.originalFileName ?? commit.fileName,
+							file.originalFileName ?? file.fileName,
 						);
 
 						children.splice(
@@ -177,16 +177,16 @@ export class LineHistoryNode
 								? GitRevision.uncommittedStaged
 								: commit.sha,
 							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
+							commit.author.email,
+							commit.author.date,
+							commit.committer.date,
+							commit.message ?? commit.summary,
+							file.fileName,
 							[file],
 							GitFileIndexStatus.Modified,
-							commit.originalFileName,
+							file.originalFileName,
 							commit.previousSha,
-							commit.originalFileName ?? commit.fileName,
+							file.originalFileName ?? file.fileName,
 						);
 
 						children.splice(

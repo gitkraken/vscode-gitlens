@@ -188,7 +188,7 @@ export namespace CommitQuickPickItem {
 		if (options.compact) {
 			const item: CommitQuickPickItem<T> = {
 				label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
-				description: `${commit.author}, ${commit.formattedDate}${pad('$(git-commit)', 2, 2)}${
+				description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 2)}${
 					commit.shortSha
 				}${pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
@@ -202,7 +202,7 @@ export namespace CommitQuickPickItem {
 		const item: CommitQuickPickItem<T> = {
 			label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
 			description: '',
-			detail: `${GlyphChars.Space.repeat(2)}${commit.author}, ${commit.formattedDate}${pad(
+			detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${commit.formattedDate}${pad(
 				'$(git-commit)',
 				2,
 				2,

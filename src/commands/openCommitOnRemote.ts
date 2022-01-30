@@ -1,6 +1,7 @@
 import { TextEditor, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -81,18 +82,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					return;
 				}
 
-				let commit = blame.commit;
-				// If the line is uncommitted, find the previous commit
-				if (commit.isUncommitted) {
-					commit = commit.with({
-						sha: commit.previousSha,
-						fileName: commit.previousFileName,
-						previousSha: null,
-						previousFileName: null,
-					});
-				}
-
-				args.sha = commit.sha;
+				// If the line is uncommitted, use previous commit
+				args.sha = blame.commit.isUncommitted
+					? blame.commit.file!.previousSha ?? GitRevision.deletedOrMissing
+					: blame.commit.sha;
 			}
 
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {

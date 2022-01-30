@@ -32,7 +32,7 @@ export const enum GitFileWorkingTreeStatus {
 }
 
 export interface GitFile {
-	status: GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
+	status: GitFileStatus;
 	readonly repoPath?: string;
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;

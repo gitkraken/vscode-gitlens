@@ -41,6 +41,7 @@ import {
 	BranchDateFormatting,
 	BranchSortOptions,
 	CommitDateFormatting,
+	CommitShaFormatting,
 	GitBlame,
 	GitBlameLine,
 	GitBlameLines,
@@ -155,6 +156,7 @@ export class GitProviderService implements Disposable {
 
 		BranchDateFormatting.reset();
 		CommitDateFormatting.reset();
+		CommitShaFormatting.reset();
 		PullRequestDateFormatting.reset();
 
 		this.updateContext();
@@ -182,6 +184,10 @@ export class GitProviderService implements Disposable {
 			BranchDateFormatting.reset();
 			CommitDateFormatting.reset();
 			PullRequestDateFormatting.reset();
+		}
+
+		if (configuration.changed(e, 'advanced.abbreviatedShaLength')) {
+			CommitShaFormatting.reset();
 		}
 
 		if (configuration.changed(e, 'views.contributors.showAllBranches')) {

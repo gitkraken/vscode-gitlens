@@ -36,11 +36,12 @@ import {
 	BranchSortOptions,
 	GitAuthor,
 	GitBlame,
-	GitBlameCommit,
 	GitBlameLine,
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
+	GitCommit2,
+	GitCommitIdentity,
 	GitCommitLine,
 	GitCommitType,
 	GitContributor,
@@ -49,6 +50,7 @@ import {
 	GitDiffHunkLine,
 	GitDiffShortStat,
 	GitFile,
+	GitFileChange,
 	GitFileIndexStatus,
 	GitLog,
 	GitLogCommit,
@@ -376,7 +378,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (context == null) return undefined;
 			const { metadata, github, remotehub, session } = context;
 
-			const file = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
+			const file = this.getRelativePath(uri, root);
 
 			// const sha = await this.resolveReferenceCore(uri.repoPath!, metadata, uri.sha);
 			// if (sha == null) return undefined;
@@ -391,17 +394,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			);
 
 			const authors = new Map<string, GitAuthor>();
-			const commits = new Map<string, GitBlameCommit>();
+			const commits = new Map<string, GitCommit2>();
 			const lines: GitCommitLine[] = [];
 
 			for (const range of blame.ranges) {
-				const { viewer = session.account.label } = blame;
-				const name = viewer != null && range.commit.author.name === viewer ? 'You' : range.commit.author.name;
+				const c = range.commit;
 
-				let author = authors.get(range.commit.author.name);
+				const { viewer = session.account.label } = blame;
+				const name = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
+
+				let author = authors.get(c.author.name);
 				if (author == null) {
 					author = {
-						name: range.commit.author.name,
+						name: c.author.name,
 						lineCount: 0,
 					};
 					authors.set(name, author);
@@ -409,29 +414,26 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 				author.lineCount += range.endingLine - range.startingLine + 1;
 
-				let commit = commits.get(range.commit.oid);
+				let commit = commits.get(c.oid);
 				if (commit == null) {
-					commit = new GitBlameCommit(
+					commit = new GitCommit2(
 						uri.repoPath!,
-						range.commit.oid,
-						author.name,
-						range.commit.author.email,
-						new Date(range.commit.author.date),
-						new Date(range.commit.committer.date),
-						range.commit.message,
-						file,
-						undefined,
-						range.commit.parents.nodes[0]?.oid,
-						undefined,
+						c.oid,
+						new GitCommitIdentity(author.name, c.author.email, new Date(c.author.date), c.author.avatarUrl),
+						new GitCommitIdentity(c.committer.name, c.committer.email, new Date(c.author.date)),
+						c.message.split('\n', 1)[0],
+						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
+						c.message,
+						new GitFileChange(root.toString(), file, GitFileIndexStatus.Modified),
 						[],
 					);
 
-					commits.set(range.commit.oid, commit);
+					commits.set(c.oid, commit);
 				}
 
 				for (let i = range.startingLine; i <= range.endingLine; i++) {
 					const line: GitCommitLine = {
-						sha: range.commit.oid,
+						sha: c.oid,
 						line: i,
 						originalLine: i,
 					};
@@ -495,7 +497,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const commit = blame.commits.get(blameLine.sha);
 		if (commit == null) return undefined;
 
-		const author = blame.authors.get(commit.author)!;
+		const author = blame.authors.get(commit.author.name)!;
 		return {
 			author: { ...author, lineCount: commit.lines.length },
 			commit: commit,
@@ -545,7 +547,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const endLine = range.end.line + 1;
 
 		const authors = new Map<string, GitAuthor>();
-		const commits = new Map<string, GitBlameCommit>();
+		const commits = new Map<string, GitCommit2>();
 		for (const c of blame.commits.values()) {
 			if (!shas.has(c.sha)) continue;
 
@@ -554,10 +556,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			});
 			commits.set(c.sha, commit);
 
-			let author = authors.get(commit.author);
+			let author = authors.get(commit.author.name);
 			if (author == null) {
 				author = {
-					name: commit.author,
+					name: commit.author.name,
 					lineCount: 0,
 				};
 				authors.set(author.name, author);
@@ -1234,7 +1236,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 											return undefined;
 										}
 
-										authors.set(c.author, log.authors.get(c.author)!);
+										authors.set(c.author.name, log.authors.get(c.author.name)!);
 										return [ref, c];
 									},
 								),

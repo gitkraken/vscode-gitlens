@@ -19,11 +19,17 @@ import { Iterables, Strings } from '../../system';
 import { PromiseCancelledError } from '../../system/promise';
 import { ContactPresence } from '../../vsls/vsls';
 import type { GitUri } from '../gitUri';
-import { GitCommit, GitLogCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
+import {
+	GitCommit,
+	GitCommit2,
+	GitLogCommit,
+	GitRemote,
+	GitRevision,
+	IssueOrPullRequest,
+	PullRequest,
+} from '../models';
 import { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
-
-const emptyStr = '';
 
 export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>;
@@ -77,29 +83,29 @@ export interface CommitFormatOptions extends FormatOptions {
 	};
 }
 
-export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
+export class CommitFormatter extends Formatter<GitCommit | GitCommit2, CommitFormatOptions> {
 	private get _authorDate() {
-		return this._item.formatAuthorDate(this._options.dateFormat);
+		return this._item.author.formatDate(this._options.dateFormat);
 	}
 
 	private get _authorDateAgo() {
-		return this._item.formatAuthorDateFromNow();
+		return this._item.author.fromNow();
 	}
 
 	private get _authorDateAgoShort() {
-		return this._item.formatCommitterDateFromNow(true);
+		return this._item.author.fromNow(true);
 	}
 
 	private get _committerDate() {
-		return this._item.formatCommitterDate(this._options.dateFormat);
+		return this._item.committer.formatDate(this._options.dateFormat);
 	}
 
 	private get _committerDateAgo() {
-		return this._item.formatCommitterDateFromNow();
+		return this._item.committer.fromNow();
 	}
 
 	private get _committerDateAgoShort() {
-		return this._item.formatCommitterDateFromNow(true);
+		return this._item.committer.fromNow(true);
 	}
 
 	private get _date() {
@@ -116,16 +122,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	private get _pullRequestDate() {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null || !PullRequest.is(pr)) return emptyStr;
+		if (pr == null || !PullRequest.is(pr)) return '';
 
-		return pr.formatDate(this._options.dateFormat) ?? emptyStr;
+		return pr.formatDate(this._options.dateFormat) ?? '';
 	}
 
 	private get _pullRequestDateAgo() {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null || !PullRequest.is(pr)) return emptyStr;
+		if (pr == null || !PullRequest.is(pr)) return '';
 
-		return pr.formatDateFromNow() ?? emptyStr;
+		return pr.formatDateFromNow() ?? '';
 	}
 
 	private get _pullRequestDateOrAgo() {
@@ -157,12 +163,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get author(): string {
-		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.author);
-		if (!this._options.markdown) {
-			return author;
-		}
+		const { name, email } = this._item.author;
+		const author = this._padOrTruncate(name, this._options.tokenOptions.author);
+		if (!this._options.markdown) return author;
 
-		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
+		return `[${author}](mailto:${email} "Email ${name} (${email})")`;
 	}
 
 	get authorAgo(): string {
@@ -192,25 +197,26 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorNotYou(): string {
-		if (this._item.author === 'You') return this._padOrTruncate(emptyStr, this._options.tokenOptions.authorNotYou);
+		const { name, email } = this._item.author;
+		if (name === 'You') return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
 
-		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.authorNotYou);
-		if (!this._options.markdown) {
-			return author;
-		}
+		const author = this._padOrTruncate(name, this._options.tokenOptions.authorNotYou);
+		if (!this._options.markdown) return author;
 
-		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
+		return `[${author}](mailto:${email} "Email ${name} (${email})")`;
 	}
 
 	get avatar(): string | Promise<string> {
 		if (!this._options.markdown || !Container.instance.config.hovers.avatars) {
-			return this._padOrTruncate(emptyStr, this._options.tokenOptions.avatar);
+			return this._padOrTruncate('', this._options.tokenOptions.avatar);
 		}
+
+		const { name } = this._item.author;
 
 		const presence = this._options.presence;
 		if (presence != null) {
-			const title = `${this._item.author} ${this._item.author === 'You' ? 'are' : 'is'} ${
-				presence.status === 'dnd' ? 'in ' : emptyStr
+			const title = `${name} ${name === 'You' ? 'are' : 'is'} ${
+				presence.status === 'dnd' ? 'in ' : ''
 			}${presence.statusText.toLocaleLowerCase()}`;
 
 			const avatarMarkdownPromise = this._getAvatarMarkdown(title, this._options.avatarSize);
@@ -222,7 +228,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 		}
 
-		return this._getAvatarMarkdown(this._item.author, this._options.avatarSize);
+		return this._getAvatarMarkdown(name, this._options.avatarSize);
 	}
 
 	private async _getAvatarMarkdown(title: string, size?: number) {
@@ -243,31 +249,27 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get changes(): string {
 		return this._padOrTruncate(
-			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus() : emptyStr,
+			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus() : '',
 			this._options.tokenOptions.changes,
 		);
 	}
 
 	get changesDetail(): string {
 		return this._padOrTruncate(
-			GitLogCommit.is(this._item)
-				? this._item.getFormattedDiffStatus({ expand: true, separator: ', ' })
-				: emptyStr,
+			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus({ expand: true, separator: ', ' }) : '',
 			this._options.tokenOptions.changesDetail,
 		);
 	}
 
 	get changesShort(): string {
 		return this._padOrTruncate(
-			GitLogCommit.is(this._item)
-				? this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr })
-				: emptyStr,
+			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus({ compact: true, separator: '' }) : '',
 			this._options.tokenOptions.changesShort,
 		);
 	}
 
 	get commands(): string {
-		if (!this._options.markdown) return this._padOrTruncate(emptyStr, this._options.tokenOptions.commands);
+		if (!this._options.markdown) return this._padOrTruncate('', this._options.tokenOptions.commands);
 
 		let commands;
 		if (this._item.isUncommitted) {
@@ -284,11 +286,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
-						sha: diffUris.previous.sha ?? emptyStr,
+						sha: diffUris.previous.sha ?? '',
 						uri: diffUris.previous.documentUri(),
 					},
 					rhs: {
-						sha: diffUris.current.sha ?? emptyStr,
+						sha: diffUris.current.sha ?? '',
 						uri: diffUris.current.documentUri(),
 					},
 					repoPath: this._item.repoPath,
@@ -370,6 +372,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		if (Container.instance.actionRunners.count('hover.commands') > 0) {
+			const { name, email } = this._item.author;
+
 			commands += `${separator}[$(organization) Team${GlyphChars.SpaceThinnest}${
 				GlyphChars.Ellipsis
 			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
@@ -377,8 +381,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commit: {
 					sha: this._item.sha,
 					author: {
-						name: this._item.author,
-						email: this._item.email,
+						name: name,
+						email: email,
 						presence: this._options.presence,
 					},
 				},
@@ -430,13 +434,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get email(): string {
-		return this._padOrTruncate(this._item.email ?? emptyStr, this._options.tokenOptions.email);
+		const { email } = this._item.author;
+		return this._padOrTruncate(email ?? '', this._options.tokenOptions.email);
 	}
 
 	get footnotes(): string {
 		return this._padOrTruncate(
 			this._options.footnotes == null || this._options.footnotes.size === 0
-				? emptyStr
+				? ''
 				: Iterables.join(
 						Iterables.map(this._options.footnotes, ([i, footnote]) =>
 							this._options.markdown ? footnote : `${Strings.getSuperscript(i)} ${footnote}`,
@@ -448,7 +453,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get id(): string {
-		const sha = this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
+		const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
 		if (this._options.markdown && this._options.unpublished) {
 			return `<span style="color:#35b15e;">${sha} (unpublished)</span>`;
 		}
@@ -471,7 +476,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 		}
 
-		let message = this._item.message;
+		let message = this._item.message ?? this._item.summary;
 		if (this._options.messageTruncateAtNewLine) {
 			const index = message.indexOf('\n');
 			if (index !== -1) {
@@ -501,7 +506,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get pullRequest(): string {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null) return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);
+		if (pr == null) return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
 
 		let text;
 		if (PullRequest.is(pr)) {
@@ -543,9 +548,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (pr instanceof PromiseCancelledError) {
 			text = this._options.markdown
 				? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
-				: this._options?.pullRequestPendingMessage ?? emptyStr;
+				: this._options?.pullRequestPendingMessage ?? '';
 		} else {
-			return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);
+			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
 		}
 
 		return this._padOrTruncate(text, this._options.tokenOptions.pullRequest);
@@ -566,13 +571,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	get pullRequestState(): string {
 		const { pullRequestOrRemote: pr } = this._options;
 		return this._padOrTruncate(
-			pr == null || !PullRequest.is(pr) ? emptyStr : pr.state ?? emptyStr,
+			pr == null || !PullRequest.is(pr) ? '' : pr.state ?? '',
 			this._options.tokenOptions.pullRequestState,
 		);
 	}
 
 	get sha(): string {
-		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.sha);
+		return this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.sha);
 	}
 
 	get tips(): string {
@@ -583,19 +588,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				.map(t => `<span style="color:#ffffff;background-color:#1d76db;">&nbsp;&nbsp;${t}&nbsp;&nbsp;</span>`)
 				.join(GlyphChars.Space.repeat(3));
 		}
-		return this._padOrTruncate(branchAndTagTips ?? emptyStr, this._options.tokenOptions.tips);
+		return this._padOrTruncate(branchAndTagTips ?? '', this._options.tokenOptions.tips);
 	}
 
-	static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;
-	static fromTemplate(template: string, commit: GitCommit, options?: CommitFormatOptions): string;
+	static fromTemplate(template: string, commit: GitCommit | GitCommit2, dateFormat: string | null): string;
+	static fromTemplate(template: string, commit: GitCommit | GitCommit2, options?: CommitFormatOptions): string;
 	static fromTemplate(
 		template: string,
-		commit: GitCommit,
+		commit: GitCommit | GitCommit2,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string;
 	static fromTemplate(
 		template: string,
-		commit: GitCommit,
+		commit: GitCommit | GitCommit2,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string {
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
@@ -618,16 +623,24 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
 	}
 
-	static fromTemplateAsync(template: string, commit: GitCommit, dateFormat: string | null): Promise<string>;
-	static fromTemplateAsync(template: string, commit: GitCommit, options?: CommitFormatOptions): Promise<string>;
 	static fromTemplateAsync(
 		template: string,
-		commit: GitCommit,
+		commit: GitCommit | GitCommit2,
+		dateFormat: string | null,
+	): Promise<string>;
+	static fromTemplateAsync(
+		template: string,
+		commit: GitCommit | GitCommit2,
+		options?: CommitFormatOptions,
+	): Promise<string>;
+	static fromTemplateAsync(
+		template: string,
+		commit: GitCommit | GitCommit2,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): Promise<string>;
 	static fromTemplateAsync(
 		template: string,
-		commit: GitCommit,
+		commit: GitCommit | GitCommit2,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): Promise<string> {
 		if (CommitFormatter.has(template, 'footnotes')) {

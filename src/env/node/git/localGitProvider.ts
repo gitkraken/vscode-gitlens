@@ -42,11 +42,11 @@ import {
 	BranchSortOptions,
 	GitAuthor,
 	GitBlame,
-	GitBlameCommit,
 	GitBlameLine,
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
+	GitCommit2,
 	GitCommitType,
 	GitContributor,
 	GitDiff,
@@ -1083,7 +1083,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const commit = blame.commits.get(blameLine.sha);
 			if (commit == null) return undefined;
 
-			const author = blame.authors.get(commit.author)!;
+			const author = blame.authors.get(commit.author.name)!;
 			return {
 				author: { ...author, lineCount: commit.lines.length },
 				commit: commit,
@@ -1134,7 +1134,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const commit = blame.commits.get(blameLine.sha);
 			if (commit == null) return undefined;
 
-			const author = blame.authors.get(commit.author)!;
+			const author = blame.authors.get(commit.author.name)!;
 			return {
 				author: { ...author, lineCount: commit.lines.length },
 				commit: commit,
@@ -1197,7 +1197,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const endLine = range.end.line + 1;
 
 		const authors = new Map<string, GitAuthor>();
-		const commits = new Map<string, GitBlameCommit>();
+		const commits = new Map<string, GitCommit2>();
 		for (const c of blame.commits.values()) {
 			if (!shas.has(c.sha)) continue;
 
@@ -1206,10 +1206,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			commits.set(c.sha, commit);
 
-			let author = authors.get(commit.author);
+			let author = authors.get(commit.author.name);
 			if (author == null) {
 				author = {
-					name: commit.author,
+					name: commit.author.name,
 					lineCount: 0,
 				};
 				authors.set(author.name, author);
@@ -2261,7 +2261,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 											return undefined;
 										}
 
-										authors.set(c.author, log.authors.get(c.author)!);
+										authors.set(c.author.name, log.authors.get(c.author.name)!);
 										return [ref, c];
 									},
 								),
@@ -2839,12 +2839,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If line is committed, diff with line ref with previous
 			else {
 				ref = blameLine.commit.sha;
-				path = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? path);
+				path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
 				uri = this.getAbsoluteUri(path, repoPath);
 				editorLine = blameLine.line.originalLine - 1;
 
-				if (skip === 0 && blameLine.commit.previousSha) {
-					previous = GitUri.fromFile(path, repoPath, blameLine.commit.previousSha);
+				if (skip === 0 && blameLine.commit.file?.previousSha) {
+					previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);
 				}
 			}
 		} else {
@@ -2868,12 +2868,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Diff with line ref with previous
 			ref = blameLine.commit.sha;
-			path = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? path);
+			path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
 			uri = this.getAbsoluteUri(path, repoPath);
 			editorLine = blameLine.line.originalLine - 1;
 
-			if (skip === 0 && blameLine.commit.previousSha) {
-				previous = GitUri.fromFile(path, repoPath, blameLine.commit.previousSha);
+			if (skip === 0 && blameLine.commit.file?.previousSha) {
+				previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);
 			}
 		}
 

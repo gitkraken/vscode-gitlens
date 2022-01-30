@@ -81,7 +81,7 @@ export class GitDiffParser {
 		let hasRemoved;
 
 		let removed = 0;
-		for (const l of Strings.lines(hunk.diff)) {
+		for (const l of Strings.getLines(hunk.diff)) {
 			switch (l[0]) {
 				case '+':
 					hasAddedOrChanged = true;

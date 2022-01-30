@@ -137,6 +137,19 @@ export function getDurationMilliseconds(start: [number, number]) {
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
+export function* getLines(s: string, char: string = '\n'): IterableIterator<string> {
+	let i = 0;
+	while (i < s.length) {
+		let j = s.indexOf(char, i);
+		if (j === -1) {
+			j = s.length;
+		}
+
+		yield s.substring(i, j);
+		i = j + 1;
+	}
+}
+
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
 
 export function getSuperscript(num: number) {
@@ -247,19 +260,6 @@ export function isLowerAsciiLetter(code: number): boolean {
 
 export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
-}
-
-export function* lines(s: string, char: string = '\n'): IterableIterator<string> {
-	let i = 0;
-	while (i < s.length) {
-		let j = s.indexOf(char, i);
-		if (j === -1) {
-			j = s.length;
-		}
-
-		yield s.substring(i, j);
-		i = j + 1;
-	}
 }
 
 export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {

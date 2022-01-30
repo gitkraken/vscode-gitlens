@@ -16,7 +16,14 @@ import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitBlameCommit, PullRequest, PullRequestState } from '../git/models';
+import {
+	GitCommit2,
+	GitCommitIdentity,
+	GitFileChange,
+	GitFileIndexStatus,
+	PullRequest,
+	PullRequestState,
+} from '../git/models';
 import { Logger } from '../logger';
 import {
 	DidChangeConfigurationNotificationType,
@@ -195,18 +202,19 @@ export abstract class WebviewBase implements Disposable {
 				onIpcCommand(PreviewConfigurationCommandType, e, async params => {
 					switch (params.type) {
 						case 'commit': {
-							const commit = new GitBlameCommit(
+							const commit = new GitCommit2(
 								'~/code/eamodio/vscode-gitlens-demo',
 								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
-								'You',
-								'eamodio@gmail.com',
-								new Date('2016-11-12T20:41:00.000Z'),
-								new Date('2020-11-01T06:57:21.000Z'),
+								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
+								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
 								'Supercharged',
-								'code.ts',
-								undefined,
-								'3ac1d3f51d7cf5f438cc69f25f6740536ad80fef',
-								'code.ts',
+								['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
+								'Supercharged',
+								new GitFileChange(
+									'~/code/eamodio/vscode-gitlens-demo',
+									'code.ts',
+									GitFileIndexStatus.Modified,
+								),
 								[],
 							);
 

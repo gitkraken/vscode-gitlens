@@ -40,7 +40,7 @@ export class GitStashParser {
 	static parse(data: string, repoPath: string): GitStash | undefined {
 		if (!data) return undefined;
 
-		const lines = Strings.lines(`${data}</f>`);
+		const lines = Strings.getLines(`${data}</f>`);
 		// Skip the first line since it will always be </f>
 		let next = lines.next();
 		if (next.done) return undefined;

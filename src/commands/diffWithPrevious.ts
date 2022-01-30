@@ -1,7 +1,7 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitRevision } from '../git/models';
+import { GitCommit, GitCommit2, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -16,7 +16,7 @@ import {
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
-	commit?: GitCommit;
+	commit?: GitCommit2 | GitCommit;
 
 	inDiffRightEditor?: boolean;
 	uri?: Uri;
@@ -58,7 +58,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
-						uri: args.commit.originalUri,
+						uri: args.commit.originalUri ?? args.commit.uri,
 					},
 					rhs: {
 						sha: args.commit.sha || '',

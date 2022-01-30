@@ -524,7 +524,11 @@ export class GitHubApi {
 								email
 								name
 							}
-							committer { date }
+							committer {
+								date
+								email
+								name
+							}
 						}
 					}
 				}
@@ -645,20 +649,24 @@ export class GitHubApi {
 			const result = rsp?.data;
 			if (result == null) return undefined;
 
+			const { commit } = result;
 			return {
 				oid: result.sha,
 				parents: { nodes: result.parents.map(p => ({ oid: p.sha })) },
-				message: result.commit.message,
+				message: commit.message,
 				additions: result.stats?.additions,
 				changedFiles: result.files?.length,
 				deletions: result.stats?.deletions,
 				author: {
-					date: result.commit.author?.date ?? result.commit.committer?.date ?? new Date().toString(),
-					email: result.commit.author?.email ?? undefined,
-					name: result.commit.author?.name ?? '',
+					avatarUrl: result.author?.avatar_url ?? undefined,
+					date: commit.author?.date ?? new Date().toString(),
+					email: commit.author?.email ?? undefined,
+					name: commit.author?.name ?? '',
 				},
 				committer: {
-					date: result.commit.committer?.date ?? result.commit.author?.date ?? new Date().toString(),
+					date: commit.committer?.date ?? new Date().toString(),
+					email: commit.committer?.email ?? undefined,
+					name: commit.committer?.name ?? '',
 				},
 				files: result.files,
 			};
@@ -720,11 +728,16 @@ export class GitHubApi {
 				changedFiles
 				deletions
 				author {
+					avatarUrl
 					date
 					email
 					name
 				}
-				committer { date }
+				committer {
+					date
+					email
+					name
+				}
 			}
 		}
 	}
@@ -783,23 +796,28 @@ export class GitHubApi {
 						endCursor
 						hasNextPage
 					}
-					nodes { ... on Commit { ...commit } }
+					nodes {
+						... on Commit {
+							oid
+							message
+							parents(first: 3) { nodes { oid } }
+							author {
+								avatarUrl
+								date
+								email
+								name
+							}
+							committer {
+								 date
+								 email
+								 name
+							 }
+						}
+					}
 				}
 			}
 		}
 	}
-}
-
-fragment commit on Commit {
-	oid
-	message
-	parents(first: 100) { nodes { oid } }
-	author {
-		date
-		email
-		name
-	}
-	committer { date }
 }`;
 
 			const rsp = await this.graphql<QueryResult>(token, query, {
@@ -1195,6 +1213,8 @@ export interface GitHubBlameRange {
 		};
 		committer: {
 			date: string;
+			email: string;
+			name: string;
 		};
 	};
 }
@@ -1216,12 +1236,8 @@ export interface GitHubCommit {
 	additions: number | undefined;
 	changedFiles: number | undefined;
 	deletions: number | undefined;
-	author: {
-		date: string;
-		email: string | undefined;
-		name: string;
-	};
-	committer: { date: string };
+	author: { avatarUrl: string | undefined; date: string; email: string | undefined; name: string };
+	committer: { date: string; email: string | undefined; name: string };
 
 	files?: Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
 }

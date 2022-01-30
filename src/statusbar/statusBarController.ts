@@ -15,7 +15,7 @@ import { configuration, FileAnnotationType, StatusBarCommand } from '../configur
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitBlameCommit, PullRequest } from '../git/models';
+import { GitCommit2, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug } from '../system/decorators/log';
@@ -172,7 +172,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	@debug({ args: false })
-	private async updateBlame(editor: TextEditor, commit: GitBlameCommit, options?: { pr?: PullRequest | null }) {
+	private async updateBlame(editor: TextEditor, commit: GitCommit2, options?: { pr?: PullRequest | null }) {
 		const cfg = this.container.config.statusBar;
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
@@ -332,7 +332,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	private async getPullRequest(
-		commit: GitBlameCommit,
+		commit: GitCommit2,
 		{ timeout }: { timeout?: number } = {},
 	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
 		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
@@ -348,7 +348,7 @@ export class StatusBarController implements Disposable {
 
 	private async updateCommitTooltip(
 		statusBarItem: StatusBarItem,
-		commit: GitBlameCommit,
+		commit: GitCommit2,
 		actionTooltip: string,
 		getBranchAndTagTips:
 			| ((
@@ -386,7 +386,7 @@ export class StatusBarController implements Disposable {
 
 	private async waitForPendingPullRequest(
 		editor: TextEditor,
-		commit: GitBlameCommit,
+		commit: GitCommit2,
 		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
 		cancellationToken: CancellationToken,
 		timeout: number,

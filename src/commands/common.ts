@@ -20,6 +20,7 @@ import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitCommit,
+	GitCommit2,
 	GitContributor,
 	GitFile,
 	GitReference,
@@ -324,12 +325,12 @@ export function isCommandContextViewNodeHasBranch(
 	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
-export function isCommandContextViewNodeHasCommit<T extends GitCommit>(
+export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitCommit2>(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitCommit.is((context.node as ViewNode & { commit: GitCommit }).commit);
+	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitCommit2 }).commit);
 }
 
 export function isCommandContextViewNodeHasContributor(

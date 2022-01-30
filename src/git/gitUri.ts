@@ -10,7 +10,7 @@ import { memoize } from '../system/decorators/memoize';
 import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
 import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
 import { RevisionUriData } from './gitProvider';
-import { GitCommit, GitFile, GitRevision } from './models';
+import { GitCommit, GitCommit2, GitFile, GitRevision } from './models';
 
 export interface GitCommitish {
 	fileName?: string;
@@ -230,7 +230,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	static fromCommit(commit: GitCommit, previous: boolean = false) {
+	static fromCommit(commit: GitCommit | GitCommit2, previous: boolean = false) {
 		if (!previous) return new GitUri(commit.uri, commit);
 
 		return new GitUri(commit.previousUri, {

@@ -1,6 +1,7 @@
 import { Range } from 'vscode';
-import { Arrays, debug, Strings } from '../../system';
+import { Arrays, debug } from '../../system';
 import { normalizePath, relative } from '../../system/path';
+import { getLines } from '../../system/string';
 import {
 	GitAuthor,
 	GitCommitType,
@@ -105,7 +106,7 @@ export class GitLogParser {
 		let i = 0;
 		let first = true;
 
-		const lines = Strings.lines(`${data}</f>`);
+		const lines = getLines(`${data}</f>`);
 		// Skip the first line since it will always be </f>
 		let next = lines.next();
 		if (next.done) return undefined;
@@ -455,7 +456,7 @@ export class GitLogParser {
 				undefined,
 				entry.fileStats,
 				entry.parentShas,
-				entry.line,
+				entry.line != null ? [entry.line] : [],
 			);
 
 			commits.set(entry.ref!, commit);

@@ -78,7 +78,7 @@ export function getAvatarUri(
 	// Double the size to avoid blurring on the retina screen
 	size *= 2;
 
-	if (email == null || email.length === 0) {
+	if (!email) {
 		const avatar = createOrUpdateAvatar(
 			`${missingGravatarHash}:${size}`,
 			undefined,

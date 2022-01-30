@@ -3,8 +3,8 @@ import { Container } from '../../container';
 import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitReference } from '../models';
-import { GitCommit, GitCommitType } from './commit';
-import { GitFile, GitFileStatus } from './file';
+import { GitCommit, GitCommitType, GitFileChange } from './commit';
+import { GitFile, GitFileIndexStatus, GitFileStatus } from './file';
 
 const emptyStats = Object.freeze({
 	added: 0,
@@ -24,6 +24,10 @@ export interface GitLogCommitLine {
 }
 
 export class GitLogCommit extends GitCommit {
+	override get parents(): string[] {
+		return this.parentShas != null ? this.parentShas : [];
+	}
+
 	static override isOfRefType(commit: GitReference | undefined) {
 		return commit?.refType === 'revision';
 	}
@@ -39,6 +43,7 @@ export class GitLogCommit extends GitCommit {
 
 	nextSha?: string;
 	nextFileName?: string;
+	readonly lines: GitLogCommitLine[];
 
 	constructor(
 		type: GitCommitType,
@@ -62,7 +67,7 @@ export class GitLogCommit extends GitCommit {
 			  }
 			| undefined,
 		public readonly parentShas?: string[],
-		public readonly line?: GitLogCommitLine,
+		lines?: GitLogCommitLine[],
 	) {
 		super(
 			type,
@@ -78,6 +83,19 @@ export class GitLogCommit extends GitCommit {
 			previousSha ?? `${sha}^`,
 			previousFileName,
 		);
+
+		this.lines = lines ?? [];
+	}
+
+	override get file() {
+		return this.isFile
+			? new GitFileChange(
+					this.repoPath,
+					this.fileName,
+					this.status ?? GitFileIndexStatus.Modified,
+					this.originalFileName,
+			  )
+			: undefined;
 	}
 
 	@memoize()
@@ -222,8 +240,8 @@ export class GitLogCommit extends GitCommit {
 			changes.type ?? this.type,
 			this.repoPath,
 			this.getChangedValue(changes.sha, this.sha)!,
-			changes.author ?? this.author,
-			changes.email ?? this.email,
+			changes.author ?? this.authorName,
+			changes.email ?? this.authorEmail,
 			changes.authorDate ?? this.authorDate,
 			changes.committedDate ?? this.committerDate,
 			changes.message ?? this.message,
@@ -235,7 +253,7 @@ export class GitLogCommit extends GitCommit {
 			this.getChangedValue(changes.previousFileName, this.previousFileName),
 			this._fileStats,
 			this.parentShas,
-			this.line,
+			this.lines,
 		);
 	}
 }

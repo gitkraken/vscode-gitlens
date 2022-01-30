@@ -537,19 +537,20 @@ async function parseRebaseTodo(
 
 	const ontoCommit = onto ? foundCommits.find(c => c.ref.startsWith(onto)) : undefined;
 	if (ontoCommit != null) {
-		if (!authors.has(ontoCommit.author)) {
-			authors.set(ontoCommit.author, {
-				author: ontoCommit.author,
+		const { name, email } = ontoCommit.author;
+		if (!authors.has(name)) {
+			authors.set(name, {
+				author: name,
 				avatarUrl: (
 					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
-				email: ontoCommit.email,
+				email: email,
 			});
 		}
 
 		commits.push({
 			ref: ontoCommit.ref,
-			author: ontoCommit.author,
+			author: name,
 			date: ontoCommit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
@@ -566,19 +567,20 @@ async function parseRebaseTodo(
 			onto = '';
 		}
 
-		if (!authors.has(commit.author)) {
-			authors.set(commit.author, {
-				author: commit.author,
+		const { name, email } = commit.author;
+		if (!authors.has(name)) {
+			authors.set(name, {
+				author: name,
 				avatarUrl: (
 					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
-				email: commit.email,
+				email: email,
 			});
 		}
 
 		commits.push({
 			ref: commit.ref,
-			author: commit.author,
+			author: name,
 			date: commit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message,

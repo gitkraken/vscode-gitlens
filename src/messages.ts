@@ -1,6 +1,6 @@
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
-import { GitCommit } from './git/models';
+import { GitCommit, GitCommit2 } from './git/models';
 import { Logger } from './logger';
 
 export const enum SuppressedMessages {
@@ -18,7 +18,9 @@ export const enum SuppressedMessages {
 }
 
 export class Messages {
-	static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
+	static showCommitHasNoPreviousCommitWarningMessage(
+		commit?: GitCommit | GitCommit2,
+	): Promise<MessageItem | undefined> {
 		if (commit === undefined) {
 			return Messages.showMessage(
 				'info',
@@ -28,7 +30,7 @@ export class Messages {
 		}
 		return Messages.showMessage(
 			'info',
-			`Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`,
+			`Commit ${commit.shortSha} (${commit.author.name}, ${commit.formattedDate}) has no previous commit.`,
 			SuppressedMessages.CommitHasNoPreviousCommitWarning,
 		);
 	}

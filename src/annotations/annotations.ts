@@ -15,7 +15,7 @@ import { Config, configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
-import { GitCommit } from '../git/models';
+import { GitCommit2 } from '../git/models';
 import { Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 
@@ -141,7 +141,7 @@ export class Annotations {
 	}
 
 	static gutter(
-		commit: GitCommit,
+		commit: GitCommit2,
 		format: string,
 		dateFormatOrFormatOptions: string | null | CommitFormatOptions,
 		renderOptions: RenderOptions,
@@ -227,7 +227,7 @@ export class Annotations {
 	}
 
 	static trailing(
-		commit: GitCommit,
+		commit: GitCommit2,
 		// uri: GitUri,
 		// editorLine: number,
 		format: string,

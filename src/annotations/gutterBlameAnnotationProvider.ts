@@ -3,7 +3,7 @@ import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
-import { GitBlame, GitBlameCommit } from '../git/models';
+import { GitBlame, GitCommit2 } from '../git/models';
 import { Logger } from '../logger';
 import { Arrays, Iterables, log, Stopwatch, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
@@ -75,7 +75,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const decorationsMap = new Map<string, DecorationOptions | undefined>();
 		const avatarDecorationsMap = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
 
-		let commit: GitBlameCommit | undefined;
+		let commit: GitCommit2 | undefined;
 		let compacted = false;
 		let gutter: DecorationOptions | undefined;
 		let previousSha: string | undefined;
@@ -150,7 +150,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 			decorationOptions.push(gutter);
 
-			if (avatars && commit.email != null) {
+			if (avatars && commit.author.email != null) {
 				await this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
 			}
 
@@ -208,12 +208,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	private async applyAvatarDecoration(
-		commit: GitBlameCommit,
+		commit: GitCommit2,
 		gutter: DecorationOptions,
 		gravatarDefault: GravatarDefaultStyle,
 		map: Map<string, ThemableDecorationAttachmentRenderOptions>,
 	) {
-		let avatarDecoration = map.get(commit.email!);
+		let avatarDecoration = map.get(commit.author.email ?? '');
 		if (avatarDecoration == null) {
 			const url = (await commit.getAvatarUri({ defaultStyle: gravatarDefault, size: 16 })).toString(true);
 			avatarDecoration = {
@@ -224,7 +224,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					url,
 				)});background-size:16px 16px;margin-left: 0 !important`,
 			};
-			map.set(commit.email!, avatarDecoration);
+			map.set(commit.author.email ?? '', avatarDecoration);
 		}
 
 		gutter.renderOptions!.after = avatarDecoration;

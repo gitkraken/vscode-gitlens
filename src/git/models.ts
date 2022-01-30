@@ -1,6 +1,5 @@
 export * from './models/author';
 export * from './models/blame';
-export * from './models/blameCommit';
 export * from './models/branch';
 export * from './models/commit';
 export * from './models/contributor';

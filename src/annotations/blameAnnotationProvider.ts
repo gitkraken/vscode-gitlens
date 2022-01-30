@@ -2,7 +2,7 @@ import { CancellationToken, Disposable, Hover, languages, Position, Range, TextD
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBlame, GitBlameCommit, GitCommit } from '../git/models';
+import { GitBlame, GitCommit2 } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -171,19 +171,19 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		);
 	}
 
-	private async getDetailsHoverMessage(commit: GitBlameCommit, document: TextDocument) {
-		// Get the full commit message -- since blame only returns the summary
-		let logCommit: GitCommit | undefined = undefined;
-		if (!commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
-				ref: commit.sha,
-			});
-			if (logCommit != null) {
-				// Preserve the previous commit from the blame commit
-				logCommit.previousFileName = commit.previousFileName;
-				logCommit.previousSha = commit.previousSha;
-			}
-		}
+	private async getDetailsHoverMessage(commit: GitCommit2, document: TextDocument) {
+		// // Get the full commit message -- since blame only returns the summary
+		// let logCommit: GitCommit | undefined = undefined;
+		// if (!commit.isUncommitted) {
+		// 	logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
+		// 		ref: commit.sha,
+		// 	});
+		// 	if (logCommit != null) {
+		// 		// Preserve the previous commit from the blame commit
+		// 		logCommit.previousFileName = commit.previousFileName;
+		// 		logCommit.previousSha = commit.previousSha;
+		// 	}
+		// }
 
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
@@ -191,7 +191,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		editorLine = commitLine.originalLine - 1;
 
 		return Hovers.detailsMessage(
-			logCommit ?? commit,
+			commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
 			this.container.config.hovers.detailsMarkdownFormat,
