@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import { GitHubAuthorityMetadata } from '../premium/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
-import { basename, dirname, getBestPath, isAbsolute, normalizePath, relative } from '../system/path';
+import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
 import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
 import { RevisionUriData } from './gitProvider';
 import { GitCommit, GitFile, GitRevision } from './models';
@@ -447,7 +447,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			path: uri.path,
 			query: JSON.stringify({
 				// Ensure we use the fsPath here, otherwise the url won't open properly
-				path: getBestPath(uri),
+				path: uri.fsPath,
 				ref: '~',
 			}),
 		});
