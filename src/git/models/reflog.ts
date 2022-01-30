@@ -1,6 +1,6 @@
 import { DateStyle } from '../../config';
-import { Dates, memoize } from '../../system';
 import { formatDate, fromNow } from '../../system/date';
+import { memoize } from '../../system/decorators/memoize';
 import { CommitDateFormatting, GitRevision } from '../models';
 
 export interface GitReflog {
