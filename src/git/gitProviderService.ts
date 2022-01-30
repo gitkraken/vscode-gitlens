@@ -1032,19 +1032,19 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getChangedFilesCount(repoPath: string | Uri, ref?: string): Promise<GitDiffShortStat | undefined> {
+	getChangedFilesCount(repoPath: string | Uri, ref?: string): Promise<GitDiffShortStat | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getChangedFilesCount(path, ref);
 	}
 
 	@log()
-	async getCommit(repoPath: string | Uri, ref: string): Promise<GitLogCommit | undefined> {
+	getCommit(repoPath: string | Uri, ref: string): Promise<GitLogCommit | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommit(path, ref);
 	}
 
 	@log()
-	async getCommitBranches(
+	getCommitBranches(
 		repoPath: string | Uri,
 		ref: string,
 		options?: { mode?: 'contains' | 'pointsAt'; remotes?: boolean },
