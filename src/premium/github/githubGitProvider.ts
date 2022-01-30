@@ -398,13 +398,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				const { viewer = session.account.label } = blame;
 				const name = viewer != null && range.commit.author.name === viewer ? 'You' : range.commit.author.name;
 
-				let author = authors.get(range.commit.author.email);
+				let author = authors.get(range.commit.author.name);
 				if (author == null) {
 					author = {
 						name: range.commit.author.name,
 						lineCount: 0,
-						// email: range.commit.author.email,
-						// date: range.commit.author.date,
 					};
 					authors.set(name, author);
 				}
@@ -960,7 +958,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			for (const commit of result.values) {
 				const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
 
-				let author = authors.get(commit.author.email!);
+				let author = authors.get(commit.author.name);
 				if (author == null) {
 					author = {
 						name: commit.author.name,
@@ -1330,7 +1328,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			for (const commit of result.values) {
 				const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
 
-				let author = authors.get(commit.author.email!);
+				let author = authors.get(commit.author.name);
 				if (author == null) {
 					author = {
 						name: commit.author.name,
