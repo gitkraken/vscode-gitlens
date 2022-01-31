@@ -62,7 +62,50 @@ interface LogEntry {
 	line?: GitLogCommitLine;
 }
 
+export type Parser<T> = {
+	arguments: string[];
+	parse: (data: string) => Generator<T>;
+};
+
+type ParsedEntryFile = { status: string; path: string; originalPath?: string };
+type ParsedEntryWithFiles<T> = { [K in keyof T]: string } & { files: ParsedEntryFile[] };
+type ParserWithFiles<T> = {
+	arguments: string[];
+	parse: (data: string) => Generator<ParsedEntryWithFiles<T>>;
+};
+
 export class GitLogParser {
+	static readonly shortstatRegex =
+		/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;
+
+	private static _defaultParser: ParserWithFiles<{
+		sha: string;
+		author: string;
+		authorEmail: string;
+		authorDate: string;
+		committer: string;
+		committerEmail: string;
+		committerDate: string;
+		message: string;
+		parents: string[];
+	}>;
+	static get defaultParser() {
+		if (this._defaultParser == null) {
+			this._defaultParser = GitLogParser.createWithFiles({
+				sha: '%H',
+				author: '%aN',
+				authorEmail: '%aE',
+				authorDate: '%at',
+				committer: '%cN',
+				committerEmail: '%cE',
+				committerDate: '%ct',
+				message: '%B',
+				parents: '%P',
+			});
+		}
+		return this._defaultParser;
+	}
+
 	static defaultFormat = [
 		`${lb}${sl}f${rb}`,
 		`${lb}r${rb}${sp}%H`, // ref
@@ -81,6 +124,141 @@ export class GitLogParser {
 	static simpleFormat = `${lb}r${rb}${sp}%H`;
 
 	static shortlog = '%H%x00%aN%x00%aE%x00%at';
+
+	static create<T extends Record<string, unknown>>(
+		fieldMapping: ExtractAll<T, string>,
+		options?: {
+			additionalArgs?: string[];
+			parseEntry?: (fields: IterableIterator<string>, entry: T) => void;
+			prefix?: string;
+			fieldPrefix?: string;
+			fieldSuffix?: string;
+			separator?: string;
+			skip?: number;
+		},
+	): Parser<T> {
+		let format = options?.prefix ?? '';
+		const keys: (keyof ExtractAll<T, string>)[] = [];
+		for (const key in fieldMapping) {
+			keys.push(key);
+			format += `${options?.fieldPrefix ?? ''}${fieldMapping[key]}${
+				options?.fieldSuffix ?? (options?.fieldPrefix == null ? '%x00' : '')
+			}`;
+		}
+
+		const args = ['-z', `--format=${format}`];
+		if (options?.additionalArgs != null && options.additionalArgs.length > 0) {
+			args.push(...options.additionalArgs);
+		}
+
+		function* parse(data: string): Generator<T> {
+			let entry: T = {} as any;
+			let fieldCount = 0;
+			let field;
+
+			const fields = getLines(data, options?.separator ?? '\0');
+			if (options?.skip) {
+				for (let i = 0; i < options.skip; i++) {
+					field = fields.next();
+				}
+			}
+
+			while (true) {
+				field = fields.next();
+				if (field.done) break;
+
+				entry[keys[fieldCount++]] = field.value as T[keyof T];
+
+				if (fieldCount === keys.length) {
+					fieldCount = 0;
+					field = fields.next();
+
+					options?.parseEntry?.(fields, entry);
+					yield entry;
+
+					entry = {} as any;
+				}
+			}
+		}
+
+		return { arguments: args, parse: parse };
+	}
+
+	static createSingle(field: string): Parser<string> {
+		const format = field;
+		const args = ['-z', `--format=${format}`];
+
+		function* parse(data: string): Generator<string> {
+			let field;
+
+			const fields = getLines(data, '\0');
+			while (true) {
+				field = fields.next();
+				if (field.done) break;
+
+				yield field.value;
+			}
+		}
+
+		return { arguments: args, parse: parse };
+	}
+
+	static createWithFiles<T extends Record<string, string>>(fieldMapping: T): ParserWithFiles<T> {
+		let format = '%x00%x00';
+		const keys: (keyof T)[] = [];
+		for (const key in fieldMapping) {
+			keys.push(key);
+			format += `%x00${fieldMapping[key]}`;
+		}
+
+		const args = ['-z', `--format=${format}`, '--name-status'];
+
+		function* parse(data: string): Generator<ParsedEntryWithFiles<T>> {
+			const records = getLines(data, '\0\0\0\0');
+
+			let entry: ParsedEntryWithFiles<T>;
+			let files: ParsedEntryFile[];
+			let fields: IterableIterator<string>;
+
+			let first = true;
+			for (let record of records) {
+				if (first) {
+					first = false;
+					// Fix the first record (since it only has 3 nulls)
+					record = record.slice(3);
+				}
+
+				entry = {} as any;
+				files = [];
+				fields = getLines(record, '\0');
+
+				let fieldCount = 0;
+				let field;
+				while (true) {
+					field = fields.next();
+					if (field.done) break;
+
+					if (fieldCount < keys.length) {
+						entry[keys[fieldCount++]] = field.value as ParsedEntryWithFiles<T>[keyof T];
+					} else {
+						const file: ParsedEntryFile = { status: field.value.trim(), path: undefined! };
+						field = fields.next();
+						file.path = field.value;
+
+						if (file.status[0] === 'R' || file.status[0] === 'C') {
+							field = fields.next();
+							file.originalPath = field.value;
+						}
+					}
+				}
+
+				entry.files = files;
+				yield entry;
+			}
+		}
+
+		return { arguments: args, parse: parse };
+	}
 
 	@debug({ args: false })
 	static parse(

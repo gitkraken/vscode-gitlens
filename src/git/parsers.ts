@@ -4,7 +4,6 @@ export * from './parsers/diffParser';
 export * from './parsers/logParser';
 export * from './parsers/reflogParser';
 export * from './parsers/remoteParser';
-export * from './parsers/shortlogParser';
 export * from './parsers/stashParser';
 export * from './parsers/statusParser';
 export * from './parsers/tagParser';

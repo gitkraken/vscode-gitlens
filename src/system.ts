@@ -6,7 +6,10 @@ declare global {
 	export type PickMutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
 
 	export type ExcludeSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Exclude<T[P], R> };
+
+	export type ExtractAll<T, U> = { [K in keyof T]: T[K] extends U ? T[K] : never };
 	export type ExtractSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Extract<T[P], R> };
+
 	export type RequireSome<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: T[P] };
 
 	export type AllNonNullable<T> = { [P in keyof T]-?: NonNullable<T[P]> };

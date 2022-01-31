@@ -81,7 +81,6 @@ import {
 	GitLogParser,
 	GitReflogParser,
 	GitRemoteParser,
-	GitShortLogParser,
 	GitStashParser,
 	GitStatusParser,
 	GitTagParser,
@@ -1444,15 +1443,79 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (contributors == null) {
 			async function load(this: LocalGitProvider) {
 				try {
+					repoPath = normalizePath(repoPath);
 					const currentUser = await this.getCurrentUser(repoPath);
+
+					const parser = GitLogParser.create<{
+						sha: string;
+						author: string;
+						email: string;
+						date: string;
+						stats?: { files: number; additions: number; deletions: number };
+					}>(
+						{
+							sha: '%H',
+							author: '%aN',
+							email: '%aE',
+							date: '%at',
+						},
+						options?.stats
+							? {
+									additionalArgs: ['--shortstat', '--use-mailmap'],
+									parseEntry: (fields, entry) => {
+										const line = fields.next().value;
+										const match = GitLogParser.shortstatRegex.exec(line);
+										if (match?.groups != null) {
+											const { files, additions, deletions } = match.groups;
+											entry.stats = {
+												files: Number(files || 0),
+												additions: Number(additions || 0),
+												deletions: Number(deletions || 0),
+											};
+										}
+										return entry;
+									},
+									prefix: '%x00',
+									fieldSuffix: '%x00',
+									skip: 1,
+							  }
+							: undefined,
+					);
 
 					const data = await this.git.log(repoPath, options?.ref, {
 						all: options?.all,
-						format: options?.stats ? 'shortlog+stats' : 'shortlog',
+						argsOrFormat: parser.arguments,
 					});
-					const shortlog = GitShortLogParser.parseFromLog(data, repoPath, currentUser);
 
-					return shortlog != null ? shortlog.contributors : [];
+					const contributors = new Map<string, GitContributor>();
+
+					const commits = parser.parse(data);
+					for (const c of commits) {
+						const key = `${c.author}|${c.email}`;
+						let contributor = contributors.get(key);
+						if (contributor == null) {
+							contributor = new GitContributor(
+								repoPath,
+								c.author,
+								c.email,
+								1,
+								new Date(Number(c.date) * 1000),
+								c.stats,
+								currentUser != null
+									? currentUser.name === c.author && currentUser.email === c.email
+									: false,
+							);
+							contributors.set(key, contributor);
+						} else {
+							(contributor as PickMutable<GitContributor, 'count'>).count++;
+							const date = new Date(Number(c.date) * 1000);
+							if (date > contributor.date) {
+								(contributor as PickMutable<GitContributor, 'date'>).date = date;
+							}
+						}
+					}
+
+					return [...contributors.values()];
 				} catch (ex) {
 					this._contributorsCache.delete(key);
 
@@ -1895,9 +1958,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
 
 		try {
+			const parser = GitLogParser.createSingle('%H');
+
 			const data = await this.git.log(repoPath, options?.ref, {
 				authors: options?.authors,
-				format: 'refs',
+				argsOrFormat: parser.arguments,
 				limit: limit,
 				merges: options?.merges == null ? true : options.merges,
 				reverse: options?.reverse,
@@ -1905,8 +1970,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				since: options?.since,
 				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
 			});
-			const commits = GitLogParser.parseRefsOnly(data);
-			return new Set(commits);
+
+			const commits = new Set(parser.parse(data));
+			return commits;
 		} catch (ex) {
 			Logger.error(ex, cc);
 			debugger;

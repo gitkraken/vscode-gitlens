@@ -677,8 +677,8 @@ export class Git {
 		ref: string | undefined,
 		{
 			all,
+			argsOrFormat,
 			authors,
-			format = 'default',
 			limit,
 			merges,
 			ordering,
@@ -687,8 +687,8 @@ export class Git {
 			since,
 		}: {
 			all?: boolean;
+			argsOrFormat?: string | string[];
 			authors?: string[];
-			format?: 'default' | 'refs' | 'shortlog' | 'shortlog+stats';
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -697,25 +697,21 @@ export class Git {
 			since?: string;
 		},
 	) {
+		if (argsOrFormat == null) {
+			argsOrFormat = ['--name-status', `--format=${GitLogParser.defaultFormat}`];
+		}
+
+		if (typeof argsOrFormat === 'string') {
+			argsOrFormat = [`--format=${argsOrFormat}`];
+		}
+
 		const params = [
 			'log',
-			`--format=${
-				format === 'refs'
-					? GitLogParser.simpleRefs
-					: format === 'shortlog' || format === 'shortlog+stats'
-					? GitLogParser.shortlog
-					: GitLogParser.defaultFormat
-			}`,
+			...argsOrFormat,
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'-m',
 		];
-
-		if (format === 'default') {
-			params.push('--name-status');
-		} else if (format === 'shortlog+stats') {
-			params.push('--shortstat');
-		}
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
@@ -734,9 +730,10 @@ export class Git {
 		}
 
 		if (authors != null && authors.length !== 0) {
-			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
-		} else if (format === 'shortlog') {
-			params.push('--use-mailmap');
+			if (!params.includes('--use-mailmap')) {
+				params.push('--use-mailmap');
+			}
+			params.push(...authors.map(a => `--author=${a}`));
 		}
 
 		if (all) {
@@ -1270,10 +1267,6 @@ export class Git {
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
-	}
-
-	shortlog(repoPath: string) {
-		return this.git<string>({ cwd: repoPath }, 'shortlog', '-sne', '--all', '--no-merges', 'HEAD');
 	}
 
 	async show<TOut extends string | Buffer>(
