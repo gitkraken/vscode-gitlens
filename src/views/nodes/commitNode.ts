@@ -150,7 +150,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${'\`$(git-commit) 'id\`}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			`\${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,

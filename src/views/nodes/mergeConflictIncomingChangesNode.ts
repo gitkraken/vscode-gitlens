@@ -47,7 +47,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 					? ` from ${GitReference.toString(this.status.incoming)}${
 							commit != null
 								? `\n\n${await CommitFormatter.fromTemplateAsync(
-										`$(git-commit)&nbsp;\${id} ${GlyphChars.Dash} \${avatar}&nbsp;__\${author}__, \${ago}\${' via 'pullRequest} &nbsp; _(\${date})_ \n\n\${message}`,
+										`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
 										commit,
 										{
 											avatarSize: 16,

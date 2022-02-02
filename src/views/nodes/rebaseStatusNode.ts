@@ -10,7 +10,7 @@ import {
 } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
-import { BuiltInCommands, GlyphChars } from '../../constants';
+import { BuiltInCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
@@ -140,23 +140,6 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		return this.commit;
 	}
 
-	private get tooltip() {
-		return CommitFormatter.fromTemplate(
-			`\${author}\${ (email)} ${
-				GlyphChars.Dash
-			} \${id}\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.formatStats({
-				expand: true,
-				prefix: '\n\n',
-				separator: '\n',
-			})}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
-			this.commit,
-			{
-				dateFormat: this.view.container.config.defaultDateFormat,
-				messageIndent: 4,
-			},
-		);
-	}
-
 	async getChildren(): Promise<ViewNode[]> {
 		const commit = this.commit;
 
@@ -189,7 +172,6 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = new ThemeIcon('git-commit');
-		item.tooltip = this.tooltip;
 
 		return item;
 	}
@@ -209,5 +191,54 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
+	}
+
+	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+		if (item.tooltip == null) {
+			item.tooltip = await this.getTooltip();
+		}
+		return item;
+	}
+
+	private async getTooltip() {
+		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
+		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+
+		if (this.commit.message == null) {
+			await this.commit.ensureFullDetails();
+		}
+
+		let autolinkedIssuesOrPullRequests;
+		let pr;
+
+		if (remote?.provider != null) {
+			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
+				this.view.container.autolinks.getIssueOrPullRequestLinks(
+					this.commit.message ?? this.commit.summary,
+					remote,
+				),
+				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+			]);
+		}
+
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			`Rebase paused at \${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			this.commit,
+			{
+				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+				dateFormat: this.view.container.config.defaultDateFormat,
+				markdown: true,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequestOrRemote: pr,
+				remotes: remotes,
+			},
+		);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 }

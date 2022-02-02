@@ -223,7 +223,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		const status = StatusFileFormatter.fromTemplate(`\${status}\${ (originalPath)}`, this.file);
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${'\`$(git-commit) 'id\`}\${' via 'pullRequest} \u2022 ${status}\${ \u2022 changesDetail}\${'&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			`\${link}\${' via 'pullRequest} \u2022 ${status}\${ \u2022 changesDetail}\${'&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,

@@ -1,4 +1,4 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
@@ -47,10 +47,17 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
-		item.tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
+
+		const tooltip = StatusFileFormatter.fromTemplate(
+			`\${file}\${ \u2022 changesDetail}\${\\\\\ndirectory}\${\n\nstatus}\${ (originalPath)} in Index (staged)`,
 			this.file,
 		);
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.isTrusted = true;
+		markdown.supportHtml = true;
+
+		item.tooltip = markdown;
+
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 		item.iconPath = ThemeIcon.File;

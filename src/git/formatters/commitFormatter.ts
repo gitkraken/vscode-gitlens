@@ -65,6 +65,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		email?: TokenOptions;
 		footnotes?: TokenOptions;
 		id?: TokenOptions;
+		link?: TokenOptions;
 		message?: TokenOptions;
 		pullRequest?: TokenOptions;
 		pullRequestAgo?: TokenOptions;
@@ -457,6 +458,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		return sha;
+	}
+
+	get link(): string {
+		if (!this._options.markdown) return this.id;
+
+		const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
+		const link = `[\`$(git-commit) ${sha}\`](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+			this._item.sha,
+		)} "Show Commit")`;
+
+		return this._padOrTruncate(link, this._options.tokenOptions.link);
 	}
 
 	get message(): string {

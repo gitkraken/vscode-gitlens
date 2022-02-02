@@ -42,7 +42,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			)}${
 				commit != null
 					? `\n\n${await CommitFormatter.fromTemplateAsync(
-							`$(git-commit)&nbsp;\${id} ${GlyphChars.Dash} \${avatar}&nbsp;__\${author}__, \${ago}\${' via 'pullRequest} &nbsp; _(\${date})_ \n\n\${message}`,
+							`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
 							commit,
 							{
 								avatarSize: 16,
