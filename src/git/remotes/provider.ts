@@ -339,13 +339,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	@log()
 	disconnect(silent: boolean = false): void {
-		const disconnected = this._session != null;
+		const connected = this._session != null;
 
 		this.invalidClientExceptionCount = 0;
 		this._prsByCommit.clear();
 		this._session = null;
 
-		if (disconnected) {
+		if (connected) {
 			void Container.instance.context.workspaceState.update(this.connectedKey, false);
 
 			this._onDidChange.fire();
