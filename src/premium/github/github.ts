@@ -2,7 +2,7 @@ import { Octokit } from '@octokit/core';
 import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
-import fetch from '@env/fetch';
+import { fetch } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import {
 	AuthenticationError,
