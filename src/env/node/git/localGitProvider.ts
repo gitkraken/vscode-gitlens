@@ -633,8 +633,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Now check if that commit had any renames
 			data = await this.git.log__file(repoPath, '.', ref, {
+				argsOrFormat: GitLogParser.simpleFormat,
+				fileMode: 'simple',
 				filters: ['R', 'C', 'D'],
-				format: 'simple',
 				limit: 1,
 				ordering: this.container.config.advanced.commitOrdering,
 			});
@@ -1419,13 +1420,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [path, root] = splitPath(uri.fsPath, repoPath);
 
 		const data = await this.git.log__file(root, path, '@{push}..', {
-			format: 'refs',
+			argsOrFormat: ['-z', '--format=%H'],
+			fileMode: 'none',
 			ordering: this.container.config.advanced.commitOrdering,
 			renames: true,
 		});
-		if (data == null || data.length === 0) return undefined;
+		if (!data) return undefined;
 
-		return GitLogParser.parseLastRefOnly(data);
+		// -2 to skip the ending null
+		const index = data.lastIndexOf('\0', data.length - 2);
+		return index === -1 ? undefined : data.slice(index + 1, data.length - 2);
 	}
 
 	@log()
@@ -2709,8 +2713,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const fileName = GitUri.relativeTo(uri, repoPath);
 		let data = await this.git.log__file(repoPath, fileName, ref, {
+			argsOrFormat: GitLogParser.simpleFormat,
+			fileMode: 'simple',
 			filters: filters,
-			format: 'simple',
 			limit: skip + 1,
 			ordering: this.container.config.advanced.commitOrdering,
 			reverse: true,
@@ -2722,8 +2727,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If the file was deleted, check for a possible rename
 		if (status === 'D') {
 			data = await this.git.log__file(repoPath, '.', nextRef, {
+				argsOrFormat: GitLogParser.simpleFormat,
+				fileMode: 'simple',
 				filters: ['R', 'C'],
-				format: 'simple',
 				limit: 1,
 				ordering: this.container.config.advanced.commitOrdering,
 				// startLine: editorLine != null ? editorLine + 1 : undefined
@@ -2962,8 +2968,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let data;
 		try {
 			data = await this.git.log__file(repoPath, path, ref, {
+				argsOrFormat: GitLogParser.simpleFormat,
+				fileMode: 'simple',
 				firstParent: firstParent,
-				format: 'simple',
 				limit: skip + 2,
 				ordering: this.container.config.advanced.commitOrdering,
 				startLine: editorLine != null ? editorLine + 1 : undefined,

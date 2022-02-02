@@ -23,7 +23,6 @@ const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|r
 const fileStatusAndSummaryRenamedFileRegex = /(.+)\s=>\s(.+)/;
 const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)\s=>\s(.*?)}(.*)/;
 
-const logRefsRegex = /^<r> (.*)/gm;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
 const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)?$/gm;
@@ -642,23 +641,6 @@ export class GitLogParser {
 
 			commits.set(entry.sha!, commit);
 		}
-	}
-
-	@debug({ args: false })
-	static parseLastRefOnly(data: string): string | undefined {
-		let ref;
-		let match;
-		do {
-			match = logRefsRegex.exec(data);
-			if (match == null) break;
-
-			[, ref] = match;
-		} while (true);
-
-		// Ensure the regex state is reset
-		logRefsRegex.lastIndex = 0;
-
-		return ref;
 	}
 
 	@debug({ args: false })

@@ -755,9 +755,11 @@ export class Git {
 		ref: string | undefined,
 		{
 			all,
+			argsOrFormat,
+			// TODO@eamodio remove this in favor of argsOrFormat
+			fileMode = 'full',
 			filters,
 			firstParent = false,
-			format = 'default',
 			limit,
 			ordering,
 			renames = true,
@@ -768,9 +770,11 @@ export class Git {
 			endLine,
 		}: {
 			all?: boolean;
+			argsOrFormat?: string | string[];
+			// TODO@eamodio remove this in favor of argsOrFormat
+			fileMode?: 'full' | 'simple' | 'none';
 			filters?: GitDiffFilter[];
 			firstParent?: boolean;
-			format?: 'default' | 'refs' | 'simple';
 			limit?: number;
 			ordering?: string | null;
 			renames?: boolean;
@@ -783,10 +787,15 @@ export class Git {
 	) {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
-		const params = [
-			'log',
-			`--format=${format === 'default' ? GitLogParser.defaultFormat : GitLogParser.simpleFormat}`,
-		];
+		if (argsOrFormat == null) {
+			argsOrFormat = [`--format=${GitLogParser.defaultFormat}`];
+		}
+
+		if (typeof argsOrFormat === 'string') {
+			argsOrFormat = [`--format=${argsOrFormat}`];
+		}
+
+		const params = ['log', ...argsOrFormat];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
@@ -826,10 +835,10 @@ export class Git {
 			params.push(`--diff-filter=${filters.join('')}`);
 		}
 
-		if (format !== 'refs') {
+		if (fileMode !== 'none') {
 			if (startLine == null) {
 				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
-				if (format === 'simple' || isFolderGlob(file)) {
+				if (fileMode === 'simple' || isFolderGlob(file)) {
 					params.push('--name-status');
 				} else {
 					params.push('--numstat', '--summary');
