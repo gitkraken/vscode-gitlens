@@ -34,16 +34,15 @@ import {
 import { GitUri } from '../../git/gitUri';
 import {
 	BranchSortOptions,
-	GitAuthor,
 	GitBlame,
+	GitBlameAuthor,
 	GitBlameLine,
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
-	GitCommit2,
+	GitCommit,
 	GitCommitIdentity,
 	GitCommitLine,
-	GitCommitType,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
@@ -53,7 +52,6 @@ import {
 	GitFileChange,
 	GitFileIndexStatus,
 	GitLog,
-	GitLogCommit,
 	GitMergeStatus,
 	GitRebaseStatus,
 	GitReference,
@@ -393,38 +391,40 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				file,
 			);
 
-			const authors = new Map<string, GitAuthor>();
-			const commits = new Map<string, GitCommit2>();
+			const authors = new Map<string, GitBlameAuthor>();
+			const commits = new Map<string, GitCommit>();
 			const lines: GitCommitLine[] = [];
 
 			for (const range of blame.ranges) {
 				const c = range.commit;
 
 				const { viewer = session.account.label } = blame;
-				const name = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
+				const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
+				const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
 
-				let author = authors.get(c.author.name);
+				let author = authors.get(authorName);
 				if (author == null) {
 					author = {
-						name: c.author.name,
+						name: authorName,
 						lineCount: 0,
 					};
-					authors.set(name, author);
+					authors.set(authorName, author);
 				}
 
 				author.lineCount += range.endingLine - range.startingLine + 1;
 
 				let commit = commits.get(c.oid);
 				if (commit == null) {
-					commit = new GitCommit2(
+					commit = new GitCommit(
 						uri.repoPath!,
 						c.oid,
-						new GitCommitIdentity(author.name, c.author.email, new Date(c.author.date), c.author.avatarUrl),
-						new GitCommitIdentity(c.committer.name, c.committer.email, new Date(c.author.date)),
+						new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
+						new GitCommitIdentity(committerName, c.committer.email, new Date(c.author.date)),
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
 						new GitFileChange(root.toString(), file, GitFileIndexStatus.Modified),
+						{ changedFiles: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
 
@@ -434,8 +434,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				for (let i = range.startingLine; i <= range.endingLine; i++) {
 					const line: GitCommitLine = {
 						sha: c.oid,
-						line: i,
-						originalLine: i,
+						from: {
+							line: i,
+							count: 1,
+						},
+						to: {
+							line: i,
+							count: 1,
+						},
 					};
 
 					commit.lines.push(line);
@@ -546,13 +552,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const startLine = range.start.line + 1;
 		const endLine = range.end.line + 1;
 
-		const authors = new Map<string, GitAuthor>();
-		const commits = new Map<string, GitCommit2>();
+		const authors = new Map<string, GitBlameAuthor>();
+		const commits = new Map<string, GitCommit>();
 		for (const c of blame.commits.values()) {
 			if (!shas.has(c.sha)) continue;
 
 			const commit = c.with({
-				lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine),
+				lines: c.lines.filter(l => l.to.line >= startLine && l.to.line <= endLine),
 			});
 			commits.set(c.sha, commit);
 
@@ -679,7 +685,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
+	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const cc = Logger.getCorrelationContext();
@@ -691,33 +697,39 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
-			const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
-			const { files } = commit;
-
-			return new GitLogCommit(
-				GitCommitType.Log,
+			return new GitCommit(
 				repoPath,
 				commit.oid,
-				name,
-				commit.author.email,
-				new Date(commit.author.date),
-				new Date(commit.committer.date),
-				commit.message,
-				'',
-				files?.map<GitFile>(f => ({
-					status: fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-					repoPath: repoPath,
-					fileName: f.filename ?? '',
-					originalFileName: f.previous_filename,
-				})) ?? [],
-				undefined,
-				undefined,
-				commit.parents.nodes[0]?.oid,
-				undefined,
-				undefined,
+				new GitCommitIdentity(
+					authorName,
+					commit.author.email,
+					new Date(commit.author.date),
+					commit.author.avatarUrl,
+				),
+				new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+				commit.message.split('\n', 1)[0],
 				commit.parents.nodes.map(p => p.oid),
-				undefined,
+				commit.message,
+				commit.files?.map(
+					f =>
+						new GitFileChange(
+							repoPath,
+							f.filename ?? '',
+							fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+							f.previous_filename,
+							undefined,
+							{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
+						),
+				) ?? [],
+				{
+					changedFiles: commit.changedFiles ?? 0,
+					additions: commit.additions ?? 0,
+					deletions: commit.deletions ?? 0,
+				},
+				[],
 			);
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -744,8 +756,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean },
-	): Promise<GitLogCommit | undefined> {
+		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
+	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const cc = Logger.getCorrelationContext();
@@ -765,37 +777,42 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
-			const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
-			return new GitLogCommit(
-				GitCommitType.LogFile,
+			const files = commit.files?.map(
+				f =>
+					new GitFileChange(
+						repoPath,
+						f.filename ?? '',
+						fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+						f.previous_filename,
+						undefined,
+						{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
+					),
+			);
+			const foundFile = files?.find(f => f.path === file);
+
+			return new GitCommit(
 				repoPath,
 				commit.oid,
-				name,
-				commit.author.email,
-				new Date(commit.author.date),
-				new Date(commit.committer.date),
-				commit.message,
-				file,
-				commit.files?.map<GitFile>(f => ({
-					status: fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-					repoPath: repoPath,
-					fileName: f.filename ?? '',
-					originalFileName: f.previous_filename,
-				})) ?? [
-					{
-						fileName: file,
-						status: GitFileIndexStatus.Modified,
-						repoPath: repoPath,
-					},
-				],
-				GitFileIndexStatus.Modified,
-				undefined,
-				commit.parents.nodes[0]?.oid,
-				undefined,
-				undefined,
+				new GitCommitIdentity(
+					authorName,
+					commit.author.email,
+					new Date(commit.author.date),
+					commit.author.avatarUrl,
+				),
+				new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+				commit.message.split('\n', 1)[0],
 				commit.parents.nodes.map(p => p.oid),
-				undefined,
+				commit.message,
+				{ file: foundFile, files: files },
+				{
+					changedFiles: commit.changedFiles ?? 0,
+					additions: commit.additions ?? 0,
+					deletions: commit.deletions ?? 0,
+				},
+				[],
 			);
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -933,7 +950,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
@@ -953,42 +969,60 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				cursor: options?.cursor ?? options?.since,
 			});
 
-			const authors = new Map<string, GitAuthor>();
-			const commits = new Map<string, GitLogCommit>();
+			const authors = new Map<string, GitBlameAuthor>();
+			const commits = new Map<string, GitCommit>();
 
 			const { viewer = session.account.label } = result;
 			for (const commit of result.values) {
-				const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const committerName =
+					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
-				let author = authors.get(commit.author.name);
+				let author = authors.get(authorName);
 				if (author == null) {
 					author = {
-						name: commit.author.name,
+						name: authorName,
 						lineCount: 0,
 					};
-					authors.set(name, author);
+					authors.set(authorName, author);
 				}
 
 				let c = commits.get(commit.oid);
 				if (c == null) {
-					c = new GitLogCommit(
-						GitCommitType.Log,
+					c = new GitCommit(
 						repoPath,
 						commit.oid,
-						name,
-						commit.author.email,
-						new Date(commit.author.date),
-						new Date(commit.committer.date),
-						commit.message,
-						'',
-						[],
-						undefined,
-						undefined,
-						commit.parents.nodes[0]?.oid,
-						undefined,
-						undefined,
+						new GitCommitIdentity(
+							authorName,
+							commit.author.email,
+							new Date(commit.author.date),
+							commit.author.avatarUrl,
+						),
+						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						commit.message.split('\n', 1)[0],
 						commit.parents.nodes.map(p => p.oid),
-						undefined,
+						commit.message,
+						commit.files?.map(
+							f =>
+								new GitFileChange(
+									repoPath,
+									f.filename ?? '',
+									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+									f.previous_filename,
+									undefined,
+									{
+										additions: f.additions ?? 0,
+										deletions: f.deletions ?? 0,
+										changes: f.changes ?? 0,
+									},
+								),
+						),
+						{
+							changedFiles: commit.changedFiles ?? 0,
+							additions: commit.additions ?? 0,
+							deletions: commit.deletions ?? 0,
+						},
+						[],
 					);
 					commits.set(commit.oid, c);
 				}
@@ -996,7 +1030,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const log: GitLog = {
 				repoPath: repoPath,
-				authors: authors,
 				commits: commits,
 				sha: ref,
 				range: undefined,
@@ -1029,7 +1062,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {
@@ -1048,7 +1080,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
@@ -1090,22 +1121,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
 
-			// Merge authors
-			const authors = new Map([...log.authors]);
-			for (const [key, addAuthor] of moreLog.authors) {
-				const author = authors.get(key);
-				if (author == null) {
-					authors.set(key, addAuthor);
-				} else {
-					author.lineCount += addAuthor.lineCount;
-				}
-			}
-
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
-				authors: authors,
 				commits: commits,
 				sha: log.sha,
 				range: undefined,
@@ -1156,21 +1175,25 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		options = { reverse: false, ...options };
 
-		if (options.renames == null) {
-			options.renames = this.container.config.advanced.fileHistoryFollowsRenames;
-		}
+		// Not currently supported
+		options.renames = false;
+		options.all = false;
+
+		// if (options.renames == null) {
+		// 	options.renames = this.container.config.advanced.fileHistoryFollowsRenames;
+		// }
 
 		let key = 'log';
 		if (options.ref != null) {
 			key += `:${options.ref}`;
 		}
 
-		if (options.all == null) {
-			options.all = this.container.config.advanced.fileHistoryShowAllBranches;
-		}
-		if (options.all) {
-			key += ':all';
-		}
+		// if (options.all == null) {
+		// 	options.all = this.container.config.advanced.fileHistoryShowAllBranches;
+		// }
+		// if (options.all) {
+		// 	key += ':all';
+		// }
 
 		options.limit = options.limit == null ? this.container.config.advanced.maxListItems || 0 : options.limit;
 		if (options.limit) {
@@ -1191,6 +1214,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (options.skip) {
 			key += `:skip${options.skip}`;
+		}
+
+		if (options.cursor) {
+			key += `:cursor=${options.cursor}`;
 		}
 
 		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(path, repoPath!, options.ref));
@@ -1221,9 +1248,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
 							let i = 0;
-							const authors = new Map<string, GitAuthor>();
 							const commits = new Map(
-								filterMap<[string, GitLogCommit], [string, GitLogCommit]>(
+								filterMap<[string, GitCommit], [string, GitCommit]>(
 									log.commits.entries(),
 									([ref, c]) => {
 										if (skip) {
@@ -1236,7 +1262,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 											return undefined;
 										}
 
-										authors.set(c.author.name, log.authors.get(c.author.name)!);
 										return [ref, c];
 									},
 								),
@@ -1248,7 +1273,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								limit: options.limit,
 								count: commits.size,
 								commits: commits,
-								authors: authors,
 								query: (limit: number | undefined) =>
 									this.getLogForFile(repoPath, path, { ...opts, limit: limit }),
 							};
@@ -1282,7 +1306,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private async getLogForFileCore(
 		repoPath: string | undefined,
-		fileName: string,
+		path: string,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
 		cc: LogCorrelationContext | undefined,
@@ -1308,7 +1332,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (context == null) return undefined;
 			const { metadata, github, remotehub, session } = context;
 
-			const uri = this.getAbsoluteUri(fileName, repoPath);
+			const uri = this.getAbsoluteUri(path, repoPath);
 			const file = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
 			// if (range != null && range.start.line > range.end.line) {
@@ -1323,48 +1347,62 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				cursor: options?.cursor ?? options?.since,
 			});
 
-			const authors = new Map<string, GitAuthor>();
-			const commits = new Map<string, GitLogCommit>();
+			const authors = new Map<string, GitBlameAuthor>();
+			const commits = new Map<string, GitCommit>();
 
 			const { viewer = session.account.label } = result;
 			for (const commit of result.values) {
-				const name = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const committerName =
+					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
-				let author = authors.get(commit.author.name);
+				let author = authors.get(authorName);
 				if (author == null) {
 					author = {
-						name: commit.author.name,
+						name: authorName,
 						lineCount: 0,
 					};
-					authors.set(name, author);
+					authors.set(authorName, author);
 				}
 
 				let c = commits.get(commit.oid);
 				if (c == null) {
-					c = new GitLogCommit(
-						isFolderGlob(file) ? GitCommitType.Log : GitCommitType.LogFile,
+					const files = commit.files?.map(
+						f =>
+							new GitFileChange(
+								repoPath,
+								f.filename ?? '',
+								fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+								f.previous_filename,
+								undefined,
+								{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
+							),
+					);
+					const foundFile = isFolderGlob(file)
+						? undefined
+						: files?.find(f => f.path === file) ??
+						  new GitFileChange(repoPath, file, GitFileIndexStatus.Modified);
+
+					c = new GitCommit(
 						repoPath,
 						commit.oid,
-						name,
-						commit.author.email,
-						new Date(commit.author.date),
-						new Date(commit.committer.date),
-						commit.message,
-						file,
-						[
-							{
-								fileName: file,
-								status: GitFileIndexStatus.Modified,
-								repoPath: repoPath,
-							},
-						],
-						GitFileIndexStatus.Modified,
-						undefined,
-						commit.parents.nodes[0]?.oid,
-						undefined,
-						undefined,
+						new GitCommitIdentity(
+							authorName,
+							commit.author.email,
+							new Date(commit.author.date),
+							commit.author.avatarUrl,
+						),
+						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						commit.message.split('\n', 1)[0],
 						commit.parents.nodes.map(p => p.oid),
-						undefined,
+						commit.message,
+						{ file: foundFile, files: files },
+						{
+							changedFiles: commit.changedFiles ?? 0,
+							additions: commit.additions ?? 0,
+							deletions: commit.deletions ?? 0,
+						},
+						[],
 					);
 					commits.set(commit.oid, c);
 				}
@@ -1372,7 +1410,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const log: GitLog = {
 				repoPath: repoPath,
-				authors: authors,
 				commits: commits,
 				sha: ref,
 				range: undefined,
@@ -1380,12 +1417,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
 				cursor: result.paging?.cursor,
-				query: (limit: number | undefined) =>
-					this.getLogForFile(repoPath, fileName, { ...options, limit: limit }),
+				query: (limit: number | undefined) => this.getLogForFile(repoPath, path, { ...options, limit: limit }),
 			};
 
 			if (log.hasMore) {
-				log.more = this.getLogForFileMoreFn(log, fileName, options);
+				log.more = this.getLogForFileMoreFn(log, path, options);
 			}
 
 			return log;
@@ -1443,22 +1479,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
 
-			// Merge authors
-			const authors = new Map([...log.authors]);
-			for (const [key, addAuthor] of moreLog.authors) {
-				const author = authors.get(key);
-				if (author == null) {
-					authors.set(key, addAuthor);
-				} else {
-					author.lineCount += addAuthor.lineCount;
-				}
-			}
-
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
-				authors: authors,
 				commits: commits,
 				sha: log.sha,
 				range: log.range,
@@ -1470,13 +1494,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 
 			// if (options.renames) {
-			// 	const renamed = Iterables.find(
+			// 	const renamed = find(
 			// 		moreLog.commits.values(),
-			// 		c => Boolean(c.originalFileName) && c.originalFileName !== fileName,
+			// 		c => Boolean(c.file?.originalPath) && c.file?.originalPath !== fileName,
 			// 	);
-			// 	if (renamed != null) {
-			// 		fileName = renamed.originalFileName!;
-			// 	}
+			// 	fileName = renamed?.file?.originalPath ?? fileName;
 			// }
 
 			mergedLog.more = this.getLogForFileMoreFn(mergedLog, fileName, options);
@@ -1569,9 +1591,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const commit = await this.getCommitForFile(repoPath, uri, { ref: `${ref ?? 'HEAD'}^` });
-		if (commit == null) return undefined;
-
-		return GitUri.fromCommit(commit);
+		return commit?.getGitUri();
 	}
 
 	@log()

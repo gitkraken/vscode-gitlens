@@ -14,7 +14,7 @@ import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitBranchReference,
-	GitLogCommit,
+	GitCommit,
 	GitReference,
 	GitRemote,
 	GitRevisionReference,
@@ -227,7 +227,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		});
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the remote branches the commit is on

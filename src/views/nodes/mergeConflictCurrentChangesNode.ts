@@ -37,7 +37,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Current changes to $(file)${GlyphChars.Space}${this.file.fileName} on ${GitReference.toString(
+			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${GitReference.toString(
 				this.status.current,
 			)}${
 				commit != null
@@ -70,7 +70,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			return {
 				title: 'Open Revision',
 				command: BuiltInCommands.Open,
-				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.fileName, this.status.repoPath)],
+				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath)],
 			};
 		}
 
@@ -78,12 +78,12 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
-				title: `${this.file.fileName} (merge-base)`,
+				title: `${this.file.path} (merge-base)`,
 			},
 			rhs: {
 				sha: 'HEAD',
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
-				title: `${this.file.fileName} (${GitReference.toString(this.status.current, {
+				title: `${this.file.path} (${GitReference.toString(this.status.current, {
 					expand: false,
 					icon: false,
 				})})`,

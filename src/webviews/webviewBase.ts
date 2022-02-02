@@ -17,7 +17,7 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import {
-	GitCommit2,
+	GitCommit,
 	GitCommitIdentity,
 	GitFileChange,
 	GitFileIndexStatus,
@@ -202,7 +202,7 @@ export abstract class WebviewBase implements Disposable {
 				onIpcCommand(PreviewConfigurationCommandType, e, async params => {
 					switch (params.type) {
 						case 'commit': {
-							const commit = new GitCommit2(
+							const commit = new GitCommit(
 								'~/code/eamodio/vscode-gitlens-demo',
 								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
@@ -215,6 +215,7 @@ export abstract class WebviewBase implements Disposable {
 									'code.ts',
 									GitFileIndexStatus.Modified,
 								),
+								undefined,
 								[],
 							);
 

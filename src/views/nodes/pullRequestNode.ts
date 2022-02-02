@@ -60,7 +60,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		if (this.branchOrCommit instanceof GitCommit) {
+		if (GitCommit.is(this.branchOrCommit)) {
 			tooltip.appendMarkdown(
 				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
 			);

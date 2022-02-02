@@ -20,11 +20,11 @@ import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitCommit,
-	GitCommit2,
 	GitContributor,
 	GitFile,
 	GitReference,
 	GitRemote,
+	GitStashCommit,
 	GitTag,
 	Repository,
 } from '../git/models';
@@ -325,12 +325,12 @@ export function isCommandContextViewNodeHasBranch(
 	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
-export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitCommit2>(
+export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStashCommit>(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitCommit2 }).commit);
+	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
 }
 
 export function isCommandContextViewNodeHasContributor(

@@ -6,7 +6,7 @@ import { GitReference, GitRevision } from '../git/models';
 import { Messages } from '../messages';
 import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { basename, normalizePath, relative } from '../system/path';
+import { basename } from '../system/path';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
@@ -38,11 +38,11 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
+
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
-
 			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
 				this.container.git.getStash(gitUri.repoPath),
@@ -50,7 +50,8 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 				'Choose a stash to compare with',
 				{
 					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
-					filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName),
+					// Stashes should always come with files, so this should be fine (but protect it just in case)
+					filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true,
 				},
 			);
 			if (pick == null) return;
@@ -82,11 +83,10 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		// Check to see if this file has been renamed
 		const files = await this.container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
-			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
-			const rename = files.find(s => s.fileName === fileName);
-			if (rename?.originalFileName != null) {
-				renamedUri = this.container.git.getAbsoluteUri(rename.originalFileName, gitUri.repoPath);
-				renamedTitle = `${basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
+			const rename = files.find(s => s.path === path);
+			if (rename?.originalPath != null) {
+				renamedUri = this.container.git.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
+				renamedTitle = `${basename(rename.originalPath)} (${GitRevision.shorten(ref)})`;
 			}
 		}
 

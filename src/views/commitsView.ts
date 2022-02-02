@@ -13,7 +13,7 @@ import { ContextKeys, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
-	GitLogCommit,
+	GitCommit,
 	GitReference,
 	GitRevisionReference,
 	Repository,
@@ -281,7 +281,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return true;
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		const branch = await this.container.git.getBranch(commit.repoPath);

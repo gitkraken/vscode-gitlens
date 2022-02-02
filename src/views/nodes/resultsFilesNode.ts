@@ -187,12 +187,12 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		if (mergeBase != null) {
 			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {
-				filterTo = new Set<string>(files.map(f => f.fileName));
+				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
 			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
 			if (commit?.files != null) {
-				filterTo = new Set<string>(commit.files.map(f => f.fileName));
+				filterTo = new Set<string>(commit.files.map(f => f.path));
 			}
 		}
 
@@ -200,7 +200,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		results.filtered = {
 			filter: filter,
-			files: results.files!.filter(f => filterTo!.has(f.fileName)),
+			files: results.files!.filter(f => filterTo!.has(f.path)),
 		};
 	}
 }

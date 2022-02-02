@@ -1,7 +1,10 @@
+import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Strings } from '../../system';
+import { Container } from '../../container';
+import { memoize } from '../../system/decorators/memoize';
+import { pad, pluralize } from '../../system/string';
 import { GitUri } from '../gitUri';
-import { GitLogCommit } from './logCommit';
+import { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 
@@ -16,17 +19,21 @@ export const enum GitFileConflictStatus {
 }
 
 export const enum GitFileIndexStatus {
+	Modified = 'M',
 	Added = 'A',
 	Deleted = 'D',
-	Modified = 'M',
 	Renamed = 'R',
 	Copied = 'C',
+	Unchanged = '.',
+	Untracked = '?',
+	Ignored = '!',
+	UpdatedButUnmerged = 'U',
 }
 
 export const enum GitFileWorkingTreeStatus {
+	Modified = 'M',
 	Added = 'A',
 	Deleted = 'D',
-	Modified = 'M',
 	Untracked = '?',
 	Ignored = '!',
 }
@@ -37,12 +44,12 @@ export interface GitFile {
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
-	readonly fileName: string;
-	readonly originalFileName?: string;
+	readonly path: string;
+	readonly originalPath?: string;
 }
 
 export interface GitFileWithCommit extends GitFile {
-	readonly commit: GitLogCommit;
+	readonly commit: GitCommit;
 }
 
 export namespace GitFile {
@@ -62,9 +69,9 @@ export namespace GitFile {
 		includeOriginal: boolean = false,
 		relativeTo?: string,
 	): string {
-		const directory = GitUri.getDirectory(file.fileName, relativeTo);
-		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalFileName
-			? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalFileName}`
+		const directory = GitUri.getDirectory(file.path, relativeTo);
+		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalPath
+			? `${directory} ${pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalPath}`
 			: directory;
 	}
 
@@ -72,20 +79,21 @@ export namespace GitFile {
 		file: GitFile,
 		options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {},
 	): string {
-		return GitUri.getFormattedPath(file.fileName, options);
+		return GitUri.getFormattedPath(file.path, options);
 	}
 
 	export function getOriginalRelativePath(file: GitFile, relativeTo?: string): string {
-		if (file.originalFileName == null || file.originalFileName.length === 0) return '';
+		if (file.originalPath == null || file.originalPath.length === 0) return '';
 
-		return GitUri.relativeTo(file.originalFileName, relativeTo);
+		return GitUri.relativeTo(file.originalPath, relativeTo);
 	}
 
 	export function getRelativePath(file: GitFile, relativeTo?: string): string {
-		return GitUri.relativeTo(file.fileName, relativeTo);
+		return GitUri.relativeTo(file.path, relativeTo);
 	}
 
 	const statusIconsMap = {
+		'.': undefined,
 		'!': 'icon-status-ignored.svg',
 		'?': 'icon-status-untracked.svg',
 		A: 'icon-status-added.svg',
@@ -101,6 +109,7 @@ export namespace GitFile {
 		UD: 'icon-status-conflict.svg',
 		UU: 'icon-status-conflict.svg',
 		T: 'icon-status-modified.svg',
+		U: 'icon-status-modified.svg',
 	};
 
 	export function getStatusIcon(status: GitFileStatus): string {
@@ -108,6 +117,7 @@ export namespace GitFile {
 	}
 
 	const statusCodiconsMap = {
+		'.': undefined,
 		'!': '$(diff-ignored)',
 		'?': '$(diff-added)',
 		A: '$(diff-added)',
@@ -123,6 +133,7 @@ export namespace GitFile {
 		UD: '$(warning)',
 		UU: '$(warning)',
 		T: '$(diff-modified)',
+		U: '$(diff-modified)',
 	};
 
 	export function getStatusCodicon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
@@ -130,6 +141,7 @@ export namespace GitFile {
 	}
 
 	const statusTextMap = {
+		'.': 'Unchanged',
 		'!': 'Ignored',
 		'?': 'Untracked',
 		A: 'Added',
@@ -145,9 +157,115 @@ export namespace GitFile {
 		UD: 'Conflict',
 		UU: 'Conflict',
 		T: 'Modified',
+		U: 'Updated but Unmerged',
 	};
 
 	export function getStatusText(status: GitFileStatus): string {
 		return statusTextMap[status] ?? 'Unknown';
+	}
+}
+
+export interface GitFileChangeStats {
+	additions: number;
+	deletions: number;
+	changes: number;
+}
+
+export class GitFileChange {
+	static is(file: any): file is GitFileChange {
+		return file instanceof GitFileChange;
+	}
+
+	constructor(
+		public readonly repoPath: string,
+		public readonly path: string,
+		public readonly status: GitFileStatus,
+		public readonly originalPath?: string | undefined,
+		public readonly previousSha?: string | undefined,
+		public readonly stats?: GitFileChangeStats | undefined,
+	) {}
+
+	get hasConflicts() {
+		switch (this.status) {
+			case GitFileConflictStatus.AddedByThem:
+			case GitFileConflictStatus.AddedByUs:
+			case GitFileConflictStatus.AddedByBoth:
+			case GitFileConflictStatus.DeletedByThem:
+			case GitFileConflictStatus.DeletedByUs:
+			case GitFileConflictStatus.DeletedByBoth:
+			case GitFileConflictStatus.ModifiedByBoth:
+				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	get previousPath(): string {
+		return this.originalPath || this.path;
+	}
+
+	@memoize()
+	get uri(): Uri {
+		return Container.instance.git.getAbsoluteUri(this.path, this.repoPath);
+	}
+
+	@memoize()
+	get originalUri(): Uri | undefined {
+		return this.originalPath ? Container.instance.git.getAbsoluteUri(this.originalPath, this.repoPath) : undefined;
+	}
+
+	@memoize()
+	get previousUri(): Uri {
+		return Container.instance.git.getAbsoluteUri(this.previousPath, this.repoPath);
+	}
+
+	@memoize()
+	getWorkingUri(): Promise<Uri | undefined> {
+		return Container.instance.git.getWorkingUri(this.repoPath, this.uri);
+	}
+
+	formatStats(options?: {
+		compact?: boolean;
+		empty?: string;
+		expand?: boolean;
+		prefix?: string;
+		separator?: string;
+		suffix?: string;
+	}): string {
+		if (this.stats == null) return options?.empty ?? '';
+
+		const { /*changes,*/ additions, deletions } = this.stats;
+		if (/*changes < 0 && */ additions < 0 && deletions < 0) return options?.empty ?? '';
+
+		const { compact = false, expand = false, prefix = '', separator = ' ', suffix = '' } = options ?? {};
+
+		let status = prefix;
+
+		if (additions) {
+			status += expand ? `${pluralize('line', additions)} added` : `+${additions}`;
+		} else if (!expand && !compact) {
+			status += '+0';
+		}
+
+		// if (changes) {
+		// 	status += `${additions ? separator : ''}${
+		// 		expand ? `${pluralize('line', changes)} changed` : `~${changes}`
+		// 	}`;
+		// } else if (!expand && !compact) {
+		// 	status += '~0';
+		// }
+
+		if (deletions) {
+			status += `${/*changes |*/ additions ? separator : ''}${
+				expand ? `${pluralize('line', deletions)} deleted` : `-${deletions}`
+			}`;
+		} else if (!expand && !compact) {
+			status += '-0';
+		}
+
+		status += suffix;
+
+		return status;
 	}
 }

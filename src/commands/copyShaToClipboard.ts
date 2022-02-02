@@ -31,7 +31,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			args.sha = this.container.config.advanced.abbreviateShaOnCopy
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
-			return this.execute(context.editor, context.node.commit.uri, args);
+			return this.execute(context.editor, context.node.commit.file?.uri, args);
 		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };
 			args.sha = context.node.branch.sha;

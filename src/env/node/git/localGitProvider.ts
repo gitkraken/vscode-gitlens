@@ -40,14 +40,13 @@ import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import {
 	BranchSortOptions,
-	GitAuthor,
 	GitBlame,
+	GitBlameAuthor,
 	GitBlameLine,
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
-	GitCommit2,
-	GitCommitType,
+	GitCommit,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
@@ -55,7 +54,6 @@ import {
 	GitDiffShortStat,
 	GitFile,
 	GitLog,
-	GitLogCommit,
 	GitMergeStatus,
 	GitRebaseStatus,
 	GitReference,
@@ -85,6 +83,7 @@ import {
 	GitStatusParser,
 	GitTagParser,
 	GitTreeParser,
+	LogType,
 } from '../../../git/parsers';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
 import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
@@ -952,14 +951,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = paths;
+		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame(root, file, uri.sha, {
+			const data = await this.git.blame(root, relativePath, uri.sha, {
 				args: this.container.config.advanced.blame.customArguments,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 			});
-			const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1032,15 +1031,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return emptyPromise as Promise<GitBlame>;
 		}
 
-		const [file, root] = paths;
+		const [relativePath, root] = paths;
 
 		try {
-			const data = await this.git.blame__contents(root, file, contents, {
+			const data = await this.git.blame__contents(root, relativePath, contents, {
 				args: this.container.config.advanced.blame.customArguments,
 				correlationKey: `:${key}`,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 			});
-			const blame = GitBlameParser.parse(data, root, file, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1091,16 +1090,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const lineToBlame = editorLine + 1;
-		const [path, root] = splitPath(uri.fsPath, uri.repoPath);
+		const [relativePath, root] = splitPath(uri.fsPath, uri.repoPath);
 
 		try {
-			const data = await this.git.blame(root, path, uri.sha, {
+			const data = await this.git.blame(root, relativePath, uri.sha, {
 				args: this.container.config.advanced.blame.customArguments,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(data, root, path, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1142,16 +1141,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		const lineToBlame = editorLine + 1;
-		const [path, root] = splitPath(uri.fsPath, uri.repoPath);
+		const [relativePath, root] = splitPath(uri.fsPath, uri.repoPath);
 
 		try {
-			const data = await this.git.blame__contents(root, path, contents, {
+			const data = await this.git.blame__contents(root, relativePath, contents, {
 				args: this.container.config.advanced.blame.customArguments,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(data, root, path, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1195,13 +1194,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const startLine = range.start.line + 1;
 		const endLine = range.end.line + 1;
 
-		const authors = new Map<string, GitAuthor>();
-		const commits = new Map<string, GitCommit2>();
+		const authors = new Map<string, GitBlameAuthor>();
+		const commits = new Map<string, GitCommit>();
 		for (const c of blame.commits.values()) {
 			if (!shas.has(c.sha)) continue;
 
 			const commit = c.with({
-				lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine),
+				lines: c.lines.filter(l => l.to.line >= startLine && l.to.line <= endLine),
 			});
 			commits.set(c.sha, commit);
 
@@ -1357,7 +1356,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
+	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
 		const log = await this.getLog(repoPath, { limit: 2, ref: ref });
 		if (log == null) return undefined;
 
@@ -1385,8 +1384,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getCommitForFile(
 		repoPath: string | undefined,
 		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean },
-	): Promise<GitLogCommit | undefined> {
+		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
+	): Promise<GitCommit | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		const [path, root] = splitPath(uri.fsPath, repoPath);
@@ -1396,7 +1395,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit: 2,
 				ref: options?.ref,
 				range: options?.range,
-				reverse: options?.reverse,
 			});
 			if (log == null) return undefined;
 
@@ -1896,7 +1894,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
@@ -1905,22 +1902,52 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
 
 		try {
+			// const parser = GitLogParser.defaultParser;
+
 			const data = await this.git.log(repoPath, options?.ref, {
 				...options,
+				// args: parser.arguments,
 				limit: limit,
 				merges: options?.merges == null ? true : options.merges,
 				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
+
+			// const commits = [];
+			// const entries = parser.parse(data);
+			// for (const entry of entries) {
+			// 	commits.push(
+			// 		new GitCommit2(
+			// 			repoPath,
+			// 			entry.sha,
+			// 			new GitCommitIdentity(
+			// 				entry.author,
+			// 				entry.authorEmail,
+			// 				new Date((entry.authorDate as any) * 1000),
+			// 			),
+			// 			new GitCommitIdentity(
+			// 				entry.committer,
+			// 				entry.committerEmail,
+			// 				new Date((entry.committerDate as any) * 1000),
+			// 			),
+			// 			entry.message.split('\n', 1)[0],
+			// 			entry.parents.split(' '),
+			// 			entry.message,
+			// 			entry.files.map(f => new GitFileChange(repoPath, f.path, f.status as any, f.originalPath)),
+			// 			[],
+			// 		),
+			// 	);
+			// }
+
 			const log = GitLogParser.parse(
 				data,
-				GitCommitType.Log,
+				LogType.Log,
 				repoPath,
 				undefined,
 				options?.ref,
 				await this.getCurrentUser(repoPath),
 				limit,
-				options?.reverse ?? false,
+				false,
 				undefined,
 			);
 
@@ -1949,7 +1976,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {
@@ -1965,7 +1991,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				argsOrFormat: parser.arguments,
 				limit: limit,
 				merges: options?.merges == null ? true : options.merges,
-				reverse: options?.reverse,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 				since: options?.since,
 				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
@@ -1988,7 +2013,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
@@ -2022,22 +2046,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
 
-			// Merge authors
-			const authors = new Map([...log.authors]);
-			for (const [key, addAuthor] of moreLog.authors) {
-				const author = authors.get(key);
-				if (author == null) {
-					authors.set(key, addAuthor);
-				} else {
-					author.lineCount += addAuthor.lineCount;
-				}
-			}
-
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
-				authors: authors,
 				commits: commits,
 				sha: log.sha,
 				range: undefined,
@@ -2149,7 +2161,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			const log = GitLogParser.parse(
 				data,
-				GitCommitType.Log,
+				LogType.Log,
 				repoPath,
 				undefined,
 				undefined,
@@ -2191,22 +2203,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return { ...log, hasMore: false };
 			}
 
-			// Merge authors
-			const authors = new Map([...log.authors]);
-			for (const [key, addAuthor] of moreLog.authors) {
-				const author = authors.get(key);
-				if (author == null) {
-					authors.set(key, addAuthor);
-				} else {
-					author.lineCount += addAuthor.lineCount;
-				}
-			}
-
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
-				authors: authors,
 				commits: commits,
 				sha: log.sha,
 				range: log.range,
@@ -2312,9 +2312,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
 							let i = 0;
-							const authors = new Map<string, GitAuthor>();
 							const commits = new Map(
-								filterMapIterable<[string, GitLogCommit], [string, GitLogCommit]>(
+								filterMapIterable<[string, GitCommit], [string, GitCommit]>(
 									log.commits.entries(),
 									([ref, c]) => {
 										if (skip) {
@@ -2327,7 +2326,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 											return undefined;
 										}
 
-										authors.set(c.author.name, log.authors.get(c.author.name)!);
 										return [ref, c];
 									},
 								),
@@ -2339,7 +2337,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								limit: options.limit,
 								count: commits.size,
 								commits: commits,
-								authors: authors,
 								query: (limit: number | undefined) =>
 									this.getLogForFile(repoPath, path, { ...opts, limit: limit }),
 							};
@@ -2373,7 +2370,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private async getLogForFileCore(
 		repoPath: string | undefined,
-		fileName: string,
+		path: string,
 		{
 			ref,
 			range,
@@ -2394,9 +2391,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitLog | undefined> {
-		const paths = await this.isTracked(fileName, repoPath, ref);
+		const paths = await this.isTracked(path, repoPath, ref);
 		if (paths == null) {
-			Logger.log(cc, `Skipping blame; '${fileName}' is not tracked`);
+			Logger.log(cc, `Skipping blame; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
 		}
 
@@ -2417,22 +2414,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const log = GitLogParser.parse(
 				data,
 				// If this is the log of a folder, parse it as a normal log rather than a file log
-				isFolderGlob(file) ? GitCommitType.Log : GitCommitType.LogFile,
+				isFolderGlob(file) ? LogType.Log : LogType.LogFile,
 				root,
 				file,
 				ref,
 				await this.getCurrentUser(root),
 				options.limit,
-				options.reverse!,
+				options.reverse ?? false,
 				range,
 			);
 
 			if (log != null) {
 				const opts = { ...options, ref: ref, range: range };
 				log.query = (limit: number | undefined) =>
-					this.getLogForFile(repoPath, fileName, { ...opts, limit: limit });
+					this.getLogForFile(repoPath, path, { ...opts, limit: limit });
 				if (log.hasMore) {
-					log.more = this.getLogForFileMoreFn(log, fileName, opts);
+					log.more = this.getLogForFileMoreFn(log, path, opts);
 				}
 			}
 
@@ -2489,22 +2486,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
 
-			// Merge authors
-			const authors = new Map([...log.authors]);
-			for (const [key, addAuthor] of moreLog.authors) {
-				const author = authors.get(key);
-				if (author == null) {
-					authors.set(key, addAuthor);
-				} else {
-					author.lineCount += addAuthor.lineCount;
-				}
-			}
-
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
-				authors: authors,
 				commits: commits,
 				sha: log.sha,
 				range: log.range,
@@ -2518,11 +2503,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (options.renames) {
 				const renamed = find(
 					moreLog.commits.values(),
-					c => Boolean(c.originalFileName) && c.originalFileName !== fileName,
+					c => Boolean(c.file?.originalPath) && c.file?.originalPath !== fileName,
 				);
-				if (renamed != null) {
-					fileName = renamed.originalFileName!;
-				}
+				fileName = renamed?.file?.originalPath ?? fileName;
 			}
 
 			mergedLog.more = this.getLogForFileMoreFn(mergedLog, fileName, options);
@@ -2907,7 +2890,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ref = blameLine.commit.sha;
 				path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
 				uri = this.getAbsoluteUri(path, repoPath);
-				editorLine = blameLine.line.originalLine - 1;
+				editorLine = blameLine.line.from.line - 1;
 
 				if (skip === 0 && blameLine.commit.file?.previousSha) {
 					previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);
@@ -2936,7 +2919,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref = blameLine.commit.sha;
 			path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
 			uri = this.getAbsoluteUri(path, repoPath);
-			editorLine = blameLine.line.originalLine - 1;
+			editorLine = blameLine.line.from.line - 1;
 
 			if (skip === 0 && blameLine.commit.file?.previousSha) {
 				previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);

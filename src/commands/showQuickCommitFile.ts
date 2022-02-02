@@ -1,7 +1,7 @@
 import { TextEditor, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit2, GitLog, GitLogCommit } from '../git/models';
+import { GitCommit, GitLog, GitStashCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -16,7 +16,7 @@ import { executeGitCommand } from './gitCommands';
 
 export interface ShowQuickCommitFileCommandArgs {
 	sha?: string;
-	commit?: GitCommit2 | GitLogCommit;
+	commit?: GitCommit | GitStashCommit;
 	fileLog?: GitLog;
 	revisionUri?: string;
 }
@@ -132,7 +132,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			}
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
-			if (GitCommit2.is(args.commit)) {
+			if (GitCommit.is(args.commit)) {
 				if (args.commit.files == null) {
 					await args.commit.ensureFullDetails();
 				}
@@ -182,7 +182,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// 	[args.commit.toGitUri(), args],
 			// );
 
-			// const pick = await CommitFileQuickPick.show(args.commit as GitLogCommit, uri, {
+			// const pick = await CommitFileQuickPick.show(args.commit as GitCommit, uri, {
 			// 	goBackCommand: args.goBackCommand,
 			// 	currentCommand: currentCommand,
 			// 	fileLog: args.fileLog,

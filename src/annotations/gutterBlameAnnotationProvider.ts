@@ -3,7 +3,7 @@ import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
-import { GitBlame, GitCommit2 } from '../git/models';
+import { GitBlame, GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Arrays, Iterables, log, Stopwatch, Strings } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
@@ -75,7 +75,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const decorationsMap = new Map<string, DecorationOptions | undefined>();
 		const avatarDecorationsMap = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
 
-		let commit: GitCommit2 | undefined;
+		let commit: GitCommit | undefined;
 		let compacted = false;
 		let gutter: DecorationOptions | undefined;
 		let previousSha: string | undefined;
@@ -87,7 +87,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		for (const l of blame.lines) {
 			// editor lines are 0-based
-			const editorLine = l.line - 1;
+			const editorLine = l.to.line - 1;
 
 			if (previousSha === l.sha) {
 				if (gutter == null) continue;
@@ -200,7 +200,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
 			l.sha === sha
 				? // editor lines are 0-based
-				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
+				  this.editor.document.validateRange(
+						new Range(l.to.line - 1, 0, l.to.line - 1, Number.MAX_SAFE_INTEGER),
+				  )
 				: undefined,
 		);
 
@@ -208,7 +210,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	}
 
 	private async applyAvatarDecoration(
-		commit: GitCommit2,
+		commit: GitCommit,
 		gutter: DecorationOptions,
 		gravatarDefault: GravatarDefaultStyle,
 		map: Map<string, ThemableDecorationAttachmentRenderOptions>,

@@ -1,7 +1,7 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
-import { GitLog, GitLogCommit, GitReference, Repository } from '../../git/models';
+import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
 import { Strings } from '../../system';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
@@ -13,7 +13,6 @@ import {
 	QuickCommand,
 	StepGenerator,
 	StepResult,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -31,7 +30,16 @@ interface State {
 	fileName?: string;
 }
 
-type LogStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
+type RepositoryStepState<T extends State = State> = SomeNonNullable<
+	ExcludeSome<PartialStepState<T>, 'repo', string>,
+	'repo'
+>;
+function assertStateStepRepository(state: PartialStepState<State>): asserts state is RepositoryStepState {
+	if (state.repo instanceof Repository) return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
 
 export interface LogGitCommandArgs {
 	readonly command: 'log';
@@ -107,13 +115,15 @@ export class LogGitCommand extends QuickCommand<State> {
 				}
 			}
 
+			assertStateStepRepository(state);
+
 			if (state.reference === 'HEAD') {
 				const branch = await state.repo.getBranch();
 				state.reference = branch;
 			}
 
 			if (state.counter < 2 || state.reference == null) {
-				const result = yield* pickBranchOrTagStep(state as LogStepState, context, {
+				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: 'Choose a branch or tag to show its commit history',
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
@@ -159,7 +169,7 @@ export class LogGitCommand extends QuickCommand<State> {
 					context.cache.set(ref, log);
 				}
 
-				const result = yield* pickCommitStep(state as LogStepState, context, {
+				const result = yield* pickCommitStep(state, context, {
 					ignoreFocusOut: true,
 					log: await log,
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
@@ -176,7 +186,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			if (!(state.reference instanceof GitLogCommit) || state.reference.isFile) {
+			if (!(state.reference instanceof GitCommit) || state.reference.file != null) {
 				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
@@ -186,7 +196,7 @@ export class LogGitCommand extends QuickCommand<State> {
 					command: 'show',
 					state: {
 						repo: state.repo,
-						reference: state.reference as GitLogCommit,
+						reference: state.reference,
 						fileName: state.fileName,
 					},
 				},

@@ -60,9 +60,39 @@ interface RenameState {
 
 type State = CreateState | DeleteState | RenameState;
 type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepCreate(state: PartialStepState<State>): asserts state is CreateStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'create') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 type DeleteStepState<T extends DeleteState = DeleteState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepDelete(state: PartialStepState<State>): asserts state is DeleteStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'delete') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 type RenameStepState<T extends RenameState = RenameState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepRename(state: PartialStepState<State>): asserts state is RenameStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'rename') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
+function assertStateStepDeleteBranches(
+	state: DeleteStepState,
+): asserts state is ExcludeSome<typeof state, 'references', GitBranchReference> {
+	if (Array.isArray(state.references)) return;
+
+	debugger;
+	throw new Error('Missing branches');
+}
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
@@ -191,17 +221,20 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			switch (state.subcommand) {
 				case 'create':
-					yield* this.createCommandSteps(state as CreateStepState, context);
+					assertStateStepCreate(state);
+					yield* this.createCommandSteps(state, context);
 					// Clear any chosen name, since we are exiting this subcommand
-					state.name = undefined;
+					state.name = undefined!;
 					break;
 				case 'delete':
-					yield* this.deleteCommandSteps(state as DeleteStepState, context);
+					assertStateStepDelete(state);
+					yield* this.deleteCommandSteps(state, context);
 					break;
 				case 'rename':
-					yield* this.renameCommandSteps(state as RenameStepState, context);
+					assertStateStepRename(state);
+					yield* this.renameCommandSteps(state, context);
 					// Clear any chosen name, since we are exiting this subcommand
-					state.name = undefined;
+					state.name = undefined!;
 					break;
 				default:
 					QuickCommand.endSteps(state);
@@ -359,10 +392,8 @@ export class BranchGitCommand extends QuickCommand<State> {
 				state.subcommand,
 			);
 
-			const result = yield* this.deleteCommandConfirmStep(
-				state as ExcludeSome<typeof state, 'references', GitBranchReference>,
-				context,
-			);
+			assertStateStepDeleteBranches(state);
+			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
 
 			state.flags = result;

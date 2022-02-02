@@ -518,6 +518,9 @@ export class GitHubApi {
 							oid
 							parents(first: 3) { nodes { oid } }
 							message
+							additions
+							changedFiles
+							deletions
 							author {
 								avatarUrl
 								date
@@ -801,6 +804,9 @@ export class GitHubApi {
 							oid
 							message
 							parents(first: 3) { nodes { oid } }
+							additions
+							changedFiles
+							deletions
 							author {
 								avatarUrl
 								date
@@ -1201,22 +1207,7 @@ export interface GitHubBlameRange {
 	startingLine: number;
 	endingLine: number;
 	age: number;
-	commit: {
-		oid: string;
-		parents: { nodes: { oid: string }[] };
-		message: string;
-		author: {
-			avatarUrl: string;
-			date: string;
-			email: string;
-			name: string;
-		};
-		committer: {
-			date: string;
-			email: string;
-			name: string;
-		};
-	};
+	commit: GitHubCommit;
 }
 
 export interface GitHubBranch {

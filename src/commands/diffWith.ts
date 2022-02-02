@@ -1,7 +1,7 @@
 import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitCommit2, GitRevision } from '../git/models';
+import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { basename } from '../system/path';
@@ -25,31 +25,30 @@ export interface DiffWithCommandArgs {
 @command()
 export class DiffWithCommand extends Command {
 	static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
-	static getMarkdownCommandArgs(commit: GitCommit | GitCommit2, line?: number): string;
-	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit | GitCommit2, line?: number): string {
-		let args: DiffWithCommandArgs | GitCommit | GitCommit2;
-		if (GitCommit.is(argsOrCommit) || GitCommit2.is(argsOrCommit)) {
+	static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
+	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
+		let args: DiffWithCommandArgs | GitCommit;
+		if (GitCommit.is(argsOrCommit)) {
 			const commit = argsOrCommit;
+			if (commit.file == null) {
+				debugger;
+				throw new Error('Commit has no file');
+			}
 
 			if (commit.isUncommitted) {
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
 						sha: 'HEAD',
-						uri: commit.uri,
+						uri: commit.file.uri,
 					},
 					rhs: {
 						sha: '',
-						uri: commit.uri,
+						uri: commit.file.uri,
 					},
 					line: line,
 				};
 			} else {
-				if (commit.file == null) {
-					debugger;
-					throw new Error('Commit has no file');
-				}
-
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
@@ -58,7 +57,7 @@ export class DiffWithCommand extends Command {
 					},
 					rhs: {
 						sha: commit.sha,
-						uri: commit.uri,
+						uri: commit.file.uri,
 					},
 					line: line,
 				};

@@ -1,7 +1,8 @@
 import { DateStyle } from '../../config';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import { CommitDateFormatting, GitRevision } from '../models';
+import { CommitDateFormatting } from './commit';
+import { GitRevision } from './reference';
 
 export interface GitReflog {
 	readonly repoPath: string;

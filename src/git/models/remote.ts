@@ -1,6 +1,6 @@
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Strings } from '../../system';
+import { sortCompare } from '../../system/string';
 import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
 
 export const enum GitRemoteType {
@@ -43,7 +43,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
 				(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-				Strings.sortCompare(a.name, b.name),
+				sortCompare(a.name, b.name),
 		);
 	}
 

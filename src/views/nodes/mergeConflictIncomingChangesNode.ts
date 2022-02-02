@@ -42,7 +42,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Incoming changes to $(file)${GlyphChars.Space}${this.file.fileName}${
+			`Incoming changes to $(file)${GlyphChars.Space}${this.file.path}${
 				this.status.incoming != null
 					? ` from ${GitReference.toString(this.status.incoming)}${
 							commit != null
@@ -83,11 +83,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				title: 'Open Revision',
 				command: BuiltInCommands.Open,
 				arguments: [
-					this.view.container.git.getRevisionUri(
-						this.status.HEAD.ref,
-						this.file.fileName,
-						this.status.repoPath,
-					),
+					this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
 				],
 			};
 		}
@@ -96,12 +92,12 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
-				title: `${this.file.fileName} (merge-base)`,
+				title: `${this.file.path} (merge-base)`,
 			},
 			rhs: {
 				sha: this.status.HEAD.ref,
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
-				title: `${this.file.fileName} (${
+				title: `${this.file.path} (${
 					this.status.incoming != null
 						? GitReference.toString(this.status.incoming, { expand: false, icon: false })
 						: 'incoming'

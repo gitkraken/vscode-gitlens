@@ -2,7 +2,7 @@ import { CancellationToken, Disposable, Hover, languages, Position, Range, TextD
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBlame, GitCommit2 } from '../git/models';
+import { GitBlame, GitCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -171,24 +171,11 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		);
 	}
 
-	private async getDetailsHoverMessage(commit: GitCommit2, document: TextDocument) {
-		// // Get the full commit message -- since blame only returns the summary
-		// let logCommit: GitCommit | undefined = undefined;
-		// if (!commit.isUncommitted) {
-		// 	logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri, {
-		// 		ref: commit.sha,
-		// 	});
-		// 	if (logCommit != null) {
-		// 		// Preserve the previous commit from the blame commit
-		// 		logCommit.previousFileName = commit.previousFileName;
-		// 		logCommit.previousSha = commit.previousSha;
-		// 	}
-		// }
-
+	private async getDetailsHoverMessage(commit: GitCommit, document: TextDocument) {
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
-		editorLine = commitLine.originalLine - 1;
+		const commitLine = commit.lines.find(l => l.to.line === line) ?? commit.lines[0];
+		editorLine = commitLine.from.line - 1;
 
 		return Hovers.detailsMessage(
 			commit,

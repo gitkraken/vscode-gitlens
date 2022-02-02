@@ -1,15 +1,20 @@
-import { GitAuthor, GitCommit2, GitCommitLine } from './commit';
+import { GitCommit, GitCommitLine } from './commit';
 
 export interface GitBlame {
 	readonly repoPath: string;
-	readonly authors: Map<string, GitAuthor>;
-	readonly commits: Map<string, GitCommit2>;
+	readonly authors: Map<string, GitBlameAuthor>;
+	readonly commits: Map<string, GitCommit>;
 	readonly lines: GitCommitLine[];
 }
 
+export interface GitBlameAuthor {
+	name: string;
+	lineCount: number;
+}
+
 export interface GitBlameLine {
-	readonly author?: GitAuthor;
-	readonly commit: GitCommit2;
+	readonly author?: GitBlameAuthor;
+	readonly commit: GitCommit;
 	readonly line: GitCommitLine;
 }
 
@@ -18,7 +23,7 @@ export interface GitBlameLines extends GitBlame {
 }
 
 export interface GitBlameCommitLines {
-	readonly author: GitAuthor;
-	readonly commit: GitCommit2;
+	readonly author: GitBlameAuthor;
+	readonly commit: GitCommit;
 	readonly lines: GitCommitLine[];
 }

@@ -1,9 +1,9 @@
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
-import { Colors, GlyphChars } from '../../constants';
+import { Colors } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
-import { GitBranch, GitLogCommit, GitRevisionReference } from '../../git/models';
+import { GitBranch, GitCommit, GitRevisionReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { joinPaths, normalizePath } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
@@ -18,23 +18,17 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
 		parent: ViewNode,
-		public readonly commit: GitLogCommit,
+		public readonly commit: GitCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
 		private readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
 		private readonly _options: { expand?: boolean } = {},
 	) {
-		super(commit.toGitUri(), view, parent);
+		super(commit.getGitUri(), view, parent);
 	}
 
 	override toClipboard(): string {
-		let message = this.commit.message;
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-		}
-
-		return `${this.commit.shortSha}: ${message}`;
+		return `${this.commit.shortSha}: ${this.commit.summary}`;
 	}
 
 	get isTip(): boolean {
@@ -48,8 +42,9 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	async getChildren(): Promise<ViewNode[]> {
 		const commit = this.commit;
 
-		let children: (PullRequestNode | FileNode)[] = commit.files.map(
-			s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!),
+		const commits = await commit.getCommitsForFiles();
+		let children: (PullRequestNode | FileNode)[] = commits.map(
+			c => new CommitFileNode(this.view, this, c.file!, c),
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -137,12 +132,19 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
 		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
 
+		if (this.commit.message == null) {
+			await this.commit.ensureFullDetails();
+		}
+
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
+				this.view.container.autolinks.getIssueOrPullRequestLinks(
+					this.commit.message ?? this.commit.summary,
+					remote,
+				),
 				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
 			]);
 		}

@@ -5,15 +5,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import { GitUri } from '../git/gitUri';
-import {
-	GitCommit2,
-	GitDiffHunk,
-	GitDiffHunkLine,
-	GitLogCommit,
-	GitRemote,
-	GitRevision,
-	PullRequest,
-} from '../git/models';
+import { GitCommit, GitDiffHunk, GitDiffHunkLine, GitRemote, GitRevision, PullRequest } from '../git/models';
 import { Logger, LogLevel } from '../logger';
 import { count } from '../system/iterable';
 import { PromiseCancelledError } from '../system/promise';
@@ -21,7 +13,7 @@ import { getDurationMilliseconds } from '../system/string';
 
 export namespace Hovers {
 	export async function changesMessage(
-		commit: GitCommit2,
+		commit: GitCommit,
 		uri: GitUri,
 		editorLine: number,
 		document: TextDocument,
@@ -33,9 +25,15 @@ export namespace Hovers {
 
 			// TODO: Figure out how to optimize this
 			let ref;
+			let ref2 = documentRef;
 			if (commit.isUncommitted) {
 				if (GitRevision.isUncommittedStaged(documentRef)) {
 					ref = documentRef;
+				}
+
+				// Check for a staged diff
+				if (ref == null && ref2 == null) {
+					ref2 = GitRevision.uncommittedStaged;
 				}
 			} else {
 				ref = commit.file.previousSha;
@@ -45,7 +43,7 @@ export namespace Hovers {
 			}
 
 			const line = editorLine + 1;
-			const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
+			const commitLine = commit.lines.find(l => l.to.line === line) ?? commit.lines[0];
 
 			let originalPath = commit.file.originalPath;
 			if (originalPath == null) {
@@ -54,12 +52,12 @@ export namespace Hovers {
 				}
 			}
 
-			editorLine = commitLine.line - 1;
+			editorLine = commitLine.to.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
+			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, ref2);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-			if (hunkLine == null && ref == null) {
+			if (hunkLine == null && ref == null && ref2 !== GitRevision.uncommittedStaged) {
 				hunkLine = await Container.instance.git.getDiffForLine(
 					uri,
 					editorLine,
@@ -72,6 +70,7 @@ export namespace Hovers {
 		}
 
 		const diff = await getDiff();
+		if (diff == null) return undefined;
 
 		let message;
 		let previous;
@@ -142,12 +141,12 @@ export namespace Hovers {
 		return markdown;
 	}
 
-	export function localChangesMessage(
-		fromCommit: GitLogCommit | undefined,
+	export async function localChangesMessage(
+		fromCommit: GitCommit | undefined,
 		uri: GitUri,
 		editorLine: number,
 		hunk: GitDiffHunk,
-	): MarkdownString {
+	): Promise<MarkdownString | undefined> {
 		const diff = getDiffFromHunk(hunk);
 
 		let message;
@@ -157,7 +156,8 @@ export namespace Hovers {
 			previous = '_Working Tree_';
 			current = '_Unsaved_';
 		} else {
-			const file = fromCommit.findFile(uri.fsPath)!;
+			const file = await fromCommit.findFile(uri.fsPath);
+			if (file == null) return undefined;
 
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
@@ -189,7 +189,7 @@ export namespace Hovers {
 	}
 
 	export async function detailsMessage(
-		commit: GitCommit2,
+		commit: GitCommit,
 		uri: GitUri,
 		editorLine: number,
 		format: string,

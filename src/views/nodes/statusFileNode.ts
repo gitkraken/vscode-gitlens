@@ -2,7 +2,7 @@ import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitLogCommit } from '../../git/models';
+import { GitCommit, GitFile } from '../../git/models';
 import { Strings } from '../../system';
 import { dirname, joinPaths } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
@@ -11,14 +11,14 @@ import { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
-	public readonly commits: GitLogCommit[];
+	public readonly commits: GitCommit[];
 	public readonly file: GitFile;
 	public readonly repoPath: string;
 
 	private readonly _hasStagedChanges: boolean;
 	private readonly _hasUnstagedChanges: boolean;
 
-	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile, commits: GitLogCommit[]) {
+	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile, commits: GitCommit[]) {
 		let hasStagedChanges = false;
 		let hasUnstagedChanges = false;
 		let ref = undefined;
@@ -58,7 +58,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	getChildren(): ViewNode[] {
@@ -86,7 +86,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			}
 
 			// Use the file icon and decorations
-			item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.fileName, this.repoPath);
+			item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 			item.iconPath = ThemeIcon.File;
 
 			item.command = this.getCommand();
@@ -103,7 +103,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 				}
 
 				// Use the file icon and decorations
-				item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.fileName, this.repoPath);
+				item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 				item.iconPath = ThemeIcon.File;
 			} else {
 				item.contextValue = ContextValues.StatusFileCommits;
@@ -241,7 +241,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		}
 
 		const commit = this.commits[this.commits.length - 1];
-		const file = commit.findFile(this.file.fileName)!;
+		const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: `${commit.sha}^`,

@@ -8,9 +8,9 @@ import {
 	BranchSortOptions,
 	GitBranch,
 	GitBranchReference,
+	GitCommit,
 	GitContributor,
 	GitLog,
-	GitLogCommit,
 	GitReference,
 	GitRemote,
 	GitRevision,
@@ -830,11 +830,11 @@ export async function* pickCommitStep<
 		showInSideBarCommand?: CommandQuickPickItem;
 		showInSideBarButton?: {
 			button: QuickInputButton;
-			onDidClick: (items: Readonly<CommitQuickPickItem<GitLogCommit>[]>) => void;
+			onDidClick: (items: Readonly<CommitQuickPickItem<GitCommit>[]>) => void;
 		};
 		titleContext?: string;
 	},
-): AsyncStepResultGenerator<GitLogCommit> {
+): AsyncStepResultGenerator<GitCommit> {
 	function getItems(log: GitLog | undefined) {
 		return log == null
 			? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
@@ -909,8 +909,8 @@ export async function* pickCommitStep<
 		onDidClickButton: (quickpick, button) => {
 			if (log == null) return;
 
-			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitLogCommit>>(
-				(i): i is CommitQuickPickItem<GitLogCommit> => !CommandQuickPickItem.is(i),
+			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitCommit>>(
+				(i): i is CommitQuickPickItem<GitCommit> => !CommandQuickPickItem.is(i),
 			);
 
 			if (button === showInSideBar?.button) {
@@ -921,8 +921,8 @@ export async function* pickCommitStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
-			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitLogCommit>>(
-				(i): i is CommitQuickPickItem<GitLogCommit> => !CommandQuickPickItem.is(i),
+			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitCommit>>(
+				(i): i is CommitQuickPickItem<GitCommit> => !CommandQuickPickItem.is(i),
 			);
 
 			if (key === 'ctrl+right') {
@@ -1367,7 +1367,7 @@ export async function* pickTagsStep<
 }
 
 export async function* showCommitOrStashStep<
-	State extends PartialStepState & { repo: Repository; reference: GitLogCommit | GitStashCommit },
+	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
 	Context extends { repos: Repository[]; title: string },
 >(
 	state: State,
@@ -1435,7 +1435,7 @@ export async function* showCommitOrStashStep<
 }
 
 async function getShowCommitOrStashStepItems<
-	State extends PartialStepState & { repo: Repository; reference: GitLogCommit | GitStashCommit },
+	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
 >(state: State) {
 	const items: CommandQuickPickItem[] = [new CommitFilesQuickPickItem(state.reference)];
 
@@ -1443,7 +1443,7 @@ async function getShowCommitOrStashStepItems<
 	let remotes: GitRemote<RemoteProvider>[] | undefined;
 
 	let isStash = false;
-	if (GitStashCommit.is(state.reference)) {
+	if (GitCommit.isStash(state.reference)) {
 		isStash = true;
 
 		items.push(new RevealInSideBarQuickPickItem(state.reference));
@@ -1616,7 +1616,7 @@ async function getShowCommitOrStashStepItems<
 export function* showCommitOrStashFilesStep<
 	State extends PartialStepState & {
 		repo: Repository;
-		reference: GitLogCommit | GitStashCommit;
+		reference: GitCommit | GitStashCommit;
 		fileName?: string | undefined;
 	},
 	Context extends { repos: Repository[]; title: string },
@@ -1625,6 +1625,10 @@ export function* showCommitOrStashFilesStep<
 	context: Context,
 	options?: { picked?: string },
 ): StepResultGenerator<CommitFilesQuickPickItem | CommitFileQuickPickItem> {
+	if (state.reference.files == null) {
+		debugger;
+	}
+
 	const step: QuickPickStep<CommitFilesQuickPickItem | CommitFileQuickPickItem> = QuickCommand.createPickStep({
 		title: appendReposToTitle(
 			GitReference.toString(state.reference, {
@@ -1638,9 +1642,9 @@ export function* showCommitOrStashFilesStep<
 		ignoreFocusOut: true,
 		items: [
 			new CommitFilesQuickPickItem(state.reference, state.fileName == null),
-			...state.reference.files.map(
-				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.fileName),
-			),
+			...(state.reference.files?.map(
+				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
+			) ?? []),
 		],
 		matchOnDescription: true,
 		additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
@@ -1692,7 +1696,7 @@ export function* showCommitOrStashFilesStep<
 export async function* showCommitOrStashFileStep<
 	State extends PartialStepState & {
 		repo: Repository;
-		reference: GitLogCommit | GitStashCommit;
+		reference: GitCommit | GitStashCommit;
 		fileName: string;
 	},
 	Context extends { repos: Repository[]; title: string },
@@ -1764,11 +1768,11 @@ export async function* showCommitOrStashFileStep<
 async function getShowCommitOrStashFileStepItems<
 	State extends PartialStepState & {
 		repo: Repository;
-		reference: GitLogCommit | GitStashCommit;
+		reference: GitCommit | GitStashCommit;
 		fileName: string;
 	},
 >(state: State) {
-	const file = state.reference.files.find(f => f.fileName === state.fileName);
+	const file = await state.reference.findFile(state.fileName);
 	if (file == null) return [];
 
 	const items: CommandQuickPickItem[] = [
@@ -1778,7 +1782,7 @@ async function getShowCommitOrStashFileStepItems<
 	let remotes: GitRemote<RemoteProvider>[] | undefined;
 
 	let isStash = false;
-	if (GitStashCommit.is(state.reference)) {
+	if (GitCommit.is(state.reference)) {
 		isStash = true;
 
 		items.push(new RevealInSideBarQuickPickItem(state.reference));

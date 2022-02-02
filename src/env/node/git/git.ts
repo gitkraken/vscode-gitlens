@@ -682,7 +682,6 @@ export class Git {
 			limit,
 			merges,
 			ordering,
-			reverse,
 			similarityThreshold,
 			since,
 		}: {
@@ -692,7 +691,6 @@ export class Git {
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
-			reverse?: boolean;
 			similarityThreshold?: number | null;
 			since?: string;
 		},
@@ -717,7 +715,7 @@ export class Git {
 			params.push(`--${ordering}-order`);
 		}
 
-		if (limit && !reverse) {
+		if (limit) {
 			params.push(`-n${limit + 1}`);
 		}
 
@@ -741,12 +739,7 @@ export class Git {
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
-			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
-			if (reverse) {
-				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
-			} else {
-				params.push(ref);
-			}
+			params.push(ref);
 		}
 
 		return this.git<string>(

@@ -14,7 +14,7 @@ import {
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitDiff, GitLogCommit } from '../git/models';
+import { GitCommit, GitDiff } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log, Stopwatch } from '../system';
@@ -28,7 +28,7 @@ export interface ChangesAnnotationContext extends AnnotationContext {
 }
 
 export class GutterChangesAnnotationProvider extends AnnotationProviderBase<ChangesAnnotationContext> {
-	private state: { commit: GitLogCommit | undefined; diffs: GitDiff[] } | undefined;
+	private state: { commit: GitCommit | undefined; diffs: GitDiff[] } | undefined;
 	private hoverProviderDisposable: Disposable | undefined;
 
 	constructor(
@@ -73,7 +73,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		let ref1 = this.trackedDocument.uri.sha;
 		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
 
-		let commit: GitLogCommit | undefined;
+		let commit: GitCommit | undefined;
 
 		let localChanges = ref1 == null && ref2 == null;
 		if (localChanges) {
@@ -103,7 +103,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					this.trackedDocument.uri.repoPath!,
 					this.trackedDocument.uri.fsPath,
 				);
-				const commits = status?.toPsuedoCommits(
+				const commits = status?.getPseudoCommits(
 					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
 				);
 				if (commits?.length) {
@@ -293,7 +293,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		);
 	}
 
-	provideHover(document: TextDocument, position: Position, _token: CancellationToken): Hover | undefined {
+	async provideHover(
+		document: TextDocument,
+		position: Position,
+		_token: CancellationToken,
+	): Promise<Hover | undefined> {
 		if (this.state == null) return undefined;
 		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
@@ -307,8 +311,16 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					position.line >= hunk.current.position.start - 1 &&
 					position.line <= hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1)
 				) {
+					const markdown = await Hovers.localChangesMessage(
+						commit,
+						this.trackedDocument.uri,
+						position.line,
+						hunk,
+					);
+					if (markdown == null) return undefined;
+
 					return new Hover(
-						Hovers.localChangesMessage(commit, this.trackedDocument.uri, position.line, hunk),
+						markdown,
 						document.validateRange(
 							new Range(
 								hunk.current.position.start - 1,

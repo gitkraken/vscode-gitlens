@@ -1,8 +1,8 @@
-import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Command, MarkdownString, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
+import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';
 import { dirname, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
@@ -13,7 +13,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		view: TView,
 		parent: ViewNode,
 		public readonly file: GitFile,
-		public commit: GitLogCommit,
+		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
 			selection?: Selection;
@@ -28,7 +28,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get priority(): number {
@@ -44,11 +44,11 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		if (!this.commit.isFile) {
+		if (this.commit.file == null) {
 			// Try to get the commit directly from the multi-file commit
-			const commit = this.commit.toFileCommit(this.file);
+			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -124,7 +124,16 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	private get tooltip() {
-		return StatusFileFormatter.fromTemplate(`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`, this.file);
+		const tooltip = StatusFileFormatter.fromTemplate(
+			`\${file}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\\\\\n\${directory}\n\n\${status}\${ (originalPath)}`,
+			this.file,
+		);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 
 	override getCommand(): Command | undefined {
@@ -132,7 +141,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		if (this.commit.lines.length) {
 			line = this.commit.lines[0].to.line - 1;
 		} else {
-			line = this._options.selection !== undefined ? this._options.selection.active.line : 0;
+			line = this._options.selection?.active.line ?? 0;
 		}
 
 		const commandArgs: DiffWithPreviousCommandArgs = {

@@ -2,11 +2,9 @@ import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } fro
 import type { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
-	GitCommitType,
 	GitFile,
 	GitFileIndexStatus,
 	GitLog,
-	GitLogCommit,
 	GitRevision,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
@@ -71,7 +69,7 @@ export class LineHistoryNode
 		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
-			this.uri.sha == null
+			this.uri.sha == null || GitRevision.isUncommitted(this.uri.sha)
 				? this.editorContents
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
@@ -87,119 +85,52 @@ export class LineHistoryNode
 				: undefined,
 		]);
 
-		if (this.uri.sha == null) {
-			// Check for any uncommitted changes in the range
-			if (blame != null) {
-				for (const commit of blame.commits.values()) {
-					if (!commit.isUncommitted) continue;
+		// Check for any uncommitted changes in the range
+		if (blame != null) {
+			for (const commit of blame.commits.values()) {
+				if (!commit.isUncommitted) continue;
 
-					const firstLine = blame.lines[0];
-					const lastLine = blame.lines[blame.lines.length - 1];
+				const firstLine = blame.lines[0];
+				const lastLine = blame.lines[blame.lines.length - 1];
 
-					// Since there could be a change in the line numbers, update the selection
-					const firstActive = selection.active.line === firstLine.line - 1;
-					selection = new Selection(
-						(firstActive ? lastLine : firstLine).originalLine - 1,
-						selection.anchor.character,
-						(firstActive ? firstLine : lastLine).originalLine - 1,
-						selection.active.character,
-					);
+				// Since there could be a change in the line numbers, update the selection
+				const firstActive = selection.active.line === firstLine.to.line - 1;
+				selection = new Selection(
+					(firstActive ? lastLine : firstLine).from.line - 1,
+					selection.anchor.character,
+					(firstActive ? firstLine : lastLine).from.line - 1,
+					selection.active.character,
+				);
 
-					const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
 
+				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
-						fileName: commit.file?.path ?? '',
+						path: commit.file?.path ?? '',
 						indexStatus: status?.indexStatus,
-						originalFileName: commit.file?.originalPath,
+						originalPath: commit.file?.originalPath,
 						repoPath: this.uri.repoPath!,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					if (status?.workingTreeStatus != null && status?.indexStatus != null) {
-						let uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							GitRevision.uncommittedStaged,
-							'You',
-							commit.author.email,
-							commit.author.date,
-							commit.committer.date,
-							commit.message ?? commit.summary,
-							file.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							file.originalFileName,
-							commit.previousSha,
-							file.originalFileName ?? file.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
-
-						uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							GitRevision.uncommitted,
-							'You',
-							commit.author.email,
-							commit.author.date,
-							commit.committer.date,
-							commit.message ?? commit.summary,
-							file.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							file.originalFileName,
-							GitRevision.uncommittedStaged,
-							file.originalFileName ?? file.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
-					} else {
-						const uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							status?.workingTreeStatus != null
-								? GitRevision.uncommitted
-								: status?.indexStatus != null
-								? GitRevision.uncommittedStaged
-								: commit.sha,
-							'You',
-							commit.author.email,
-							commit.author.date,
-							commit.committer.date,
-							commit.message ?? commit.summary,
-							file.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							file.originalFileName,
-							commit.previousSha,
-							file.originalFileName ?? file.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
+					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath!);
+					const pseudoCommits = status?.getPseudoCommits(currentUser);
+					if (pseudoCommits != null) {
+						for (const commit of pseudoCommits.reverse()) {
+							children.splice(
+								0,
+								0,
+								new FileRevisionAsCommitNode(this.view, this, file, commit, {
+									selection: selection,
+								}),
+							);
+						}
 					}
-
-					break;
 				}
+
+				break;
 			}
 		}
 
@@ -207,8 +138,8 @@ export class LineHistoryNode
 			children.push(
 				...insertDateMarkers(
 					filterMap(log.commits.values(), c =>
-						c.files.length
-							? new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
+						c.file != null
+							? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
 									branch: this.branch,
 									getBranchAndTagTips: getBranchAndTagTips,
 									selection: selection,

@@ -43,12 +43,12 @@ export namespace GitRevision {
 		return isMatch(shaParentRegex, ref);
 	}
 
-	export function isUncommitted(ref: string | undefined) {
-		return ref === uncommitted || isMatch(uncommittedRegex, ref);
+	export function isUncommitted(ref: string | undefined, exact: boolean = false) {
+		return ref === uncommitted || ref === uncommittedStaged || (!exact && isMatch(uncommittedRegex, ref));
 	}
 
-	export function isUncommittedStaged(ref: string | undefined): boolean {
-		return ref === uncommittedStaged || isMatch(uncommittedStagedRegex, ref);
+	export function isUncommittedStaged(ref: string | undefined, exact: boolean = false): boolean {
+		return ref === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, ref));
 	}
 
 	export function shorten(
@@ -118,7 +118,7 @@ export interface GitRevisionReference {
 	repoPath: string;
 
 	number?: string | undefined;
-	message?: string;
+	message?: string | undefined;
 }
 
 export interface GitStashReference {
@@ -128,7 +128,7 @@ export interface GitStashReference {
 	repoPath: string;
 	number: string | undefined;
 
-	message?: string;
+	message?: string | undefined;
 }
 
 export interface GitTagReference {

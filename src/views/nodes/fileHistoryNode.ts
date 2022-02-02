@@ -11,11 +11,10 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { uniqueBy } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
-import { filterMap, flatMap } from '../../system/iterable';
+import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
 import { basename, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
@@ -79,17 +78,19 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
-				const commits = uniqueBy(
-					[...flatMap(fileStatuses, f => f.toPsuedoCommits(currentUser))],
-					c => c.sha,
-					(original, c) => void original.files.push(...c.files),
+				// Combine all the working/staged changes into single pseudo commits
+				const commits = map(
+					uniqueBy(
+						flatMap(fileStatuses, f => f.getPseudoCommits(currentUser)),
+						c => c.sha,
+						(original, c) => original.with({ files: { files: [...original.files!, ...c.files!] } }),
+					),
+					commit => new CommitNode(this.view, this, commit),
 				);
-				if (commits.length) {
-					children.push(...commits.map(commit => new CommitNode(this.view, this, commit)));
-				}
+				children.push(...commits);
 			} else {
 				const [file] = fileStatuses;
-				const commits = file.toPsuedoCommits(currentUser);
+				const commits = file.getPseudoCommits(currentUser);
 				if (commits.length) {
 					children.push(
 						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),
@@ -104,7 +105,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 					filterMap(log.commits.values(), c =>
 						this.folder
 							? new CommitNode(
-									this.view as any,
+									this.view,
 									this,
 									c,
 									unpublishedCommits?.has(c.ref),
@@ -114,8 +115,8 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 										expand: false,
 									},
 							  )
-							: c.files.length
-							? new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
+							: c.file != null
+							? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
 									branch: this.branch,
 									getBranchAndTagTips: getBranchAndTagTips,
 									unpublished: unpublishedCommits?.has(c.ref),

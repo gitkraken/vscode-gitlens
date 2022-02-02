@@ -1,14 +1,14 @@
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitCommit2, GitRevision } from '../git/models';
+import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
-	commit?: GitCommit | GitCommit2;
+	commit?: GitCommit;
 
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
@@ -56,7 +56,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 					if (status?.indexStatus != null) {
 						lhsSha = GitRevision.uncommittedStaged;
 						lhsUri = this.container.git.getAbsoluteUri(
-							status.originalFileName || status.fileName,
+							status.originalPath || status.path,
 							args.commit.repoPath,
 						);
 					} else {
@@ -68,7 +68,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 					lhsUri = args.commit.file!.uri;
 				}
 				// editor lines are 0-based
-				args.line = blame.line.line - 1;
+				args.line = blame.line.to.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
 				void Messages.showGenericErrorMessage('Unable to open compare');

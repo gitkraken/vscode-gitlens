@@ -26,7 +26,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get ref(): GitRevisionReference {

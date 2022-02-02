@@ -47,6 +47,7 @@ import {
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
+	GitCommit,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
@@ -54,7 +55,6 @@ import {
 	GitDiffShortStat,
 	GitFile,
 	GitLog,
-	GitLogCommit,
 	GitMergeStatus,
 	GitRebaseStatus,
 	GitReference,
@@ -681,7 +681,7 @@ export class GitProviderService implements Disposable {
 			if (typeof pathOrFile === 'string') {
 				path = pathOrFile;
 			} else {
-				path = pathOrFile!.originalFileName ?? pathOrFile!.fileName;
+				path = pathOrFile!.originalPath ?? pathOrFile!.path;
 			}
 		} else {
 			ref = refOrUri.sha;
@@ -1044,7 +1044,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommit(repoPath: string | Uri, ref: string): Promise<GitLogCommit | undefined> {
+	getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommit(path, ref);
 	}
@@ -1078,8 +1078,8 @@ export class GitProviderService implements Disposable {
 	async getCommitForFile(
 		repoPath: string | Uri | undefined,
 		uri: Uri,
-		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean },
-	): Promise<GitLogCommit | undefined> {
+		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
+	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -1195,7 +1195,6 @@ export class GitProviderService implements Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
@@ -1212,7 +1211,6 @@ export class GitProviderService implements Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			reverse?: boolean;
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {

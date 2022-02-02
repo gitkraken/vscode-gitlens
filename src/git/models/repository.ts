@@ -32,10 +32,10 @@ import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import { SearchPattern } from '../search';
 import { BranchSortOptions, GitBranch } from './branch';
+import { GitCommit } from './commit';
 import { GitContributor } from './contributor';
 import { GitDiffShortStat } from './diff';
 import { GitLog } from './log';
-import { GitLogCommit } from './logCommit';
 import { GitMergeStatus } from './merge';
 import { GitRebaseStatus } from './rebase';
 import { GitBranchReference, GitReference, GitTagReference } from './reference';
@@ -517,7 +517,7 @@ export class Repository implements Disposable {
 		return this.container.git.getChangedFilesCount(this.path, ref);
 	}
 
-	getCommit(ref: string): Promise<GitLogCommit | undefined> {
+	getCommit(ref: string): Promise<GitCommit | undefined> {
 		return this.container.git.getCommit(this.path, ref);
 	}
 

@@ -15,7 +15,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 	}
 
 	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
-		super(commit.toGitUri(), view, parent);
+		super(commit.getGitUri(), view, parent);
 	}
 
 	override toClipboard(): string {
@@ -31,12 +31,9 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		// Ensure we have checked for untracked files
-		await this.commit.checkForUntrackedFiles();
-
-		let children: FileNode[] = this.commit.files.map(
-			s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!),
-		);
+		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
+		const commits = await this.commit.getCommitsForFiles();
+		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(

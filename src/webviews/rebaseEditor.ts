@@ -583,7 +583,7 @@ async function parseRebaseTodo(
 			author: name,
 			date: commit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
-			message: commit.message,
+			message: commit.message ?? commit.summary,
 		});
 	}
 

@@ -5,12 +5,11 @@ import { Container } from '../container';
 import { emojify } from '../emojis';
 import {
 	GitBranch,
+	GitCommit,
 	GitContributor,
-	GitLogCommit,
 	GitReference,
 	GitRemoteType,
 	GitRevision,
-	GitStashCommit,
 	GitTag,
 	Repository,
 } from '../git/models';
@@ -142,21 +141,21 @@ export class CommitLoadMoreQuickPickItem implements QuickPickItem {
 	readonly alwaysShow = true;
 }
 
-export type CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> = QuickPickItemOfT<T>;
+export type CommitQuickPickItem<T extends GitCommit = GitCommit> = QuickPickItemOfT<T>;
 
 export namespace CommitQuickPickItem {
-	export function create<T extends GitLogCommit = GitLogCommit>(
+	export function create<T extends GitCommit = GitCommit>(
 		commit: T,
 		picked?: boolean,
 		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean } = {},
 	) {
-		if (GitStashCommit.is(commit)) {
+		if (GitCommit.isStash(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
 
 			if (options.compact) {
 				const item: CommitQuickPickItem<T> = {
-					label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
-					description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({
+					label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
+					description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 						compact: true,
 					})}`,
 					alwaysShow: options.alwaysShow,
@@ -169,13 +168,13 @@ export namespace CommitQuickPickItem {
 			}
 
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
+				label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
 				description: '',
 				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(
 					GlyphChars.Dot,
 					2,
 					2,
-				)}${commit.getFormattedDiffStatus({ compact: true })}`,
+				)}${commit.formatStats({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
 				picked: picked,
@@ -187,10 +186,10 @@ export namespace CommitQuickPickItem {
 
 		if (options.compact) {
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
+				label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
 				description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 2)}${
 					commit.shortSha
-				}${pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
+				}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
 				picked: picked,
@@ -200,13 +199,13 @@ export namespace CommitQuickPickItem {
 		}
 
 		const item: CommitQuickPickItem<T> = {
-			label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
+			label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
 			description: '',
 			detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${commit.formattedDate}${pad(
 				'$(git-commit)',
 				2,
 				2,
-			)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({
+			)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 				compact: true,
 			})}`,
 			alwaysShow: options.alwaysShow,

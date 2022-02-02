@@ -1,7 +1,7 @@
 import { commands, QuickPickItem } from 'vscode';
 import { Commands, GitActions } from '../commands';
 import { Container } from '../container';
-import { GitReference, GitRevisionReference, GitStashCommit } from '../git/models';
+import { GitCommit, GitReference, GitRevisionReference } from '../git/models';
 import { SearchPattern } from '../git/search';
 import { Keys } from '../keyboard';
 
@@ -199,7 +199,7 @@ export class RevealInSideBarQuickPickItem extends CommandQuickPickItem {
 	}
 
 	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		if (GitStashCommit.is(this.reference)) {
+		if (GitCommit.isStash(this.reference)) {
 			void (await GitActions.Stash.reveal(this.reference, {
 				select: true,
 				focus: !(options?.preserveFocus ?? false),

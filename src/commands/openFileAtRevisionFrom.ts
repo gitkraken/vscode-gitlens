@@ -7,7 +7,6 @@ import { GitReference } from '../git/models';
 import { Messages } from '../messages';
 import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { normalizePath, relative } from '../system/path';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { GitActions } from './gitCommands';
 
@@ -43,14 +42,15 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		if (args.reference == null) {
 			if (args?.stash) {
-				const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
+				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
 
 				const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await StashPicker.show(
 					this.container.git.getStash(gitUri.repoPath),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
-					{ filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName) },
+					// Stashes should always come with files, so this should be fine (but protect it just in case)
+					{ filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true },
 				);
 				if (pick == null) return;
 

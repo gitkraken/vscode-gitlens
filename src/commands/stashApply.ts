@@ -14,7 +14,7 @@ import {
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;
 	repoPath?: string;
-	stashItem?: GitStashReference & { message: string };
+	stashItem?: GitStashReference & { message: string | undefined };
 
 	goBackCommand?: CommandQuickPickItem;
 }
@@ -25,8 +25,11 @@ export class StashApplyCommand extends Command {
 		super(Commands.StashApply);
 	}
 
-	protected override preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
 		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
+			if (context.node.commit.message == null) {
+				await context.node.commit.ensureFullDetails();
+			}
 			args = { ...args, stashItem: context.node.commit };
 		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args, repoPath: context.node.repo.path };

@@ -20,8 +20,8 @@ import { Container } from '../container';
 import {
 	GitBranch,
 	GitBranchReference,
+	GitCommit,
 	GitContributor,
-	GitLogCommit,
 	GitReference,
 	GitRemote,
 	GitRevisionReference,
@@ -326,7 +326,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		});
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on

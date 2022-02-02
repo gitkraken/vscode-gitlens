@@ -235,7 +235,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
+						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
 							files.splice(index, 1, wf);
 						} else {
@@ -265,7 +265,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
+						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
 							files.splice(index, 1, wf);
 						} else {

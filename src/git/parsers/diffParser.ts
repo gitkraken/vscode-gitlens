@@ -1,4 +1,5 @@
-import { debug, Strings } from '../../system';
+import { debug } from '../../system/decorators/log';
+import { getLines } from '../../system/string';
 import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
 import { GitFile, GitFileStatus } from '../models/file';
 
@@ -81,7 +82,7 @@ export class GitDiffParser {
 		let hasRemoved;
 
 		let removed = 0;
-		for (const l of Strings.getLines(hunk.diff)) {
+		for (const l of getLines(hunk.diff)) {
 			switch (l[0]) {
 				case '+':
 					hasAddedOrChanged = true;
@@ -167,9 +168,9 @@ export class GitDiffParser {
 				indexStatus: undefined,
 				workingTreeStatus: undefined,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				fileName: ` ${fileName}`.substr(1),
+				path: ` ${fileName}`.substr(1),
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				originalFileName:
+				originalPath:
 					originalFileName == null || originalFileName.length === 0
 						? undefined
 						: ` ${originalFileName}`.substr(1),

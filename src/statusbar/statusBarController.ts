@@ -15,7 +15,7 @@ import { configuration, FileAnnotationType, StatusBarCommand } from '../configur
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitCommit2, PullRequest } from '../git/models';
+import { GitCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug } from '../system/decorators/log';
@@ -172,7 +172,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	@debug({ args: false })
-	private async updateBlame(editor: TextEditor, commit: GitCommit2, options?: { pr?: PullRequest | null }) {
+	private async updateBlame(editor: TextEditor, commit: GitCommit, options?: { pr?: PullRequest | null }) {
 		const cfg = this.container.config.statusBar;
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
@@ -270,32 +270,36 @@ export class StatusBarController implements Disposable {
 				tooltip = 'Click to Toggle File Blame';
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
-				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-					title: 'Toggle File Changes',
-					command: Commands.ToggleFileChanges,
-					arguments: [
-						commit.uri,
-						{
-							type: FileAnnotationType.Changes,
-							context: { sha: commit.sha, only: false, selection: false },
-						},
-					],
-				});
+				if (commit.file != null) {
+					this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: FileAnnotationType.Changes,
+								context: { sha: commit.sha, only: false, selection: false },
+							},
+						],
+					});
+				}
 				tooltip = 'Click to Toggle File Changes';
 				break;
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
-				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-					title: 'Toggle File Changes',
-					command: Commands.ToggleFileChanges,
-					arguments: [
-						commit.uri,
-						{
-							type: FileAnnotationType.Changes,
-							context: { sha: commit.sha, only: true, selection: false },
-						},
-					],
-				});
+				if (commit.file != null) {
+					this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: FileAnnotationType.Changes,
+								context: { sha: commit.sha, only: true, selection: false },
+							},
+						],
+					});
+				}
 				tooltip = 'Click to Toggle File Changes';
 				break;
 			}
@@ -332,7 +336,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	private async getPullRequest(
-		commit: GitCommit2,
+		commit: GitCommit,
 		{ timeout }: { timeout?: number } = {},
 	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
 		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
@@ -348,7 +352,7 @@ export class StatusBarController implements Disposable {
 
 	private async updateCommitTooltip(
 		statusBarItem: StatusBarItem,
-		commit: GitCommit2,
+		commit: GitCommit,
 		actionTooltip: string,
 		getBranchAndTagTips:
 			| ((
@@ -366,8 +370,8 @@ export class StatusBarController implements Disposable {
 
 		const tooltip = await Hovers.detailsMessage(
 			commit,
-			commit.toGitUri(),
-			commit.lines[0].line,
+			commit.getGitUri(),
+			commit.lines[0].to.line,
 			this.container.config.statusBar.tooltipFormat,
 			this.container.config.defaultDateFormat,
 			{
@@ -386,7 +390,7 @@ export class StatusBarController implements Disposable {
 
 	private async waitForPendingPullRequest(
 		editor: TextEditor,
-		commit: GitCommit2,
+		commit: GitCommit,
 		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
 		cancellationToken: CancellationToken,
 		timeout: number,

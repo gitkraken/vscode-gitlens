@@ -8,6 +8,7 @@ import {
 	GitBlameLines,
 	GitBranch,
 	GitBranchReference,
+	GitCommit,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
@@ -15,7 +16,6 @@ import {
 	GitDiffShortStat,
 	GitFile,
 	GitLog,
-	GitLogCommit,
 	GitMergeStatus,
 	GitRebaseStatus,
 	GitReflog,
@@ -174,7 +174,7 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<PagedResult<GitBranch>>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
-	getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined>;
+	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
 	getCommitBranches(
 		repoPath: string,
 		ref: string,
@@ -188,9 +188,8 @@ export interface GitProvider extends Disposable {
 			ref?: string | undefined;
 			firstIfNotFound?: boolean | undefined;
 			range?: Range | undefined;
-			reverse?: boolean | undefined;
 		},
-	): Promise<GitLogCommit | undefined>;
+	): Promise<GitCommit | undefined>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,
@@ -243,7 +242,6 @@ export interface GitProvider extends Disposable {
 			merges?: boolean | undefined;
 			ordering?: string | null | undefined;
 			ref?: string | undefined;
-			reverse?: boolean | undefined;
 			since?: string | undefined;
 		},
 	): Promise<GitLog | undefined>;
@@ -256,7 +254,6 @@ export interface GitProvider extends Disposable {
 			merges?: boolean | undefined;
 			ordering?: string | null | undefined;
 			ref?: string | undefined;
-			reverse?: boolean | undefined;
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;

@@ -1,7 +1,7 @@
 import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit2, GitLogCommit } from '../git/models';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { debug } from '../system';
 import {
@@ -16,7 +16,11 @@ import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
 export * from './lineTracker';
 
 export class GitLineState {
-	constructor(public readonly commit: GitCommit2 | undefined, public logCommit?: GitLogCommit) {}
+	constructor(public readonly commit: GitCommit | undefined) {
+		if (commit != null && commit.file == null) {
+			debugger;
+		}
+	}
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
@@ -159,7 +163,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				return false;
 			}
 
-			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
+			this.setState(blameLine.line.to.line - 1, new GitLineState(blameLine.commit));
 		} else {
 			const blame = editor.document.isDirty
 				? await this.container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())

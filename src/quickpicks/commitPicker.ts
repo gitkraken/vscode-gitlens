@@ -1,7 +1,7 @@
 import { Disposable, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStash, GitStashCommit } from '../git/models';
+import { GitCommit, GitLog, GitStash, GitStashCommit } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
 import {
 	CommandQuickPickItem,
@@ -24,7 +24,7 @@ export namespace CommitPicker {
 			onDidPressKey?(key: Keys, item: CommitQuickPickItem): void | Promise<void>;
 			showOtherReferences?: CommandQuickPickItem[];
 		},
-	): Promise<GitLogCommit | undefined> {
+	): Promise<GitCommit | undefined> {
 		const quickpick = window.createQuickPick<CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 

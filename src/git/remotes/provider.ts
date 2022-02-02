@@ -21,7 +21,7 @@ import { isPromise } from '../../system/promise';
 import {
 	Account,
 	DefaultBranch,
-	GitLogCommit,
+	GitCommit,
 	IssueOrPullRequest,
 	PullRequest,
 	PullRequestState,
@@ -81,7 +81,7 @@ export type RemoteResource =
 	| {
 			type: RemoteResourceType.Revision;
 			branchOrTag?: string;
-			commit?: GitLogCommit;
+			commit?: GitCommit;
 			fileName: string;
 			range?: Range;
 			sha?: string;

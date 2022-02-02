@@ -38,7 +38,7 @@ import {
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import { GitBlame, GitBlameLines, GitCommit2 } from '../git/models';
+import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { is, once } from '../system/function';
@@ -635,7 +635,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2 | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		lens.command = command<[undefined, DiffWithPreviousCommandArgs]>({
 			title: title,
@@ -654,7 +654,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyCopyOrOpenCommitOnRemoteCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2,
+		commit: GitCommit,
 		clipboard: boolean = false,
 	): T {
 		lens.command = command<[OpenOnRemoteCommandArgs]>({
@@ -677,7 +677,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyCopyOrOpenFileOnRemoteCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2,
+		commit: GitCommit,
 		clipboard: boolean = false,
 	): T {
 		lens.command = command<[OpenOnRemoteCommandArgs]>({
@@ -701,7 +701,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyRevealCommitInViewCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2 | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		lens.command = command<[Uri, ShowQuickCommitCommandArgs]>({
 			title: title,
@@ -721,7 +721,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 		blame: GitBlameLines,
-		commit?: GitCommit2,
+		commit?: GitCommit,
 	): T {
 		let refs;
 		if (commit === undefined) {
@@ -746,7 +746,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2 | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		lens.command = command<[Uri, ShowQuickCommitCommandArgs]>({
 			title: title,
@@ -765,7 +765,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2 | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		lens.command = command<[Uri, ShowQuickCommitFileCommandArgs]>({
 			title: title,
@@ -825,7 +825,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitCommit2,
+		commit: GitCommit,
 		only?: boolean,
 	): T {
 		lens.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({

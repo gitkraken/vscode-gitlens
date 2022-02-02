@@ -135,8 +135,8 @@ export class LineHoverController implements Disposable {
 
 		let editorLine = position.line;
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
-		editorLine = commitLine.originalLine - 1;
+		const commitLine = commit.lines.find(l => l.to.line === line) ?? commit.lines[0];
+		editorLine = commitLine.from.line - 1;
 
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;

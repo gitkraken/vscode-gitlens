@@ -52,7 +52,7 @@ export function cancellable<T>(
 		onDidCancel?(resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void): void;
 	} = {},
 ): Promise<T> {
-	if (timeoutOrToken == null) return promise;
+	if (timeoutOrToken == null || (typeof timeoutOrToken === 'number' && timeoutOrToken <= 0)) return promise;
 
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;

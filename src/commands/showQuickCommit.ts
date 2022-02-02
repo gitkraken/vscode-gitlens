@@ -1,7 +1,7 @@
 import { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitCommit2, GitLog, GitLogCommit } from '../git/models';
+import { GitCommit, GitLog, GitStashCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -17,7 +17,7 @@ import { executeGitCommand, GitActions } from './gitCommands';
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;
 	sha?: string;
-	commit?: GitCommit2 | GitCommit | GitLogCommit;
+	commit?: GitCommit | GitStashCommit;
 	repoLog?: GitLog;
 	revealInView?: boolean;
 }
@@ -72,11 +72,11 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				args.sha = args.commit.sha;
 			}
 
-			gitUri = args.commit.toGitUri();
+			gitUri = args.commit.getGitUri();
 			repoPath = args.commit.repoPath;
 
 			if (uri == null) {
-				uri = args.commit.uri;
+				uri = args.commit.file?.uri;
 			}
 		}
 
@@ -149,7 +149,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				command: 'show',
 				state: {
 					repo: repoPath,
-					reference: args.commit as GitLogCommit,
+					reference: args.commit,
 				},
 			}));
 		} catch (ex) {

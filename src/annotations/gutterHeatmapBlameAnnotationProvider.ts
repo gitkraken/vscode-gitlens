@@ -1,7 +1,7 @@
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitCommit2 } from '../git/models';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { log, Stopwatch } from '../system';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
@@ -32,10 +32,10 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		>();
 		const computedHeatmap = await this.getComputedHeatmap(blame);
 
-		let commit: GitCommit2 | undefined;
+		let commit: GitCommit | undefined;
 		for (const l of blame.lines) {
 			// editor lines are 0-based
-			const editorLine = l.line - 1;
+			const editorLine = l.to.line - 1;
 
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;

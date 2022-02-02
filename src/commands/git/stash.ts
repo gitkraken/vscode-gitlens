@@ -47,7 +47,7 @@ interface DropState {
 interface ListState {
 	subcommand: 'list';
 	repo: string | Repository;
-	reference: /*GitStashReference |*/ GitStashCommit;
+	reference: GitStashReference | GitStashCommit;
 }
 
 interface PopState {
@@ -430,10 +430,6 @@ export class StashGitCommand extends QuickCommand<State> {
 
 				state.reference = result;
 			}
-
-			// if (!(state.reference instanceof GitStashCommit)) {
-			// 	state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
-			// }
 
 			const result = yield* GitCommandsCommand.getSteps(
 				this.container,

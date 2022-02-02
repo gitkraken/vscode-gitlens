@@ -10,7 +10,7 @@ import { memoize } from '../system/decorators/memoize';
 import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
 import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
 import { RevisionUriData } from './gitProvider';
-import { GitCommit, GitCommit2, GitFile, GitRevision } from './models';
+import { GitFile, GitRevision } from './models';
 
 export interface GitCommitish {
 	fileName?: string;
@@ -230,23 +230,12 @@ export class GitUri extends (Uri as any as UriEx) {
 		return Container.instance.git.getAbsoluteUri(this.fsPath, this.repoPath);
 	}
 
-	static fromCommit(commit: GitCommit | GitCommit2, previous: boolean = false) {
-		if (!previous) return new GitUri(commit.uri, commit);
-
-		return new GitUri(commit.previousUri, {
-			repoPath: commit.repoPath,
-			sha: commit.previousSha,
-		});
-	}
-
 	static fromFile(file: string | GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
 		const uri = Container.instance.git.getAbsoluteUri(
-			typeof file === 'string' ? file : (original && file.originalFileName) || file.fileName,
+			typeof file === 'string' ? file : (original && file.originalPath) || file.path,
 			repoPath,
 		);
-		return ref == null || ref.length === 0
-			? new GitUri(uri, repoPath)
-			: new GitUri(uri, { repoPath: repoPath, sha: ref });
+		return !ref ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
 	}
 
 	static fromRepoPath(repoPath: string, ref?: string) {

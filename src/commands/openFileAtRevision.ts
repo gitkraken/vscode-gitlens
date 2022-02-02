@@ -72,9 +72,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 									return undefined;
 								}
 							} else if (blame?.commit.previousSha != null) {
-								args.revisionUri = this.container.git.getRevisionUri(
-									GitUri.fromCommit(blame.commit, true),
-								);
+								args.revisionUri = this.container.git.getRevisionUri(blame.commit.getGitUri(true));
 							} else {
 								void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 								return undefined;
@@ -134,7 +132,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
 						onDidPressKey: async (key, item) => {
-							void (await GitActions.Commit.openFileAtRevision(item.item.uri.fsPath, item.item, {
+							void (await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
 								annotationType: args!.annotationType,
 								line: args!.line,
 								preserveFocus: true,
@@ -154,9 +152,9 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						],
 					},
 				);
-				if (pick == null) return;
+				if (pick?.file == null) return;
 
-				void (await GitActions.Commit.openFileAtRevision(pick.fileName, pick, {
+				void (await GitActions.Commit.openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
 					line: args.line,
 					...args.showOptions,

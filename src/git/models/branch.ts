@@ -5,8 +5,8 @@ import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
-import { GitBranchReference, GitReference, GitRevision } from '../models';
 import { PullRequest, PullRequestState } from './pullRequest';
+import { GitBranchReference, GitReference, GitRevision } from './reference';
 import { GitRemote } from './remote';
 import { GitStatus } from './status';
 

@@ -58,7 +58,7 @@ export class OpenOnRemoteCommand extends Command {
 			} else if (args.resource.type === RemoteResourceType.Revision) {
 				const { commit, fileName } = args.resource;
 				if (commit != null) {
-					const file = commit?.files.find(f => f.fileName === fileName);
+					const file = await commit.findFile(fileName);
 					if (file?.status === 'D') {
 						// Resolve to the previous commit to that file
 						args.resource.sha = await this.container.git.resolveReference(

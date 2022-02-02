@@ -14,7 +14,7 @@ import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitCommit2, PullRequest } from '../git/models';
+import { GitCommit, PullRequest } from '../git/models';
 import { Authentication } from '../git/remotes/provider';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, log } from '../system/decorators/log';
@@ -155,7 +155,7 @@ export class LineAnnotationController implements Disposable {
 
 	private async getPullRequests(
 		repoPath: string,
-		lines: [number, GitCommit2][],
+		lines: [number, GitCommit][],
 		{ timeout }: { timeout?: number } = {},
 	) {
 		if (lines.length === 0) return undefined;
@@ -250,7 +250,7 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		const commitLines = [
-			...filterMap<LineSelection, [number, GitCommit2]>(selections, selection => {
+			...filterMap<LineSelection, [number, GitCommit]>(selections, selection => {
 				const state = this.container.lineTracker.getState(selection.active);
 				if (state?.commit == null) {
 					Logger.debug(cc, `Line ${selection.active} returned no commit`);

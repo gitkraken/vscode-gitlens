@@ -627,7 +627,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.stageFile(node.repoPath, node.file.fileName));
+		void (await this.container.git.stageFile(node.repoPath, node.file.path));
 		void node.triggerChange();
 	}
 
@@ -704,7 +704,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.unStageFile(node.repoPath, node.file.fileName));
+		void (await this.container.git.unStageFile(node.repoPath, node.file.path));
 		void node.triggerChange();
 	}
 
@@ -998,7 +998,7 @@ export class ViewCommands {
 					preview: true,
 				},
 			});
-		} else if (node instanceof FileRevisionAsCommitNode && node.commit.hasConflicts) {
+		} else if (node instanceof FileRevisionAsCommitNode && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
 				return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
@@ -1092,10 +1092,10 @@ export class ViewCommands {
 				uri = Container.instance.git.getRevisionUri(node.uri);
 			} else {
 				uri =
-					node.commit.status === 'D'
+					node.commit.file?.status === 'D'
 						? Container.instance.git.getRevisionUri(
-								node.commit.previousSha!,
-								node.commit.previousUri.fsPath,
+								node.commit.previousSha,
+								node.commit.file.path,
 								node.commit.repoPath,
 						  )
 						: Container.instance.git.getRevisionUri(node.uri);

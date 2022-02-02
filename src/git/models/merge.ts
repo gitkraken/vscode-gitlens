@@ -1,4 +1,4 @@
-import { GitBranchReference, GitRevisionReference } from '../models';
+import { GitBranchReference, GitRevisionReference } from './reference';
 
 export interface GitMergeStatus {
 	type: 'merge';

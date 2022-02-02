@@ -1,7 +1,7 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitCommit2, GitRevision } from '../git/models';
+import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -16,7 +16,7 @@ import {
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
-	commit?: GitCommit2 | GitCommit;
+	commit?: GitCommit;
 
 	inDiffRightEditor?: boolean;
 	uri?: Uri;
@@ -52,17 +52,17 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		}
 
 		let gitUri;
-		if (args.commit != null) {
+		if (args.commit?.file != null) {
 			if (!args.commit.isUncommitted) {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
-						uri: args.commit.originalUri ?? args.commit.uri,
+						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
 						sha: args.commit.sha || '',
-						uri: args.commit.uri,
+						uri: args.commit.file.uri,
 					},
 					line: args.line,
 					showOptions: args.showOptions,
@@ -71,7 +71,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			gitUri = GitUri.fromCommit(args.commit);
+			gitUri = args.commit?.getGitUri();
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}

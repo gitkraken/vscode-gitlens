@@ -38,9 +38,9 @@ export class ExternalDiffCommand extends Command {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
-			const ref1 = GitRevision.isUncommitted(context.node.commit.previousFileSha)
+			const ref1 = GitRevision.isUncommitted(context.node.commit.previousSha)
 				? ''
-				: context.node.commit.previousFileSha;
+				: context.node.commit.previousSha;
 			const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 
 			args.files = [

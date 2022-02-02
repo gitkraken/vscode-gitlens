@@ -13,14 +13,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { BuiltInCommands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitLogCommit,
-	GitRebaseStatus,
-	GitReference,
-	GitRevisionReference,
-	GitStatus,
-} from '../../git/models';
+import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
 import { Arrays, Strings } from '../../system';
 import { joinPaths, normalizePath } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
@@ -135,18 +128,12 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 }
 
 export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReference> {
-	constructor(view: ViewsWithCommits, parent: ViewNode, public readonly commit: GitLogCommit) {
-		super(commit.toGitUri(), view, parent);
+	constructor(view: ViewsWithCommits, parent: ViewNode, public readonly commit: GitCommit) {
+		super(commit.getGitUri(), view, parent);
 	}
 
 	override toClipboard(): string {
-		let message = this.commit.message;
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-		}
-
-		return `${this.commit.shortSha}: ${message}`;
+		return `${this.commit.shortSha}: ${this.commit.summary}`;
 	}
 
 	get ref(): GitRevisionReference {
@@ -157,7 +144,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		return CommitFormatter.fromTemplate(
 			`\${author}\${ (email)} ${
 				GlyphChars.Dash
-			} \${id}\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
+			} \${id}\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.formatStats({
 				expand: true,
 				prefix: '\n\n',
 				separator: '\n',
@@ -170,12 +157,11 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		);
 	}
 
-	getChildren(): ViewNode[] {
+	async getChildren(): Promise<ViewNode[]> {
 		const commit = this.commit;
 
-		let children: FileNode[] = commit.files.map(
-			s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!),
-		);
+		const commits = await commit.getCommitsForFiles();
+		let children: FileNode[] = commits.map(c => new CommitFileNode(this.view, this, c.file!, c));
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(

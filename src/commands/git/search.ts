@@ -1,6 +1,6 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, Repository } from '../../git/models';
+import { GitCommit, GitLog, Repository } from '../../git/models';
 import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
@@ -24,7 +24,7 @@ import {
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
-	commit: GitLogCommit | undefined;
+	commit: GitCommit | undefined;
 	resultsKey: string | undefined;
 	resultsPromise: Promise<GitLog | undefined> | undefined;
 	title: string;

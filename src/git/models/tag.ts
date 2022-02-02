@@ -2,7 +2,7 @@ import { configuration, DateStyle, TagSorting } from '../../configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
-import { GitReference, GitTagReference } from '../models';
+import { GitReference, GitTagReference } from './reference';
 
 export const TagDateFormatting = {
 	dateFormat: undefined! as string | null,

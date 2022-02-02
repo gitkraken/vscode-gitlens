@@ -204,3 +204,27 @@ export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): It
 		}
 	}
 }
+
+export function uniqueBy<TKey, TValue>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	uniqueKey: (item: TValue) => TKey,
+	onDuplicate: (original: TValue, current: TValue) => TValue | void,
+): IterableIterator<TValue> {
+	const uniques = new Map<TKey, TValue>();
+
+	for (const current of source) {
+		const value = uniqueKey(current);
+
+		const original = uniques.get(value);
+		if (original === undefined) {
+			uniques.set(value, current);
+		} else {
+			const updated = onDuplicate(original, current);
+			if (updated !== undefined) {
+				uniques.set(value, updated);
+			}
+		}
+	}
+
+	return uniques.values();
+}

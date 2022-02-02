@@ -29,7 +29,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get repoPath(): string {
@@ -52,7 +52,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 			this.file,
 		);
 		// Use the file icon and decorations
-		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.fileName, this.repoPath);
+		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 		item.iconPath = ThemeIcon.File;
 		item.command = this.getCommand();
 
@@ -114,7 +114,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 			title: 'Open File',
 			command: BuiltInCommands.Open,
 			arguments: [
-				this.view.container.git.getAbsoluteUri(this.file.fileName, this.repoPath),
+				this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath),
 				{
 					preserveFocus: true,
 					preview: true,

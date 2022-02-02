@@ -1,11 +1,9 @@
 import { Range } from 'vscode';
-import { GitAuthor } from './commit';
-import { GitLogCommit } from './logCommit';
+import { GitCommit } from './commit';
 
 export interface GitLog {
 	readonly repoPath: string;
-	readonly authors: Map<string, GitAuthor>;
-	readonly commits: Map<string, GitLogCommit>;
+	readonly commits: Map<string, GitCommit>;
 
 	readonly sha: string | undefined;
 	readonly range: Range | undefined;
