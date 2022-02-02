@@ -1,7 +1,7 @@
 import { Uri } from 'vscode';
 import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
 import { UriComparer } from '../comparers';
-import { DocumentSchemes } from '../constants';
+import { Schemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { GitHubAuthorityMetadata } from '../premium/remotehub';
@@ -56,7 +56,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			return;
 		}
 
-		if (uri.scheme === DocumentSchemes.GitLens) {
+		if (uri.scheme === Schemes.GitLens) {
 			super({
 				scheme: uri.scheme,
 				authority: uri.authority,
@@ -80,7 +80,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			return;
 		}
 
-		if (uri.scheme === DocumentSchemes.Virtual || uri.scheme === DocumentSchemes.GitHub) {
+		if (uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub) {
 			super(uri);
 
 			const [, owner, repo] = uri.path.split('/', 3);
@@ -254,10 +254,10 @@ export class GitUri extends (Uri as any as UriEx) {
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (GitUri.is(uri)) return uri;
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
-		if (uri.scheme === DocumentSchemes.GitLens) return new GitUri(uri);
+		if (uri.scheme === Schemes.GitLens) return new GitUri(uri);
 
 		// If this is a git uri, find its repoPath
-		if (uri.scheme === DocumentSchemes.Git) {
+		if (uri.scheme === Schemes.Git) {
 			let data: { path: string; ref: string } | undefined;
 			try {
 				data = JSON.parse(uri.query);
@@ -295,7 +295,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			}
 		}
 
-		if (uri.scheme === DocumentSchemes.PRs) {
+		if (uri.scheme === Schemes.PRs) {
 			let data:
 				| {
 						baseCommit: string;
@@ -432,7 +432,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	static git(path: string, repoPath?: string): Uri {
 		const uri = Container.instance.git.getAbsoluteUri(path, repoPath);
 		return Uri.from({
-			scheme: DocumentSchemes.Git,
+			scheme: Schemes.Git,
 			path: uri.path,
 			query: JSON.stringify({
 				// Ensure we use the fsPath here, otherwise the url won't open properly

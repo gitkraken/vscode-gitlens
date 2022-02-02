@@ -88,7 +88,7 @@ export const enum Colors {
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
-export const enum DocumentSchemes {
+export const enum Schemes {
 	DebugConsole = 'debug',
 	File = 'file',
 	Git = 'git',
@@ -119,7 +119,7 @@ export function isVisibleDocument(document: TextDocument): boolean {
 
 export function isTextEditor(editor: TextEditor): boolean {
 	const scheme = editor.document.uri.scheme;
-	return scheme !== DocumentSchemes.Output && scheme !== DocumentSchemes.DebugConsole;
+	return scheme !== Schemes.Output && scheme !== Schemes.DebugConsole;
 }
 
 export function hasVisibleTextEditor(): boolean {

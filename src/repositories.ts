@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
-import { DocumentSchemes } from './constants';
+import { Schemes } from './constants';
 import { Repository } from './git/models/repository';
 import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
@@ -19,12 +19,12 @@ export function asRepoComparisonKey(uri: Uri): RepoComparisionKey {
 export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean } {
 	let path;
 	switch (uri.scheme.toLowerCase()) {
-		case DocumentSchemes.File:
+		case Schemes.File:
 			path = normalizePath(uri.fsPath);
 			return { path: path, ignoreCase: !isLinux };
 
-		case DocumentSchemes.Git:
-		case DocumentSchemes.GitLens:
+		case Schemes.Git:
+		case Schemes.GitLens:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
 				path = path.slice(1, -1);
@@ -33,8 +33,8 @@ export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean 
 			}
 			return { path: path, ignoreCase: !isLinux };
 
-		case DocumentSchemes.Virtual:
-		case DocumentSchemes.GitHub: {
+		case Schemes.Virtual:
+		case Schemes.GitHub: {
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
 				path = path.slice(0, -1);
@@ -44,8 +44,8 @@ export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean 
 			const authority = uri.authority?.split('+', 1)[0];
 			return { path: authority ? `${authority}${path}` : path.slice(1), ignoreCase: false };
 		}
-		case DocumentSchemes.Vsls:
-		case DocumentSchemes.VslsScc:
+		case Schemes.Vsls:
+		case Schemes.VslsScc:
 			// Check if this is a root live share folder, if so add the required prefix (required to match repos correctly)
 			path = addVslsPrefixIfNeeded(uri.path);
 

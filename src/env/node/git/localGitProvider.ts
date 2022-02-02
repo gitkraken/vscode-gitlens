@@ -22,7 +22,7 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { configuration } from '../../../configuration';
-import { BuiltInGitConfiguration, DocumentSchemes, GlyphChars, WorkspaceState } from '../../../constants';
+import { BuiltInGitConfiguration, GlyphChars, Schemes, WorkspaceState } from '../../../constants';
 import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
@@ -142,10 +142,10 @@ interface RepositoryInfo {
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git' };
 	readonly supportedSchemes: Set<string> = new Set([
-		DocumentSchemes.File,
-		DocumentSchemes.Git,
-		DocumentSchemes.GitLens,
-		DocumentSchemes.PRs,
+		Schemes.File,
+		Schemes.Git,
+		Schemes.GitLens,
+		Schemes.PRs,
 		// DocumentSchemes.Vsls,
 	]);
 
@@ -310,7 +310,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
-		if (uri.scheme !== DocumentSchemes.File) return [];
+		if (uri.scheme !== Schemes.File) return [];
 
 		try {
 			void (await this.ensureGit());
@@ -602,7 +602,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		};
 
 		const uri = Uri.from({
-			scheme: DocumentSchemes.GitLens,
+			scheme: Schemes.GitLens,
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
 			query: ref ? JSON.stringify({ ref: GitRevision.shorten(ref) }) : undefined,

@@ -14,7 +14,7 @@ import {
 } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
-import { DocumentSchemes } from '../../constants';
+import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -95,11 +95,7 @@ interface RepositoryInfo {
 
 export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: GitProviderId.GitHub, name: 'GitHub' };
-	readonly supportedSchemes: Set<string> = new Set([
-		DocumentSchemes.Virtual,
-		DocumentSchemes.GitHub,
-		DocumentSchemes.PRs,
-	]);
+	readonly supportedSchemes: Set<string> = new Set([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -310,7 +306,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		try {
 			const remotehub = await this.ensureRemoteHubApi();
-			const rootUri = remotehub.getProviderRootUri(uri).with({ scheme: DocumentSchemes.Virtual });
+			const rootUri = remotehub.getProviderRootUri(uri).with({ scheme: Schemes.Virtual });
 			return rootUri;
 		} catch (ex) {
 			if (!(ex instanceof ExtensionNotFoundError)) {
@@ -2054,7 +2050,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		return base.with({
-			scheme: DocumentSchemes.Virtual,
+			scheme: Schemes.Virtual,
 			authority: encodeAuthority<GitHubAuthorityMetadata>('github', metadata),
 			path: path ?? base.path,
 		});
@@ -2064,7 +2060,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const uri = this.createVirtualUri(base, ref, path);
 		if (this._remotehub == null) {
 			debugger;
-			return uri.scheme !== DocumentSchemes.Virtual ? uri : uri.with({ scheme: DocumentSchemes.GitHub });
+			return uri.scheme !== Schemes.Virtual ? uri : uri.with({ scheme: Schemes.GitHub });
 		}
 
 		return this._remotehub.getProviderUri(uri);

@@ -16,14 +16,7 @@ import {
 } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
-import {
-	BuiltInGitConfiguration,
-	ContextKeys,
-	DocumentSchemes,
-	GlyphChars,
-	setContext,
-	WorkspaceState,
-} from '../constants';
+import { BuiltInGitConfiguration, ContextKeys, GlyphChars, Schemes, setContext, WorkspaceState } from '../constants';
 import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
@@ -580,7 +573,7 @@ export class GitProviderService implements Disposable {
 
 		let scheme;
 		if (typeof repoPath === 'string') {
-			scheme = getScheme(repoPath) ?? DocumentSchemes.File;
+			scheme = getScheme(repoPath) ?? Schemes.File;
 		} else {
 			({ scheme } = repoPath);
 		}

@@ -14,7 +14,7 @@ import {
 	workspace,
 } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
-import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
+import { BuiltInCommands, ImageMimetypes, Schemes } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -714,7 +714,7 @@ export async function openEditor(
 			uri = uri.documentUri();
 		}
 
-		if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
+		if (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
 			await commands.executeCommand(BuiltInCommands.Open, uri);
 
 			return undefined;

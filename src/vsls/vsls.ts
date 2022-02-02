@@ -1,6 +1,6 @@
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
-import { ContextKeys, DocumentSchemes, setContext } from '../constants';
+import { ContextKeys, Schemes, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
@@ -57,7 +57,7 @@ export class VslsController implements Disposable {
 
 	private async initialize() {
 		// If we have a vsls: workspace open, we might be a guest, so wait until live share transitions into a mode
-		if (workspace.workspaceFolders?.some(f => f.uri.scheme === DocumentSchemes.Vsls)) {
+		if (workspace.workspaceFolders?.some(f => f.uri.scheme === Schemes.Vsls)) {
 			this.setReadonly(true);
 		}
 

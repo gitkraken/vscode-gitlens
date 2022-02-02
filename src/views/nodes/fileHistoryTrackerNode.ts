@@ -1,6 +1,6 @@
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { ContextKeys, DocumentSchemes, setContext } from '../../constants';
+import { ContextKeys, Schemes, setContext } from '../../constants';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
 import { Logger } from '../../logger';
@@ -238,10 +238,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		// If we are losing the active editor, give more time before assuming its really gone
 		// For virtual repositories the active editor event takes a while to fire
 		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (
-			editor == null &&
-			(this._uri?.scheme === DocumentSchemes.Virtual || this._uri?.scheme === DocumentSchemes.GitHub)
-		) {
+		if (editor == null && (this._uri?.scheme === Schemes.Virtual || this._uri?.scheme === Schemes.GitHub)) {
 			if (this._triggerChangeDebounced == null) {
 				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
 			}

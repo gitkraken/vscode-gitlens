@@ -14,7 +14,7 @@ import {
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
-import { BuiltInGitCommands, BuiltInGitConfiguration, DocumentSchemes, Starred, WorkspaceState } from '../../constants';
+import { BuiltInGitCommands, BuiltInGitConfiguration, Schemes, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -270,7 +270,7 @@ export class Repository implements Disposable {
 	}
 
 	get path(): string {
-		return this.uri.scheme === DocumentSchemes.File ? this.uri.fsPath : this.uri.toString();
+		return this.uri.scheme === Schemes.File ? this.uri.fsPath : this.uri.toString();
 	}
 
 	get etag(): number {

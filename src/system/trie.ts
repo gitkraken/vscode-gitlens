@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
-import { DocumentSchemes } from '../constants';
+import { Schemes } from '../constants';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
@@ -11,16 +11,16 @@ const slash = 47; //CharCode.Slash;
 function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
 	let path;
 	switch (uri.scheme.toLowerCase()) {
-		case DocumentSchemes.File:
+		case Schemes.File:
 			path = normalizePath(uri.fsPath);
 			return { path: path, ignoreCase: !isLinux };
 
-		case DocumentSchemes.Git:
+		case Schemes.Git:
 			path = normalizePath(uri.fsPath);
 			// TODO@eamodio parse the ref out of the query
 			return { path: path, ignoreCase: !isLinux };
 
-		case DocumentSchemes.GitLens:
+		case Schemes.GitLens:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
 				path = path.slice(0, -1);
@@ -32,8 +32,8 @@ function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
 
 			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
 
-		case DocumentSchemes.Virtual:
-		case DocumentSchemes.GitHub:
+		case Schemes.Virtual:
+		case Schemes.GitHub:
 			path = uri.path;
 			if (path.charCodeAt(path.length - 1) === slash) {
 				path = path.slice(0, -1);

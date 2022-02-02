@@ -1,7 +1,7 @@
 import { isAbsolute as _isAbsolute, basename, dirname } from 'path';
 import { Uri } from 'vscode';
 import { isLinux, isWindows } from '@env/platform';
-import { DocumentSchemes } from '../constants';
+import { Schemes } from '../constants';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 
@@ -75,7 +75,7 @@ export function commonBaseIndex(s1: string, s2: string, delimiter: string, ignor
 }
 
 export function getBestPath(uri: Uri): string {
-	return normalizePath(uri.scheme === DocumentSchemes.File ? uri.fsPath : uri.path);
+	return normalizePath(uri.scheme === Schemes.File ? uri.fsPath : uri.path);
 }
 
 export function getScheme(path: string): string | undefined {

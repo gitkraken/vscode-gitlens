@@ -1,5 +1,5 @@
 import { FileType, Uri, workspace } from 'vscode';
-import { DocumentSchemes } from '../../../constants';
+import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
 import { GitCommandOptions } from '../../../git/commandOptions';
 import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
@@ -33,7 +33,7 @@ export class VslsGit extends Git {
 
 export class VslsGitProvider extends LocalGitProvider {
 	override readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Vsls, name: 'Live Share' };
-	override readonly supportedSchemes: Set<string> = new Set([DocumentSchemes.Vsls, DocumentSchemes.VslsScc]);
+	override readonly supportedSchemes: Set<string> = new Set([Schemes.Vsls, Schemes.VslsScc]);
 
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
@@ -67,7 +67,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		const scheme =
 			(typeof base !== 'string' ? base.scheme : undefined) ??
 			(typeof pathOrUri !== 'string' ? pathOrUri.scheme : undefined) ??
-			DocumentSchemes.Vsls;
+			Schemes.Vsls;
 
 		return super.getAbsoluteUri(pathOrUri, base).with({ scheme: scheme });
 	}

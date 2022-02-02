@@ -35,7 +35,7 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { BuiltInCommands, DocumentSchemes } from '../constants';
+import { BuiltInCommands, Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
@@ -86,14 +86,14 @@ export class GitAuthorsCodeLens extends CodeLens {
 
 export class GitCodeLensProvider implements CodeLensProvider {
 	static selector: DocumentSelector = [
-		{ scheme: DocumentSchemes.File },
-		{ scheme: DocumentSchemes.Git },
-		{ scheme: DocumentSchemes.GitLens },
-		{ scheme: DocumentSchemes.PRs },
-		{ scheme: DocumentSchemes.Vsls },
-		{ scheme: DocumentSchemes.VslsScc },
-		{ scheme: DocumentSchemes.Virtual },
-		{ scheme: DocumentSchemes.GitHub },
+		{ scheme: Schemes.File },
+		{ scheme: Schemes.Git },
+		{ scheme: Schemes.GitLens },
+		{ scheme: Schemes.PRs },
+		{ scheme: Schemes.Vsls },
+		{ scheme: Schemes.VslsScc },
+		{ scheme: Schemes.Virtual },
+		{ scheme: Schemes.GitHub },
 	];
 
 	private _onDidChangeCodeLenses = new EventEmitter<void>();
