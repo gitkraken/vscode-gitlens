@@ -79,7 +79,7 @@ export interface GitProvider extends Disposable {
 	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
 
 	readonly descriptor: GitProviderDescriptor;
-	readonly supportedSchemes: string[];
+	readonly supportedSchemes: Set<string>;
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
 	updateContext?(): void;

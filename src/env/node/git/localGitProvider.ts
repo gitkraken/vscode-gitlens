@@ -141,13 +141,13 @@ interface RepositoryInfo {
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git' };
-	readonly supportedSchemes: string[] = [
+	readonly supportedSchemes: Set<string> = new Set([
 		DocumentSchemes.File,
 		DocumentSchemes.Git,
 		DocumentSchemes.GitLens,
 		DocumentSchemes.PRs,
 		// DocumentSchemes.Vsls,
-	];
+	]);
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -502,7 +502,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined {
-		if (!this.supportedSchemes.includes(scheme)) return undefined;
+		if (!this.supportedSchemes.has(scheme)) return undefined;
 		return typeof pathOrUri === 'string' ? pathOrUri : getBestPath(pathOrUri);
 	}
 
@@ -3257,7 +3257,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
-		return this.supportedSchemes.includes(uri.scheme);
+		return this.supportedSchemes.has(uri.scheme);
 	}
 
 	private async isTracked(uri: GitUri): Promise<[string, string] | undefined>;

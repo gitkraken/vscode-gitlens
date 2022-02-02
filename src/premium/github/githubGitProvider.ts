@@ -95,7 +95,11 @@ interface RepositoryInfo {
 
 export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: GitProviderId.GitHub, name: 'GitHub' };
-	readonly supportedSchemes: string[] = [DocumentSchemes.Virtual, DocumentSchemes.GitHub, DocumentSchemes.PRs];
+	readonly supportedSchemes: Set<string> = new Set([
+		DocumentSchemes.Virtual,
+		DocumentSchemes.GitHub,
+		DocumentSchemes.PRs,
+	]);
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -137,7 +141,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
-		if (!this.supportedSchemes.includes(uri.scheme)) return [];
+		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		try {
 			void (await this.ensureRepositoryContext(uri.toString()));
@@ -175,7 +179,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined {
-		if (!this.supportedSchemes.includes(scheme)) return undefined;
+		if (!this.supportedSchemes.has(scheme)) return undefined;
 		return typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString();
 	}
 
@@ -1820,7 +1824,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	isTrackable(uri: Uri): boolean {
-		return this.supportedSchemes.includes(uri.scheme);
+		return this.supportedSchemes.has(uri.scheme);
 	}
 
 	@log()
