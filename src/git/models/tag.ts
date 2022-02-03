@@ -65,7 +65,7 @@ export class GitTag implements GitTagReference {
 		return this.name;
 	}
 
-	@memoize<GitTag['formatCommitDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<GitTag['formatCommitDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatCommitDate(format?: string | null) {
 		return this.commitDate != null ? formatDate(this.commitDate, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
@@ -74,7 +74,7 @@ export class GitTag implements GitTagReference {
 		return this.commitDate != null ? fromNow(this.commitDate) : '';
 	}
 
-	@memoize<GitTag['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<GitTag['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}

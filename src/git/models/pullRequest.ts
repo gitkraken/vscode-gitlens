@@ -80,7 +80,7 @@ export class PullRequest {
 			: this.formatDateFromNow();
 	}
 
-	@memoize<PullRequest['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
 		return formatDate(this.mergedDate ?? this.closedDate ?? this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
@@ -89,7 +89,7 @@ export class PullRequest {
 		return fromNow(this.mergedDate ?? this.closedDate ?? this.date);
 	}
 
-	@memoize<PullRequest['formatClosedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatClosedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatClosedDate(format?: string | null) {
 		if (this.closedDate == null) return '';
 		return formatDate(this.closedDate, format ?? 'MMMM Do, YYYY h:mma');
@@ -100,7 +100,7 @@ export class PullRequest {
 		return fromNow(this.closedDate);
 	}
 
-	@memoize<PullRequest['formatMergedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatMergedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatMergedDate(format?: string | null) {
 		if (this.mergedDate == null) return '';
 		return formatDate(this.mergedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
@@ -111,7 +111,7 @@ export class PullRequest {
 		return fromNow(this.mergedDate);
 	}
 
-	@memoize<PullRequest['formatUpdatedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatUpdatedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatUpdatedDate(format?: string | null) {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}

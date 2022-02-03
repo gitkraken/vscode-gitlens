@@ -155,13 +155,9 @@ export class GitBranch implements GitBranchReference {
 		return this.detached ? this.sha! : this.name;
 	}
 
-	@memoize<GitBranch['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<GitBranch['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null): string {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.date != null ? formatDate(this.date, format) : '';
+		return this.date != null ? formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
 
 	formatDateFromNow(): string {

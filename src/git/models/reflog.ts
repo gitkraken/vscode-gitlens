@@ -28,7 +28,7 @@ export class GitReflogRecord {
 		public readonly details: string | undefined,
 	) {}
 
-	@memoize<GitReflogRecord['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<GitReflogRecord['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
 		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}

@@ -483,16 +483,12 @@ export class GitCommitIdentity {
 		private readonly avatarUrl?: string | undefined,
 	) {}
 
-	@memoize<GitCommitIdentity['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
-	formatDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return formatDate(this.date, format);
+	@memoize<GitCommitIdentity['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
+	formatDate(format?: string | null): string {
+		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
-	fromNow(short?: boolean) {
+	fromNow(short?: boolean): string {
 		return fromNow(this.date, short);
 	}
 
