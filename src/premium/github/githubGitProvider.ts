@@ -680,8 +680,20 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getChangedFilesCount(_repoPath: string, _ref?: string): Promise<GitDiffShortStat | undefined> {
-		return undefined;
+	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
+		// TODO@eamodio if there is no ref we can't return anything, until we can get at the change store from RemoteHub
+		if (!ref) return undefined;
+
+		const commit = await this.getCommit(repoPath, ref);
+		if (commit?.stats == null) return undefined;
+
+		const { stats } = commit;
+
+		const changedFiles =
+			typeof stats.changedFiles === 'number'
+				? stats.changedFiles
+				: stats.changedFiles.added + stats.changedFiles.changed + stats.changedFiles.deleted;
+		return { additions: stats.additions, deletions: stats.deletions, changedFiles: changedFiles };
 	}
 
 	@log()

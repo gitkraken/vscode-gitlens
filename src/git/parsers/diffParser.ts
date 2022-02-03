@@ -190,8 +190,8 @@ export class GitDiffParser {
 		const [, files, insertions, deletions] = match;
 
 		const diffShortStat: GitDiffShortStat = {
-			files: files == null ? 0 : parseInt(files, 10),
-			insertions: insertions == null ? 0 : parseInt(insertions, 10),
+			changedFiles: files == null ? 0 : parseInt(files, 10),
+			additions: insertions == null ? 0 : parseInt(insertions, 10),
 			deletions: deletions == null ? 0 : parseInt(deletions, 10),
 		};
 

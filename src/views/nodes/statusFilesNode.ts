@@ -136,7 +136,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						`${this.status.upstream}...`,
 					);
 					if (stats != null) {
-						files += stats.files;
+						files += stats.changedFiles;
 					} else {
 						files = -1;
 					}

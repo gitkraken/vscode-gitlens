@@ -48,9 +48,9 @@ export interface GitDiff {
 }
 
 export interface GitDiffShortStat {
-	readonly files: number;
-	readonly insertions: number;
+	readonly additions: number;
 	readonly deletions: number;
+	readonly changedFiles: number;
 }
 
 export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';
