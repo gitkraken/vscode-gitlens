@@ -462,7 +462,6 @@ export class BranchNode
 	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
-		debugger;
 		this._children = undefined;
 		if (reset) {
 			this._log = undefined;
