@@ -17,7 +17,7 @@ const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
-const authProvider = Object.freeze({ id: 'github', scopes: ['repo'] });
+const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
 
 export class GitHubRemote extends RichRemoteProvider {
 	protected get authProvider() {

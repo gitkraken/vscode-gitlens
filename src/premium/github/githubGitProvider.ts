@@ -87,6 +87,8 @@ import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
+const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
+
 // Since negative lookbehind isn't supported in all browsers, this leaves out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
 const validBranchOrTagRegex = /^[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\000-\037\177 ~^:?*[\\]+[^./]$/;
 
@@ -2093,7 +2095,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (this._sessionPromise == null) {
 			async function getSession(): Promise<AuthenticationSession> {
 				try {
-					return await authentication.getSession('github', ['repo'], {
+					return await authentication.getSession('github', githubAuthenticationScopes, {
 						createIfNone: true,
 					});
 				} catch (ex) {
