@@ -763,14 +763,27 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const branches = await github.getCommitBranches(
-				session?.accessToken,
-				metadata.repo.owner,
-				metadata.repo.name,
-				ref,
-				options?.commitDate,
-				options?.branch,
-			);
+			let branches;
+
+			if (options?.branch) {
+				branches = await github.getCommitOnBranch(
+					session?.accessToken,
+					metadata.repo.owner,
+					metadata.repo.name,
+					options?.branch,
+					ref,
+					options?.commitDate,
+				);
+			} else {
+				branches = await github.getCommitBranches(
+					session?.accessToken,
+					metadata.repo.owner,
+					metadata.repo.name,
+					ref,
+					options?.commitDate,
+				);
+			}
+
 			return branches;
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -780,8 +793,27 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getCommitCount(_repoPath: string, _ref: string): Promise<number | undefined> {
-		return undefined;
+	async getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
+		if (repoPath == null) return undefined;
+
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const count = await github.getCommitCount(
+				session?.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref,
+			);
+
+			return count;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+			return undefined;
+		}
 	}
 
 	@log()

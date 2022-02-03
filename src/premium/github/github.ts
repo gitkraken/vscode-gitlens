@@ -699,73 +699,8 @@ export class GitHubApi {
 	}
 
 	@debug<GitHubApi['getCommitBranches']>({ args: { 0: '<token>' } })
-	async getCommitBranches(
-		token: string,
-		owner: string,
-		repo: string,
-		ref: string,
-		date: Date,
-		branch?: string,
-	): Promise<string[]> {
+	async getCommitBranches(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
 		const cc = Logger.getCorrelationContext();
-
-		if (branch) {
-			interface QueryResult {
-				repository: {
-					ref: {
-						target: {
-							history: {
-								nodes: { oid: string }[];
-							};
-						};
-					};
-				};
-			}
-			try {
-				const query = `query getCommitBranch(
-	$owner: String!
-	$repo: String!
-	$ref: String!
-	$since: GitTimestamp!
-	$until: GitTimestamp!
-) {
-	repository(owner: $owner, name: $repo) {
-		ref(qualifiedName: $ref) {
-			target {
-				... on Commit {
-					history(first: 3, since: $since until: $until) {
-						nodes { oid }
-					}
-				}
-			}
-		}
-	}
-}`;
-				const rsp = await this.graphql<QueryResult>(token, query, {
-					owner: owner,
-					repo: repo,
-					ref: `refs/heads/${branch}`,
-					since: date.toISOString(),
-					until: date.toISOString(),
-				});
-
-				const nodes = rsp?.repository?.ref.target.history.nodes;
-				if (nodes == null) return [];
-
-				const branches = [];
-
-				for (const commit of nodes) {
-					if (commit.oid === ref) {
-						branches.push(branch);
-						break;
-					}
-				}
-
-				return branches;
-			} catch (ex) {
-				return this.handleRequestError<string[]>(ex, cc, []);
-			}
-		}
 
 		interface QueryResult {
 			repository: {
@@ -822,6 +757,120 @@ export class GitHubApi {
 						branches.push(branch.name);
 						break;
 					}
+				}
+			}
+
+			return branches;
+		} catch (ex) {
+			return this.handleRequestError<string[]>(ex, cc, []);
+		}
+	}
+
+	@debug<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
+	async getCommitCount(token: string, owner: string, repo: string, ref: string): Promise<number | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository: {
+				ref: {
+					target: {
+						history: { totalCount: number };
+					};
+				};
+			};
+		}
+
+		try {
+			const query = `query getCommitCount(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+) {
+	repository(owner: $owner, name: $repo) {
+		ref(qualifiedName: $ref) {
+			target {
+				... on Commit {
+					history(first: 1) {
+						totalCount
+					}
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+			});
+
+			const count = rsp?.repository?.ref?.target.history.totalCount;
+			return count;
+		} catch (ex) {
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
+	@debug<GitHubApi['getCommitOnBranch']>({ args: { 0: '<token>' } })
+	async getCommitOnBranch(
+		token: string,
+		owner: string,
+		repo: string,
+		branch: string,
+		ref: string,
+		date: Date,
+	): Promise<string[]> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository: {
+				ref: {
+					target: {
+						history: {
+							nodes: { oid: string }[];
+						};
+					};
+				};
+			};
+		}
+		try {
+			const query = `query getCommitOnBranch(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+	$since: GitTimestamp!
+	$until: GitTimestamp!
+) {
+	repository(owner: $owner, name: $repo) {
+		ref(qualifiedName: $ref) {
+			target {
+				... on Commit {
+					history(first: 3, since: $since until: $until) {
+						nodes { oid }
+					}
+				}
+			}
+		}
+	}
+}`;
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: `refs/heads/${branch}`,
+				since: date.toISOString(),
+				until: date.toISOString(),
+			});
+
+			const nodes = rsp?.repository?.ref.target.history.nodes;
+			if (nodes == null) return [];
+
+			const branches = [];
+
+			for (const commit of nodes) {
+				if (commit.oid === ref) {
+					branches.push(branch);
+					break;
 				}
 			}
 
