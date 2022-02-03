@@ -712,12 +712,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async branchContainsCommit(repoPath: string | Uri, name: string, ref: string): Promise<boolean> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.branchContainsCommit(path, name, ref);
-	}
-
-	@log()
 	async checkout(
 		repoPath: string,
 		ref: string,
@@ -844,6 +838,15 @@ export class GitProviderService implements Disposable {
 			},
 			() => Promise.all(repositories!.map(r => r.push({ progress: false, ...options }))),
 		);
+	}
+
+	@log<GitProviderService['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
+	getAheadBehindCommitCount(
+		repoPath: string | Uri,
+		refs: string[],
+	): Promise<{ ahead: number; behind: number } | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getAheadBehindCommitCount(path, refs);
 	}
 
 	@log()
@@ -1046,19 +1049,10 @@ export class GitProviderService implements Disposable {
 	getCommitBranches(
 		repoPath: string | Uri,
 		ref: string,
-		options?: { mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommitBranches(path, ref, options);
-	}
-
-	@log<GitProviderService['getAheadBehindCommitCount']>({ args: { 1: refs => refs.join(',') } })
-	getAheadBehindCommitCount(
-		repoPath: string | Uri,
-		refs: string[],
-	): Promise<{ ahead: number; behind: number } | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getAheadBehindCommitCount(path, refs);
 	}
 
 	@log()

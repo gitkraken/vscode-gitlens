@@ -1475,10 +1475,15 @@ async function getShowCommitOrStashStepItems<
 			new SearchForCommitQuickPickItem(state.reference),
 		);
 
-		if (
-			branch != null &&
-			(await Container.instance.git.branchContainsCommit(state.repo.path, branch.name, state.reference.ref))
-		) {
+		const branches =
+			branch != null
+				? await Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, {
+						branch: branch.name,
+						commitDate: GitCommit.is(state.reference) ? state.reference.committer.date : undefined,
+				  })
+				: undefined;
+
+		if (branches?.length) {
 			items.push(
 				new GitCommandQuickPickItem('Revert Commit...', {
 					command: 'revert',

@@ -740,11 +740,31 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getCommitBranches(
-		_repoPath: string,
-		_ref: string,
-		_options?: { mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		repoPath: string,
+		ref: string,
+		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
-		return [];
+		if (repoPath == null || options?.commitDate == null) return [];
+
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const branches = await github.getCommitBranches(
+				session?.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref,
+				options?.commitDate,
+				options?.branch,
+			);
+			return branches;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+			return [];
+		}
 	}
 
 	@log()

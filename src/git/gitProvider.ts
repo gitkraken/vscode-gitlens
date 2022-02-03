@@ -105,7 +105,6 @@ export interface GitProvider extends Disposable {
 	addRemote(repoPath: string, name: string, url: string): Promise<void>;
 	pruneRemote(repoPath: string, remoteName: string): Promise<void>;
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
-	branchContainsCommit(repoPath: string, name: string, ref: string): Promise<boolean>;
 	checkout(
 		repoPath: string,
 		ref: string,
@@ -178,7 +177,13 @@ export interface GitProvider extends Disposable {
 	getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: { mode?: 'contains' | 'pointsAt' | undefined; remotes?: boolean | undefined },
+		options?: {
+			branch?: string | undefined;
+			commitDate?: Date | undefined;
+			mode?: 'contains' | 'pointsAt' | undefined;
+			name?: string | undefined;
+			remotes?: boolean | undefined;
+		},
 	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(

@@ -709,13 +709,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async branchContainsCommit(repoPath: string, name: string, ref: string): Promise<boolean> {
-		let data = await this.git.branch__containsOrPointsAt(repoPath, ref, { mode: 'contains', name: name });
-		data = data?.trim();
-		return Boolean(data);
-	}
-
-	@log()
 	async checkout(
 		repoPath: string,
 		ref: string,
@@ -1368,8 +1361,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: { mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
+		if (options?.branch) {
+			const data = await this.git.branch__containsOrPointsAt(repoPath, ref, {
+				mode: 'contains',
+				name: options.branch,
+			});
+			if (!data) return [];
+
+			return [data?.trim()];
+		}
+
 		const data = await this.git.branch__containsOrPointsAt(repoPath, ref, options);
 		if (!data) return [];
 
