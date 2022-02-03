@@ -500,7 +500,7 @@ export class GitCommitIdentity {
 		commit: GitCommit,
 		options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
 	): Uri | Promise<Uri> {
-		if (this.avatarUrl != null) Uri.parse(this.avatarUrl);
+		if (this.avatarUrl != null) return Uri.parse(this.avatarUrl);
 
 		return getAvatarUri(this.email, commit, options);
 	}
