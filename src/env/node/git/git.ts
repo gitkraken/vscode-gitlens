@@ -2,7 +2,7 @@ import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
-import { GitDiffFilter, GitRevision } from '../../../git/models';
+import { GitDiffFilter, GitRevision, GitUser } from '../../../git/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from '../../../git/parsers';
 import { Logger } from '../../../logger';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
@@ -687,7 +687,7 @@ export class Git {
 		}: {
 			all?: boolean;
 			argsOrFormat?: string | string[];
-			authors?: string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -731,7 +731,7 @@ export class Git {
 			if (!params.includes('--use-mailmap')) {
 				params.push('--use-mailmap');
 			}
-			params.push(...authors.map(a => `--author=${a}`));
+			params.push(...authors.map(a => `--author=^${a.name} <${a.email}>$`));
 		}
 
 		if (all) {

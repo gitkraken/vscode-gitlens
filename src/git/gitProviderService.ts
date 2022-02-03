@@ -1177,7 +1177,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		options?: {
 			all?: boolean;
-			authors?: string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -1193,7 +1193,7 @@ export class GitProviderService implements Disposable {
 	async getLogRefsOnly(
 		repoPath: string | Uri,
 		options?: {
-			authors?: string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;

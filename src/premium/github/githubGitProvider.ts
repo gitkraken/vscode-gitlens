@@ -65,6 +65,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	isUserMatch,
 	Repository,
 	RepositoryChangeEvent,
 	TagSortOptions,
@@ -887,15 +888,51 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
+		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return undefined;
 	}
 
 	@log()
 	async getContributors(
-		_repoPath: string,
+		repoPath: string,
 		_options?: { all?: boolean; ref?: string; stats?: boolean },
 	): Promise<GitContributor[]> {
-		return [];
+		if (repoPath == null) return [];
+
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const results = await github.getContributors(session?.accessToken, metadata.repo.owner, metadata.repo.name);
+			const currentUser = await this.getCurrentUser(repoPath);
+
+			const contributors = [];
+			for (const c of results) {
+				if (c.type !== 'User') continue;
+
+				contributors.push(
+					new GitContributor(
+						repoPath,
+						c.name,
+						c.email,
+						c.contributions,
+						undefined,
+						isUserMatch(currentUser, c.name, c.email, c.login),
+						undefined,
+						c.login,
+						c.avatar_url,
+						c.node_id,
+					),
+				);
+			}
+
+			return contributors;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+			return [];
+		}
 	}
 
 	@gate()
@@ -1008,7 +1045,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: {
 			all?: boolean;
-			authors?: string[];
+			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
@@ -1028,9 +1065,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = options?.ref ?? 'HEAD';
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
+				all: options?.all,
+				authors: options?.authors,
+				cursor: options?.cursor,
 				limit: limit,
-				// TODO@eamodio this isn't quite right
-				cursor: options?.cursor ?? options?.since,
 			});
 
 			const authors = new Map<string, GitBlameAuthor>();
@@ -1120,7 +1158,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getLogRefsOnly(
 		repoPath: string,
 		options?: {
-			authors?: string[];
+			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
@@ -1139,7 +1177,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private getLogMoreFn(
 		log: GitLog,
 		options?: {
-			authors?: string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
@@ -1405,10 +1443,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = options?.ref ?? 'HEAD';
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
+				all: options?.all,
+				cursor: options?.cursor,
 				path: file,
 				limit: limit,
-				// TODO@eamodio this isn't quite right
-				cursor: options?.cursor ?? options?.since,
 			});
 
 			const authors = new Map<string, GitBlameAuthor>();

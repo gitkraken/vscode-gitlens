@@ -218,19 +218,22 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
 
-		return this.findNode(ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email), {
-			maxDepth: 2,
-			canTraverse: n => {
-				if (n instanceof ContributorsViewNode) return true;
+		return this.findNode(
+			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			{
+				maxDepth: 2,
+				canTraverse: n => {
+					if (n instanceof ContributorsViewNode) return true;
 
-				if (n instanceof ContributorsRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
-				}
+					if (n instanceof ContributorsRepositoryNode) {
+						return n.id.startsWith(repoNodeId);
+					}
 
-				return false;
+					return false;
+				},
+				token: token,
 			},
-			token: token,
-		});
+		);
 	}
 
 	@gate(() => '')

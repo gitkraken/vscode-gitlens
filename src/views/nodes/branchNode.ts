@@ -9,6 +9,7 @@ import {
 	GitLog,
 	GitRemote,
 	GitRemoteType,
+	GitUser,
 	PullRequestState,
 } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
@@ -48,7 +49,7 @@ export class BranchNode
 		showCurrent: boolean;
 		showStatus: boolean;
 		showTracking: boolean;
-		authors?: string[];
+		authors?: GitUser[];
 	};
 	protected override splatted = true;
 
@@ -68,7 +69,7 @@ export class BranchNode
 			showCurrent?: boolean;
 			showStatus?: boolean;
 			showTracking?: boolean;
-			authors?: string[];
+			authors?: GitUser[];
 		},
 	) {
 		super(uri, view, parent);

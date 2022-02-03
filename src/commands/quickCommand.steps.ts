@@ -1098,7 +1098,7 @@ export async function* pickContributorsStep<
 		placeholder: placeholder,
 		matchOnDescription: true,
 		items: (await Container.instance.git.getContributors(state.repo.path)).map(c =>
-			ContributorQuickPickItem.create(c, message?.includes(c.toCoauthor()), {
+			ContributorQuickPickItem.create(c, message?.includes(c.getCoauthor()), {
 				buttons: [QuickCommandButtons.RevealInSideBar],
 			}),
 		),

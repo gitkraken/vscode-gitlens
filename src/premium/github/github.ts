@@ -99,6 +99,7 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -166,6 +167,7 @@ export class GitHubApi {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -216,6 +218,7 @@ export class GitHubApi {
 				name: defaultBranch,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -285,6 +288,7 @@ export class GitHubApi {
 				url: issue.url,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -384,6 +388,7 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -476,6 +481,7 @@ export class GitHubApi {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -552,6 +558,7 @@ export class GitHubApi {
 
 			return { ranges: ranges, viewer: rsp.viewer?.name };
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, emptyBlameResult);
 		}
 	}
@@ -629,6 +636,7 @@ export class GitHubApi {
 				values: refs.nodes,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, emptyPagedResult);
 		}
 	}
@@ -674,6 +682,7 @@ export class GitHubApi {
 				files: result.files,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 
@@ -762,6 +771,7 @@ export class GitHubApi {
 
 			return branches;
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError<string[]>(ex, cc, []);
 		}
 	}
@@ -808,6 +818,7 @@ export class GitHubApi {
 			const count = rsp?.repository?.ref?.target.history.totalCount;
 			return count;
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -876,6 +887,7 @@ export class GitHubApi {
 
 			return branches;
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError<string[]>(ex, cc, []);
 		}
 	}
@@ -886,60 +898,18 @@ export class GitHubApi {
 		owner: string,
 		repo: string,
 		ref: string,
-		options?: { cursor?: string; path?: string; limit?: number },
+		options?: {
+			all?: boolean;
+			authors?: GitUser[];
+			cursor?: string;
+			path?: string;
+			limit?: number;
+		},
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
 		const cc = Logger.getCorrelationContext();
 
 		if (options?.limit === 1 && options?.path == null) {
-			interface QueryResult {
-				viewer: { name: string };
-				repository: { object: GitHubCommit } | null | undefined;
-			}
-
-			try {
-				const query = `query getCommit(
-	$owner: String!
-	$repo: String!
-	$ref: String!
-) {
-	viewer { name }
-	repository(name: $repo owner: $owner) {
-		object(expression: $ref) {
-			...on Commit {
-				oid
-				parents(first: 3) { nodes { oid } }
-				message
-				additions
-				changedFiles
-				deletions
-				author {
-					avatarUrl
-					date
-					email
-					name
-				}
-				committer {
-					date
-					email
-					name
-				}
-			}
-		}
-	}
-}`;
-
-				const rsp = await this.graphql<QueryResult>(token, query, {
-					owner: owner,
-					repo: repo,
-					ref: ref,
-				});
-				if (rsp == null) return emptyPagedResult;
-
-				const commit = rsp.repository?.object;
-				return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
-			} catch (ex) {
-				return this.handleRequestError(ex, cc, emptyPagedResult);
-			}
+			return this.getCommitsCoreSingle(token, owner, repo, ref);
 		}
 
 		interface QueryResult {
@@ -969,6 +939,7 @@ export class GitHubApi {
 	$repo: String!
 	$ref: String!
 	$path: String
+	$author: CommitAuthor
 	$cursor: String
 	$limit: Int = 100
 ) {
@@ -976,7 +947,7 @@ export class GitHubApi {
 	repository(name: $repo, owner: $owner) {
 		object(expression: $ref) {
 			... on Commit {
-				history(first: $limit, path: $path, after: $cursor) {
+				history(first: $limit, author: $author, path: $path, after: $cursor) {
 					pageInfo {
 						endCursor
 						hasNextPage
@@ -1008,12 +979,27 @@ export class GitHubApi {
 	}
 }`;
 
+			let authors: { id?: string; emails?: string[] } | undefined;
+			if (options?.authors != null) {
+				if (options.authors.length === 1) {
+					const [author] = options.authors;
+					authors = {
+						id: author.id,
+						emails: author.email ? [author.email] : undefined,
+					};
+				} else {
+					const emails = options.authors.filter(a => a.email).map(a => a.email!);
+					authors = emails.length ? { emails: emails } : undefined;
+				}
+			}
+
 			const rsp = await this.graphql<QueryResult>(token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
 				cursor: options?.cursor,
 				path: options?.path,
+				author: authors,
 				limit: Math.min(100, options?.limit ?? 100),
 			});
 			const history = rsp?.repository?.object?.history;
@@ -1028,7 +1014,91 @@ export class GitHubApi {
 				viewer: rsp?.viewer.name,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, emptyPagedResult);
+		}
+	}
+
+	private async getCommitsCoreSingle(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			viewer: { name: string };
+			repository: { object: GitHubCommit } | null | undefined;
+		}
+
+		try {
+			const query = `query getCommit(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+) {
+	viewer { name }
+	repository(name: $repo owner: $owner) {
+		object(expression: $ref) {
+			...on Commit {
+				oid
+				parents(first: 3) { nodes { oid } }
+				message
+				additions
+				changedFiles
+				deletions
+				author {
+					avatarUrl
+					date
+					email
+					name
+				}
+				committer {
+					date
+					email
+					name
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+			});
+			if (rsp == null) return emptyPagedResult;
+
+			const commit = rsp.repository?.object;
+			return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError(ex, cc, emptyPagedResult);
+		}
+	}
+
+	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
+	async getContributors(token: string, owner: string, repo: string): Promise<GitHubContributor[]> {
+		const cc = Logger.getCorrelationContext();
+
+		// TODO@eamodio implement pagination
+
+		try {
+			const rsp = await this.request(token, 'GET /repos/{owner}/{repo}/contributors', {
+				owner: owner,
+				repo: repo,
+				per_page: 100,
+			});
+
+			const result = rsp?.data;
+			if (result == null) return [];
+
+			return rsp.data;
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError<GitHubContributor[]>(ex, cc, []);
 		}
 	}
 
@@ -1069,6 +1139,7 @@ export class GitHubApi {
 
 			return rsp.repository?.defaultBranchRef?.name ?? undefined;
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -1078,13 +1149,13 @@ export class GitHubApi {
 		const cc = Logger.getCorrelationContext();
 
 		interface QueryResult {
-			viewer: { name: string };
-			repository:
-				| {
-						viewerPermission: string;
-				  }
-				| null
-				| undefined;
+			viewer: {
+				name: string;
+				email: string;
+				login: string;
+				id: string;
+			};
+			repository: { viewerPermission: string } | null | undefined;
 		}
 
 		try {
@@ -1092,10 +1163,8 @@ export class GitHubApi {
 	$owner: String!
 	$repo: String!
 ) {
-	viewer { name }
-	repository(owner: $owner, name: $repo) {
-		viewerPermission
-	}
+	viewer { name, email, login, id }
+	repository(owner: $owner, name: $repo) { viewerPermission }
 }`;
 
 			const rsp = await this.graphql<QueryResult>(token, query, {
@@ -1104,8 +1173,14 @@ export class GitHubApi {
 			});
 			if (rsp == null) return undefined;
 
-			return { name: rsp.viewer?.name, email: undefined };
+			return {
+				name: rsp.viewer?.name,
+				email: rsp.viewer?.email,
+				username: rsp.viewer?.login,
+				id: rsp.viewer?.id,
+			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -1188,6 +1263,7 @@ export class GitHubApi {
 				values: refs.nodes,
 			};
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, emptyPagedResult);
 		}
 	}
@@ -1266,6 +1342,7 @@ export class GitHubApi {
 			});
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
+			debugger;
 			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
@@ -1414,6 +1491,8 @@ export interface GitHubCommit {
 
 	files?: Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
 }
+
+export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 
 interface GitHubIssueOrPullRequest {
 	type: IssueOrPullRequestType;

@@ -66,6 +66,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	isUserMatch,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
@@ -1505,16 +1506,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								c.email,
 								1,
 								new Date(Number(c.date) * 1000),
+								isUserMatch(currentUser, c.author, c.email),
 								c.stats,
-								currentUser != null
-									? currentUser.name === c.author && currentUser.email === c.email
-									: false,
 							);
 							contributors.set(key, contributor);
 						} else {
 							(contributor as PickMutable<GitContributor, 'count'>).count++;
 							const date = new Date(Number(c.date) * 1000);
-							if (date > contributor.date) {
+							if (date > contributor.date!) {
 								(contributor as PickMutable<GitContributor, 'date'>).date = date;
 							}
 						}
@@ -1895,7 +1894,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: {
 			all?: boolean;
-			authors?: string[];
+			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
@@ -1977,7 +1976,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getLogRefsOnly(
 		repoPath: string,
 		options?: {
-			authors?: string[];
+			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
@@ -2015,7 +2014,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogMoreFn(
 		log: GitLog,
 		options?: {
-			authors?: string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;

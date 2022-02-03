@@ -226,7 +226,7 @@ export namespace ContributorQuickPickItem {
 		options: { alwaysShow?: boolean; buttons?: QuickInputButton[] } = {},
 	): ContributorQuickPickItem {
 		const item: ContributorQuickPickItem = {
-			label: contributor.name,
+			label: contributor.label,
 			description: contributor.email,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,

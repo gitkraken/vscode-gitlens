@@ -241,7 +241,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		options?: {
 			all?: boolean | undefined;
-			authors?: string[] | undefined;
+			authors?: GitUser[] | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
@@ -253,7 +253,7 @@ export interface GitProvider extends Disposable {
 	getLogRefsOnly(
 		repoPath: string,
 		options?: {
-			authors?: string[] | undefined;
+			authors?: GitUser[] | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
@@ -269,7 +269,7 @@ export interface GitProvider extends Disposable {
 	): Promise<GitLog | undefined>;
 	getLogForFile(
 		repoPath: string,
-		fileName: string,
+		path: string,
 		options?: {
 			all?: boolean | undefined;
 			cursor?: string | undefined;

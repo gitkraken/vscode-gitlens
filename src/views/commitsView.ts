@@ -50,7 +50,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			if (this.view.state.myCommitsOnly) {
 				const user = await this.view.container.git.getCurrentUser(this.repo.path);
 				if (user != null) {
-					authors = [`^${user.name} <${user.email}>$`];
+					authors = [{ name: user.name, email: user.email, username: user.username, id: user.id }];
 				}
 			}
 

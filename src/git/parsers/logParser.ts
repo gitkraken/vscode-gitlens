@@ -13,6 +13,7 @@ import {
 	GitLog,
 	GitRevision,
 	GitUser,
+	isUserMatch,
 } from '../models';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
@@ -575,33 +576,17 @@ export class GitLogParser {
 		repoPath: string | undefined,
 		relativeFileName: string,
 		commits: Map<string, GitCommit>,
-		currentUser: { name?: string; email?: string } | undefined,
+		currentUser: GitUser | undefined,
 	): void {
 		if (commit == null) {
 			if (entry.author != null) {
-				if (
-					currentUser != null &&
-					// Name or e-mail is configured
-					(currentUser.name != null || currentUser.email != null) &&
-					// Match on name if configured
-					(currentUser.name == null || currentUser.name === entry.author) &&
-					// Match on email if configured
-					(currentUser.email == null || currentUser.email === entry.authorEmail)
-				) {
+				if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
 					entry.author = 'You';
 				}
 			}
 
 			if (entry.committer != null) {
-				if (
-					currentUser != null &&
-					// Name or e-mail is configured
-					(currentUser.name != null || currentUser.email != null) &&
-					// Match on name if configured
-					(currentUser.name == null || currentUser.name === entry.committer) &&
-					// Match on email if configured
-					(currentUser.email == null || currentUser.email === entry.committerEmail)
-				) {
+				if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
 					entry.committer = 'You';
 				}
 			}

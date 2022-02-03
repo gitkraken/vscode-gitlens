@@ -402,20 +402,23 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
 
-		return this.findNode(ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email), {
-			maxDepth: 2,
-			canTraverse: n => {
-				// Only search for contributor nodes in the same repo within a ContributorsNode
-				if (n instanceof RepositoriesNode) return true;
+		return this.findNode(
+			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			{
+				maxDepth: 2,
+				canTraverse: n => {
+					// Only search for contributor nodes in the same repo within a ContributorsNode
+					if (n instanceof RepositoriesNode) return true;
 
-				if (n instanceof RepositoryNode || n instanceof ContributorsNode) {
-					return n.id.startsWith(repoNodeId);
-				}
+					if (n instanceof RepositoryNode || n instanceof ContributorsNode) {
+						return n.id.startsWith(repoNodeId);
+					}
 
-				return false;
+					return false;
+				},
+				token: token,
 			},
-			token: token,
-		});
+		);
 	}
 
 	findRemote(remote: GitRemote, token?: CancellationToken) {

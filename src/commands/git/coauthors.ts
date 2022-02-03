@@ -86,7 +86,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				newlines = '\n\n\n';
 			}
 
-			message += `${newlines}Co-authored-by: ${c.toCoauthor()}`;
+			message += `${newlines}Co-authored-by: ${c.getCoauthor()}`;
 		}
 
 		repo.inputBox.value = message;
