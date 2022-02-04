@@ -60,8 +60,6 @@ import {
 	ReferencesQuickPickItem,
 	RefQuickPickItem,
 	RepositoryQuickPickItem,
-	RevealInSideBarQuickPickItem,
-	SearchForCommitQuickPickItem,
 	TagQuickPickItem,
 } from '../quickpicks';
 import { Arrays, Iterables, Strings } from '../system';
@@ -1468,12 +1466,7 @@ async function getShowCommitOrStashStepItems<
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [new CommitFilesQuickPickItem(state.reference)];
 
 	if (GitCommit.isStash(state.reference)) {
-		items.push(
-			QuickPickSeparator.create(),
-			new RevealInSideBarQuickPickItem(state.reference),
-			QuickPickSeparator.create(),
-			new CommitCopyMessageQuickPickItem(state.reference),
-		);
+		items.push(QuickPickSeparator.create(), new CommitCopyMessageQuickPickItem(state.reference));
 
 		items.push(
 			QuickPickSeparator.create('Actions'),
@@ -1496,12 +1489,6 @@ async function getShowCommitOrStashStepItems<
 			}),
 		);
 	} else {
-		items.push(
-			QuickPickSeparator.create(),
-			new RevealInSideBarQuickPickItem(state.reference),
-			new SearchForCommitQuickPickItem(state.reference),
-		);
-
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
@@ -1836,18 +1823,10 @@ async function getShowCommitOrStashFileStepItems<
 	if (GitCommit.isStash(state.reference)) {
 		items.push(
 			QuickPickSeparator.create(),
-			new RevealInSideBarQuickPickItem(state.reference),
-			QuickPickSeparator.create(),
 			new CommitCopyMessageQuickPickItem(state.reference),
 			QuickPickSeparator.create('Actions'),
 		);
 	} else {
-		items.push(
-			QuickPickSeparator.create(),
-			new RevealInSideBarQuickPickItem(state.reference),
-			new SearchForCommitQuickPickItem(state.reference),
-		);
-
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(

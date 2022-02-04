@@ -1,8 +1,5 @@
 import { commands, QuickPickItem, QuickPickItemKind } from 'vscode';
-import { Commands, GitActions } from '../commands';
-import { Container } from '../container';
-import { GitCommit, GitReference, GitRevisionReference } from '../git/models';
-import { SearchPattern } from '../git/search';
+import { Commands } from '../commands';
 import { Keys } from '../keyboard';
 
 declare module 'vscode' {
@@ -195,62 +192,4 @@ function hasFlags<T>(flags: T[], has?: T | T[]): boolean {
 	if (!Array.isArray(has)) return flags.includes(has);
 
 	return has.length === 0 ? flags.length === 0 : has.every(f => flags.includes(f));
-}
-
-export class RevealInSideBarQuickPickItem extends CommandQuickPickItem {
-	constructor(
-		private readonly reference: GitRevisionReference,
-		item: QuickPickItem = {
-			label: `$(eye) Reveal ${GitReference.isStash(reference) ? 'Stash' : 'Commit'} in Side Bar`,
-			description: GitReference.isStash(reference) ? '' : 'can take a while',
-		},
-	) {
-		super(item, undefined, undefined);
-	}
-
-	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		if (GitCommit.isStash(this.reference)) {
-			void (await GitActions.Stash.reveal(this.reference, {
-				select: true,
-				focus: !(options?.preserveFocus ?? false),
-				expand: true,
-			}));
-		} else {
-			void (await GitActions.Commit.reveal(this.reference, {
-				select: true,
-				focus: !(options?.preserveFocus ?? false),
-				expand: true,
-			}));
-		}
-	}
-}
-
-export class SearchForCommitQuickPickItem extends CommandQuickPickItem {
-	constructor(
-		private readonly reference: GitRevisionReference,
-		item: QuickPickItem = {
-			label: '$(search) Search for Commit in Side Bar',
-		},
-	) {
-		super(item, undefined, undefined);
-	}
-
-	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		void (await Container.instance.searchAndCompareView.search(
-			this.reference.repoPath,
-			{
-				pattern: SearchPattern.fromCommit(this.reference),
-			},
-			{
-				label: {
-					label: `for ${GitReference.toString(this.reference, { icon: false })}`,
-				},
-				reveal: {
-					select: true,
-					focus: !(options?.preserveFocus ?? false),
-					expand: true,
-				},
-			},
-		));
-	}
 }
