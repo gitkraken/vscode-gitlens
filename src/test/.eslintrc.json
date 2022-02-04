@@ -7,6 +7,7 @@
 		"project": "tsconfig.test.json"
 	},
 	"rules": {
+		"no-restricted-imports": "off",
 		"@typescript-eslint/no-unused-vars": "off"
 	}
 }
