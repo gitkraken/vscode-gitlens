@@ -203,6 +203,7 @@ export abstract class WebviewBase implements Disposable {
 					switch (params.type) {
 						case 'commit': {
 							const commit = new GitCommit(
+								this.container,
 								'~/code/eamodio/vscode-gitlens-demo',
 								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),

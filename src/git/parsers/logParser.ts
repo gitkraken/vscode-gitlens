@@ -1,4 +1,5 @@
 import { Range } from 'vscode';
+import type { Container } from '../../container';
 import { Arrays, debug } from '../../system';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
@@ -270,6 +271,7 @@ export class GitLogParser {
 
 	@debug({ args: false })
 	static parse(
+		container: Container,
 		data: string,
 		type: LogType,
 		repoPath: string | undefined,
@@ -550,7 +552,16 @@ export class GitLogParser {
 						truncationCount--;
 					}
 
-					GitLogParser.parseEntry(entry, commit, type, repoPath, relativeFileName, commits, currentUser);
+					GitLogParser.parseEntry(
+						container,
+						entry,
+						commit,
+						type,
+						repoPath,
+						relativeFileName,
+						commits,
+						currentUser,
+					);
 
 					break;
 				}
@@ -570,6 +581,7 @@ export class GitLogParser {
 	}
 
 	private static parseEntry(
+		container: Container,
 		entry: LogEntry,
 		commit: GitCommit | undefined,
 		type: LogType,
@@ -608,6 +620,7 @@ export class GitLogParser {
 			}
 
 			commit = new GitCommit(
+				container,
 				repoPath!,
 				entry.sha!,
 				new GitCommitIdentity(entry.author!, entry.authorEmail, new Date((entry.authorDate! as any) * 1000)),

@@ -953,7 +953,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args: this.container.config.advanced.blame.customArguments,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 			});
-			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1034,7 +1034,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				correlationKey: `:${key}`,
 				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
 			});
-			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1094,7 +1094,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1145,7 +1145,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(data, root, await this.getCurrentUser(root));
+			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1946,6 +1946,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// }
 
 			const log = GitLogParser.parse(
+				this.container,
 				data,
 				LogType.Log,
 				repoPath,
@@ -2166,6 +2167,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				useShow: useShow,
 			});
 			const log = GitLogParser.parse(
+				this.container,
 				data,
 				LogType.Log,
 				repoPath,
@@ -2418,6 +2420,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				endLine: range == null ? undefined : range.end.line + 1,
 			});
 			const log = GitLogParser.parse(
+				this.container,
 				data,
 				// If this is the log of a folder, parse it as a normal log rather than a file log
 				isFolderGlob(file) ? LogType.Log : LogType.LogFile,
@@ -3109,7 +3112,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const data = await this.git.stash__list(repoPath, {
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
-			stash = GitStashParser.parse(data, repoPath);
+			stash = GitStashParser.parse(this.container, data, repoPath);
 
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);

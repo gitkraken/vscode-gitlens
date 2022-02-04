@@ -12,6 +12,8 @@ import {
 	Config,
 	configuration,
 	ConfigurationWillChangeEvent,
+	DateSource,
+	DateStyle,
 	FileAnnotationType,
 } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
@@ -72,6 +74,57 @@ export class Container {
 	get onReady(): Event<void> {
 		return this._onReady.event;
 	}
+
+	readonly BranchDateFormatting = {
+		dateFormat: undefined! as string | null,
+		dateStyle: undefined! as DateStyle,
+
+		reset: () => {
+			this.BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly CommitDateFormatting = {
+		dateFormat: null as string | null,
+		dateSource: DateSource.Authored,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
+			this.CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly CommitShaFormatting = {
+		length: 7,
+
+		reset: () => {
+			// Don't allow shas to be shortened to less than 5 characters
+			this.CommitShaFormatting.length = Math.max(5, configuration.get('advanced.abbreviatedShaLength'));
+		},
+	};
+
+	readonly PullRequestDateFormatting = {
+		dateFormat: null as string | null,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly TagDateFormatting = {
+		dateFormat: null as string | null,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
 
 	private _configsAffectedByMode: string[] | undefined;
 	private _applyModeConfigurationTransformBound:

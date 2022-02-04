@@ -13,16 +13,6 @@ import { GitStatus } from './status';
 const whitespaceRegex = /\s/;
 const detachedHEADRegex = /^(?=.*\bHEAD\b)?(?=.*\bdetached\b).*$/;
 
-export const BranchDateFormatting = {
-	dateFormat: undefined! as string | null,
-	dateStyle: undefined! as DateStyle,
-
-	reset: () => {
-		BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
-
 export interface GitTrackingState {
 	ahead: number;
 	behind: number;
@@ -146,8 +136,8 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get formattedDate(): string {
-		return BranchDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(BranchDateFormatting.dateFormat)
+		return Container.instance.BranchDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(Container.instance.BranchDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 

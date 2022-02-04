@@ -1,19 +1,10 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import { configuration, DateStyle } from '../../configuration';
+import { DateStyle } from '../../configuration';
 import { Colors } from '../../constants';
+import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { RemoteProviderReference } from './remoteProvider';
-
-export const PullRequestDateFormatting = {
-	dateFormat: undefined! as string | null,
-	dateStyle: undefined! as DateStyle,
-
-	reset: () => {
-		PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
 
 export const enum PullRequestState {
 	Open = 'Open',
@@ -75,8 +66,8 @@ export class PullRequest {
 	) {}
 
 	get formattedDate(): string {
-		return PullRequestDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(PullRequestDateFormatting.dateFormat)
+		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(Container.instance.PullRequestDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 

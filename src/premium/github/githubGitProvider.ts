@@ -419,6 +419,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				let commit = commits.get(c.oid);
 				if (commit == null) {
 					commit = new GitCommit(
+						this.container,
 						uri.repoPath!,
 						c.oid,
 						new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
@@ -716,6 +717,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
 
 			return new GitCommit(
+				this.container,
 				repoPath,
 				commit.oid,
 				new GitCommitIdentity(
@@ -861,6 +863,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const foundFile = files?.find(f => f.path === file);
 
 			return new GitCommit(
+				this.container,
 				repoPath,
 				commit.oid,
 				new GitCommitIdentity(
@@ -1094,6 +1097,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				let c = commits.get(commit.oid);
 				if (c == null) {
 					c = new GitCommit(
+						this.container,
 						repoPath,
 						commit.oid,
 						new GitCommitIdentity(
@@ -1488,6 +1492,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						  new GitFileChange(repoPath, file, GitFileIndexStatus.Modified);
 
 					c = new GitCommit(
+						this.container,
 						repoPath,
 						commit.oid,
 						new GitCommitIdentity(

@@ -71,7 +71,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 				0,
 				0,
 				...flatMap(this.status.files, f =>
-					map(f.getPseudoCommits(undefined), c => this.getFileWithPseudoCommit(f, c)),
+					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),
 				),
 			);
 		}

@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
@@ -44,7 +45,7 @@ export class GitStashParser {
 	].join('%n');
 
 	@debug({ args: false, singleLine: true })
-	static parse(data: string, repoPath: string): GitStash | undefined {
+	static parse(container: Container, data: string, repoPath: string): GitStash | undefined {
 		if (!data) return undefined;
 
 		const lines = getLines(`${data}</f>`);
@@ -155,7 +156,7 @@ export class GitStashParser {
 						}
 					}
 
-					GitStashParser.parseEntry(entry, repoPath, commits);
+					GitStashParser.parseEntry(container, entry, repoPath, commits);
 					entry = {};
 			}
 		}
@@ -167,10 +168,16 @@ export class GitStashParser {
 		return stash;
 	}
 
-	private static parseEntry(entry: StashEntry, repoPath: string, commits: Map<string, GitStashCommit>) {
+	private static parseEntry(
+		container: Container,
+		entry: StashEntry,
+		repoPath: string,
+		commits: Map<string, GitStashCommit>,
+	) {
 		let commit = commits.get(entry.ref!);
 		if (commit == null) {
 			commit = new GitCommit(
+				container,
 				repoPath,
 				entry.ref!,
 				new GitCommitIdentity('You', undefined, new Date((entry.date! as any) * 1000)),

@@ -81,7 +81,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 				// Combine all the working/staged changes into single pseudo commits
 				const commits = map(
 					uniqueBy(
-						flatMap(fileStatuses, f => f.getPseudoCommits(currentUser)),
+						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
 						c => c.sha,
 						(original, c) => original.with({ files: { files: [...original.files!, ...c.files!] } }),
 					),
@@ -90,7 +90,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 				children.push(...commits);
 			} else {
 				const [file] = fileStatuses;
-				const commits = file.getPseudoCommits(currentUser);
+				const commits = file.getPseudoCommits(this.view.container, currentUser);
 				if (commits.length) {
 					children.push(
 						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),

@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
-import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
+import { DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
@@ -14,27 +14,6 @@ import { PullRequest } from './pullRequest';
 import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
 
 const stashNumberRegex = /stash@{(\d+)}/;
-
-export const CommitDateFormatting = {
-	dateFormat: null as string | null,
-	dateSource: DateSource.Authored,
-	dateStyle: DateStyle.Relative,
-
-	reset: () => {
-		CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
-		CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
-
-export const CommitShaFormatting = {
-	length: 7,
-
-	reset: () => {
-		// Don't allow shas to be shortened to less than 5 characters
-		CommitShaFormatting.length = Math.max(5, Container.instance.config.advanced.abbreviatedShaLength);
-	},
-};
 
 export class GitCommit implements GitRevisionReference {
 	static is(commit: any): commit is GitCommit {
@@ -70,6 +49,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly number: string | undefined;
 
 	constructor(
+		private readonly container: Container,
 		public readonly repoPath: string,
 		public readonly sha: string,
 		public readonly author: GitCommitIdentity,
@@ -84,7 +64,7 @@ export class GitCommit implements GitRevisionReference {
 	) {
 		this.ref = this.sha;
 		this.refType = stashName ? 'stash' : 'revision';
-		this.shortSha = this.sha.substring(0, CommitShaFormatting.length);
+		this.shortSha = this.sha.substring(0, this.container.CommitShaFormatting.length);
 
 		// Add an ellipsis to the summary if there is or might be more message
 		if (message != null) {
@@ -141,7 +121,9 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	get date(): Date {
-		return CommitDateFormatting.dateSource === DateSource.Committed ? this.committer.date : this.author.date;
+		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
+			? this.committer.date
+			: this.author.date;
 	}
 
 	private _file: GitFileChange | undefined;
@@ -155,8 +137,8 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	get formattedDate(): string {
-		return CommitDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(CommitDateFormatting.dateFormat)
+		return this.container.CommitDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(this.container.CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
@@ -202,10 +184,10 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted || GitCommit.hasFullDetails(this)) return;
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
-			Container.instance.git.getCommit(this.repoPath, this.sha),
+			this.container.git.getCommit(this.repoPath, this.sha),
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			this.stashName ? Container.instance.git.getCommit(this.repoPath, `${this.stashName}^3`) : undefined,
+			this.stashName ? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`) : undefined,
 		]);
 		if (commitResult.status !== 'fulfilled' || commitResult.value == null) return;
 
@@ -285,18 +267,18 @@ export class GitCommit implements GitRevisionReference {
 			if (this._files == null) return undefined;
 		}
 
-		path = Container.instance.git.getRelativePath(path, this.repoPath);
+		path = this.container.git.getRelativePath(path, this.repoPath);
 		return this._files.find(f => f.path === path);
 	}
 
 	formatDate(format?: string | null) {
-		return CommitDateFormatting.dateSource === DateSource.Committed
+		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
 			? this.committer.formatDate(format)
 			: this.author.formatDate(format);
 	}
 
 	formatDateFromNow(short?: boolean) {
-		return CommitDateFormatting.dateSource === DateSource.Committed
+		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
 			? this.committer.fromNow(short)
 			: this.author.fromNow(short);
 	}
@@ -377,10 +359,10 @@ export class GitCommit implements GitRevisionReference {
 	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
 		if (this._pullRequest == null) {
 			async function getCore(this: GitCommit): Promise<PullRequest | undefined> {
-				const remote = await Container.instance.git.getRichRemoteProvider(this.repoPath);
+				const remote = await this.container.git.getRichRemoteProvider(this.repoPath);
 				if (remote?.provider == null) return undefined;
 
-				return Container.instance.git.getPullRequestForCommit(this.ref, remote, options);
+				return this.container.git.getPullRequestForCommit(this.ref, remote, options);
 			}
 			this._pullRequest = getCore.call(this);
 		}
@@ -393,7 +375,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getCommitForFile(file: string | GitFile): Promise<GitCommit | undefined> {
-		const path = typeof file === 'string' ? Container.instance.git.getRelativePath(file, this.repoPath) : file.path;
+		const path = typeof file === 'string' ? this.container.git.getRelativePath(file, this.repoPath) : file.path;
 		const foundFile = await this.findFile(path);
 		if (foundFile == null) return undefined;
 
@@ -413,7 +395,7 @@ export class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	getGitUri(previous: boolean = false): GitUri {
-		const uri = this._file?.uri ?? Container.instance.git.getAbsoluteUri(this.repoPath, this.repoPath);
+		const uri = this._file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
 		if (!previous) return new GitUri(uri, this);
 
 		return new GitUri(this._file?.previousUri ?? uri, {
@@ -425,7 +407,7 @@ export class GitCommit implements GitRevisionReference {
 	@memoize<GitCommit['getPreviousLineDiffUris']>((u, e, r) => `${u.toString()}|${e}|${r ?? ''}`)
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		return this.file?.path
-			? Container.instance.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref)
+			? this.container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref)
 			: Promise.resolve(undefined);
 	}
 
@@ -455,6 +437,7 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		return new GitCommit(
+			this.container,
 			this.repoPath,
 			changes.sha ?? this.sha,
 			this.author,

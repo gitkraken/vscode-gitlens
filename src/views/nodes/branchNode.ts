@@ -1,9 +1,9 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
+import { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
 import {
-	BranchDateFormatting,
 	GitBranch,
 	GitBranchReference,
 	GitLog,
@@ -413,7 +413,7 @@ export class BranchNode
 			}`;
 
 			tooltip += `\n\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
-				BranchDateFormatting.dateFormat,
+				Container.instance.BranchDateFormatting.dateFormat,
 			)})`;
 		}
 

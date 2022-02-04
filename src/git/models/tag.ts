@@ -1,18 +1,9 @@
 import { configuration, DateStyle, TagSorting } from '../../configuration';
+import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
 import { GitReference, GitTagReference } from './reference';
-
-export const TagDateFormatting = {
-	dateFormat: undefined! as string | null,
-	dateStyle: undefined! as DateStyle,
-
-	reset: () => {
-		TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
 
 export interface TagSortOptions {
 	current?: boolean;
@@ -56,8 +47,8 @@ export class GitTag implements GitTagReference {
 	) {}
 
 	get formattedDate(): string {
-		return TagDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(TagDateFormatting.dateFormat)
+		return Container.instance.TagDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(Container.instance.TagDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 

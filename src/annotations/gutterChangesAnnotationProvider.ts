@@ -104,6 +104,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					this.trackedDocument.uri.fsPath,
 				);
 				const commits = status?.getPseudoCommits(
+					this.container,
 					await this.container.git.getCurrentUser(this.trackedDocument.uri.repoPath!),
 				);
 				if (commits?.length) {

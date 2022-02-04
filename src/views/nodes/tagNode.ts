@@ -1,9 +1,10 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
+import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { GitUri } from '../../git/gitUri';
-import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/models';
+import { GitLog, GitRevision, GitTag, GitTagReference } from '../../git/models';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { TagsView } from '../tagsView';
@@ -74,11 +75,13 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		item.description = emojify(this.tag.message);
 		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitRevision.shorten(this.tag.sha, {
 			force: true,
-		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(TagDateFormatting.dateFormat)})\n\n${emojify(
-			this.tag.message,
-		)}${
+		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
+			Container.instance.TagDateFormatting.dateFormat,
+		)})\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
-				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(TagDateFormatting.dateFormat)})`
+				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
+						Container.instance.TagDateFormatting.dateFormat,
+				  )})`
 				: ''
 		}`;
 

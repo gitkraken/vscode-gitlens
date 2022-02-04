@@ -31,10 +31,7 @@ import { VisitedPathsTrie } from '../system/trie';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
 import { GitUri } from './gitUri';
 import {
-	BranchDateFormatting,
 	BranchSortOptions,
-	CommitDateFormatting,
-	CommitShaFormatting,
 	GitBlame,
 	GitBlameLine,
 	GitBlameLines,
@@ -61,7 +58,6 @@ import {
 	GitTreeEntry,
 	GitUser,
 	PullRequest,
-	PullRequestDateFormatting,
 	PullRequestState,
 	Repository,
 	RepositoryChange,
@@ -147,10 +143,10 @@ export class GitProviderService implements Disposable {
 			}),
 		);
 
-		BranchDateFormatting.reset();
-		CommitDateFormatting.reset();
-		CommitShaFormatting.reset();
-		PullRequestDateFormatting.reset();
+		this.container.BranchDateFormatting.reset();
+		this.container.CommitDateFormatting.reset();
+		this.container.CommitShaFormatting.reset();
+		this.container.PullRequestDateFormatting.reset();
 
 		this.updateContext();
 	}
@@ -174,13 +170,13 @@ export class GitProviderService implements Disposable {
 			configuration.changed(e, 'defaultDateSource') ||
 			configuration.changed(e, 'defaultDateStyle')
 		) {
-			BranchDateFormatting.reset();
-			CommitDateFormatting.reset();
-			PullRequestDateFormatting.reset();
+			this.container.BranchDateFormatting.reset();
+			this.container.CommitDateFormatting.reset();
+			this.container.PullRequestDateFormatting.reset();
 		}
 
 		if (configuration.changed(e, 'advanced.abbreviatedShaLength')) {
-			CommitShaFormatting.reset();
+			this.container.CommitShaFormatting.reset();
 		}
 
 		if (configuration.changed(e, 'views.contributors.showAllBranches')) {

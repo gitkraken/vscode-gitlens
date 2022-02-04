@@ -431,7 +431,7 @@ export class GitStatusFile implements GitFile {
 		return GitFile.getStatusText(this.status);
 	}
 
-	getPseudoCommits(user: GitUser | undefined): GitCommit[] {
+	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
 		const commits: GitCommit[] = [];
 
 		const now = new Date();
@@ -439,6 +439,7 @@ export class GitStatusFile implements GitFile {
 		if (this.conflictStatus != null) {
 			commits.push(
 				new GitCommit(
+					container,
 					this.repoPath,
 					GitRevision.uncommitted,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
@@ -469,6 +470,7 @@ export class GitStatusFile implements GitFile {
 
 			commits.push(
 				new GitCommit(
+					container,
 					this.repoPath,
 					GitRevision.uncommitted,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
@@ -487,6 +489,7 @@ export class GitStatusFile implements GitFile {
 					[],
 				),
 				new GitCommit(
+					container,
 					this.repoPath,
 					GitRevision.uncommittedStaged,
 					new GitCommitIdentity('You', user?.email ?? undefined, older),
@@ -502,6 +505,7 @@ export class GitStatusFile implements GitFile {
 		} else {
 			commits.push(
 				new GitCommit(
+					container,
 					this.repoPath,
 					this.workingTreeStatus != null ? GitRevision.uncommitted : GitRevision.uncommittedStaged,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),

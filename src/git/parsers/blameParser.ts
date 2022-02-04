@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
 import {
@@ -39,7 +40,12 @@ interface BlameEntry {
 
 export class GitBlameParser {
 	@debug({ args: false, singleLine: true })
-	static parse(data: string, repoPath: string, currentUser: GitUser | undefined): GitBlame | undefined {
+	static parse(
+		container: Container,
+		data: string,
+		repoPath: string,
+		currentUser: GitUser | undefined,
+	): GitBlame | undefined {
 		if (!data) return undefined;
 
 		const authors = new Map<string, GitBlameAuthor>();
@@ -153,7 +159,7 @@ export class GitBlameParser {
 					entry.path = line.slice(key.length + 1);
 
 					// Since the filename marks the end of a commit, parse the entry and clear it for the next
-					GitBlameParser.parseEntry(entry, repoPath, commits, authors, lines, currentUser);
+					GitBlameParser.parseEntry(container, entry, repoPath, commits, authors, lines, currentUser);
 
 					entry = undefined;
 					break;
@@ -184,6 +190,7 @@ export class GitBlameParser {
 	}
 
 	private static parseEntry(
+		container: Container,
 		entry: BlameEntry,
 		repoPath: string,
 		commits: Map<string, GitCommit>,
@@ -217,6 +224,7 @@ export class GitBlameParser {
 			}
 
 			commit = new GitCommit(
+				container,
 				repoPath,
 				entry.sha,
 				new GitCommitIdentity(entry.author, entry.authorEmail, new Date((entry.authorDate as any) * 1000)),
