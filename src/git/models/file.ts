@@ -2,6 +2,7 @@ import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
+import { normalizePath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
 import { GitUri } from '../gitUri';
 import { GitCommit } from './commit';
@@ -83,13 +84,15 @@ export namespace GitFile {
 	}
 
 	export function getOriginalRelativePath(file: GitFile, relativeTo?: string): string {
-		if (file.originalPath == null || file.originalPath.length === 0) return '';
+		if (!file.originalPath) return '';
 
-		return GitUri.relativeTo(file.originalPath, relativeTo);
+		return relativeTo
+			? Container.instance.git.getRelativePath(file.originalPath, relativeTo)
+			: normalizePath(file.originalPath);
 	}
 
 	export function getRelativePath(file: GitFile, relativeTo?: string): string {
-		return GitUri.relativeTo(file.path, relativeTo);
+		return relativeTo ? Container.instance.git.getRelativePath(file.path, relativeTo) : normalizePath(file.path);
 	}
 
 	const statusIconsMap = {

@@ -261,14 +261,16 @@ export class GitCommit implements GitRevisionReference {
 		this._stats = { ...this._stats, changedFiles: changedFiles, additions: additions, deletions: deletions };
 	}
 
-	async findFile(path: string): Promise<GitFileChange | undefined> {
+	async findFile(path: string): Promise<GitFileChange | undefined>;
+	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
+	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
 		if (this._files == null) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
 
-		path = this.container.git.getRelativePath(path, this.repoPath);
-		return this._files.find(f => f.path === path);
+		const relativePath = this.container.git.getRelativePath(pathOrUri, this.repoPath);
+		return this._files.find(f => f.path === relativePath);
 	}
 
 	formatDate(format?: string | null) {

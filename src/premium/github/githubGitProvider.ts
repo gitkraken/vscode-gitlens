@@ -195,7 +195,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri) && !isAbsolute(pathOrUri)) {
-			return Uri.joinPath(base, pathOrUri);
+			return Uri.joinPath(base, normalizePath(pathOrUri));
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
@@ -238,8 +238,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		relativePath = relative(base.path.slice(1), pathOrUri.path.slice(1));
-		return normalizePath(relativePath);
+		relativePath = normalizePath(relative(base.path.slice(1), pathOrUri.path.slice(1)));
+		return relativePath;
 	}
 
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
@@ -1038,7 +1038,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const commit = await this.getCommitForFile(repoPath, uri, { ref: ref });
 		if (commit == null) return undefined;
 
-		return commit.findFile(this.getRelativePath(uri, repoPath));
+		return commit.findFile(uri);
 	}
 
 	async getLastFetchedTimestamp(_repoPath: string): Promise<number | undefined> {

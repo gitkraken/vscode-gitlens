@@ -25,7 +25,7 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map } from '../system/iterable';
-import { dirname, getBestPath, getScheme, isAbsolute, maybeUri } from '../system/path';
+import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
@@ -632,7 +632,7 @@ export class GitProviderService implements Disposable {
 
 		// Short-circuit if the base is already a Uri and the path is relative
 		if (typeof base !== 'string' && typeof pathOrUri === 'string' && !isAbsolute(pathOrUri)) {
-			return Uri.joinPath(base, pathOrUri);
+			return Uri.joinPath(base, normalizePath(pathOrUri));
 		}
 
 		const { provider } = this.getProvider(base);

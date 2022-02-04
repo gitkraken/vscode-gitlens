@@ -15,7 +15,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
-import { basename, joinPaths } from '../../system/path';
+import { basename, getBestPath, joinPaths } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -157,7 +157,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	get label() {
 		// Check if this is a base folder
 		if (this.folder && this.uri.fileName === '') {
-			return `${basename(this.uri.fsPath)}${
+			return `${basename(this.uri.path)}${
 				this.uri.sha
 					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
@@ -248,7 +248,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? joinPaths(this.uri.fsPath, '*') : this.uri.fsPath;
+		return this.folder ? joinPaths(getBestPath(this.uri), '*') : getBestPath(this.uri);
 	}
 
 	get hasMore() {

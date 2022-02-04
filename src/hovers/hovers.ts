@@ -156,7 +156,7 @@ export namespace Hovers {
 			previous = '_Working Tree_';
 			current = '_Unsaved_';
 		} else {
-			const file = await fromCommit.findFile(uri.fsPath);
+			const file = await fromCommit.findFile(uri);
 			if (file == null) return undefined;
 
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({

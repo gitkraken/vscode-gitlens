@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import { GitHubAuthorityMetadata } from '../premium/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
-import { basename, dirname, isAbsolute, normalizePath, relative } from '../system/path';
+import { basename, dirname, normalizePath, relative } from '../system/path';
 import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
 import { RevisionUriData } from './gitProvider';
 import { GitFile, GitRevision } from './models';
@@ -344,7 +344,9 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	static getDirectory(fileName: string, relativeTo?: string): string {
 		let directory: string | undefined = dirname(fileName);
-		directory = relativeTo != null ? GitUri.relativeTo(directory, relativeTo) : normalizePath(directory);
+		directory = relativeTo
+			? Container.instance.git.getRelativePath(directory, relativeTo)
+			: normalizePath(directory);
 		return directory == null || directory.length === 0 || directory === '.' ? '' : directory;
 	}
 
@@ -418,28 +420,6 @@ export class GitUri extends (Uri as any as UriEx) {
 		}
 
 		return `${directory}${file}`;
-	}
-
-	static relativeTo(fileNameOrUri: string | Uri, relativeTo: string | undefined): string {
-		const fileName = fileNameOrUri instanceof Uri ? fileNameOrUri.fsPath : fileNameOrUri;
-		const relativePath =
-			relativeTo == null || relativeTo.length === 0 || !isAbsolute(fileName)
-				? fileName
-				: relative(relativeTo, fileName);
-		return normalizePath(relativePath);
-	}
-
-	static git(path: string, repoPath?: string): Uri {
-		const uri = Container.instance.git.getAbsoluteUri(path, repoPath);
-		return Uri.from({
-			scheme: Schemes.Git,
-			path: uri.path,
-			query: JSON.stringify({
-				// Ensure we use the fsPath here, otherwise the url won't open properly
-				path: uri.fsPath,
-				ref: '~',
-			}),
-		});
 	}
 
 	static toKey(fileName: string): string;

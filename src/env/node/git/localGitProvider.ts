@@ -525,7 +525,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		// Short-circuit if the path is relative
 		if (typeof pathOrUri === 'string' && !isAbsolute(pathOrUri)) {
-			return Uri.joinPath(base, pathOrUri);
+			return Uri.joinPath(base, normalizePath(pathOrUri));
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
@@ -549,7 +549,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 
-		if (GitRevision.isUncommittedStaged(ref)) return GitUri.git(path, repoPath);
+		if (GitRevision.isUncommittedStaged(ref)) return this.getScmGitUri(path, repoPath);
 
 		return this.getRevisionUri(repoPath, path, ref);
 	}
@@ -588,7 +588,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
 		if (GitRevision.isUncommitted(ref)) {
 			return GitRevision.isUncommittedStaged(ref)
-				? GitUri.git(path, repoPath)
+				? this.getScmGitUri(path, repoPath)
 				: this.getAbsoluteUri(path, repoPath);
 		}
 
@@ -613,20 +613,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getWorkingUri(repoPath: string, uri: Uri) {
-		let fileName = GitUri.relativeTo(uri, repoPath);
+		let relativePath = this.getRelativePath(uri, repoPath);
 
 		let data;
 		let ref;
 		do {
-			data = await this.git.ls_files(repoPath, fileName);
+			data = await this.git.ls_files(repoPath, relativePath);
 			if (data != null) {
-				fileName = splitSingle(data, '\n')[0];
+				relativePath = splitSingle(data, '\n')[0];
 				break;
 			}
 
 			// TODO: Add caching
 			// Get the most recent commit for this file name
-			ref = await this.git.log__file_recent(repoPath, fileName, {
+			ref = await this.git.log__file_recent(repoPath, relativePath, {
 				ordering: this.container.config.advanced.commitOrdering,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
@@ -642,14 +642,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (data == null || data.length === 0) break;
 
-			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, fileName);
+			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, relativePath);
 			if (foundStatus === 'D' && foundFile != null) return undefined;
 			if (foundRef == null || foundFile == null) break;
 
-			fileName = foundFile;
+			relativePath = foundFile;
 		} while (true);
 
-		uri = this.getAbsoluteUri(fileName, repoPath);
+		uri = this.getAbsoluteUri(relativePath, repoPath);
 		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
@@ -2716,8 +2716,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			filters = ['A'];
 		}
 
-		const fileName = GitUri.relativeTo(uri, repoPath);
-		let data = await this.git.log__file(repoPath, fileName, ref, {
+		const relativePath = this.getRelativePath(uri, repoPath);
+		let data = await this.git.log__file(repoPath, relativePath, ref, {
 			argsOrFormat: GitLogParser.simpleFormat,
 			fileMode: 'simple',
 			filters: filters,
@@ -2740,18 +2740,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// startLine: editorLine != null ? editorLine + 1 : undefined
 			});
 			if (data == null || data.length === 0) {
-				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
+				return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
 			}
 
-			const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file ?? fileName);
+			const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file ?? relativePath);
 			return GitUri.fromFile(
-				renamedFile ?? file ?? fileName,
+				renamedFile ?? file ?? relativePath,
 				repoPath,
 				nextRenamedRef ?? nextRef ?? GitRevision.deletedOrMissing,
 			);
 		}
 
-		return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
+		return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
 	}
 
 	@log()
@@ -3644,6 +3644,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch {
 			return undefined;
 		}
+	}
+
+	private getScmGitUri(path: string, repoPath: string): Uri {
+		const uri = this.getAbsoluteUri(path, repoPath);
+		return Uri.from({
+			scheme: Schemes.Git,
+			path: uri.path,
+			query: JSON.stringify({
+				// Ensure we use the fsPath here, otherwise the url won't open properly
+				path: uri.fsPath,
+				ref: '~',
+			}),
+		});
 	}
 
 	@log()
