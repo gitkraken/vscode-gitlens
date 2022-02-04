@@ -3261,6 +3261,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
+	@log()
+	async hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		return this.git.merge_base__is_ancestor(repoPath, ref, '@{u}');
+	}
+
 	isTrackable(uri: Uri): boolean {
 		return this.supportedSchemes.has(uri.scheme);
 	}

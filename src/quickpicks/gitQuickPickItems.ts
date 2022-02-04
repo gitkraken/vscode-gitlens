@@ -39,7 +39,7 @@ export namespace BranchQuickPickItem {
 	export async function create(
 		branch: GitBranch,
 		picked?: boolean,
-		options: {
+		options?: {
 			alwaysShow?: boolean;
 			buttons?: QuickInputButton[];
 			checked?: boolean;
@@ -47,28 +47,28 @@ export namespace BranchQuickPickItem {
 			ref?: boolean;
 			status?: boolean;
 			type?: boolean | 'remote';
-		} = {},
-	) {
+		},
+	): Promise<BranchQuickPickItem> {
 		let description = '';
-		if (options.type === true) {
-			if (options.current === true && branch.current) {
+		if (options?.type === true) {
+			if (options?.current === true && branch.current) {
 				description = 'current branch';
 			} else {
 				description = 'branch';
 			}
-		} else if (options.type === 'remote') {
+		} else if (options?.type === 'remote') {
 			if (branch.remote) {
 				description = 'remote branch';
 			}
-		} else if (options.current === true && branch.current) {
+		} else if (options?.current === true && branch.current) {
 			description = 'current branch';
 		}
 
-		if (options.status && !branch.remote && branch.upstream != null) {
+		if (options?.status && !branch.remote && branch.upstream != null) {
 			let arrows = GlyphChars.Dash;
 
-			const remote = await branch.getRemote();
 			if (!branch.upstream.missing) {
+				const remote = await branch.getRemote();
 				if (remote != null) {
 					let left;
 					let right;
@@ -102,7 +102,7 @@ export namespace BranchQuickPickItem {
 			description = `${description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status}`;
 		}
 
-		if (options.ref) {
+		if (options?.ref) {
 			if (branch.sha) {
 				description = description
 					? `${description}${pad('$(git-commit)', 2, 2)}${GitRevision.shorten(branch.sha)}`
@@ -117,14 +117,14 @@ export namespace BranchQuickPickItem {
 		}
 
 		const checked =
-			options.checked || (options.checked == null && options.current === 'checkmark' && branch.current);
+			options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 		const item: BranchQuickPickItem = {
 			label: `${pad('$(git-branch)', 0, 2)}${branch.starred ? '$(star-full) ' : ''}${branch.name}${
 				checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
 			}`,
 			description: description,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked ?? branch.current,
 			item: branch,
 			current: branch.current,

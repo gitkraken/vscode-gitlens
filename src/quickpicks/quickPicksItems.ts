@@ -1,4 +1,4 @@
-import { commands, QuickPickItem } from 'vscode';
+import { commands, QuickPickItem, QuickPickItemKind } from 'vscode';
 import { Commands, GitActions } from '../commands';
 import { Container } from '../container';
 import { GitCommit, GitReference, GitRevisionReference } from '../git/models';
@@ -9,6 +9,16 @@ declare module 'vscode' {
 	interface QuickPickItem {
 		onDidSelect?(): void;
 		onDidPressKey?(key: Keys): Promise<void>;
+	}
+}
+
+export interface QuickPickSeparator extends QuickPickItem {
+	kind: QuickPickItemKind.Separator;
+}
+
+export namespace QuickPickSeparator {
+	export function create(label?: string): QuickPickSeparator {
+		return { kind: QuickPickItemKind.Separator, label: label ?? '' };
 	}
 }
 

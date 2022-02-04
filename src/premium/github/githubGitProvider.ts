@@ -1928,6 +1928,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return branches.length !== 0 || tags.length !== 0;
 	}
 
+	@log()
+	async hasCommitBeenPushed(_repoPath: string, _ref: string): Promise<boolean> {
+		// In this env we can't have unpushed commits
+		return true;
+	}
+
 	isTrackable(uri: Uri): boolean {
 		return this.supportedSchemes.has(uri.scheme);
 	}

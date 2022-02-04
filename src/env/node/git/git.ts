@@ -75,11 +75,15 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
+type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
+
 export class Git {
 	// A map of running git commands -- avoids running duplicate overlaping commands
 	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
 
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+	async git(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
+	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
+	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
 		const start = hrtime();
 
 		const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
@@ -123,7 +127,7 @@ export class Git {
 				args.splice(0, 0, '-c', 'core.longpaths=true');
 			}
 
-			promise = run<TOut>(await this.path(), args, encoding ?? 'utf8', runOpts);
+			promise = run<T>(await this.path(), args, encoding ?? 'utf8', runOpts);
 
 			this.pendingCommands.set(command, promise);
 		} else {
@@ -133,14 +137,14 @@ export class Git {
 
 		let exception: Error | undefined;
 		try {
-			return (await promise) as TOut;
+			return (await promise) as T;
 		} catch (ex) {
 			exception = ex;
 
 			switch (errorHandling) {
 				case GitErrorHandling.Ignore:
 					exception = undefined;
-					return '' as TOut;
+					return '' as T;
 
 				case GitErrorHandling.Throw:
 					throw ex;
@@ -148,7 +152,7 @@ export class Git {
 				default: {
 					const result = defaultExceptionHandler(ex, options.cwd, start);
 					exception = undefined;
-					return result as TOut;
+					return result as T;
 				}
 			}
 		} finally {
@@ -1035,13 +1039,19 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	merge_base(repoPath: string, ref1: string, ref2: string, { forkPoint }: { forkPoint?: boolean } = {}) {
+	merge_base(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
 		const params = ['merge-base'];
-		if (forkPoint) {
+		if (options?.forkPoint) {
 			params.push('--fork-point');
 		}
 
 		return this.git<string>({ cwd: repoPath }, ...params, ref1, ref2);
+	}
+
+	async merge_base__is_ancestor(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
+		const params = ['merge-base', '--is-ancestor'];
+		const exitCode = await this.git({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
+		return exitCode === 0;
 	}
 
 	reflog(

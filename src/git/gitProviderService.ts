@@ -1777,6 +1777,14 @@ export class GitProviderService implements Disposable {
 		return provider.hasBranchOrTag(path, options);
 	}
 
+	@log({ args: { 1: false } })
+	async hasCommitBeenPushed(repoPath: string | Uri, ref: string): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.hasCommitBeenPushed(path, ref);
+	}
+
 	@log()
 	async hasRemotes(repoPath: string | Uri | undefined): Promise<boolean> {
 		if (repoPath == null) return false;

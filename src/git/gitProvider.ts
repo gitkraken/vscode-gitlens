@@ -360,6 +360,7 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<boolean>;
 
+	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	isTrackable(uri: Uri): boolean;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;

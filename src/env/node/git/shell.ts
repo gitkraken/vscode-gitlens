@@ -170,16 +170,36 @@ export class RunError extends Error {
 	}
 }
 
-export function run<TOut extends string | Buffer>(
+type ExitCodeOnlyRunOptions = RunOptions & { exitCodeOnly: true };
+
+export function run(
 	command: string,
 	args: any[],
 	encoding: BufferEncoding | 'buffer' | string,
-	options: RunOptions = {},
-): Promise<TOut> {
+	options: ExitCodeOnlyRunOptions,
+): Promise<number>;
+export function run<T extends string | Buffer>(
+	command: string,
+	args: any[],
+	encoding: BufferEncoding | 'buffer' | string,
+	options?: RunOptions,
+): Promise<T>;
+export function run<T extends number | string | Buffer>(
+	command: string,
+	args: any[],
+	encoding: BufferEncoding | 'buffer' | string,
+	options?: RunOptions & { exitCodeOnly?: boolean },
+): Promise<T> {
 	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };
 
-	return new Promise<TOut>((resolve, reject) => {
+	return new Promise<T>((resolve, reject) => {
 		const proc = execFile(command, args, opts, (error: ExecException | null, stdout, stderr) => {
+			if (options?.exitCodeOnly) {
+				resolve((error?.code ?? proc.exitCode) as T);
+
+				return;
+			}
+
 			if (error != null) {
 				if (bufferExceededRegex.test(error.message)) {
 					error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`;
@@ -206,8 +226,8 @@ export function run<TOut extends string | Buffer>(
 
 			resolve(
 				encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-					? (stdout as TOut)
-					: (decode(Buffer.from(stdout, 'binary'), encoding) as TOut),
+					? (stdout as T)
+					: (decode(Buffer.from(stdout, 'binary'), encoding) as T),
 			);
 		});
 

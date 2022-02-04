@@ -411,6 +411,10 @@ export class GitCommit implements GitRevisionReference {
 			: Promise.resolve(undefined);
 	}
 
+	async isPushed(): Promise<boolean> {
+		return this.container.git.hasCommitBeenPushed(this.repoPath, this.ref);
+	}
+
 	with(changes: {
 		sha?: string;
 		parents?: string[];

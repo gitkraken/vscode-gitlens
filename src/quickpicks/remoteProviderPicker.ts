@@ -98,7 +98,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: true,
 		};
 		super(
-			`$(clippy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
+			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
 			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
 			Commands.OpenOnRemote,

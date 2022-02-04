@@ -1,5 +1,6 @@
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
+import { QuickCommandButtons } from '../commands/quickCommand.buttons';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
@@ -20,7 +21,11 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 					separator: ', ',
 					empty: 'No files changed',
 				})}${fileName ? `${Strings.pad(GlyphChars.Dot, 2, 2)}${fileName}` : ''}`,
+				alwaysShow: true,
 				picked: picked,
+				buttons: GitCommit.isStash(commit)
+					? [QuickCommandButtons.RevealInSideBar]
+					: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
 			},
 			undefined,
 			undefined,
@@ -117,7 +122,7 @@ export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPi
 
 export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
-		super(item ?? '$(clippy) Copy SHA');
+		super(item ?? '$(copy) Copy SHA');
 	}
 
 	override execute(): Promise<void> {
@@ -132,7 +137,7 @@ export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 
 export class CommitCopyMessageQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
-		super(item ?? '$(clippy) Copy Message');
+		super(item ?? '$(copy) Copy Message');
 	}
 
 	override execute(): Promise<void> {
