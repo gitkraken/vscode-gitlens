@@ -1,4 +1,4 @@
-import { debug } from '../../system';
+import { debug } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
 import { GitStatus, GitStatusFile } from '../models';
 

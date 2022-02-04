@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports
 import { debounce as _debounce, once as _once } from 'lodash-es';
 import { Disposable } from 'vscode';
 

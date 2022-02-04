@@ -21,7 +21,10 @@ import {
 	RepositoryChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { debug, Functions, gate, log, logName, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log, logName } from '../../system/decorators/log';
+import { is as isA } from '../../system/function';
+import { pad } from '../../system/string';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export const enum ContextValues {
@@ -177,7 +180,7 @@ export interface PageableViewNode {
 
 export namespace PageableViewNode {
 	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
-		return Functions.is<ViewNode & PageableViewNode>(node, 'loadMore');
+		return isA<ViewNode & PageableViewNode>(node, 'loadMore');
 	}
 }
 
@@ -394,9 +397,9 @@ export abstract class RepositoryFolderNode<
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 
 			const status = branch.getTrackingStatus();
-			item.description = `${status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
+			item.description = `${status ? `${status}${pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
 				lastFetched
-					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 					: ''
 			}`;
 
@@ -414,7 +417,7 @@ export abstract class RepositoryFolderNode<
 			item.tooltip = new MarkdownString(
 				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
-						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
 								lastFetched,
 								false,
 						  )}`
@@ -559,7 +562,7 @@ interface AutoRefreshableView {
 }
 
 export function canAutoRefreshView(view: View): view is View & AutoRefreshableView {
-	return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
+	return isA<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
 export function canClearNode(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {

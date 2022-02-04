@@ -1,8 +1,8 @@
 import { join as joinPaths } from 'path';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
-import { Stopwatch } from '../../../system';
 import { any } from '../../../system/promise';
+import { Stopwatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {

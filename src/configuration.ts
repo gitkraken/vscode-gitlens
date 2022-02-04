@@ -10,7 +10,7 @@ import {
 	workspace,
 } from 'vscode';
 import { Config } from './config';
-import { Objects } from './system';
+import { areEqual } from './system/object';
 
 const configPrefix = 'gitlens';
 
@@ -286,7 +286,7 @@ export class Configuration {
 
 		return configuration.update(
 			section,
-			Objects.areEqual(value, inspect.defaultValue) ? undefined : value,
+			areEqual(value, inspect.defaultValue) ? undefined : value,
 			ConfigurationTarget.Global,
 		);
 	}

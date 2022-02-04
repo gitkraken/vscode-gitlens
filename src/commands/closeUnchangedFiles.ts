@@ -4,7 +4,7 @@ import { BuiltInCommands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Functions } from '../system';
+import { debounce } from '../system/function';
 import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
@@ -44,7 +44,7 @@ export class CloseUnchangedFilesCommand extends Command {
 			}
 
 			const disposable = window.onDidChangeActiveTextEditor(
-				Functions.debounce((e: TextEditor | undefined) => this._onEditorChangedFn?.(e), 50),
+				debounce((e: TextEditor | undefined) => this._onEditorChangedFn?.(e), 50),
 			);
 
 			let editor = window.activeTextEditor;

@@ -3,16 +3,18 @@ import { GravatarDefaultStyle } from './config';
 import { GlobalState } from './constants';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
-import { Functions, Iterables, Strings } from './system';
+import { debounce } from './system/function';
+import { filterMap } from './system/iterable';
+import { base64, equalsIgnoreCase, md5 } from './system/string';
 import { ContactPresenceStatus } from './vsls/vsls';
 
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
 _onDidFetchAvatar.event(
-	Functions.debounce(() => {
+	debounce(() => {
 		const avatars =
 			avatarCache != null
 				? [
-						...Iterables.filterMap(avatarCache, ([key, avatar]) =>
+						...filterMap(avatarCache, ([key, avatar]) =>
 							avatar.uri != null
 								? [
 										key,
@@ -89,7 +91,7 @@ export function getAvatarUri(
 		return avatar.uri ?? avatar.fallback!;
 	}
 
-	const hash = Strings.md5(email.trim().toLowerCase(), 'hex');
+	const hash = md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
 
 	const avatar = createOrUpdateAvatar(key, email, size, hash, defaultStyle);
@@ -203,8 +205,8 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.timestamp = Date.now();
 		avatar.retries = 0;
 
-		if (account.email != null && Strings.equalsIgnoreCase(email, account.email)) {
-			avatarCache.set(`${Strings.md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
+		if (account.email != null && equalsIgnoreCase(email, account.email)) {
+			avatarCache.set(`${md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
 		}
 
 		_onDidFetchAvatar.fire({ email: email });
@@ -230,7 +232,7 @@ const presenceStatusColorMap = new Map<ContactPresenceStatus, string>([
 export function getPresenceDataUri(status: ContactPresenceStatus) {
 	let dataUri = presenceCache.get(status);
 	if (dataUri == null) {
-		const contents = Strings.base64(`<?xml version="1.0" encoding="utf-8"?>
+		const contents = base64(`<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="4" height="16" viewBox="0 0 4 16">
 	<circle cx="2" cy="14" r="2" fill="${presenceStatusColorMap.get(status)!}"/>
 </svg>`);

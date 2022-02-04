@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports
 export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 
 export function chunk<T>(source: T[], size: number): T[][] {

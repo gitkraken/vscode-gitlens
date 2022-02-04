@@ -1,7 +1,8 @@
 import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { isTextEditor } from '../constants';
 import { Logger } from '../logger';
-import { debug, Functions } from '../system';
+import { debug } from '../system/decorators/log';
+import { debounce, Deferrable } from '../system/function';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;
@@ -134,7 +135,7 @@ export class LineTracker<T> implements Disposable {
 			Logger.debug(cc, 'Starting line tracker...');
 
 			this._disposable = Disposable.from(
-				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
+				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
 				this.onStart?.() ?? { dispose: () => {} },
 			);
@@ -200,7 +201,7 @@ export class LineTracker<T> implements Disposable {
 		this.onLinesChanged({ editor: this._editor, selections: this.selections, reason: reason });
 	}
 
-	private _linesChangedDebounced: Functions.Deferrable<(e: LinesChangeEvent) => void> | undefined;
+	private _linesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
 
 	private onLinesChanged(e: LinesChangeEvent) {
 		if (e.selections == null) {
@@ -218,7 +219,7 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (this._linesChangedDebounced == null) {
-			this._linesChangedDebounced = Functions.debounce(
+			this._linesChangedDebounced = debounce(
 				(e: LinesChangeEvent) => {
 					if (e.editor !== window.activeTextEditor) return;
 					// Make sure we are still on the same lines

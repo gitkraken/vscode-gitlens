@@ -14,8 +14,10 @@ import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { debug, Iterables, TernarySearchTree } from '../system';
+import { debug } from '../system/decorators/log';
+import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
+import { TernarySearchTree } from '../system/searchTree';
 import { GitRevision, GitTreeEntry } from './models';
 
 const emptyArray = new Uint8Array(0);
@@ -65,7 +67,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		if (tree === undefined) throw FileSystemError.FileNotFound(uri);
 
 		const items = [
-			...Iterables.map<GitTreeEntry, [string, FileType]>(tree, t => [
+			...map<GitTreeEntry, [string, FileType]>(tree, t => [
 				path != null && path.length !== 0 ? normalizePath(relative(path, t.path)) : t.path,
 				typeToFileType(t.type),
 			]),

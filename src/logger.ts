@@ -1,6 +1,6 @@
 import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
 import { OutputLevel } from './configuration';
-import { getCorrelationContext, getNextCorrelationId } from './system';
+import { getCorrelationContext, getNextCorrelationId } from './system/decorators/log';
 
 const emptyStr = '';
 const outputChannelName = 'GitLens';
