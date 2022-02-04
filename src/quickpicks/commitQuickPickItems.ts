@@ -4,25 +4,43 @@ import { QuickCommandButtons } from '../commands/quickCommand.buttons';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitCommit, GitFile, GitStatusFile } from '../git/models';
+import { GitCommit, GitFile, GitFileChange, GitStatusFile } from '../git/models';
 import { Keys } from '../keyboard';
-import { Strings } from '../system';
 import { basename } from '../system/path';
+import { pad } from '../system/string';
 import { CommandQuickPickItem } from './quickPicksItems';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {
-	constructor(readonly commit: GitCommit, picked: boolean = true, fileName?: string) {
+	constructor(
+		readonly commit: GitCommit,
+		options?: {
+			file?: GitFileChange;
+			unpublished?: boolean | undefined;
+			picked?: boolean;
+			hint?: string;
+		},
+	) {
 		super(
 			{
 				label: commit.summary,
-				description: CommitFormatter.fromTemplate(`\${author}, \${ago}  $(git-commit)  \${id}`, commit),
-				detail: `$(files) ${commit.formatStats({
-					expand: true,
-					separator: ', ',
-					empty: 'No files changed',
-				})}${fileName ? `${Strings.pad(GlyphChars.Dot, 2, 2)}${fileName}` : ''}`,
+				description: `${CommitFormatter.fromTemplate(`\${author}, \${ago}  $(git-commit)  \${id}`, commit)}${
+					options?.unpublished ? '  (unpublished)' : ''
+				}`,
+				detail: `${
+					options?.file != null
+						? `$(file) ${basename(options.file.path)}${options.file.formatStats({
+								expand: true,
+								separator: ', ',
+								prefix: ` ${GlyphChars.Dot} `,
+						  })}`
+						: `$(files) ${commit.formatStats({
+								expand: true,
+								separator: ', ',
+								empty: 'No files changed',
+						  })}`
+				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
-				picked: picked,
+				picked: options?.picked ?? true,
 				buttons: GitCommit.isStash(commit)
 					? [QuickCommandButtons.RevealInSideBar]
 					: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
@@ -41,7 +59,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 export class CommitFileQuickPickItem extends CommandQuickPickItem {
 	constructor(readonly commit: GitCommit, readonly file: GitFile, picked?: boolean) {
 		super({
-			label: `${Strings.pad(GitFile.getStatusCodicon(file.status), 0, 2)}${basename(file.path)}`,
+			label: `${pad(GitFile.getStatusCodicon(file.status), 0, 2)}${basename(file.path)}`,
 			description: GitFile.getFormattedDirectory(file, true),
 			picked: picked,
 		});

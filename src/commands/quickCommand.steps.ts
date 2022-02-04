@@ -12,6 +12,7 @@ import {
 	GitContributor,
 	GitLog,
 	GitReference,
+	GitRemote,
 	GitRevision,
 	GitRevisionReference,
 	GitStash,
@@ -62,7 +63,9 @@ import {
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
 } from '../quickpicks';
-import { Arrays, Iterables, Strings } from '../system';
+import { filterMap, intersection, isStringArray } from '../system/array';
+import { map } from '../system/iterable';
+import { pad, pluralize, truncate } from '../system/string';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { Commands } from './common';
 import { GitActions } from './gitCommands.actions';
@@ -83,25 +86,23 @@ export function appendReposToTitle<
 	Context extends { repos: Repository[] },
 >(title: string, state: State, context: Context, additionalContext?: string) {
 	if (context.repos.length === 1) {
-		return `${title}${Strings.truncate(additionalContext ?? '', quickPickTitleMaxChars - title.length)}`;
+		return `${title}${truncate(additionalContext ?? '', quickPickTitleMaxChars - title.length)}`;
 	}
 
 	let repoContext;
 	if ((state as { repo: Repository }).repo != null) {
-		repoContext = `${additionalContext ?? ''}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+		repoContext = `${additionalContext ?? ''}${pad(GlyphChars.Dot, 2, 2)}${
 			(state as { repo: Repository }).repo.formattedName
 		}`;
 	} else if ((state as { repos: Repository[] }).repos.length === 1) {
-		repoContext = `${additionalContext ?? ''}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+		repoContext = `${additionalContext ?? ''}${pad(GlyphChars.Dot, 2, 2)}${
 			(state as { repos: Repository[] }).repos[0].formattedName
 		}`;
 	} else {
-		repoContext = `${Strings.pad(GlyphChars.Dot, 2, 2)}${
-			(state as { repos: Repository[] }).repos.length
-		} repositories`;
+		repoContext = `${pad(GlyphChars.Dot, 2, 2)}${(state as { repos: Repository[] }).repos.length} repositories`;
 	}
 
-	return `${title}${Strings.truncate(repoContext, quickPickTitleMaxChars - title.length)}`;
+	return `${title}${truncate(repoContext, quickPickTitleMaxChars - title.length)}`;
 }
 
 export async function getBranches(
@@ -213,12 +214,12 @@ export async function getBranchesAndOrTags(
 
 		if (include.includes('branches') && branchesByRepo != null) {
 			branches = GitBranch.sort(
-				Arrays.intersection(...branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
+				intersection(...branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
 			);
 		}
 
 		if (include.includes('tags') && tagsByRepo != null) {
-			tags = GitTag.sort(Arrays.intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
+			tags = GitTag.sort(intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
 		}
 	}
 
@@ -865,7 +866,7 @@ export async function* pickCommitStep<
 		return log == null
 			? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 			: [
-					...Iterables.map(log.commits.values(), commit =>
+					...map(log.commits.values(), commit =>
 						CommitQuickPickItem.create(
 							commit,
 							picked != null &&
@@ -1014,7 +1015,7 @@ export function* pickCommitsStep<
 		return log == null
 			? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 			: [
-					...Iterables.map(log.commits.values(), commit =>
+					...map(log.commits.values(), commit =>
 						CommitQuickPickItem.create(
 							commit,
 							picked != null &&
@@ -1210,8 +1211,8 @@ export async function* pickRepositoriesStep<
 
 	let actives: Repository[];
 	if (state.repos != null) {
-		if (Arrays.isStringArray(state.repos)) {
-			actives = Arrays.filterMap(state.repos, path => context.repos.find(r => r.path === path));
+		if (isStringArray(state.repos)) {
+			actives = filterMap(state.repos, path => context.repos.find(r => r.path === path));
 			if (options.skipIfPossible && actives.length !== 0 && state.repos.length === actives.length) {
 				return actives;
 			}
@@ -1298,7 +1299,7 @@ export function* pickStashStep<
 			stash == null
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
 				: [
-						...Iterables.map(stash.commits.values(), commit =>
+						...map(stash.commits.values(), commit =>
 							CommitQuickPickItem.create(
 								commit,
 								picked != null &&
@@ -1463,11 +1464,11 @@ export async function* showCommitOrStashStep<
 async function getShowCommitOrStashStepItems<
 	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
 >(state: State): Promise<CommandQuickPickItem[]> {
-	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [new CommitFilesQuickPickItem(state.reference)];
+	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [];
+
+	let unpublished: boolean | undefined;
 
 	if (GitCommit.isStash(state.reference)) {
-		items.push(QuickPickSeparator.create(), new CommitCopyMessageQuickPickItem(state.reference));
-
 		items.push(
 			QuickPickSeparator.create('Actions'),
 			new GitCommandQuickPickItem('Apply Stash...', {
@@ -1478,7 +1479,6 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-
 			new GitCommandQuickPickItem('Delete Stash...', {
 				command: 'stash',
 				state: {
@@ -1487,12 +1487,15 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
+
+			QuickPickSeparator.create(),
+			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				QuickPickSeparator.create(),
+				QuickPickSeparator.create(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
 					sha: state.reference.sha,
@@ -1504,26 +1507,22 @@ async function getShowCommitOrStashStepItems<
 			);
 		}
 
-		items.push(
-			QuickPickSeparator.create(),
-			new CommitCopyIdQuickPickItem(state.reference),
-			new CommitCopyMessageQuickPickItem(state.reference),
-		);
+		items.push(QuickPickSeparator.create('Actions'));
 
 		const branch = await Container.instance.git.getBranch(state.repo.path);
-		const branches =
+		const [branches, published] = await Promise.all([
 			branch != null
-				? await Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, {
+				? Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, {
 						branch: branch.name,
 						commitDate: GitCommit.is(state.reference) ? state.reference.committer.date : undefined,
 				  })
-				: undefined;
+				: undefined,
+			!branch?.remote && branch?.upstream != null ? state.reference.isPushed() : undefined,
+		]);
+
 		const commitOnCurrentBranch = Boolean(branches?.length);
-
 		if (commitOnCurrentBranch) {
-			items.push(QuickPickSeparator.create('Actions'));
-
-			const unpublished = !branch?.remote && branch?.upstream && !(await state.reference.isPushed());
+			unpublished = !published;
 			if (unpublished) {
 				// TODO@eamodio Add Undo commit, if HEAD & unpushed
 
@@ -1592,9 +1591,7 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-		);
 
-		items.push(
 			QuickPickSeparator.create(),
 			new GitCommandQuickPickItem('Create Branch at Commit...', {
 				command: 'branch',
@@ -1612,11 +1609,15 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
+
+			QuickPickSeparator.create('Copy'),
+			new CommitCopyIdQuickPickItem(state.reference),
+			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	}
 
 	items.push(
-		QuickPickSeparator.create('Open Changes'),
+		QuickPickSeparator.create('Open'),
 		new CommitOpenAllChangesCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithWorkingCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithDiffToolCommandQuickPickItem(state.reference),
@@ -1651,6 +1652,14 @@ async function getShowCommitOrStashStepItems<
 		}),
 	);
 
+	items.splice(
+		0,
+		0,
+		new CommitFilesQuickPickItem(state.reference, {
+			unpublished: unpublished,
+			hint: 'Click to see all changed files',
+		}),
+	);
 	return items as CommandQuickPickItem[];
 }
 
@@ -1682,11 +1691,15 @@ export function* showCommitOrStashFilesStep<
 		placeholder: GitReference.toString(state.reference, { capitalize: true, icon: false }),
 		ignoreFocusOut: true,
 		items: [
-			new CommitFilesQuickPickItem(state.reference, state.fileName == null),
+			new CommitFilesQuickPickItem(state.reference, {
+				picked: state.fileName == null,
+				hint: `Click to see ${GitCommit.isStash(state.reference) ? 'stash' : 'commit'} actions`,
+			}),
+			QuickPickSeparator.create('Files'),
 			...(state.reference.files?.map(
 				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
 			) ?? []),
-		],
+		] as (CommitFilesQuickPickItem | CommitFileQuickPickItem)[],
 		matchOnDescription: true,
 		// additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
 		onDidClickItemButton: (quickpick, button, _item) => {
@@ -1750,7 +1763,7 @@ export async function* showCommitOrStashFileStep<
 			}),
 			state,
 			context,
-			`${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName)}`,
+			`${pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName)}`,
 		),
 		placeholder: `${GitUri.getFormattedPath(state.fileName, {
 			relativeTo: state.repo.path,
@@ -1816,35 +1829,37 @@ async function getShowCommitOrStashFileStepItems<
 	const file = await state.reference.findFile(state.fileName);
 	if (file == null) return [];
 
-	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
-		new CommitFilesQuickPickItem(state.reference, undefined, GitUri.getFormattedFileName(state.fileName)),
-	];
+	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [];
 
 	if (GitCommit.isStash(state.reference)) {
 		items.push(
 			QuickPickSeparator.create(),
 			new CommitCopyMessageQuickPickItem(state.reference),
 			QuickPickSeparator.create('Actions'),
+			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
+			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
+			QuickPickSeparator.create(),
+			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				QuickPickSeparator.create(),
+				QuickPickSeparator.create(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Revision,
 					fileName: state.fileName,
 					commit: state.reference,
 				}),
-				new OpenRemoteResourceCommandQuickPickItem(remotes, {
-					type: RemoteResourceType.Commit,
-					sha: state.reference.ref,
-				}),
-				QuickPickSeparator.create(),
 				new CopyRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Revision,
 					fileName: state.fileName,
 					commit: state.reference,
+				}),
+				QuickPickSeparator.create(),
+				new OpenRemoteResourceCommandQuickPickItem(remotes, {
+					type: RemoteResourceType.Commit,
+					sha: state.reference.ref,
 				}),
 				new CopyRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
@@ -1854,20 +1869,17 @@ async function getShowCommitOrStashFileStepItems<
 		}
 
 		items.push(
-			QuickPickSeparator.create(),
+			QuickPickSeparator.create('Actions'),
+			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
+			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
+			QuickPickSeparator.create('Copy'),
 			new CommitCopyIdQuickPickItem(state.reference),
 			new CommitCopyMessageQuickPickItem(state.reference),
-			QuickPickSeparator.create('Actions'),
 		);
 	}
 
 	items.push(
-		new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
-		new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
-	);
-
-	items.push(
-		QuickPickSeparator.create('Open Changes'),
+		QuickPickSeparator.create('Open'),
 		new CommitOpenChangesCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithWorkingCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithDiffToolCommandQuickPickItem(state.reference, state.fileName),
@@ -1899,6 +1911,11 @@ async function getShowCommitOrStashFileStepItems<
 		}),
 	);
 
+	items.splice(
+		0,
+		0,
+		new CommitFilesQuickPickItem(state.reference, { file: file, hint: 'Click to see all changed files' }),
+	);
 	return items as CommandQuickPickItem[];
 }
 
@@ -1937,10 +1954,10 @@ function getShowRepositoryStatusStepItems<
 		workingTreeStatus = 'No working tree changes';
 	} else {
 		workingTreeStatus = `$(files) ${
-			computed.staged ? `${Strings.pluralize('staged file', computed.staged)} (${computed.stagedStatus})` : ''
+			computed.staged ? `${pluralize('staged file', computed.staged)} (${computed.stagedStatus})` : ''
 		}${
 			computed.unstaged
-				? `${computed.staged ? ', ' : ''}${Strings.pluralize('unstaged file', computed.unstaged)} (${
+				? `${computed.staged ? ', ' : ''}${pluralize('unstaged file', computed.unstaged)} (${
 						computed.unstagedStatus
 				  })`
 				: ''
@@ -1981,7 +1998,7 @@ function getShowRepositoryStatusStepItems<
 		if (context.status.state.behind !== 0) {
 			items.push(
 				new GitCommandQuickPickItem(
-					`$(cloud-download) ${Strings.pluralize('commit', context.status.state.behind)} behind`,
+					`$(cloud-download) ${pluralize('commit', context.status.state.behind)} behind`,
 					{
 						command: 'log',
 						state: {
@@ -1999,7 +2016,7 @@ function getShowRepositoryStatusStepItems<
 		if (context.status.state.ahead !== 0) {
 			items.push(
 				new GitCommandQuickPickItem(
-					`$(cloud-upload) ${Strings.pluralize('commit', context.status.state.ahead)} ahead`,
+					`$(cloud-upload) ${pluralize('commit', context.status.state.ahead)} ahead`,
 					{
 						command: 'log',
 						state: {
