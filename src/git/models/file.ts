@@ -2,9 +2,9 @@ import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
-import { normalizePath } from '../../system/path';
+import { formatPath } from '../../system/formatPath';
+import { relativeDir, splitPath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
-import { GitUri } from '../gitUri';
 import { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
@@ -70,7 +70,7 @@ export namespace GitFile {
 		includeOriginal: boolean = false,
 		relativeTo?: string,
 	): string {
-		const directory = GitUri.getDirectory(file.path, relativeTo);
+		const directory = relativeDir(file.path, relativeTo);
 		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalPath
 			? `${directory} ${pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalPath}`
 			: directory;
@@ -80,19 +80,17 @@ export namespace GitFile {
 		file: GitFile,
 		options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {},
 	): string {
-		return GitUri.getFormattedPath(file.path, options);
+		return formatPath(file.path, options);
 	}
 
 	export function getOriginalRelativePath(file: GitFile, relativeTo?: string): string {
 		if (!file.originalPath) return '';
 
-		return relativeTo
-			? Container.instance.git.getRelativePath(file.originalPath, relativeTo)
-			: normalizePath(file.originalPath);
+		return splitPath(file.originalPath, relativeTo)[0];
 	}
 
 	export function getRelativePath(file: GitFile, relativeTo?: string): string {
-		return relativeTo ? Container.instance.git.getRelativePath(file.path, relativeTo) : normalizePath(file.path);
+		return splitPath(file.path, relativeTo)[0];
 	}
 
 	const statusIconsMap = {

@@ -76,8 +76,16 @@ export function commonBaseIndex(s1: string, s2: string, delimiter: string, ignor
 	return index;
 }
 
-export function getBestPath(uri: Uri): string {
-	return normalizePath(uri.scheme === Schemes.File ? uri.fsPath : uri.path);
+export function getBestPath(uri: Uri): string;
+export function getBestPath(pathOrUri: string | Uri): string;
+export function getBestPath(pathOrUri: string | Uri): string {
+	if (typeof pathOrUri === 'string') {
+		if (!hasSchemeRegex.test(pathOrUri)) return normalizePath(pathOrUri);
+
+		pathOrUri = Uri.parse(pathOrUri, true);
+	}
+
+	return normalizePath(pathOrUri.scheme === Schemes.File ? pathOrUri.fsPath : pathOrUri.path);
 }
 
 export function getScheme(path: string): string | undefined {
@@ -188,15 +196,24 @@ export function relative(from: string, to: string, ignoreCase?: boolean): string
 	return index > 0 ? to.substring(index + 1) : to;
 }
 
+export function relativeDir(relativePath: string, relativeTo?: string): string {
+	const dirPath = dirname(relativePath);
+	if (!dirPath || dirPath === '.' || dirPath === relativeTo) return '';
+	if (!relativeTo) return dirPath;
+
+	const [relativeDirPath] = splitPath(dirPath, relativeTo);
+	return relativeDirPath;
+}
+
 export function splitPath(
-	path: string,
+	pathOrUri: string | Uri,
 	repoPath: string | undefined,
 	splitOnBaseIfMissing: boolean = false,
 	ignoreCase?: boolean,
 ): [string, string] {
-	if (repoPath) {
-		path = hasSchemeRegex.test(path) ? Uri.parse(path, true).path : normalizePath(path);
+	pathOrUri = getBestPath(pathOrUri);
 
+	if (repoPath) {
 		let repoUri;
 		if (hasSchemeRegex.test(repoPath)) {
 			repoUri = Uri.parse(repoPath, true);
@@ -205,21 +222,21 @@ export function splitPath(
 			repoPath = normalizePath(repoPath);
 		}
 
-		const index = commonBaseIndex(`${repoPath}/`, `${path}/`, '/', ignoreCase);
+		const index = commonBaseIndex(`${repoPath}/`, `${pathOrUri}/`, '/', ignoreCase);
 		if (index > 0) {
-			repoPath = path.substring(0, index);
-			path = path.substring(index + 1);
-		} else if (path.charCodeAt(0) === slash) {
-			path = path.slice(1);
+			repoPath = pathOrUri.substring(0, index);
+			pathOrUri = pathOrUri.substring(index + 1);
+		} else if (pathOrUri.charCodeAt(0) === slash) {
+			pathOrUri = pathOrUri.slice(1);
 		}
 
 		if (repoUri != null) {
 			repoPath = repoUri.with({ path: repoPath }).toString();
 		}
 	} else {
-		repoPath = normalizePath(splitOnBaseIfMissing ? dirname(path) : '');
-		path = normalizePath(splitOnBaseIfMissing ? basename(path) : path);
+		repoPath = normalizePath(splitOnBaseIfMissing ? dirname(pathOrUri) : '');
+		pathOrUri = splitOnBaseIfMissing ? basename(pathOrUri) : pathOrUri;
 	}
 
-	return [path, repoPath];
+	return [pathOrUri, repoPath];
 }

@@ -1214,7 +1214,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getLogForFile(
 		repoPath: string | Uri | undefined,
-		path: string,
+		pathOrUri: string | Uri,
 		options?: {
 			all?: boolean;
 			force?: boolean;
@@ -1230,8 +1230,8 @@ export class GitProviderService implements Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const { provider, path: rp } = this.getProvider(repoPath);
-		return provider.getLogForFile(rp, path, options);
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getLogForFile(path, pathOrUri, options);
 	}
 
 	@log()
@@ -1608,7 +1608,7 @@ export class GitProviderService implements Disposable {
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const folderPath = dirname(uri.fsPath);
+		const folderPath = dirname(getBestPath(uri));
 		const repository = this.getRepository(uri);
 
 		detectNested = detectNested ?? configuration.get('detectNestedRepositories');
@@ -1713,7 +1713,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getStatusForFiles(repoPath: string | Uri, pathOrGlob: string): Promise<GitStatusFile[] | undefined> {
+	async getStatusForFiles(repoPath: string | Uri, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getStatusForFiles(path, pathOrGlob);
 	}

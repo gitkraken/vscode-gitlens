@@ -3,7 +3,7 @@ import { Commands, DiffWithCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitReference, GitRevisionReference } from '../../git/models';
-import { dirname, joinPaths } from '../../system/path';
+import { joinPaths, relativeDir } from '../../system/path';
 import { View } from '../viewBase';
 import { FileNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
@@ -73,7 +73,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

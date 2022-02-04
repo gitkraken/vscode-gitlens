@@ -3,7 +3,7 @@ import { BuiltInCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitMergeStatus, GitRebaseStatus } from '../../git/models';
-import { dirname } from '../../system/path';
+import { relativeDir } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
@@ -87,7 +87,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

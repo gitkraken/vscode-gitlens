@@ -4,7 +4,7 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import { GitCommit, GitFile } from '../../git/models';
 import { Strings } from '../../system';
-import { dirname, joinPaths } from '../../system/path';
+import { joinPaths, relativeDir } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { FileNode } from './folderNode';
@@ -150,7 +150,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

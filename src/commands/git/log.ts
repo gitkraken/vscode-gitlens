@@ -1,8 +1,8 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
-import { GitUri } from '../../git/gitUri';
 import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
 import { Strings } from '../../system';
+import { formatPath } from '../../system/formatPath';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitCommandsCommand } from '../gitCommands';
 import {
@@ -152,7 +152,8 @@ export class LogGitCommand extends QuickCommand<State> {
 			)}`;
 
 			if (state.fileName) {
-				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName, {
+				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, {
+					fileOnly: true,
 					truncateTo: quickPickTitleMaxChars - context.title.length - 3,
 				})}`;
 			}

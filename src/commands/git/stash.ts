@@ -2,12 +2,12 @@ import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
-import { GitUri } from '../../git/gitUri';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
+import { formatPath } from '../../system/formatPath';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
@@ -505,7 +505,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.uris != null
 					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${
 							state.uris.length === 1
-								? GitUri.getFormattedFileName(state.uris[0])
+								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`
 					  }`
 					: undefined,
@@ -551,7 +551,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: context.title,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFileName(state.uris[0])
+									? formatPath(state.uris[0], { fileOnly: true })
 									: `${state.uris.length} files`
 							}`,
 						}),
@@ -559,7 +559,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: `${context.title} & Keep Staged`,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFileName(state.uris[0])
+									? formatPath(state.uris[0], { fileOnly: true })
 									: `${state.uris.length} files`
 							}, but will keep staged files intact`,
 						}),

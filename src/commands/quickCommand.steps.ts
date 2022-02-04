@@ -3,7 +3,6 @@ import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { PagedResult } from '../git/gitProvider';
-import { GitUri } from '../git/gitUri';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -64,6 +63,7 @@ import {
 	TagQuickPickItem,
 } from '../quickpicks';
 import { filterMap, intersection, isStringArray } from '../system/array';
+import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { pad, pluralize, truncate } from '../system/string';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
@@ -1763,9 +1763,9 @@ export async function* showCommitOrStashFileStep<
 			}),
 			state,
 			context,
-			`${pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFileName(state.fileName)}`,
+			`${pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, { fileOnly: true })}`,
 		),
-		placeholder: `${GitUri.getFormattedPath(state.fileName, {
+		placeholder: `${formatPath(state.fileName, {
 			relativeTo: state.repo.path,
 		})} in ${GitReference.toString(state.reference, {
 			icon: false,

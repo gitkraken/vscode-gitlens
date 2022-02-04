@@ -24,6 +24,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent
 import { once } from '../system/event';
 import { debounce, Deferrable } from '../system/function';
 import { filter, map } from '../system/iterable';
+import { getBestPath } from '../system/path';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -269,7 +270,7 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
-		const key = GitUri.toKey(document.uri);
+		const key = getUriKey(document.uri);
 
 		// Always start out false, so we will fire the event if needed
 		const doc = TrackedDocument.create<T>(
@@ -302,9 +303,9 @@ export class DocumentTracker<T> implements Disposable {
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
 		let key;
 		if (GitUri.is(documentOrUri)) {
-			key = GitUri.toKey(documentOrUri.documentUri());
+			key = getUriKey(documentOrUri.documentUri());
 		} else if (documentOrUri instanceof Uri) {
-			key = GitUri.toKey(documentOrUri);
+			key = getUriKey(documentOrUri);
 		} else {
 			key = documentOrUri;
 		}
@@ -324,7 +325,7 @@ export class DocumentTracker<T> implements Disposable {
 	has(uri: Uri): boolean;
 	has(documentOrUri: TextDocument | Uri): boolean {
 		if (documentOrUri instanceof Uri) {
-			return this._documentMap.has(GitUri.toKey(documentOrUri));
+			return this._documentMap.has(getUriKey(documentOrUri));
 		}
 		return this._documentMap.has(documentOrUri);
 	}
@@ -336,7 +337,7 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		this._documentMap.delete(document);
-		this._documentMap.delete(GitUri.toKey(document.uri));
+		this._documentMap.delete(getUriKey(document.uri));
 
 		(tracked ?? (await promise))?.dispose();
 	}
@@ -464,3 +465,7 @@ class EmptyTextDocument implements TextDocument {
 
 class BinaryTextDocument extends EmptyTextDocument {}
 class MissingRevisionTextDocument extends EmptyTextDocument {}
+
+function getUriKey(pathOrUri: string | Uri): string {
+	return getBestPath(pathOrUri);
+}

@@ -190,7 +190,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				base = Uri.parse(base, true);
 			} else {
 				debugger;
-				throw new Error(`Base path '${base}' must be an uri string`);
+				void window.showErrorMessage(
+					`Unable to get absolute uri between ${
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+					} and ${base}; Base path '${base}' must be a uri`,
+				);
+				throw new Error(`Base path '${base}' must be a uri`);
 			}
 		}
 
@@ -215,7 +220,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				base = Uri.parse(base, true);
 			} else {
 				debugger;
-				throw new Error(`Base path '${base}' must be an uri string`);
+				void window.showErrorMessage(
+					`Unable to get relative path between ${
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+					} and ${base}; Base path '${base}' must be a uri`,
+				);
+				throw new Error(`Base path '${base}' must be a uri`);
 			}
 		}
 
@@ -987,12 +997,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getDiffForFile(
-		_uri: GitUri,
-		_ref1: string | undefined,
-		_ref2?: string,
-		_originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiff | undefined> {
 		return undefined;
 	}
 
@@ -1001,12 +1006,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			1: _contents => '<contents>',
 		},
 	})
-	async getDiffForFileContents(
-		_uri: GitUri,
-		_ref: string,
-		_contents: string,
-		_originalFileName?: string,
-	): Promise<GitDiff | undefined> {
+	async getDiffForFileContents(_uri: GitUri, _ref: string, _contents: string): Promise<GitDiff | undefined> {
 		return undefined;
 	}
 
@@ -1016,7 +1016,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_editorLine: number,
 		_ref1: string | undefined,
 		_ref2?: string,
-		_originalFileName?: string,
 	): Promise<GitDiffHunkLine | undefined> {
 		return undefined;
 	}
@@ -1261,7 +1260,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogForFile(
 		repoPath: string | undefined,
-		path: string,
+		pathOrUri: string | Uri,
 		options?: {
 			all?: boolean;
 			cursor?: string;
@@ -1276,11 +1275,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			skip?: number;
 		},
 	): Promise<GitLog | undefined> {
-		if (repoPath != null && repoPath === normalizePath(path)) {
-			throw new Error(`File name cannot match the repository path; fileName=${path}`);
-		}
+		if (repoPath == null) return undefined;
 
 		const cc = Logger.getCorrelationContext();
+
+		const relativePath = this.getRelativePath(pathOrUri, repoPath);
+
+		if (repoPath != null && repoPath === relativePath) {
+			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
+		}
 
 		options = { reverse: false, ...options };
 
@@ -1329,7 +1332,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			key += `:cursor=${options.cursor}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(path, repoPath!, options.ref));
+		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
 		if (!options.force && options.range == null) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
@@ -1383,7 +1386,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, path, { ...opts, limit: limit }),
+									this.getLogForFile(repoPath, pathOrUri, { ...opts, limit: limit }),
 							};
 
 							return log;
@@ -1399,7 +1402,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, path, doc, key, cc, options);
+		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, cc, options);
 
 		if (doc.state != null && options.range == null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -1442,7 +1445,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, remotehub, session } = context;
 
 			const uri = this.getAbsoluteUri(path, repoPath);
-			const file = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
 			// if (range != null && range.start.line > range.end.line) {
 			// 	range = new Range(range.end, range.start);
@@ -1452,7 +1455,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				cursor: options?.cursor,
-				path: file,
+				path: relativePath,
 				limit: limit,
 			});
 
@@ -1487,10 +1490,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								{ additions: f.additions ?? 0, deletions: f.deletions ?? 0, changes: f.changes ?? 0 },
 							),
 					);
-					const foundFile = isFolderGlob(file)
+					const foundFile = isFolderGlob(relativePath)
 						? undefined
-						: files?.find(f => f.path === file) ??
-						  new GitFileChange(repoPath, file, GitFileIndexStatus.Modified);
+						: files?.find(f => f.path === relativePath) ??
+						  new GitFileChange(repoPath, relativePath, GitFileIndexStatus.Modified);
 
 					c = new GitCommit(
 						this.container,
@@ -1557,7 +1560,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private getLogForFileMoreFn(
 		log: GitLog,
-		fileName: string,
+		relativePath: string,
 		options?: {
 			all?: boolean;
 			limit?: number;
@@ -1579,7 +1582,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			moreLimit = moreLimit ?? this.container.config.advanced.maxSearchItems ?? 0;
 
 			// const ref = Iterables.last(log.commits.values())?.ref;
-			const moreLog = await this.getLogForFile(log.repoPath, fileName, {
+			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
 				cursor: log.cursor,
@@ -1611,7 +1614,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	fileName = renamed?.file?.originalPath ?? fileName;
 			// }
 
-			mergedLog.more = this.getLogForFileMoreFn(mergedLog, fileName, options);
+			mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
 
 			return mergedLog;
 		};
@@ -1854,7 +1857,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForFiles(_repoPath: string, _pathOrGlob: string): Promise<GitStatusFile[] | undefined> {
+	async getStatusForFiles(_repoPath: string, _pathOrGlob: Uri): Promise<GitStatusFile[] | undefined> {
 		return undefined;
 	}
 
@@ -2051,11 +2054,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return ref;
 		}
 
-		let path;
+		let relativePath;
 		if (pathOrUri == null) {
 			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
 		} else {
-			path = normalizePath(this.getRelativePath(pathOrUri, repoPath));
+			relativePath = this.getRelativePath(pathOrUri, repoPath);
 		}
 
 		const context = await this.ensureRepositoryContext(repoPath);
@@ -2068,12 +2071,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			metadata.repo.owner,
 			metadata.repo.name,
 			ref,
-			path,
+			relativePath,
 		);
 
 		if (resolved != null) return resolved;
 
-		return path ? GitRevision.deletedOrMissing : ref;
+		return relativePath ? GitRevision.deletedOrMissing : ref;
 	}
 
 	@log()

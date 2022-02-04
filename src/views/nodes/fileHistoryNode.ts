@@ -1,4 +1,4 @@
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
 import {
@@ -15,7 +15,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
-import { basename, getBestPath, joinPaths } from '../../system/path';
+import { basename } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -248,7 +248,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? joinPaths(getBestPath(this.uri), '*') : getBestPath(this.uri);
+		return this.folder ? Uri.joinPath(this.uri, '*') : this.uri;
 	}
 
 	get hasMore() {

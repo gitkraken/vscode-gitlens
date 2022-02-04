@@ -3,7 +3,7 @@ import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';
-import { dirname, joinPaths } from '../../system/path';
+import { joinPaths, relativeDir } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
@@ -99,7 +99,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

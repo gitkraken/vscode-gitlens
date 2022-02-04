@@ -7,10 +7,13 @@ import { Logger } from '../logger';
 import { GitHubAuthorityMetadata } from '../premium/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
-import { basename, dirname, normalizePath, relative } from '../system/path';
-import { CharCode, truncateLeft, truncateMiddle } from '../system/string';
+import { formatPath } from '../system/formatPath';
+import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
+// import { CharCode } from '../system/string';
 import { RevisionUriData } from './gitProvider';
 import { GitFile, GitRevision } from './models';
+
+const slash = 47; //CharCode.Slash;
 
 export interface GitCommitish {
 	fileName?: string;
@@ -121,7 +124,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		);
 
 		// Check for authority as used in UNC shares or use the path as given
-		if (fsPath.charCodeAt(0) === CharCode.Slash && fsPath.charCodeAt(1) === CharCode.Slash) {
+		if (fsPath.charCodeAt(0) === slash && fsPath.charCodeAt(1) === slash) {
 			const index = fsPath.indexOf('/', 2);
 			if (index === -1) {
 				authority = fsPath.substring(2);
@@ -139,14 +142,14 @@ export class GitUri extends (Uri as any as UriEx) {
 			case 'file':
 				if (!fsPath) {
 					path = '/';
-				} else if (fsPath.charCodeAt(0) !== CharCode.Slash) {
+				} else if (fsPath.charCodeAt(0) !== slash) {
 					path = `/${fsPath}`;
 				} else {
 					path = fsPath;
 				}
 				break;
 			default:
-				path = fsPath.charCodeAt(0) !== CharCode.Slash ? `/${fsPath}` : fsPath;
+				path = fsPath.charCodeAt(0) !== slash ? `/${fsPath}` : fsPath;
 				break;
 		}
 
@@ -165,36 +168,31 @@ export class GitUri extends (Uri as any as UriEx) {
 
 	@memoize()
 	get directory(): string {
-		return GitUri.getDirectory(this.relativeFsPath);
+		return relativeDir(this.relativePath);
 	}
 
 	@memoize()
 	get fileName(): string {
-		return basename(this.relativeFsPath);
+		return basename(this.relativePath);
 	}
 
 	@memoize()
-	get isUncommitted() {
+	get isUncommitted(): boolean {
 		return GitRevision.isUncommitted(this.sha);
 	}
 
 	@memoize()
-	get isUncommittedStaged() {
+	get isUncommittedStaged(): boolean {
 		return GitRevision.isUncommittedStaged(this.sha);
 	}
 
 	@memoize()
-	private get relativeFsPath() {
-		return !this.repoPath ? this.fsPath : relative(this.repoPath, this.fsPath);
+	get relativePath(): string {
+		return splitPath(getBestPath(this.fsPath), this.repoPath)[0];
 	}
 
 	@memoize()
-	get relativePath() {
-		return normalizePath(this.relativeFsPath);
-	}
-
-	@memoize()
-	get shortSha() {
+	get shortSha(): string {
 		return GitRevision.shorten(this.sha);
 	}
 
@@ -217,12 +215,8 @@ export class GitUri extends (Uri as any as UriEx) {
 		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
 	}
 
-	getFormattedFileName(options: { suffix?: string; truncateTo?: number } = {}): string {
-		return GitUri.getFormattedFileName(this.fsPath, options);
-	}
-
-	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
-		return GitUri.getFormattedPath(this.fsPath, { relativeTo: this.repoPath, ...options });
+	getFormattedFileName(options?: { suffix?: string; truncateTo?: number }): string {
+		return formatPath(this.fsPath, { ...options, fileOnly: true });
 	}
 
 	@memoize()
@@ -340,97 +334,6 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		const repository = await Container.instance.git.getOrOpenRepository(uri);
 		return new GitUri(uri, repository?.path);
-	}
-
-	static getDirectory(fileName: string, relativeTo?: string): string {
-		let directory: string | undefined = dirname(fileName);
-		directory = relativeTo
-			? Container.instance.git.getRelativePath(directory, relativeTo)
-			: normalizePath(directory);
-		return directory == null || directory.length === 0 || directory === '.' ? '' : directory;
-	}
-
-	static getFormattedFileName(
-		fileNameOrUri: string | Uri,
-		options?: {
-			suffix?: string;
-			truncateTo?: number;
-		},
-	): string {
-		let fileName: string;
-		if (fileNameOrUri instanceof Uri) {
-			fileName = fileNameOrUri.fsPath;
-		} else {
-			fileName = fileNameOrUri;
-		}
-
-		let file = basename(fileName);
-		if (options?.truncateTo != null && file.length >= options.truncateTo) {
-			return truncateMiddle(file, options.truncateTo);
-		}
-
-		if (options?.suffix) {
-			if (options?.truncateTo != null && file.length + options.suffix.length >= options?.truncateTo) {
-				return `${truncateMiddle(file, options.truncateTo - options.suffix.length)}${options.suffix}`;
-			}
-
-			file += options.suffix;
-		}
-
-		return file;
-	}
-
-	static getFormattedPath(
-		fileNameOrUri: string | Uri,
-		options: {
-			relativeTo?: string;
-			suffix?: string;
-			truncateTo?: number;
-		},
-	): string {
-		const { relativeTo, suffix, truncateTo } = options;
-
-		let fileName: string;
-		if (fileNameOrUri instanceof Uri) {
-			fileName = fileNameOrUri.fsPath;
-		} else {
-			fileName = fileNameOrUri;
-		}
-
-		let file = basename(fileName);
-		if (truncateTo != null && file.length >= truncateTo) {
-			return truncateMiddle(file, truncateTo);
-		}
-
-		if (suffix) {
-			if (truncateTo != null && file.length + suffix.length >= truncateTo) {
-				return `${truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
-			}
-
-			file += suffix;
-		}
-
-		const directory = GitUri.getDirectory(fileName, relativeTo);
-		if (!directory) return file;
-
-		file = `/${file}`;
-
-		if (truncateTo != null && file.length + directory.length >= truncateTo) {
-			return `${truncateLeft(directory, truncateTo - file.length)}${file}`;
-		}
-
-		return `${directory}${file}`;
-	}
-
-	static toKey(fileName: string): string;
-	static toKey(uri: Uri): string;
-	static toKey(fileNameOrUri: string | Uri): string;
-	static toKey(fileNameOrUri: string | Uri): string {
-		return normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath);
-
-		// return typeof fileNameOrUri === 'string'
-		//     ? GitUri.file(fileNameOrUri).toString(true)
-		//     : fileNameOrUri.toString(true);
 	}
 }
 

@@ -16,7 +16,6 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { filterMap } from '../../system/iterable';
-import { getBestPath } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { LoadMoreNode, MessageNode } from './common';
@@ -251,7 +250,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, getBestPath(this.uri), {
+			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,

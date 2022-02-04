@@ -1028,10 +1028,10 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
 	}
 
-	async ls_tree(repoPath: string, ref: string, { fileName }: { fileName?: string } = {}) {
+	async ls_tree(repoPath: string, ref: string, path?: string) {
 		const params = ['ls-tree'];
-		if (fileName) {
-			params.push('-l', ref, '--', fileName);
+		if (path) {
+			params.push('-l', ref, '--', path);
 		} else {
 			params.push('-lrt', ref, '--');
 		}

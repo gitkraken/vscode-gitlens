@@ -269,7 +269,7 @@ export interface GitProvider extends Disposable {
 	): Promise<GitLog | undefined>;
 	getLogForFile(
 		repoPath: string,
-		path: string,
+		pathOrUri: string | Uri,
 		options?: {
 			all?: boolean | undefined;
 			cursor?: string | undefined;
@@ -338,7 +338,7 @@ export interface GitProvider extends Disposable {
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
-	getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined>;
+	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
 	getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getTags(
 		repoPath: string | undefined,
