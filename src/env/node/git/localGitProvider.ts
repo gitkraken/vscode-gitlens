@@ -2661,38 +2661,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If we have no ref (or staged ref) there is no next commit
 		if (ref == null || ref.length === 0) return undefined;
 
-		const fileName = GitUri.relativeTo(uri, repoPath);
+		const path = this.getRelativePath(uri, repoPath);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			return {
-				current: GitUri.fromFile(fileName, repoPath, ref),
-				next: GitUri.fromFile(fileName, repoPath, undefined),
+				current: GitUri.fromFile(path, repoPath, ref),
+				next: GitUri.fromFile(path, repoPath, undefined),
 			};
 		}
 
 		const next = await this.getNextUri(repoPath, uri, ref, skip);
 		if (next == null) {
-			const status = await this.getStatusForFile(repoPath, fileName);
+			const status = await this.getStatusForFile(repoPath, uri);
 			if (status != null) {
 				// If the file is staged, diff with the staged version
 				if (status.indexStatus != null) {
 					return {
-						current: GitUri.fromFile(fileName, repoPath, ref),
-						next: GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged),
+						current: GitUri.fromFile(path, repoPath, ref),
+						next: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
 					};
 				}
 			}
 
 			return {
-				current: GitUri.fromFile(fileName, repoPath, ref),
-				next: GitUri.fromFile(fileName, repoPath, undefined),
+				current: GitUri.fromFile(path, repoPath, ref),
+				next: GitUri.fromFile(path, repoPath, undefined),
 			};
 		}
 
 		return {
 			current:
 				skip === 0
-					? GitUri.fromFile(fileName, repoPath, ref)
+					? GitUri.fromFile(path, repoPath, ref)
 					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
 			next: next,
 		};
@@ -2769,7 +2769,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
 		if (!ref) {
 			// First, check the file status to see if there is anything staged
-			const status = await this.getStatusForFile(repoPath, path);
+			const status = await this.getStatusForFile(repoPath, uri);
 			if (status != null) {
 				// If the file is staged with working changes, diff working with staged (index)
 				// If the file is staged without working changes, diff staged with HEAD
@@ -2861,7 +2861,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// If the document is dirty (unsaved), use the status to determine where to go
 				if (document.isDirty) {
 					// Check the file status to see if there is anything staged
-					const status = await this.getStatusForFile(repoPath, path);
+					const status = await this.getStatusForFile(repoPath, uri);
 					if (status != null) {
 						// If the file is staged, diff working with staged (index)
 						// If the file is not staged, diff working with HEAD
@@ -2985,7 +2985,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If the line count is invalid just fallback to the most recent commit
 			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
 				if (ref == null) {
-					const status = await this.getStatusForFile(repoPath, path);
+					const status = await this.getStatusForFile(repoPath, uri);
 					if (status?.indexStatus != null) {
 						return GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged);
 					}
@@ -3123,15 +3123,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForFile(repoPath: string, path: string): Promise<GitStatusFile | undefined> {
+	async getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined> {
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
 
-		[path, repoPath] = splitPath(path, repoPath);
+		const [relativePath, root] = splitPath(getBestPath(uri), repoPath);
 
-		const data = await this.git.status__file(repoPath, path, porcelainVersion, {
+		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
 		});
-		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+		const status = GitStatusParser.parse(data, root, porcelainVersion);
 		if (status == null || !status.files.length) return undefined;
 
 		return status.files[0];
@@ -3141,12 +3141,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined> {
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
 
-		[pathOrGlob, repoPath] = splitPath(pathOrGlob, repoPath);
+		const [relativePath, root] = splitPath(pathOrGlob, repoPath);
 
-		const data = await this.git.status__file(repoPath, pathOrGlob, porcelainVersion, {
+		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
 			similarityThreshold: this.container.config.advanced.similarityThreshold,
 		});
-		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+		const status = GitStatusParser.parse(data, root, porcelainVersion);
 		if (status == null || !status.files.length) return [];
 
 		return status.files;

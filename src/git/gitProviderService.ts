@@ -1707,9 +1707,9 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getStatusForFile(repoPath: string | Uri, fileName: string): Promise<GitStatusFile | undefined> {
+	async getStatusForFile(repoPath: string | Uri, uri: Uri): Promise<GitStatusFile | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getStatusForFile(path, fileName);
+		return provider.getStatusForFile(path, uri);
 	}
 
 	@log()

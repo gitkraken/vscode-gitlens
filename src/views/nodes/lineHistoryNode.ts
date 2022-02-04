@@ -102,7 +102,7 @@ export class LineHistoryNode
 					selection.active.character,
 				);
 
-				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri);
 
 				if (status != null) {
 					const file: GitFile = {

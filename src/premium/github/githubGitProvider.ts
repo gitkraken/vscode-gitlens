@@ -1757,7 +1757,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForFile(_repoPath: string, _path: string): Promise<GitStatusFile | undefined> {
+	async getStatusForFile(_repoPath: string, _uri: Uri): Promise<GitStatusFile | undefined> {
 		return undefined;
 	}
 

@@ -133,7 +133,7 @@ export class ExternalDiffCommand extends Command {
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await this.container.git.getStatusForFile(repoPath, uri.fsPath);
+				const status = await this.container.git.getStatusForFile(repoPath, uri);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 

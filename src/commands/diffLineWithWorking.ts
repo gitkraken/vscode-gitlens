@@ -52,7 +52,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit (or index if the file is staged)
 				if (args.commit.isUncommitted) {
-					const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+					const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
 					if (status?.indexStatus != null) {
 						lhsSha = GitRevision.uncommittedStaged;
 						lhsUri = this.container.git.getAbsoluteUri(
