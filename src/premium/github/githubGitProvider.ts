@@ -1254,6 +1254,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_search: SearchPattern,
 		_options?: { limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitLog | undefined> {
+		// TODO@eamodio try implementing with the commit search api
 		return undefined;
 	}
 
@@ -1640,23 +1641,71 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getNextDiffUris(
-		_repoPath: string,
-		_uri: Uri,
-		_ref: string | undefined,
-		_skip: number = 0,
+		repoPath: string,
+		uri: Uri,
+		ref: string | undefined,
+		skip: number = 0,
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
-		return undefined;
+		// If we have no ref (or staged ref) there is no next commit
+		if (!ref) return undefined;
+
+		const relativePath = this.getRelativePath(uri, repoPath);
+
+		return {
+			current:
+				skip === 0
+					? GitUri.fromFile(relativePath, repoPath, ref)
+					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
+			next: await this.getNextUri(repoPath, uri, ref, skip),
+		};
 	}
 
 	@log()
 	async getNextUri(
 		_repoPath: string,
 		_uri: Uri,
-		_ref?: string,
+		ref?: string,
 		_skip: number = 0,
 		// editorLine?: number
 	): Promise<GitUri | undefined> {
+		// If we have no ref (or staged ref) there is no next commit
+		if (!ref || GitRevision.isUncommittedStaged(ref)) return undefined;
 		return undefined;
+
+		// const cc = Logger.getCorrelationContext();
+
+		// // const relativePath = this.getRelativePath(uri, repoPath);
+
+		// try {
+		// 	const context = await this.ensureRepositoryContext(repoPath);
+		// 	if (context == null) return undefined;
+		// 	const { metadata, github, remotehub, session } = context;
+
+		// 	const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+
+		// 	const refs = await github.getCommitRefs(
+		// 		session.accessToken,
+		// 		metadata.repo.owner,
+		// 		metadata.repo.name,
+		// 		ref ?? 'HEAD',
+		// 		{
+		// 			path: relativePath,
+		// 			limit: skip + 2,
+		// 			before: `${ref} 0`,
+		// 		},
+		// 	);
+
+		// 	const nextRef = refs[skip];
+		// 	if (nextRef == null) return undefined;
+
+		// 	const next = await this.getBestRevisionUri(repoPath, relativePath, nextRef);
+		// 	return new GitUri(next);
+		// } catch (ex) {
+		// 	Logger.error(ex, cc);
+		// 	debugger;
+
+		// 	throw ex;
+		// }
 	}
 
 	@log()
@@ -1664,17 +1713,24 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
-		_skip: number = 0,
+		skip: number = 0,
 		firstParent: boolean = false,
 	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const path = this.getRelativePath(uri, repoPath);
+		const relativePath = this.getRelativePath(uri, repoPath);
+
+		// If we are at a commit, diff commit with previous
+		const current =
+			skip === 0
+				? GitUri.fromFile(relativePath, repoPath, ref)
+				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
+		if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
+
 		return {
-			current: GitUri.fromFile(path, repoPath, undefined),
-			previous: await this.getPreviousUri(repoPath, uri, ref, 0, undefined, firstParent),
+			current: current,
+			previous: await this.getPreviousUri(repoPath, uri, ref, skip, undefined, firstParent),
 		};
-		// return undefined;
 	}
 
 	@log()
@@ -1693,14 +1749,50 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		uri: Uri,
 		ref?: string,
-		_skip: number = 0,
+		skip: number = 0,
 		_editorLine?: number,
 		_firstParent: boolean = false,
 	): Promise<GitUri | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const commit = await this.getCommitForFile(repoPath, uri, { ref: `${ref ?? 'HEAD'}^` });
-		return commit?.getGitUri();
+		const cc = Logger.getCorrelationContext();
+
+		if (ref === GitRevision.uncommitted) {
+			ref = undefined;
+		}
+
+		try {
+			const context = await this.ensureRepositoryContext(repoPath);
+			if (context == null) return undefined;
+			const { metadata, github, remotehub, session } = context;
+
+			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+
+			const offset = ref != null ? 1 : 0;
+
+			const refs = await github.getCommitRefs(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref ?? 'HEAD',
+				{
+					path: relativePath,
+					limit: offset + skip + 1,
+				},
+			);
+
+			const previous = await this.getBestRevisionUri(
+				repoPath,
+				relativePath,
+				refs[offset + skip] ?? GitRevision.deletedOrMissing,
+			);
+			return new GitUri(previous);
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+
+			throw ex;
+		}
 	}
 
 	@log()

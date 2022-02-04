@@ -2659,14 +2659,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		skip: number = 0,
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
-		if (ref == null || ref.length === 0) return undefined;
+		if (!ref) return undefined;
 
-		const path = this.getRelativePath(uri, repoPath);
+		const relativePath = this.getRelativePath(uri, repoPath);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			return {
-				current: GitUri.fromFile(path, repoPath, ref),
-				next: GitUri.fromFile(path, repoPath, undefined),
+				current: GitUri.fromFile(relativePath, repoPath, ref),
+				next: GitUri.fromFile(relativePath, repoPath, undefined),
 			};
 		}
 
@@ -2677,22 +2677,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// If the file is staged, diff with the staged version
 				if (status.indexStatus != null) {
 					return {
-						current: GitUri.fromFile(path, repoPath, ref),
-						next: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
+						current: GitUri.fromFile(relativePath, repoPath, ref),
+						next: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
 					};
 				}
 			}
 
 			return {
-				current: GitUri.fromFile(path, repoPath, ref),
-				next: GitUri.fromFile(path, repoPath, undefined),
+				current: GitUri.fromFile(relativePath, repoPath, ref),
+				next: GitUri.fromFile(relativePath, repoPath, undefined),
 			};
 		}
 
 		return {
 			current:
 				skip === 0
-					? GitUri.fromFile(path, repoPath, ref)
+					? GitUri.fromFile(relativePath, repoPath, ref)
 					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
 			next: next,
 		};
@@ -2707,7 +2707,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// editorLine?: number
 	): Promise<GitUri | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
-		if (ref == null || ref.length === 0 || GitRevision.isUncommittedStaged(ref)) return undefined;
+		if (!ref || GitRevision.isUncommittedStaged(ref)) return undefined;
 
 		let filters: GitDiffFilter[] | undefined;
 		if (ref === GitRevision.deletedOrMissing) {
@@ -2764,7 +2764,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const path = this.getRelativePath(uri, repoPath);
+		const relativePath = this.getRelativePath(uri, repoPath);
 
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
 		if (!ref) {
@@ -2782,20 +2782,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					if (skip === 0) {
 						// Diff working with staged
 						return {
-							current: GitUri.fromFile(path, repoPath, undefined),
-							previous: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
+							current: GitUri.fromFile(relativePath, repoPath, undefined),
+							previous: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
 						};
 					}
 
 					return {
 						// Diff staged with HEAD (or prior if more skips)
-						current: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
+						current: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
 						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent),
 					};
 				} else if (status.workingTreeStatus != null) {
 					if (skip === 0) {
 						return {
-							current: GitUri.fromFile(path, repoPath, undefined),
+							current: GitUri.fromFile(relativePath, repoPath, undefined),
 							previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent),
 						};
 					}
@@ -2808,7 +2808,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		else if (GitRevision.isUncommittedStaged(ref)) {
 			const current =
 				skip === 0
-					? GitUri.fromFile(path, repoPath, ref)
+					? GitUri.fromFile(relativePath, repoPath, ref)
 					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, undefined, firstParent))!;
 			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2821,7 +2821,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If we are at a commit, diff commit with previous
 		const current =
 			skip === 0
-				? GitUri.fromFile(path, repoPath, ref)
+				? GitUri.fromFile(relativePath, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
 		if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2841,7 +2841,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		let path = this.getRelativePath(uri, repoPath);
+		let relativePath = this.getRelativePath(uri, repoPath);
 
 		let previous;
 
@@ -2868,8 +2868,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (status.indexStatus != null) {
 							// Diff working with staged
 							return {
-								current: GitUri.fromFile(path, repoPath, undefined),
-								previous: GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged),
+								current: GitUri.fromFile(relativePath, repoPath, undefined),
+								previous: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
 								line: editorLine,
 							};
 						}
@@ -2877,7 +2877,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					// Diff working with HEAD (or prior if more skips)
 					return {
-						current: GitUri.fromFile(path, repoPath, undefined),
+						current: GitUri.fromFile(relativePath, repoPath, undefined),
 						previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
 						line: editorLine,
 					};
@@ -2899,19 +2899,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// If line is committed, diff with line ref with previous
 			else {
 				ref = blameLine.commit.sha;
-				path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
-				uri = this.getAbsoluteUri(path, repoPath);
+				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+				uri = this.getAbsoluteUri(relativePath, repoPath);
 				editorLine = blameLine.line.from.line - 1;
 
 				if (skip === 0 && blameLine.commit.file?.previousSha) {
-					previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);
+					previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
 				}
 			}
 		} else {
 			if (GitRevision.isUncommittedStaged(ref)) {
 				const current =
 					skip === 0
-						? GitUri.fromFile(path, repoPath, ref)
+						? GitUri.fromFile(relativePath, repoPath, ref)
 						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
 				if (current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2928,18 +2928,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Diff with line ref with previous
 			ref = blameLine.commit.sha;
-			path = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? path;
-			uri = this.getAbsoluteUri(path, repoPath);
+			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+			uri = this.getAbsoluteUri(relativePath, repoPath);
 			editorLine = blameLine.line.from.line - 1;
 
 			if (skip === 0 && blameLine.commit.file?.previousSha) {
-				previous = GitUri.fromFile(path, repoPath, blameLine.commit.file.previousSha);
+				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
 			}
 		}
 
 		const current =
 			skip === 0
-				? GitUri.fromFile(path, repoPath, ref)
+				? GitUri.fromFile(relativePath, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
 		if (current.sha === GitRevision.deletedOrMissing) return undefined;
 
@@ -2967,12 +2967,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref = undefined;
 		}
 
-		const path = this.getRelativePath(uri, repoPath);
+		const relativePath = this.getRelativePath(uri, repoPath);
 
 		// TODO: Add caching
 		let data;
 		try {
-			data = await this.git.log__file(repoPath, path, ref, {
+			data = await this.git.log__file(repoPath, relativePath, ref, {
 				argsOrFormat: GitLogParser.simpleFormat,
 				fileMode: 'simple',
 				firstParent: firstParent,
@@ -2987,14 +2987,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (ref == null) {
 					const status = await this.getStatusForFile(repoPath, uri);
 					if (status?.indexStatus != null) {
-						return GitUri.fromFile(path, repoPath, GitRevision.uncommittedStaged);
+						return GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged);
 					}
 				}
 
-				ref = await this.git.log__file_recent(repoPath, path, {
+				ref = await this.git.log__file_recent(repoPath, relativePath, {
 					ordering: this.container.config.advanced.commitOrdering,
 				});
-				return GitUri.fromFile(path, repoPath, ref ?? GitRevision.deletedOrMissing);
+				return GitUri.fromFile(relativePath, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
 			Logger.error(ex, cc);
@@ -3006,7 +3006,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If the previous ref matches the ref we asked for assume we are at the end of the history
 		if (ref != null && ref === previousRef) return undefined;
 
-		return GitUri.fromFile(file ?? path, repoPath, previousRef ?? GitRevision.deletedOrMissing);
+		return GitUri.fromFile(file ?? relativePath, repoPath, previousRef ?? GitRevision.deletedOrMissing);
 	}
 
 	@log()

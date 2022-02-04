@@ -2,6 +2,7 @@ import { Octokit } from '@octokit/core';
 import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
+import { window } from 'vscode';
 import { fetch } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import {
@@ -14,6 +15,7 @@ import { PagedResult } from '../../git/gitProvider';
 import {
 	type DefaultBranch,
 	GitFileIndexStatus,
+	GitRevision,
 	type GitUser,
 	type IssueOrPullRequest,
 	type IssueOrPullRequestType,
@@ -700,6 +702,9 @@ export class GitHubApi {
 		ref: string,
 		path: string,
 	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
+		if (GitRevision.isSha(ref)) return this.getCommit(token, owner, repo, ref);
+
+		// TODO: optimize this -- only need to get the sha for the ref
 		const results = await this.getCommits(token, owner, repo, ref, { limit: 1, path: path });
 		if (results.values.length === 0) return undefined;
 
@@ -1079,6 +1084,83 @@ export class GitHubApi {
 		}
 	}
 
+	@debug<GitHubApi['getCommitRefs']>({ args: { 0: '<token>' } })
+	async getCommitRefs(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		options?: {
+			after?: string;
+			before?: string;
+			limit?: number;
+			path?: string;
+			since?: Date;
+			until?: Date;
+		},
+	): Promise<string[]> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository:
+				| {
+						object:
+							| {
+									history: {
+										nodes: { oid: string }[];
+									};
+							  }
+							| null
+							| undefined;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getCommitRefs(
+	$owner: String!
+	$repo: String!
+	$ref: String!
+	$after: String
+	$before: String
+	$limit: Int = 1
+	$path: String
+	$since: GitTimestamp
+	$until: GitTimestamp
+) {
+	repository(name: $repo, owner: $owner) {
+		object(expression: $ref) {
+			... on Commit {
+				history(first: $limit, path: $path, since: $since, until: $until, after: $after, before: $before) {
+					nodes { oid }
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+				path: options?.path,
+				limit: Math.max(1, options?.limit ?? 1),
+				after: options?.after,
+				before: options?.before,
+				since: options?.since?.toISOString(),
+				until: options?.until?.toISOString(),
+			});
+			const history = rsp?.repository?.object?.history;
+			if (history == null) return [];
+
+			return history.nodes.map(n => n.oid);
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError<string[]>(ex, cc, []);
+		}
+	}
+
 	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
 	async getContributors(token: string, owner: string, repo: string): Promise<GitHubContributor[]> {
 		const cc = Logger.getCorrelationContext();
@@ -1410,6 +1492,7 @@ export class GitHubApi {
 				}
 			}
 
+			void window.showErrorMessage(`Unable to complete GitHub request: ${ex.message}`);
 			throw ex;
 		}
 	}
@@ -1444,6 +1527,7 @@ export class GitHubApi {
 				}
 			}
 
+			void window.showErrorMessage(`Unable to complete GitHub request: ${ex.message}`);
 			throw ex;
 		}
 	}
