@@ -451,14 +451,10 @@ export class GitLogParser {
 								if (match !== null) {
 									entry.line = {
 										sha: entry.sha!,
-										from: {
-											line: parseInt(match[1], 10),
-											count: parseInt(match[2], 10),
-										},
-										to: {
-											line: parseInt(match[3], 10),
-											count: parseInt(match[4], 10),
-										},
+										originalLine: parseInt(match[1], 10),
+										// count: parseInt(match[2], 10),
+										line: parseInt(match[3], 10),
+										// count: parseInt(match[4], 10),
 									};
 								}
 

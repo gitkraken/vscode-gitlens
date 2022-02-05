@@ -65,9 +65,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 
 				try {
 					const gitUri = await GitUri.fromUri(uri);
-					const blame = editor?.document.isDirty
-						? await this.container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-						: await this.container.git.getBlameForLine(gitUri, blameline);
+					const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 					if (blame == null) return;
 
 					args.sha = blame.commit.sha;

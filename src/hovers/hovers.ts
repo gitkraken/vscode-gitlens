@@ -43,7 +43,7 @@ export namespace Hovers {
 			}
 
 			const line = editorLine + 1;
-			const commitLine = commit.lines.find(l => l.to.line === line) ?? commit.lines[0];
+			const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 			let originalPath = commit.file.originalPath;
 			if (originalPath == null) {
@@ -52,7 +52,7 @@ export namespace Hovers {
 				}
 			}
 
-			editorLine = commitLine.to.line - 1;
+			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
 			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, ref2);
 

@@ -36,7 +36,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		let commit: GitCommit | undefined;
 		for (const l of blame.lines) {
 			// editor lines are 0-based
-			const editorLine = l.to.line - 1;
+			const editorLine = l.line - 1;
 
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;

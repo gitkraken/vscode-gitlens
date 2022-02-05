@@ -154,14 +154,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			if (token.isCancellationRequested) return lenses;
 
 			if (languageScope.scopes.length === 1 && languageScope.scopes.includes(CodeLensScopes.Document)) {
-				blame = document.isDirty
-					? await this.container.git.getBlameForFileContents(gitUri, document.getText())
-					: await this.container.git.getBlameForFile(gitUri);
+				blame = await this.container.git.getBlame(gitUri, document);
 			} else {
 				[blame, symbols] = await Promise.all([
-					document.isDirty
-						? this.container.git.getBlameForFileContents(gitUri, document.getText())
-						: this.container.git.getBlameForFile(gitUri),
+					this.container.git.getBlame(gitUri, document),
 					commands.executeCommand<SymbolInformation[]>(
 						BuiltInCommands.ExecuteDocumentSymbolProvider,
 						document.uri,
@@ -169,7 +165,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				]);
 			}
 
-			if (blame === undefined || blame.lines.length === 0) return lenses;
+			if (blame == null || blame?.lines.length === 0) return lenses;
 		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
 			symbols = await commands.executeCommand<SymbolInformation[]>(
 				BuiltInCommands.ExecuteDocumentSymbolProvider,

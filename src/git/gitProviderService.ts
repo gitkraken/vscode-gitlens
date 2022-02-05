@@ -6,6 +6,7 @@ import {
 	EventEmitter,
 	ProgressLocation,
 	Range,
+	TextDocument,
 	TextEditor,
 	Uri,
 	window,
@@ -849,21 +850,22 @@ export class GitProviderService implements Disposable {
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 */
-	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
+	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getBlameForFile(uri);
+		return provider.getBlame(uri, document);
 	}
 
-	@log<GitProviderService['getBlameForFileContents']>({ args: { 1: '<contents>' } })
+	@log<GitProviderService['getBlameContents']>({ args: { 1: '<contents>' } })
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
 	 * @param contents Contents from the editor to use
 	 */
-	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
+	async getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getBlameForFileContents(uri, contents);
+		return provider.getBlameContents(uri, contents);
 	}
 
 	@log()
@@ -871,15 +873,17 @@ export class GitProviderService implements Disposable {
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
 	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
+		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
 		const { provider } = this.getProvider(uri);
-		return provider.getBlameForLine(uri, editorLine, options);
+		return provider.getBlameForLine(uri, editorLine, document, options);
 	}
 
 	@log<GitProviderService['getBlameForLineContents']>({ args: { 2: '<contents>' } })

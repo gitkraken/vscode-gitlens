@@ -21,9 +21,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	) {
 		super(annotationType, editor, trackedDocument);
 
-		this.blame = editor.document.isDirty
-			? this.container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
-			: this.container.git.getBlameForFile(this.trackedDocument.uri);
+		this.blame = this.container.git.getBlame(this.trackedDocument.uri, editor.document);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -174,8 +172,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	private async getDetailsHoverMessage(commit: GitCommit, document: TextDocument) {
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.to.line === line) ?? commit.lines[0];
-		editorLine = commitLine.from.line - 1;
+		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
+		editorLine = commitLine.originalLine - 1;
 
 		return Hovers.detailsMessage(
 			commit,

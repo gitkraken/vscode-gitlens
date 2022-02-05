@@ -73,13 +73,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 					if (blameline < 0) return;
 
 					try {
-						const blame = editor?.document.isDirty
-							? await this.container.git.getBlameForLineContents(
-									gitUri,
-									blameline,
-									editor.document.getText(),
-							  )
-							: await this.container.git.getBlameForLine(gitUri, blameline);
+						const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 						if (blame == null || blame.commit.isUncommitted) return;
 
 						void (await GitActions.Commit.copyMessageToClipboard(blame.commit));

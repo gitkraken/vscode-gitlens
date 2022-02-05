@@ -39,9 +39,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			if (blameline < 0) return;
 
 			try {
-				const blame = editor?.document.isDirty
-					? await this.container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await this.container.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
@@ -68,7 +66,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 					lhsUri = args.commit.file!.uri;
 				}
 				// editor lines are 0-based
-				args.line = blame.line.to.line - 1;
+				args.line = blame.line.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
 				void Messages.showGenericErrorMessage('Unable to open compare');

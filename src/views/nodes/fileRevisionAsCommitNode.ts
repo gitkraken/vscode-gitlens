@@ -140,7 +140,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	override getCommand(): Command | undefined {
 		let line;
 		if (this.commit.lines.length) {
-			line = this.commit.lines[0].to.line - 1;
+			line = this.commit.lines[0].line - 1;
 		} else {
 			line = this._options.selection?.active.line ?? 0;
 		}

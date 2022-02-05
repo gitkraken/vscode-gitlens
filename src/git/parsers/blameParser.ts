@@ -254,12 +254,12 @@ export class GitBlameParser {
 			const line: GitCommitLine = {
 				sha: entry.sha,
 				previousSha: commit.file!.previousSha,
-				from: { line: entry.originalLine + i, count: 1 },
-				to: { line: entry.line + i, count: 1 },
+				originalLine: entry.originalLine + i,
+				line: entry.line + i,
 			};
 
 			commit.lines.push(line);
-			lines[line.to.line - 1] = line;
+			lines[line.line - 1] = line;
 		}
 	}
 }

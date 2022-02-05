@@ -89,7 +89,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		for (const l of blame.lines) {
 			// editor lines are 0-based
-			const editorLine = l.to.line - 1;
+			const editorLine = l.line - 1;
 
 			if (previousSha === l.sha) {
 				if (gutter == null) continue;
@@ -202,9 +202,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
 			l.sha === sha
 				? // editor lines are 0-based
-				  this.editor.document.validateRange(
-						new Range(l.to.line - 1, 0, l.to.line - 1, Number.MAX_SAFE_INTEGER),
-				  )
+				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
 				: undefined,
 		);
 

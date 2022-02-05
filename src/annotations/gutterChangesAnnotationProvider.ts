@@ -166,12 +166,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		// If we want to only show changes from the specified sha, get the blame so we can compare with "visible" shas
 		const blame =
 			context?.sha != null && context?.only
-				? this.editor?.document.isDirty
-					? await this.container.git.getBlameForFileContents(
-							this.trackedDocument.uri,
-							this.editor.document.getText(),
-					  )
-					: await this.container.git.getBlameForFile(this.trackedDocument.uri)
+				? await this.container.git.getBlame(this.trackedDocument.uri, this.editor?.document)
 				: undefined;
 
 		let selection: Selection | undefined;

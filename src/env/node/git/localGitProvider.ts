@@ -9,6 +9,7 @@ import {
 	extensions,
 	FileType,
 	Range,
+	TextDocument,
 	Uri,
 	window,
 	workspace,
@@ -905,8 +906,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@gate()
 	@log()
-	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
+	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
+
+		if (document?.isDirty) return this.getBlameContents(uri, document.getText());
 
 		let key = 'blame';
 		if (uri.sha != null) {
@@ -930,7 +933,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getBlameForFileCore(uri, doc, key, cc);
+		const promise = this.getBlameCore(uri, doc, key, cc);
 
 		if (doc.state != null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -944,7 +947,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return promise;
 	}
 
-	private async getBlameForFileCore(
+	private async getBlameCore(
 		uri: GitUri,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
@@ -986,8 +989,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log<LocalGitProvider['getBlameForFileContents']>({ args: { 1: '<contents>' } })
-	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
+	@log<LocalGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
+	async getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		const key = `blame:${md5(contents)}`;
@@ -1009,7 +1012,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getBlameForFileContentsCore(uri, contents, doc, key, cc);
+		const promise = this.getBlameContentsCore(uri, contents, doc, key, cc);
 
 		if (doc.state != null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -1023,7 +1026,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return promise;
 	}
 
-	private async getBlameForFileContentsCore(
+	private async getBlameContentsCore(
 		uri: GitUri,
 		contents: string,
 		document: TrackedDocument<GitDocumentState>,
@@ -1071,10 +1074,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
+		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
+		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+
 		if (!options?.forceSingleLine && this.useCaching) {
-			const blame = await this.getBlameForFile(uri);
+			const blame = await this.getBlame(uri);
 			if (blame == null) return undefined;
 
 			let blameLine = blame.lines[editorLine];
@@ -1125,7 +1131,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
 		if (!options?.forceSingleLine && this.useCaching) {
-			const blame = await this.getBlameForFileContents(uri, contents);
+			const blame = await this.getBlameContents(uri, contents);
 			if (blame == null) return undefined;
 
 			let blameLine = blame.lines[editorLine];
@@ -1170,7 +1176,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
-		const blame = await this.getBlameForFile(uri);
+		const blame = await this.getBlame(uri);
 		if (blame == null) return undefined;
 
 		return this.getBlameRange(blame, uri, range);
@@ -1178,7 +1184,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log<LocalGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
-		const blame = await this.getBlameForFileContents(uri, contents);
+		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
 
 		return this.getBlameRange(blame, uri, range);
@@ -1205,7 +1211,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (!shas.has(c.sha)) continue;
 
 			const commit = c.with({
-				lines: c.lines.filter(l => l.to.line >= startLine && l.to.line <= endLine),
+				lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine),
 			});
 			commits.set(c.sha, commit);
 
@@ -2915,7 +2921,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ref = blameLine.commit.sha;
 				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
 				uri = this.getAbsoluteUri(relativePath, repoPath);
-				editorLine = blameLine.line.from.line - 1;
+				editorLine = blameLine.line.originalLine - 1;
 
 				if (skip === 0 && blameLine.commit.file?.previousSha) {
 					previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
@@ -2944,7 +2950,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref = blameLine.commit.sha;
 			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
 			uri = this.getAbsoluteUri(relativePath, repoPath);
-			editorLine = blameLine.line.from.line - 1;
+			editorLine = blameLine.line.originalLine - 1;
 
 			if (skip === 0 && blameLine.commit.file?.previousSha) {
 				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);

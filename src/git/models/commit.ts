@@ -494,14 +494,8 @@ export class GitCommitIdentity {
 export interface GitCommitLine {
 	sha: string;
 	previousSha?: string | undefined;
-	from: {
-		line: number;
-		count: number;
-	};
-	to: {
-		line: number;
-		count: number;
-	};
+	originalLine: number;
+	line: number;
 }
 
 export interface GitCommitStats {

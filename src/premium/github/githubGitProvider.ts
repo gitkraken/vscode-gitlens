@@ -7,6 +7,7 @@ import {
 	EventEmitter,
 	FileType,
 	Range,
+	TextDocument,
 	Uri,
 	window,
 	workspace,
@@ -344,8 +345,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@gate()
 	@log()
-	async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
+	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
+
+		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
+		if (document?.isDirty) return this.getBlameContents(uri, document.getText());
 
 		let key = 'blame';
 		if (uri.sha != null) {
@@ -367,7 +371,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			doc.state = new GitDocumentState(doc.key);
 		}
 
-		const promise = this.getBlameForFileCore(uri, doc, key, cc);
+		const promise = this.getBlameCore(uri, doc, key, cc);
 
 		if (doc.state != null) {
 			Logger.debug(cc, `Cache add: '${key}'`);
@@ -381,7 +385,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return promise;
 	}
 
-	private async getBlameForFileCore(
+	private async getBlameCore(
 		uri: GitUri,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
@@ -393,7 +397,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, remotehub, session } = context;
 
 			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
-			const file = this.getRelativePath(uri, root);
+			const relativePath = this.getRelativePath(uri, root);
 
 			// const sha = await this.resolveReferenceCore(uri.repoPath!, metadata, uri.sha);
 			// if (sha == null) return undefined;
@@ -404,7 +408,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
-				file,
+				relativePath,
 			);
 
 			const authors = new Map<string, GitBlameAuthor>();
@@ -440,7 +444,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						c.message.split('\n', 1)[0],
 						c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
 						c.message,
-						new GitFileChange(root.toString(), file, GitFileIndexStatus.Modified),
+						new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
 						{ changedFiles: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
 						[],
 					);
@@ -449,17 +453,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 
 				for (let i = range.startingLine; i <= range.endingLine; i++) {
-					const line: GitCommitLine = {
-						sha: c.oid,
-						from: {
-							line: i,
-							count: 1,
-						},
-						to: {
-							line: i,
-							count: 1,
-						},
-					};
+					const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
 
 					commit.lines.push(line);
 					lines[i - 1] = line;
@@ -496,9 +490,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log<GitHubGitProvider['getBlameForFileContents']>({ args: { 1: '<contents>' } })
-	async getBlameForFileContents(uri: GitUri, _contents: string): Promise<GitBlame | undefined> {
-		return this.getBlameForFile(uri);
+	@log<GitHubGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
+	async getBlameContents(_uri: GitUri, _contents: string): Promise<GitBlame | undefined> {
+		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
+		return undefined; //this.getBlame(uri);
 	}
 
 	@gate()
@@ -506,41 +501,110 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
-		_options?: { forceSingleLine?: boolean },
+		document?: TextDocument | undefined,
+		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		const blame = await this.getBlameForFile(uri);
-		if (blame == null) return undefined;
+		const cc = Logger.getCorrelationContext();
 
-		let blameLine = blame.lines[editorLine];
-		if (blameLine == null) {
-			if (blame.lines.length !== editorLine) return undefined;
-			blameLine = blame.lines[editorLine - 1];
+		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
+		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+
+		if (!options?.forceSingleLine) {
+			const blame = await this.getBlame(uri);
+			if (blame == null) return undefined;
+
+			let blameLine = blame.lines[editorLine];
+			if (blameLine == null) {
+				if (blame.lines.length !== editorLine) return undefined;
+				blameLine = blame.lines[editorLine - 1];
+			}
+
+			const commit = blame.commits.get(blameLine.sha);
+			if (commit == null) return undefined;
+
+			const author = blame.authors.get(commit.author.name)!;
+			return {
+				author: { ...author, lineCount: commit.lines.length },
+				commit: commit,
+				line: blameLine,
+			};
 		}
 
-		const commit = blame.commits.get(blameLine.sha);
-		if (commit == null) return undefined;
+		try {
+			const context = await this.ensureRepositoryContext(uri.repoPath!);
+			if (context == null) return undefined;
+			const { metadata, github, remotehub, session } = context;
 
-		const author = blame.authors.get(commit.author.name)!;
-		return {
-			author: { ...author, lineCount: commit.lines.length },
-			commit: commit,
-			line: blameLine,
-		};
+			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
+			const relativePath = this.getRelativePath(uri, root);
+
+			const ref = uri.sha ?? (await metadata.getRevision()).revision;
+			const blame = await github.getBlame(
+				session?.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref,
+				relativePath,
+			);
+
+			const range = blame.ranges.find(r => r.startingLine === editorLine);
+			if (range == null) return undefined;
+
+			const c = range.commit;
+
+			const { viewer = session.account.label } = blame;
+			const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
+			const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
+
+			const commit = new GitCommit(
+				this.container,
+				uri.repoPath!,
+				c.oid,
+				new GitCommitIdentity(authorName, c.author.email, new Date(c.author.date), c.author.avatarUrl),
+				new GitCommitIdentity(committerName, c.committer.email, new Date(c.author.date)),
+				c.message.split('\n', 1)[0],
+				c.parents.nodes[0]?.oid ? [c.parents.nodes[0]?.oid] : [],
+				c.message,
+				new GitFileChange(root.toString(), relativePath, GitFileIndexStatus.Modified),
+				{ changedFiles: c.changedFiles ?? 0, additions: c.additions ?? 0, deletions: c.deletions ?? 0 },
+				[],
+			);
+
+			for (let i = range.startingLine; i <= range.endingLine; i++) {
+				const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
+
+				commit.lines.push(line);
+			}
+
+			return {
+				author: {
+					name: authorName,
+					lineCount: range.endingLine - range.startingLine + 1,
+				},
+				commit: commit,
+				line: { sha: c.oid, originalLine: range.startingLine, line: editorLine },
+			};
+		} catch (ex) {
+			debugger;
+			Logger.error(cc, ex);
+			return undefined;
+		}
 	}
 
 	@log<GitHubGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
-		uri: GitUri,
-		editorLine: number,
+		_uri: GitUri,
+		_editorLine: number,
 		_contents: string,
 		_options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		return this.getBlameForLine(uri, editorLine);
+		// TODO@eamodio figure out how to actually generate a blame given the contents (need to generate a diff)
+		return undefined; //this.getBlameForLine(uri, editorLine);
 	}
 
 	@log()
 	async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
-		const blame = await this.getBlameForFile(uri);
+		const blame = await this.getBlame(uri);
 		if (blame == null) return undefined;
 
 		return this.getBlameRange(blame, uri, range);
@@ -548,7 +612,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log<GitHubGitProvider['getBlameForRangeContents']>({ args: { 2: '<contents>' } })
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
-		const blame = await this.getBlameForFileContents(uri, contents);
+		const blame = await this.getBlameContents(uri, contents);
 		if (blame == null) return undefined;
 
 		return this.getBlameRange(blame, uri, range);
@@ -575,7 +639,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (!shas.has(c.sha)) continue;
 
 			const commit = c.with({
-				lines: c.lines.filter(l => l.to.line >= startLine && l.to.line <= endLine),
+				lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine),
 			});
 			commits.set(c.sha, commit);
 

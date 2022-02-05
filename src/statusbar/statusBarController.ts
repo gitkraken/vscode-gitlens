@@ -371,7 +371,7 @@ export class StatusBarController implements Disposable {
 		const tooltip = await Hovers.detailsMessage(
 			commit,
 			commit.getGitUri(),
-			commit.lines[0].to.line,
+			commit.lines[0].line,
 			this.container.config.statusBar.tooltipFormat,
 			this.container.config.defaultDateFormat,
 			{

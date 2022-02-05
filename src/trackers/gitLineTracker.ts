@@ -148,14 +148,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		}
 
 		if (selections.length === 1) {
-			const blameLine = editor.document.isDirty
-				? await this.container.git.getBlameForLineContents(
-						trackedDocument.uri,
-						selections[0].active,
-						editor.document.getText(),
-				  )
-				: await this.container.git.getBlameForLine(trackedDocument.uri, selections[0].active);
-			if (blameLine === undefined) {
+			const blameLine = await this.container.git.getBlameForLine(
+				trackedDocument.uri,
+				selections[0].active,
+				editor?.document,
+			);
+			if (blameLine == null) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}
@@ -163,12 +161,10 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				return false;
 			}
 
-			this.setState(blameLine.line.to.line - 1, new GitLineState(blameLine.commit));
+			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
 		} else {
-			const blame = editor.document.isDirty
-				? await this.container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())
-				: await this.container.git.getBlameForFile(trackedDocument.uri);
-			if (blame === undefined) {
+			const blame = await this.container.git.getBlame(trackedDocument.uri, editor.document);
+			if (blame == null) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}

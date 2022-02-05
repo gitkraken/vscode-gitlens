@@ -1,4 +1,4 @@
-import { Disposable, Event, Range, Uri, WorkspaceFolder } from 'vscode';
+import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import { Commit, InputBox } from '../@types/vscode.git';
 import { GitUri } from './gitUri';
 import {
@@ -129,23 +129,26 @@ export interface GitProvider extends Disposable {
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 */
-	getBlameForFile(uri: GitUri): Promise<GitBlame | undefined>;
+	getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
 	 * @param contents Contents from the editor to use
 	 */
-	getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
+	getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
 	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
+		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined>;
 	/**

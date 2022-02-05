@@ -94,11 +94,11 @@ export class LineHistoryNode
 				const lastLine = blame.lines[blame.lines.length - 1];
 
 				// Since there could be a change in the line numbers, update the selection
-				const firstActive = selection.active.line === firstLine.to.line - 1;
+				const firstActive = selection.active.line === firstLine.line - 1;
 				selection = new Selection(
-					(firstActive ? lastLine : firstLine).from.line - 1,
+					(firstActive ? lastLine : firstLine).originalLine - 1,
 					selection.anchor.character,
-					(firstActive ? firstLine : lastLine).from.line - 1,
+					(firstActive ? firstLine : lastLine).originalLine - 1,
 					selection.active.character,
 				);
 
