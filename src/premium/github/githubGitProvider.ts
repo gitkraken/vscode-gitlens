@@ -143,8 +143,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		try {
-			void (await this.ensureRepositoryContext(uri.toString()));
-			return [this.openRepository(undefined, uri, true)];
+			const { remotehub } = await this.ensureRepositoryContext(uri.toString(), true);
+			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
+			if (workspaceUri == null) return [];
+
+			return [this.openRepository(undefined, workspaceUri, true)];
 		} catch {
 			return [];
 		}
@@ -2118,10 +2121,20 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@gate()
 	private async ensureRepositoryContext(
 		repoPath: string,
+		open?: boolean,
 	): Promise<{ github: GitHubApi; metadata: Metadata; remotehub: RemoteHubApi; session: AuthenticationSession }> {
-		const uri = Uri.parse(repoPath, true);
+		let uri = Uri.parse(repoPath, true);
 		if (!/^github\+?/.test(uri.authority)) {
 			throw new OpenVirtualRepositoryError(repoPath, OpenVirtualRepositoryErrorReason.NotAGitHubRepository);
+		}
+
+		if (!open) {
+			const repo = this.container.git.getRepository(uri);
+			if (repo == null) {
+				throw new OpenVirtualRepositoryError(repoPath, OpenVirtualRepositoryErrorReason.NotAGitHubRepository);
+			}
+
+			uri = repo.uri;
 		}
 
 		let remotehub = this._remotehub;
