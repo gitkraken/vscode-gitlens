@@ -98,7 +98,7 @@ function getExtensionConfig(target, mode, env) {
 	}
 
 	if (env.analyzeBundle) {
-		plugins.push(new BundleAnalyzerPlugin());
+		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
 	}
 
 	return {

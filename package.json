@@ -10131,7 +10131,7 @@
 		]
 	},
 	"scripts": {
-		"analyze:bundle": "webpack --env analyzeBundle",
+		"analyze:bundle": "webpack --mode production --env analyzeBundle",
 		"analyze:deps": "webpack --env analyzeDeps",
 		"build": "webpack --mode development",
 		"build:extension": "webpack --mode development --config-name extension",
