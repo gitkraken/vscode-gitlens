@@ -2,8 +2,10 @@ import { Uri, window } from 'vscode';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { RepositoryPicker } from '../quickpicks';
 import { Arrays } from '../system';
-import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
+import { findOrOpenEditors } from '../system/utils';
+import { Command, command, Commands } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -20,10 +22,10 @@ export class OpenChangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repoPath = await getRepoPathOrPrompt('Open All Changed Files');
-				if (!repoPath) return;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changed Files');
+				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed files');
 

@@ -6,8 +6,6 @@ import {
 	DiffWithWorkingCommandArgs,
 	executeCommand,
 	executeEditorCommand,
-	findOrOpenEditor,
-	findOrOpenEditors,
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
@@ -28,6 +26,7 @@ import {
 	Repository,
 } from '../git/models';
 import { RepositoryPicker } from '../quickpicks';
+import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 

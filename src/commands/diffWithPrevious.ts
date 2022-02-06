@@ -4,15 +4,8 @@ import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	findOrOpenEditor,
-	getCommandUri,
-} from './common';
+import { findOrOpenEditor } from '../system/utils';
+import { ActiveEditorCommand, command, CommandContext, Commands, executeCommand, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {

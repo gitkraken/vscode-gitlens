@@ -4,8 +4,9 @@ import { CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { RepositoryPicker } from '../quickpicks';
 import { debounce } from '../system/function';
-import { Command, command, Commands, executeCoreCommand, getRepoPathOrPrompt } from './common';
+import { Command, command, Commands, executeCoreCommand } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -24,10 +25,10 @@ export class CloseUnchangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repoPath = await getRepoPathOrPrompt('Close All Unchanged Files');
-				if (!repoPath) return;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Close All Unchanged Files');
+				if (repository == null) return;
 
-				const status = await this.container.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 

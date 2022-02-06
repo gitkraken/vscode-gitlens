@@ -3,7 +3,7 @@ import { GitActions } from '../commands';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
+import { ReferencePicker, RepositoryPicker } from '../quickpicks';
 import { CompareResultsNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
@@ -11,7 +11,6 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasRef,
 } from './common';
 
@@ -63,7 +62,9 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, 'Directory Compare Working Tree With');
+			const repoPath = (
+				await RepositoryPicker.getBestRepositoryOrShow(uri, editor, 'Directory Compare Working Tree With')
+			)?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {

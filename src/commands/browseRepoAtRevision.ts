@@ -5,16 +5,8 @@ import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { basename } from '../system/path';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCoreCommand,
-	getCommandUri,
-	openWorkspace,
-	OpenWorkspaceLocation,
-} from './common';
+import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import { ActiveEditorCommand, command, CommandContext, Commands, executeCoreCommand, getCommandUri } from './common';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;

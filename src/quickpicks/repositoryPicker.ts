@@ -1,10 +1,42 @@
-import { Disposable, window } from 'vscode';
+import { Disposable, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { Repository } from '../git/models';
-import { getQuickPickIgnoreFocusOut, RepositoryQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, RepositoryQuickPickItem } from '../quickpicks';
 import { Iterables } from '../system';
 
 export namespace RepositoryPicker {
+	export async function getBestRepositoryOrShow(
+		uri: Uri | undefined,
+		editor: TextEditor | undefined,
+		title: string,
+	): Promise<Repository | undefined> {
+		const repository = Container.instance.git.getBestRepository(uri, editor);
+		if (repository != null) return repository;
+
+		const pick = await RepositoryPicker.show(title);
+		if (pick instanceof CommandQuickPickItem) {
+			await pick.execute();
+			return undefined;
+		}
+
+		return pick?.item;
+	}
+
+	export async function getRepositoryOrShow(title: string, uri?: Uri): Promise<Repository | undefined> {
+		if (uri == null) return Container.instance.git.highlander;
+
+		const repository = await Container.instance.git.getOrOpenRepository(uri);
+		if (repository != null) return repository;
+
+		const pick = await RepositoryPicker.show(title);
+		if (pick instanceof CommandQuickPickItem) {
+			void (await pick.execute());
+			return undefined;
+		}
+
+		return pick?.item;
+	}
+
 	export async function show(
 		title: string | undefined,
 		placeholder: string = 'Choose a repository',

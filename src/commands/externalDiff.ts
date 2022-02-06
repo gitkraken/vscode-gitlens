@@ -6,13 +6,13 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { RepositoryPicker } from '../quickpicks';
 import { Arrays } from '../system';
 import {
 	command,
 	Command,
 	CommandContext,
 	Commands,
-	getRepoPathOrPrompt,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
 } from './common';
@@ -87,10 +87,10 @@ export class ExternalDiffCommand extends Command {
 
 		if (context.command === Commands.ExternalDiffAll) {
 			if (args.files == null) {
-				const repoPath = await getRepoPathOrPrompt('Open All Changes (difftool)');
-				if (!repoPath) return undefined;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changes (difftool)');
+				if (repository == null) return undefined;
 
-				const status = await this.container.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}

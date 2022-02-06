@@ -1,6 +1,7 @@
 import { env, Range, Uri, window } from 'vscode';
 import type { Container } from '../container';
-import { command, Command, Commands, openEditor } from './common';
+import { openEditor } from '../system/utils';
+import { command, Command, Commands } from './common';
 
 @command()
 export class OpenFileFromRemoteCommand extends Command {

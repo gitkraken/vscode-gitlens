@@ -4,19 +4,15 @@ import {
 	GitTimelineItem,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
-	TextDocumentShowOptions,
 	TextEditor,
 	TextEditorEdit,
 	TimelineItem,
 	Uri,
-	ViewColumn,
 	window,
-	workspace,
 } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
-import { CoreCommands, CoreGitCommands, ImageMimetypes, Schemes } from '../constants';
+import { CoreCommands, CoreGitCommands } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitCommit,
@@ -28,9 +24,6 @@ import {
 	GitTag,
 	Repository,
 } from '../git/models';
-import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
-import { extname } from '../system/path';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export const enum Commands {
@@ -273,34 +266,6 @@ export function registerCommands(container: Container): Disposable[] {
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff
 	return editor?.document?.uri ?? uri;
-}
-
-export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
-	const repository = Container.instance.git.getBestRepository(uri, editor);
-	if (repository != null) return repository.path;
-
-	const pick = await RepositoryPicker.show(title);
-	if (pick instanceof CommandQuickPickItem) {
-		await pick.execute();
-		return undefined;
-	}
-
-	return pick?.repoPath;
-}
-
-export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
-	if (uri == null) return Container.instance.git.highlander?.path;
-
-	const repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path;
-	if (repoPath) return repoPath;
-
-	const pick = await RepositoryPicker.show(title);
-	if (pick instanceof CommandQuickPickItem) {
-		void (await pick.execute());
-		return undefined;
-	}
-
-	return pick?.repoPath;
 }
 
 export interface CommandContextParsingOptions {
@@ -695,107 +660,4 @@ export abstract class EditorCommand implements Disposable {
 	}
 
 	abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
-}
-
-export function findEditor(uri: Uri): TextEditor | undefined {
-	const active = window.activeTextEditor;
-	const normalizedUri = uri.toString();
-
-	for (const e of [...(active != null ? [active] : []), ...window.visibleTextEditors]) {
-		// Don't include diff editors
-		if (e.document.uri.toString() === normalizedUri && e?.viewColumn != null) {
-			return e;
-		}
-	}
-
-	return undefined;
-}
-
-export async function findOrOpenEditor(
-	uri: Uri,
-	options?: TextDocumentShowOptions & { throwOnError?: boolean },
-): Promise<TextEditor | undefined> {
-	const e = findEditor(uri);
-	if (e != null) {
-		if (!options?.preserveFocus) {
-			await window.showTextDocument(e.document, { ...options, viewColumn: e.viewColumn });
-		}
-
-		return e;
-	}
-
-	return openEditor(uri, { viewColumn: window.activeTextEditor?.viewColumn, ...options });
-}
-
-export function findOrOpenEditors(uris: Uri[]): void {
-	const normalizedUris = new Map(uris.map(uri => [uri.toString(), uri]));
-
-	for (const e of window.visibleTextEditors) {
-		// Don't include diff editors
-		if (e?.viewColumn != null) {
-			normalizedUris.delete(e.document.uri.toString());
-		}
-	}
-
-	for (const uri of normalizedUris.values()) {
-		void executeCoreCommand(CoreCommands.Open, uri, { background: true, preview: false });
-	}
-}
-
-export async function openEditor(
-	uri: Uri,
-	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
-): Promise<TextEditor | undefined> {
-	const { rethrow, ...opts } = options;
-	try {
-		if (GitUri.is(uri)) {
-			uri = uri.documentUri();
-		}
-
-		if (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
-			await executeCoreCommand(CoreCommands.Open, uri);
-
-			return undefined;
-		}
-
-		const document = await workspace.openTextDocument(uri);
-		return window.showTextDocument(document, {
-			preserveFocus: false,
-			preview: true,
-			viewColumn: ViewColumn.Active,
-			...opts,
-		});
-	} catch (ex) {
-		const msg: string = ex?.toString() ?? '';
-		if (msg.includes('File seems to be binary and cannot be opened as text')) {
-			await executeCoreCommand(CoreCommands.Open, uri);
-
-			return undefined;
-		}
-
-		if (rethrow) throw ex;
-
-		Logger.error(ex, 'openEditor');
-		return undefined;
-	}
-}
-
-export const enum OpenWorkspaceLocation {
-	CurrentWindow = 'currentWindow',
-	NewWindow = 'newWindow',
-	AddToWorkspace = 'addToWorkspace',
-}
-
-export function openWorkspace(
-	uri: Uri,
-	options: { location?: OpenWorkspaceLocation; name?: string } = { location: OpenWorkspaceLocation.CurrentWindow },
-): void {
-	if (options?.location === OpenWorkspaceLocation.AddToWorkspace) {
-		const count = workspace.workspaceFolders?.length ?? 0;
-		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
-	}
-
-	return void executeCoreCommand(CoreCommands.OpenFolder, uri, {
-		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
-	});
 }

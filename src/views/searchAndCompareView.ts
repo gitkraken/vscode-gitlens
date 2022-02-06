@@ -1,12 +1,12 @@
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, executeCommand, getRepoPathOrPrompt } from '../commands';
+import { Commands, executeCommand } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitLog, GitRevision } from '../git/models';
 import { SearchPattern } from '../git/search';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
+import { ReferencePicker, ReferencesQuickPickIncludes, RepositoryPicker } from '../quickpicks';
 import { NamedRef, PinnedItem, PinnedItems, WorkspaceState } from '../storage';
 import { filterMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
@@ -179,7 +179,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	async selectForCompare(repoPath?: string, ref?: string | NamedRef, options?: { prompt?: boolean }) {
 		if (repoPath == null) {
-			repoPath = await getRepoPathOrPrompt('Compare');
+			repoPath = (await RepositoryPicker.getRepositoryOrShow('Compare'))?.path;
 		}
 		if (repoPath == null) return;
 

@@ -3,7 +3,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
+import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes, RepositoryPicker } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -11,7 +11,6 @@ import {
 	Commands,
 	executeCommand,
 	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasBranch,
 } from './common';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
@@ -49,11 +48,13 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(
-			gitUri,
-			editor,
-			args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
-		);
+		const repoPath = (
+			await RepositoryPicker.getBestRepositoryOrShow(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+			)
+		)?.path;
 		if (!repoPath) return;
 
 		args = { ...args };

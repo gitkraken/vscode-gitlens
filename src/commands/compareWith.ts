@@ -2,14 +2,8 @@ import { TextEditor, Uri } from 'vscode';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-} from './common';
+import { RepositoryPicker } from '../quickpicks';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -71,7 +65,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 					break;
 			}
 
-			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, title);
+			const repoPath = (await RepositoryPicker.getBestRepositoryOrShow(uri, editor, title))?.path;
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
