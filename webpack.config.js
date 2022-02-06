@@ -63,11 +63,11 @@ function getExtensionConfig(target, mode, env) {
 				enabled: true,
 				files: 'src/**/*.ts',
 				options: {
-					cache: true,
-					cacheLocation: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
-					),
+					// cache: true,
+					// cacheLocation: path.join(
+					// 	__dirname,
+					// 	target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
+					// ),
 					overrideConfigFile: path.join(
 						__dirname,
 						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
@@ -303,7 +303,7 @@ function getWebviewsConfig(mode, env) {
 			eslint: {
 				enabled: true,
 				files: path.join(basePath, '**', '*.ts'),
-				options: { cache: true },
+				// options: { cache: true },
 			},
 			formatter: 'basic',
 			typescript: {
