@@ -176,8 +176,11 @@ export class GitCommit implements GitRevisionReference {
 		return this._summary;
 	}
 
-	get previousSha(): string {
-		return this.file?.previousSha ?? this.parents[0] ?? `${this.sha}^`;
+	private _resolvedPreviousSha: string | undefined;
+	get unresolvedPreviousSha(): string {
+		if (this._resolvedPreviousSha != null) return this._resolvedPreviousSha;
+		if (this.file != null) return this.file.previousSha ?? `${this.sha}^`;
+		return this.parents[0] ?? `${this.sha}^`;
 	}
 
 	@gate()
@@ -189,6 +192,7 @@ export class GitCommit implements GitRevisionReference {
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
 			this.stashName ? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`) : undefined,
+			this.getPreviousSha(),
 		]);
 		if (commitResult.status !== 'fulfilled' || commitResult.value == null) return;
 
@@ -403,7 +407,7 @@ export class GitCommit implements GitRevisionReference {
 
 		return new GitUri(this._file?.originalUri ?? uri, {
 			repoPath: this.repoPath,
-			sha: this.previousSha,
+			sha: this.unresolvedPreviousSha,
 		});
 	}
 
@@ -422,6 +426,40 @@ export class GitCommit implements GitRevisionReference {
 			: Promise.resolve(undefined);
 	}
 
+	private _previousShaPromise: Promise<string | undefined> | undefined;
+	async getPreviousSha(): Promise<string | undefined> {
+		if (this._previousShaPromise == null) {
+			async function getCore(this: GitCommit) {
+				if (this.file != null) {
+					if (this.file.previousSha != null && GitRevision.isSha(this.file.previousSha)) {
+						return this.file.previousSha;
+					}
+
+					const sha = await this.container.git.resolveReference(
+						this.repoPath,
+						GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+						this.file.originalPath ?? this.file.path,
+					);
+					return sha;
+				}
+
+				const parent = this.parents[0];
+				if (parent != null && GitRevision.isSha(parent)) return parent;
+
+				const sha = await this.container.git.resolveReference(
+					this.repoPath,
+					GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+				);
+				return sha;
+			}
+
+			this._previousShaPromise = getCore.call(this).then(sha => (this._resolvedPreviousSha = sha));
+		}
+
+		return this._previousShaPromise;
+	}
+
+	@gate()
 	async isPushed(): Promise<boolean> {
 		return this.container.git.hasCommitBeenPushed(this.repoPath, this.ref);
 	}

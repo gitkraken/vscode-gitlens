@@ -219,7 +219,8 @@ export namespace GitActions {
 				files = commitOrFiles.files ?? [];
 				refs = {
 					repoPath: commitOrFiles.repoPath,
-					ref1: commitOrFiles.previousSha != null ? commitOrFiles.previousSha : GitRevision.deletedOrMissing,
+					// Don't need to worry about verifying the previous sha, as the DiffWith command will
+					ref1: commitOrFiles.unresolvedPreviousSha,
 					ref2: commitOrFiles.sha,
 				};
 
@@ -361,8 +362,8 @@ export namespace GitActions {
 			const refs = GitCommit.is(commitOrRefs)
 				? {
 						repoPath: commitOrRefs.repoPath,
-						ref1:
-							commitOrRefs.previousSha != null ? commitOrRefs.previousSha : GitRevision.deletedOrMissing,
+						// Don't need to worry about verifying the previous sha, as the DiffWith command will
+						ref1: commitOrRefs.unresolvedPreviousSha,
 						ref2: commitOrRefs.sha,
 				  }
 				: commitOrRefs;
@@ -548,7 +549,7 @@ export namespace GitActions {
 				}
 
 				uri = Container.instance.git.getRevisionUri(
-					file.status === 'D' ? commit.previousSha : commit.sha,
+					file.status === 'D' ? (await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing : commit.sha,
 					file,
 					commit.repoPath,
 				);
@@ -633,7 +634,7 @@ export namespace GitActions {
 				files = commitOrFiles.files ?? [];
 				repoPath = commitOrFiles.repoPath;
 				ref1 = commitOrFiles.sha;
-				ref2 = commitOrFiles.previousSha;
+				ref2 = await commitOrFiles.getPreviousSha();
 			} else {
 				files = commitOrFiles;
 			}

@@ -3502,12 +3502,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async resolveReference(repoPath: string, ref: string, pathOrUri?: string | Uri, options?: { timeout?: number }) {
-		if (!ref || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+		if (
+			!ref ||
+			ref === GitRevision.deletedOrMissing ||
+			(pathOrUri == null && GitRevision.isSha(ref)) ||
+			(pathOrUri != null && GitRevision.isUncommitted(ref))
+		) {
 			return ref;
 		}
 
 		if (pathOrUri == null) {
-			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
+			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
+			if (!GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
 			return (await this.git.rev_parse__verify(repoPath, ref)) ?? ref;
 		}

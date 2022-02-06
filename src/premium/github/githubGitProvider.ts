@@ -2151,15 +2151,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async resolveReference(repoPath: string, ref: string, pathOrUri?: string | Uri, _options?: { timeout?: number }) {
-		if (!ref || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+		if (
+			!ref ||
+			ref === GitRevision.deletedOrMissing ||
+			(pathOrUri == null && GitRevision.isSha(ref)) ||
+			(pathOrUri != null && GitRevision.isUncommitted(ref))
+		) {
 			return ref;
 		}
 
 		let relativePath;
-		if (pathOrUri == null) {
-			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
-		} else {
+		if (pathOrUri != null) {
 			relativePath = this.getRelativePath(pathOrUri, repoPath);
+		} else if (!GitRevision.isShaLike(ref) || ref.endsWith('^3')) {
+			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
+			return ref;
 		}
 
 		const context = await this.ensureRepositoryContext(repoPath);

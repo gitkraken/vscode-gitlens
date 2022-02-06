@@ -1845,7 +1845,12 @@ export class GitProviderService implements Disposable {
 		pathOrUri?: string | Uri,
 		options?: { timeout?: number },
 	) {
-		if (!ref || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+		if (
+			!ref ||
+			ref === GitRevision.deletedOrMissing ||
+			(pathOrUri == null && GitRevision.isSha(ref)) ||
+			(pathOrUri != null && GitRevision.isUncommitted(ref))
+		) {
 			return ref;
 		}
 

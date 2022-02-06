@@ -80,7 +80,8 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			// Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
 			commits = [...log.commits.values()];
 			const commit = commits[commits.length - 1];
-			if (commit.previousSha == null) {
+			const previousSha = await commit.getPreviousSha();
+			if (previousSha == null) {
 				const previousLog = await this.view.container.git.getLog(this.uri.repoPath!, {
 					limit: 2,
 					ref: commit.sha,

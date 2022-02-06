@@ -58,7 +58,8 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 							args.commit.repoPath,
 						);
 					} else {
-						lhsSha = args.commit.file!.previousSha ?? GitRevision.deletedOrMissing;
+						// Don't need to worry about verifying the previous sha, as the DiffWith command will
+						lhsSha = args.commit.unresolvedPreviousSha;
 						lhsUri = args.commit.file!.originalUri ?? args.commit.file!.uri;
 					}
 				} else {

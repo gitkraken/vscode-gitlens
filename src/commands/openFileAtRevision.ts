@@ -60,18 +60,21 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						const blame = await this.container.git.getBlameForLine(gitUri, editorLine);
 						if (blame != null) {
 							if (blame.commit.isUncommitted) {
-								const diffUris = await blame.commit.getPreviousComparisonUrisForLine(editorLine);
-								if (diffUris?.previous != null) {
-									args.revisionUri = this.container.git.getRevisionUri(diffUris.previous);
+								const comparisonUris = await blame.commit.getPreviousComparisonUrisForLine(editorLine);
+								if (comparisonUris?.previous != null) {
+									args.revisionUri = this.container.git.getRevisionUri(comparisonUris.previous);
 								} else {
 									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 									return undefined;
 								}
-							} else if (blame?.commit.previousSha != null) {
-								args.revisionUri = this.container.git.getRevisionUri(blame.commit.getGitUri(true));
 							} else {
-								void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
-								return undefined;
+								const previousSha = blame != null ? await blame?.commit.getPreviousSha() : undefined;
+								if (previousSha != null) {
+									args.revisionUri = this.container.git.getRevisionUri(blame.commit.getGitUri(true));
+								} else {
+									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									return undefined;
+								}
 							}
 						}
 					} catch (ex) {

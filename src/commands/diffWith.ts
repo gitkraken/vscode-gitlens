@@ -30,7 +30,7 @@ export class DiffWithCommand extends Command {
 		let args: DiffWithCommandArgs | GitCommit;
 		if (GitCommit.is(argsOrCommit)) {
 			const commit = argsOrCommit;
-			if (commit.file == null) {
+			if (commit.file == null || commit.unresolvedPreviousSha == null) {
 				debugger;
 				throw new Error('Commit has no file');
 			}
@@ -52,7 +52,7 @@ export class DiffWithCommand extends Command {
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
-						sha: commit.file.previousSha ?? GitRevision.deletedOrMissing,
+						sha: commit.unresolvedPreviousSha,
 						uri: commit.file.originalUri ?? commit.file.uri,
 					},
 					rhs: {
@@ -91,10 +91,12 @@ export class DiffWithCommand extends Command {
 
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
 				await this.container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri, {
-					timeout: 100,
+					// If the ref looks like a sha, don't wait too long, since it should work
+					timeout: GitRevision.isSha(args.lhs.sha) ? 100 : undefined,
 				}),
 				await this.container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri, {
-					timeout: 100,
+					// If the ref looks like a sha, don't wait too long, since it should work
+					timeout: GitRevision.isSha(args.rhs.sha) ? 100 : undefined,
 				}),
 			]);
 

@@ -2,6 +2,7 @@ import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
@@ -39,7 +40,11 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? this.container.git.getRevisionUri(commit.previousSha, commit.file, commit.repoPath)
+							? this.container.git.getRevisionUri(
+									(await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
+									commit.file,
+									commit.repoPath,
+							  )
 							: this.container.git.getRevisionUri(gitUri);
 				} else {
 					args.revisionUri = this.container.git.getRevisionUri(gitUri);

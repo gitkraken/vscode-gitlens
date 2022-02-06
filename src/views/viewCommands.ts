@@ -1063,7 +1063,7 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private openRevision(
+	private async openRevision(
 		node:
 			| CommitFileNode
 			| FileRevisionAsCommitNode
@@ -1094,7 +1094,7 @@ export class ViewCommands {
 				uri =
 					node.commit.file?.status === 'D'
 						? Container.instance.git.getRevisionUri(
-								node.commit.previousSha,
+								(await node.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
 								node.commit.file.path,
 								node.commit.repoPath,
 						  )

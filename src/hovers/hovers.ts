@@ -20,6 +20,8 @@ export namespace Hovers {
 	): Promise<MarkdownString | undefined> {
 		const documentRef = uri.sha;
 
+		let previousSha = null;
+
 		async function getDiff() {
 			if (commit.file == null) return undefined;
 
@@ -30,7 +32,8 @@ export namespace Hovers {
 					ref = documentRef;
 				}
 			} else {
-				ref = commit.file.previousSha;
+				previousSha = await commit.getPreviousSha();
+				ref = previousSha;
 				if (ref == null) {
 					return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
 				}
@@ -115,7 +118,9 @@ export namespace Hovers {
 				editorLine,
 			)} "Open Changes")`;
 
-			const previousSha = commit.file?.previousSha;
+			if (previousSha === null) {
+				previousSha = await commit.getPreviousSha();
+			}
 			if (previousSha) {
 				previous = `  &nbsp;[$(git-commit) ${GitRevision.shorten(
 					previousSha,

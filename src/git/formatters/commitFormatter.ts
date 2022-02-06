@@ -319,10 +319,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			this._options.editor?.line,
 		)} "Open Changes with Previous Revision")`;
 
-		if (this._item.previousSha != null && this._item.file?.originalPath != null) {
+		if (this._item.file != null && this._item.unresolvedPreviousSha != null) {
 			const uri = Container.instance.git.getRevisionUri(
-				this._item.previousSha,
-				this._item.file.originalPath,
+				this._item.unresolvedPreviousSha,
+				this._item.file.originalPath ?? this._item.file?.path,
 				this._item.repoPath,
 			);
 			commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
