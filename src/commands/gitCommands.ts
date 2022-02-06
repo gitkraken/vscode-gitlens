@@ -1,9 +1,9 @@
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { configuration, GitCommandSorting } from '../configuration';
-import { Usage, WorkspaceState } from '../constants';
 import type { Container } from '../container';
 import { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { Usage, WorkspaceState } from '../storage';
 import { log } from '../system/decorators/log';
 import { isPromise } from '../system/promise';
 import { command, Command, CommandContext, Commands } from './common';
@@ -772,7 +772,7 @@ class PickCommandStep implements QuickPickStep {
 		];
 
 		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = this.container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+			const usage = this.container.storage.getWorkspace<Usage>(WorkspaceState.GitCommandPaletteUsage);
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -812,12 +812,12 @@ class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = this.container.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
+		let usage = this.container.storage.getWorkspace<Usage>(WorkspaceState.GitCommandPaletteUsage);
 		if (usage === undefined) {
 			usage = Object.create(null) as Usage;
 		}
 
 		usage[id] = timestamp;
-		await this.container.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
+		await this.container.storage.storeWorkspace(WorkspaceState.GitCommandPaletteUsage, usage);
 	}
 }

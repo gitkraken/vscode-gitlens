@@ -15,7 +15,7 @@ import {
 	ViewFilesLayout,
 	ViewShowBranchComparison,
 } from '../configuration';
-import { ContextKeys, setContext, WorkspaceState } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import {
 	GitBranch,
@@ -28,6 +28,7 @@ import {
 	GitStashReference,
 	GitTagReference,
 } from '../git/models';
+import { WorkspaceState } from '../storage';
 import { gate } from '../system';
 import {
 	BranchesNode,
@@ -273,7 +274,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	get autoRefresh() {
 		return (
 			this.config.autoRefresh &&
-			this.container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
+			this.container.storage.getWorkspace<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
 		);
 	}
 
@@ -770,12 +771,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
-				workspaceEnabled = this.container.context.workspaceState.get<boolean>(
+				workspaceEnabled = this.container.storage.getWorkspace<boolean>(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					true,
 				);
 			} else {
-				await this.container.context.workspaceState.update(
+				await this.container.storage.storeWorkspace(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
 					workspaceEnabled,
 				);

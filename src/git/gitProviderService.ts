@@ -17,11 +17,12 @@ import {
 } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
-import { BuiltInGitConfiguration, ContextKeys, GlyphChars, Schemes, setContext, WorkspaceState } from '../constants';
+import { BuiltInGitConfiguration, ContextKeys, GlyphChars, Schemes, setContext } from '../constants';
 import type { Container } from '../container';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
+import { WorkspaceState } from '../storage';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -493,7 +494,7 @@ export class GitProviderService implements Disposable {
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
 		if (!enabled && this._initializing) {
 			disabled = !(
-				this.container.context.workspaceState.get<boolean>(WorkspaceState.AssumeRepositoriesOnStartup) ?? true
+				this.container.storage.getWorkspace<boolean>(WorkspaceState.AssumeRepositoriesOnStartup) ?? true
 			);
 		}
 
@@ -514,7 +515,7 @@ export class GitProviderService implements Disposable {
 		await Promise.all(promises);
 
 		if (!this._initializing) {
-			void this.container.context.workspaceState.update(WorkspaceState.AssumeRepositoriesOnStartup, enabled);
+			void this.container.storage.storeWorkspace(WorkspaceState.AssumeRepositoriesOnStartup, enabled);
 		}
 	}
 

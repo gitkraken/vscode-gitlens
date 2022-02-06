@@ -14,11 +14,12 @@ import {
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
 import { configuration } from '../../configuration';
-import { BuiltInGitCommands, BuiltInGitConfiguration, Schemes, Starred, WorkspaceState } from '../../constants';
+import { BuiltInGitCommands, BuiltInGitConfiguration, Schemes } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
+import { Starred, WorkspaceState } from '../../storage';
 import { filterMap, groupByMap } from '../../system/array';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
@@ -821,7 +822,7 @@ export class Repository implements Disposable {
 	}
 
 	get starred() {
-		const starred = this.container.context.workspaceState.get<Starred>(WorkspaceState.StarredRepositories);
+		const starred = this.container.storage.getWorkspace<Starred>(WorkspaceState.StarredRepositories);
 		return starred != null && starred[this.id] === true;
 	}
 
@@ -900,7 +901,7 @@ export class Repository implements Disposable {
 	}
 
 	private async updateStarredCore(key: WorkspaceState, id: string, star: boolean) {
-		let starred = this.container.context.workspaceState.get<Starred>(key);
+		let starred = this.container.storage.getWorkspace<Starred>(key);
 		if (starred === undefined) {
 			starred = Object.create(null) as Starred;
 		}
@@ -911,7 +912,7 @@ export class Repository implements Disposable {
 			const { [id]: _, ...rest } = starred;
 			starred = rest;
 		}
-		await this.container.context.workspaceState.update(key, starred);
+		await this.container.storage.storeWorkspace(key, starred);
 
 		this.fireChange(RepositoryChange.Starred);
 	}

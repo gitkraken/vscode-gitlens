@@ -10,10 +10,10 @@ import {
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
+import { WorkspaceState } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
@@ -303,7 +303,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
-	private get connectedKey() {
+	private get connectedKey(): `${WorkspaceState.ConnectedPrefix}${string}` {
 		return `${WorkspaceState.ConnectedPrefix}${this.key}`;
 	}
 
@@ -346,7 +346,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		this._session = null;
 
 		if (connected) {
-			void Container.instance.context.workspaceState.update(this.connectedKey, false);
+			void Container.instance.storage.storeWorkspace(this.connectedKey, false);
 
 			this._onDidChange.fire();
 			if (!silent) {
@@ -573,8 +573,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (!Container.instance.config.integrations.enabled) return undefined;
 
 		if (createIfNeeded) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
-		} else if (Container.instance.context.workspaceState.get<boolean>(this.connectedKey) === false) {
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
+		} else if (Container.instance.storage.getWorkspace<boolean>(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -585,7 +585,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				silent: !createIfNeeded,
 			});
 		} catch (ex) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -595,14 +595,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, true);
+			await Container.instance.storage.storeWorkspace(this.connectedKey, true);
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();

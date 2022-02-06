@@ -1,5 +1,6 @@
-import { ContextKeys, setContext, SyncedState } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import type { Container } from '../container';
+import { SyncedState } from '../storage';
 import { command, Command, CommandContext, Commands } from './common';
 
 @command()
@@ -15,7 +16,7 @@ export class CloseViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.CloseWelcomeView:
-				await this.container.context.globalState.update(SyncedState.WelcomeViewVisible, false);
+				await this.container.storage.store(SyncedState.WelcomeViewVisible, false);
 				await setContext(ContextKeys.ViewsWelcomeVisible, false);
 				break;
 		}

@@ -22,6 +22,7 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
+import { Storage } from './storage';
 import { log } from './system/decorators/log';
 import { memoize } from './system/decorators/memoize';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
@@ -136,6 +137,8 @@ export class Container {
 	private constructor(context: ExtensionContext, config: Config) {
 		this._context = context;
 		this._config = this.applyMode(config);
+		this._storage = new Storage(this._context);
+
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
@@ -411,6 +414,11 @@ export class Container {
 	private _statusBarController: StatusBarController;
 	get statusBar() {
 		return this._statusBarController;
+	}
+
+	private readonly _storage: Storage;
+	get storage(): Storage {
+		return this._storage;
 	}
 
 	private _tagsView: TagsView | undefined;

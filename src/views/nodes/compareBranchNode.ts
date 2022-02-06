@@ -1,9 +1,10 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../configuration';
-import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
+import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitRevision } from '../../git/models';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
+import { BranchComparison, BranchComparisons, WorkspaceState } from '../../storage';
 import { debug, gate, log, Strings } from '../../system';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
@@ -310,12 +311,12 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	private async getFilesQuery(): Promise<FilesQueryResults> {
 		let comparison;
-		if (this._compareWith!.ref === '') {
+		if (!this._compareWith?.ref) {
 			comparison = this.branch.ref;
 		} else if (this.compareWithWorkingTree) {
-			comparison = this._compareWith!.ref;
+			comparison = this._compareWith.ref;
 		} else {
-			comparison = `${this._compareWith!.ref}..${this.branch.ref}`;
+			comparison = `${this._compareWith.ref}..${this.branch.ref}`;
 		}
 
 		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
@@ -327,7 +328,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private loadCompareWith() {
-		const comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
+		const comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
 			WorkspaceState.BranchComparisons,
 		);
 
@@ -347,9 +348,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async updateCompareWith(compareWith: BranchComparison | undefined) {
 		this._compareWith = compareWith;
 
-		let comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
-			WorkspaceState.BranchComparisons,
-		);
+		let comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(WorkspaceState.BranchComparisons);
 		if (comparisons == null) {
 			if (compareWith == null) return;
 
@@ -366,6 +365,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
-		await this.view.container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);
+		await this.view.container.storage.storeWorkspace(WorkspaceState.BranchComparisons, comparisons);
 	}
 }

@@ -1,8 +1,17 @@
 import { commands, TextDocument, TextEditor, window } from 'vscode';
-import { ViewShowBranchComparison } from './config';
-import { SearchPattern } from './git/search';
 
 export const quickPickTitleMaxChars = 80;
+export const ImageMimetypes: Record<string, string> = {
+	'.png': 'image/png',
+	'.gif': 'image/gif',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.jpe': 'image/jpeg',
+	'.webp': 'image/webp',
+	'.tif': 'image/tiff',
+	'.tiff': 'image/tiff',
+	'.bmp': 'image/bmp',
+};
 
 export const enum BuiltInCommands {
 	CloseActiveEditor = 'workbench.action.closeActiveEditor',
@@ -173,104 +182,4 @@ export const enum GlyphChars {
 	SquareWithTopShadow = '\u2750',
 	Warning = '\u26a0',
 	ZeroWidthSpace = '\u200b',
-}
-
-export const enum SyncedState {
-	Version = 'gitlens:synced:version',
-	WelcomeViewVisible = 'gitlens:views:welcome:visible',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-}
-
-export const enum GlobalState {
-	Avatars = 'gitlens:avatars',
-	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
-	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
-	Version = 'gitlens:version',
-
-	Deprecated_Version = 'gitlensVersion',
-}
-
-export const ImageMimetypes: Record<string, string> = {
-	'.png': 'image/png',
-	'.gif': 'image/gif',
-	'.jpg': 'image/jpeg',
-	'.jpeg': 'image/jpeg',
-	'.jpe': 'image/jpeg',
-	'.webp': 'image/webp',
-	'.tif': 'image/tiff',
-	'.tiff': 'image/tiff',
-	'.bmp': 'image/bmp',
-};
-
-export interface BranchComparison {
-	ref: string;
-	notation: '..' | '...' | undefined;
-	type: Exclude<ViewShowBranchComparison, false> | undefined;
-}
-
-export interface BranchComparisons {
-	[id: string]: string | BranchComparison;
-}
-
-export interface NamedRef {
-	label?: string;
-	ref: string;
-}
-
-export interface PinnedComparison {
-	type: 'comparison';
-	timestamp: number;
-	path: string;
-	ref1: NamedRef;
-	ref2: NamedRef;
-	notation?: '..' | '...';
-}
-
-export interface PinnedSearch {
-	type: 'search';
-	timestamp: number;
-	path: string;
-	labels: {
-		label: string;
-		queryLabel:
-			| string
-			| {
-					label: string;
-					resultsType?: { singular: string; plural: string };
-			  };
-	};
-	search: SearchPattern;
-}
-
-export type PinnedItem = PinnedComparison | PinnedSearch;
-
-export interface PinnedItems {
-	[id: string]: PinnedItem;
-}
-
-export interface Starred {
-	[id: string]: boolean;
-}
-
-export interface Usage {
-	[id: string]: number;
-}
-
-export const enum WorkspaceState {
-	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
-	GitPath = 'gitlens:gitPath',
-
-	BranchComparisons = 'gitlens:branch:comparisons',
-	ConnectedPrefix = 'gitlens:connected:',
-	DefaultRemote = 'gitlens:remote:default',
-	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
-	StarredBranches = 'gitlens:starred:branches',
-	StarredRepositories = 'gitlens:starred:repositories',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
 }

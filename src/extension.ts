@@ -5,13 +5,14 @@ import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionC
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import { configuration, Configuration, OutputLevel } from './configuration';
-import { ContextKeys, GlobalState, setContext, SyncedState } from './constants';
+import { ContextKeys, setContext } from './constants';
 import { Container } from './container';
 import { GitUri } from './git/gitUri';
 import { GitBranch, GitCommit } from './git/models';
 import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
+import { GlobalState, SyncedState } from './storage';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare } from './system/version';
@@ -199,19 +200,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		if (container.config.showWelcomeOnInstall === false) return;
 
 		if (window.state.focused) {
-			await container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, undefined);
+			await container.storage.delete(GlobalState.PendingWelcomeOnFocus);
 			await commands.executeCommand(Commands.ShowWelcomePage);
 		} else {
 			// Save pending on window getting focus
-			await container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, true);
+			await container.storage.store(GlobalState.PendingWelcomeOnFocus, true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the welcome, clear the pending state and show the welcome
-				if (container.context.globalState.get(GlobalState.PendingWelcomeOnFocus) === true) {
-					void container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, undefined);
+				if (container.storage.get(GlobalState.PendingWelcomeOnFocus) === true) {
+					void container.storage.delete(GlobalState.PendingWelcomeOnFocus);
 					if (container.config.showWelcomeOnInstall) {
 						void commands.executeCommand(Commands.ShowWelcomePage);
 					}
@@ -240,19 +241,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	if (major !== prevMajor && container.config.showWhatsNewAfterUpgrades) {
 		if (window.state.focused) {
-			await container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, undefined);
+			await container.storage.delete(GlobalState.PendingWhatsNewOnFocus);
 			await Messages.showWhatsNewMessage(version);
 		} else {
 			// Save pending on window getting focus
-			await container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, true);
+			await container.storage.store(GlobalState.PendingWhatsNewOnFocus, true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the what's new, clear the pending state and show the what's new
-				if (container.context.globalState.get(GlobalState.PendingWhatsNewOnFocus) === true) {
-					void container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, undefined);
+				if (container.storage.get(GlobalState.PendingWhatsNewOnFocus) === true) {
+					void container.storage.delete(GlobalState.PendingWhatsNewOnFocus);
 					if (container.config.showWhatsNewAfterUpgrades) {
 						void Messages.showWhatsNewMessage(version);
 					}

@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { NamedRef } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitRevision } from '../../git/models';
+import { NamedRef } from '../../storage';
 import { debug, gate, log, Strings } from '../../system';
 import { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';

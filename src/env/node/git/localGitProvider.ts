@@ -23,7 +23,7 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { configuration } from '../../../configuration';
-import { BuiltInGitConfiguration, GlyphChars, Schemes, WorkspaceState } from '../../../constants';
+import { BuiltInGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
@@ -95,6 +95,7 @@ import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provide
 import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
+import { WorkspaceState } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -265,7 +266,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const potentialGitPaths =
 			configuration.getAny<string | string[]>('git.path') ??
-			this.container.context.workspaceState.get(WorkspaceState.GitPath, undefined);
+			this.container.storage.getWorkspace(WorkspaceState.GitPath, undefined);
 
 		const start = hrtime();
 
@@ -289,7 +290,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
 		setTimeout(() => {
-			void this.container.context.workspaceState.update(WorkspaceState.GitPath, location.path);
+			void this.container.storage.storeWorkspace(WorkspaceState.GitPath, location.path);
 		}, 1000);
 
 		if (cc != null) {

@@ -1,5 +1,5 @@
-import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { WorkspaceState } from '../../storage';
 import { sortCompare } from '../../system/string';
 import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
 
@@ -59,7 +59,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.instance.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
+		const defaultRemote = Container.instance.storage.getWorkspace<string>(WorkspaceState.DefaultRemote);
 		return this.id === defaultRemote;
 	}
 
@@ -83,7 +83,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.instance.context.workspaceState.update(
+		void (await Container.instance.storage.storeWorkspace(
 			WorkspaceState.DefaultRemote,
 			state ? this.id : undefined,
 		));
