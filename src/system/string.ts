@@ -1,25 +1,9 @@
 import ansiRegex from 'ansi-regex';
 import { md5 as _md5 } from '@env/crypto';
 import { hrtime } from '@env/hrtime';
+import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
-
-const emptyStr = '';
-
-export const enum CharCode {
-	/**
-	 * The `/` character.
-	 */
-	Slash = 47,
-	/**
-	 * The `\` character.
-	 */
-	Backslash = 92,
-	A = 65,
-	Z = 90,
-	a = 97,
-	z = 122,
-}
 
 const compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
 export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
@@ -217,7 +201,7 @@ const interpolationMap = new Map<string, Function>();
 
 export function interpolate(template: string, context: object | undefined): string {
 	if (template == null || template.length === 0) return template;
-	if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
+	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
 	let fn = interpolationMap.get(template);
 	if (fn == null) {
@@ -240,7 +224,7 @@ const interpolationAsyncMap = new Map<string, typeof AsyncFunction>();
 
 export async function interpolateAsync(template: string, context: object | undefined): Promise<string> {
 	if (template == null || template.length === 0) return template;
-	if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
+	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
 	let fn = interpolationAsyncMap.get(template);
 	if (fn == null) {
@@ -269,7 +253,7 @@ export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
 export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
 	if (before === 0 && after === 0) return s;
 
-	return `${before === 0 ? emptyStr : padding.repeat(before)}${s}${after === 0 ? emptyStr : padding.repeat(after)}`;
+	return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
 }
 
 export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
@@ -322,7 +306,7 @@ export function pluralize(
 		zero?: string;
 	},
 ) {
-	if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
+	if (options == null) return `${count} ${s}${count === 1 ? '' : 's'}`;
 
 	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
 	if (options.only) return suffix;
@@ -419,7 +403,7 @@ export function getWidth(s: string): number {
 	if (cachedAnsiRegex == null) {
 		cachedAnsiRegex = ansiRegex();
 	}
-	s = s.replace(cachedAnsiRegex, emptyStr);
+	s = s.replace(cachedAnsiRegex, '');
 
 	let count = 0;
 	let emoji = 0;

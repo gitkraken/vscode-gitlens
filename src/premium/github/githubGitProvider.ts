@@ -15,7 +15,7 @@ import {
 } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
-import { Schemes } from '../../constants';
+import { CharCode, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -82,7 +82,6 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
-import { CharCode } from '../../system/string';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../../trackers/trackedDocument';
 import { fromCommitFileStatus, GitHubApi } from '../github/github';

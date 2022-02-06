@@ -11,41 +11,19 @@ export const ImageMimetypes: Record<string, string> = {
 	'.bmp': 'image/bmp',
 };
 
-export const enum BuiltInCommands {
-	CloseActiveEditor = 'workbench.action.closeActiveEditor',
-	CloseAllEditors = 'workbench.action.closeAllEditors',
-	CursorMove = 'cursorMove',
-	Diff = 'vscode.diff',
-	EditorScroll = 'editorScroll',
-	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
-	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
-	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
-	InstallExtension = 'workbench.extensions.installExtension',
-	Open = 'vscode.open',
-	OpenFolder = 'vscode.openFolder',
-	OpenInTerminal = 'openInTerminal',
-	OpenWith = 'vscode.openWith',
-	NextEditor = 'workbench.action.nextEditor',
-	PreviewHtml = 'vscode.previewHtml',
-	RevealLine = 'revealLine',
-	SetContext = 'setContext',
-	ShowExplorerActivity = 'workbench.view.explorer',
-	ShowReferences = 'editor.action.showReferences',
-}
-
-export const enum BuiltInGitCommands {
-	Publish = 'git.publish',
-	Pull = 'git.pull',
-	PullRebase = 'git.pullRebase',
-	Push = 'git.push',
-	PushForce = 'git.pushForce',
-	UndoCommit = 'git.undoCommit',
-}
-
-export const enum BuiltInGitConfiguration {
-	AutoRepositoryDetection = 'git.autoRepositoryDetection',
-	FetchOnPull = 'git.fetchOnPull',
-	UseForcePushWithLease = 'git.useForcePushWithLease',
+export const enum CharCode {
+	/**
+	 * The `/` character.
+	 */
+	Slash = 47,
+	/**
+	 * The `\` character.
+	 */
+	Backslash = 92,
+	A = 65,
+	Z = 90,
+	a = 97,
+	z = 122,
 }
 
 export const enum Colors {
@@ -64,19 +42,6 @@ export const enum Colors {
 	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
 	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
-}
-
-export const enum Schemes {
-	DebugConsole = 'debug',
-	File = 'file',
-	Git = 'git',
-	GitHub = 'github',
-	GitLens = 'gitlens',
-	Output = 'output',
-	PRs = 'pr',
-	Vsls = 'vsls',
-	VslsScc = 'vsls-scc',
-	Virtual = 'vscode-vfs',
 }
 
 export const enum GlyphChars {
@@ -124,4 +89,54 @@ export const enum GlyphChars {
 	SquareWithTopShadow = '\u2750',
 	Warning = '\u26a0',
 	ZeroWidthSpace = '\u200b',
+}
+
+export const enum Schemes {
+	DebugConsole = 'debug',
+	File = 'file',
+	Git = 'git',
+	GitHub = 'github',
+	GitLens = 'gitlens',
+	Output = 'output',
+	PRs = 'pr',
+	Vsls = 'vsls',
+	VslsScc = 'vsls-scc',
+	Virtual = 'vscode-vfs',
+}
+
+export const enum BuiltInCommands {
+	CloseActiveEditor = 'workbench.action.closeActiveEditor',
+	CloseAllEditors = 'workbench.action.closeAllEditors',
+	CursorMove = 'cursorMove',
+	Diff = 'vscode.diff',
+	EditorScroll = 'editorScroll',
+	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
+	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
+	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
+	InstallExtension = 'workbench.extensions.installExtension',
+	Open = 'vscode.open',
+	OpenFolder = 'vscode.openFolder',
+	OpenInTerminal = 'openInTerminal',
+	OpenWith = 'vscode.openWith',
+	NextEditor = 'workbench.action.nextEditor',
+	PreviewHtml = 'vscode.previewHtml',
+	RevealLine = 'revealLine',
+	SetContext = 'setContext',
+	ShowExplorerActivity = 'workbench.view.explorer',
+	ShowReferences = 'editor.action.showReferences',
+}
+
+export const enum BuiltInGitCommands {
+	Publish = 'git.publish',
+	Pull = 'git.pull',
+	PullRebase = 'git.pullRebase',
+	Push = 'git.push',
+	PushForce = 'git.pushForce',
+	UndoCommit = 'git.undoCommit',
+}
+
+export const enum BuiltInGitConfiguration {
+	AutoRepositoryDetection = 'git.autoRepositoryDetection',
+	FetchOnPull = 'git.fetchOnPull',
+	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
