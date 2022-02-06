@@ -29,7 +29,16 @@ import { count, filter, first, flatMap, map } from '../system/iterable';
 import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
-import { GitProvider, GitProviderDescriptor, GitProviderId, PagedResult, ScmRepository } from './gitProvider';
+import {
+	GitProvider,
+	GitProviderDescriptor,
+	GitProviderId,
+	NextComparisionUrisResult,
+	PagedResult,
+	PreviousComparisionUrisResult,
+	PreviousLineComparisionUrisResult,
+	ScmRepository,
+} from './gitProvider';
 import { GitUri } from './gitUri';
 import {
 	BranchSortOptions,
@@ -1269,7 +1278,7 @@ export class GitProviderService implements Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
+	): Promise<NextComparisionUrisResult | undefined> {
 		if (!ref) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -1283,7 +1292,7 @@ export class GitProviderService implements Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		firstParent: boolean = false,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+	): Promise<PreviousComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -1297,7 +1306,7 @@ export class GitProviderService implements Disposable {
 		editorLine: number,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
+	): Promise<PreviousLineComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);

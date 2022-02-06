@@ -30,7 +30,10 @@ import {
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
+	NextComparisionUrisResult,
 	PagedResult,
+	PreviousComparisionUrisResult,
+	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
@@ -2677,7 +2680,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
+	): Promise<NextComparisionUrisResult | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
 		if (!ref) return undefined;
 
@@ -2781,7 +2784,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		firstParent: boolean = false,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+	): Promise<PreviousComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const relativePath = this.getRelativePath(uri, repoPath);
@@ -2858,7 +2861,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
+	): Promise<PreviousLineComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		let relativePath = this.getRelativePath(uri, repoPath);

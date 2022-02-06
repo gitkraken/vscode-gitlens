@@ -27,7 +27,10 @@ import {
 import {
 	GitProvider,
 	GitProviderId,
+	NextComparisionUrisResult,
 	PagedResult,
+	PreviousComparisionUrisResult,
+	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
 	ScmRepository,
@@ -402,7 +405,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// const sha = await this.resolveReferenceCore(uri.repoPath!, metadata, uri.sha);
 			// if (sha == null) return undefined;
 
-			const ref = uri.sha ?? (await metadata.getRevision()).revision;
+			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
 				session?.accessToken,
 				metadata.repo.owner,
@@ -539,7 +542,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
 			const relativePath = this.getRelativePath(uri, root);
 
-			const ref = uri.sha ?? (await metadata.getRevision()).revision;
+			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
 				session?.accessToken,
 				metadata.repo.owner,
@@ -917,11 +920,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const file = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
+			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
 			const commit = await github.getCommitForFile(
 				session?.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				options?.ref ?? (await metadata.getRevision()).revision,
+				ref,
 				file,
 			);
 			if (commit == null) return undefined;
@@ -1138,7 +1142,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const ref = options?.ref ?? (await metadata.getRevision()).revision;
+			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				authors: options?.authors,
@@ -1522,7 +1526,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	range = new Range(range.end, range.start);
 			// }
 
-			const ref = options?.ref ?? (await metadata.getRevision()).revision;
+			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				cursor: options?.cursor,
@@ -1719,7 +1723,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
+	): Promise<NextComparisionUrisResult | undefined> {
 		// If we have no ref there is no next commit
 		if (!ref) return undefined;
 
@@ -1731,13 +1735,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const { metadata, github, remotehub, session } = context;
 			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
-			const revision = await metadata.getRevision();
+			const revision = (await metadata.getRevision()).revision;
+
+			if (ref === 'HEAD') {
+				ref = revision;
+			}
 
 			const refs = await github.getNextCommitRefs(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				revision.revision,
+				revision,
 				relativePath,
 				ref,
 			);
@@ -1764,7 +1772,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		_firstParent: boolean = false,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+	): Promise<PreviousComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const cc = Logger.getCorrelationContext();
@@ -1786,7 +1794,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				ref ? ref : (await metadata.getRevision()).revision,
+				!ref || ref === 'HEAD' ? (await metadata.getRevision()).revision : ref,
 				{
 					path: relativePath,
 					first: offset + skip + 1,
@@ -1832,7 +1840,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
+	): Promise<PreviousLineComparisionUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const cc = Logger.getCorrelationContext();
