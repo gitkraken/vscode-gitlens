@@ -352,7 +352,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
-		if (document?.isDirty) return this.getBlameContents(uri, document.getText());
+		if (document?.isDirty) return undefined; //this.getBlameContents(uri, document.getText());
 
 		let key = 'blame';
 		if (uri.sha != null) {
@@ -402,8 +402,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const root = remotehub.getVirtualUri(remotehub.getProviderRootUri(uri));
 			const relativePath = this.getRelativePath(uri, root);
 
-			// const sha = await this.resolveReferenceCore(uri.repoPath!, metadata, uri.sha);
-			// if (sha == null) return undefined;
+			if (uri.scheme === Schemes.Virtual) {
+				const [working, committed] = await Promise.allSettled([
+					workspace.fs.stat(uri),
+					workspace.fs.stat(uri.with({ scheme: Schemes.GitHub })),
+				]);
+				if (
+					working.status !== 'fulfilled' ||
+					committed.status !== 'fulfilled' ||
+					working.value.mtime !== committed.value.mtime
+				) {
+					return undefined;
+				}
+			}
 
 			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
@@ -511,7 +522,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
-		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+		if (document?.isDirty) return undefined; //this.getBlameForLineContents(uri, editorLine, document.getText(), options);
 
 		if (!options?.forceSingleLine) {
 			const blame = await this.getBlame(uri);
