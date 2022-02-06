@@ -1,10 +1,11 @@
 import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { ModePicker } from '../quickpicks';
 import { log } from '../system';
-import { command, Command, Commands } from './common';
+import { command, Command } from './base';
 
 @command()
 export class SwitchModeCommand extends Command {

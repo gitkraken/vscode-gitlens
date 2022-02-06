@@ -1,12 +1,13 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
-import { GitActions } from './gitCommands';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { GitActions } from './gitCommands.actions';
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;

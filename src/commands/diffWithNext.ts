@@ -1,10 +1,12 @@
 import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, executeCommand, getCommandUri } from './common';
+import { executeCommand } from '../system/command';
+import { ActiveEditorCommand, command, CommandContext, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {

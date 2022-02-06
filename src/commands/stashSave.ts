@@ -1,18 +1,18 @@
 import { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
-import { GitActions } from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
 	Command,
 	command,
 	CommandContext,
-	Commands,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
-} from './common';
+} from './base';
 
 export interface StashSaveCommandArgs {
 	message?: string;

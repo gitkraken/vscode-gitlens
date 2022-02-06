@@ -1,7 +1,8 @@
 import { env, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PullRequestNode } from '../views/nodes';
-import { Command, command, CommandContext, Commands } from './common';
+import { Command, command, CommandContext } from './base';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;

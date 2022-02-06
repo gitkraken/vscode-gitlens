@@ -1,8 +1,9 @@
 import { CancellationTokenSource, Extension, ExtensionContext, extensions, Uri } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
-import { Commands, executeCommand, executeCoreCommand, InviteToLiveShareCommandArgs } from './commands';
-import { CoreCommands } from './constants';
+import type { InviteToLiveShareCommandArgs } from './commands';
+import { Commands, CoreCommands } from './constants';
 import { Container } from './container';
+import { executeCommand, executeCoreCommand } from './system/command';
 
 export async function installExtension<T>(
 	extensionId: string,

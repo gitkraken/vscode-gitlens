@@ -1,7 +1,8 @@
 import { SourceControl } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, Command, Commands } from './common';
-import { executeGitCommand } from './gitCommands';
+import { command, Command } from './base';
+import { executeGitCommand } from './gitCommands.actions';
 
 @command()
 export class AddAuthorsCommand extends Command {
@@ -9,7 +10,7 @@ export class AddAuthorsCommand extends Command {
 		super(Commands.AddAuthors);
 	}
 
-	async execute(sourceControl: SourceControl) {
+	execute(sourceControl: SourceControl) {
 		let repo;
 		if (sourceControl?.rootUri != null) {
 			repo = this.container.git.getRepository(sourceControl.rootUri);

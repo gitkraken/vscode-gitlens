@@ -1,8 +1,8 @@
 import { TextDocument, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window, workspace } from 'vscode';
-import { executeCoreCommand } from '../commands';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
+import { executeCoreCommand } from './command';
 import { extname } from './path';
 
 export function findEditor(uri: Uri): TextEditor | undefined {

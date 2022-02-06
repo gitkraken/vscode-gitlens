@@ -1,12 +1,13 @@
 import { TextEditor, Uri, window } from 'vscode';
 import { TextEditorComparer, UriComparer } from '../comparers';
-import { CoreCommands } from '../constants';
+import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RepositoryPicker } from '../quickpicks';
+import { executeCoreCommand } from '../system/command';
 import { debounce } from '../system/function';
-import { Command, command, Commands, executeCoreCommand } from './common';
+import { Command, command } from './base';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];

@@ -8,8 +8,8 @@ import {
 	TreeItemCollapsibleState,
 	Uri,
 } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Colors } from '../../constants';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
+import { Colors, Commands } from '../../constants';
 import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';

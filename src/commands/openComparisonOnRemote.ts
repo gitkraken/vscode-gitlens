@@ -1,9 +1,11 @@
 import { window } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
+import { executeCommand } from '../system/command';
 import { ResultsCommitsNode } from '../views/nodes';
-import { Command, command, CommandContext, Commands, executeCommand } from './common';
+import { Command, command, CommandContext } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {

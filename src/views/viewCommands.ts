@@ -1,25 +1,26 @@
 import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
-import {
-	Commands,
+import type {
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
+	OpenFileAtRevisionCommandArgs,
+} from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
+import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
+import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constants';
+import { Container } from '../container';
+import { setContext } from '../context';
+import { GitUri } from '../git/gitUri';
+import { GitReference, GitRevision } from '../git/models';
+import { debug } from '../system';
+import {
 	executeActionCommand,
 	executeCommand,
 	executeCoreCommand,
 	executeCoreGitCommand,
 	executeEditorCommand,
-	GitActions,
-	OpenFileAtRevisionCommandArgs,
-} from '../commands';
-import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { CoreCommands, CoreGitCommands } from '../constants';
-import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
-import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
-import { debug } from '../system';
+} from '../system/command';
 import { runGitCommandInTerminal } from '../terminal';
 import {
 	BranchesNode,

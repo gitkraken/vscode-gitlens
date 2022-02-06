@@ -12,8 +12,8 @@ import {
 	workspace,
 } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { Commands } from '../commands';
 import { configuration } from '../configuration';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import {

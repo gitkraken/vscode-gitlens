@@ -1,4 +1,4 @@
-import { Commands } from '../commands';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { WelcomeState } from './protocol';
 import { WebviewBase } from './webviewBase';

@@ -1,10 +1,10 @@
 import { commands, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider, window } from 'vscode';
-import {
-	Commands,
+import type {
 	GitCommandsCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickCommitCommandArgs,
 } from '../commands';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { PagedResult } from '../git/gitProvider';
 import { GitBranch, GitReference, GitTag } from '../git/models';

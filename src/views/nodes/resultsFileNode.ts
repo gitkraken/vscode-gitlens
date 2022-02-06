@@ -1,5 +1,6 @@
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithCommandArgs } from '../../commands';
+import type { DiffWithCommandArgs } from '../../commands';
+import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitReference, GitRevisionReference } from '../../git/models';

@@ -1,18 +1,12 @@
 import { TextEditor, Uri } from 'vscode';
-import { GitActions } from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ReferencePicker, RepositoryPicker } from '../quickpicks';
 import { CompareResultsNode } from '../views/nodes';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	getCommandUri,
-	isCommandContextViewNodeHasRef,
-} from './common';
+import { ActiveEditorCommand, command, CommandContext, getCommandUri, isCommandContextViewNodeHasRef } from './base';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;

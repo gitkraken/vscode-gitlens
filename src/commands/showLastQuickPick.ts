@@ -1,8 +1,9 @@
 import { commands } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { command, Command, Commands, getLastCommand } from './common';
+import { command, Command, getLastCommand } from './base';
 
 @command()
 export class ShowLastQuickPickCommand extends Command {

@@ -1,6 +1,6 @@
 import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { PagedResult } from '../git/gitProvider';
 import {
@@ -67,7 +67,6 @@ import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { pad, pluralize, truncate } from '../system/string';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
-import { Commands } from './common';
 import { GitActions } from './gitCommands.actions';
 import {
 	AsyncStepResultGenerator,

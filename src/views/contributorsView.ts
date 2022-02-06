@@ -9,11 +9,12 @@ import {
 	window,
 } from 'vscode';
 import { Avatars } from '../avatars';
-import { Commands, executeCommand } from '../commands';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import {

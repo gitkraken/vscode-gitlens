@@ -1,5 +1,5 @@
 import { commands, QuickPickItem, QuickPickItemKind } from 'vscode';
-import { Commands } from '../commands';
+import { Commands } from '../constants';
 import { Keys } from '../keyboard';
 
 declare module 'vscode' {

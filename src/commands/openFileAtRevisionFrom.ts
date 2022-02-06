@@ -1,14 +1,14 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models';
 import { Messages } from '../messages';
 import { ReferencePicker, StashPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
-import { GitActions } from './gitCommands';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { GitActions } from './gitCommands.actions';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;

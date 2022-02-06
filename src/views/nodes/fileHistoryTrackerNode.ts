@@ -1,7 +1,7 @@
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { Schemes } from '../../constants';
-import { ContextKeys, setContext } from '../../context';
+import { ContextKeys, Schemes } from '../../constants';
+import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
 import { Logger } from '../../logger';

@@ -8,11 +8,10 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { Commands, executeCommand } from '../commands';
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands, ContextKeys, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import {
 	GitCommit,
@@ -23,6 +22,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';

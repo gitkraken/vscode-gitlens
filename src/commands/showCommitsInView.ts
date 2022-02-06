@@ -1,12 +1,13 @@
 import { TextEditor, Uri } from 'vscode';
-import { executeGitCommand } from '../commands';
+import { executeGitCommand } from '../commands/gitCommands.actions';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];

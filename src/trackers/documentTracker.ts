@@ -16,8 +16,9 @@ import {
 	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
+import { ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';

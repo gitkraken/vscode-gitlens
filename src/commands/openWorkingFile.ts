@@ -1,11 +1,12 @@
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { findOrOpenEditor } from '../system/utils';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;

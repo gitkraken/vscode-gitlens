@@ -1,18 +1,12 @@
 import { TextEditor, Uri, window } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes, RepositoryPicker } from '../quickpicks';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	getCommandUri,
-	isCommandContextViewNodeHasBranch,
-} from './common';
+import { executeCommand } from '../system/command';
+import { ActiveEditorCommand, command, CommandContext, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {

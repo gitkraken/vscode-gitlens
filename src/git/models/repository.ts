@@ -11,7 +11,6 @@ import {
 	WorkspaceFolder,
 } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import { executeActionCommand, executeCoreGitCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
 import { Container } from '../../container';
@@ -20,6 +19,7 @@ import { Messages } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
 import { Starred, WorkspaceState } from '../../storage';
 import { filterMap, groupByMap } from '../../system/array';
+import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';

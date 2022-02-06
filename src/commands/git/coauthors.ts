@@ -1,9 +1,9 @@
 import { CoreCommands } from '../../constants';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/models';
+import { executeCoreCommand } from '../../system/command';
 import { normalizePath } from '../../system/path';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { executeCoreCommand } from '../common';
 import {
 	PartialStepState,
 	pickContributorsStep,

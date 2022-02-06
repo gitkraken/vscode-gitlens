@@ -1,20 +1,20 @@
 import { TextEditor, Uri, window } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { executeCommand } from '../system/command';
 import {
 	ActiveEditorCommand,
 	command,
 	CommandContext,
-	Commands,
-	executeCommand,
 	getCommandUri,
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
-} from './common';
+} from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {

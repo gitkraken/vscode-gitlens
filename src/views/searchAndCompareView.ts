@@ -1,14 +1,15 @@
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, executeCommand } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
+import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitLog, GitRevision } from '../git/models';
 import { SearchPattern } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes, RepositoryPicker } from '../quickpicks';
 import { NamedRef, PinnedItem, PinnedItems, WorkspaceState } from '../storage';
 import { filterMap } from '../system/array';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { isPromise } from '../system/promise';

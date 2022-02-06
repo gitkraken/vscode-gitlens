@@ -1,9 +1,10 @@
 import { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RepositoryPicker } from '../quickpicks';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, getCommandUri } from './base';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;

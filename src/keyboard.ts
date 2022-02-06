@@ -1,5 +1,6 @@
 import { commands, Disposable } from 'vscode';
-import { ContextKeys, setContext } from './context';
+import { ContextKeys } from './constants';
+import { setContext } from './context';
 import { Logger } from './logger';
 import { log } from './system/decorators/log';
 

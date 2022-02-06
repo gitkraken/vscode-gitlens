@@ -1,11 +1,12 @@
 import { Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
-import { CoreCommands, GlyphChars } from '../constants';
+import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
-import { command, Command, Commands, executeCoreCommand } from './common';
+import { command, Command } from './base';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;

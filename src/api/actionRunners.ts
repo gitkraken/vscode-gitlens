@@ -1,8 +1,8 @@
 import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
-import { Commands } from '../commands/common';
 import { Config, configuration } from '../configuration';
+import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { getQuickPickIgnoreFocusOut } from '../quickpicks';
 import { Strings } from '../system';
 import type { Action, ActionContext, ActionRunner } from './gitlens';

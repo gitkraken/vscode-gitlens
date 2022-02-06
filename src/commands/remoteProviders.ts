@@ -1,9 +1,10 @@
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitCommit, GitRemote, Repository } from '../git/models';
 import { RichRemoteProvider } from '../git/remotes/provider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { Iterables } from '../system';
-import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';
+import { command, Command, CommandContext, isCommandContextViewNodeHasRemote } from './base';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;

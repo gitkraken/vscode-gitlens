@@ -9,7 +9,8 @@ import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 import { formatPath } from '../../system/formatPath';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions, GitCommandsCommand } from '../gitCommands';
+import { GitCommandsCommand } from '../gitCommands';
+import { GitActions } from '../gitCommands.actions';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,

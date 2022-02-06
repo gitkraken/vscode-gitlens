@@ -1,4 +1,5 @@
 import { env, TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -8,12 +9,11 @@ import {
 	ActiveEditorCommand,
 	command,
 	CommandContext,
-	Commands,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './common';
+} from './base';
 import { GitActions } from './gitCommands.actions';
 
 export interface CopyMessageToClipboardCommandArgs {

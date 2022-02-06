@@ -1,4 +1,5 @@
 import { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitLog, GitStashCommit } from '../git/models';
@@ -8,11 +9,10 @@ import {
 	ActiveEditorCachedCommand,
 	command,
 	CommandContext,
-	Commands,
 	getCommandUri,
 	isCommandContextViewNodeHasCommit,
-} from './common';
-import { executeGitCommand, GitActions } from './gitCommands';
+} from './base';
+import { executeGitCommand, GitActions } from './gitCommands.actions';
 
 export interface ShowQuickCommitCommandArgs {
 	repoPath?: string;

@@ -1,6 +1,6 @@
 import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscode';
-import { Commands, OpenOnRemoteCommandArgs } from '../commands';
-import { GlyphChars } from '../constants';
+import type { OpenOnRemoteCommandArgs } from '../commands';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitRemote } from '../git/models';
 import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';

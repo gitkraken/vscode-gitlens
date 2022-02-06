@@ -8,7 +8,6 @@ import {
 	ProgressLocation,
 	window,
 } from 'vscode';
-import { Commands, executeCommand } from '../commands';
 import {
 	configuration,
 	RepositoriesViewConfig,
@@ -16,8 +15,9 @@ import {
 	ViewFilesLayout,
 	ViewShowBranchComparison,
 } from '../configuration';
+import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import {
 	GitBranch,
 	GitBranchReference,
@@ -31,6 +31,7 @@ import {
 } from '../git/models';
 import { WorkspaceState } from '../storage';
 import { gate } from '../system';
+import { executeCommand } from '../system/command';
 import {
 	BranchesNode,
 	BranchNode,

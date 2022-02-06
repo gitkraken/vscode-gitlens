@@ -15,11 +15,8 @@ import {
 	TextDocument,
 	Uri,
 } from 'vscode';
-import {
-	command,
-	Commands,
+import type {
 	DiffWithPreviousCommandArgs,
-	executeCoreCommand,
 	OpenOnRemoteCommandArgs,
 	ShowCommitsInViewCommandArgs,
 	ShowQuickCommitCommandArgs,
@@ -35,12 +32,13 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { CoreCommands, Schemes } from '../constants';
+import { Commands, CoreCommands, Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
+import { asCommand, executeCoreCommand } from '../system/command';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 
@@ -633,7 +631,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitCommit | undefined,
 	): T {
-		lens.command = command<[undefined, DiffWithPreviousCommandArgs]>({
+		lens.command = asCommand<[undefined, DiffWithPreviousCommandArgs]>({
 			title: title,
 			command: Commands.DiffWithPrevious,
 			arguments: [
@@ -653,7 +651,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		commit: GitCommit,
 		clipboard: boolean = false,
 	): T {
-		lens.command = command<[OpenOnRemoteCommandArgs]>({
+		lens.command = asCommand<[OpenOnRemoteCommandArgs]>({
 			title: title,
 			command: Commands.OpenOnRemote,
 			arguments: [
@@ -676,7 +674,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		commit: GitCommit,
 		clipboard: boolean = false,
 	): T {
-		lens.command = command<[OpenOnRemoteCommandArgs]>({
+		lens.command = asCommand<[OpenOnRemoteCommandArgs]>({
 			title: title,
 			command: Commands.OpenOnRemote,
 			arguments: [
@@ -699,7 +697,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitCommit | undefined,
 	): T {
-		lens.command = command<[Uri, ShowQuickCommitCommandArgs]>({
+		lens.command = asCommand<[Uri, ShowQuickCommitCommandArgs]>({
 			title: title,
 			command: commit?.isUncommitted ? '' : CodeLensCommand.RevealCommitInView,
 			arguments: [
@@ -726,7 +724,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			refs = [commit.ref];
 		}
 
-		lens.command = command<[ShowCommitsInViewCommandArgs]>({
+		lens.command = asCommand<[ShowCommitsInViewCommandArgs]>({
 			title: title,
 			command: refs.length === 0 ? '' : Commands.ShowCommitsInView,
 			arguments: [
@@ -744,7 +742,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitCommit | undefined,
 	): T {
-		lens.command = command<[Uri, ShowQuickCommitCommandArgs]>({
+		lens.command = asCommand<[Uri, ShowQuickCommitCommandArgs]>({
 			title: title,
 			command: commit?.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
 			arguments: [
@@ -763,7 +761,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitCommit | undefined,
 	): T {
-		lens.command = command<[Uri, ShowQuickCommitFileCommandArgs]>({
+		lens.command = asCommand<[Uri, ShowQuickCommitFileCommandArgs]>({
 			title: title,
 			command: commit?.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
 			arguments: [
@@ -781,7 +779,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 	): T {
-		lens.command = command<[Uri]>({
+		lens.command = asCommand<[Uri]>({
 			title: title,
 			command: CodeLensCommand.ShowQuickCurrentBranchHistory,
 			arguments: [lens.uri!.toFileUri()],
@@ -793,7 +791,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 	): T {
-		lens.command = command<[Uri, ShowQuickFileHistoryCommandArgs]>({
+		lens.command = asCommand<[Uri, ShowQuickFileHistoryCommandArgs]>({
 			title: title,
 			command: CodeLensCommand.ShowQuickFileHistory,
 			arguments: [
@@ -810,7 +808,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 	): T {
-		lens.command = command<[Uri]>({
+		lens.command = asCommand<[Uri]>({
 			title: title,
 			command: Commands.ToggleFileBlame,
 			arguments: [lens.uri!.toFileUri()],
@@ -824,7 +822,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		commit: GitCommit,
 		only?: boolean,
 	): T {
-		lens.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+		lens.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
 			title: title,
 			command: Commands.ToggleFileChanges,
 			arguments: [
@@ -842,7 +840,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 	): T {
-		lens.command = command<[Uri]>({
+		lens.command = asCommand<[Uri]>({
 			title: title,
 			command: Commands.ToggleFileHeatmap,
 			arguments: [lens.uri!.toFileUri()],

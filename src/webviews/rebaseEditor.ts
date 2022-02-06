@@ -13,7 +13,7 @@ import {
 	WorkspaceEdit,
 } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { executeCoreCommand, ShowQuickCommitCommand } from '../commands';
+import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { CoreCommands } from '../constants';
 import { Container } from '../container';
@@ -21,6 +21,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models'
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { debug, gate, Iterables } from '../system';
+import { executeCoreCommand } from '../system/command';
 import { normalizePath } from '../system/path';
 import {
 	Author,

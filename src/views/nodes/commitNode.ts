@@ -1,7 +1,7 @@
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
-import { Colors } from '../../constants';
+import { Colors, Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitBranch, GitCommit, GitRevisionReference } from '../../git/models';
 import { Arrays, Strings } from '../../system';

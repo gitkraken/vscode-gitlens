@@ -1,7 +1,7 @@
 import { Range, TextEditor, Uri, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBranch, GitRevision } from '../git/models';
@@ -9,17 +9,16 @@ import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { ReferencePicker } from '../quickpicks';
 import { Strings } from '../system';
+import { executeCommand } from '../system/command';
 import { StatusFileNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
 	command,
 	CommandContext,
-	Commands,
-	executeCommand,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
-} from './common';
+} from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenFileOnRemoteCommandArgs {

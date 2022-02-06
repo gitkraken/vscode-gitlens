@@ -6,7 +6,7 @@ import { LineAnnotationController } from './annotations/lineAnnotationController
 import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
-import { Commands, executeCommand, ToggleFileAnnotationCommandArgs } from './commands';
+import type { ToggleFileAnnotationCommandArgs } from './commands';
 import {
 	AnnotationsToggleMode,
 	Config,
@@ -16,6 +16,7 @@ import {
 	DateStyle,
 	FileAnnotationType,
 } from './configuration';
+import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
@@ -23,6 +24,7 @@ import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
 import { Storage } from './storage';
+import { executeCommand } from './system/command';
 import { log } from './system/decorators/log';
 import { memoize } from './system/decorators/memoize';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';

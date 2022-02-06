@@ -1,5 +1,5 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
@@ -7,7 +7,8 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
+import { executeCommand } from '../system/command';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 

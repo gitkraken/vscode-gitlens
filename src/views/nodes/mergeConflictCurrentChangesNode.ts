@@ -1,6 +1,6 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithCommandArgs } from '../../commands';
-import { CoreCommands, GlyphChars } from '../../constants';
+import type { DiffWithCommandArgs } from '../../commands';
+import { Commands, CoreCommands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/models';

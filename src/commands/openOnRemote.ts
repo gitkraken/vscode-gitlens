@@ -1,4 +1,4 @@
-import { GlyphChars } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitRemote, GitRevision } from '../git/models';
 import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
@@ -6,7 +6,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RemoteProviderPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { Command, command, Commands } from './common';
+import { Command, command } from './base';
 
 export type OpenOnRemoteCommandArgs =
 	| {

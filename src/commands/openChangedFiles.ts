@@ -1,11 +1,12 @@
 import { Uri, window } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RepositoryPicker } from '../quickpicks';
 import { Arrays } from '../system';
 import { findOrOpenEditors } from '../system/utils';
-import { Command, command, Commands } from './common';
+import { Command, command } from './base';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];

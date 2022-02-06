@@ -1,9 +1,10 @@
 import { env, TextEditor, Uri, window } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { RepositoryPicker } from '../quickpicks';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, getCommandUri } from './base';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {

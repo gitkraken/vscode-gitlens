@@ -1,6 +1,7 @@
 import { configuration, OutputLevel } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, Command, Commands } from './common';
+import { command, Command } from './base';
 
 @command()
 export class EnableDebugLoggingCommand extends Command {

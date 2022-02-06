@@ -2,19 +2,18 @@ import { Uri } from 'vscode';
 import type { HoverCommandsActionContext, OpenPullRequestActionContext } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
 import {
-	Commands,
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
-	getMarkdownActionCommand,
 	OpenCommitOnRemoteCommand,
 	OpenFileAtRevisionCommand,
 	ShowQuickCommitCommand,
 	ShowQuickCommitFileCommand,
 } from '../../commands';
 import { DateStyle, FileAnnotationType } from '../../configuration';
-import { GlyphChars } from '../../constants';
+import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
+import { getMarkdownActionCommand } from '../../system/command';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';

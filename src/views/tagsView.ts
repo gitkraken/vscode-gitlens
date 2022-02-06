@@ -8,8 +8,8 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { Commands, executeCommand } from '../commands';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -19,6 +19,7 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import {
 	BranchOrTagFolderNode,

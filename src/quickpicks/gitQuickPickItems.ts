@@ -1,6 +1,6 @@
 import { QuickInputButton, QuickPickItem } from 'vscode';
-import { Commands, GitCommandsCommand, GitCommandsCommandArgs } from '../commands';
-import { GlyphChars } from '../constants';
+import { GitCommandsCommand, GitCommandsCommandArgs } from '../commands/gitCommands';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { emojify } from '../emojis';
 import {

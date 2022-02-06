@@ -1,5 +1,5 @@
 import { ThemeIcon, TreeItem } from 'vscode';
-import { executeGitCommand } from '../../commands';
+import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import { GitLog } from '../../git/models';
 import { SearchPattern } from '../../git/search';

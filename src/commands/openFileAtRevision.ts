@@ -1,6 +1,6 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
@@ -8,8 +8,8 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
-import { GitActions } from './gitCommands';
+import { ActiveEditorCommand, command, CommandContext, getCommandUri } from './base';
+import { GitActions } from './gitCommands.actions';
 import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {

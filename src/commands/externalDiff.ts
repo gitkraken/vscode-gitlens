@@ -1,6 +1,7 @@
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
 import { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
@@ -12,10 +13,9 @@ import {
 	command,
 	Command,
 	CommandContext,
-	Commands,
 	isCommandContextViewNodeHasFileCommit,
 	isCommandContextViewNodeHasFileRefs,
-} from './common';
+} from './base';
 
 interface ExternalDiffFile {
 	uri: Uri;

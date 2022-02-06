@@ -1,15 +1,13 @@
 import { env, Range, TextDocumentShowOptions, Uri, window } from 'vscode';
-import {
+import type {
 	BrowseRepoAtRevisionCommandArgs,
-	Commands,
 	DiffWithCommandArgs,
 	DiffWithWorkingCommandArgs,
-	executeCommand,
-	executeEditorCommand,
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { FileAnnotationType } from '../configuration';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -26,6 +24,7 @@ import {
 	Repository,
 } from '../git/models';
 import { RepositoryPicker } from '../quickpicks';
+import { executeCommand, executeEditorCommand } from '../system/command';
 import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';

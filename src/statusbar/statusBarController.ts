@@ -10,14 +10,15 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { command, Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
+import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import { GitCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
+import { asCommand } from '../system/command';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { PromiseCancelledError } from '../system/promise';
@@ -272,7 +273,7 @@ export class StatusBarController implements Disposable {
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
 				if (commit.file != null) {
-					this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
 						title: 'Toggle File Changes',
 						command: Commands.ToggleFileChanges,
 						arguments: [
@@ -289,7 +290,7 @@ export class StatusBarController implements Disposable {
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
 				if (commit.file != null) {
-					this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
 						title: 'Toggle File Changes',
 						command: Commands.ToggleFileChanges,
 						arguments: [

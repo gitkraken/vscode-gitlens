@@ -3,11 +3,12 @@ import { AnnotationContext } from '../annotations/annotationProvider';
 import { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
 import { UriComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { isTextEditor } from '../system/utils';
-import { ActiveEditorCommand, command, Commands, EditorCommand } from './common';
+import { ActiveEditorCommand, command, EditorCommand } from './base';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {

@@ -1,11 +1,12 @@
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs, executeCoreCommand } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
-import { CoreCommands } from '../../constants';
+import { Commands, CoreCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
 import { Arrays, Strings } from '../../system';
+import { executeCoreCommand } from '../../system/command';
 import { joinPaths, normalizePath } from '../../system/path';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';

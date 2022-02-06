@@ -13,7 +13,6 @@ import {
 	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
-import { executeCommand } from '../commands';
 import {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -33,6 +32,7 @@ import {
 } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { executeCommand } from '../system/command';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';

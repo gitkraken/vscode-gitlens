@@ -1,7 +1,8 @@
 import { env, Uri } from 'vscode';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { AutolinkedItemNode } from '../views/nodes/autolinkedItemNode';
-import { Command, command, CommandContext, Commands } from './common';
+import { Command, command, CommandContext } from './base';
 
 export interface OpenIssueOnRemoteCommandArgs {
 	clipboard?: boolean;

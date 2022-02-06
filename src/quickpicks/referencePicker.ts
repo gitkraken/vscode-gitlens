@@ -1,5 +1,5 @@
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
-import { GitActions } from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';

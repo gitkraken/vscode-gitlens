@@ -1,12 +1,13 @@
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { configuration, GitCommandSorting } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Usage, WorkspaceState } from '../storage';
 import { log } from '../system/decorators/log';
 import { isPromise } from '../system/promise';
-import { command, Command, CommandContext, Commands } from './common';
+import { command, Command, CommandContext } from './base';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -34,8 +35,6 @@ import {
 	StepSelection,
 } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
-
-export * from './gitCommands.actions';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');

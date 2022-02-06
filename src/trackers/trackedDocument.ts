@@ -1,6 +1,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
+import { ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';

@@ -23,9 +23,9 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { Colors } from '../constants';
+import { Colors, ContextKeys } from '../constants';
 import { Container } from '../container';
-import { ContextKeys, setContext } from '../context';
+import { setContext } from '../context';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
 import { once } from '../system/event';
