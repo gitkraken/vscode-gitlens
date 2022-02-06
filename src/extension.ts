@@ -1,4 +1,4 @@
-import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { version as codeVersion, env, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -122,7 +122,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 				if (cfg.outputLevel !== OutputLevel.Debug) return;
 
 				if (await Messages.showDebugLoggingWarningMessage()) {
-					void commands.executeCommand(Commands.DisableDebugLogging);
+					void executeCommand(Commands.DisableDebugLogging);
 				}
 			}, 60000);
 		}
@@ -201,7 +201,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 		if (window.state.focused) {
 			await container.storage.delete(GlobalState.PendingWelcomeOnFocus);
-			await commands.executeCommand(Commands.ShowWelcomePage);
+			await executeCommand(Commands.ShowWelcomePage);
 		} else {
 			// Save pending on window getting focus
 			await container.storage.store(GlobalState.PendingWelcomeOnFocus, true);
@@ -214,7 +214,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 				if (container.storage.get(GlobalState.PendingWelcomeOnFocus) === true) {
 					void container.storage.delete(GlobalState.PendingWelcomeOnFocus);
 					if (container.config.showWelcomeOnInstall) {
-						void commands.executeCommand(Commands.ShowWelcomePage);
+						void executeCommand(Commands.ShowWelcomePage);
 					}
 				}
 			});

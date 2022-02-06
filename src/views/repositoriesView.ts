@@ -8,6 +8,7 @@ import {
 	ProgressLocation,
 	window,
 } from 'vscode';
+import { Commands, executeCommand } from '../commands';
 import {
 	configuration,
 	RepositoriesViewConfig,
@@ -71,7 +72,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

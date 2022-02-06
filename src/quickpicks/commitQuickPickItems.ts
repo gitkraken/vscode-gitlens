@@ -89,7 +89,7 @@ export class CommitFileQuickPickItem extends CommandQuickPickItem {
 		// 	commit: fileCommit,
 		// 	showOptions: options,
 		// };
-		// void (await commands.executeCommand(Commands.DiffWithPrevious, fileCommit.toGitUri(), commandArgs));
+		// void (await executeCommand(Commands.DiffWithPrevious, fileCommit.toGitUri(), commandArgs));
 	}
 }
 

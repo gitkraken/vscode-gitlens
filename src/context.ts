@@ -1,5 +1,5 @@
 import { commands } from 'vscode';
-import { BuiltInCommands } from './constants';
+import { CoreCommands } from './constants';
 
 export const enum ContextKeys {
 	ActionPrefix = 'gitlens:action:',
@@ -38,5 +38,5 @@ export async function setContext(
 	value: unknown,
 ): Promise<void> {
 	// contextStorage.set(key, value);
-	void (await commands.executeCommand(BuiltInCommands.SetContext, key, value));
+	void (await commands.executeCommand(CoreCommands.SetContext, key, value));
 }

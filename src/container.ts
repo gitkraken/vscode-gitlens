@@ -1,4 +1,4 @@
-import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import { ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
@@ -6,7 +6,7 @@ import { LineAnnotationController } from './annotations/lineAnnotationController
 import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
-import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
+import { Commands, executeCommand, ToggleFileAnnotationCommandArgs } from './commands';
 import {
 	AnnotationsToggleMode,
 	Config,
@@ -465,7 +465,7 @@ export class Container {
 		if (mode == null) return config;
 
 		if (mode.annotations != null) {
-			let command: string | undefined;
+			let command: Commands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
 					config.blame.toggleMode = AnnotationsToggleMode.Window;
@@ -487,7 +487,7 @@ export class Container {
 					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propegated first
-				setTimeout(() => commands.executeCommand(command!, commandArgs), 50);
+				setTimeout(() => executeCommand(command!, commandArgs), 50);
 			}
 		}
 

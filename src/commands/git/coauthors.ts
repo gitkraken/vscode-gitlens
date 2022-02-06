@@ -1,8 +1,9 @@
-import { commands } from 'vscode';
+import { CoreCommands } from '../../constants';
 import { Container } from '../../container';
 import { GitContributor, Repository } from '../../git/models';
 import { normalizePath } from '../../system/path';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { executeCoreCommand } from '../common';
 import {
 	PartialStepState,
 	pickContributorsStep,
@@ -90,7 +91,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		}
 
 		repo.inputBox.value = message;
-		void (await commands.executeCommand('workbench.view.scm'));
+		void (await executeCoreCommand(CoreCommands.ShowSCM));
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

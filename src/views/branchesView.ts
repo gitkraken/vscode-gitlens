@@ -8,6 +8,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
+import { Commands, executeCommand } from '../commands';
 import {
 	BranchesViewConfig,
 	configuration,
@@ -128,7 +129,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

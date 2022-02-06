@@ -1,5 +1,5 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { BuiltInCommands } from '../../constants';
+import { CoreCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitMergeStatus, GitRebaseStatus } from '../../git/models';
@@ -119,7 +119,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	override getCommand(): Command | undefined {
 		return {
 			title: 'Open File',
-			command: BuiltInCommands.Open,
+			command: CoreCommands.Open,
 			arguments: [
 				this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath),
 				{

@@ -8,6 +8,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
+import { Commands, executeCommand } from '../commands';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -110,7 +111,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

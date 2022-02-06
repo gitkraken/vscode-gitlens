@@ -1,6 +1,6 @@
-import { commands } from 'vscode';
+import { CoreCommands } from '../constants';
 import type { Container } from '../container';
-import { command, Command, Commands } from './common';
+import { command, Command, Commands, executeCoreCommand } from './common';
 
 @command()
 export class RefreshHoverCommand extends Command {
@@ -10,6 +10,6 @@ export class RefreshHoverCommand extends Command {
 
 	async execute() {
 		// TODO@eamodio figure out how to really refresh/update a hover
-		await commands.executeCommand('editor.action.showHover');
+		await executeCoreCommand(CoreCommands.EditorShowHover);
 	}
 }

@@ -3,7 +3,6 @@ import {
 	CodeLens,
 	CodeLensProvider,
 	Command,
-	commands,
 	DocumentSelector,
 	DocumentSymbol,
 	Event,
@@ -20,6 +19,7 @@ import {
 	command,
 	Commands,
 	DiffWithPreviousCommandArgs,
+	executeCoreCommand,
 	OpenOnRemoteCommandArgs,
 	ShowCommitsInViewCommandArgs,
 	ShowQuickCommitCommandArgs,
@@ -35,7 +35,7 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { BuiltInCommands, Schemes } from '../constants';
+import { CoreCommands, Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
@@ -158,8 +158,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			} else {
 				[blame, symbols] = await Promise.all([
 					this.container.git.getBlame(gitUri, document),
-					commands.executeCommand<SymbolInformation[]>(
-						BuiltInCommands.ExecuteDocumentSymbolProvider,
+					executeCoreCommand<[Uri], SymbolInformation[]>(
+						CoreCommands.ExecuteDocumentSymbolProvider,
 						document.uri,
 					),
 				]);
@@ -167,8 +167,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 			if (blame == null || blame?.lines.length === 0) return lenses;
 		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
-			symbols = await commands.executeCommand<SymbolInformation[]>(
-				BuiltInCommands.ExecuteDocumentSymbolProvider,
+			symbols = await executeCoreCommand<[Uri], SymbolInformation[]>(
+				CoreCommands.ExecuteDocumentSymbolProvider,
 				document.uri,
 			);
 		}

@@ -1,5 +1,5 @@
 import { configuration } from '../../configuration';
-import { BuiltInGitConfiguration, GlyphChars } from '../../constants';
+import { CoreGitConfiguration, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
 import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
@@ -151,7 +151,7 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const useForceWithLease = configuration.getAny<boolean>(BuiltInGitConfiguration.UseForcePushWithLease) ?? false;
+		const useForceWithLease = configuration.getAny<boolean>(CoreGitConfiguration.UseForcePushWithLease) ?? false;
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 

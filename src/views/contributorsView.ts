@@ -9,6 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { Avatars } from '../avatars';
+import { Commands, executeCommand } from '../commands';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -135,7 +136,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

@@ -1,6 +1,5 @@
 import {
 	CancellationToken,
-	commands,
 	ConfigurationChangeEvent,
 	Disposable,
 	Event,
@@ -14,6 +13,7 @@ import {
 	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
+import { executeCommand } from '../commands';
 import {
 	BranchesViewConfig,
 	CommitsViewConfig,
@@ -103,7 +103,11 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	constructor(public readonly id: string, public readonly name: string, public readonly container: Container) {
+	constructor(
+		public readonly id: `gitlens.views.${string}`,
+		public readonly name: string,
+		public readonly container: Container,
+	) {
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (Logger.isDebugging || this.container.config.debug) {
@@ -505,7 +509,7 @@ export abstract class ViewBase<
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
 		try {
-			void (await commands.executeCommand(`${this.id}.focus`, options));
+			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
 			Logger.error(ex);
 		}

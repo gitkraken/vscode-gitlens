@@ -1,6 +1,5 @@
 import {
 	CancellationToken,
-	commands,
 	ConfigurationTarget,
 	CustomTextEditorProvider,
 	Disposable,
@@ -14,9 +13,9 @@ import {
 	WorkspaceEdit,
 } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowQuickCommitCommand } from '../commands';
+import { executeCoreCommand, ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
-import { BuiltInCommands } from '../constants';
+import { CoreCommands } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
@@ -466,7 +465,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		void Messages.showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
-		void commands.executeCommand(BuiltInCommands.Open, context.document.uri, {
+		void executeCoreCommand(CoreCommands.Open, context.document.uri, {
 			override: false,
 			preview: false,
 		});

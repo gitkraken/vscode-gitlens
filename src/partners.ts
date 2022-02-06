@@ -1,7 +1,7 @@
-import { CancellationTokenSource, commands, Extension, ExtensionContext, extensions, Uri } from 'vscode';
+import { CancellationTokenSource, Extension, ExtensionContext, extensions, Uri } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
-import { Commands, executeCommand, InviteToLiveShareCommandArgs } from './commands';
-import { BuiltInCommands } from './constants';
+import { Commands, executeCommand, executeCoreCommand, InviteToLiveShareCommandArgs } from './commands';
+import { CoreCommands } from './constants';
 import { Container } from './container';
 
 export async function installExtension<T>(
@@ -33,7 +33,7 @@ export async function installExtension<T>(
 			});
 		});
 
-		await commands.executeCommand(BuiltInCommands.InstallExtension, vsix ?? extensionId);
+		await executeCoreCommand(CoreCommands.InstallExtension, vsix ?? extensionId);
 		// Wait for extension activation until timeout expires
 		timer = setTimeout(() => {
 			timer = undefined;

@@ -1,6 +1,6 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
-import { BuiltInCommands, GlyphChars } from '../../constants';
+import { CoreCommands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/models';
@@ -69,7 +69,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 		if (this.status.mergeBase == null) {
 			return {
 				title: 'Open Revision',
-				command: BuiltInCommands.Open,
+				command: CoreCommands.Open,
 				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath)],
 			};
 		}

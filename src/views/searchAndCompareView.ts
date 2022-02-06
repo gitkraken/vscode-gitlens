@@ -1,5 +1,5 @@
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { getRepoPathOrPrompt } from '../commands';
+import { Commands, executeCommand, getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
@@ -274,7 +274,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

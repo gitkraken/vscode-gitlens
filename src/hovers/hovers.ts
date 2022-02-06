@@ -337,7 +337,7 @@ export namespace Hovers {
 					// 		cc,
 					// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
 					// 	);
-					// 	void commands.executeCommand('editor.action.showHover');
+					// 	void executeCoreCommand(CoreCommands.EditorShowHover);
 					// });
 
 					return autolinks;

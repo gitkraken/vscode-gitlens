@@ -1,7 +1,8 @@
-import { commands, window } from 'vscode';
+import { window } from 'vscode';
 import { viewsConfigKeys } from '../configuration';
+import { CoreCommands } from '../constants';
 import type { Container } from '../container';
-import { command, Command, Commands } from './common';
+import { command, Command, Commands, executeCommand, executeCoreCommand } from './common';
 
 enum ViewsLayout {
 	GitLens = 'gitlens',
@@ -51,7 +52,7 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await commands.executeCommand('vscode.moveViews', {
+						void (await executeCoreCommand(CoreCommands.MoveViews, {
 							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
 							destinationId: 'workbench.view.extension.gitlens',
 						}));
@@ -64,14 +65,14 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await commands.executeCommand('vscode.moveViews', {
+						void (await executeCoreCommand(CoreCommands.MoveViews, {
 							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
 							destinationId: 'workbench.view.scm',
 						}));
 					}
 				} catch {
 					for (const view of viewsConfigKeys) {
-						void (await commands.executeCommand(`gitlens.views.${view}.resetViewLocation`));
+						void (await executeCommand(`gitlens.views.${view}.resetViewLocation`));
 					}
 				}
 

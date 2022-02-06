@@ -23,7 +23,7 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { configuration } from '../../../configuration';
-import { BuiltInGitConfiguration, GlyphChars, Schemes } from '../../../constants';
+import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
 import {
@@ -323,7 +323,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-					BuiltInGitConfiguration.AutoRepositoryDetection,
+					CoreGitConfiguration.AutoRepositoryDetection,
 				) ?? true;
 			if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
 

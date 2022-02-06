@@ -17,7 +17,7 @@ import {
 } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
-import { BuiltInGitConfiguration, GlyphChars, Schemes } from '../constants';
+import { CoreGitConfiguration, GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { ProviderNotFoundError } from '../errors';
@@ -209,7 +209,7 @@ export class GitProviderService implements Disposable {
 		if (e.added.length) {
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-					BuiltInGitConfiguration.AutoRepositoryDetection,
+					CoreGitConfiguration.AutoRepositoryDetection,
 				) ?? true;
 			if (autoRepositoryDetection !== false && autoRepositoryDetection !== 'openEditors') {
 				void this.discoverRepositories(e.added);
@@ -398,7 +398,7 @@ export class GitProviderService implements Disposable {
 		if (workspaceFolders?.length) {
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-					BuiltInGitConfiguration.AutoRepositoryDetection,
+					CoreGitConfiguration.AutoRepositoryDetection,
 				) ?? true;
 
 			if (autoRepositoryDetection !== false && autoRepositoryDetection !== 'openEditors') {

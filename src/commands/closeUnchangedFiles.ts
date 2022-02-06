@@ -1,11 +1,11 @@
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { TextEditor, Uri, window } from 'vscode';
 import { TextEditorComparer, UriComparer } from '../comparers';
-import { BuiltInCommands } from '../constants';
+import { CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { debounce } from '../system/function';
-import { Command, command, Commands, getRepoPathOrPrompt } from './common';
+import { Command, command, Commands, executeCoreCommand, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -38,7 +38,7 @@ export class CloseUnchangedFilesCommand extends Command {
 			}
 
 			if (args.uris.length === 0) {
-				void commands.executeCommand(BuiltInCommands.CloseAllEditors);
+				void executeCoreCommand(CoreCommands.CloseAllEditors);
 
 				return;
 			}
@@ -106,7 +106,7 @@ export class CloseUnchangedFilesCommand extends Command {
 	private async closeEditor(timeout: number = 500): Promise<TextEditor | undefined> {
 		const editor = window.activeTextEditor;
 
-		void (await commands.executeCommand(BuiltInCommands.CloseActiveEditor));
+		void (await executeCoreCommand(CoreCommands.CloseActiveEditor));
 
 		if (editor !== window.activeTextEditor) {
 			return window.activeTextEditor;
@@ -118,7 +118,7 @@ export class CloseUnchangedFilesCommand extends Command {
 	private async nextEditor(timeout: number = 500): Promise<TextEditor | undefined> {
 		const editor = window.activeTextEditor;
 
-		void (await commands.executeCommand(BuiltInCommands.NextEditor));
+		void (await executeCoreCommand(CoreCommands.NextEditor));
 
 		if (editor !== window.activeTextEditor) {
 			return window.activeTextEditor;

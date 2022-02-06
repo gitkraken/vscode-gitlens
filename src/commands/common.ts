@@ -14,7 +14,7 @@ import {
 	workspace,
 } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
-import { BuiltInCommands, ImageMimetypes, Schemes } from '../constants';
+import { CoreCommands, CoreGitCommands, ImageMimetypes, Schemes } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -183,6 +183,7 @@ export const enum Commands {
 	ToggleLineBlame = 'gitlens.toggleLineBlame',
 	ToggleReviewMode = 'gitlens.toggleReviewMode',
 	ToggleZenMode = 'gitlens.toggleZenMode',
+	ViewsCopy = 'gitlens.views.copy',
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
 	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
 
@@ -208,8 +209,45 @@ export function getMarkdownActionCommand<T extends ActionContext>(action: Action
 	});
 }
 
-export function executeCommand<T>(command: Commands, args: T) {
-	return commands.executeCommand(command, args);
+type SupportedCommands = Commands | `gitlens.views.${string}.focus` | `gitlens.views.${string}.resetViewLocation`;
+
+export function executeCommand<U = any>(command: SupportedCommands): Thenable<U>;
+export function executeCommand<T = unknown, U = any>(command: SupportedCommands, arg: T): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(
+	command: SupportedCommands,
+	...args: T
+): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(
+	command: SupportedCommands,
+	...args: T
+): Thenable<U> {
+	return commands.executeCommand<U>(command, args);
+}
+
+export function executeCoreCommand<U = any>(command: CoreCommands): Thenable<U>;
+export function executeCoreCommand<T = unknown, U = any>(command: CoreCommands, arg: T): Thenable<U>;
+export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
+	command: CoreCommands,
+	...args: T
+): Thenable<U>;
+export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
+	command: CoreCommands,
+	...args: T
+): Thenable<U> {
+	return commands.executeCommand<U>(command, ...args);
+}
+
+export function executeCoreGitCommand<U = any>(command: CoreGitCommands): Thenable<U>;
+export function executeCoreGitCommand<T = unknown, U = any>(command: CoreGitCommands, arg: T): Thenable<U>;
+export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
+	command: CoreGitCommands,
+	...args: T
+): Thenable<U>;
+export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
+	command: CoreGitCommands,
+	...args: T
+): Thenable<U> {
+	return commands.executeCommand<U>(command, ...args);
 }
 
 export function executeEditorCommand<T>(command: Commands, uri: Uri | undefined, args: T) {
@@ -700,7 +738,7 @@ export function findOrOpenEditors(uris: Uri[]): void {
 	}
 
 	for (const uri of normalizedUris.values()) {
-		void commands.executeCommand(BuiltInCommands.Open, uri, { background: true, preview: false });
+		void executeCoreCommand(CoreCommands.Open, uri, { background: true, preview: false });
 	}
 }
 
@@ -715,7 +753,7 @@ export async function openEditor(
 		}
 
 		if (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
-			await commands.executeCommand(BuiltInCommands.Open, uri);
+			await executeCoreCommand(CoreCommands.Open, uri);
 
 			return undefined;
 		}
@@ -730,7 +768,7 @@ export async function openEditor(
 	} catch (ex) {
 		const msg: string = ex?.toString() ?? '';
 		if (msg.includes('File seems to be binary and cannot be opened as text')) {
-			await commands.executeCommand(BuiltInCommands.Open, uri);
+			await executeCoreCommand(CoreCommands.Open, uri);
 
 			return undefined;
 		}
@@ -757,7 +795,7 @@ export function openWorkspace(
 		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
-	return void commands.executeCommand(BuiltInCommands.OpenFolder, uri, {
+	return void executeCoreCommand(CoreCommands.OpenFolder, uri, {
 		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
 	});
 }

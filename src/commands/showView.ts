@@ -1,8 +1,7 @@
-import { commands } from 'vscode';
 import type { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { SyncedState } from '../storage';
-import { command, Command, CommandContext, Commands } from './common';
+import { command, Command, CommandContext, Commands, executeCommand } from './common';
 
 @command()
 export class ShowViewCommand extends Command {
@@ -51,7 +50,7 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowWelcomeView:
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
 				void this.container.storage.store(SyncedState.WelcomeViewVisible, true);
-				void (await commands.executeCommand('gitlens.views.welcome.focus'));
+				void (await executeCommand('gitlens.views.welcome.focus'));
 		}
 
 		return Promise.resolve(undefined);

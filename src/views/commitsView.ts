@@ -8,6 +8,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
+import { Commands, executeCommand } from '../commands';
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -196,7 +197,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

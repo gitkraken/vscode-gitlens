@@ -1,4 +1,5 @@
 import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
+import { Commands, executeCommand } from '../commands';
 import { configuration, LineHistoryViewConfig } from '../configuration';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
@@ -30,7 +31,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

@@ -1,5 +1,5 @@
-import { commands, TextEditor, Uri } from 'vscode';
-import { BuiltInCommands } from '../constants';
+import { TextEditor, Uri } from 'vscode';
+import { CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -10,6 +10,7 @@ import {
 	command,
 	CommandContext,
 	Commands,
+	executeCoreCommand,
 	getCommandUri,
 	openWorkspace,
 	OpenWorkspaceLocation,
@@ -75,7 +76,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			});
 
 			if (!args.openInNewWindow) {
-				void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
+				void executeCoreCommand(CoreCommands.FocusFilesExplorer);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'BrowseRepoAtRevisionCommand');

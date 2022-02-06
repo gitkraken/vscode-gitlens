@@ -1,5 +1,4 @@
 import {
-	commands,
 	ConfigurationChangeEvent,
 	Disposable,
 	Event,
@@ -12,9 +11,9 @@ import {
 	WorkspaceFolder,
 } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import { executeActionCommand } from '../../commands';
+import { executeActionCommand, executeCoreGitCommand } from '../../commands';
 import { configuration } from '../../configuration';
-import { BuiltInGitCommands, BuiltInGitConfiguration, Schemes } from '../../constants';
+import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -643,11 +642,11 @@ export class Repository implements Disposable {
 		try {
 			const upstream = await this.hasUpstreamBranch();
 			if (upstream) {
-				void (await commands.executeCommand(
-					options.rebase ? BuiltInGitCommands.PullRebase : BuiltInGitCommands.Pull,
+				void (await executeCoreGitCommand(
+					options.rebase ? CoreGitCommands.PullRebase : CoreGitCommands.Pull,
 					this.path,
 				));
-			} else if (configuration.getAny<boolean>(BuiltInGitConfiguration.FetchOnPull, Uri.file(this.path))) {
+			} else if (configuration.getAny<boolean>(CoreGitConfiguration.FetchOnPull, Uri.file(this.path))) {
 				void (await this.container.git.fetch(this.path));
 			}
 
@@ -738,8 +737,8 @@ export class Repository implements Disposable {
 
 					const currentBranch = await this.getBranch();
 					if (branch.id === currentBranch?.id) {
-						void (await commands.executeCommand(
-							options.force ? BuiltInGitCommands.PushForce : BuiltInGitCommands.Push,
+						void (await executeCoreGitCommand(
+							options.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,
 							this.path,
 						));
 					} else {
@@ -755,8 +754,8 @@ export class Repository implements Disposable {
 
 				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`);
 			} else {
-				void (await commands.executeCommand(
-					options.force ? BuiltInGitCommands.PushForce : BuiltInGitCommands.Push,
+				void (await executeCoreGitCommand(
+					options.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,
 					this.path,
 				));
 			}

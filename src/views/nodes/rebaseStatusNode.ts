@@ -1,16 +1,7 @@
-import {
-	Command,
-	commands,
-	MarkdownString,
-	ThemeColor,
-	ThemeIcon,
-	TreeItem,
-	TreeItemCollapsibleState,
-	Uri,
-} from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { Commands, DiffWithPreviousCommandArgs, executeCoreCommand } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
-import { BuiltInCommands } from '../../constants';
+import { CoreCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
@@ -121,7 +112,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 
 	async openEditor() {
 		const rebaseTodoUri = Uri.joinPath(this.uri, '.git', 'rebase-merge', 'git-rebase-todo');
-		await commands.executeCommand(BuiltInCommands.OpenWith, rebaseTodoUri, 'gitlens.rebase', {
+		await executeCoreCommand(CoreCommands.OpenWith, rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
 	}

@@ -7,12 +7,14 @@ import {
 	DiffWithWorkingCommandArgs,
 	executeActionCommand,
 	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
 	executeEditorCommand,
 	GitActions,
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { BuiltInCommands, BuiltInGitCommands } from '../constants';
+import { CoreCommands, CoreGitCommands } from '../constants';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
@@ -460,7 +462,7 @@ export class ViewCommands {
 	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
 		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
 
-		return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
+		return executeCoreCommand(CoreCommands.OpenInTerminal, Uri.file(node.repo.path));
 	}
 
 	@debug()
@@ -481,7 +483,7 @@ export class ViewCommands {
 	@debug()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return commands.executeCommand(BuiltInGitCommands.Publish, Uri.file(node.repoPath));
+			return executeCoreGitCommand(CoreGitCommands.Publish, Uri.file(node.repoPath));
 		}
 		return Promise.resolve();
 	}
@@ -685,7 +687,7 @@ export class ViewCommands {
 			return;
 		}
 
-		await commands.executeCommand(BuiltInGitCommands.UndoCommit, node.repoPath);
+		await executeCoreGitCommand(CoreGitCommands.UndoCommit, node.repoPath);
 	}
 
 	@debug()
@@ -969,7 +971,7 @@ export class ViewCommands {
 		// 	};
 
 		// 	const uri = GitUri.fromFile(file, repoPath, ref);
-		// 	await commands.executeCommand(Commands.DiffWithWorking, uri, args);
+		// 	await executeCommand(Commands.DiffWithWorking, uri, args);
 		// }
 	}
 

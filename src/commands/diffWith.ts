@@ -1,11 +1,11 @@
-import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
+import { CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { basename } from '../system/path';
-import { command, Command, Commands } from './common';
+import { command, Command, Commands, executeCoreCommand } from './common';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;
@@ -174,8 +174,8 @@ export class DiffWithCommand extends Command {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			void (await commands.executeCommand(
-				BuiltInCommands.Diff,
+			void (await executeCoreCommand(
+				CoreCommands.Diff,
 				lhs ??
 					this.container.git.getRevisionUri(GitRevision.deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
 				rhs ??

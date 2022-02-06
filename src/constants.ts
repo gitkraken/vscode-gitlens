@@ -44,6 +44,46 @@ export const enum Colors {
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
+export const enum CoreCommands {
+	CloseActiveEditor = 'workbench.action.closeActiveEditor',
+	CloseAllEditors = 'workbench.action.closeAllEditors',
+	CursorMove = 'cursorMove',
+	Diff = 'vscode.diff',
+	EditorScroll = 'editorScroll',
+	EditorShowHover = 'editor.action.showHover',
+	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
+	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
+	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
+	InstallExtension = 'workbench.extensions.installExtension',
+	MoveViews = 'vscode.moveViews',
+	Open = 'vscode.open',
+	OpenFolder = 'vscode.openFolder',
+	OpenInTerminal = 'openInTerminal',
+	OpenWith = 'vscode.openWith',
+	NextEditor = 'workbench.action.nextEditor',
+	PreviewHtml = 'vscode.previewHtml',
+	RevealLine = 'revealLine',
+	SetContext = 'setContext',
+	ShowExplorer = 'workbench.view.explorer',
+	ShowReferences = 'editor.action.showReferences',
+	ShowSCM = 'workbench.view.scm',
+}
+
+export const enum CoreGitCommands {
+	Publish = 'git.publish',
+	Pull = 'git.pull',
+	PullRebase = 'git.pullRebase',
+	Push = 'git.push',
+	PushForce = 'git.pushForce',
+	UndoCommit = 'git.undoCommit',
+}
+
+export const enum CoreGitConfiguration {
+	AutoRepositoryDetection = 'git.autoRepositoryDetection',
+	FetchOnPull = 'git.fetchOnPull',
+	UseForcePushWithLease = 'git.useForcePushWithLease',
+}
+
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',
 	AngleBracketRightHeavy = '\u2771',
@@ -102,41 +142,4 @@ export const enum Schemes {
 	Vsls = 'vsls',
 	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',
-}
-
-export const enum BuiltInCommands {
-	CloseActiveEditor = 'workbench.action.closeActiveEditor',
-	CloseAllEditors = 'workbench.action.closeAllEditors',
-	CursorMove = 'cursorMove',
-	Diff = 'vscode.diff',
-	EditorScroll = 'editorScroll',
-	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
-	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
-	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
-	InstallExtension = 'workbench.extensions.installExtension',
-	Open = 'vscode.open',
-	OpenFolder = 'vscode.openFolder',
-	OpenInTerminal = 'openInTerminal',
-	OpenWith = 'vscode.openWith',
-	NextEditor = 'workbench.action.nextEditor',
-	PreviewHtml = 'vscode.previewHtml',
-	RevealLine = 'revealLine',
-	SetContext = 'setContext',
-	ShowExplorerActivity = 'workbench.view.explorer',
-	ShowReferences = 'editor.action.showReferences',
-}
-
-export const enum BuiltInGitCommands {
-	Publish = 'git.publish',
-	Pull = 'git.pull',
-	PullRebase = 'git.pullRebase',
-	Push = 'git.push',
-	PushForce = 'git.pushForce',
-	UndoCommit = 'git.undoCommit',
-}
-
-export const enum BuiltInGitConfiguration {
-	AutoRepositoryDetection = 'git.autoRepositoryDetection',
-	FetchOnPull = 'git.fetchOnPull',
-	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
