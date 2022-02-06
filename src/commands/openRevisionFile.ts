@@ -39,11 +39,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 
 					args.revisionUri =
 						commit?.file?.status === 'D'
-							? this.container.git.getRevisionUri(
-									commit.previousSha,
-									commit.file.previousUri.fsPath,
-									commit.repoPath,
-							  )
+							? this.container.git.getRevisionUri(commit.previousSha, commit.file, commit.repoPath)
 							: this.container.git.getRevisionUri(gitUri);
 				} else {
 					args.revisionUri = this.container.git.getRevisionUri(gitUri);

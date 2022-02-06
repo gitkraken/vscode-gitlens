@@ -59,7 +59,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 						);
 					} else {
 						lhsSha = args.commit.file!.previousSha ?? GitRevision.deletedOrMissing;
-						lhsUri = args.commit.file!.previousUri;
+						lhsUri = args.commit.file!.originalUri ?? args.commit.file!.uri;
 					}
 				} else {
 					lhsSha = args.commit.sha;

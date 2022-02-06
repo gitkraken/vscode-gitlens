@@ -53,7 +53,7 @@ export class DiffWithCommand extends Command {
 					repoPath: commit.repoPath,
 					lhs: {
 						sha: commit.file.previousSha ?? GitRevision.deletedOrMissing,
-						uri: commit.file.previousUri,
+						uri: commit.file.originalUri ?? commit.file.uri,
 					},
 					rhs: {
 						sha: commit.sha,

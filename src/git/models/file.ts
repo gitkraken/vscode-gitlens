@@ -202,10 +202,6 @@ export class GitFileChange {
 		}
 	}
 
-	get previousPath(): string {
-		return this.originalPath || this.path;
-	}
-
 	@memoize()
 	get uri(): Uri {
 		return Container.instance.git.getAbsoluteUri(this.path, this.repoPath);
@@ -214,11 +210,6 @@ export class GitFileChange {
 	@memoize()
 	get originalUri(): Uri | undefined {
 		return this.originalPath ? Container.instance.git.getAbsoluteUri(this.originalPath, this.repoPath) : undefined;
-	}
-
-	@memoize()
-	get previousUri(): Uri {
-		return Container.instance.git.getAbsoluteUri(this.previousPath, this.repoPath);
 	}
 
 	@memoize()

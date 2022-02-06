@@ -400,7 +400,7 @@ export class GitCommit implements GitRevisionReference {
 		const uri = this._file?.uri ?? this.container.git.getAbsoluteUri(this.repoPath, this.repoPath);
 		if (!previous) return new GitUri(uri, this);
 
-		return new GitUri(this._file?.previousUri ?? uri, {
+		return new GitUri(this._file?.originalUri ?? uri, {
 			repoPath: this.repoPath,
 			sha: this.previousSha,
 		});

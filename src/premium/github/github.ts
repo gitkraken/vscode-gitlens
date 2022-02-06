@@ -1451,7 +1451,7 @@ export class GitHubApi {
 		try {
 			if (!path) {
 				interface QueryResult {
-					repository: { object: { oid: string } } | null | undefined;
+					repository: { object: GitHubCommitRef } | null | undefined;
 				}
 
 				const query = `query resolveReference(
@@ -1479,7 +1479,7 @@ export class GitHubApi {
 					| {
 							object: {
 								history: {
-									nodes: { oid: string }[];
+									nodes: GitHubCommitRef[];
 								};
 							};
 					  }
