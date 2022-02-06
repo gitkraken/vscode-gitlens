@@ -25,15 +25,9 @@ export namespace Hovers {
 
 			// TODO: Figure out how to optimize this
 			let ref;
-			let ref2 = documentRef;
 			if (commit.isUncommitted) {
 				if (GitRevision.isUncommittedStaged(documentRef)) {
 					ref = documentRef;
-				}
-
-				// Check for a staged diff
-				if (ref == null && ref2 == null) {
-					ref2 = GitRevision.uncommittedStaged;
 				}
 			} else {
 				ref = commit.file.previousSha;
@@ -54,10 +48,10 @@ export namespace Hovers {
 
 			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, ref2);
+			let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-			if (hunkLine == null && ref == null && ref2 !== GitRevision.uncommittedStaged) {
+			if (hunkLine == null && ref == null && documentRef !== GitRevision.uncommittedStaged) {
 				hunkLine = await Container.instance.git.getDiffForLine(
 					uri,
 					editorLine,
