@@ -19,7 +19,7 @@ import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';
 import { ContactPresence } from '../../vsls/vsls';
-import type { GitUri } from '../gitUri';
+import { PreviousLineComparisionUrisResult } from '../gitProvider';
 import { GitCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
 import { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
@@ -38,7 +38,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	pullRequestOrRemote?: PullRequest | PromiseCancelledError | GitRemote;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
-	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
+	previousLineComparisonUris?: PreviousLineComparisionUrisResult;
 	remotes?: GitRemote<RemoteProvider>[];
 	unpublished?: boolean;
 
@@ -267,7 +267,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		let commands;
 		if (this._item.isUncommitted) {
-			const { previousLineDiffUris: diffUris } = this._options;
+			const { previousLineComparisonUris: diffUris } = this._options;
 			if (diffUris?.previous != null) {
 				commands = `\`${this._padOrTruncate(
 					GitRevision.shorten(
@@ -476,7 +476,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			const confliced = this._item.file?.hasConflicts ?? false;
 			const staged =
 				this._item.isUncommittedStaged ||
-				(this._options.previousLineDiffUris?.current?.isUncommittedStaged ?? false);
+				(this._options.previousLineComparisonUris?.current?.isUncommittedStaged ?? false);
 
 			return this._padOrTruncate(
 				`${this._options.markdown ? '\n> ' : ''}${

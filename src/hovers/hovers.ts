@@ -70,43 +70,45 @@ export namespace Hovers {
 		let previous;
 		let current;
 		if (commit.isUncommitted) {
-			const diffUris = await commit.getPreviousComparisonUrisForLine(uri, editorLine, documentRef);
-			if (diffUris?.previous == null) return undefined;
+			const compareUris = await commit.getPreviousComparisonUrisForLine(editorLine, documentRef);
+			if (compareUris?.previous == null) return undefined;
 
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
-					sha: diffUris.previous.sha ?? '',
-					uri: diffUris.previous.documentUri(),
+					sha: compareUris.previous.sha ?? '',
+					uri: compareUris.previous.documentUri(),
 				},
 				rhs: {
-					sha: diffUris.current.sha ?? '',
-					uri: diffUris.current.documentUri(),
+					sha: compareUris.current.sha ?? '',
+					uri: compareUris.current.documentUri(),
 				},
 				repoPath: commit.repoPath,
 				line: editorLine,
 			})} "Open Changes")`;
 
 			previous =
-				diffUris.previous.sha == null || diffUris.previous.isUncommitted
-					? `  &nbsp;_${GitRevision.shorten(diffUris.previous.sha, {
+				compareUris.previous.sha == null || compareUris.previous.isUncommitted
+					? `  &nbsp;_${GitRevision.shorten(compareUris.previous.sha, {
 							strings: { working: 'Working Tree' },
 					  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 					: `  &nbsp;[$(git-commit) ${GitRevision.shorten(
-							diffUris.previous.sha || '',
+							compareUris.previous.sha || '',
 					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-							diffUris.previous.sha || '',
+							compareUris.previous.sha || '',
 					  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 			current =
-				diffUris.current.sha == null || diffUris.current.isUncommitted
-					? `_${GitRevision.shorten(diffUris.current.sha, {
+				compareUris.current.sha == null || compareUris.current.isUncommitted
+					? `_${GitRevision.shorten(compareUris.current.sha, {
 							strings: {
 								working: 'Working Tree',
 							},
 					  })}_`
 					: `[$(git-commit) ${GitRevision.shorten(
-							diffUris.current.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(diffUris.current.sha || '')} "Show Commit")`;
+							compareUris.current.sha || '',
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+							compareUris.current.sha || '',
+					  )} "Show Commit")`;
 		} else {
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 				commit,
@@ -217,8 +219,8 @@ export namespace Hovers {
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
-		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
-			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(uri, editorLine, uri.sha) : undefined,
+		const [previousLineComparisonUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
+			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(message, remotes),
 			options?.pullRequests?.pr ??
 				getPullRequestForCommit(commit.ref, remotes, {
@@ -250,7 +252,7 @@ export namespace Hovers {
 			messageAutolinks: options?.autolinks,
 			pullRequestOrRemote: pr,
 			presence: presence,
-			previousLineDiffUris: previousLineDiffUris,
+			previousLineComparisonUris: previousLineComparisonUris,
 			remotes: remotes,
 		});
 

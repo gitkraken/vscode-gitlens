@@ -8,6 +8,7 @@ import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
+import { PreviousLineComparisionUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
 import { PullRequest } from './pullRequest';
@@ -406,10 +407,18 @@ export class GitCommit implements GitRevisionReference {
 		});
 	}
 
-	@memoize<GitCommit['getPreviousComparisonUrisForLine']>((u, e, r) => `${u.toString()}|${e}|${r ?? ''}`)
-	getPreviousComparisonUrisForLine(uri: Uri, editorLine: number, ref: string | undefined) {
-		return this.file?.path
-			? this.container.git.getPreviousComparisonUrisForLine(this.repoPath, uri, editorLine, ref)
+	@memoize<GitCommit['getPreviousComparisonUrisForLine']>((el, ref) => `${el}|${ref ?? ''}`)
+	getPreviousComparisonUrisForLine(
+		editorLine: number,
+		ref?: string,
+	): Promise<PreviousLineComparisionUrisResult | undefined> {
+		return this.file != null
+			? this.container.git.getPreviousComparisonUrisForLine(
+					this.repoPath,
+					this.file.uri,
+					editorLine,
+					ref ?? (this.sha === GitRevision.uncommitted ? undefined : this.sha),
+			  )
 			: Promise.resolve(undefined);
 	}
 
