@@ -521,7 +521,6 @@ export class GitHubApi {
 					ranges {
 						startingLine
 						endingLine
-						age
 						commit {
 							oid
 							parents(first: 3) { nodes { oid } }
@@ -1093,12 +1092,13 @@ export class GitHubApi {
 		options?: {
 			after?: string;
 			before?: string;
-			limit?: number;
+			first?: number;
+			last?: number;
 			path?: string;
-			since?: Date;
-			until?: Date;
+			since?: string;
+			until?: string;
 		},
-	): Promise<string[]> {
+	): Promise<GitHubPagedResult<GitHubCommitRef> | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		interface QueryResult {
@@ -1107,7 +1107,9 @@ export class GitHubApi {
 						object:
 							| {
 									history: {
-										nodes: { oid: string }[];
+										pageInfo: GitHubPageInfo;
+										totalCount: number;
+										nodes: GitHubCommitRef[];
 									};
 							  }
 							| null
@@ -1124,7 +1126,8 @@ export class GitHubApi {
 	$ref: String!
 	$after: String
 	$before: String
-	$limit: Int = 1
+	$first: Int
+	$last: Int
 	$path: String
 	$since: GitTimestamp
 	$until: GitTimestamp
@@ -1132,7 +1135,9 @@ export class GitHubApi {
 	repository(name: $repo, owner: $owner) {
 		object(expression: $ref) {
 			... on Commit {
-				history(first: $limit, path: $path, since: $since, until: $until, after: $after, before: $before) {
+				history(first: $first, last: $last, path: $path, since: $since, until: $until, after: $after, before: $before) {
+					pageInfo { startCursor, endCursor, hasNextPage, hasPreviousPage }
+					totalCount
 					nodes { oid }
 				}
 			}
@@ -1145,19 +1150,102 @@ export class GitHubApi {
 				repo: repo,
 				ref: ref,
 				path: options?.path,
-				limit: Math.max(1, options?.limit ?? 1),
+				first: options?.first,
+				last: options?.last,
 				after: options?.after,
 				before: options?.before,
-				since: options?.since?.toISOString(),
-				until: options?.until?.toISOString(),
+				since: options?.since,
+				until: options?.until,
 			});
 			const history = rsp?.repository?.object?.history;
-			if (history == null) return [];
+			if (history == null) return undefined;
 
-			return history.nodes.map(n => n.oid);
+			return {
+				pageInfo: history.pageInfo,
+				totalCount: history.totalCount,
+				values: history.nodes,
+			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError<string[]>(ex, cc, []);
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
+	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
+	async getNextCommitRefs(
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		path: string,
+		sha: string,
+	): Promise<string[]> {
+		// Get the commit date of the current commit
+		const commitDate = await this.getCommitDate(token, owner, repo, sha);
+		if (commitDate == null) return [];
+
+		// Get a resultset (just need the cursor and totals), to get the page info we need to construct a cursor to page backwards
+		let result = await this.getCommitRefs(token, owner, repo, ref, { path: path, first: 1, since: commitDate });
+		if (result == null) return [];
+
+		// Construct a cursor to allow use to walk backwards in time (starting at the tip going back in time until the commit date)
+		const cursor = `${result.pageInfo.startCursor!.split(' ', 1)[0]} ${result.totalCount}`;
+
+		let last;
+		[, last] = cursor.split(' ', 2);
+		// We can't ask for more commits than are left in the cursor (but try to get more to be safe, since the date isn't exact enough)
+		last = Math.min(parseInt(last, 10), 5);
+
+		// Get the set of refs before the cursor
+		result = await this.getCommitRefs(token, owner, repo, ref, { path: path, last: last, before: cursor });
+		if (result == null) return [];
+
+		const nexts: string[] = [];
+
+		for (const { oid } of result.values) {
+			if (oid === sha) break;
+
+			nexts.push(oid);
+		}
+
+		return nexts.reverse();
+	}
+
+	private async getCommitDate(token: string, owner: string, repo: string, sha: string): Promise<string | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		interface QueryResult {
+			repository:
+				| {
+						object: { committer: { date: string } } | null | undefined;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getCommitDate(
+	$owner: String!
+	$repo: String!
+	$sha: GitObjectID!
+) {
+	repository(name: $repo, owner: $owner) {
+		object(oid: $sha) {
+			... on Commit { committer { date } }
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(token, query, {
+				owner: owner,
+				repo: repo,
+				sha: sha,
+			});
+			const date = rsp?.repository?.object?.committer.date;
+			return date;
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError(ex, cc, undefined);
 		}
 	}
 
@@ -1549,7 +1637,6 @@ export interface GitHubBlame {
 export interface GitHubBlameRange {
 	startingLine: number;
 	endingLine: number;
-	age: number;
 	commit: GitHubCommit;
 }
 
@@ -1576,6 +1663,10 @@ export interface GitHubCommit {
 	files?: Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
 }
 
+export interface GitHubCommitRef {
+	oid: string;
+}
+
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 
 interface GitHubIssueOrPullRequest {
@@ -1586,6 +1677,19 @@ interface GitHubIssueOrPullRequest {
 	closedAt: string | null;
 	title: string;
 	url: string;
+}
+
+export interface GitHubPagedResult<T> {
+	pageInfo: GitHubPageInfo;
+	totalCount: number;
+	values: T[];
+}
+
+interface GitHubPageInfo {
+	startCursor?: string | null;
+	endCursor?: string | null;
+	hasNextPage: boolean;
+	hasPreviousPage: boolean;
 }
 
 type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';

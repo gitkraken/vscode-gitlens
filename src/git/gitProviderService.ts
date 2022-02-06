@@ -1264,75 +1264,44 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getNextDiffUris(
+	getNextComparisonUris(
 		repoPath: string | Uri,
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
-		if (ref == null || ref.length === 0) return undefined;
+		if (!ref) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getNextDiffUris(path, uri, ref, skip);
+		return provider.getNextComparisonUris(path, uri, ref, skip);
 	}
 
 	@log()
-	async getNextUri(
-		repoPath: string | Uri,
-		uri: Uri,
-		ref?: string,
-		skip: number = 0,
-		// editorLine?: number
-	): Promise<GitUri | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
-		if (ref == null || ref.length === 0 || GitRevision.isUncommittedStaged(ref)) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getNextUri(path, uri, ref, skip);
-	}
-
-	@log()
-	async getPreviousDiffUris(
+	getPreviousComparisonUris(
 		repoPath: string | Uri,
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
 		firstParent: boolean = false,
 	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getPreviousDiffUris(path, uri, ref, skip, firstParent);
+		return provider.getPreviousComparisonUris(path, uri, ref, skip, firstParent);
 	}
 
 	@log()
-	async getPreviousLineDiffUris(
+	getPreviousComparisonUrisForLine(
 		repoPath: string | Uri,
 		uri: Uri,
 		editorLine: number,
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getPreviousLineDiffUris(path, uri, editorLine, ref, skip);
-	}
-
-	@log()
-	async getPreviousUri(
-		repoPath: string | Uri,
-		uri: Uri,
-		ref?: string,
-		skip: number = 0,
-		editorLine?: number,
-		firstParent: boolean = false,
-	): Promise<GitUri | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
-
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getPreviousUri(path, uri, ref, skip, editorLine, firstParent);
+		return provider.getPreviousComparisonUrisForLine(path, uri, editorLine, ref, skip);
 	}
 
 	async getPullRequestForBranch(

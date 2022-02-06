@@ -15,7 +15,7 @@ export namespace Hovers {
 	export async function changesMessage(
 		commit: GitCommit,
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		document: TextDocument,
 	): Promise<MarkdownString | undefined> {
 		const documentRef = uri.sha;
@@ -76,7 +76,7 @@ export namespace Hovers {
 		let previous;
 		let current;
 		if (commit.isUncommitted) {
-			const diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, documentRef);
+			const diffUris = await commit.getPreviousComparisonUrisForLine(uri, editorLine, documentRef);
 			if (diffUris?.previous == null) return undefined;
 
 			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
@@ -144,7 +144,7 @@ export namespace Hovers {
 	export async function localChangesMessage(
 		fromCommit: GitCommit | undefined,
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		hunk: GitDiffHunk,
 	): Promise<MarkdownString | undefined> {
 		const diff = getDiffFromHunk(hunk);
@@ -191,7 +191,7 @@ export namespace Hovers {
 	export async function detailsMessage(
 		commit: GitCommit,
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		format: string,
 		dateFormat: string | null,
 		options?: {
@@ -224,7 +224,7 @@ export namespace Hovers {
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
 		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
-			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
+			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(message, remotes),
 			options?.pullRequests?.pr ??
 				getPullRequestForCommit(commit.ref, remotes, {

@@ -37,7 +37,11 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		if (args.inDiffRightEditor) {
 			try {
-				const diffUris = await this.container.git.getPreviousDiffUris(gitUri.repoPath!, gitUri, gitUri.sha, 0);
+				const diffUris = await this.container.git.getPreviousComparisonUris(
+					gitUri.repoPath!,
+					gitUri,
+					gitUri.sha,
+				);
 				gitUri = diffUris?.previous ?? gitUri;
 			} catch (ex) {
 				Logger.error(

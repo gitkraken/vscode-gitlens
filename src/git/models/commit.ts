@@ -406,10 +406,10 @@ export class GitCommit implements GitRevisionReference {
 		});
 	}
 
-	@memoize<GitCommit['getPreviousLineDiffUris']>((u, e, r) => `${u.toString()}|${e}|${r ?? ''}`)
-	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
+	@memoize<GitCommit['getPreviousComparisonUrisForLine']>((u, e, r) => `${u.toString()}|${e}|${r ?? ''}`)
+	getPreviousComparisonUrisForLine(uri: Uri, editorLine: number, ref: string | undefined) {
 		return this.file?.path
-			? this.container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref)
+			? this.container.git.getPreviousComparisonUrisForLine(this.repoPath, uri, editorLine, ref)
 			: Promise.resolve(undefined);
 	}
 
@@ -494,7 +494,9 @@ export class GitCommitIdentity {
 export interface GitCommitLine {
 	sha: string;
 	previousSha?: string | undefined;
+	/** The original (previous) line number prior to this commit; 1-based */
 	originalLine: number;
+	/** The current line number in this commit; 1-based */
 	line: number;
 }
 

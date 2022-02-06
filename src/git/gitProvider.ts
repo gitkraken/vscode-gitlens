@@ -295,35 +295,26 @@ export interface GitProvider extends Disposable {
 	): Promise<string | undefined>;
 	getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined>;
 	getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined>;
-	getNextDiffUris(
+	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean | undefined } | undefined>;
-	getNextUri(repoPath: string, uri: Uri, ref?: string, skip?: number): Promise<GitUri | undefined>;
-	getPreviousDiffUris(
+	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 		firstParent?: boolean,
 	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined>;
-	getPreviousLineDiffUris(
+	getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
 		editorLine: number,
 		ref: string | undefined,
 		skip?: number,
 	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined>;
-	getPreviousUri(
-		repoPath: string,
-		uri: Uri,
-		ref?: string,
-		skip?: number,
-		editorLine?: number,
-		firstParent?: boolean,
-	): Promise<GitUri | undefined>;
 	getIncomingActivity(
 		repoPath: string,
 		options?: {

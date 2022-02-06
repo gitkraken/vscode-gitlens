@@ -1073,7 +1073,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getBlameForLine(
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
@@ -1126,7 +1126,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log<LocalGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		contents: string,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
@@ -1831,7 +1831,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getDiffForLine(
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		ref1: string | undefined,
 		ref2?: string,
 	): Promise<GitDiffHunkLine | undefined> {
@@ -2672,7 +2672,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getNextDiffUris(
+	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
@@ -2719,7 +2719,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getNextUri(
+	private async getNextUri(
 		repoPath: string,
 		uri: Uri,
 		ref?: string,
@@ -2775,7 +2775,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getPreviousDiffUris(
+	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
@@ -2852,10 +2852,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getPreviousLineDiffUris(
+	async getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
@@ -2971,7 +2971,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getPreviousUri(
+	private async getPreviousUri(
 		repoPath: string,
 		uri: Uri,
 		ref?: string,

@@ -32,7 +32,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 
 		try {
-			const diffUris = await this.container.git.getPreviousLineDiffUris(
+			const diffUris = await this.container.git.getPreviousComparisonUrisForLine(
 				gitUri.repoPath!,
 				gitUri,
 				args.line,

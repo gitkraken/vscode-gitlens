@@ -60,7 +60,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						const blame = await this.container.git.getBlameForLine(gitUri, editorLine);
 						if (blame != null) {
 							if (blame.commit.isUncommitted) {
-								const diffUris = await blame.commit.getPreviousLineDiffUris(
+								const diffUris = await blame.commit.getPreviousComparisonUrisForLine(
 									gitUri,
 									editorLine,
 									gitUri.sha,

@@ -41,7 +41,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 		try {
-			const diffUris = await this.container.git.getNextDiffUris(
+			const diffUris = await this.container.git.getNextComparisonUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

@@ -402,7 +402,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// const sha = await this.resolveReferenceCore(uri.repoPath!, metadata, uri.sha);
 			// if (sha == null) return undefined;
 
-			const ref = uri.sha ?? 'HEAD';
+			const ref = uri.sha ?? (await metadata.getRevision()).revision;
 			const blame = await github.getBlame(
 				session?.accessToken,
 				metadata.repo.owner,
@@ -453,6 +453,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 
 				for (let i = range.startingLine; i <= range.endingLine; i++) {
+					// GitHub doesn't currently support returning the original line number, so we are just using the current one
 					const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
 
 					commit.lines.push(line);
@@ -500,7 +501,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getBlameForLine(
 		uri: GitUri,
-		editorLine: number,
+		editorLine: number, // 0-based, Git is 1-based
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
@@ -547,7 +548,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				relativePath,
 			);
 
-			const range = blame.ranges.find(r => r.startingLine === editorLine);
+			const startingLine = editorLine + 1;
+			const range = blame.ranges.find(r => r.startingLine === startingLine);
 			if (range == null) return undefined;
 
 			const c = range.commit;
@@ -571,6 +573,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			);
 
 			for (let i = range.startingLine; i <= range.endingLine; i++) {
+				// GitHub doesn't currently support returning the original line number, so we are just using the current one
 				const line: GitCommitLine = { sha: c.oid, originalLine: i, line: i };
 
 				commit.lines.push(line);
@@ -582,7 +585,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					lineCount: range.endingLine - range.startingLine + 1,
 				},
 				commit: commit,
-				line: { sha: c.oid, originalLine: range.startingLine, line: editorLine },
+				// GitHub doesn't currently support returning the original line number, so we are just using the current one
+				line: { sha: c.oid, originalLine: range.startingLine, line: range.startingLine },
 			};
 		} catch (ex) {
 			debugger;
@@ -594,7 +598,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log<GitHubGitProvider['getBlameForLineContents']>({ args: { 2: '<contents>' } })
 	async getBlameForLineContents(
 		_uri: GitUri,
-		_editorLine: number,
+		_editorLine: number, // 0-based, Git is 1-based
 		_contents: string,
 		_options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
@@ -917,7 +921,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				session?.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				options?.ref ?? 'HEAD',
+				options?.ref ?? (await metadata.getRevision()).revision,
 				file,
 			);
 			if (commit == null) return undefined;
@@ -1080,7 +1084,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getDiffForLine(
 		_uri: GitUri,
-		_editorLine: number,
+		_editorLine: number, // 0-based, Git is 1-based
 		_ref1: string | undefined,
 		_ref2?: string,
 	): Promise<GitDiffHunkLine | undefined> {
@@ -1134,7 +1138,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const ref = options?.ref ?? 'HEAD';
+			const ref = options?.ref ?? (await metadata.getRevision()).revision;
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				authors: options?.authors,
@@ -1518,7 +1522,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	range = new Range(range.end, range.start);
 			// }
 
-			const ref = options?.ref ?? 'HEAD';
+			const ref = options?.ref ?? (await metadata.getRevision()).revision;
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				cursor: options?.cursor,
@@ -1710,119 +1714,57 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getNextDiffUris(
+	async getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
+		// If we have no ref there is no next commit
 		if (!ref) return undefined;
 
-		const relativePath = this.getRelativePath(uri, repoPath);
+		const cc = Logger.getCorrelationContext();
 
-		return {
-			current:
-				skip === 0
-					? GitUri.fromFile(relativePath, repoPath, ref)
-					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
-			next: await this.getNextUri(repoPath, uri, ref, skip),
-		};
+		try {
+			const context = await this.ensureRepositoryContext(repoPath);
+			if (context == null) return undefined;
+
+			const { metadata, github, remotehub, session } = context;
+			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+			const revision = await metadata.getRevision();
+
+			const refs = await github.getNextCommitRefs(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				revision.revision,
+				relativePath,
+				ref,
+			);
+
+			return {
+				current:
+					skip === 0
+						? GitUri.fromFile(relativePath, repoPath, ref)
+						: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip - 1])),
+				next: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip])),
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+
+			throw ex;
+		}
 	}
 
 	@log()
-	async getNextUri(
-		_repoPath: string,
-		_uri: Uri,
-		ref?: string,
-		_skip: number = 0,
-		// editorLine?: number
-	): Promise<GitUri | undefined> {
-		// If we have no ref (or staged ref) there is no next commit
-		if (!ref || GitRevision.isUncommittedStaged(ref)) return undefined;
-		return undefined;
-
-		// const cc = Logger.getCorrelationContext();
-
-		// // const relativePath = this.getRelativePath(uri, repoPath);
-
-		// try {
-		// 	const context = await this.ensureRepositoryContext(repoPath);
-		// 	if (context == null) return undefined;
-		// 	const { metadata, github, remotehub, session } = context;
-
-		// 	const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
-
-		// 	const refs = await github.getCommitRefs(
-		// 		session.accessToken,
-		// 		metadata.repo.owner,
-		// 		metadata.repo.name,
-		// 		ref ?? 'HEAD',
-		// 		{
-		// 			path: relativePath,
-		// 			limit: skip + 2,
-		// 			before: `${ref} 0`,
-		// 		},
-		// 	);
-
-		// 	const nextRef = refs[skip];
-		// 	if (nextRef == null) return undefined;
-
-		// 	const next = await this.getBestRevisionUri(repoPath, relativePath, nextRef);
-		// 	return new GitUri(next);
-		// } catch (ex) {
-		// 	Logger.error(ex, cc);
-		// 	debugger;
-
-		// 	throw ex;
-		// }
-	}
-
-	@log()
-	async getPreviousDiffUris(
+	async getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-		firstParent: boolean = false,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
-
-		const relativePath = this.getRelativePath(uri, repoPath);
-
-		// If we are at a commit, diff commit with previous
-		const current =
-			skip === 0
-				? GitUri.fromFile(relativePath, repoPath, ref)
-				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
-		if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
-
-		return {
-			current: current,
-			previous: await this.getPreviousUri(repoPath, uri, ref, skip, undefined, firstParent),
-		};
-	}
-
-	@log()
-	async getPreviousLineDiffUris(
-		_repoPath: string,
-		_uri: Uri,
-		_editorLine: number,
-		_ref: string | undefined,
-		_skip: number = 0,
-	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
-		return undefined;
-	}
-
-	@log()
-	async getPreviousUri(
-		repoPath: string,
-		uri: Uri,
-		ref?: string,
-		skip: number = 0,
-		_editorLine?: number,
 		_firstParent: boolean = false,
-	): Promise<GitUri | undefined> {
+	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const cc = Logger.getCorrelationContext();
@@ -1834,29 +1776,113 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
 			if (context == null) return undefined;
-			const { metadata, github, remotehub, session } = context;
 
+			const { metadata, github, remotehub, session } = context;
 			const relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
 
 			const offset = ref != null ? 1 : 0;
 
-			const refs = await github.getCommitRefs(
+			const result = await github.getCommitRefs(
 				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
-				ref ?? 'HEAD',
+				ref ? ref : (await metadata.getRevision()).revision,
 				{
 					path: relativePath,
-					limit: offset + skip + 1,
+					first: offset + skip + 1,
 				},
 			);
+			if (result == null) return undefined;
 
-			const previous = await this.getBestRevisionUri(
-				repoPath,
-				relativePath,
-				refs[offset + skip] ?? GitRevision.deletedOrMissing,
-			);
-			return new GitUri(previous);
+			// If we are at a commit, diff commit with previous
+			const current =
+				skip === 0
+					? GitUri.fromFile(relativePath, repoPath, ref)
+					: new GitUri(
+							await this.getBestRevisionUri(
+								repoPath,
+								relativePath,
+								result.values[offset + skip - 1]?.oid ?? GitRevision.deletedOrMissing,
+							),
+					  );
+			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
+
+			return {
+				current: current,
+				previous: new GitUri(
+					await this.getBestRevisionUri(
+						repoPath,
+						relativePath,
+						result.values[offset + skip]?.oid ?? GitRevision.deletedOrMissing,
+					),
+				),
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+
+			throw ex;
+		}
+	}
+
+	@log()
+	async getPreviousComparisonUrisForLine(
+		repoPath: string,
+		uri: Uri,
+		editorLine: number, // 0-based, Git is 1-based
+		ref: string | undefined,
+		skip: number = 0,
+	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
+		if (ref === GitRevision.deletedOrMissing) return undefined;
+
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const context = await this.ensureRepositoryContext(repoPath);
+			if (context == null) return undefined;
+
+			const { remotehub } = context;
+
+			let relativePath = this.getRelativePath(uri, remotehub.getProviderRootUri(uri));
+
+			// FYI, GitHub doesn't currently support returning the original line number, nor the previous sha, so this is untrustworthy
+
+			let current = GitUri.fromFile(relativePath, repoPath, ref);
+			let currentLine = editorLine;
+			let previous;
+			let previousLine = editorLine;
+			let nextLine = editorLine;
+
+			for (let i = 0; i < Math.max(0, skip) + 2; i++) {
+				const blameLine = await this.getBlameForLine(previous ?? current, nextLine, undefined, {
+					forceSingleLine: true,
+				});
+				if (blameLine == null) break;
+
+				// Diff with line ref with previous
+				ref = blameLine.commit.sha;
+				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+				nextLine = blameLine.line.originalLine - 1;
+
+				const gitUri = GitUri.fromFile(relativePath, repoPath, ref);
+				if (previous == null) {
+					previous = gitUri;
+					previousLine = nextLine;
+				} else {
+					current = previous;
+					currentLine = previousLine;
+					previous = gitUri;
+					previousLine = nextLine;
+				}
+			}
+
+			if (current == null) return undefined;
+
+			return {
+				current: current,
+				previous: previous,
+				line: (currentLine ?? editorLine) + 1, // 1-based
+			};
 		} catch (ex) {
 			Logger.error(ex, cc);
 			debugger;
