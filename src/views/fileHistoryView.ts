@@ -1,7 +1,7 @@
 import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, FileHistoryViewConfig } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';

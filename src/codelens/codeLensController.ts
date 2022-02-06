@@ -1,7 +1,7 @@
 import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { Logger } from '../logger';
 import { once } from '../system/event';
 import {

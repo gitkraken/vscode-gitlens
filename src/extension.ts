@@ -5,8 +5,8 @@ import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionC
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import { configuration, Configuration, OutputLevel } from './configuration';
-import { ContextKeys, setContext } from './constants';
 import { Container } from './container';
+import { ContextKeys, setContext } from './context';
 import { GitUri } from './git/gitUri';
 import { GitBranch, GitCommit } from './git/models';
 import { Logger, LogLevel } from './logger';

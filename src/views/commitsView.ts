@@ -9,8 +9,9 @@ import {
 	window,
 } from 'vscode';
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { ContextKeys, GlyphChars, setContext } from '../constants';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import {
 	GitCommit,

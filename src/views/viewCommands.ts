@@ -12,8 +12,9 @@ import {
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '../constants';
+import { BuiltInCommands, BuiltInGitCommands } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models';
 import { debug } from '../system';

@@ -1,7 +1,7 @@
 import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, LineHistoryViewConfig } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 

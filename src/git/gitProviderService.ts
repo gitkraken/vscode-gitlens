@@ -17,8 +17,9 @@ import {
 } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
-import { BuiltInGitConfiguration, ContextKeys, GlyphChars, Schemes, setContext } from '../constants';
+import { BuiltInGitConfiguration, GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';

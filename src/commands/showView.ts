@@ -1,6 +1,6 @@
 import { commands } from 'vscode';
-import { ContextKeys, setContext } from '../constants';
 import type { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { SyncedState } from '../storage';
 import { command, Command, CommandContext, Commands } from './common';
 

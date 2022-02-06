@@ -1,7 +1,8 @@
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
-import { ContextKeys, Schemes, setContext } from '../constants';
+import { Schemes } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { timeout } from '../system/decorators/timeout';

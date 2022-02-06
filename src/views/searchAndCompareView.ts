@@ -1,8 +1,8 @@
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../commands';
 import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitLog, GitRevision } from '../git/models';
 import { SearchPattern } from '../git/search';

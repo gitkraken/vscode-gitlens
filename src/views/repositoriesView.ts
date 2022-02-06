@@ -15,8 +15,8 @@ import {
 	ViewFilesLayout,
 	ViewShowBranchComparison,
 } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
+import { ContextKeys, setContext } from '../context';
 import {
 	GitBranch,
 	GitBranchReference,

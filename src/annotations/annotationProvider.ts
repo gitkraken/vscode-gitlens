@@ -10,7 +10,7 @@ import {
 	window,
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
+import { ContextKeys, setContext } from '../context';
 import { Logger } from '../logger';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 

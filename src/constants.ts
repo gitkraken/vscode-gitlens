@@ -1,4 +1,4 @@
-import { commands, TextDocument, TextEditor, window } from 'vscode';
+import { TextDocument, TextEditor, window } from 'vscode';
 
 export const quickPickTitleMaxChars = 80;
 export const ImageMimetypes: Record<string, string> = {
@@ -48,35 +48,6 @@ export const enum BuiltInGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
-}
-
-export const enum ContextKeys {
-	ActionPrefix = 'gitlens:action:',
-	ActiveFileStatus = 'gitlens:activeFileStatus',
-	AnnotationStatus = 'gitlens:annotationStatus',
-	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
-	Disabled = 'gitlens:disabled',
-	Enabled = 'gitlens:enabled',
-	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
-	HasRemotes = 'gitlens:hasRemotes',
-	HasRichRemotes = 'gitlens:hasRichRemotes',
-	Key = 'gitlens:key',
-	Readonly = 'gitlens:readonly',
-	ViewsCanCompare = 'gitlens:views:canCompare',
-	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
-	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
-	ViewsFileHistoryCanPin = 'gitlens:views:fileHistory:canPin',
-	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
-	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
-	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
-	Vsls = 'gitlens:vsls',
-}
-
-export function setContext(key: ContextKeys | string, value: any) {
-	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
 export const enum Colors {
