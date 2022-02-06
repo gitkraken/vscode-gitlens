@@ -1,5 +1,3 @@
-import { TextDocument, TextEditor, window } from 'vscode';
-
 export const quickPickTitleMaxChars = 80;
 export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
@@ -79,33 +77,6 @@ export const enum Schemes {
 	Vsls = 'vsls',
 	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',
-}
-
-export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
-	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document ? editor : undefined;
-}
-
-export function isActiveDocument(document: TextDocument): boolean {
-	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document;
-}
-
-export function isVisibleDocument(document: TextDocument): boolean {
-	if (window.visibleTextEditors.length === 0) return false;
-
-	return window.visibleTextEditors.some(e => e.document === document);
-}
-
-export function isTextEditor(editor: TextEditor): boolean {
-	const scheme = editor.document.uri.scheme;
-	return scheme !== Schemes.Output && scheme !== Schemes.DebugConsole;
-}
-
-export function hasVisibleTextEditor(): boolean {
-	if (window.visibleTextEditors.length === 0) return false;
-
-	return window.visibleTextEditors.some(e => isTextEditor(e));
 }
 
 export const enum GlyphChars {

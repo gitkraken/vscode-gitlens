@@ -1,11 +1,11 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
-import { getEditorIfActive, isActiveDocument } from '../constants';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { debounce, Deferrable } from '../system/function';
+import { getEditorIfActive, isActiveDocument } from '../system/utils';
 
 export interface DocumentBlameStateChangeEvent<T> {
 	readonly editor: TextEditor;

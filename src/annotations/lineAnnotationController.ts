@@ -11,7 +11,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration } from '../configuration';
-import { GlyphChars, isTextEditor } from '../constants';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import { GitCommit, PullRequest } from '../git/models';
@@ -21,6 +21,7 @@ import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { count, every, filterMap } from '../system/iterable';
 import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
+import { isTextEditor } from '../system/utils';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 

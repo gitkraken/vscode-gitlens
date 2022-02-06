@@ -16,7 +16,6 @@ import {
 	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
-import { isActiveDocument, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
@@ -26,6 +25,7 @@ import { once } from '../system/event';
 import { debounce, Deferrable } from '../system/function';
 import { filter, map } from '../system/iterable';
 import { getBestPath } from '../system/path';
+import { isActiveDocument, isTextEditor } from '../system/utils';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';

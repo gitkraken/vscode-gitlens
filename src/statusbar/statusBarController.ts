@@ -12,7 +12,7 @@ import {
 } from 'vscode';
 import { command, Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
-import { GlyphChars, isTextEditor } from '../constants';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
 import { GitCommit, PullRequest } from '../git/models';
@@ -21,6 +21,7 @@ import { LogCorrelationContext, Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { PromiseCancelledError } from '../system/promise';
+import { isTextEditor } from '../system/utils';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {

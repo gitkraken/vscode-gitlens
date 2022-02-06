@@ -1,8 +1,8 @@
 import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
-import { isTextEditor } from '../constants';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { debounce, Deferrable } from '../system/function';
+import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;

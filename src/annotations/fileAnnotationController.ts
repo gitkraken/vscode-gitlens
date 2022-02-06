@@ -23,7 +23,7 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { Colors, isTextEditor } from '../constants';
+import { Colors } from '../constants';
 import { Container } from '../container';
 import { ContextKeys, setContext } from '../context';
 import { KeyboardScope } from '../keyboard';
@@ -32,6 +32,7 @@ import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import { basename } from '../system/path';
+import { isTextEditor } from '../system/utils';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyStateChangeEvent,
