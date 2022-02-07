@@ -25,7 +25,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
-import { basename } from '../../system/path';
+import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import { GitProviderDescriptor } from '../gitProvider';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
@@ -270,7 +270,7 @@ export class Repository implements Disposable {
 	}
 
 	get path(): string {
-		return this.uri.scheme === Schemes.File ? this.uri.fsPath : this.uri.toString();
+		return this.uri.scheme === Schemes.File ? normalizePath(this.uri.fsPath) : this.uri.toString();
 	}
 
 	get etag(): number {
