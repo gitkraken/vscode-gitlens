@@ -41,7 +41,7 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(
 	command: SupportedCommands,
 	...args: T
 ): Thenable<U> {
-	return commands.executeCommand<U>(command, args);
+	return commands.executeCommand<U>(command, ...args);
 }
 
 export function executeCoreCommand<T = unknown, U = any>(command: CoreCommands, arg: T): Thenable<U>;
