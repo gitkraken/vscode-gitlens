@@ -1,5 +1,7 @@
 import { GitCommandSorting } from '../config';
+import { ContextKeys } from '../constants';
 import type { Container } from '../container';
+import { getContext } from '../context';
 import { Usage, WorkspaceState } from '../storage';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
@@ -50,28 +52,45 @@ export class PickCommandStep implements QuickPickStep {
 	readonly title = 'GitLens';
 
 	constructor(private readonly container: Container, args?: GitCommandsCommandArgs) {
+		const hasVirtualFolders = getContext<boolean>(ContextKeys.HasVirtualFolders, false);
+		const readonly =
+			hasVirtualFolders ||
+			getContext<boolean>(ContextKeys.Readonly, false) ||
+			getContext<boolean>(ContextKeys.Untrusted, false);
+
 		this.items = [
-			new BranchGitCommand(container, args?.command === 'branch' ? args : undefined),
-			new CherryPickGitCommand(container, args?.command === 'cherry-pick' ? args : undefined),
-			new CoAuthorsGitCommand(container, args?.command === 'co-authors' ? args : undefined),
-			new FetchGitCommand(container, args?.command === 'fetch' ? args : undefined),
+			readonly ? undefined : new BranchGitCommand(container, args?.command === 'branch' ? args : undefined),
+			readonly
+				? undefined
+				: new CherryPickGitCommand(container, args?.command === 'cherry-pick' ? args : undefined),
+			hasVirtualFolders
+				? undefined
+				: new CoAuthorsGitCommand(container, args?.command === 'co-authors' ? args : undefined),
+			readonly ? undefined : new FetchGitCommand(container, args?.command === 'fetch' ? args : undefined),
 			new LogGitCommand(container, args?.command === 'log' ? args : undefined),
-			new MergeGitCommand(container, args?.command === 'merge' ? args : undefined),
-			new PullGitCommand(container, args?.command === 'pull' ? args : undefined),
-			new PushGitCommand(container, args?.command === 'push' ? args : undefined),
-			new RebaseGitCommand(container, args?.command === 'rebase' ? args : undefined),
-			new ResetGitCommand(container, args?.command === 'reset' ? args : undefined),
-			new RevertGitCommand(container, args?.command === 'revert' ? args : undefined),
+			readonly ? undefined : new MergeGitCommand(container, args?.command === 'merge' ? args : undefined),
+			readonly ? undefined : new PullGitCommand(container, args?.command === 'pull' ? args : undefined),
+			readonly ? undefined : new PushGitCommand(container, args?.command === 'push' ? args : undefined),
+			readonly ? undefined : new RebaseGitCommand(container, args?.command === 'rebase' ? args : undefined),
+			readonly ? undefined : new ResetGitCommand(container, args?.command === 'reset' ? args : undefined),
+			readonly ? undefined : new RevertGitCommand(container, args?.command === 'revert' ? args : undefined),
 			new SearchGitCommand(container, args?.command === 'search' || args?.command === 'grep' ? args : undefined),
+
 			new ShowGitCommand(container, args?.command === 'show' ? args : undefined),
-			new StashGitCommand(container, args?.command === 'stash' ? args : undefined),
-			new StatusGitCommand(container, args?.command === 'status' ? args : undefined),
-			new SwitchGitCommand(
-				container,
-				args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
-			),
-			new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
-		];
+			hasVirtualFolders
+				? undefined
+				: new StashGitCommand(container, args?.command === 'stash' ? args : undefined),
+			hasVirtualFolders
+				? undefined
+				: new StatusGitCommand(container, args?.command === 'status' ? args : undefined),
+			readonly
+				? undefined
+				: new SwitchGitCommand(
+						container,
+						args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
+				  ),
+			readonly ? undefined : new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
+		].filter(<T>(i: T | undefined): i is T => i != null);
 
 		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
 			const usage = this.container.storage.getWorkspace<Usage>(WorkspaceState.GitCommandPaletteUsage);

@@ -1,6 +1,7 @@
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
-import { GlyphChars } from '../../constants';
+import { ContextKeys, GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { getContext } from '../../context';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
 import { Logger } from '../../logger';
@@ -31,6 +32,7 @@ import {
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
+	readonly: boolean;
 	title: string;
 }
 
@@ -150,6 +152,10 @@ export class StashGitCommand extends QuickCommand<State> {
 		const context: Context = {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.stashesView,
+			readonly:
+				getContext<boolean>(ContextKeys.Readonly, false) ||
+				getContext<boolean>(ContextKeys.Untrusted, false) ||
+				getContext<boolean>(ContextKeys.HasVirtualFolders, false),
 			title: this.title,
 		};
 
@@ -157,6 +163,10 @@ export class StashGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
+
+			if (context.readonly) {
+				state.subcommand = 'list';
+			}
 
 			if (state.counter < 1 || state.subcommand == null) {
 				this.subcommand = undefined;

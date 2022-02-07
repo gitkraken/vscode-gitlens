@@ -15,8 +15,9 @@ import {
 } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
-import { CharCode, Schemes } from '../../constants';
+import { CharCode, ContextKeys, Schemes } from '../../constants';
 import type { Container } from '../../container';
+import { setContext } from '../../context';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -154,6 +155,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		} catch {
 			return [];
 		}
+	}
+
+	updateContext(): void {
+		void setContext(ContextKeys.HasVirtualFolders, this.container.git.hasOpenRepositories(this.descriptor.id));
 	}
 
 	openRepository(
@@ -1334,10 +1339,30 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getLogForSearch(
-		_repoPath: string,
-		_search: SearchPattern,
+		repoPath: string,
+		search: SearchPattern,
 		_options?: { limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitLog | undefined> {
+		if (repoPath == null) return undefined;
+
+		const operations = SearchPattern.parseSearchOperations(search.pattern);
+
+		const values = operations.get('commit:');
+		if (values != null) {
+			const commit = await this.getCommit(repoPath, values[0]);
+			if (commit == null) return undefined;
+
+			return {
+				repoPath: repoPath,
+				commits: new Map([[commit.sha, commit]]),
+				sha: commit.sha,
+				range: undefined,
+				count: 1,
+				limit: 1,
+				hasMore: false,
+			};
+		}
+
 		// TODO@eamodio try implementing with the commit search api
 		return undefined;
 	}

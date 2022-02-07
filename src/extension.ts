@@ -60,9 +60,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	if (!workspace.isTrusted) {
-		void setContext(ContextKeys.Readonly, true);
+		void setContext(ContextKeys.Untrusted, true);
 		context.subscriptions.push(
-			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Readonly, undefined)),
+			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Untrusted, undefined)),
 		);
 	}
 
