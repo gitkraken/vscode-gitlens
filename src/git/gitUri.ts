@@ -4,13 +4,13 @@ import { UriComparer } from '../comparers';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { GitHubAuthorityMetadata } from '../premium/remotehub';
+import type { GitHubAuthorityMetadata } from '../premium/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
 import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
 // import { CharCode } from '../system/string';
-import { RevisionUriData } from './gitProvider';
+import type { RevisionUriData } from './gitProvider';
 import { GitFile, GitRevision } from './models';
 
 const slash = 47; //CharCode.Slash;
