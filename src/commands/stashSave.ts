@@ -5,9 +5,9 @@ import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { command } from '../system/command';
 import {
 	Command,
-	command,
 	CommandContext,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,

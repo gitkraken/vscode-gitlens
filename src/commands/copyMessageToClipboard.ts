@@ -4,10 +4,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Iterables } from '../system';
+import { command } from '../system/command';
+import { first } from '../system/iterable';
 import {
 	ActiveEditorCommand,
-	command,
 	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
@@ -60,7 +60,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 				const log = await this.container.git.getLog(repoPath, { limit: 1 });
 				if (log == null) return;
 
-				const commit = Iterables.first(log.commits.values());
+				const commit = first(log.commits.values());
 				if (commit?.message == null) return;
 
 				args.message = commit.message;

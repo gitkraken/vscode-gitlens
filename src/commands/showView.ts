@@ -2,8 +2,8 @@ import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { SyncedState } from '../storage';
-import { executeCommand } from '../system/command';
-import { command, Command, CommandContext } from './base';
+import { command, executeCommand } from '../system/command';
+import { Command, CommandContext } from './base';
 
 @command()
 export class ShowViewCommand extends Command {

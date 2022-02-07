@@ -5,8 +5,9 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { command } from '../system/command';
 import { findOrOpenEditor } from '../system/utils';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;

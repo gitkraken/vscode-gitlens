@@ -5,9 +5,11 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models';
 import { Messages } from '../messages';
-import { ReferencePicker, StashPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { StashPicker } from '../quickpicks/commitPicker';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { command } from '../system/command';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
 
 export interface OpenFileAtRevisionFromCommandArgs {
@@ -44,7 +46,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			if (args?.stash) {
 				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
 
-				const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await StashPicker.show(
 					this.container.git.getStash(gitUri.repoPath),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
@@ -56,7 +58,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 				args.reference = pick;
 			} else {
-				const title = `Open File at Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `Open File at Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await ReferencePicker.show(
 					gitUri.repoPath,
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,

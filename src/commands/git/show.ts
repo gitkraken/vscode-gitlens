@@ -1,6 +1,8 @@
 import { Container } from '../../container';
 import { GitCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/models';
-import { CommandQuickPickItem, CommitFilesQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
+import { CommandQuickPickItem } from '../../quickpicks/items/common';
+import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,

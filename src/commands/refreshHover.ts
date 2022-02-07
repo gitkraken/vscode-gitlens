@@ -1,7 +1,7 @@
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
-import { executeCoreCommand } from '../system/command';
-import { command, Command } from './base';
+import { command, executeCoreCommand } from '../system/command';
+import { Command } from './base';
 
 @command()
 export class RefreshHoverCommand extends Command {

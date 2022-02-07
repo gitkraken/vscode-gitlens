@@ -1,7 +1,8 @@
 import { SourceControl } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, Command } from './base';
+import { command } from '../system/command';
+import { Command } from './base';
 import { executeGitCommand } from './gitCommands.actions';
 
 @command()

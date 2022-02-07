@@ -2,8 +2,9 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters';
 import { GitStashCommit, GitStashReference } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
+import { sortCompare } from '../../system/string';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
@@ -36,7 +37,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => normalizePath(joinPaths(...parts)),
@@ -46,7 +47,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 		return children;
 	}

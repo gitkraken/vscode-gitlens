@@ -2,8 +2,8 @@ import { window } from 'vscode';
 import { viewsConfigKeys } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
-import { executeCommand, executeCoreCommand } from '../system/command';
-import { command, Command } from './base';
+import { command, executeCommand, executeCoreCommand } from '../system/command';
+import { Command } from './base';
 
 enum ViewsLayout {
 	GitLens = 'gitlens',

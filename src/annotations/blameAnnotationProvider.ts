@@ -4,7 +4,7 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBlame, GitCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
-import { log } from '../system';
+import { log } from '../system/decorators/log';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';

@@ -3,7 +3,9 @@ import { getPresenceDataUri } from '../../avatars';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitContributor, GitLog } from '../../git/models';
-import { debug, gate, Iterables, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import { ContactPresence } from '../../vsls/vsls';
 import { ContributorsView } from '../contributorsView';
@@ -59,7 +61,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
-				Iterables.map(
+				map(
 					log.commits.values(),
 					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
 				),
@@ -123,11 +125,11 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${Strings.pluralize('file', this.contributor.stats.files, {
+				? `\\\n${pluralize('file', this.contributor.stats.files, {
 						format: numberFormatter.format,
-				  })} changed, ${Strings.pluralize('addition', this.contributor.stats.additions, {
+				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
 						format: numberFormatter.format,
-				  })}, ${Strings.pluralize('deletion', this.contributor.stats.deletions, {
+				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
 						format: numberFormatter.format,
 				  })}`
 				: '';
@@ -142,7 +144,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 				: '';
 
 		const markdown = new MarkdownString(
-			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${Strings.pluralize(
+			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
 				this.contributor.count,
 				{ format: numberFormatter.format },

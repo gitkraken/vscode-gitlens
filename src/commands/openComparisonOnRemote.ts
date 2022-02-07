@@ -3,9 +3,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { executeCommand } from '../system/command';
+import { command, executeCommand } from '../system/command';
 import { ResultsCommitsNode } from '../views/nodes';
-import { Command, command, CommandContext } from './base';
+import { Command, CommandContext } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {

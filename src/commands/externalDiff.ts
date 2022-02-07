@@ -7,10 +7,10 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { RepositoryPicker } from '../quickpicks';
-import { Arrays } from '../system';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { filterMap } from '../system/array';
+import { command } from '../system/command';
 import {
-	command,
 	Command,
 	CommandContext,
 	isCommandContextViewNodeHasFileCommit,
@@ -74,7 +74,7 @@ export class ExternalDiffCommand extends Command {
 					staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
 				}));
 			} else if (context.type === 'scm-groups') {
-				args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
+				args.files = filterMap(context.scmResourceGroups[0].resourceStates, r =>
 					this.isModified(r)
 						? {
 								uri: r.resourceUri,

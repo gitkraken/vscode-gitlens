@@ -1,4 +1,4 @@
-import { debug } from '../../system';
+import { debug } from '../../system/decorators/log';
 import { GitTreeEntry } from '../models';
 
 const emptyStr = '';

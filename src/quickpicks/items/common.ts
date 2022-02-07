@@ -1,6 +1,6 @@
 import { commands, QuickPickItem, QuickPickItemKind } from 'vscode';
-import { Commands } from '../constants';
-import { Keys } from '../keyboard';
+import { Commands } from '../../constants';
+import { Keys } from '../../keyboard';
 
 declare module 'vscode' {
 	interface QuickPickItem {
@@ -21,64 +21,6 @@ export namespace QuickPickSeparator {
 
 export interface QuickPickItemOfT<T = any> extends QuickPickItem {
 	readonly item: T;
-}
-
-export enum Directive {
-	Back,
-	Cancel,
-	LoadMore,
-	Noop,
-}
-
-export namespace Directive {
-	export function is<T>(value: Directive | T): value is Directive {
-		return typeof value === 'number' && Directive[value] != null;
-	}
-}
-
-export interface DirectiveQuickPickItem extends QuickPickItem {
-	directive: Directive;
-}
-
-export namespace DirectiveQuickPickItem {
-	export function create(
-		directive: Directive,
-		picked?: boolean,
-		options: { label?: string; description?: string; detail?: string } = {},
-	) {
-		let label = options.label;
-		if (label == null) {
-			switch (directive) {
-				case Directive.Back:
-					label = 'Back';
-					break;
-				case Directive.Cancel:
-					label = 'Cancel';
-					break;
-				case Directive.LoadMore:
-					label = 'Load more';
-					break;
-				case Directive.Noop:
-					label = 'Try again';
-					break;
-			}
-		}
-
-		const item: DirectiveQuickPickItem = {
-			label: label,
-			description: options.description,
-			detail: options.detail,
-			alwaysShow: true,
-			picked: picked,
-			directive: directive,
-		};
-
-		return item;
-	}
-
-	export function is(item: QuickPickItem): item is DirectiveQuickPickItem {
-		return item != null && 'directive' in item;
-	}
 }
 
 export class CommandQuickPickItem<Arguments extends any[] = any[]> implements QuickPickItem {
@@ -178,18 +120,4 @@ export class ActionQuickPickItem extends CommandQuickPickItem {
 	override async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		return this.action(options);
 	}
-}
-
-export type FlagsQuickPickItem<T> = QuickPickItemOfT<T[]>;
-export namespace FlagsQuickPickItem {
-	export function create<T>(flags: T[], item: T[], options: QuickPickItem) {
-		return { ...options, item: item, picked: hasFlags(flags, item) };
-	}
-}
-
-function hasFlags<T>(flags: T[], has?: T | T[]): boolean {
-	if (has === undefined) return flags.length === 0;
-	if (!Array.isArray(has)) return flags.includes(has);
-
-	return has.length === 0 ? flags.length === 0 : has.every(f => flags.includes(f));
 }

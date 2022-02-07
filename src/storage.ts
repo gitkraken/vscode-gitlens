@@ -1,6 +1,6 @@
 import { ExtensionContext } from 'vscode';
-import { ViewShowBranchComparison } from './config';
-import { SearchPattern } from './git/search';
+import type { ViewShowBranchComparison } from './config';
+import type { SearchPattern } from './git/search';
 
 export class Storage {
 	constructor(private readonly context: ExtensionContext) {}

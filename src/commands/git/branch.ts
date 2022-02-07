@@ -1,8 +1,9 @@
 import { QuickInputButtons } from 'vscode';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
+import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { pluralize } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -388,7 +389,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
+				pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
 				state.subcommand,
 			);
 

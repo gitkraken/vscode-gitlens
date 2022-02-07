@@ -2,9 +2,9 @@ import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitStashCommit, GitStashReference } from '../git/models';
-import { CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command } from '../system/command';
 import {
-	command,
 	Command,
 	CommandContext,
 	isCommandContextViewNodeHasCommit,

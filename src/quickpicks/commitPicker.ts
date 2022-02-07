@@ -3,15 +3,12 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { GitCommit, GitLog, GitStash, GitStashCommit } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
-import {
-	CommandQuickPickItem,
-	CommitQuickPickItem,
-	Directive,
-	DirectiveQuickPickItem,
-	getQuickPickIgnoreFocusOut,
-} from '../quickpicks';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { Directive, DirectiveQuickPickItem } from './items/directive';
+import { CommitQuickPickItem } from './items/gitCommands';
 
 export namespace CommitPicker {
 	export async function show(

@@ -5,9 +5,10 @@ import { Commands, CoreCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
 import { joinPaths, normalizePath } from '../../system/path';
+import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { CommitFileNode } from './commitFileNode';
@@ -46,7 +47,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, this.rebaseStatus, f)) ?? [];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => normalizePath(joinPaths(...parts)),
@@ -56,7 +57,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 
 		const commit = await this.view.container.git.getCommit(
@@ -81,9 +82,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Rebase;
-		item.description = this.status?.hasConflicts
-			? Strings.pluralize('conflict', this.status.conflicts.length)
-			: undefined;
+		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
@@ -96,11 +95,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			} of ${this.rebaseStatus.steps.total}\\\nPaused at ${GitReference.toString(
 				this.rebaseStatus.steps.current.commit,
 				{ icon: true },
-			)}${
-				this.status?.hasConflicts
-					? `\n\n${Strings.pluralize('conflicted file', this.status.conflicts.length)}`
-					: ''
-			}`,
+			)}${this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''}`,
 			true,
 		);
 		markdown.supportHtml = true;
@@ -139,7 +134,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		let children: FileNode[] = commits.map(c => new CommitFileNode(this.view, this, c.file!, c));
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => normalizePath(joinPaths(...parts)),
@@ -149,7 +144,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 
 		return children;

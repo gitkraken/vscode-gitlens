@@ -3,7 +3,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
-import { debug } from '../system';
+import { debug } from '../system/decorators/log';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

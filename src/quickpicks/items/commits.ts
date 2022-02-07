@@ -1,15 +1,15 @@
 import { QuickPickItem, window } from 'vscode';
-import { GitActions } from '../commands/gitCommands.actions';
-import { OpenChangedFilesCommandArgs } from '../commands/openChangedFiles';
-import { QuickCommandButtons } from '../commands/quickCommand.buttons';
-import { Commands, GlyphChars } from '../constants';
-import { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
-import { GitCommit, GitFile, GitFileChange, GitStatusFile } from '../git/models';
-import { Keys } from '../keyboard';
-import { basename } from '../system/path';
-import { pad } from '../system/string';
-import { CommandQuickPickItem } from './quickPicksItems';
+import { GitActions } from '../../commands/gitCommands.actions';
+import { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
+import { QuickCommandButtons } from '../../commands/quickCommand.buttons';
+import { Commands, GlyphChars } from '../../constants';
+import { Container } from '../../container';
+import { CommitFormatter } from '../../git/formatters';
+import { GitCommit, GitFile, GitFileChange, GitStatusFile } from '../../git/models';
+import { Keys } from '../../keyboard';
+import { basename } from '../../system/path';
+import { pad } from '../../system/string';
+import { CommandQuickPickItem } from './common';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 	constructor(

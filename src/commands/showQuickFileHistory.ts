@@ -3,8 +3,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBranch, GitLog, GitReference, GitTag } from '../git/models';
-import { CommandQuickPickItem } from '../quickpicks';
-import { ActiveEditorCachedCommand, command, CommandContext, getCommandUri } from './base';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command } from '../system/command';
+import { ActiveEditorCachedCommand, CommandContext, getCommandUri } from './base';
 import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickFileHistoryCommandArgs {

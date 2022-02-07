@@ -1,5 +1,10 @@
 import { Uri } from 'vscode';
-import type { HoverCommandsActionContext, OpenPullRequestActionContext } from '../../api/gitlens';
+import type {
+	Action,
+	ActionContext,
+	HoverCommandsActionContext,
+	OpenPullRequestActionContext,
+} from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
 import {
 	ConnectRemoteProviderCommand,
@@ -9,11 +14,11 @@ import {
 	ShowQuickCommitCommand,
 	ShowQuickCommitFileCommand,
 } from '../../commands';
+import { Command } from '../../commands/base';
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { getMarkdownActionCommand } from '../../system/command';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';
@@ -661,4 +666,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	): boolean {
 		return super.has<CommitFormatOptions>(template, ...tokens);
 	}
+}
+
+function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
+	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}`, {
+		...args,
+		type: action,
+	});
 }

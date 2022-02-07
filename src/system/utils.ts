@@ -1,4 +1,5 @@
 import { TextDocument, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window, workspace } from 'vscode';
+import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -53,6 +54,10 @@ export function findOrOpenEditors(uris: Uri[]): void {
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
 	const editor = window.activeTextEditor;
 	return editor != null && editor.document === document ? editor : undefined;
+}
+
+export function getQuickPickIgnoreFocusOut() {
+	return !configuration.get('advanced.quickPick.closeOnFocusOut');
 }
 
 export function hasVisibleTextEditor(): boolean {

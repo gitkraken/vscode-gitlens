@@ -5,7 +5,7 @@ import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
 import { Logger } from '../../logger';
-import { ReferencePicker } from '../../quickpicks';
+import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce, Deferrable } from '../../system/function';

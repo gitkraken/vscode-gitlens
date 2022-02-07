@@ -4,9 +4,11 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ReferencePicker, RepositoryPicker } from '../quickpicks';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/command';
 import { CompareResultsNode } from '../views/nodes';
-import { ActiveEditorCommand, command, CommandContext, getCommandUri, isCommandContextViewNodeHasRef } from './base';
+import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRef } from './base';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;

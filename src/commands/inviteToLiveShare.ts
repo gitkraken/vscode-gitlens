@@ -1,6 +1,7 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, Command, CommandContext, isCommandContextViewNodeHasContributor } from './base';
+import { command } from '../system/command';
+import { Command, CommandContext, isCommandContextViewNodeHasContributor } from './base';
 
 export interface InviteToLiveShareCommandArgs {
 	email?: string;

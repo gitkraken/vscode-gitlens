@@ -5,7 +5,8 @@ import { Container } from '../container';
 import { GitBranch, GitRemote } from '../git/models';
 import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Keys } from '../keyboard';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {

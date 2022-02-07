@@ -2,7 +2,9 @@ import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitLog, GitReflogRecord } from '../../git/models';
-import { debug, gate, Iterables } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
 import { ViewsWithCommits } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -44,7 +46,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 		const children: (CommitNode | LoadMoreNode)[] = [
-			...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)),
+			...map(log.commits.values(), c => new CommitNode(this.view, this, c)),
 		];
 
 		if (log.hasMore) {

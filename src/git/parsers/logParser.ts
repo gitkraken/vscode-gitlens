@@ -1,6 +1,7 @@
 import { Range } from 'vscode';
 import type { Container } from '../../container';
-import { Arrays, debug } from '../../system';
+import { filterMap } from '../../system/array';
+import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
 import {
@@ -525,7 +526,7 @@ export class GitLogParser {
 					}
 
 					if (entry.files !== undefined) {
-						entry.path = Arrays.filterMap(entry.files, f => (f.path ? f.path : undefined)).join(', ');
+						entry.path = filterMap(entry.files, f => (f.path ? f.path : undefined)).join(', ');
 					}
 
 					if (first && repoPath === undefined && type === LogType.LogFile && fileName !== undefined) {

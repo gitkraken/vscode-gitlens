@@ -5,8 +5,8 @@ import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import { GitCommit, GitFile } from '../../git/models';
-import { Strings } from '../../system';
 import { joinPaths, relativeDir } from '../../system/path';
+import { pluralize } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { FileNode } from './folderNode';
@@ -215,7 +215,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		}
 
 		if (commits > 0) {
-			changedIn.push(Strings.pluralize('commit', commits));
+			changedIn.push(pluralize('commit', commits));
 		}
 
 		if (changedIn.length > 2) {

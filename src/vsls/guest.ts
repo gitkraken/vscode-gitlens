@@ -3,7 +3,7 @@ import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';
 import { GitCommandOptions } from '../git/commandOptions';
 import { Logger } from '../logger';
-import { debug, log } from '../system';
+import { debug, log } from '../system/decorators/log';
 import { VslsHostService } from './host';
 import { GetRepositoriesForUriRequestType, GitCommandRequestType, RepositoryProxy, RequestType } from './protocol';
 

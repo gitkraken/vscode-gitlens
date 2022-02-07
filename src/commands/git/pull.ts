@@ -1,7 +1,8 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
+import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';

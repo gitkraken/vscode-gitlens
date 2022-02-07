@@ -3,8 +3,9 @@ import type { Container } from '../container';
 import { GitCommit, GitRemote, Repository } from '../git/models';
 import { RichRemoteProvider } from '../git/remotes/provider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
-import { Iterables } from '../system';
-import { command, Command, CommandContext, isCommandContextViewNodeHasRemote } from './base';
+import { command } from '../system/command';
+import { first } from '../system/iterable';
+import { Command, CommandContext, isCommandContextViewNodeHasRemote } from './base';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -58,7 +59,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return false;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = Iterables.first(repos);
+				[repo, remote] = first(repos);
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(
@@ -149,7 +150,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return undefined;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = Iterables.first(repos);
+				[repo, remote] = first(repos);
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(

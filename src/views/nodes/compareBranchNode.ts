@@ -3,9 +3,12 @@ import { ViewShowBranchComparison } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitRevision } from '../../git/models';
-import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
+import { CommandQuickPickItem } from '../../quickpicks/items/common';
+import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { BranchComparison, BranchComparisons, WorkspaceState } from '../../storage';
-import { debug, gate, log, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { pluralize } from '../../system/string';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
 import { RepositoriesView } from '../repositoriesView';
@@ -92,7 +95,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -115,7 +118,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
 				),
@@ -269,7 +272,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		}
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -281,7 +284,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		);
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -322,7 +325,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}

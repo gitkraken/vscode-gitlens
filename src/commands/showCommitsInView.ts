@@ -6,8 +6,9 @@ import { GitUri } from '../git/gitUri';
 import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Iterables } from '../system';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { command } from '../system/command';
+import { filterMap } from '../system/iterable';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];
@@ -45,9 +46,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 						return Messages.showFileNotUnderSourceControlWarningMessage('Unable to find commits');
 					}
 
-					args.refs = [
-						...Iterables.filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref)),
-					];
+					args.refs = [...filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))];
 				} catch (ex) {
 					Logger.error(ex, 'ShowCommitsInViewCommand', 'getBlameForRange');
 					return Messages.showGenericErrorMessage('Unable to find commits');

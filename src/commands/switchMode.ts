@@ -3,9 +3,10 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { ModePicker } from '../quickpicks';
-import { log } from '../system';
-import { command, Command } from './base';
+import { ModePicker } from '../quickpicks/modePicker';
+import { command } from '../system/command';
+import { log } from '../system/decorators/log';
+import { Command } from './base';
 
 @command()
 export class SwitchModeCommand extends Command {

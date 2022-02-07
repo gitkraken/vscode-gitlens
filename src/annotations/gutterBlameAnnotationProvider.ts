@@ -5,9 +5,11 @@ import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
 import { GitBlame, GitCommit } from '../git/models';
 import { Logger } from '../logger';
-import { Arrays, Iterables, Strings } from '../system';
+import { filterMap } from '../system/array';
 import { log } from '../system/decorators/log';
+import { first } from '../system/iterable';
 import { Stopwatch } from '../system/stopwatch';
+import { getTokensFromTemplate, getWidth, TokenOptions } from '../system/string';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
 import { AnnotationContext } from './annotationProvider';
@@ -44,8 +46,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const cfg = this.container.config.blame;
 
 		// Precalculate the formatting options so we don't need to do it on each iteration
-		const tokenOptions = Strings.getTokensFromTemplate(cfg.format).reduce<{
-			[token: string]: Strings.TokenOptions | undefined;
+		const tokenOptions = getTokensFromTemplate(cfg.format).reduce<{
+			[token: string]: TokenOptions | undefined;
 		}>((map, token) => {
 			map[token.key] = token.options;
 			return map;
@@ -102,9 +104,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					gutter.renderOptions = {
 						before: {
 							...gutter.renderOptions!.before,
-							contentText: GlyphChars.Space.repeat(
-								Strings.getWidth(gutter.renderOptions!.before!.contentText!),
-							),
+							contentText: GlyphChars.Space.repeat(getWidth(gutter.renderOptions!.before!.contentText!)),
 						},
 					};
 
@@ -191,7 +191,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				sha = commitLine?.sha;
 			}
 		} else {
-			sha = Iterables.first(blame.commits.values()).sha;
+			sha = first(blame.commits.values()).sha;
 		}
 
 		if (!sha) {
@@ -199,7 +199,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			return;
 		}
 
-		const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
+		const highlightDecorationRanges = filterMap(blame.lines, l =>
 			l.sha === sha
 				? // editor lines are 0-based
 				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))

@@ -2,8 +2,9 @@ import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { SearchPattern } from '../git/search';
+import { command } from '../system/command';
 import { SearchResultsNode } from '../views/nodes';
-import { Command, command, CommandContext, isCommandContextViewNodeHasRepository } from './base';
+import { Command, CommandContext, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;

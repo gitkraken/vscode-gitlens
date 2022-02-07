@@ -6,9 +6,11 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { ActiveEditorCommand, command, CommandContext, getCommandUri } from './base';
+import { CommitPicker } from '../quickpicks/commitPicker';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command } from '../system/command';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
 import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
@@ -117,7 +119,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 				const title = `Open ${
 					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
-				} at Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				} at Revision${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await CommitPicker.show(
 					log,
 					`${title}${gitUri.getFormattedFileName({

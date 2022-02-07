@@ -3,10 +3,11 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { RepositoryPicker } from '../quickpicks';
-import { Arrays } from '../system';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { filterMap } from '../system/array';
+import { command } from '../system/command';
 import { findOrOpenEditors } from '../system/utils';
-import { Command, command } from './base';
+import { Command } from './base';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -33,7 +34,7 @@ export class OpenChangedFilesCommand extends Command {
 					return;
 				}
 
-				args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
+				args.uris = filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
 			}
 
 			findOrOpenEditors(args.uris);

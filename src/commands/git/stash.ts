@@ -5,12 +5,13 @@ import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
+import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { formatPath } from '../../system/formatPath';
+import { pad } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitCommandsCommand } from '../gitCommands';
 import { GitActions } from '../gitCommands.actions';
+import { getSteps } from '../gitCommands.utils';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -432,7 +433,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			const result = yield* GitCommandsCommand.getSteps(
+			const result = yield* getSteps(
 				this.container,
 				{
 					command: 'show',
@@ -504,7 +505,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				state,
 				context,
 				state.uris != null
-					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					? `${pad(GlyphChars.Dot, 2, 2)}${
 							state.uris.length === 1
 								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`

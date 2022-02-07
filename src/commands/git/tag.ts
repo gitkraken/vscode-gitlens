@@ -1,8 +1,9 @@
 import { QuickInputButtons, QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { GitReference, GitTagReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
+import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { pluralize } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -351,10 +352,7 @@ export class TagGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			context.title = getTitle(
-				Strings.pluralize('Tag', state.references.length, { only: true }),
-				state.subcommand,
-			);
+			context.title = getTitle(pluralize('Tag', state.references.length, { only: true }), state.subcommand);
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;

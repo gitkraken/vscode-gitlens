@@ -1,8 +1,9 @@
 import { env } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
-import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
+import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { pluralize } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -252,7 +253,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will update ${GitReference.toString(context.destination)} by applying ${Strings.pluralize(
+					detail: `Will update ${GitReference.toString(context.destination)} by applying ${pluralize(
 						'commit',
 						count,
 					)} on top of ${GitReference.toString(state.reference)}`,
@@ -262,9 +263,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					description: '--interactive',
 					detail: `Will interactively update ${GitReference.toString(
 						context.destination,
-					)} by applying ${Strings.pluralize('commit', count)} on top of ${GitReference.toString(
-						state.reference,
-					)}`,
+					)} by applying ${pluralize('commit', count)} on top of ${GitReference.toString(state.reference)}`,
 				}),
 			],
 		);

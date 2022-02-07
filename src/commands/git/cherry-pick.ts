@@ -1,6 +1,6 @@
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,

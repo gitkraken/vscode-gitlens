@@ -1,7 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { Repository } from '../../git/models';
-import { debug, gate } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';

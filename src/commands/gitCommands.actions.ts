@@ -23,7 +23,7 @@ import {
 	GitTagReference,
 	Repository,
 } from '../git/models';
-import { RepositoryPicker } from '../quickpicks';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { executeCommand, executeEditorCommand } from '../system/command';
 import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';

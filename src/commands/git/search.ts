@@ -2,11 +2,11 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommit, GitLog, Repository } from '../../git/models';
 import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
-import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
+import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/common';
+import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitCommandsCommand } from '../gitCommands';
+import { getSteps } from '../gitCommands.utils';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -191,7 +191,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					placeholder: (context, log) =>
 						log == null
 							? `No results for ${state.pattern}`
-							: `${Strings.pluralize('result', log.count, {
+							: `${pluralize('result', log.count, {
 									format: c => (log.hasMore ? `${c}+` : undefined),
 							  })} for ${state.pattern}`,
 					picked: context.commit?.ref,
@@ -238,7 +238,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.commit = result;
 			}
 
-			const result = yield* GitCommandsCommand.getSteps(
+			const result = yield* getSteps(
 				this.container,
 				{
 					command: 'show',

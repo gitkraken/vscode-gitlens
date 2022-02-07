@@ -20,8 +20,10 @@ import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { debug, gate, Iterables } from '../system';
 import { executeCoreCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
+import { join, map } from '../system/iterable';
 import { normalizePath } from '../system/path';
 import {
 	Author,
@@ -528,8 +530,8 @@ async function parseRebaseTodo(
 	const commits: Commit[] = [];
 
 	const log = await container.git.getLogForSearch(repoPath, {
-		pattern: `${onto ? `#:${onto} ` : ''}${Iterables.join(
-			Iterables.map(entries, e => `#:${e.ref}`),
+		pattern: `${onto ? `#:${onto} ` : ''}${join(
+			map(entries, e => `#:${e.ref}`),
 			' ',
 		)}`,
 	});

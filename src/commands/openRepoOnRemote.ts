@@ -4,9 +4,9 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { RepositoryPicker } from '../quickpicks';
-import { executeCommand } from '../system/command';
-import { ActiveEditorCommand, command, CommandContext, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {

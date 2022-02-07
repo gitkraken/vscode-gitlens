@@ -7,8 +7,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { command } from '../system/command';
 import { isTextEditor } from '../system/utils';
-import { ActiveEditorCommand, command, EditorCommand } from './base';
+import { ActiveEditorCommand, EditorCommand } from './base';
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {

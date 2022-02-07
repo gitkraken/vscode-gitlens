@@ -6,10 +6,9 @@ import { GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { executeCommand } from '../system/command';
+import { command, executeCommand } from '../system/command';
 import {
 	ActiveEditorCommand,
-	command,
 	CommandContext,
 	getCommandUri,
 	isCommandContextGitTimelineItem,

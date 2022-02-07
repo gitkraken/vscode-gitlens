@@ -3,7 +3,9 @@ import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import { GitLog } from '../../git/models';
 import { SearchPattern } from '../../git/search';
-import { debug, gate, log, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { md5, pluralize } from '../../system/string';
 import { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
@@ -27,7 +29,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return Strings.md5(`${repoPath}|${SearchPattern.toKey(search)}`);
+		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
 	}
 
 	static override is(node: any): node is SearchResultsNode {
@@ -242,7 +244,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		const resultsType =
 			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
 
-		return `${Strings.pluralize(resultsType.singular, count, {
+		return `${pluralize(resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : undefined),
 			plural: resultsType.plural,
 			zero: 'No',

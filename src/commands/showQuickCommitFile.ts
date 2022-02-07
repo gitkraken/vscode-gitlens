@@ -5,13 +5,8 @@ import { GitUri } from '../git/gitUri';
 import { GitCommit, GitLog, GitStashCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	ActiveEditorCachedCommand,
-	command,
-	CommandContext,
-	getCommandUri,
-	isCommandContextViewNodeHasCommit,
-} from './base';
+import { command } from '../system/command';
+import { ActiveEditorCachedCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickCommitFileCommandArgs {

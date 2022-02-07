@@ -1,8 +1,10 @@
 import { Disposable, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { Repository } from '../git/models';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, RepositoryQuickPickItem } from '../quickpicks';
-import { Iterables } from '../system';
+import { map } from '../system/iterable';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { CommandQuickPickItem } from './items/common';
+import { RepositoryQuickPickItem } from './items/gitCommands';
 
 export namespace RepositoryPicker {
 	export async function getBestRepositoryOrShow(
@@ -43,7 +45,7 @@ export namespace RepositoryPicker {
 		repositories?: Repository[],
 	): Promise<RepositoryQuickPickItem | undefined> {
 		const items: RepositoryQuickPickItem[] = await Promise.all([
-			...Iterables.map(repositories ?? Container.instance.git.openRepositories, r =>
+			...map(repositories ?? Container.instance.git.openRepositories, r =>
 				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true }),
 			),
 		]);

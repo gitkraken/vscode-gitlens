@@ -6,7 +6,8 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { command } from '../system/command';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
 
 export interface OpenRevisionFileCommandArgs {

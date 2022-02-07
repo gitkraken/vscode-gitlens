@@ -13,7 +13,6 @@ import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models';
-import { debug } from '../system';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -21,6 +20,7 @@ import {
 	executeCoreGitCommand,
 	executeEditorCommand,
 } from '../system/command';
+import { debug } from '../system/decorators/log';
 import { runGitCommandInTerminal } from '../terminal';
 import {
 	BranchesNode,

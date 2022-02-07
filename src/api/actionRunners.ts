@@ -3,8 +3,8 @@ import { Config, configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
-import { getQuickPickIgnoreFocusOut } from '../quickpicks';
-import { Strings } from '../system';
+import { sortCompare } from '../system/string';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
@@ -255,7 +255,7 @@ export class ActionRunners implements Disposable {
 		if (runners.length > 1 || runners.every(r => r.type !== ActionRunnerType.BuiltIn)) {
 			const items: (ActionRunnerQuickPickItem | NoActionRunnersQuickPickItem)[] = runners
 				// .filter(r => r.when(context))
-				.sort((a, b) => a.order - b.order || Strings.sortCompare(a.name, b.name))
+				.sort((a, b) => a.order - b.order || sortCompare(a.name, b.name))
 				.map(r => new ActionRunnerQuickPickItem(r, context));
 
 			if (items.length === 0) {

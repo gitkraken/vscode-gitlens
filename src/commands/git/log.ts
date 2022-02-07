@@ -1,10 +1,10 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
-import { Strings } from '../../system';
 import { formatPath } from '../../system/formatPath';
+import { pad } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitCommandsCommand } from '../gitCommands';
+import { getSteps } from '../gitCommands.utils';
 import {
 	PartialStepState,
 	pickBranchOrTagStep,
@@ -146,13 +146,13 @@ export class LogGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = state.reference;
 			}
 
-			context.title = `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
+			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
 				context.selectedBranchOrTag,
 				{ icon: false },
 			)}`;
 
 			if (state.fileName) {
-				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, {
+				context.title += `${pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, {
 					fileOnly: true,
 					truncateTo: quickPickTitleMaxChars - context.title.length - 3,
 				})}`;
@@ -191,7 +191,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
-			const result = yield* GitCommandsCommand.getSteps(
+			const result = yield* getSteps(
 				this.container,
 				{
 					command: 'show',

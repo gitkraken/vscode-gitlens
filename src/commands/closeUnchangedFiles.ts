@@ -4,10 +4,10 @@ import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { RepositoryPicker } from '../quickpicks';
-import { executeCoreCommand } from '../system/command';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCoreCommand } from '../system/command';
 import { debounce } from '../system/function';
-import { Command, command } from './base';
+import { Command } from './base';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];

@@ -7,13 +7,12 @@ import { GitUri } from '../git/gitUri';
 import { GitBranch, GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { ReferencePicker } from '../quickpicks';
-import { Strings } from '../system';
-import { executeCommand } from '../system/command';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { command, executeCommand } from '../system/command';
+import { pad, splitSingle } from '../system/string';
 import { StatusFileNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
-	command,
 	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
@@ -127,7 +126,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			let sha = args.sha ?? gitUri.sha;
 
 			if (args.branchOrTag == null && sha != null && !GitRevision.isSha(sha) && remotes.length !== 0) {
-				const [remoteName, branchName] = Strings.splitSingle(sha, '/');
+				const [remoteName, branchName] = splitSingle(sha, '/');
 				if (branchName != null) {
 					const remote = remotes.find(r => r.name === remoteName);
 					if (remote != null) {
@@ -149,8 +148,8 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const pick = await ReferencePicker.show(
 						gitUri.repoPath,
 						args.clipboard
-							? `Copy Remote File Url From${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`
-							: `Open File on Remote From${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`,
+							? `Copy Remote File Url From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`
+							: `Open File on Remote From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`,
 						`Choose a branch or tag to ${args.clipboard ? 'copy' : 'open'} the file revision from`,
 						{
 							allowEnteringRefs: true,

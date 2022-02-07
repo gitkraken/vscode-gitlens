@@ -12,7 +12,6 @@ import {
 } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
 import { Commands } from '../constants';
-import { Container } from '../container';
 import {
 	GitBranch,
 	GitCommit,
@@ -25,22 +24,6 @@ import {
 	Repository,
 } from '../git/models';
 import { ViewNode, ViewRefNode } from '../views/nodes';
-
-interface CommandConstructor {
-	new (container: Container): Command;
-}
-
-const registrableCommands: CommandConstructor[] = [];
-
-export function command(): ClassDecorator {
-	return (target: any) => {
-		registrableCommands.push(target);
-	};
-}
-
-export function registerCommands(container: Container): Disposable[] {
-	return registrableCommands.map(c => new c(container));
-}
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff

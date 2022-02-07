@@ -4,9 +4,9 @@ import type { Container } from '../container';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { executeCoreCommand } from '../system/command';
+import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
-import { command, Command } from './base';
+import { Command } from './base';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;

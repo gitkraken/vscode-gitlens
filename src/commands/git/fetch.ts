@@ -1,7 +1,7 @@
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';

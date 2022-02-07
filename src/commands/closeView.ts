@@ -2,7 +2,8 @@ import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { SyncedState } from '../storage';
-import { command, Command, CommandContext } from './base';
+import { command } from '../system/command';
+import { Command, CommandContext } from './base';
 
 @command()
 export class CloseViewCommand extends Command {

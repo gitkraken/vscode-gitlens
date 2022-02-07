@@ -5,7 +5,8 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
-import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 

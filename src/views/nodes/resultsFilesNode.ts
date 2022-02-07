@@ -2,9 +2,13 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitFile } from '../../git/models';
-import { Arrays, debug, gate, Iterables, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
+import { sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
@@ -68,14 +72,14 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		if (files == null) return [];
 
 		let children: FileNode[] = [
-			...Iterables.map(
+			...map(
 				files,
 				s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2, this.direction),
 			),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => normalizePath(joinPaths(...parts)),
@@ -85,7 +89,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
 		}
 
 		return children;

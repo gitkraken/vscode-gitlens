@@ -4,11 +4,12 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models';
 import { Messages } from '../messages';
-import { ReferencePicker, StashPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { executeCommand } from '../system/command';
+import { StashPicker } from '../quickpicks/commitPicker';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
@@ -44,7 +45,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
 				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
@@ -60,7 +61,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			ref = pick.ref;
 			sha = ref;
 		} else {
-			const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await ReferencePicker.show(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,

@@ -1,7 +1,23 @@
-import { commands, Command as CoreCommand, Uri } from 'vscode';
+import { commands, Command as CoreCommand, Disposable, Uri } from 'vscode';
 import { Action, ActionContext } from '../api/gitlens';
-import { Command } from '../commands/base';
+import type { Command } from '../commands/base';
 import { Commands, CoreCommands, CoreGitCommands } from '../constants';
+import type { Container } from '../container';
+
+interface CommandConstructor {
+	new (container: Container): Command;
+}
+const registrableCommands: CommandConstructor[] = [];
+
+export function command(): ClassDecorator {
+	return (target: any) => {
+		registrableCommands.push(target);
+	};
+}
+
+export function registerCommands(container: Container): Disposable[] {
+	return registrableCommands.map(c => new c(container));
+}
 
 export function asCommand<T extends unknown[]>(
 	command: Omit<CoreCommand, 'arguments'> & { arguments: [...T] },
@@ -13,12 +29,6 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
-export function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
-	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}`, {
-		...args,
-		type: action,
-	});
-}
 type SupportedCommands = Commands | `gitlens.views.${string}.focus` | `gitlens.views.${string}.resetViewLocation`;
 
 export function executeCommand<U = any>(command: SupportedCommands): Thenable<U>;

@@ -30,8 +30,8 @@ import {
 	GitTagReference,
 } from '../git/models';
 import { WorkspaceState } from '../storage';
-import { gate } from '../system';
 import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
 import {
 	BranchesNode,
 	BranchNode,

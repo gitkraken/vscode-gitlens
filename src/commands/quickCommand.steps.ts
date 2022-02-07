@@ -25,8 +25,6 @@ import {
 import { RemoteResourceType } from '../git/remotes/provider';
 import { SearchPattern } from '../git/search';
 import {
-	BranchQuickPickItem,
-	CommandQuickPickItem,
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
 	CommitCompareWithHEADCommandQuickPickItem,
@@ -47,21 +45,25 @@ import {
 	CommitOpenFilesCommandQuickPickItem,
 	CommitOpenRevisionCommandQuickPickItem,
 	CommitOpenRevisionsCommandQuickPickItem,
-	CommitQuickPickItem,
 	CommitRestoreFileChangesCommandQuickPickItem,
-	ContributorQuickPickItem,
-	CopyRemoteResourceCommandQuickPickItem,
-	Directive,
-	DirectiveQuickPickItem,
-	GitCommandQuickPickItem,
 	OpenChangedFilesCommandQuickPickItem,
-	OpenRemoteResourceCommandQuickPickItem,
-	QuickPickSeparator,
-	ReferencesQuickPickItem,
+} from '../quickpicks/items/commits';
+import { CommandQuickPickItem, QuickPickSeparator } from '../quickpicks/items/common';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import {
+	BranchQuickPickItem,
+	CommitQuickPickItem,
+	ContributorQuickPickItem,
+	GitCommandQuickPickItem,
 	RefQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
-} from '../quickpicks';
+} from '../quickpicks/items/gitCommands';
+import { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
+import {
+	CopyRemoteResourceCommandQuickPickItem,
+	OpenRemoteResourceCommandQuickPickItem,
+} from '../quickpicks/remoteProviderPicker';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';

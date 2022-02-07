@@ -5,10 +5,11 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { executeCommand } from '../system/command';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { CommitPicker } from '../quickpicks/commitPicker';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command, executeCommand } from '../system/command';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 
@@ -45,7 +46,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-			const title = `Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await CommitPicker.show(
 				log,
 				`${title}${gitUri.getFormattedFileName({

@@ -4,10 +4,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { executeCoreCommand } from '../system/command';
+import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
-import { ActiveEditorCommand, command, CommandContext, getCommandUri } from './base';
+import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;

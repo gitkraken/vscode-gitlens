@@ -3,8 +3,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { RepositoryPicker } from '../quickpicks';
-import { ActiveEditorCommand, command, getCommandUri } from './base';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/command';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {

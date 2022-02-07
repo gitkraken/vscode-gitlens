@@ -4,8 +4,9 @@ import { ViewFilesLayout } from '../../configuration';
 import { Colors, Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitBranch, GitCommit, GitRevisionReference } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
+import { sortCompare } from '../../system/string';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
 import { ViewsWithCommits } from '../viewBase';
@@ -48,7 +49,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children as FileNode[],
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => normalizePath(joinPaths(...parts)),
@@ -58,7 +59,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			(children as FileNode[]).sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			(children as FileNode[]).sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 
 		if (!(this.view instanceof TagsView) && !(this.view instanceof FileHistoryView)) {

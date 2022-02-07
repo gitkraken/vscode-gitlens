@@ -1,8 +1,9 @@
 import { QuickInputButton, QuickPickItem } from 'vscode';
-import { GitCommandsCommand, GitCommandsCommandArgs } from '../commands/gitCommands';
-import { Commands, GlyphChars } from '../constants';
-import { Container } from '../container';
-import { emojify } from '../emojis';
+import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
+import { getSteps } from '../../commands/gitCommands.utils';
+import { Commands, GlyphChars } from '../../constants';
+import { Container } from '../../container';
+import { emojify } from '../../emojis';
 import {
 	GitBranch,
 	GitCommit,
@@ -12,10 +13,10 @@ import {
 	GitRevision,
 	GitTag,
 	Repository,
-} from '../git/models';
-import { fromNow } from '../system/date';
-import { pad } from '../system/string';
-import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
+} from '../../git/models';
+import { fromNow } from '../../system/date';
+import { pad } from '../../system/string';
+import { CommandQuickPickItem, QuickPickItemOfT } from './common';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);
@@ -25,7 +26,7 @@ export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCo
 	}
 
 	executeSteps(pickedVia: 'menu' | 'command') {
-		return GitCommandsCommand.getSteps(Container.instance, this.args![0], pickedVia);
+		return getSteps(Container.instance, this.args![0], pickedVia);
 	}
 }
 

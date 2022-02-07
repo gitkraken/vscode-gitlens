@@ -2,7 +2,7 @@ import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/models';
-import { Arrays } from '../../system';
+import { isStringArray } from '../../system/array';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -104,12 +104,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;

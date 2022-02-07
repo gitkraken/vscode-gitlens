@@ -2,8 +2,8 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitRemote } from '../git/models';
 import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
-import { executeCommand } from '../system/command';
-import { Command, command } from './base';
+import { command, executeCommand } from '../system/command';
+import { Command } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {

@@ -4,9 +4,11 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes, RepositoryPicker } from '../quickpicks';
-import { executeCommand } from '../system/command';
-import { ActiveEditorCommand, command, CommandContext, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {

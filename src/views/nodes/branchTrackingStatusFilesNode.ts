@@ -2,11 +2,10 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
-import { Strings } from '../../system';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
-import { sortCompare } from '../../system/string';
+import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatus } from './branchTrackingStatusNode';
@@ -114,7 +113,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		);
 		const files = stats?.changedFiles ?? 0;
 
-		const label = `${Strings.pluralize('file', files)} changed`;
+		const label = `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.BranchStatusFiles;

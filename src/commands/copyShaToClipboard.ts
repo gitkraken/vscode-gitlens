@@ -4,10 +4,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Iterables } from '../system';
+import { command } from '../system/command';
+import { first } from '../system/iterable';
 import {
 	ActiveEditorCommand,
-	command,
 	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
@@ -58,7 +58,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 				const log = await this.container.git.getLog(repoPath, { limit: 1 });
 				if (log == null) return;
 
-				args.sha = Iterables.first(log.commits.values()).sha;
+				args.sha = first(log.commits.values()).sha;
 			} else if (args.sha == null) {
 				const blameline = editor?.selection.active.line ?? 0;
 				if (blameline < 0) return;

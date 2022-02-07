@@ -1,7 +1,9 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitLog } from '../../git/models';
-import { debug, gate, Iterables } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
@@ -99,7 +101,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 		children.push(
 			...insertDateMarkers(
-				Iterables.map(
+				map(
 					log.commits.values(),
 					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
