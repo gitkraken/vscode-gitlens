@@ -7624,12 +7624,12 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setCursorFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing",
+					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing",
 					"group": "navigation@11"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:cursorFollowing",
+					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:cursorFollowing",
 					"group": "navigation@11"
 				},
 				{
