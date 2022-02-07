@@ -19,7 +19,7 @@ import { Stopwatch } from './system/stopwatch';
 import { compare } from './system/version';
 import { ViewNode } from './views/nodes';
 
-export function activate(context: ExtensionContext): Promise<GitLensApi | undefined> | undefined {
+export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
 	const gitlensVersion = context.extension.packageJSON.version;
 
@@ -130,7 +130,7 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	});
 
 	// Signal that the container is now ready
-	container.ready();
+	await container.ready();
 
 	sw.stop({
 		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${

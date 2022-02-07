@@ -238,7 +238,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitHubPullRequest = (await import('../../premium/github/github')).GitHubPullRequest;
+		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../premium/github/github'))
+			.GitHubPullRequest;
 		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),

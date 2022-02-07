@@ -192,17 +192,17 @@ export class Container {
 
 	private _ready: boolean = false;
 
-	ready() {
+	async ready() {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
-		this.registerGitProviders();
+		await this.registerGitProviders();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
 	@log()
-	private registerGitProviders() {
-		const providers = getSupportedGitProviders(this);
+	private async registerGitProviders() {
+		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
 			this._context.subscriptions.push(this._git.register(provider.descriptor.id, provider));
 		}
