@@ -195,7 +195,11 @@ function getExtensionConfig(target, mode, env) {
 			],
 		},
 		resolve: {
-			alias: { '@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target) },
+			alias: {
+				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+				// This dependency is very large, and isn't needed for our use-case
+				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
+			},
 			fallback: target === 'webworker' ? { path: require.resolve('path-browserify') } : undefined,
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
