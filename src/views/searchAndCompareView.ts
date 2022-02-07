@@ -461,21 +461,49 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			void this.container.storage.deleteWorkspace(WorkspaceState.Deprecated_PinnedComparisons);
 		}
 
+		const migratedPins = Object.create(null) as PinnedItems;
+		let migrated = false;
+
 		const root = this.ensureRoot();
-		return Object.values(savedPins)
-			.sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
-			.map(p =>
-				p.type === 'comparison'
-					? new CompareResultsNode(
-							this,
-							root,
-							p.path,
-							{ label: p.ref1.label, ref: p.ref1.ref ?? (p.ref1 as any).name ?? (p.ref1 as any).sha },
-							{ label: p.ref2.label, ref: p.ref2.ref ?? (p.ref2 as any).name ?? (p.ref2 as any).sha },
-							p.timestamp,
-					  )
-					: new SearchResultsNode(this, root, p.path, p.search, p.labels, undefined, p.timestamp),
-			);
+		const pins = Object.entries(savedPins)
+			.sort(([, a], [, b]) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
+			.map(([k, p]) => {
+				if (p.type === 'comparison') {
+					// Migrated any old keys (sha1) to new keys (md5)
+					const key = CompareResultsNode.getPinnableId(p.path, p.ref1.ref, p.ref2.ref);
+					if (k !== key) {
+						migrated = true;
+						migratedPins[key] = p;
+					} else {
+						migratedPins[k] = p;
+					}
+
+					return new CompareResultsNode(
+						this,
+						root,
+						p.path,
+						{ label: p.ref1.label, ref: p.ref1.ref ?? (p.ref1 as any).name ?? (p.ref1 as any).sha },
+						{ label: p.ref2.label, ref: p.ref2.ref ?? (p.ref2 as any).name ?? (p.ref2 as any).sha },
+						p.timestamp,
+					);
+				}
+
+				// Migrated any old keys (sha1) to new keys (md5)
+				const key = SearchResultsNode.getPinnableId(p.path, p.search);
+				if (k !== key) {
+					migrated = true;
+					migratedPins[key] = p;
+				} else {
+					migratedPins[k] = p;
+				}
+
+				return new SearchResultsNode(this, root, p.path, p.search, p.labels, undefined, p.timestamp);
+			});
+
+		if (migrated) {
+			void this.container.storage.storeWorkspace(WorkspaceState.ViewsSearchAndComparePinnedItems, migratedPins);
+		}
+		return pins;
 	}
 
 	async updatePinned(id: string, pin?: PinnedItem) {
