@@ -277,7 +277,7 @@ export abstract class ViewBase<
 	}
 
 	resolveTreeItem(item: TreeItem, node: ViewNode): TreeItem | Promise<TreeItem> {
-		return node.resolveTreeItem(item);
+		return node.resolveTreeItem?.(item) ?? item;
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {

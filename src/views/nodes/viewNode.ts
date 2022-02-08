@@ -121,9 +121,7 @@ export abstract class ViewNode<TView extends View = View> {
 
 	abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
-	resolveTreeItem(item: TreeItem): TreeItem | Promise<TreeItem> {
-		return item;
-	}
+	resolveTreeItem?(item: TreeItem): TreeItem | Promise<TreeItem>;
 
 	getCommand(): Command | undefined {
 		return undefined;
