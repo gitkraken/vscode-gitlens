@@ -2295,7 +2295,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += ':all';
 		}
 
-		options.limit = options.limit == null ? this.container.config.advanced.maxListItems || 0 : options.limit;
+		options.limit = options.limit ?? this.container.config.advanced.maxListItems ?? 0;
 		if (options.limit) {
 			key += `:n${options.limit}`;
 		}

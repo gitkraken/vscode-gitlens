@@ -1152,7 +1152,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const cc = Logger.getCorrelationContext();
 
-		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = this.getPagingLimit(options?.limit);
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1288,7 +1288,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				return log;
 			}
 
-			moreLimit = moreLimit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			moreLimit = this.getPagingLimit(moreLimit);
 
 			// // If the log is for a range, then just get everything prior + more
 			// if (GitRevision.isRange(log.sha)) {
@@ -1418,7 +1418,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// 	key += ':all';
 		// }
 
-		options.limit = options.limit == null ? this.container.config.advanced.maxListItems || 0 : options.limit;
+		options.limit = this.getPagingLimit(options?.limit);
 		if (options.limit) {
 			key += `:n${options.limit}`;
 		}
@@ -1548,7 +1548,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = this.getPagingLimit(options?.limit);
 
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
@@ -1691,7 +1691,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				return log;
 			}
 
-			moreLimit = moreLimit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			moreLimit = this.getPagingLimit(moreLimit);
 
 			// const ref = Iterables.last(log.commits.values())?.ref;
 			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
@@ -2428,6 +2428,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		return this._remotehub.getProviderUri(uri);
+	}
+
+	private getPagingLimit(limit?: number): number {
+		limit = Math.min(100, limit ?? this.container.config.advanced.maxListItems ?? 100);
+		if (limit === 0) {
+			limit = 100;
+		}
+		return limit;
 	}
 
 	private async resolveReferenceCore(
