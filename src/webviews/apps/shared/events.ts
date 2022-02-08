@@ -39,6 +39,7 @@ export class Emitter<T> {
 						}
 					},
 				};
+
 				if (Array.isArray(disposables)) {
 					disposables.push(result);
 				}
