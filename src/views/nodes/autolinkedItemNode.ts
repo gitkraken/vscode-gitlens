@@ -51,7 +51,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 			this.issue.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
 		} \\#${this.issue.id} on ${this.issue.provider.name}"`;
 		const tooltip = new MarkdownString(
-			`${IssueOrPullRequest.getMarkdownIcon(this.issue)} [**${this.issue.title}**](${
+			`${IssueOrPullRequest.getMarkdownIcon(this.issue)} [**${this.issue.title.trim()}**](${
 				this.issue.url
 			}${linkTitle}) \\\n[#${this.issue.id}](${this.issue.url}${linkTitle}) was ${
 				this.issue.closed ? 'closed' : 'opened'

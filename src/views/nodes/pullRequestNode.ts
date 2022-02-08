@@ -68,7 +68,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 		const linkTitle = ` "Open Pull Request \\#${this.pullRequest.id} on ${this.pullRequest.provider.name}"`;
 		tooltip.appendMarkdown(
-			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title}**](${
+			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title.trim()}**](${
 				this.pullRequest.url
 			}${linkTitle}) \\\n[#${this.pullRequest.id}](${this.pullRequest.url}${linkTitle}) by [@${
 				this.pullRequest.author.name
