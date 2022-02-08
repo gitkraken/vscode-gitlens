@@ -20,8 +20,11 @@ export interface FilesQueryResults {
 	};
 }
 
+let instanceId = 0;
+
 export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 	private _children: ViewNode[] | undefined;
+	private _instanceId: number;
 
 	constructor(
 		view: ViewsWithCommits,
@@ -31,10 +34,11 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 		public readonly log: GitLog,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+		this._instanceId = instanceId++;
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:autolinked`;
+		return `${this.parent!.id}:results:autolinked:${this._instanceId}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
