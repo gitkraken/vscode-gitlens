@@ -1166,7 +1166,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				since: options?.since ? new Date(options.since) : undefined,
 			});
 
-			const authors = new Map<string, GitBlameAuthor>();
 			const commits = new Map<string, GitCommit>();
 
 			const { viewer = session.account.label } = result;
@@ -1174,15 +1173,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
 				const committerName =
 					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
-				let author = authors.get(authorName);
-				if (author == null) {
-					author = {
-						name: authorName,
-						lineCount: 0,
-					};
-					authors.set(authorName, author);
-				}
 
 				let c = commits.get(commit.oid);
 				if (c == null) {
@@ -1330,7 +1320,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				cursor: moreLog.cursor,
-				query: moreLog.query,
+				query: log.query,
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);
 
@@ -1342,13 +1332,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		_options?: { limit?: number; ordering?: string | null; skip?: number },
+		options?: { cursor?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
+		const cc = Logger.getCorrelationContext();
+
 		const operations = SearchPattern.parseSearchOperations(search.pattern);
 
-		const values = operations.get('commit:');
+		let op;
+		let values = operations.get('commit:');
 		if (values != null) {
 			const commit = await this.getCommit(repoPath, values[0]);
 			if (commit == null) return undefined;
@@ -1364,8 +1357,164 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		}
 
-		// TODO@eamodio try implementing with the commit search api
+		const query = [];
+
+		for ([op, values] of operations.entries()) {
+			switch (op) {
+				case 'message:':
+					query.push(...values.map(m => m.replace(/ /g, '+')));
+					break;
+
+				case 'author:':
+					query.push(
+						...values.map(a => {
+							a = a.replace(/ /g, '+');
+							if (a.startsWith('@')) return `author:${a.slice(1)}`;
+							if (a.startsWith('"@')) return `author:"${a.slice(2)}`;
+							if (a.includes('@')) return `author-email:${a}`;
+							return `author-name:${a}`;
+						}),
+					);
+					break;
+
+				// case 'change:':
+				// case 'file:':
+				// 	break;
+			}
+		}
+
+		if (query.length === 0) return undefined;
+
+		const limit = this.getPagingLimit(options?.limit);
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const result = await github.searchCommits(
+				session?.accessToken,
+				`repo:${metadata.repo.owner}/${metadata.repo.name}+${query.join('+').trim()}`,
+				{
+					cursor: options?.cursor,
+					limit: limit,
+					sort:
+						options?.ordering === 'date'
+							? 'committer-date'
+							: options?.ordering === 'author-date'
+							? 'author-date'
+							: undefined,
+				},
+			);
+			if (result == null) return undefined;
+
+			const commits = new Map<string, GitCommit>();
+
+			const viewer = session.account.label;
+			for (const commit of result.values) {
+				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const committerName =
+					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+
+				let c = commits.get(commit.oid);
+				if (c == null) {
+					c = new GitCommit(
+						this.container,
+						repoPath,
+						commit.oid,
+						new GitCommitIdentity(
+							authorName,
+							commit.author.email,
+							new Date(commit.author.date),
+							commit.author.avatarUrl,
+						),
+						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						commit.message.split('\n', 1)[0],
+						commit.parents.nodes.map(p => p.oid),
+						commit.message,
+						commit.files?.map(
+							f =>
+								new GitFileChange(
+									repoPath,
+									f.filename ?? '',
+									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+									f.previous_filename,
+									undefined,
+									{
+										additions: f.additions ?? 0,
+										deletions: f.deletions ?? 0,
+										changes: f.changes ?? 0,
+									},
+								),
+						),
+						{
+							changedFiles: commit.changedFiles ?? 0,
+							additions: commit.additions ?? 0,
+							deletions: commit.deletions ?? 0,
+						},
+						[],
+					);
+					commits.set(commit.oid, c);
+				}
+			}
+
+			const log: GitLog = {
+				repoPath: repoPath,
+				commits: commits,
+				sha: undefined,
+				range: undefined,
+				count: commits.size,
+				limit: limit,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				cursor: result.pageInfo?.endCursor ?? undefined,
+				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
+			};
+
+			if (log.hasMore) {
+				log.more = this.getLogForSearchMoreFn(log, search, options);
+			}
+
+			return log;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+			return undefined;
+		}
+
 		return undefined;
+	}
+
+	private getLogForSearchMoreFn(
+		log: GitLog,
+		search: SearchPattern,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+	): (limit: number | undefined) => Promise<GitLog> {
+		return async (limit: number | undefined) => {
+			limit = this.getPagingLimit(limit);
+
+			const moreLog = await this.getLogForSearch(log.repoPath, search, {
+				...options,
+				limit: limit,
+				cursor: log.cursor,
+			});
+			// If we can't find any more, assume we have everything
+			if (moreLog == null) return { ...log, hasMore: false };
+
+			const commits = new Map([...log.commits, ...moreLog.commits]);
+
+			const mergedLog: GitLog = {
+				repoPath: log.repoPath,
+				commits: commits,
+				sha: log.sha,
+				range: undefined,
+				count: commits.size,
+				limit: (log.limit ?? 0) + limit,
+				hasMore: moreLog.hasMore,
+				cursor: moreLog.cursor,
+				query: log.query,
+			};
+			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
+
+			return mergedLog;
+		};
 	}
 
 	@log()
@@ -1571,7 +1720,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				since: options?.since ? new Date(options.since) : undefined,
 			});
 
-			const authors = new Map<string, GitBlameAuthor>();
 			const commits = new Map<string, GitCommit>();
 
 			const { viewer = session.account.label } = result;
@@ -1579,15 +1727,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
 				const committerName =
 					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
-				let author = authors.get(authorName);
-				if (author == null) {
-					author = {
-						name: authorName,
-						lineCount: 0,
-					};
-					authors.set(authorName, author);
-				}
 
 				let c = commits.get(commit.oid);
 				if (c == null) {
@@ -1724,7 +1863,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				cursor: moreLog.cursor,
-				query: moreLog.query,
+				query: log.query,
 			};
 
 			// if (options.renames) {

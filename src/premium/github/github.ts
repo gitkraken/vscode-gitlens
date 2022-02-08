@@ -1528,6 +1528,84 @@ export class GitHubApi {
 		}
 	}
 
+	@debug<GitHubApi['searchCommits']>({ args: { 0: '<token>' } })
+	async searchCommits(
+		token: string,
+		query: string,
+		options?: {
+			cursor?: string;
+			limit?: number;
+			order?: 'asc' | 'desc' | undefined;
+			sort?: 'author-date' | 'committer-date' | undefined;
+		},
+	): Promise<GitHubPagedResult<GitHubCommit> | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const limit = Math.min(100, options?.limit ?? 100);
+
+		let page;
+		let pageSize;
+		let previousCount;
+		if (options?.cursor != null) {
+			[page, pageSize, previousCount] = options.cursor.split(' ', 3);
+			page = parseInt(page, 10);
+			// TODO@eamodio need to figure out how allow different page sizes if the limit changes
+			pageSize = parseInt(pageSize, 10);
+			previousCount = parseInt(previousCount, 10);
+		} else {
+			page = 1;
+			pageSize = limit;
+			previousCount = 0;
+		}
+
+		try {
+			const rsp = await this.request(token, 'GET /search/commits', {
+				q: query,
+				sort: options?.sort,
+				order: options?.order,
+				per_page: pageSize,
+				page: page,
+			});
+
+			const data = rsp?.data;
+			if (data == null) return undefined;
+
+			const commits = data.items.map<GitHubCommit>(result => ({
+				oid: result.sha,
+				parents: { nodes: result.parents.map(p => ({ oid: p.sha! })) },
+				message: result.commit.message,
+				author: {
+					avatarUrl: result.author?.avatar_url ?? undefined,
+					date: result.commit.author?.date ?? result.commit.author?.date ?? new Date().toString(),
+					email: result.author?.email ?? result.commit.author?.email ?? undefined,
+					name: result.author?.name ?? result.commit.author?.name ?? '',
+				},
+				committer: {
+					date: result.commit.committer?.date ?? result.committer?.date ?? new Date().toString(),
+					email: result.committer?.email ?? result.commit.committer?.email ?? undefined,
+					name: result.committer?.name ?? result.commit.committer?.name ?? '',
+				},
+			}));
+
+			const count = previousCount + data.items.length;
+			const hasMore = data.incomplete_results || data.total_count > count;
+
+			return {
+				pageInfo: {
+					startCursor: `${page} ${pageSize} ${previousCount}`,
+					endCursor: hasMore ? `${page + 1} ${pageSize} ${count}` : undefined,
+					hasPreviousPage: data.total_count > 0 && page > 1,
+					hasNextPage: hasMore,
+				},
+				totalCount: data.total_count,
+				values: commits,
+			};
+		} catch (ex) {
+			debugger;
+			return this.handleRequestError(ex, cc, undefined);
+		}
+	}
+
 	private _octokits = new Map<string, Octokit>();
 	private octokit(token: string, options?: ConstructorParameters<typeof Octokit>[0]): Octokit {
 		let octokit = this._octokits.get(token);
@@ -1665,9 +1743,9 @@ export interface GitHubCommit {
 	oid: string;
 	parents: { nodes: { oid: string }[] };
 	message: string;
-	additions: number | undefined;
-	changedFiles: number | undefined;
-	deletions: number | undefined;
+	additions?: number | undefined;
+	changedFiles?: number | undefined;
+	deletions?: number | undefined;
 	author: { avatarUrl: string | undefined; date: string; email: string | undefined; name: string };
 	committer: { date: string; email: string | undefined; name: string };
 

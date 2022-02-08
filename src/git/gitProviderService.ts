@@ -1224,7 +1224,7 @@ export class GitProviderService implements Disposable {
 	async getLogForSearch(
 		repoPath: string | Uri,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: string | null; skip?: number },
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getLogForSearch(path, search, options);

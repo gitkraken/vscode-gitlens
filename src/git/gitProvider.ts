@@ -283,7 +283,11 @@ export interface GitProvider extends Disposable {
 	getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		options?: { limit?: number | undefined; ordering?: string | null | undefined; skip?: number | undefined },
+		options?: {
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			skip?: number | undefined;
+		},
 	): Promise<GitLog | undefined>;
 	getLogForFile(
 		repoPath: string,

@@ -2095,7 +2095,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: string | null; skip?: number },
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -2216,7 +2216,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogForSearchMoreFn(
 		log: GitLog,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: string | null },
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? this.container.config.advanced.maxSearchItems ?? 0;
@@ -2226,10 +2226,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit: limit,
 				skip: log.count,
 			});
-			if (moreLog == null) {
-				// If we can't find any more, assume we have everything
-				return { ...log, hasMore: false };
-			}
+			// If we can't find any more, assume we have everything
+			if (moreLog == null) return { ...log, hasMore: false };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 

@@ -1,5 +1,6 @@
-import { GlyphChars } from '../../constants';
+import { ContextKeys, GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { getContext } from '../../context';
 import { GitCommit, GitLog, Repository } from '../../git/models';
 import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/common';
@@ -25,6 +26,7 @@ interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	commit: GitCommit | undefined;
+	hasVirtualFolders: boolean;
 	resultsKey: string | undefined;
 	resultsPromise: Promise<GitLog | undefined> | undefined;
 	title: string;
@@ -96,6 +98,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
+			hasVirtualFolders: getContext<boolean>(ContextKeys.HasVirtualFolders, false),
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,
@@ -263,29 +266,33 @@ export class SearchGitCommand extends QuickCommand<State> {
 			{
 				label: searchOperatorToTitleMap.get('')!,
 				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
-				item: 'message:',
+				item: 'message:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('author:')!,
 				description: 'author: pattern or @: pattern',
-				item: 'author:',
+				item: 'author:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('commit:')!,
 				description: 'commit: sha or #: sha',
-				item: 'commit:',
+				item: 'commit:' as const,
 			},
-			{
-				label: searchOperatorToTitleMap.get('file:')!,
-				description: 'file: glob or ?: glob',
-				item: 'file:',
-			},
-			{
-				label: searchOperatorToTitleMap.get('change:')!,
-				description: 'change: pattern or ~: pattern',
-				item: 'change:',
-			},
-		];
+			context.hasVirtualFolders
+				? undefined
+				: {
+						label: searchOperatorToTitleMap.get('file:')!,
+						description: 'file: glob or ?: glob',
+						item: 'file:' as const,
+				  },
+			context.hasVirtualFolders
+				? undefined
+				: {
+						label: searchOperatorToTitleMap.get('change:')!,
+						description: 'change: pattern or ~: pattern',
+						item: 'change:' as const,
+				  },
+		].filter(<T>(i?: T): i is T => i != null);
 
 		const matchCaseButton = new QuickCommandButtons.MatchCaseToggle(state.matchCase);
 		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
