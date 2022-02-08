@@ -1605,7 +1605,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					const foundFile = isFolderGlob(relativePath)
 						? undefined
 						: files?.find(f => f.path === relativePath) ??
-						  new GitFileChange(repoPath, relativePath, GitFileIndexStatus.Modified);
+						  new GitFileChange(
+								repoPath,
+								relativePath,
+								GitFileIndexStatus.Modified,
+								undefined,
+								undefined,
+								commit.changedFiles === 1
+									? { additions: commit.additions ?? 0, deletions: commit.deletions ?? 0, changes: 0 }
+									: undefined,
+						  );
 
 					c = new GitCommit(
 						this.container,
