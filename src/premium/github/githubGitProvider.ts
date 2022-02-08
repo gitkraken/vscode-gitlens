@@ -1161,8 +1161,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				authors: options?.authors,
-				cursor: options?.cursor,
+				after: options?.cursor,
 				limit: limit,
+				since: options?.since ? new Date(options.since) : undefined,
 			});
 
 			const authors = new Map<string, GitBlameAuthor>();
@@ -1564,9 +1565,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
 			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
-				cursor: options?.cursor,
+				after: options?.cursor,
 				path: relativePath,
 				limit: limit,
+				since: options?.since ? new Date(options.since) : undefined,
 			});
 
 			const authors = new Map<string, GitBlameAuthor>();

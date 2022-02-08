@@ -903,11 +903,14 @@ export class GitHubApi {
 		repo: string,
 		ref: string,
 		options?: {
+			after?: string;
 			all?: boolean;
 			authors?: GitUser[];
-			cursor?: string;
-			path?: string;
+			before?: string;
 			limit?: number;
+			path?: string;
+			since?: string | Date;
+			until?: string | Date;
 		},
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
 		const cc = Logger.getCorrelationContext();
@@ -923,10 +926,7 @@ export class GitHubApi {
 						object:
 							| {
 									history: {
-										pageInfo: {
-											endCursor: string;
-											hasNextPage: boolean;
-										};
+										pageInfo: GitHubPageInfo;
 										nodes: GitHubCommit[];
 									};
 							  }
@@ -944,17 +944,22 @@ export class GitHubApi {
 	$ref: String!
 	$path: String
 	$author: CommitAuthor
-	$cursor: String
+	$after: String
+	$before: String
 	$limit: Int = 100
+	$since: GitTimestamp
+	$until: GitTimestamp
 ) {
 	viewer { name }
 	repository(name: $repo, owner: $owner) {
 		object(expression: $ref) {
 			... on Commit {
-				history(first: $limit, author: $author, path: $path, after: $cursor) {
+				history(first: $limit, author: $author, path: $path, after: $after, before: $before, since: $since, until: $until) {
 					pageInfo {
+						startCursor
 						endCursor
 						hasNextPage
+						hasPreviousPage
 					}
 					nodes {
 						... on Commit {
@@ -1001,19 +1006,25 @@ export class GitHubApi {
 				owner: owner,
 				repo: repo,
 				ref: ref,
-				cursor: options?.cursor,
+				after: options?.after,
+				before: options?.before,
 				path: options?.path,
 				author: authors,
 				limit: Math.min(100, options?.limit ?? 100),
+				since: typeof options?.since === 'string' ? options?.since : options?.since?.toISOString(),
+				until: typeof options?.until === 'string' ? options?.until : options?.until?.toISOString(),
 			});
 			const history = rsp?.repository?.object?.history;
 			if (history == null) return emptyPagedResult;
 
 			return {
-				paging: {
-					cursor: history.pageInfo.endCursor,
-					more: history.pageInfo.hasNextPage,
-				},
+				paging:
+					history.pageInfo.endCursor != null
+						? {
+								cursor: history.pageInfo.endCursor ?? undefined,
+								more: history.pageInfo.hasNextPage,
+						  }
+						: undefined,
 				values: history.nodes,
 				viewer: rsp?.viewer.name,
 			};
