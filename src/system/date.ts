@@ -132,6 +132,40 @@ export function formatDate(date: Date, format: 'full' | 'long' | 'medium' | 'sho
 	);
 }
 
+export function getDeltaDate(
+	date: Date,
+	delta: { years?: number; months?: number; days?: number; hours?: number; minutes?: number; seconds?: number },
+) {
+	const d = new Date(date.getTime());
+
+	for (const [key, value] of Object.entries(delta)) {
+		if (!value) continue;
+
+		switch (key) {
+			case 'years':
+				d.setFullYear(d.getFullYear() + value);
+				break;
+			case 'months':
+				d.setMonth(d.getMonth() + value);
+				break;
+			case 'days':
+				d.setDate(d.getDate() + value);
+				break;
+			case 'hours':
+				d.setHours(d.getHours() + value);
+				break;
+			case 'minutes':
+				d.setMinutes(d.getMinutes() + value);
+				break;
+			case 'seconds':
+				d.setSeconds(d.getSeconds() + value);
+				break;
+		}
+	}
+
+	return d;
+}
+
 function getDateTimeFormatOptionsFromFormatString(
 	format: DateTimeFormat | string | undefined,
 ): Intl.DateTimeFormatOptions {
