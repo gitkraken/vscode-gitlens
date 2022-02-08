@@ -49,9 +49,10 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 			if (commits.length) {
 				const combineMessages = commits.map(c => c.message).join('\n');
 
-				const [autolinkedMapResult, ...prsResults] = await Promise.allSettled([
+				const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
 					this.view.container.autolinks.getIssueOrPullRequestLinks(combineMessages, this.remote),
-					...commits.map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
+					// Only get PRs from the first 100 commits to attempt to avoid hitting the api limits
+					// ...commits.slice(0, 100).map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
 				]);
 
 				const items = new Map<string, IssueOrPullRequest | PullRequest>();
@@ -64,11 +65,11 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 					}
 				}
 
-				for (const result of prsResults) {
-					if (result.status !== 'fulfilled' || result.value == null) continue;
+				// for (const result of prsResults) {
+				// 	if (result.status !== 'fulfilled' || result.value == null) continue;
 
-					items.set(result.value.id, result.value);
-				}
+				// 	items.set(result.value.id, result.value);
+				// }
 
 				children = [...items.values()].map(item =>
 					PullRequest.is(item)
