@@ -123,7 +123,7 @@ export interface GitProvider extends Disposable {
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined } | { fileName?: string | undefined },
+		options?: { createBranch?: string | undefined; track?: boolean | undefined } | { fileName?: string | undefined },
 	): Promise<void>;
 	resetCaches(
 		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]

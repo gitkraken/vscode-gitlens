@@ -728,7 +728,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { fileName?: string },
+		options?: { createBranch?: string; track?: boolean } | { fileName?: string },
 	): Promise<void> {
 		const cc = Logger.getCorrelationContext();
 

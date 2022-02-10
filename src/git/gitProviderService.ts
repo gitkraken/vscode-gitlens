@@ -727,7 +727,7 @@ export class GitProviderService implements Disposable {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { fileName?: string },
+		options?: { createBranch?: string; track?:boolean } | { fileName?: string },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.checkout(path, ref, options);

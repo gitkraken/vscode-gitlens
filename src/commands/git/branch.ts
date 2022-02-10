@@ -30,7 +30,7 @@ interface Context {
 	title: string;
 }
 
-type CreateFlags = '--switch';
+type CreateFlags = '--switch' | '--no-track';
 
 interface CreateState {
 	subcommand: 'create';
@@ -324,8 +324,16 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
+
+			if ((state.reference as GitBranchReference).remote) {
+				//If remote branch name and local branch name doesn't match, then shouldn't track
+				if (state.name !== GitReference.getNameWithoutRemote(state.reference)) {
+					state.flags.push('--no-track');
+				}
+			}
+
 			if (state.flags.includes('--switch')) {
-				void (await state.repo.switch(state.reference.ref, { createBranch: state.name }));
+				void (await state.repo.switch(state.reference.ref, { createBranch: state.name, track: !state.flags.includes('--no-track') }));
 			} else {
 				void state.repo.branch(...state.flags, state.name, state.reference.ref);
 			}
