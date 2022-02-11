@@ -23,7 +23,7 @@ import { setContext } from '../context';
 import { ProviderNotFoundError } from '../errors';
 import { Logger } from '../logger';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
-import { WorkspaceState } from '../storage';
+import { WorkspaceStorageKeys } from '../storage';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -499,7 +499,7 @@ export class GitProviderService implements Disposable {
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
 		if (!enabled && this._initializing) {
 			disabled = !(
-				this.container.storage.getWorkspace<boolean>(WorkspaceState.AssumeRepositoriesOnStartup) ?? true
+				this.container.storage.getWorkspace<boolean>(WorkspaceStorageKeys.AssumeRepositoriesOnStartup) ?? true
 			);
 		}
 
@@ -520,7 +520,7 @@ export class GitProviderService implements Disposable {
 		await Promise.all(promises);
 
 		if (!this._initializing) {
-			void this.container.storage.storeWorkspace(WorkspaceState.AssumeRepositoriesOnStartup, enabled);
+			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.AssumeRepositoriesOnStartup, enabled);
 		}
 	}
 

@@ -1,7 +1,7 @@
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import { SyncedState } from '../storage';
+import { SyncedStorageKeys } from '../storage';
 import { command, executeCommand } from '../system/command';
 import { Command, CommandContext } from './base';
 
@@ -51,7 +51,7 @@ export class ShowViewCommand extends Command {
 				return this.container.tagsView.show();
 			case Commands.ShowWelcomeView:
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
-				void this.container.storage.store(SyncedState.WelcomeViewVisible, true);
+				void this.container.storage.store(SyncedStorageKeys.WelcomeViewVisible, true);
 				void (await executeCommand('gitlens.views.welcome.focus'));
 		}
 

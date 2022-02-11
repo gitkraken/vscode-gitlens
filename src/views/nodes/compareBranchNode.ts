@@ -5,7 +5,7 @@ import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitRevision } from '../../git/models';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
-import { BranchComparison, BranchComparisons, WorkspaceState } from '../../storage';
+import { BranchComparison, BranchComparisons, WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
@@ -332,7 +332,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	private loadCompareWith() {
 		const comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
-			WorkspaceState.BranchComparisons,
+			WorkspaceStorageKeys.BranchComparisons,
 		);
 
 		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
@@ -351,7 +351,9 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async updateCompareWith(compareWith: BranchComparison | undefined) {
 		this._compareWith = compareWith;
 
-		let comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(WorkspaceState.BranchComparisons);
+		let comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
+			WorkspaceStorageKeys.BranchComparisons,
+		);
 		if (comparisons == null) {
 			if (compareWith == null) return;
 
@@ -368,6 +370,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
-		await this.view.container.storage.storeWorkspace(WorkspaceState.BranchComparisons, comparisons);
+		await this.view.container.storage.storeWorkspace(WorkspaceStorageKeys.BranchComparisons, comparisons);
 	}
 }

@@ -95,7 +95,7 @@ import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provide
 import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
-import { WorkspaceState } from '../../../storage';
+import { WorkspaceStorageKeys } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -266,7 +266,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const potentialGitPaths =
 			configuration.getAny<string | string[]>('git.path') ??
-			this.container.storage.getWorkspace(WorkspaceState.GitPath, undefined);
+			this.container.storage.getWorkspace(WorkspaceStorageKeys.GitPath, undefined);
 
 		const start = hrtime();
 
@@ -290,7 +290,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
 		setTimeout(() => {
-			void this.container.storage.storeWorkspace(WorkspaceState.GitPath, location.path);
+			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.GitPath, location.path);
 		}, 1000);
 
 		if (cc != null) {

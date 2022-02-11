@@ -13,7 +13,7 @@ import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
-import { WorkspaceState } from '../../storage';
+import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
@@ -303,8 +303,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
-	private get connectedKey(): `${WorkspaceState.ConnectedPrefix}${string}` {
-		return `${WorkspaceState.ConnectedPrefix}${this.key}`;
+	private get connectedKey(): `${WorkspaceStorageKeys.ConnectedPrefix}${string}` {
+		return `${WorkspaceStorageKeys.ConnectedPrefix}${this.key}`;
 	}
 
 	get maybeConnected(): boolean | undefined {

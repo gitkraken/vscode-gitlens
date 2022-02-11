@@ -29,7 +29,7 @@ import {
 	GitStashReference,
 	GitTagReference,
 } from '../git/models';
-import { WorkspaceState } from '../storage';
+import { WorkspaceStorageKeys } from '../storage';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import {
@@ -276,7 +276,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	get autoRefresh() {
 		return (
 			this.config.autoRefresh &&
-			this.container.storage.getWorkspace<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
+			this.container.storage.getWorkspace<boolean>(WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh, true)
 		);
 	}
 
@@ -774,12 +774,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
 				workspaceEnabled = this.container.storage.getWorkspace<boolean>(
-					WorkspaceState.ViewsRepositoriesAutoRefresh,
+					WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh,
 					true,
 				);
 			} else {
 				await this.container.storage.storeWorkspace(
-					WorkspaceState.ViewsRepositoriesAutoRefresh,
+					WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh,
 					workspaceEnabled,
 				);
 			}

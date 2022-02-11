@@ -5,42 +5,58 @@ import type { SearchPattern } from './git/search';
 export class Storage {
 	constructor(private readonly context: ExtensionContext) {}
 
-	get<T>(key: GlobalState | SyncedState): T | undefined;
-	get<T>(key: GlobalState | SyncedState, defaultValue: T): T;
-	get<T>(key: GlobalState | SyncedState, defaultValue?: T): T | undefined {
+	get<T>(key: StorageKeys | SyncedStorageKeys): T | undefined;
+	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue: T): T;
+	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue?: T): T | undefined {
 		return this.context.globalState.get(key, defaultValue);
 	}
 
-	async delete(key: GlobalState | SyncedState): Promise<void> {
+	async delete(key: StorageKeys | SyncedStorageKeys): Promise<void> {
 		return this.context.globalState.update(key, undefined);
 	}
 
-	async store(key: GlobalState | SyncedState, value: unknown): Promise<void> {
+	async store(key: StorageKeys | SyncedStorageKeys, value: unknown): Promise<void> {
 		return this.context.globalState.update(key, value);
 	}
 
-	getWorkspace<T>(key: WorkspaceState | `${WorkspaceState.ConnectedPrefix}${string}`): T | undefined;
-	getWorkspace<T>(key: WorkspaceState | `${WorkspaceState.ConnectedPrefix}${string}`, defaultValue: T): T;
+	async getSecret(key: SecretKeys): Promise<string | undefined> {
+		return this.context.secrets.get(key);
+	}
+
+	async deleteSecret(key: SecretKeys): Promise<void> {
+		return this.context.secrets.delete(key);
+	}
+
+	async storeSecret(key: SecretKeys, value: string): Promise<void> {
+		return this.context.secrets.store(key, value);
+	}
+
+	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`): T | undefined;
+	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`, defaultValue: T): T;
 	getWorkspace<T>(
-		key: WorkspaceState | `${WorkspaceState.ConnectedPrefix}${string}`,
+		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
 		defaultValue?: T,
 	): T | undefined {
 		return this.context.workspaceState.get(key, defaultValue);
 	}
 
-	async deleteWorkspace(key: WorkspaceState | `${WorkspaceState.ConnectedPrefix}${string}`): Promise<void> {
+	async deleteWorkspace(
+		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
+	): Promise<void> {
 		return this.context.workspaceState.update(key, undefined);
 	}
 
 	async storeWorkspace(
-		key: WorkspaceState | `${WorkspaceState.ConnectedPrefix}${string}`,
+		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
 		value: unknown,
 	): Promise<void> {
 		return this.context.workspaceState.update(key, value);
 	}
 }
 
-export const enum GlobalState {
+export type SecretKeys = string;
+
+export const enum StorageKeys {
 	Avatars = 'gitlens:avatars',
 	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
@@ -49,14 +65,14 @@ export const enum GlobalState {
 	Deprecated_Version = 'gitlensVersion',
 }
 
-export const enum SyncedState {
+export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
-export const enum WorkspaceState {
+export const enum WorkspaceStorageKeys {
 	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
 	GitPath = 'gitlens:gitPath',
 

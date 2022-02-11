@@ -2,7 +2,7 @@ import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
-import { GlobalState } from './storage';
+import { StorageKeys } from './storage';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase, md5 } from './system/string';
@@ -27,7 +27,7 @@ _onDidFetchAvatar.event(
 						),
 				  ]
 				: undefined;
-		void Container.instance.storage.store(GlobalState.Avatars, avatars);
+		void Container.instance.storage.store(StorageKeys.Avatars, avatars);
 	}, 1000),
 );
 
@@ -138,7 +138,7 @@ function createOrUpdateAvatar(
 function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
 	if (cache == null) {
 		const avatars: [string, Avatar][] | undefined = Container.instance.storage
-			.get<[string, SerializedAvatar][]>(GlobalState.Avatars)
+			.get<[string, SerializedAvatar][]>(StorageKeys.Avatars)
 			?.map<[string, Avatar]>(([key, avatar]) => [
 				key,
 				{
@@ -246,7 +246,7 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 	switch (reset) {
 		case 'all':
-			void Container.instance.storage.delete(GlobalState.Avatars);
+			void Container.instance.storage.delete(StorageKeys.Avatars);
 			avatarCache?.clear();
 			avatarQueue.clear();
 			break;
