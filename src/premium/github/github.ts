@@ -187,11 +187,12 @@ export class GitHubApi {
 		const cc = Logger.getCorrelationContext();
 
 		interface QueryResult {
-			repository: {
-				defaultBranchRef: {
-					name: string;
-				} | null;
-			} | null;
+			repository:
+				| {
+						defaultBranchRef: { name: string } | null | undefined;
+				  }
+				| null
+				| undefined;
 		}
 
 		try {
@@ -1288,26 +1289,22 @@ export class GitHubApi {
 		const cc = Logger.getCorrelationContext();
 
 		interface QueryResult {
-			repository: {
-				defaultBranchRef:
-					| {
-							name: string;
-							target: { oid: string };
-					  }
-					| null
-					| undefined;
-			};
+			repository:
+				| {
+						defaultBranchRef: { name: string } | null | undefined;
+				  }
+				| null
+				| undefined;
 		}
 
 		try {
-			const query = `query getDefaultBranchAndTip(
+			const query = `query getDefaultBranch(
 	$owner: String!
 	$repo: String!
 ) {
 	repository(owner: $owner, name: $repo) {
 		defaultBranchRef {
 			name
-			target { oid }
 		}
 	}
 }`;
