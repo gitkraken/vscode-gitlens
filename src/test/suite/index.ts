@@ -12,7 +12,6 @@ export function run(): Promise<void> {
 	const testsRoot = path.resolve(__dirname, '..');
 
 	return new Promise((c, e) => {
-		// eslint-disable-next-line consistent-return
 		glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
 			if (err != null) {
 				return e(err);

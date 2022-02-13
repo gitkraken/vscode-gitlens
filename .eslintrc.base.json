@@ -25,7 +25,7 @@
 		"anti-trojan-source/no-bidi": "error",
 		"arrow-parens": ["off"],
 		"brace-style": ["off", "stroustrup"],
-		"consistent-return": "error",
+		"consistent-return": "off",
 		"curly": ["error", "multi-line", "consistent"],
 		"eol-last": "error",
 		"linebreak-style": ["error", "unix"],
