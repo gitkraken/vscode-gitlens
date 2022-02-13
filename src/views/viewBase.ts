@@ -110,7 +110,7 @@ export abstract class ViewBase<
 	) {
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
-		if (Logger.isDebugging || this.container.config.debug) {
+		if (this.container.debugging || this.container.config.debug) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(

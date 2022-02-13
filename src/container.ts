@@ -1,4 +1,11 @@
-import { ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import {
+	ConfigurationChangeEvent,
+	ConfigurationScope,
+	Event,
+	EventEmitter,
+	ExtensionContext,
+	ExtensionMode,
+} from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
@@ -290,6 +297,11 @@ export class Container {
 		}
 
 		return this._contributorsView;
+	}
+
+	@memoize()
+	get debugging() {
+		return this._context.extensionMode === ExtensionMode.Development;
 	}
 
 	private _fileAnnotationController: FileAnnotationController;
