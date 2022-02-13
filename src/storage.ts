@@ -15,7 +15,7 @@ export class Storage {
 		return this.context.globalState.update(key, undefined);
 	}
 
-	async store(key: StorageKeys | SyncedStorageKeys, value: unknown): Promise<void> {
+	async store<T>(key: StorageKeys | SyncedStorageKeys, value: T): Promise<void> {
 		return this.context.globalState.update(key, value);
 	}
 
@@ -46,9 +46,9 @@ export class Storage {
 		return this.context.workspaceState.update(key, undefined);
 	}
 
-	async storeWorkspace(
+	async storeWorkspace<T>(
 		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		value: unknown,
+		value: T,
 	): Promise<void> {
 		return this.context.workspaceState.update(key, value);
 	}
