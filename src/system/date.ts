@@ -20,9 +20,38 @@ type DateStyle = 'full' | 'long' | 'medium' | 'short';
 type TimeStyle = 'full' | 'long' | 'medium' | 'short';
 export type DateTimeFormat = DateStyle | `${DateStyle}+${TimeStyle}`;
 
-export interface DateFormatter {
-	fromNow(short?: boolean): string;
-	format(format: DateTimeFormat | string | null | undefined): string;
+export function createFromDateDelta(
+	date: Date,
+	delta: { years?: number; months?: number; days?: number; hours?: number; minutes?: number; seconds?: number },
+): Date {
+	const d = new Date(date.getTime());
+
+	for (const [key, value] of Object.entries(delta)) {
+		if (!value) continue;
+
+		switch (key) {
+			case 'years':
+				d.setFullYear(d.getFullYear() + value);
+				break;
+			case 'months':
+				d.setMonth(d.getMonth() + value);
+				break;
+			case 'days':
+				d.setDate(d.getDate() + value);
+				break;
+			case 'hours':
+				d.setHours(d.getHours() + value);
+				break;
+			case 'minutes':
+				d.setMinutes(d.getMinutes() + value);
+				break;
+			case 'seconds':
+				d.setSeconds(d.getSeconds() + value);
+				break;
+		}
+	}
+
+	return d;
 }
 
 export function fromNow(date: Date, short?: boolean): string {
@@ -132,38 +161,26 @@ export function formatDate(date: Date, format: 'full' | 'long' | 'medium' | 'sho
 	);
 }
 
-export function getDeltaDate(
-	date: Date,
-	delta: { years?: number; months?: number; days?: number; hours?: number; minutes?: number; seconds?: number },
-) {
-	const d = new Date(date.getTime());
-
-	for (const [key, value] of Object.entries(delta)) {
-		if (!value) continue;
-
-		switch (key) {
-			case 'years':
-				d.setFullYear(d.getFullYear() + value);
-				break;
-			case 'months':
-				d.setMonth(d.getMonth() + value);
-				break;
-			case 'days':
-				d.setDate(d.getDate() + value);
-				break;
-			case 'hours':
-				d.setHours(d.getHours() + value);
-				break;
-			case 'minutes':
-				d.setMinutes(d.getMinutes() + value);
-				break;
-			case 'seconds':
-				d.setSeconds(d.getSeconds() + value);
-				break;
-		}
+export function getDateDifference(
+	first: Date | number,
+	second: Date | number,
+	unit?: 'days' | 'hours' | 'minutes' | 'seconds',
+): number {
+	const diff =
+		(typeof second === 'number' ? second : second.getTime()) -
+		(typeof first === 'number' ? first : first.getTime());
+	switch (unit) {
+		case 'days':
+			return Math.floor(diff / (1000 * 60 * 60 * 24));
+		case 'hours':
+			return Math.floor(diff / (1000 * 60 * 60));
+		case 'minutes':
+			return Math.floor(diff / (1000 * 60));
+		case 'seconds':
+			return Math.floor(diff / 1000);
+		default:
+			return diff;
 	}
-
-	return d;
 }
 
 function getDateTimeFormatOptionsFromFormatString(
