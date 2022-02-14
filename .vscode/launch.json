@@ -3,7 +3,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run GitLens",
+			"name": "Run",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -26,7 +26,7 @@
 			"trace": true
 		},
 		{
-			"name": "Run GitLens (Sandboxed)",
+			"name": "Run (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -49,7 +49,25 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens",
+			"name": "Run Tests",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"args": [
+				"--disable-extensions",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_run_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true
+		},
+		{
+			"name": "Watch & Run",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -73,7 +91,35 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens (sandboxed)",
+			"name": "Watch & Run (web)",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
+				"--disable-extension=eamodio.gitlens-insiders",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web"
+			],
+			"cwd": "${workspaceFolder}",
+			"debugWebWorkerHost": true,
+			"rendererDebugOptions": {
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}"
+			},
+			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
+			"preLaunchTask": "${defaultBuildTask}",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
+			"name": "Watch & Run (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -86,7 +132,7 @@
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
-			"preLaunchTask": "npm: watch",
+			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
 				"order": 2
@@ -95,6 +141,25 @@
 			"smartStep": true,
 			"sourceMaps": true,
 			"trace": true
+		},
+		{
+			"name": "Watch & Run Tests",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"args": [
+				"--disable-extensions",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "npm: watch:tests",
+			"presentation": {
+				"group": "1_watch_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true
 		}
 	]
 }

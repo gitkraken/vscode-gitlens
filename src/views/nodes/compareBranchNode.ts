@@ -1,11 +1,14 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../configuration';
-import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
+import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitRevision } from '../../git/models';
-import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
-import { debug, gate, log, Strings } from '../../system';
+import { CommandQuickPickItem } from '../../quickpicks/items/common';
+import { ReferencePicker } from '../../quickpicks/referencePicker';
+import { BranchComparison, BranchComparisons, WorkspaceStorageKeys } from '../../storage';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { pluralize } from '../../system/string';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
 import { RepositoriesView } from '../repositoriesView';
@@ -92,7 +95,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -115,7 +118,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
 				),
@@ -181,8 +184,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	@log()
 	async clear() {
-		if (this._compareWith == null) return;
-
 		this._compareWith = undefined;
 		await this.updateCompareWith(undefined);
 
@@ -257,7 +258,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
+						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
 							files.splice(index, 1, wf);
 						} else {
@@ -271,7 +272,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		}
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -283,7 +284,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		);
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -313,25 +314,25 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	private async getFilesQuery(): Promise<FilesQueryResults> {
 		let comparison;
-		if (this._compareWith!.ref === '') {
+		if (!this._compareWith?.ref) {
 			comparison = this.branch.ref;
 		} else if (this.compareWithWorkingTree) {
-			comparison = this._compareWith!.ref;
+			comparison = this._compareWith.ref;
 		} else {
-			comparison = `${this._compareWith!.ref}..${this.branch.ref}`;
+			comparison = `${this._compareWith.ref}..${this.branch.ref}`;
 		}
 
 		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
 
 	private loadCompareWith() {
-		const comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
-			WorkspaceState.BranchComparisons,
+		const comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
+			WorkspaceStorageKeys.BranchComparisons,
 		);
 
 		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
@@ -350,10 +351,12 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async updateCompareWith(compareWith: BranchComparison | undefined) {
 		this._compareWith = compareWith;
 
-		let comparisons = this.view.container.context.workspaceState.get<BranchComparisons>(
-			WorkspaceState.BranchComparisons,
+		let comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
+			WorkspaceStorageKeys.BranchComparisons,
 		);
 		if (comparisons == null) {
+			if (compareWith == null) return;
+
 			comparisons = Object.create(null) as BranchComparisons;
 		}
 
@@ -362,9 +365,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		if (compareWith != null) {
 			comparisons[id] = { ...compareWith };
 		} else {
+			if (comparisons[id] == null) return;
+
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
-		await this.view.container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);
+		await this.view.container.storage.storeWorkspace(WorkspaceStorageKeys.BranchComparisons, comparisons);
 	}
 }

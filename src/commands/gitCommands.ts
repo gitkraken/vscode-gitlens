@@ -1,41 +1,40 @@
-'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
-import { configuration, GitCommandSorting } from '../configuration';
-import { Usage, WorkspaceState } from '../constants';
-import { Container } from '../container';
+import { configuration } from '../configuration';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { KeyMapping } from '../keyboard';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { log, Promises } from '../system';
-import { command, Command, CommandContext, Commands } from './common';
-import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
-import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
-import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
-import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
-import { LogGitCommand, LogGitCommandArgs } from './git/log';
-import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
-import { PullGitCommand, PullGitCommandArgs } from './git/pull';
-import { PushGitCommand, PushGitCommandArgs } from './git/push';
-import { RebaseGitCommand, RebaseGitCommandArgs } from './git/rebase';
-import { ResetGitCommand, ResetGitCommandArgs } from './git/reset';
-import { RevertGitCommand, RevertGitCommandArgs } from './git/revert';
-import { SearchGitCommand, SearchGitCommandArgs } from './git/search';
-import { ShowGitCommand, ShowGitCommandArgs } from './git/show';
-import { StashGitCommand, StashGitCommandArgs } from './git/stash';
-import { StatusGitCommand, StatusGitCommandArgs } from './git/status';
-import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
-import { TagGitCommand, TagGitCommandArgs } from './git/tag';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { command } from '../system/command';
+import { log } from '../system/decorators/log';
+import { isPromise } from '../system/promise';
+import { Command, CommandContext } from './base';
+import type { BranchGitCommandArgs } from './git/branch';
+import type { CherryPickGitCommandArgs } from './git/cherry-pick';
+import type { CoAuthorsGitCommandArgs } from './git/coauthors';
+import type { FetchGitCommandArgs } from './git/fetch';
+import type { LogGitCommandArgs } from './git/log';
+import type { MergeGitCommandArgs } from './git/merge';
+import type { PullGitCommandArgs } from './git/pull';
+import type { PushGitCommandArgs } from './git/push';
+import type { RebaseGitCommandArgs } from './git/rebase';
+import type { ResetGitCommandArgs } from './git/reset';
+import type { RevertGitCommandArgs } from './git/revert';
+import type { SearchGitCommandArgs } from './git/search';
+import type { ShowGitCommandArgs } from './git/show';
+import type { StashGitCommandArgs } from './git/stash';
+import type { StatusGitCommandArgs } from './git/status';
+import type { SwitchGitCommandArgs } from './git/switch';
+import type { TagGitCommandArgs } from './git/tag';
+import { PickCommandStep } from './gitCommands.utils';
 import {
 	isQuickInputStep,
 	isQuickPickStep,
 	QuickCommand,
 	QuickInputStep,
 	QuickPickStep,
-	StepGenerator,
 	StepSelection,
 } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
-
-export * from './gitCommands.actions';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
@@ -59,26 +58,11 @@ export type GitCommandsCommandArgs =
 	| SwitchGitCommandArgs
 	| TagGitCommandArgs;
 
-function* nullSteps(): StepGenerator {
-	/* noop */
-}
-
 @command()
 export class GitCommandsCommand extends Command {
-	static getSteps(args: GitCommandsCommandArgs, pickedVia: 'menu' | 'command'): StepGenerator {
-		const commandsStep = new PickCommandStep(args);
-
-		const command = commandsStep.find(args.command);
-		if (command == null) return nullSteps();
-
-		commandsStep.setCommand(command, pickedVia);
-
-		return command.executeSteps();
-	}
-
 	private startedWith: 'menu' | 'command' = 'menu';
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.GitCommands,
 			Commands.GitCommandsBranch,
@@ -125,7 +109,7 @@ export class GitCommandsCommand extends Command {
 
 	@log({ args: false, correlate: true, singleLine: true, timed: false })
 	async execute(args?: GitCommandsCommandArgs) {
-		const commandsStep = new PickCommandStep(args);
+		const commandsStep = new PickCommandStep(this.container, args);
 
 		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
 		this.startedWith = command != null ? 'command' : 'menu';
@@ -310,7 +294,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.instance.keyboard.createScope(mapping);
+				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
 
 				disposables.push(
@@ -334,7 +318,7 @@ export class GitCommandsCommand extends Command {
 								return;
 							}
 
-							if (Promises.is(result)) {
+							if (isPromise(result)) {
 								input.buttons = this.getButtons(step, commandsStep.command);
 							}
 
@@ -459,7 +443,7 @@ export class GitCommandsCommand extends Command {
 					}
 				}
 
-				const scope = Container.instance.keyboard.createScope(mapping);
+				const scope = this.container.keyboard.createScope(mapping);
 				void scope.start();
 
 				let overrideItems = false;
@@ -506,7 +490,7 @@ export class GitCommandsCommand extends Command {
 								return;
 							}
 
-							if (Promises.is(result)) {
+							if (isPromise(result)) {
 								quickpick.buttons = this.getButtons(
 									activeCommand != null ? activeCommand.value : step,
 									activeCommand ?? commandsStep.command,
@@ -735,86 +719,5 @@ export class GitCommandsCommand extends Command {
 			quickpick.dispose();
 			disposables.forEach(d => d.dispose());
 		}
-	}
-}
-
-class PickCommandStep implements QuickPickStep {
-	readonly buttons = [];
-	private readonly hiddenItems: QuickCommand[];
-	ignoreFocusOut = false;
-	readonly items: QuickCommand[];
-	readonly matchOnDescription = true;
-	readonly placeholder = 'Choose a git command';
-	readonly title = 'GitLens';
-
-	constructor(args?: GitCommandsCommandArgs) {
-		this.items = [
-			new BranchGitCommand(args?.command === 'branch' ? args : undefined),
-			new CherryPickGitCommand(args?.command === 'cherry-pick' ? args : undefined),
-			new CoAuthorsGitCommand(args?.command === 'co-authors' ? args : undefined),
-			new FetchGitCommand(args?.command === 'fetch' ? args : undefined),
-			new LogGitCommand(args?.command === 'log' ? args : undefined),
-			new MergeGitCommand(args?.command === 'merge' ? args : undefined),
-			new PullGitCommand(args?.command === 'pull' ? args : undefined),
-			new PushGitCommand(args?.command === 'push' ? args : undefined),
-			new RebaseGitCommand(args?.command === 'rebase' ? args : undefined),
-			new ResetGitCommand(args?.command === 'reset' ? args : undefined),
-			new RevertGitCommand(args?.command === 'revert' ? args : undefined),
-			new SearchGitCommand(args?.command === 'search' || args?.command === 'grep' ? args : undefined),
-			new ShowGitCommand(args?.command === 'show' ? args : undefined),
-			new StashGitCommand(args?.command === 'stash' ? args : undefined),
-			new StatusGitCommand(args?.command === 'status' ? args : undefined),
-			new SwitchGitCommand(args?.command === 'switch' || args?.command === 'checkout' ? args : undefined),
-			new TagGitCommand(args?.command === 'tag' ? args : undefined),
-		];
-
-		if (Container.instance.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
-			if (usage != null) {
-				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
-			}
-		}
-
-		this.hiddenItems = [];
-	}
-
-	private _command: QuickCommand | undefined;
-	get command(): QuickCommand | undefined {
-		return this._command;
-	}
-
-	find(commandName: string, fuzzy: boolean = false) {
-		if (fuzzy) {
-			const cmd = commandName.toLowerCase();
-			return this.items.find(c => c.isFuzzyMatch(cmd)) ?? this.hiddenItems.find(c => c.isFuzzyMatch(cmd));
-		}
-
-		return this.items.find(c => c.isMatch(commandName)) ?? this.hiddenItems.find(c => c.isMatch(commandName));
-	}
-
-	setCommand(command: QuickCommand | undefined, via: 'menu' | 'command'): void {
-		if (this._command != null) {
-			this._command.picked = false;
-		}
-
-		if (command != null) {
-			command.picked = true;
-			command.pickedVia = via;
-		}
-
-		this._command = command;
-		if (command != null) {
-			void this.updateCommandUsage(command.key, Date.now());
-		}
-	}
-
-	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = Container.instance.context.workspaceState.get<Usage>(WorkspaceState.GitCommandPaletteUsage);
-		if (usage === undefined) {
-			usage = Object.create(null) as Usage;
-		}
-
-		usage[id] = timestamp;
-		await Container.instance.context.workspaceState.update(WorkspaceState.GitCommandPaletteUsage, usage);
 	}
 }

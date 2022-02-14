@@ -1,8 +1,8 @@
-'use strict';
-import * as paths from 'path';
+import { join as joinPaths } from 'path';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
-import { Stopwatch } from '../../../system';
+import { any } from '../../../system/promise';
+import { Stopwatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {
@@ -70,12 +70,8 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 async function findGitDarwin(): Promise<GitLocation> {
 	try {
-		let path = await run<string>('which', ['git'], 'utf8');
-		path = path.replace(/^\s+|\s+$/g, '');
-
-		if (path !== '/usr/bin/git') {
-			return findSpecificGit(path);
-		}
+		const path = (await run<string>('which', ['git'], 'utf8')).trim();
+		if (path !== '/usr/bin/git') return findSpecificGit(path);
 
 		try {
 			await run<string>('xcode-select', ['-p'], 'utf8');
@@ -97,7 +93,7 @@ async function findGitDarwin(): Promise<GitLocation> {
 
 function findSystemGitWin32(basePath: string | null | undefined): Promise<GitLocation> {
 	if (basePath == null || basePath.length === 0) return Promise.reject(new UnableToFindGitError());
-	return findSpecificGit(paths.join(basePath, 'Git', 'cmd', 'git.exe'));
+	return findSpecificGit(joinPaths(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
 function findGitWin32(): Promise<GitLocation> {
@@ -107,20 +103,29 @@ function findGitWin32(): Promise<GitLocation> {
 		.then(null, () => findSpecificGit('git'));
 }
 
-export async function findGitPath(paths?: string | string[]): Promise<GitLocation> {
+export async function findGitPath(
+	paths: string | string[] | null | undefined,
+	search: boolean = true,
+): Promise<GitLocation> {
 	try {
 		if (paths == null || typeof paths === 'string') {
 			return await findSpecificGit(paths ?? 'git');
 		}
 
-		for (const path of paths) {
-			try {
-				return await findSpecificGit(path);
-			} catch {}
+		try {
+			return any(...paths.map(p => findSpecificGit(p)));
+		} catch (ex) {
+			throw new UnableToFindGitError(ex);
+		}
+	} catch (ex) {
+		if (!search) {
+			return Promise.reject(
+				ex instanceof InvalidGitConfigError || ex instanceof UnableToFindGitError
+					? ex
+					: new UnableToFindGitError(ex),
+			);
 		}
 
-		throw new UnableToFindGitError();
-	} catch {
 		try {
 			switch (process.platform) {
 				case 'darwin':

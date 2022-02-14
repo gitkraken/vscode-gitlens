@@ -1,4 +1,3 @@
-'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
 import { GitCommit } from './git/models';
@@ -13,7 +12,6 @@ export const enum SuppressedMessages {
 	GitDisabledWarning = 'suppressGitDisabledWarning',
 	GitMissingWarning = 'suppressGitMissingWarning',
 	GitVersionWarning = 'suppressGitVersionWarning',
-	IncorrectWorkspaceCasingWarning = 'suppressImproperWorkspaceCasingWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
 	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
@@ -21,7 +19,7 @@ export const enum SuppressedMessages {
 
 export class Messages {
 	static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
-		if (commit === undefined) {
+		if (commit == null) {
 			return Messages.showMessage(
 				'info',
 				'There is no previous commit.',
@@ -30,7 +28,7 @@ export class Messages {
 		}
 		return Messages.showMessage(
 			'info',
-			`Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`,
+			`Commit ${commit.shortSha} (${commit.author.name}, ${commit.formattedDate}) has no previous commit.`,
 			SuppressedMessages.CommitHasNoPreviousCommitWarning,
 		);
 	}
@@ -121,14 +119,6 @@ export class Messages {
 			`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
 			SuppressedMessages.GitVersionWarning,
 		);
-	}
-
-	static async showIncorrectWorkspaceCasingWarningMessage(): Promise<void> {
-		void (await Messages.showMessage(
-			'warn',
-			'This workspace was opened with a different casing than what exists on disk. Please re-open this workspace with the exact casing as it exists on disk, otherwise you may experience issues with certain Git features, such as missing blame or history.',
-			SuppressedMessages.IncorrectWorkspaceCasingWarning,
-		));
 	}
 
 	static showInsidersErrorMessage() {

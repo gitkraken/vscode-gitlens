@@ -1,11 +1,12 @@
-'use strict';
 import { Range, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBranch, GitLog, GitReference, GitTag } from '../git/models';
-import { CommandQuickPickItem } from '../quickpicks';
-import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
-import { executeGitCommand } from './gitCommands';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command } from '../system/command';
+import { ActiveEditorCachedCommand, CommandContext, getCommandUri } from './base';
+import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
@@ -20,7 +21,7 @@ export interface ShowQuickFileHistoryCommandArgs {
 
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.OpenFileHistory,
 			Commands.OpenFolderHistory,
@@ -50,7 +51,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		if (args?.showInSideBar) {
-			await Container.instance.fileHistoryView.showHistoryForUri(gitUri);
+			await this.container.fileHistoryView.showHistoryForUri(gitUri);
 
 			return;
 		}

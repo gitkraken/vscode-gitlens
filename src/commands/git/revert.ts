@@ -1,7 +1,6 @@
-'use strict';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -41,8 +40,8 @@ export interface RevertGitCommandArgs {
 type RevertStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class RevertGitCommand extends QuickCommand<State> {
-	constructor(args?: RevertGitCommandArgs) {
-		super('revert', 'revert', 'Revert', {
+	constructor(container: Container, args?: RevertGitCommandArgs) {
+		super(container, 'revert', 'revert', 'Revert', {
 			description: 'undoes the changes of specified commits, by creating new commits with inverted changes',
 		});
 
@@ -75,8 +74,8 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -125,7 +124,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 

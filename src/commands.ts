@@ -1,15 +1,7 @@
-'use strict';
-import { Command } from 'vscode';
-
-export function command<T extends unknown[]>(command: Omit<Command, 'arguments'> & { arguments: [...T] }): Command {
-	return command;
-}
-
 export * from './commands/addAuthors';
 export * from './commands/browseRepoAtRevision';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/closeView';
-export * from './commands/common';
 export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
 export * from './commands/copyMessageToClipboard';

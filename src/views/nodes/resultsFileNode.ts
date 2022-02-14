@@ -1,10 +1,10 @@
-'use strict';
-import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithCommandArgs } from '../../commands';
+import type { DiffWithCommandArgs } from '../../commands';
+import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitReference, GitRevisionReference } from '../../git/models';
+import { joinPaths, relativeDir } from '../../system/path';
 import { View } from '../viewBase';
 import { FileNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
@@ -27,7 +27,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get ref(): GitRevisionReference {
@@ -49,8 +49,8 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 
 		const statusIcon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
-			light: this.view.container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
+			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon)),
+			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();
@@ -74,7 +74,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}

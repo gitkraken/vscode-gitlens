@@ -1,5 +1,3 @@
-'use strict';
-
 export * from './nodes/common';
 
 export * from './nodes/viewNode';

@@ -1,10 +1,10 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitRemote, GitRemoteType, Repository } from '../../git/models';
-import { Arrays, log } from '../../system';
+import { makeHierarchical } from '../../system/array';
+import { log } from '../../system/decorators/log';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
@@ -55,7 +55,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		);
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
-		const hierarchy = Arrays.makeHierarchical(
+		const hierarchy = makeHierarchical(
 			branchNodes,
 			n => n.treeHierarchy,
 			(...paths) => paths.join('/'),
@@ -121,7 +121,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 							light: this.view.container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 					  };
 
-			if (provider.hasApi()) {
+			if (provider.hasRichApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;

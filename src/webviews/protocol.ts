@@ -1,4 +1,3 @@
-'use strict';
 import { Config } from '../config';
 
 export interface IpcMessage {

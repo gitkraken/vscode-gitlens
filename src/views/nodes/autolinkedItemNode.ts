@@ -1,8 +1,7 @@
-'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
-import { Dates } from '../../system';
+import { fromNow } from '../../system/date';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -38,10 +37,10 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	getTreeItem(): TreeItem {
-		const formatter = Dates.getFormatter(this.issue.closedDate ?? this.issue.date);
+		const relativeTime = fromNow(this.issue.closedDate ?? this.issue.date);
 
 		const item = new TreeItem(`${this.issue.id}: ${this.issue.title}`, TreeItemCollapsibleState.None);
-		item.description = formatter.fromNow();
+		item.description = relativeTime;
 		item.iconPath = IssueOrPullRequest.getThemeIcon(this.issue);
 		item.contextValue =
 			this.issue.type === IssueOrPullRequestType.PullRequest
@@ -52,11 +51,11 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 			this.issue.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
 		} \\#${this.issue.id} on ${this.issue.provider.name}"`;
 		const tooltip = new MarkdownString(
-			`${IssueOrPullRequest.getMarkdownIcon(this.issue)} [**${this.issue.title}**](${
+			`${IssueOrPullRequest.getMarkdownIcon(this.issue)} [**${this.issue.title.trim()}**](${
 				this.issue.url
 			}${linkTitle}) \\\n[#${this.issue.id}](${this.issue.url}${linkTitle}) was ${
 				this.issue.closed ? 'closed' : 'opened'
-			} ${formatter.fromNow()}`,
+			} ${relativeTime}`,
 			true,
 		);
 		tooltip.supportHtml = true;

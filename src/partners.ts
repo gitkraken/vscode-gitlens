@@ -1,9 +1,9 @@
-'use strict';
-import { CancellationTokenSource, commands, Extension, ExtensionContext, extensions, Uri } from 'vscode';
+import { CancellationTokenSource, Extension, ExtensionContext, extensions, Uri } from 'vscode';
 import type { ActionContext, HoverCommandsActionContext } from './api/gitlens';
-import { Commands, executeCommand, InviteToLiveShareCommandArgs } from './commands';
-import { BuiltInCommands } from './constants';
+import type { InviteToLiveShareCommandArgs } from './commands';
+import { Commands, CoreCommands } from './constants';
 import { Container } from './container';
+import { executeCommand, executeCoreCommand } from './system/command';
 
 export async function installExtension<T>(
 	extensionId: string,
@@ -12,12 +12,15 @@ export async function installExtension<T>(
 	vsix?: Uri,
 ): Promise<Extension<T> | undefined> {
 	try {
-		let timer: any = 0;
+		let timer: ReturnType<typeof setTimeout> | undefined = undefined;
 		const extension = new Promise<Extension<any> | undefined>(resolve => {
 			const disposable = extensions.onDidChange(() => {
 				const extension = extensions.getExtension(extensionId);
 				if (extension != null) {
-					clearTimeout(timer);
+					if (timer != null) {
+						clearTimeout(timer);
+						timer = undefined;
+					}
 					disposable.dispose();
 
 					resolve(extension);
@@ -31,9 +34,12 @@ export async function installExtension<T>(
 			});
 		});
 
-		await commands.executeCommand(BuiltInCommands.InstallExtension, vsix ?? extensionId);
+		await executeCoreCommand(CoreCommands.InstallExtension, vsix ?? extensionId);
 		// Wait for extension activation until timeout expires
-		timer = setTimeout(() => tokenSource.cancel(), timeout);
+		timer = setTimeout(() => {
+			timer = undefined;
+			tokenSource.cancel();
+		}, timeout);
 
 		return extension;
 	} catch {

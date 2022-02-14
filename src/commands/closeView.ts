@@ -1,11 +1,13 @@
-'use strict';
-import { ContextKeys, setContext, SyncedState } from '../constants';
-import { Container } from '../container';
-import { command, Command, CommandContext, Commands } from './common';
+import { Commands, ContextKeys } from '../constants';
+import type { Container } from '../container';
+import { setContext } from '../context';
+import { SyncedStorageKeys } from '../storage';
+import { command } from '../system/command';
+import { Command, CommandContext } from './base';
 
 @command()
 export class CloseViewCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.CloseWelcomeView]);
 	}
 
@@ -16,7 +18,7 @@ export class CloseViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.CloseWelcomeView:
-				await Container.instance.context.globalState.update(SyncedState.WelcomeViewVisible, false);
+				await this.container.storage.store(SyncedStorageKeys.WelcomeViewVisible, false);
 				await setContext(ContextKeys.ViewsWelcomeVisible, false);
 				break;
 		}

@@ -1,4 +1,3 @@
-'use strict';
 import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
@@ -18,7 +17,7 @@ const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
-const authProvider = Object.freeze({ id: 'github', scopes: ['repo'] });
+const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
 
 export class GitHubRemote extends RichRemoteProvider {
 	protected get authProvider() {
@@ -239,7 +238,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitHubPullRequest = (await import('../../github/github')).GitHubPullRequest;
+		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../premium/github/github'))
+			.GitHubPullRequest;
 		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),

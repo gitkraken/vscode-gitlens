@@ -1,17 +1,19 @@
-'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { ContextKeys, setContext } from '../../constants';
+import { ContextKeys } from '../../constants';
+import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
 import { Logger } from '../../logger';
-import { ReferencePicker } from '../../quickpicks';
-import { debug, Functions, gate, log } from '../../system';
+import { ReferencePicker } from '../../quickpicks/referencePicker';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { debounce } from '../../system/function';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { LineHistoryNode } from './lineHistoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
 	private _base: string | undefined;
@@ -21,7 +23,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {
@@ -104,7 +106,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != unknownGitUri;
+		return this._uri != GitUri.unknown;
 	}
 
 	@gate()
@@ -145,6 +147,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
+			if (this._uri != null && this._uri !== GitUri.unknown) {
+				await this.view.container.tracker.resetCache(this._uri, 'log');
+			}
+
 			this.reset();
 		}
 
@@ -218,11 +224,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	protected subscribe() {
-		if (this.view.container.lineTracker.isSubscribed(this)) return undefined;
+		if (this.view.container.lineTracker.subscribed(this)) return undefined;
 
-		const onActiveLinesChanged = Functions.debounce(this.onActiveLinesChanged.bind(this), 250);
+		const onActiveLinesChanged = debounce(this.onActiveLinesChanged.bind(this), 250);
 
-		return this.view.container.lineTracker.start(
+		return this.view.container.lineTracker.subscribe(
 			this,
 			this.view.container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
 				if (e.pending) return;
@@ -249,7 +255,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? unknownGitUri;
+		this._uri = uri ?? GitUri.unknown;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}
 }

@@ -1,10 +1,10 @@
-'use strict';
 import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitBlameCommit } from '../git/models';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
-import { log, Stopwatch } from '../system';
+import { log } from '../system/decorators/log';
+import { Stopwatch } from '../system/stopwatch';
 import { GitDocumentState } from '../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../trackers/trackedDocument';
 import { AnnotationContext } from './annotationProvider';
@@ -33,7 +33,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		>();
 		const computedHeatmap = await this.getComputedHeatmap(blame);
 
-		let commit: GitBlameCommit | undefined;
+		let commit: GitCommit | undefined;
 		for (const l of blame.lines) {
 			// editor lines are 0-based
 			const editorLine = l.line - 1;

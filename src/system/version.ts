@@ -1,4 +1,3 @@
-'use strict';
 import { compareIgnoreCase } from './string';
 
 declare type VersionComparisonResult = -1 | 0 | 1;

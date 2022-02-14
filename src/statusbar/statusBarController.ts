@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	CancellationTokenSource,
@@ -11,21 +10,25 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { command, Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
+import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
-import { GlyphChars, isTextEditor } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitBlameCommit, PullRequest } from '../git/models';
+import { GitCommit, PullRequest } from '../git/models';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
-import { debug, Promises } from '../system';
+import { asCommand } from '../system/command';
+import { debug } from '../system/decorators/log';
+import { once } from '../system/event';
+import { PromiseCancelledError } from '../system/promise';
+import { isTextEditor } from '../system/utils';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
 	private _pullRequestCancellation: CancellationTokenSource | undefined;
 	private _tooltipCancellation: CancellationTokenSource | undefined;
-	private _tooltipDelayTimer: any | undefined;
+	private _tooltipDelayTimer: ReturnType<typeof setTimeout> | undefined;
 
 	private readonly _disposable: Disposable;
 	private _statusBarBlame: StatusBarItem | undefined;
@@ -33,7 +36,7 @@ export class StatusBarController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}
@@ -44,7 +47,7 @@ export class StatusBarController implements Disposable {
 		this._statusBarBlame?.dispose();
 		this._statusBarMode?.dispose();
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 		this._disposable.dispose();
 	}
 
@@ -118,13 +121,13 @@ export class StatusBarController implements Disposable {
 			this._statusBarBlame.command = this.container.config.statusBar.command;
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
-				this.container.lineTracker.start(
+				this.container.lineTracker.subscribe(
 					this,
 					this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 		} else if (configuration.changed(e, 'statusBar.enabled')) {
-			this.container.lineTracker.stop(this);
+			this.container.lineTracker.unsubscribe(this);
 
 			this._statusBarBlame?.dispose();
 			this._statusBarBlame = undefined;
@@ -171,7 +174,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	@debug({ args: false })
-	private async updateBlame(editor: TextEditor, commit: GitBlameCommit, options?: { pr?: PullRequest | null }) {
+	private async updateBlame(editor: TextEditor, commit: GitCommit, options?: { pr?: PullRequest | null }) {
 		const cfg = this.container.config.statusBar;
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
@@ -269,32 +272,36 @@ export class StatusBarController implements Disposable {
 				tooltip = 'Click to Toggle File Blame';
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
-				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-					title: 'Toggle File Changes',
-					command: Commands.ToggleFileChanges,
-					arguments: [
-						commit.uri,
-						{
-							type: FileAnnotationType.Changes,
-							context: { sha: commit.sha, only: false, selection: false },
-						},
-					],
-				});
+				if (commit.file != null) {
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: FileAnnotationType.Changes,
+								context: { sha: commit.sha, only: false, selection: false },
+							},
+						],
+					});
+				}
 				tooltip = 'Click to Toggle File Changes';
 				break;
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
-				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-					title: 'Toggle File Changes',
-					command: Commands.ToggleFileChanges,
-					arguments: [
-						commit.uri,
-						{
-							type: FileAnnotationType.Changes,
-							context: { sha: commit.sha, only: true, selection: false },
-						},
-					],
-				});
+				if (commit.file != null) {
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: FileAnnotationType.Changes,
+								context: { sha: commit.sha, only: true, selection: false },
+							},
+						],
+					});
+				}
 				tooltip = 'Click to Toggle File Changes';
 				break;
 			}
@@ -305,10 +312,13 @@ export class StatusBarController implements Disposable {
 
 		this._statusBarBlame.tooltip = tooltip;
 
-		clearTimeout(this._tooltipDelayTimer);
+		if (this._tooltipDelayTimer != null) {
+			clearTimeout(this._tooltipDelayTimer);
+		}
 		this._tooltipCancellation?.cancel();
 
 		this._tooltipDelayTimer = setTimeout(() => {
+			this._tooltipDelayTimer = undefined;
 			this._tooltipCancellation = new CancellationTokenSource();
 
 			void this.updateCommitTooltip(
@@ -328,9 +338,9 @@ export class StatusBarController implements Disposable {
 	}
 
 	private async getPullRequest(
-		commit: GitBlameCommit,
+		commit: GitCommit,
 		{ timeout }: { timeout?: number } = {},
-	): Promise<PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined> {
+	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
 		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
 		if (remote?.provider == null) return undefined;
 
@@ -338,13 +348,13 @@ export class StatusBarController implements Disposable {
 		try {
 			return await this.container.git.getPullRequestForCommit(commit.ref, provider, { timeout: timeout });
 		} catch (ex) {
-			return ex instanceof Promises.CancellationError ? ex : undefined;
+			return ex instanceof PromiseCancelledError ? ex : undefined;
 		}
 	}
 
 	private async updateCommitTooltip(
 		statusBarItem: StatusBarItem,
-		commit: GitBlameCommit,
+		commit: GitCommit,
 		actionTooltip: string,
 		getBranchAndTagTips:
 			| ((
@@ -354,7 +364,7 @@ export class StatusBarController implements Disposable {
 			| undefined,
 		pullRequests: {
 			enabled: boolean;
-			pr: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined | undefined;
+			pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined | undefined;
 		},
 		cancellationToken: CancellationToken,
 	) {
@@ -362,7 +372,7 @@ export class StatusBarController implements Disposable {
 
 		const tooltip = await Hovers.detailsMessage(
 			commit,
-			commit.toGitUri(),
+			commit.getGitUri(),
 			commit.lines[0].line,
 			this.container.config.statusBar.tooltipFormat,
 			this.container.config.defaultDateFormat,
@@ -382,13 +392,13 @@ export class StatusBarController implements Disposable {
 
 	private async waitForPendingPullRequest(
 		editor: TextEditor,
-		commit: GitBlameCommit,
-		pr: PullRequest | Promises.CancellationError<Promise<PullRequest | undefined>> | undefined,
+		commit: GitCommit,
+		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
 		cancellationToken: CancellationToken,
 		timeout: number,
 		cc: LogCorrelationContext | undefined,
 	) {
-		if (cancellationToken.isCancellationRequested || !(pr instanceof Promises.CancellationError)) return;
+		if (cancellationToken.isCancellationRequested || !(pr instanceof PromiseCancelledError)) return;
 
 		// If the PR timed out, refresh the status bar once it completes
 		Logger.debug(cc, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);

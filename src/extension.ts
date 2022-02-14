@@ -1,21 +1,25 @@
-'use strict';
-import { version as codeVersion, commands, env, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { version as codeVersion, env, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
-import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
-import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
+import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
 import { configuration, Configuration, OutputLevel } from './configuration';
-import { ContextKeys, GlobalState, setContext, SyncedState } from './constants';
+import { Commands, ContextKeys } from './constants';
 import { Container } from './container';
+import { setContext } from './context';
 import { GitUri } from './git/gitUri';
 import { GitBranch, GitCommit } from './git/models';
 import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { Stopwatch, Versions } from './system';
+import { StorageKeys, SyncedStorageKeys } from './storage';
+import { executeCommand, registerCommands } from './system/command';
+import { once } from './system/event';
+import { Stopwatch } from './system/stopwatch';
+import { compare } from './system/version';
 import { ViewNode } from './views/nodes';
 
-export function activate(context: ExtensionContext): Promise<GitLensApi | undefined> | undefined {
+export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
 	const gitlensVersion = context.extension.packageJSON.version;
 
@@ -36,7 +40,10 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	});
 
 	const sw = new Stopwatch(`GitLens${insiders ? ' (Insiders)' : ''} v${gitlensVersion}`, {
-		log: { message: ' activating...' },
+		log: {
+			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
+			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+		},
 	});
 
 	if (insiders) {
@@ -53,23 +60,23 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	}
 
 	if (!workspace.isTrusted) {
-		void setContext(ContextKeys.Readonly, true);
+		void setContext(ContextKeys.Untrusted, true);
 		context.subscriptions.push(
-			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Readonly, undefined)),
+			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Untrusted, undefined)),
 		);
 	}
 
 	setKeysForSync(context);
 
-	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
+	const syncedVersion = context.globalState.get<string>(SyncedStorageKeys.Version);
 	const localVersion =
-		context.globalState.get<string>(GlobalState.Version) ??
-		context.globalState.get<string>(GlobalState.Deprecated_Version);
+		context.globalState.get<string>(StorageKeys.Version) ??
+		context.globalState.get<string>(StorageKeys.Deprecated_Version);
 
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
 		previousVersion = syncedVersion ?? localVersion;
-	} else if (Versions.compare(syncedVersion, localVersion) === 1) {
+	} else if (compare(syncedVersion, localVersion) === 1) {
 		previousVersion = syncedVersion;
 	} else {
 		previousVersion = localVersion;
@@ -78,17 +85,17 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	let exitMessage;
 	if (Logger.enabled(LogLevel.Debug)) {
 		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${context.globalState.get<boolean>(
-			SyncedState.WelcomeViewVisible,
+			SyncedStorageKeys.WelcomeViewVisible,
 		)}`;
 	}
 
 	if (previousVersion == null) {
-		void context.globalState.update(SyncedState.WelcomeViewVisible, true);
+		void context.globalState.update(SyncedStorageKeys.WelcomeViewVisible, true);
 		void setContext(ContextKeys.ViewsWelcomeVisible, true);
 	} else {
 		void setContext(
 			ContextKeys.ViewsWelcomeVisible,
-			context.globalState.get<boolean>(SyncedState.WelcomeViewVisible) ?? false,
+			context.globalState.get<boolean>(SyncedStorageKeys.WelcomeViewVisible) ?? false,
 		);
 	}
 
@@ -97,18 +104,18 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 	// await migrateSettings(context, previousVersion);
 
 	const container = Container.create(context, cfg);
-	container.onReady(() => {
-		registerCommands(context);
+	once(container.onReady)(() => {
+		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
-		void context.globalState.update(GlobalState.Version, gitlensVersion);
+		void context.globalState.update(StorageKeys.Version, gitlensVersion);
 
 		// Only update our synced version if the new version is greater
-		if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
-			void context.globalState.update(SyncedState.Version, gitlensVersion);
+		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
+			void context.globalState.update(SyncedStorageKeys.Version, gitlensVersion);
 		}
 
 		if (cfg.outputLevel === OutputLevel.Debug) {
@@ -116,18 +123,18 @@ export function activate(context: ExtensionContext): Promise<GitLensApi | undefi
 				if (cfg.outputLevel !== OutputLevel.Debug) return;
 
 				if (await Messages.showDebugLoggingWarningMessage()) {
-					void commands.executeCommand(Commands.DisableDebugLogging);
+					void executeCommand(Commands.DisableDebugLogging);
 				}
 			}, 60000);
 		}
 	});
 
 	// Signal that the container is now ready
-	container.ready();
+	await container.ready();
 
 	sw.stop({
-		message: ` activated; app=${env.appName}(${codeVersion})${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}${
-			exitMessage != null ? `, ${exitMessage}` : ''
+		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
+			cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''
 		}`,
 	});
 
@@ -142,18 +149,22 @@ export function deactivate() {
 // async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
 // 	if (previousVersion === undefined) return;
 
-// 	const previous = Versions.fromString(previousVersion);
+// 	const previous = fromString(previousVersion);
 
 // 	try {
-// 		if (Versions.compare(previous, Versions.from(11, 0, 0)) !== 1) {
+// 		if (compare(previous, from(11, 0, 0)) !== 1) {
 // 		}
 // 	} catch (ex) {
 // 		Logger.error(ex, 'migrateSettings');
 // 	}
 // }
 
-function setKeysForSync(context: ExtensionContext, ...keys: (SyncedState | string)[]) {
-	return context.globalState?.setKeysForSync([...keys, SyncedState.Version, SyncedState.WelcomeViewVisible]);
+function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys | string)[]) {
+	return context.globalState?.setKeysForSync([
+		...keys,
+		SyncedStorageKeys.Version,
+		SyncedStorageKeys.WelcomeViewVisible,
+	]);
 }
 
 function registerBuiltInActionRunners(container: Container): void {
@@ -194,21 +205,21 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		if (container.config.showWelcomeOnInstall === false) return;
 
 		if (window.state.focused) {
-			await container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, undefined);
-			await commands.executeCommand(Commands.ShowWelcomePage);
+			await container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
+			await executeCommand(Commands.ShowWelcomePage);
 		} else {
 			// Save pending on window getting focus
-			await container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, true);
+			await container.storage.store(StorageKeys.PendingWelcomeOnFocus, true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the welcome, clear the pending state and show the welcome
-				if (container.context.globalState.get(GlobalState.PendingWelcomeOnFocus) === true) {
-					void container.context.globalState.update(GlobalState.PendingWelcomeOnFocus, undefined);
+				if (container.storage.get(StorageKeys.PendingWelcomeOnFocus) === true) {
+					void container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
 					if (container.config.showWelcomeOnInstall) {
-						void commands.executeCommand(Commands.ShowWelcomePage);
+						void executeCommand(Commands.ShowWelcomePage);
 					}
 				}
 			});
@@ -235,19 +246,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	if (major !== prevMajor && container.config.showWhatsNewAfterUpgrades) {
 		if (window.state.focused) {
-			await container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, undefined);
+			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 			await Messages.showWhatsNewMessage(version);
 		} else {
 			// Save pending on window getting focus
-			await container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, true);
+			await container.storage.store(StorageKeys.PendingWhatsNewOnFocus, true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the what's new, clear the pending state and show the what's new
-				if (container.context.globalState.get(GlobalState.PendingWhatsNewOnFocus) === true) {
-					void container.context.globalState.update(GlobalState.PendingWhatsNewOnFocus, undefined);
+				if (container.storage.get(StorageKeys.PendingWhatsNewOnFocus) === true) {
+					void container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 					if (container.config.showWhatsNewAfterUpgrades) {
 						void Messages.showWhatsNewMessage(version);
 					}

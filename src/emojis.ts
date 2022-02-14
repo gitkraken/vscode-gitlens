@@ -1,4 +1,3 @@
-'use strict';
 import emojis from './emojis.json';
 
 const emojiRegex = /:([-+_a-z0-9]+):/g;

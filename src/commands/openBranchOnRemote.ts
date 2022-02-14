@@ -1,19 +1,14 @@
-'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-	isCommandContextViewNodeHasBranch,
-} from './common';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {
@@ -24,7 +19,7 @@ export interface OpenBranchOnRemoteCommandArgs {
 
 @command()
 export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenBranchOnRemote, Commands.Deprecated_OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
 	}
 
@@ -49,11 +44,13 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(
-			gitUri,
-			editor,
-			args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
-		);
+		const repoPath = (
+			await RepositoryPicker.getBestRepositoryOrShow(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+			)
+		)?.path;
 		if (!repoPath) return;
 
 		args = { ...args };

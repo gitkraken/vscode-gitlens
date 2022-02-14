@@ -1,4 +1,3 @@
-'use strict';
 import {
 	DecorationOptions,
 	Disposable,
@@ -11,7 +10,8 @@ import {
 	window,
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
+import { ContextKeys } from '../constants';
+import { setContext } from '../context';
 import { Logger } from '../logger';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 

@@ -1,7 +1,5 @@
-'use strict';
 import {
 	CancellationToken,
-	commands,
 	ConfigurationChangeEvent,
 	Disposable,
 	Event,
@@ -34,7 +32,11 @@ import {
 } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, log, Promises } from '../system';
+import { executeCommand } from '../system/command';
+import { debug, log } from '../system/decorators/log';
+import { once } from '../system/event';
+import { debounce } from '../system/function';
+import { cancellable, isPromise } from '../system/promise';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
@@ -101,8 +103,12 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	constructor(public readonly id: string, public readonly name: string, public readonly container: Container) {
-		this.disposables.push(container.onReady(this.onReady, this));
+	constructor(
+		public readonly id: `gitlens.views.${string}`,
+		public readonly name: string,
+		public readonly container: Container,
+	) {
+		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (Logger.isDebugging || this.container.config.debug) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
@@ -240,7 +246,7 @@ export abstract class ViewBase<
 				this.onConfigurationChanged(e);
 			}, this),
 			this.tree,
-			this.tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
+			this.tree.onDidChangeVisibility(debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this.tree.onDidExpandElement(this.onElementExpanded, this),
 		);
@@ -271,7 +277,7 @@ export abstract class ViewBase<
 	}
 
 	resolveTreeItem(item: TreeItem, node: ViewNode): TreeItem | Promise<TreeItem> {
-		return node.resolveTreeItem(item);
+		return node.resolveTreeItem?.(item) ?? item;
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
@@ -394,7 +400,7 @@ export abstract class ViewBase<
 			if (predicate(node)) return node;
 			if (canTraverse != null) {
 				const traversable = canTraverse(node);
-				if (Promises.is(traversable)) {
+				if (isPromise(traversable)) {
 					if (!(await traversable)) continue;
 				} else if (!traversable) {
 					continue;
@@ -418,13 +424,9 @@ export abstract class ViewBase<
 
 						await this.loadMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await Promises.cancellable(
-							Promise.resolve(node.getChildren()),
-							token ?? 60000,
-							{
-								onDidCancel: resolve => resolve([]),
-							},
-						);
+						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), token ?? 60000, {
+							onDidCancel: resolve => resolve([]),
+						});
 
 						child = pagedChildren.find(predicate);
 						if (child != null) return child;
@@ -507,7 +509,7 @@ export abstract class ViewBase<
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
 		try {
-			void (await commands.executeCommand(`${this.id}.focus`, options));
+			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
 			Logger.error(ex);
 		}

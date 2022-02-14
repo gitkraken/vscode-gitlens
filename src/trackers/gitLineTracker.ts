@@ -1,10 +1,9 @@
-'use strict';
 import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, GitLogCommit } from '../git/models';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
-import { debug } from '../system';
+import { debug } from '../system/decorators/log';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
@@ -17,7 +16,11 @@ import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
 export * from './lineTracker';
 
 export class GitLineState {
-	constructor(public readonly commit: GitBlameCommit | undefined, public logCommit?: GitLogCommit) {}
+	constructor(public readonly commit: GitCommit | undefined) {
+		if (commit != null && commit.file == null) {
+			debugger;
+		}
+	}
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
@@ -145,14 +148,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		}
 
 		if (selections.length === 1) {
-			const blameLine = editor.document.isDirty
-				? await this.container.git.getBlameForLineContents(
-						trackedDocument.uri,
-						selections[0].active,
-						editor.document.getText(),
-				  )
-				: await this.container.git.getBlameForLine(trackedDocument.uri, selections[0].active);
-			if (blameLine === undefined) {
+			const blameLine = await this.container.git.getBlameForLine(
+				trackedDocument.uri,
+				selections[0].active,
+				editor?.document,
+			);
+			if (blameLine == null) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}
@@ -162,10 +163,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
 		} else {
-			const blame = editor.document.isDirty
-				? await this.container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())
-				: await this.container.git.getBlameForFile(trackedDocument.uri);
-			if (blame === undefined) {
+			const blame = await this.container.git.getBlame(trackedDocument.uri, editor.document);
+			if (blame == null) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}

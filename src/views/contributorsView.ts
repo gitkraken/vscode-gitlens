@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	commands,
@@ -11,11 +10,13 @@ import {
 } from 'vscode';
 import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
-import { debug, gate, Strings } from '../system';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
 import {
 	ContributorNode,
 	ContributorsNode,
@@ -74,10 +75,6 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
-
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
 
 			const children = await child.getChildren();
 
@@ -140,7 +137,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(
@@ -223,19 +220,22 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
 
-		return this.findNode(ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email), {
-			maxDepth: 2,
-			canTraverse: n => {
-				if (n instanceof ContributorsViewNode) return true;
+		return this.findNode(
+			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			{
+				maxDepth: 2,
+				canTraverse: n => {
+					if (n instanceof ContributorsViewNode) return true;
 
-				if (n instanceof ContributorsRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
-				}
+					if (n instanceof ContributorsRepositoryNode) {
+						return n.id.startsWith(repoNodeId);
+					}
 
-				return false;
+					return false;
+				},
+				token: token,
 			},
-			token: token,
-		});
+		);
 	}
 
 	@gate(() => '')

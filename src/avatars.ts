@@ -1,19 +1,20 @@
-'use strict';
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
-import { GlobalState } from './constants';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
-import { Dates, Functions, Iterables, Strings } from './system';
+import { StorageKeys } from './storage';
+import { debounce } from './system/function';
+import { filterMap } from './system/iterable';
+import { base64, equalsIgnoreCase, md5 } from './system/string';
 import { ContactPresenceStatus } from './vsls/vsls';
 
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
 _onDidFetchAvatar.event(
-	Functions.debounce(() => {
+	debounce(() => {
 		const avatars =
 			avatarCache != null
 				? [
-						...Iterables.filterMap(avatarCache, ([key, avatar]) =>
+						...filterMap(avatarCache, ([key, avatar]) =>
 							avatar.uri != null
 								? [
 										key,
@@ -26,7 +27,7 @@ _onDidFetchAvatar.event(
 						),
 				  ]
 				: undefined;
-		void Container.instance.context.globalState.update(GlobalState.Avatars, avatars);
+		void Container.instance.storage.store(StorageKeys.Avatars, avatars);
 	}, 1000),
 );
 
@@ -55,14 +56,18 @@ const presenceCache = new Map<ContactPresenceStatus, string>();
 
 const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
+const millisecondsPerMinute = 60 * 1000;
+const millisecondsPerHour = 60 * 60 * 1000;
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
 const retryDecay = [
-	Dates.MillisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
-	Dates.MillisecondsPerMinute,
-	Dates.MillisecondsPerMinute * 5,
-	Dates.MillisecondsPerMinute * 10,
-	Dates.MillisecondsPerHour,
-	Dates.MillisecondsPerDay,
-	Dates.MillisecondsPerDay * 7,
+	millisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
+	millisecondsPerMinute,
+	millisecondsPerMinute * 5,
+	millisecondsPerMinute * 10,
+	millisecondsPerHour,
+	millisecondsPerDay,
+	millisecondsPerDay * 7,
 ];
 
 export function getAvatarUri(
@@ -75,27 +80,21 @@ export function getAvatarUri(
 	// Double the size to avoid blurring on the retina screen
 	size *= 2;
 
-	if (email == null || email.length === 0) {
+	if (!email) {
 		const avatar = createOrUpdateAvatar(
 			`${missingGravatarHash}:${size}`,
 			undefined,
-			missingGravatarHash,
 			size,
+			missingGravatarHash,
 			defaultStyle,
 		);
 		return avatar.uri ?? avatar.fallback!;
 	}
 
-	const hash = Strings.md5(email.trim().toLowerCase(), 'hex');
+	const hash = md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
 
-	const avatar = createOrUpdateAvatar(
-		key,
-		getAvatarUriFromGitHubNoReplyAddress(email, size),
-		hash,
-		size,
-		defaultStyle,
-	);
+	const avatar = createOrUpdateAvatar(key, email, size, hash, defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
 	let query = avatarQueue.get(key);
@@ -116,15 +115,15 @@ export function getAvatarUri(
 
 function createOrUpdateAvatar(
 	key: string,
-	uri: Uri | undefined,
-	hash: string,
+	email: string | undefined,
 	size: number,
+	hash: string,
 	defaultStyle?: GravatarDefaultStyle,
 ): Avatar {
 	let avatar = avatarCache!.get(key);
 	if (avatar == null) {
 		avatar = {
-			uri: uri,
+			uri: email != null && email.length !== 0 ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
 			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
 			timestamp: 0,
 			retries: 0,
@@ -138,8 +137,8 @@ function createOrUpdateAvatar(
 
 function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
 	if (cache == null) {
-		const avatars: [string, Avatar][] | undefined = Container.instance.context.globalState
-			.get<[string, SerializedAvatar][]>(GlobalState.Avatars)
+		const avatars: [string, Avatar][] | undefined = Container.instance.storage
+			.get<[string, SerializedAvatar][]>(StorageKeys.Avatars)
 			?.map<[string, Avatar]>(([key, avatar]) => [
 				key,
 				{
@@ -206,8 +205,8 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.timestamp = Date.now();
 		avatar.retries = 0;
 
-		if (account.email != null && Strings.equalsIgnoreCase(email, account.email)) {
-			avatarCache.set(`${Strings.md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
+		if (account.email != null && equalsIgnoreCase(email, account.email)) {
+			avatarCache.set(`${md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
 		}
 
 		_onDidFetchAvatar.fire({ email: email });
@@ -233,7 +232,7 @@ const presenceStatusColorMap = new Map<ContactPresenceStatus, string>([
 export function getPresenceDataUri(status: ContactPresenceStatus) {
 	let dataUri = presenceCache.get(status);
 	if (dataUri == null) {
-		const contents = Strings.base64(`<?xml version="1.0" encoding="utf-8"?>
+		const contents = base64(`<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="4" height="16" viewBox="0 0 4 16">
 	<circle cx="2" cy="14" r="2" fill="${presenceStatusColorMap.get(status)!}"/>
 </svg>`);
@@ -247,7 +246,7 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 	switch (reset) {
 		case 'all':
-			void Container.instance.context.globalState.update(GlobalState.Avatars, undefined);
+			void Container.instance.storage.delete(StorageKeys.Avatars);
 			avatarCache?.clear();
 			avatarQueue.clear();
 			break;

@@ -1,4 +1,3 @@
-'use strict';
 import {
 	DecorationInstanceRenderOptions,
 	DecorationOptions,
@@ -17,7 +16,7 @@ import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
 import { GitCommit } from '../git/models';
-import { Strings } from '../system';
+import { getWidth, interpolate, pad } from '../system/string';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
@@ -158,7 +157,7 @@ export class Annotations {
 		}
 
 		const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
-		decoration.renderOptions!.before!.contentText = Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
+		decoration.renderOptions!.before!.contentText = pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
 
 		return decoration;
 	}
@@ -186,7 +185,7 @@ export class Annotations {
 
 		if (chars >= 0) {
 			// Add the chars of the template string (without tokens)
-			chars += Strings.getWidth(Strings.interpolate(format, undefined));
+			chars += getWidth(interpolate(format, undefined));
 			// If we have chars, add a bit of padding
 			if (chars > 0) {
 				chars += 3;
@@ -252,7 +251,7 @@ export class Annotations {
 				after: {
 					backgroundColor: new ThemeColor(Colors.TrailingLineBackgroundColor),
 					color: new ThemeColor(Colors.TrailingLineForegroundColor),
-					contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
+					contentText: pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
 					fontWeight: 'normal',
 					fontStyle: 'normal',
 					// Pull the decoration out of the document flow if we want to be scrollable

@@ -1,10 +1,14 @@
-'use strict';
-import * as paths from 'path';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitFile } from '../../git/models';
-import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
+import { joinPaths, normalizePath } from '../../system/path';
+import { cancellable, PromiseCancelledError } from '../../system/promise';
+import { sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
@@ -68,24 +72,24 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		if (files == null) return [];
 
 		let children: FileNode[] = [
-			...Iterables.map(
+			...map(
 				files,
 				s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2, this.direction),
 			),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -98,7 +102,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		let state;
 
 		try {
-			const results = await Promises.cancellable(this.getFilesQueryResults(), 100);
+			const results = await cancellable(this.getFilesQueryResults(), 100);
 			label = results.label;
 			files = (this.filtered ? results.filtered?.files : undefined) ?? results.files;
 
@@ -114,7 +118,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 					? TreeItemCollapsibleState.Expanded
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
-			if (ex instanceof Promises.CancellationError) {
+			if (ex instanceof PromiseCancelledError) {
 				ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
@@ -187,12 +191,12 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		if (mergeBase != null) {
 			const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, `${mergeBase}..${ref}`);
 			if (files != null) {
-				filterTo = new Set<string>(files.map(f => f.fileName));
+				filterTo = new Set<string>(files.map(f => f.path));
 			}
 		} else {
 			const commit = await this.view.container.git.getCommit(this.uri.repoPath!, ref || 'HEAD');
 			if (commit?.files != null) {
-				filterTo = new Set<string>(commit.files.map(f => f.fileName));
+				filterTo = new Set<string>(commit.files.map(f => f.path));
 			}
 		}
 
@@ -200,7 +204,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 		results.filtered = {
 			filter: filter,
-			files: results.files!.filter(f => filterTo!.has(f.fileName)),
+			files: results.files!.filter(f => filterTo!.has(f.path)),
 		};
 	}
 }

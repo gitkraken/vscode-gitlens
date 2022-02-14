@@ -3,7 +3,7 @@
 	"env": {
 		"node": true
 	},
-	"ignorePatterns": ["src/webviews/apps/**/*", "src/env/browser/*"],
+	"ignorePatterns": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/*"],
 	"parserOptions": {
 		"project": "tsconfig.json"
 	}

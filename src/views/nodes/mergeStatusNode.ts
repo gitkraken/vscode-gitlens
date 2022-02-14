@@ -1,10 +1,10 @@
-'use strict';
-import * as paths from 'path';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
+import { joinPaths, normalizePath } from '../../system/path';
+import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { FileNode, FolderNode } from './folderNode';
@@ -45,17 +45,17 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -72,9 +72,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Merge;
-		item.description = this.status?.hasConflicts
-			? Strings.pluralize('conflict', this.status.conflicts.length)
-			: undefined;
+		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
@@ -83,9 +81,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			`${`Merging ${
 				this.mergeStatus.incoming != null ? GitReference.toString(this.mergeStatus.incoming) : ''
 			}into ${GitReference.toString(this.mergeStatus.current)}`}${
-				this.status?.hasConflicts
-					? `\n\n${Strings.pluralize('conflicted file', this.status.conflicts.length)}`
-					: ''
+				this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''
 			}`,
 			true,
 		);

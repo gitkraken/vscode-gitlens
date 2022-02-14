@@ -1,7 +1,6 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-'use strict';
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');

@@ -1,23 +1,26 @@
-'use strict';
 import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
-import {
-	Commands,
+import type {
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
-	executeActionCommand,
-	executeCommand,
-	executeEditorCommand,
-	GitActions,
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '../constants';
+import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constants';
 import { Container } from '../container';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models';
-import { debug } from '../system';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
+	executeEditorCommand,
+} from '../system/command';
+import { debug } from '../system/decorators/log';
 import { runGitCommandInTerminal } from '../terminal';
 import {
 	BranchesNode,
@@ -293,7 +296,7 @@ export class ViewCommands {
 				: undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? (await this.container.git.getActiveRepoPath()),
+				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
 			);
 			from = branch;
 		}
@@ -343,7 +346,7 @@ export class ViewCommands {
 				: undefined;
 		if (from == null) {
 			const branch = await this.container.git.getBranch(
-				node?.repoPath ?? (await this.container.git.getActiveRepoPath()),
+				node?.repoPath ?? this.container.git.getBestRepository()?.uri,
 			);
 			from = branch;
 		}
@@ -460,7 +463,7 @@ export class ViewCommands {
 	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
 		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
 
-		return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
+		return executeCoreCommand(CoreCommands.OpenInTerminal, Uri.file(node.repo.path));
 	}
 
 	@debug()
@@ -481,7 +484,7 @@ export class ViewCommands {
 	@debug()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return commands.executeCommand(BuiltInGitCommands.Publish, Uri.file(node.repoPath));
+			return executeCoreGitCommand(CoreGitCommands.Publish, Uri.file(node.repoPath));
 		}
 		return Promise.resolve();
 	}
@@ -628,7 +631,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.stageFile(node.repoPath, node.file.fileName));
+		void (await this.container.git.stageFile(node.repoPath, node.file.path));
 		void node.triggerChange();
 	}
 
@@ -656,7 +659,7 @@ export class ViewCommands {
 	@debug()
 	private switch(node?: ViewRefNode | BranchesNode) {
 		if (node == null) {
-			return GitActions.switchTo(this.container.git.highlanderRepoPath);
+			return GitActions.switchTo(this.container.git.highlander);
 		}
 
 		if (!(node instanceof ViewRefNode) && !(node instanceof BranchesNode)) return Promise.resolve();
@@ -685,7 +688,7 @@ export class ViewCommands {
 			return;
 		}
 
-		await commands.executeCommand(BuiltInGitCommands.UndoCommit, node.repoPath);
+		await executeCoreGitCommand(CoreGitCommands.UndoCommit, node.repoPath);
 	}
 
 	@debug()
@@ -705,7 +708,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.unStageFile(node.repoPath, node.file.fileName));
+		void (await this.container.git.unStageFile(node.repoPath, node.file.path));
 		void node.triggerChange();
 	}
 
@@ -969,7 +972,7 @@ export class ViewCommands {
 		// 	};
 
 		// 	const uri = GitUri.fromFile(file, repoPath, ref);
-		// 	await commands.executeCommand(Commands.DiffWithWorking, uri, args);
+		// 	await executeCommand(Commands.DiffWithWorking, uri, args);
 		// }
 	}
 
@@ -999,7 +1002,7 @@ export class ViewCommands {
 					preview: true,
 				},
 			});
-		} else if (node instanceof FileRevisionAsCommitNode && node.commit.hasConflicts) {
+		} else if (node instanceof FileRevisionAsCommitNode && node.commit.file?.hasConflicts) {
 			const baseUri = await node.getConflictBaseUri();
 			if (baseUri != null) {
 				return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
@@ -1064,7 +1067,7 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private openRevision(
+	private async openRevision(
 		node:
 			| CommitFileNode
 			| FileRevisionAsCommitNode
@@ -1090,16 +1093,16 @@ export class ViewCommands {
 		let uri = options.revisionUri;
 		if (uri == null) {
 			if (node instanceof ResultsFileNode || node instanceof MergeConflictFileNode) {
-				uri = GitUri.toRevisionUri(node.uri);
+				uri = Container.instance.git.getRevisionUri(node.uri);
 			} else {
 				uri =
-					node.commit.status === 'D'
-						? GitUri.toRevisionUri(
-								node.commit.previousSha!,
-								node.commit.previousUri.fsPath,
+					node.commit.file?.status === 'D'
+						? Container.instance.git.getRevisionUri(
+								(await node.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
+								node.commit.file.path,
 								node.commit.repoPath,
 						  )
-						: GitUri.toRevisionUri(node.uri);
+						: Container.instance.git.getRevisionUri(node.uri);
 			}
 		}
 

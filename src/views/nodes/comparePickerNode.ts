@@ -1,8 +1,9 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars, NamedRef } from '../../constants';
+import { GlyphChars } from '../../constants';
+import { GitUri } from '../../git/gitUri';
+import { NamedRef } from '../../storage';
 import { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
-import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 interface RepoRef {
 	label: string;
@@ -15,7 +16,7 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 	readonly pinned: boolean = false;
 
 	constructor(view: SearchAndCompareView, parent: SearchAndCompareViewNode, public readonly selectedRef: RepoRef) {
-		super(unknownGitUri, view, parent);
+		super(GitUri.unknown, view, parent);
 	}
 
 	get canDismiss(): boolean {
@@ -26,14 +27,14 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 		return [];
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
+	getTreeItem(): TreeItem {
 		const selectedRef = this.selectedRef;
 		const repoPath = selectedRef?.repoPath;
 
 		let description;
 		if (repoPath !== undefined) {
 			if (this.view.container.git.repositoryCount > 1) {
-				const repo = await this.view.container.git.getRepository(repoPath);
+				const repo = this.view.container.git.getRepository(repoPath);
 				description = repo?.formattedName ?? repoPath;
 			}
 		}

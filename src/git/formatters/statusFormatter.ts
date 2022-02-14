@@ -1,21 +1,23 @@
-'use strict';
-import * as paths from 'path';
 import { GlyphChars } from '../../constants';
-import { Strings } from '../../system';
-import { GitFile, GitFileWithCommit } from '../models/file';
+import { basename } from '../../system/path';
+import { TokenOptions } from '../../system/string';
+import { GitFile, GitFileChange, GitFileWithCommit } from '../models/file';
 import { FormatOptions, Formatter } from './formatter';
 
 export interface StatusFormatOptions extends FormatOptions {
 	relativePath?: string;
 
 	tokenOptions?: {
-		directory?: Strings.TokenOptions;
-		file?: Strings.TokenOptions;
-		filePath?: Strings.TokenOptions;
-		originalPath?: Strings.TokenOptions;
-		path?: Strings.TokenOptions;
-		status?: Strings.TokenOptions;
-		working?: Strings.TokenOptions;
+		directory?: TokenOptions;
+		file?: TokenOptions;
+		filePath?: TokenOptions;
+		originalPath?: TokenOptions;
+		path?: TokenOptions;
+		status?: TokenOptions;
+		working?: TokenOptions;
+		changes?: TokenOptions;
+		changesDetail?: TokenOptions;
+		changesShort?: TokenOptions;
 	};
 }
 
@@ -26,7 +28,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get file() {
-		const file = paths.basename(this._item.fileName);
+		const file = basename(this._item.path);
 		return this._padOrTruncate(file, this._options.tokenOptions.file);
 	}
 
@@ -62,19 +64,38 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get working() {
-		const statusFile = (this._item as GitFileWithCommit).commit?.files?.[0] ?? this._item;
-
-		let icon;
-		if (statusFile.workingTreeStatus !== undefined && statusFile.indexStatus !== undefined) {
+		let icon = '';
+		if (this._item.workingTreeStatus != null && this._item.indexStatus != null) {
 			icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
-		} else if (statusFile.workingTreeStatus !== undefined) {
+		} else if (this._item.workingTreeStatus != null) {
 			icon = `${GlyphChars.Pencil}${GlyphChars.SpaceThin}${GlyphChars.SpaceThinnest}${GlyphChars.EnDash}${GlyphChars.Space}`;
-		} else if (statusFile.indexStatus !== undefined) {
+		} else if (this._item.indexStatus != null) {
 			icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.Check}`;
 		} else {
 			icon = '';
 		}
 		return this._padOrTruncate(icon, this._options.tokenOptions.working);
+	}
+
+	get changes(): string {
+		return this._padOrTruncate(
+			GitFileChange.is(this._item) ? this._item.formatStats() : '',
+			this._options.tokenOptions.changes,
+		);
+	}
+
+	get changesDetail(): string {
+		return this._padOrTruncate(
+			GitFileChange.is(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
+			this._options.tokenOptions.changesDetail,
+		);
+	}
+
+	get changesShort(): string {
+		return this._padOrTruncate(
+			GitFileChange.is(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
+			this._options.tokenOptions.changesShort,
+		);
 	}
 
 	static fromTemplate(template: string, file: GitFile | GitFileWithCommit, dateFormat: string | null): string;

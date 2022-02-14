@@ -1,9 +1,10 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { NamedRef } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitRevision } from '../../git/models';
-import { debug, gate, log, Strings } from '../../system';
+import { NamedRef } from '../../storage';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { md5, pluralize } from '../../system/string';
 import { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
@@ -19,7 +20,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
-		return Strings.md5(`${repoPath}|${ref1}|${ref2}`);
+		return md5(`${repoPath}|${ref1}|${ref2}`);
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -99,7 +100,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					},
 					{
 						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -120,7 +121,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					},
 					{
 						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
 				),
@@ -141,10 +142,10 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		return this._children;
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
+	getTreeItem(): TreeItem {
 		let description;
 		if (this.view.container.git.repositoryCount > 1) {
-			const repo = await this.view.container.git.getRepository(this.uri.repoPath!);
+			const repo = this.uri.repoPath ? this.view.container.git.getRepository(this.uri.repoPath) : undefined;
 			description = repo?.formattedName ?? this.uri.repoPath;
 		}
 
@@ -236,7 +237,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
+						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
 							files.splice(index, 1, wf);
 						} else {
@@ -250,7 +251,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -266,7 +267,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			if (workingFiles != null) {
 				if (files != null) {
 					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
+						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
 							files.splice(index, 1, wf);
 						} else {
@@ -280,7 +281,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
@@ -321,7 +322,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}

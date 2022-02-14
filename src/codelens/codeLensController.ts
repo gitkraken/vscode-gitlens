@@ -1,9 +1,10 @@
-'use strict';
 import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
+import { ContextKeys } from '../constants';
 import { Container } from '../container';
+import { setContext } from '../context';
 import { Logger } from '../logger';
+import { once } from '../system/event';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
@@ -19,7 +20,7 @@ export class GitCodeLensController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}
@@ -58,7 +59,7 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-		// Only reset if we have saved, since the code lens won't naturally be re-rendered
+		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
 		if (this._provider === undefined || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');

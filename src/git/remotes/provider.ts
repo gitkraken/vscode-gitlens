@@ -1,4 +1,3 @@
-'use strict';
 import {
 	authentication,
 	AuthenticationSession,
@@ -11,14 +10,18 @@ import {
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
-import { debug, Encoding, gate, log, Promises } from '../../system';
+import { WorkspaceStorageKeys } from '../../storage';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { encodeUrl } from '../../system/encoding';
+import { isPromise } from '../../system/promise';
 import {
 	Account,
 	DefaultBranch,
-	GitLogCommit,
+	GitCommit,
 	IssueOrPullRequest,
 	PullRequest,
 	PullRequestState,
@@ -78,7 +81,7 @@ export type RemoteResource =
 	| {
 			type: RemoteResourceType.Revision;
 			branchOrTag?: string;
-			commit?: GitLogCommit;
+			commit?: GitCommit;
 			fileName: string;
 			range?: Range;
 			sha?: string;
@@ -143,7 +146,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		void (await env.clipboard.writeText(url));
 	}
 
-	hasApi(): this is RichRemoteProvider {
+	hasRichApi(): this is RichRemoteProvider {
 		return RichRemoteProvider.is(this);
 	}
 
@@ -234,7 +237,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected encodeUrl(url: string): string;
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
-		return Encoding.encodeUrl(url)?.replace(/#/g, '%23');
+		return encodeUrl(url)?.replace(/#/g, '%23');
 	}
 }
 
@@ -256,22 +259,6 @@ function fireAuthenticationChanged(key: string, reason: 'connected' | 'disconnec
 export class Authentication {
 	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
 		return _onDidChangeAuthentication.event;
-	}
-}
-
-export class AuthenticationError extends Error {
-	constructor(private original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, AuthenticationError);
-	}
-}
-
-export class ClientError extends Error {
-	constructor(private original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace?.(this, ClientError);
 	}
 }
 
@@ -316,8 +303,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
-	private get connectedKey() {
-		return `${WorkspaceState.ConnectedPrefix}${this.key}`;
+	private get connectedKey(): `${WorkspaceStorageKeys.ConnectedPrefix}${string}` {
+		return `${WorkspaceStorageKeys.ConnectedPrefix}${this.key}`;
 	}
 
 	get maybeConnected(): boolean | undefined {
@@ -352,14 +339,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	@log()
 	disconnect(silent: boolean = false): void {
-		const disconnected = this._session != null;
+		const connected = this._session != null;
 
 		this.invalidClientExceptionCount = 0;
 		this._prsByCommit.clear();
 		this._session = null;
 
-		if (disconnected) {
-			void Container.instance.context.workspaceState.update(this.connectedKey, false);
+		if (connected) {
+			void Container.instance.storage.storeWorkspace(this.connectedKey, false);
 
 			this._onDidChange.fire();
 			if (!silent) {
@@ -396,7 +383,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -431,7 +418,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -461,7 +448,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -487,7 +474,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -520,7 +507,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return undefined;
@@ -545,7 +532,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			pr = this.getPullRequestForCommitCore(ref);
 			this._prsByCommit.set(ref, pr);
 		}
-		if (pr == null || !Promises.is(pr)) return pr ?? undefined;
+		if (pr == null || !isPromise(pr)) return pr ?? undefined;
 
 		return pr.then(pr => pr ?? undefined);
 	}
@@ -567,7 +554,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			this._prsByCommit.delete(ref);
 
-			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.handleClientException();
 			}
 			return null;
@@ -586,8 +573,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (!Container.instance.config.integrations.enabled) return undefined;
 
 		if (createIfNeeded) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
-		} else if (Container.instance.context.workspaceState.get<boolean>(this.connectedKey) === false) {
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
+		} else if (Container.instance.storage.getWorkspace<boolean>(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -598,7 +585,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				silent: !createIfNeeded,
 			});
 		} catch (ex) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -608,14 +595,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, undefined);
+			await Container.instance.storage.deleteWorkspace(this.connectedKey);
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Container.instance.context.workspaceState.update(this.connectedKey, true);
+			await Container.instance.storage.storeWorkspace(this.connectedKey, true);
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();

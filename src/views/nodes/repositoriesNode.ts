@@ -1,19 +1,20 @@
-'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
-import { debug, Functions, gate } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { debounce } from '../../system/function';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: RepositoriesView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {
@@ -24,7 +25,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	private resetChildren() {
-		if (this._children === undefined) return;
+		if (this._children == null) return;
 
 		for (const child of this._children) {
 			if (child instanceof RepositoryNode) {
@@ -35,7 +36,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this._children === undefined) {
+		if (this._children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
@@ -55,7 +56,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false) {
-		if (this._children === undefined) return;
+		if (this._children == null) return;
 
 		if (reset) {
 			this.resetChildren();
@@ -66,7 +67,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		const repositories = this.view.container.git.openRepositories;
-		if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
+		if (repositories.length === 0 && (this._children == null || this._children.length === 0)) return;
 
 		if (repositories.length === 0) {
 			this._children = [new MessageNode(this.view, this, 'No repositories could be found.')];
@@ -75,9 +76,9 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const children = [];
 		for (const repo of repositories) {
-			const normalizedPath = repo.normalizedPath;
-			const child = (this._children as RepositoryNode[]).find(c => c.repo.normalizedPath === normalizedPath);
-			if (child !== undefined) {
+			const id = repo.id;
+			const child = (this._children as RepositoryNode[]).find(c => c.repo.id === id);
+			if (child != null) {
 				children.push(child);
 				void child.refresh();
 			} else {
@@ -101,9 +102,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		const subscriptions = [this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
 		if (this.view.config.autoReveal) {
-			subscriptions.push(
-				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
-			);
+			subscriptions.push(window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 500), this));
 		}
 
 		return Disposable.from(...subscriptions);
@@ -115,7 +114,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		if (editor == null || this._children === undefined || this._children.length === 1) {
+		if (editor == null || this._children == null || this._children.length === 1) {
 			return;
 		}
 
@@ -124,11 +123,11 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 			const node = this._children.find(n => n instanceof RepositoryNode && n.repo.containsUri(uri)) as
 				| RepositoryNode
 				| undefined;
-			if (node === undefined) return;
+			if (node == null) return;
 
 			// Check to see if this repo has a descendent that is already selected
 			let parent = this.view.selection.length === 0 ? undefined : this.view.selection[0];
-			while (parent !== undefined) {
+			while (parent != null) {
 				if (parent === node) return;
 
 				parent = parent.getParent();

@@ -1,15 +1,17 @@
-'use strict';
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { ContextKeys, setContext } from '../../constants';
+import { ContextKeys, Schemes } from '../../constants';
+import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
 import { Logger } from '../../logger';
-import { ReferencePicker } from '../../quickpicks';
-import { debug, Functions, gate, log } from '../../system';
+import { ReferencePicker } from '../../quickpicks/referencePicker';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { debounce, Deferrable } from '../../system/function';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
-import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
@@ -17,7 +19,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override dispose() {
@@ -92,7 +94,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != unknownGitUri;
+		return this._uri != GitUri.unknown;
 	}
 
 	@gate()
@@ -133,6 +135,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
+			if (this._uri != null && this._uri !== GitUri.unknown) {
+				await this.view.container.tracker.resetCache(this._uri, 'log');
+			}
+
 			this.reset();
 		}
 
@@ -220,22 +226,32 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	protected subscribe() {
-		return Disposable.from(
-			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 250), this),
-		);
+		return Disposable.from(window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this));
 	}
 
 	protected override etag(): number {
 		return 0;
 	}
 
+	private _triggerChangeDebounced: Deferrable<() => Promise<void>> | undefined;
 	@debug({ args: false })
-	private onActiveEditorChanged(_editor: TextEditor | undefined) {
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		// If we are losing the active editor, give more time before assuming its really gone
+		// For virtual repositories the active editor event takes a while to fire
+		// Ultimately we need to be using the upcoming Tabs api to avoid this
+		if (editor == null && (this._uri?.scheme === Schemes.Virtual || this._uri?.scheme === Schemes.GitHub)) {
+			if (this._triggerChangeDebounced == null) {
+				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
+			}
+
+			void this._triggerChangeDebounced();
+			return;
+		}
 		void this.triggerChange();
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? unknownGitUri;
+		this._uri = uri ?? GitUri.unknown;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}
 }

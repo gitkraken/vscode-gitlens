@@ -1,11 +1,10 @@
-'use strict';
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { FileAnnotationType } from '../config';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBlame, GitBlameCommit, GitCommit } from '../git/models';
+import { GitBlame, GitCommit } from '../git/models';
 import { Hovers } from '../hovers/hovers';
-import { log } from '../system';
+import { log } from '../system/decorators/log';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
@@ -22,9 +21,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	) {
 		super(annotationType, editor, trackedDocument);
 
-		this.blame = editor.document.isDirty
-			? this.container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
-			: this.container.git.getBlameForFile(this.trackedDocument.uri);
+		this.blame = this.container.git.getBlame(this.trackedDocument.uri, editor.document);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -161,7 +158,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await Promise.all([
 				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
 				providers.changes
-					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line)
+					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
 					: undefined,
 			])
 		).filter(<T>(m?: T): m is T => Boolean(m));
@@ -172,27 +169,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		);
 	}
 
-	private async getDetailsHoverMessage(commit: GitBlameCommit, document: TextDocument) {
-		// Get the full commit message -- since blame only returns the summary
-		let logCommit: GitCommit | undefined = undefined;
-		if (!commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
-				ref: commit.sha,
-			});
-			if (logCommit != null) {
-				// Preserve the previous commit from the blame commit
-				logCommit.previousFileName = commit.previousFileName;
-				logCommit.previousSha = commit.previousSha;
-			}
-		}
-
+	private async getDetailsHoverMessage(commit: GitCommit, document: TextDocument) {
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
 		return Hovers.detailsMessage(
-			logCommit ?? commit,
+			commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
 			this.container.config.hovers.detailsMarkdownFormat,

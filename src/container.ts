@@ -1,27 +1,32 @@
-'use strict';
-import { commands, ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
-import { getSupportedGitProviders } from '@env/git';
+import { ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
-import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
+import type { ToggleFileAnnotationCommandArgs } from './commands';
 import {
 	AnnotationsToggleMode,
 	Config,
 	configuration,
 	ConfigurationWillChangeEvent,
+	DateSource,
+	DateStyle,
 	FileAnnotationType,
 } from './configuration';
+import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
-import { log, memoize } from './system';
+import { Storage } from './storage';
+import { executeCommand } from './system/command';
+import { log } from './system/decorators/log';
+import { memoize } from './system/decorators/memoize';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
@@ -73,6 +78,57 @@ export class Container {
 		return this._onReady.event;
 	}
 
+	readonly BranchDateFormatting = {
+		dateFormat: undefined! as string | null,
+		dateStyle: undefined! as DateStyle,
+
+		reset: () => {
+			this.BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly CommitDateFormatting = {
+		dateFormat: null as string | null,
+		dateSource: DateSource.Authored,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
+			this.CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly CommitShaFormatting = {
+		length: 7,
+
+		reset: () => {
+			// Don't allow shas to be shortened to less than 5 characters
+			this.CommitShaFormatting.length = Math.max(5, configuration.get('advanced.abbreviatedShaLength'));
+		},
+	};
+
+	readonly PullRequestDateFormatting = {
+		dateFormat: null as string | null,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
+	readonly TagDateFormatting = {
+		dateFormat: null as string | null,
+		dateStyle: DateStyle.Relative,
+
+		reset: () => {
+			this.TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+			this.TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+		},
+	};
+
 	private _configsAffectedByMode: string[] | undefined;
 	private _applyModeConfigurationTransformBound:
 		| ((e: ConfigurationChangeEvent) => ConfigurationChangeEvent)
@@ -83,6 +139,8 @@ export class Container {
 	private constructor(context: ExtensionContext, config: Config) {
 		this._context = context;
 		this._config = this.applyMode(config);
+		this._storage = new Storage(this._context);
+
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
@@ -134,19 +192,17 @@ export class Container {
 
 	private _ready: boolean = false;
 
-	ready() {
+	async ready() {
 		if (this._ready) throw new Error('Container is already ready');
 
 		this._ready = true;
-		this.registerGitProviders();
-		queueMicrotask(() => {
-			this._onReady.fire();
-		});
+		await this.registerGitProviders();
+		queueMicrotask(() => this._onReady.fire());
 	}
 
 	@log()
-	private registerGitProviders() {
-		const providers = getSupportedGitProviders(this);
+	private async registerGitProviders() {
+		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
 			this._context.subscriptions.push(this._git.register(provider.descriptor.id, provider));
 		}
@@ -255,7 +311,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<import('./premium/github/github').GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -266,7 +322,7 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			return new (await import(/* webpackChunkName: "github" */ './github/github')).GitHubApi();
+			return new (await import(/* webpackChunkName: "github" */ './premium/github/github')).GitHubApi();
 		} catch (ex) {
 			Logger.error(ex);
 			return undefined;
@@ -362,6 +418,11 @@ export class Container {
 		return this._statusBarController;
 	}
 
+	private readonly _storage: Storage;
+	get storage(): Storage {
+		return this._storage;
+	}
+
 	private _tagsView: TagsView | undefined;
 	get tagsView() {
 		if (this._tagsView == null) {
@@ -406,7 +467,7 @@ export class Container {
 		if (mode == null) return config;
 
 		if (mode.annotations != null) {
-			let command: string | undefined;
+			let command: Commands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
 					config.blame.toggleMode = AnnotationsToggleMode.Window;
@@ -428,7 +489,7 @@ export class Container {
 					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propegated first
-				setTimeout(() => commands.executeCommand(command!, commandArgs), 50);
+				setTimeout(() => executeCommand(command!, commandArgs), 50);
 			}
 		}
 

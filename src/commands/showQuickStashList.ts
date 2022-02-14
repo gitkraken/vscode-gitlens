@@ -1,6 +1,8 @@
-'use strict';
-import { executeGitCommand } from '../commands';
-import { Command, command, Commands } from './common';
+import { executeGitCommand } from '../commands/gitCommands.actions';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
+import { Command } from './base';
 
 export interface ShowQuickStashListCommandArgs {
 	repoPath?: string;
@@ -8,7 +10,7 @@ export interface ShowQuickStashListCommandArgs {
 
 @command()
 export class ShowQuickStashListCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ShowQuickStashList);
 	}
 

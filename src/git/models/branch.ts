@@ -1,25 +1,17 @@
-'use strict';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
-import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Dates, debug, memoize, Strings } from '../../system';
-import { GitBranchReference, GitReference, GitRevision } from '../models';
+import { Starred, WorkspaceStorageKeys } from '../../storage';
+import { formatDate, fromNow } from '../../system/date';
+import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { sortCompare } from '../../system/string';
 import { PullRequest, PullRequestState } from './pullRequest';
+import { GitBranchReference, GitReference, GitRevision } from './reference';
 import { GitRemote } from './remote';
 import { GitStatus } from './status';
 
 const whitespaceRegex = /\s/;
 const detachedHEADRegex = /^(?=.*\bHEAD\b)?(?=.*\bdetached\b).*$/;
-
-export const BranchDateFormatting = {
-	dateFormat: undefined! as string | null,
-	dateStyle: undefined! as DateStyle,
-
-	reset: () => {
-		BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
 
 export interface GitTrackingState {
 	ahead: number;
@@ -79,7 +71,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						Strings.sortCompare(a.name, b.name),
+						sortCompare(a.name, b.name),
 				);
 			case BranchSorting.NameDesc:
 				return branches.sort(
@@ -93,7 +85,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						Strings.sortCompare(b.name, a.name),
+						sortCompare(b.name, a.name),
 				);
 			case BranchSorting.DateDesc:
 			default:
@@ -144,8 +136,8 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get formattedDate(): string {
-		return BranchDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(BranchDateFormatting.dateFormat)
+		return Container.instance.BranchDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(Container.instance.BranchDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
@@ -153,22 +145,13 @@ export class GitBranch implements GitBranchReference {
 		return this.detached ? this.sha! : this.name;
 	}
 
-	@memoize()
-	private get dateFormatter(): Dates.DateFormatter | undefined {
-		return this.date == null ? undefined : Dates.getFormatter(this.date);
-	}
-
-	@memoize<GitBranch['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<GitBranch['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null): string {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.dateFormatter?.format(format) ?? '';
+		return this.date != null ? formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
 
 	formatDateFromNow(): string {
-		return this.dateFormatter?.fromNow() ?? '';
+		return this.date != null ? fromNow(this.date) : '';
 	}
 
 	@debug()
@@ -206,7 +189,7 @@ export class GitBranch implements GitBranchReference {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 
-		const remotes = await Container.instance.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
 		return remotes.find(r => r.name === remoteName);
@@ -232,7 +215,7 @@ export class GitBranch implements GitBranchReference {
 			return GitBranchStatus.UpToDate;
 		}
 
-		const remotes = await Container.instance.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length > 0) return GitBranchStatus.Unpublished;
 
 		return GitBranchStatus.Local;
@@ -251,16 +234,16 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get starred() {
-		const starred = Container.instance.context.workspaceState.get<Starred>(WorkspaceState.StarredBranches);
+		const starred = Container.instance.storage.getWorkspace<Starred>(WorkspaceStorageKeys.StarredBranches);
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	async star() {
-		await (await Container.instance.git.getRepository(this.repoPath))?.star(this);
+	star() {
+		return Container.instance.git.getRepository(this.repoPath)?.star(this);
 	}
 
-	async unstar() {
-		await (await Container.instance.git.getRepository(this.repoPath))?.unstar(this);
+	unstar() {
+		return Container.instance.git.getRepository(this.repoPath)?.unstar(this);
 	}
 
 	static formatDetached(sha: string): string {

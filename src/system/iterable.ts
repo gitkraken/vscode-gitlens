@@ -1,5 +1,3 @@
-'use strict';
-
 export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
 	let chunk: T[] = [];
 
@@ -109,7 +107,7 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T>): T {
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
 	return source[Symbol.iterator]().next().value;
 }
 
@@ -163,7 +161,7 @@ export function last<T>(source: Iterable<T>): T | undefined {
 export function* map<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => TMapped,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield mapper(item);
 	}
@@ -205,4 +203,28 @@ export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): It
 			yield item;
 		}
 	}
+}
+
+export function uniqueBy<TKey, TValue>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	uniqueKey: (item: TValue) => TKey,
+	onDuplicate: (original: TValue, current: TValue) => TValue | void,
+): IterableIterator<TValue> {
+	const uniques = new Map<TKey, TValue>();
+
+	for (const current of source) {
+		const value = uniqueKey(current);
+
+		const original = uniques.get(value);
+		if (original === undefined) {
+			uniques.set(value, current);
+		} else {
+			const updated = onDuplicate(original, current);
+			if (updated !== undefined) {
+				uniques.set(value, updated);
+			}
+		}
+	}
+
+	return uniques.values();
 }

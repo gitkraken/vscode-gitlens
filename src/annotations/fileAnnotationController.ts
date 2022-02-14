@@ -1,5 +1,3 @@
-'use strict';
-import * as paths from 'path';
 import {
 	ConfigurationChangeEvent,
 	DecorationRangeBehavior,
@@ -25,11 +23,16 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { Colors, ContextKeys, isTextEditor, setContext } from '../constants';
+import { Colors, ContextKeys } from '../constants';
 import { Container } from '../container';
+import { setContext } from '../context';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
-import { Functions, Iterables } from '../system';
+import { once } from '../system/event';
+import { debounce } from '../system/function';
+import { find } from '../system/iterable';
+import { basename } from '../system/path';
+import { isTextEditor } from '../system/utils';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyStateChangeEvent,
@@ -81,7 +84,7 @@ export class FileAnnotationController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 
@@ -294,7 +297,7 @@ export class FileAnnotationController implements Disposable {
 		const provider = this.getProvider(e.textEditor);
 		if (provider == null) {
 			// If we don't find an exact match, do a fuzzy match (since we can't properly track editors)
-			const fuzzyProvider = Iterables.find(
+			const fuzzyProvider = find(
 				this._annotationProviders.values(),
 				p => p.editor.document === e.textEditor.document,
 			);
@@ -534,7 +537,7 @@ export class FileAnnotationController implements Disposable {
 			}
 
 			progress.report({
-				message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`,
+				message: `Computing ${annotationsLabel} for ${basename(editor.document.fileName)}`,
 			});
 		}
 
@@ -567,9 +570,9 @@ export class FileAnnotationController implements Disposable {
 			Logger.log('Add listener registrations for annotations');
 
 			this._annotationsDisposable = Disposable.from(
-				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),
+				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 50), this),
 				window.onDidChangeTextEditorViewColumn(this.onTextEditorViewColumnChanged, this),
-				window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleTextEditorsChanged, 50), this),
+				window.onDidChangeVisibleTextEditors(debounce(this.onVisibleTextEditorsChanged, 50), this),
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 				this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 				this.container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),

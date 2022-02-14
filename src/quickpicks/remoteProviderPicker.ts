@@ -1,12 +1,12 @@
-'use strict';
 import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscode';
-import { Commands, OpenOnRemoteCommandArgs } from '../commands';
-import { GlyphChars } from '../constants';
+import type { OpenOnRemoteCommandArgs } from '../commands';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitRemote } from '../git/models';
 import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Keys } from '../keyboard';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
@@ -48,7 +48,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			let branch = resource.base.branch;
 			if (branch == null) {
 				branch = await Container.instance.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
-				if (branch == null && this.remote.provider.hasApi()) {
+				if (branch == null && this.remote.hasRichProvider()) {
 					const defaultBranch = await this.remote.provider.getDefaultBranch?.();
 					branch = defaultBranch?.name;
 				}
@@ -99,7 +99,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: true,
 		};
 		super(
-			`$(clippy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
+			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
 			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
 			Commands.OpenOnRemote,

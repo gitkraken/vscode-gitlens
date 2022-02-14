@@ -1,4 +1,3 @@
-'use strict';
 import { CustomRemoteType, RemotesConfig } from '../../configuration';
 import { Logger } from '../../logger';
 import { AzureDevOpsRemote } from './azure-devops';

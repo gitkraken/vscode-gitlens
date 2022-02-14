@@ -1,5 +1,3 @@
-'use strict';
-
 export function encodeUrl(url: string): string;
 export function encodeUrl(url: string | undefined): string | undefined;
 export function encodeUrl(url: string | undefined): string | undefined {

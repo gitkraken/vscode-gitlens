@@ -1,5 +1,5 @@
-'use strict';
-import { debug, Strings } from '../../system';
+import { debug } from '../../system/decorators/log';
+import { normalizePath } from '../../system/path';
 import { GitStatus, GitStatusFile } from '../models';
 
 const emptyStr = '';
@@ -58,7 +58,7 @@ export class GitStatusParser {
 			}
 		}
 
-		return new GitStatus(Strings.normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
+		return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
 	}
 
 	@debug({ args: false, singleLine: true })
@@ -115,14 +115,7 @@ export class GitStatusParser {
 			}
 		}
 
-		return new GitStatus(
-			Strings.normalizePath(repoPath),
-			branch ?? emptyStr,
-			sha ?? emptyStr,
-			files,
-			state,
-			upstream,
-		);
+		return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, sha ?? emptyStr, files, state, upstream);
 	}
 
 	static parseStatusFile(

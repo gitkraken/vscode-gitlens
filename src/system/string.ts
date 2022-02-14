@@ -1,26 +1,9 @@
-'use strict';
 import ansiRegex from 'ansi-regex';
 import { md5 as _md5 } from '@env/crypto';
-import { isWindows } from '@env/platform';
+import { hrtime } from '@env/hrtime';
+import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
-
-const emptyStr = '';
-
-export const enum CharCode {
-	/**
-	 * The `/` character.
-	 */
-	Slash = 47,
-	/**
-	 * The `\` character.
-	 */
-	Backslash = 92,
-	A = 65,
-	Z = 90,
-	a = 97,
-	z = 122,
-}
 
 const compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
 export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
@@ -133,24 +116,22 @@ export function escapeRegex(s: string) {
 	return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
 
-export function getCommonBase(s1: string, s2: string, delimiter: string) {
-	let char;
-	let index = 0;
-	for (let i = 0; i < s1.length; i++) {
-		char = s1[i];
-		if (char !== s2[i]) break;
-
-		if (char === delimiter) {
-			index = i;
-		}
-	}
-
-	return index > 0 ? s1.substring(0, index + 1) : undefined;
+export function getDurationMilliseconds(start: [number, number]) {
+	const [secs, nanosecs] = hrtime(start);
+	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function getDurationMilliseconds(start: [number, number]) {
-	const [secs, nanosecs] = process.hrtime(start);
-	return secs * 1000 + Math.floor(nanosecs / 1000000);
+export function* getLines(s: string, char: string = '\n'): IterableIterator<string> {
+	let i = 0;
+	while (i < s.length) {
+		let j = s.indexOf(char, i);
+		if (j === -1) {
+			j = s.length;
+		}
+
+		yield s.substring(i, j);
+		i = j + 1;
+	}
 }
 
 const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
@@ -159,9 +140,6 @@ export function getSuperscript(num: number) {
 	return superscripts[num - 1] ?? '';
 }
 
-const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
-const pathNormalizeRegex = /\\/g;
-const pathStripTrailingSlashRegex = /\/$/g;
 const tokenRegex = /\$\{('.*?[^\\]'|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?('.*?[^\\]'|\W*)?\}/g;
 const tokenSanitizeRegex = /\$\{(?:'.*?[^\\]'|\W*)?(\w*?)(?:'.*?[^\\]'|[\W\d]*)\}/g;
 const tokenGroupCharacter = "'";
@@ -223,7 +201,7 @@ const interpolationMap = new Map<string, Function>();
 
 export function interpolate(template: string, context: object | undefined): string {
 	if (template == null || template.length === 0) return template;
-	if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
+	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
 	let fn = interpolationMap.get(template);
 	if (fn == null) {
@@ -246,7 +224,7 @@ const interpolationAsyncMap = new Map<string, typeof AsyncFunction>();
 
 export async function interpolateAsync(template: string, context: object | undefined): Promise<string> {
 	if (template == null || template.length === 0) return template;
-	if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
+	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
 	let fn = interpolationAsyncMap.get(template);
 	if (fn == null) {
@@ -268,48 +246,14 @@ export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
 }
 
-export function* lines(s: string, char: string = '\n'): IterableIterator<string> {
-	let i = 0;
-	while (i < s.length) {
-		let j = s.indexOf(char, i);
-		if (j === -1) {
-			j = s.length;
-		}
-
-		yield s.substring(i, j);
-		i = j + 1;
-	}
-}
-
 export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
 	return _md5(s, encoding);
-}
-
-export function normalizePath(fileName: string, options?: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean }) {
-	if (fileName == null || fileName.length === 0) return fileName;
-
-	let normalized = fileName.replace(pathNormalizeRegex, '/');
-
-	if (options?.stripTrailingSlash ?? true) {
-		normalized = normalized.replace(pathStripTrailingSlashRegex, emptyStr);
-	}
-
-	if ((options?.addLeadingSlash ?? false) && normalized.charCodeAt(0) !== CharCode.Slash) {
-		normalized = `/${normalized}`;
-	}
-
-	if (isWindows) {
-		// Ensure that drive casing is normalized (lower case)
-		normalized = normalized.replace(driveLetterNormalizeRegex, drive => drive.toLowerCase());
-	}
-
-	return normalized;
 }
 
 export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
 	if (before === 0 && after === 0) return s;
 
-	return `${before === 0 ? emptyStr : padding.repeat(before)}${s}${after === 0 ? emptyStr : padding.repeat(after)}`;
+	return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
 }
 
 export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
@@ -362,7 +306,7 @@ export function pluralize(
 		zero?: string;
 	},
 ) {
-	if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
+	if (options == null) return `${count} ${s}${count === 1 ? '' : 's'}`;
 
 	const suffix = count === 1 ? s : options.plural ?? `${s}s`;
 	if (options.only) return suffix;
@@ -446,7 +390,7 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 	return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 }
 
-const cachedAnsiRegex = ansiRegex();
+let cachedAnsiRegex: RegExp | undefined;
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
 // See sindresorhus/string-width
@@ -456,7 +400,10 @@ export function getWidth(s: string): number {
 	// Shortcut to avoid needless string `RegExp`s, replacements, and allocations
 	if (!containsNonAsciiRegex.test(s)) return s.length;
 
-	s = s.replace(cachedAnsiRegex, emptyStr);
+	if (cachedAnsiRegex == null) {
+		cachedAnsiRegex = ansiRegex();
+	}
+	s = s.replace(cachedAnsiRegex, '');
 
 	let count = 0;
 	let emoji = 0;

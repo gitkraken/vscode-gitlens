@@ -23,9 +23,9 @@ jobs:
             - name: Install
               run: yarn
             - name: Package extension
-              run: yarn run pack
+              run: yarn run package
             - name: Publish Extension
-              run: yarn vsce publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.MARKETPLACE_PAT }}
+              run: yarn vsce publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
             - name: Generate Changelog
               id: changelog
               uses: mindsers/changelog-reader-action@v2

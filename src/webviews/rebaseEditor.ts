@@ -1,7 +1,5 @@
-'use strict';
 import {
 	CancellationToken,
-	commands,
 	ConfigurationTarget,
 	CustomTextEditorProvider,
 	Disposable,
@@ -17,12 +15,16 @@ import {
 import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
-import { BuiltInCommands } from '../constants';
+import { CoreCommands } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { debug, gate, Iterables, Strings } from '../system';
+import { executeCoreCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
+import { join, map } from '../system/iterable';
+import { normalizePath } from '../system/path';
 import {
 	Author,
 	Commit,
@@ -164,8 +166,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	@debug({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
-		const repo = await this.container.git.getRepository(repoPath);
+		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
+		const repo = this.container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
@@ -466,7 +468,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		void Messages.showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
-		void commands.executeCommand(BuiltInCommands.Open, context.document.uri, {
+		void executeCoreCommand(CoreCommands.Open, context.document.uri, {
 			override: false,
 			preview: false,
 		});
@@ -528,8 +530,8 @@ async function parseRebaseTodo(
 	const commits: Commit[] = [];
 
 	const log = await container.git.getLogForSearch(repoPath, {
-		pattern: `${onto ? `#:${onto} ` : ''}${Iterables.join(
-			Iterables.map(entries, e => `#:${e.ref}`),
+		pattern: `${onto ? `#:${onto} ` : ''}${join(
+			map(entries, e => `#:${e.ref}`),
 			' ',
 		)}`,
 	});
@@ -537,19 +539,20 @@ async function parseRebaseTodo(
 
 	const ontoCommit = onto ? foundCommits.find(c => c.ref.startsWith(onto)) : undefined;
 	if (ontoCommit != null) {
-		if (!authors.has(ontoCommit.author)) {
-			authors.set(ontoCommit.author, {
-				author: ontoCommit.author,
+		const { name, email } = ontoCommit.author;
+		if (!authors.has(name)) {
+			authors.set(name, {
+				author: name,
 				avatarUrl: (
 					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
-				email: ontoCommit.email,
+				email: email,
 			});
 		}
 
 		commits.push({
 			ref: ontoCommit.ref,
-			author: ontoCommit.author,
+			author: name,
 			date: ontoCommit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
@@ -566,22 +569,23 @@ async function parseRebaseTodo(
 			onto = '';
 		}
 
-		if (!authors.has(commit.author)) {
-			authors.set(commit.author, {
-				author: commit.author,
+		const { name, email } = commit.author;
+		if (!authors.has(name)) {
+			authors.set(name, {
+				author: name,
 				avatarUrl: (
 					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
 				).toString(true),
-				email: commit.email,
+				email: email,
 			});
 		}
 
 		commits.push({
 			ref: commit.ref,
-			author: commit.author,
+			author: name,
 			date: commit.formatDate(container.config.defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
-			message: commit.message,
+			message: commit.message ?? commit.summary,
 		});
 	}
 

@@ -1,11 +1,13 @@
-'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
+import { command } from '../system/command';
+import { findOrOpenEditor } from '../system/utils';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;
@@ -16,7 +18,7 @@ export interface OpenWorkingFileCommandArgs {
 
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenWorkingFile, Commands.OpenWorkingFileInDiffLeft, Commands.OpenWorkingFileInDiffRight]);
 	}
 
@@ -36,7 +38,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 			args.uri = await GitUri.fromUri(uri);
 			if (GitUri.is(args.uri) && args.uri.sha) {
-				const workingUri = await Container.instance.git.getWorkingUri(args.uri.repoPath!, args.uri);
+				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
 						'Unable to open working file. File could not be found in the working tree',
@@ -58,7 +60,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, throwOnError: true });
 			if (args.annotationType === undefined) return;
 
-			void (await Container.instance.fileAnnotations.show(e, args.annotationType, {
+			void (await this.container.fileAnnotations.show(e, args.annotationType, {
 				selection: { line: args.line },
 			}));
 		} catch (ex) {

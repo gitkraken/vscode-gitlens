@@ -1,7 +1,6 @@
-'use strict';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -42,8 +41,8 @@ export interface ResetGitCommandArgs {
 type ResetStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class ResetGitCommand extends QuickCommand<State> {
-	constructor(args?: ResetGitCommandArgs) {
-		super('reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
+	constructor(container: Container, args?: ResetGitCommandArgs) {
+		super(container, 'reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
 
 		let counter = 0;
 		if (args?.state?.repo != null) {
@@ -73,8 +72,8 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
@@ -121,7 +120,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 

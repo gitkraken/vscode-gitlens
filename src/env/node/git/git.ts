@@ -1,21 +1,19 @@
-/* eslint-disable @typescript-eslint/naming-convention */
-'use strict';
-import * as paths from 'path';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
-import { Container } from '../../../container';
 import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
-import { GitDiffFilter, GitRevision } from '../../../git/models';
+import { GitDiffFilter, GitRevision, GitUser } from '../../../git/models';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from '../../../git/parsers';
 import { Logger } from '../../../logger';
-import { Paths, Strings, Versions } from '../../../system';
+import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
+import { getDurationMilliseconds } from '../../../system/string';
+import { compare, fromString } from '../../../system/version';
 import { GitLocation } from './locator';
 import { fsExists, run, RunError, RunOptions } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
-const emptyStr = '';
+
 export const maxGitCliLength = 30000;
 
 const textDecoder = new TextDecoder('utf8');
@@ -49,132 +47,19 @@ const GitWarnings = {
 	notAGitCommand: /'.+' is not a git command/i,
 };
 
-// A map of running git commands -- avoids running duplicate overlaping commands
-const pendingCommands = new Map<string, Promise<string | Buffer>>();
-
-export async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
-	if (Container.instance.vsls.isMaybeGuest) {
-		if (options.local !== true) {
-			const guest = await Container.instance.vsls.guest();
-			if (guest !== undefined) {
-				return guest.git<TOut>(options, ...args);
-			}
-		} else {
-			// Since we will have a live share path here, just blank it out
-			options.cwd = emptyStr;
-		}
-	}
-
-	const start = hrtime();
-
-	const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
-
-	const runOpts: RunOptions = {
-		...opts,
-		encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
-		// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
-		// Shouldn't *really* be needed but better safe than sorry
-		env: {
-			...process.env,
-			...(options.env ?? emptyObj),
-			GCM_INTERACTIVE: 'NEVER',
-			GCM_PRESERVE_CREDS: 'TRUE',
-			LC_ALL: 'C',
-		},
-	};
-
-	const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
-
-	const command = `${correlationKey !== undefined ? `${correlationKey}:` : emptyStr}${gitCommand}`;
-
-	let waiting;
-	let promise = pendingCommands.get(command);
-	if (promise === undefined) {
-		waiting = false;
-
-		// Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
-		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		args.splice(
-			0,
-			0,
-			'-c',
-			'core.quotepath=false',
-			'-c',
-			'color.ui=false',
-			...(configs !== undefined ? configs : emptyArray),
-		);
-
-		if (process.platform === 'win32') {
-			args.splice(0, 0, '-c', 'core.longpaths=true');
-		}
-
-		promise = run<TOut>(await Git.path(), args, encoding ?? 'utf8', runOpts);
-
-		pendingCommands.set(command, promise);
-	} else {
-		waiting = true;
-		Logger.debug(`${gitCommand} ${GlyphChars.Dot} waiting...`);
-	}
-
-	let exception: Error | undefined;
-	try {
-		return (await promise) as TOut;
-	} catch (ex) {
-		exception = ex;
-
-		switch (errorHandling) {
-			case GitErrorHandling.Ignore:
-				exception = undefined;
-				return emptyStr as TOut;
-
-			case GitErrorHandling.Throw:
-				throw ex;
-
-			default: {
-				const result = defaultExceptionHandler(ex, options.cwd, start);
-				exception = undefined;
-				return result as TOut;
-			}
-		}
-	} finally {
-		pendingCommands.delete(command);
-
-		const duration = Strings.getDurationMilliseconds(start);
-		const elapsed = `${duration} ms ${waiting ? '(waited) ' : emptyStr}`;
-		if (exception != null) {
-			Logger.error(
-				'',
-				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || emptyStr)
-					.trim()
-					.replace(/fatal: /g, '')
-					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${elapsed}`,
-			);
-		} else if (duration > Logger.slowCallWarningThreshold) {
-			Logger.warn(`${gitCommand} ${GlyphChars.Dot} ${elapsed} (slow)`);
-		} else {
-			Logger.log(`${gitCommand} ${GlyphChars.Dot} ${elapsed}`);
-		}
-		Logger.logGitCommand(
-			`${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${elapsed}`,
-			duration,
-			exception,
-		);
-	}
-}
-
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
 	const msg = ex.message || ex.toString();
 	if (msg != null && msg.length !== 0) {
 		for (const warning of Object.values(GitWarnings)) {
 			if (warning.test(msg)) {
-				const duration = start !== undefined ? `${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
+				const duration = start !== undefined ? `${getDurationMilliseconds(start)} ms` : '';
 				Logger.warn(
 					`[${cwd}] Git ${msg
 						.trim()
 						.replace(/fatal: /g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`,
 				);
-				return emptyStr;
+				return '';
 			}
 		}
 
@@ -183,55 +68,165 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 			const [, ref] = match;
 
 			// Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-			if (ref?.endsWith('^3')) return emptyStr;
+			if (ref?.endsWith('^3')) return '';
 		}
 	}
 
 	throw ex;
 }
 
-export namespace Git {
-	let gitLocator!: () => Promise<GitLocation>;
-	export function setLocator(locator: () => Promise<GitLocation>): void {
-		gitLocator = locator;
+type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
+
+export class Git {
+	// A map of running git commands -- avoids running duplicate overlaping commands
+	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
+
+	async git(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
+	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
+	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
+		const start = hrtime();
+
+		const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
+
+		const runOpts: RunOptions = {
+			...opts,
+			encoding: (encoding ?? 'utf8') === 'utf8' ? 'utf8' : 'buffer',
+			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
+			// Shouldn't *really* be needed but better safe than sorry
+			env: {
+				...process.env,
+				...(options.env ?? emptyObj),
+				GCM_INTERACTIVE: 'NEVER',
+				GCM_PRESERVE_CREDS: 'TRUE',
+				LC_ALL: 'C',
+			},
+		};
+
+		const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
+
+		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${gitCommand}`;
+
+		let waiting;
+		let promise = this.pendingCommands.get(command);
+		if (promise === undefined) {
+			waiting = false;
+
+			// Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
+			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+			args.splice(
+				0,
+				0,
+				'-c',
+				'core.quotepath=false',
+				'-c',
+				'color.ui=false',
+				...(configs !== undefined ? configs : emptyArray),
+			);
+
+			if (process.platform === 'win32') {
+				args.splice(0, 0, '-c', 'core.longpaths=true');
+			}
+
+			promise = run<T>(await this.path(), args, encoding ?? 'utf8', runOpts);
+
+			this.pendingCommands.set(command, promise);
+		} else {
+			waiting = true;
+			Logger.debug(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} waiting...`);
+		}
+
+		let exception: Error | undefined;
+		try {
+			return (await promise) as T;
+		} catch (ex) {
+			exception = ex;
+
+			switch (errorHandling) {
+				case GitErrorHandling.Ignore:
+					exception = undefined;
+					return '' as T;
+
+				case GitErrorHandling.Throw:
+					throw ex;
+
+				default: {
+					const result = defaultExceptionHandler(ex, options.cwd, start);
+					exception = undefined;
+					return result as T;
+				}
+			}
+		} finally {
+			this.pendingCommands.delete(command);
+
+			const duration = getDurationMilliseconds(start);
+			const slow = duration > Logger.slowCallWarningThreshold;
+			const status =
+				slow || waiting
+					? ` (${slow ? `slow${waiting ? ', waiting' : ''}` : ''}${waiting ? 'waiting' : ''})`
+					: '';
+
+			if (exception != null) {
+				Logger.error(
+					'',
+					`[GIT  ] [${runOpts.cwd}] git ${(exception.message || exception.toString() || '')
+						.trim()
+						.replace(/fatal: /g, '')
+						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
+				);
+			} else if (slow) {
+				Logger.warn(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+			} else {
+				Logger.log(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+			}
+			Logger.logGitCommand(
+				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}${waiting ? ' (waited)' : ''}`,
+				duration,
+				exception,
+			);
+		}
 	}
 
-	export async function path(): Promise<string> {
-		return (await gitLocator()).path;
+	private gitLocator!: () => Promise<GitLocation>;
+	setLocator(locator: () => Promise<GitLocation>): void {
+		this.gitLocator = locator;
 	}
 
-	export async function version(): Promise<string> {
-		return (await gitLocator()).version;
+	async path(): Promise<string> {
+		return (await this.gitLocator()).path;
 	}
 
-	export async function isAtLeastVersion(minimum: string): Promise<boolean> {
-		const result = Versions.compare(Versions.fromString(await Git.version()), Versions.fromString(minimum));
+	async version(): Promise<string> {
+		return (await this.gitLocator()).version;
+	}
+
+	async isAtLeastVersion(minimum: string): Promise<boolean> {
+		const result = compare(fromString(await this.version()), fromString(minimum));
 		return result !== -1;
 	}
 
 	// Git commands
 
-	export function add(repoPath: string | undefined, pathspec: string) {
-		return git<string>({ cwd: repoPath }, 'add', '-A', '--', pathspec);
+	add(repoPath: string | undefined, pathspec: string) {
+		return this.git<string>({ cwd: repoPath }, 'add', '-A', '--', pathspec);
 	}
 
-	export function apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
+	apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
 		const params = ['apply', '--whitespace=warn'];
 		if (options.allowConflicts) {
 			params.push('-3');
 		}
-		return git<string>({ cwd: repoPath, stdin: patch }, ...params);
+		return this.git<string>({ cwd: repoPath, stdin: patch }, ...params);
 	}
 
-	const ignoreRevsFileMap = new Map<string, boolean>();
+	private readonly ignoreRevsFileMap = new Map<string, boolean>();
 
-	export async function blame(
+	async blame(
 		repoPath: string | undefined,
 		fileName: string,
 		ref?: string,
 		options: { args?: string[] | null; ignoreWhitespace?: boolean; startLine?: number; endLine?: number } = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -247,14 +242,14 @@ export namespace Git {
 			const index = params.indexOf('--ignore-revs-file');
 			if (index !== -1) {
 				// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
-				let supported = await Git.isAtLeastVersion('2.23');
+				let supported = await this.isAtLeastVersion('2.23');
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
-					if (!paths.isAbsolute(ignoreRevsFile)) {
-						ignoreRevsFile = paths.join(repoPath ?? emptyStr, ignoreRevsFile);
+					if (!isAbsolute(ignoreRevsFile)) {
+						ignoreRevsFile = joinPaths(repoPath ?? '', ignoreRevsFile);
 					}
 
-					const exists = ignoreRevsFileMap.get(ignoreRevsFile);
+					const exists = this.ignoreRevsFileMap.get(ignoreRevsFile);
 					if (exists !== undefined) {
 						supported = exists;
 					} else {
@@ -265,7 +260,7 @@ export namespace Git {
 							supported = false;
 						}
 
-						ignoreRevsFileMap.set(ignoreRevsFile, supported);
+						this.ignoreRevsFileMap.set(ignoreRevsFile, supported);
 					}
 				}
 
@@ -282,16 +277,16 @@ export namespace Git {
 				params.push('--contents', '-');
 
 				// Get the file contents for the staged version using `:`
-				stdin = await Git.show<string>(repoPath, fileName, ':');
+				stdin = await this.show<string>(repoPath, fileName, ':');
 			} else {
 				params.push(ref);
 			}
 		}
 
-		return git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
+		return this.git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
 	}
 
-	export function blame__contents(
+	blame__contents(
 		repoPath: string | undefined,
 		fileName: string,
 		contents: string,
@@ -303,7 +298,7 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['blame', '--root', '--incremental'];
 
@@ -320,7 +315,7 @@ export namespace Git {
 		// Pipe the blame contents to stdin
 		params.push('--contents', '-');
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: root, stdin: contents, correlationKey: options.correlationKey },
 			...params,
 			'--',
@@ -328,7 +323,7 @@ export namespace Git {
 		);
 	}
 
-	export function branch__containsOrPointsAt(
+	branch__containsOrPointsAt(
 		repoPath: string,
 		ref: string,
 		{
@@ -346,14 +341,14 @@ export namespace Git {
 			params.push(name);
 		}
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'color.branch=false'], errors: GitErrorHandling.Ignore },
 			...params,
 		);
 	}
 
-	export function check_ignore(repoPath: string, ...files: string[]) {
-		return git<string>(
+	check_ignore(repoPath: string, ...files: string[]) {
+		return this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
 			'check-ignore',
 			'-z',
@@ -361,15 +356,11 @@ export namespace Git {
 		);
 	}
 
-	export function check_mailmap(repoPath: string, author: string) {
-		return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
+	check_mailmap(repoPath: string, author: string) {
+		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'check-mailmap', author);
 	}
 
-	export async function check_ref_format(
-		ref: string,
-		repoPath?: string,
-		options: { branch?: boolean } = { branch: true },
-	) {
+	async check_ref_format(ref: string, repoPath?: string, options: { branch?: boolean } = { branch: true }) {
 		const params = ['check-ref-format'];
 		if (options.branch) {
 			params.push('--branch');
@@ -378,8 +369,8 @@ export namespace Git {
 		}
 
 		try {
-			const data = await git<string>(
-				{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Throw, local: true },
+			const data = await this.git<string>(
+				{ cwd: repoPath ?? '', errors: GitErrorHandling.Throw },
 				...params,
 				ref,
 			);
@@ -389,7 +380,7 @@ export namespace Git {
 		}
 	}
 
-	export function checkout(
+	checkout(
 		repoPath: string,
 		ref: string,
 		{ createBranch, fileName }: { createBranch?: string; fileName?: string } = {},
@@ -401,18 +392,18 @@ export namespace Git {
 			params.push(ref, '--');
 
 			if (fileName) {
-				[fileName, repoPath] = Paths.splitPath(fileName, repoPath);
+				[fileName, repoPath] = splitPath(fileName, repoPath, true);
 
 				params.push(fileName);
 			}
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	export async function config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
-		const data = await git<string>(
-			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+	async config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
+		const data = await this.git<string>(
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get',
 			key,
@@ -420,9 +411,9 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
-		const data = await git<string>(
-			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+	async config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
+		const data = await this.git<string>(
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get-regex',
 			pattern,
@@ -430,7 +421,7 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function diff(
+	async diff(
 		repoPath: string,
 		fileName: string,
 		ref1?: string,
@@ -454,7 +445,7 @@ export namespace Git {
 		}
 
 		if (options.filters != null && options.filters.length !== 0) {
-			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
 		if (ref1) {
@@ -469,7 +460,7 @@ export namespace Git {
 		}
 
 		try {
-			return await git<string>(
+			return await this.git<string>(
 				{
 					cwd: repoPath,
 					configs: ['-c', 'color.diff=false'],
@@ -486,7 +477,7 @@ export namespace Git {
 
 				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
 				if (ref === ref1 && ref != null && ref.endsWith('^')) {
-					return Git.diff(repoPath, fileName, rootSha, ref2, options);
+					return this.diff(repoPath, fileName, rootSha, ref2, options);
 				}
 			}
 
@@ -494,7 +485,7 @@ export namespace Git {
 		}
 	}
 
-	export async function diff__contents(
+	async diff__contents(
 		repoPath: string,
 		fileName: string,
 		ref: string,
@@ -510,7 +501,7 @@ export namespace Git {
 		];
 
 		if (options.filters != null && options.filters.length !== 0) {
-			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${options.filters.join('')}`);
 		}
 
 		// // <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
@@ -522,7 +513,7 @@ export namespace Git {
 		params.push('--no-index');
 
 		try {
-			return await git<string>(
+			return await this.git<string>(
 				{
 					cwd: repoPath,
 					configs: ['-c', 'color.diff=false'],
@@ -546,7 +537,7 @@ export namespace Git {
 
 				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
 				if (matchedRef === ref && matchedRef != null && matchedRef.endsWith('^')) {
-					return Git.diff__contents(repoPath, fileName, rootSha, contents, options);
+					return this.diff__contents(repoPath, fileName, rootSha, contents, options);
 				}
 			}
 
@@ -554,7 +545,7 @@ export namespace Git {
 		}
 	}
 
-	export function diff__name_status(
+	diff__name_status(
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
@@ -567,7 +558,7 @@ export namespace Git {
 			'--no-ext-diff',
 		];
 		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${filters.join('')}`);
 		}
 		if (ref1) {
 			params.push(ref1);
@@ -576,17 +567,17 @@ export namespace Git {
 			params.push(ref2);
 		}
 
-		return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+		return this.git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
 	}
 
-	export async function diff__shortstat(repoPath: string, ref?: string) {
+	async diff__shortstat(repoPath: string, ref?: string) {
 		const params = ['diff', '--shortstat', '--no-ext-diff'];
 		if (ref) {
 			params.push(ref);
 		}
 
 		try {
-			return await git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+			return await this.git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -597,7 +588,7 @@ export namespace Git {
 		}
 	}
 
-	export function difftool(
+	difftool(
 		repoPath: string,
 		fileName: string,
 		tool: string,
@@ -614,19 +605,19 @@ export namespace Git {
 			params.push(options.ref2);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params, '--', fileName);
+		return this.git<string>({ cwd: repoPath }, ...params, '--', fileName);
 	}
 
-	export function difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string) {
+	difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string) {
 		const params = ['difftool', '--dir-diff', `--tool=${tool}`, ref1];
 		if (ref2) {
 			params.push(ref2);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	export async function fetch(
+	async fetch(
 		repoPath: string,
 		options:
 			| { all?: boolean; branch?: undefined; prune?: boolean; remote?: string }
@@ -650,7 +641,7 @@ export namespace Git {
 				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
 
 				try {
-					void (await git<string>({ cwd: repoPath }, ...params));
+					void (await this.git<string>({ cwd: repoPath }, ...params));
 					return;
 				} catch (ex) {
 					const msg: string = ex?.toString() ?? '';
@@ -673,68 +664,62 @@ export namespace Git {
 			params.push('--all');
 		}
 
-		void (await git<string>({ cwd: repoPath }, ...params));
+		void (await this.git<string>({ cwd: repoPath }, ...params));
 	}
 
-	export function for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {
+	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {
 		const params = ['for-each-ref', `--format=${GitBranchParser.defaultFormat}`, 'refs/heads'];
 		if (options.all) {
 			params.push('refs/remotes');
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	export function log(
+	log(
 		repoPath: string,
 		ref: string | undefined,
 		{
 			all,
+			argsOrFormat,
 			authors,
-			format = 'default',
 			limit,
 			merges,
 			ordering,
-			reverse,
 			similarityThreshold,
 			since,
 		}: {
 			all?: boolean;
-			authors?: string[];
-			format?: 'default' | 'refs' | 'shortlog' | 'shortlog+stats';
+			argsOrFormat?: string | string[];
+			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
 			ordering?: string | null;
-			reverse?: boolean;
 			similarityThreshold?: number | null;
 			since?: string;
 		},
 	) {
+		if (argsOrFormat == null) {
+			argsOrFormat = ['--name-status', `--format=${GitLogParser.defaultFormat}`];
+		}
+
+		if (typeof argsOrFormat === 'string') {
+			argsOrFormat = [`--format=${argsOrFormat}`];
+		}
+
 		const params = [
 			'log',
-			`--format=${
-				format === 'refs'
-					? GitLogParser.simpleRefs
-					: format === 'shortlog' || format === 'shortlog+stats'
-					? GitLogParser.shortlog
-					: GitLogParser.defaultFormat
-			}`,
+			...argsOrFormat,
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'-m',
 		];
 
-		if (format === 'default') {
-			params.push('--name-status');
-		} else if (format === 'shortlog+stats') {
-			params.push('--shortstat');
-		}
-
 		if (ordering) {
 			params.push(`--${ordering}-order`);
 		}
 
-		if (limit && !reverse) {
+		if (limit) {
 			params.push(`-n${limit + 1}`);
 		}
 
@@ -747,9 +732,10 @@ export namespace Git {
 		}
 
 		if (authors != null && authors.length !== 0) {
-			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
-		} else if (format === 'shortlog') {
-			params.push('--use-mailmap');
+			if (!params.includes('--use-mailmap')) {
+				params.push('--use-mailmap');
+			}
+			params.push(...authors.map(a => `--author=^${a.name} <${a.email}>$`));
 		}
 
 		if (all) {
@@ -757,30 +743,27 @@ export namespace Git {
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
-			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
-			if (reverse) {
-				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
-			} else {
-				params.push(ref);
-			}
+			params.push(ref);
 		}
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'] },
 			...params,
 			'--',
 		);
 	}
 
-	export function log__file(
+	log__file(
 		repoPath: string,
 		fileName: string,
 		ref: string | undefined,
 		{
 			all,
+			argsOrFormat,
+			// TODO@eamodio remove this in favor of argsOrFormat
+			fileMode = 'full',
 			filters,
 			firstParent = false,
-			format = 'default',
 			limit,
 			ordering,
 			renames = true,
@@ -791,9 +774,11 @@ export namespace Git {
 			endLine,
 		}: {
 			all?: boolean;
+			argsOrFormat?: string | string[];
+			// TODO@eamodio remove this in favor of argsOrFormat
+			fileMode?: 'full' | 'simple' | 'none';
 			filters?: GitDiffFilter[];
 			firstParent?: boolean;
-			format?: 'default' | 'refs' | 'simple';
 			limit?: number;
 			ordering?: string | null;
 			renames?: boolean;
@@ -804,12 +789,17 @@ export namespace Git {
 			endLine?: number;
 		} = {},
 	) {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
-		const params = [
-			'log',
-			`--format=${format === 'default' ? GitLogParser.defaultFormat : GitLogParser.simpleFormat}`,
-		];
+		if (argsOrFormat == null) {
+			argsOrFormat = [`--format=${GitLogParser.defaultFormat}`];
+		}
+
+		if (typeof argsOrFormat === 'string') {
+			argsOrFormat = [`--format=${argsOrFormat}`];
+		}
+
+		const params = ['log', ...argsOrFormat];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
@@ -846,13 +836,13 @@ export namespace Git {
 		}
 
 		if (filters != null && filters.length !== 0) {
-			params.push(`--diff-filter=${filters.join(emptyStr)}`);
+			params.push(`--diff-filter=${filters.join('')}`);
 		}
 
-		if (format !== 'refs') {
+		if (fileMode !== 'none') {
 			if (startLine == null) {
 				// If this is the log of a folder, use `--name-status` to match non-file logs (for parsing)
-				if (format === 'simple' || isFolderGlob(file)) {
+				if (fileMode === 'simple' || isFolderGlob(file)) {
 					params.push('--name-status');
 				} else {
 					params.push('--numstat', '--summary');
@@ -877,10 +867,10 @@ export namespace Git {
 			params.push('--', file);
 		}
 
-		return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params);
+		return this.git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params);
 	}
 
-	export async function log__file_recent(
+	async log__file_recent(
 		repoPath: string,
 		fileName: string,
 		{
@@ -904,7 +894,7 @@ export namespace Git {
 			params.push(ref);
 		}
 
-		const data = await git<string>(
+		const data = await this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -913,13 +903,7 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__find_object(
-		repoPath: string,
-		objectId: string,
-		ref: string,
-		ordering: string | null,
-		file?: string,
-	) {
+	async log__find_object(repoPath: string, objectId: string, ref: string, ordering: string | null, file?: string) {
 		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
 
 		if (ordering) {
@@ -930,21 +914,21 @@ export namespace Git {
 			params.push('--', file);
 		}
 
-		const data = await git<string>(
+		const data = await this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			...params,
 		);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent(repoPath: string, ordering?: string | null) {
+	async log__recent(repoPath: string, ordering?: string | null) {
 		const params = ['log', '-n1', '--format=%H'];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
 		}
 
-		const data = await git<string>(
+		const data = await this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -953,14 +937,14 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__recent_committerdate(repoPath: string, ordering?: string | null) {
+	async log__recent_committerdate(repoPath: string, ordering?: string | null) {
 		const params = ['log', '-n1', '--format=%ct'];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
 		}
 
-		const data = await git<string>(
+		const data = await this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
@@ -969,7 +953,7 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export function log__search(
+	log__search(
 		repoPath: string,
 		search: string[] = emptyArray,
 		{
@@ -998,22 +982,22 @@ export namespace Git {
 			params.push(`--${ordering}-order`);
 		}
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: repoPath, configs: useShow ? undefined : ['-c', 'log.showSignature=false'] },
 			...params,
 			...search,
 		);
 	}
 
-	// export function log__shortstat(repoPath: string, options: { ref?: string }) {
+	//  log__shortstat(repoPath: string, options: { ref?: string }) {
 	//     const params = ['log', '--shortstat', '--oneline'];
 	//     if (options.ref && !GitRevision.isUncommittedStaged(options.ref)) {
 	//         params.push(options.ref);
 	//     }
-	//     return git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
+	//     return this.git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
 	// }
 
-	export async function ls_files(
+	async ls_files(
 		repoPath: string,
 		fileName: string,
 		{ ref, untracked }: { ref?: string; untracked?: boolean } = {},
@@ -1027,44 +1011,50 @@ export namespace Git {
 			params.push('-o');
 		}
 
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
+		const data = await this.git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			...params,
+			'--',
+			fileName,
+		);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export function ls_remote(repoPath: string, remote: string, ref?: string) {
-		return git<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
+	ls_remote(repoPath: string, remote: string, ref?: string) {
+		return this.git<string>({ cwd: repoPath }, 'ls-remote', remote, ref);
 	}
 
-	export function ls_remote__HEAD(repoPath: string, remote: string) {
-		return git<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
+	ls_remote__HEAD(repoPath: string, remote: string) {
+		return this.git<string>({ cwd: repoPath }, 'ls-remote', '--symref', remote, 'HEAD');
 	}
 
-	export async function ls_tree(repoPath: string, ref: string, { fileName }: { fileName?: string } = {}) {
+	async ls_tree(repoPath: string, ref: string, path?: string) {
 		const params = ['ls-tree'];
-		if (fileName) {
-			params.push('-l', ref, '--', fileName);
+		if (path) {
+			params.push('-l', ref, '--', path);
 		} else {
 			params.push('-lrt', ref, '--');
 		}
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
+		const data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export function merge_base(
-		repoPath: string,
-		ref1: string,
-		ref2: string,
-		{ forkPoint }: { forkPoint?: boolean } = {},
-	) {
+	merge_base(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
 		const params = ['merge-base'];
-		if (forkPoint) {
+		if (options?.forkPoint) {
 			params.push('--fork-point');
 		}
 
-		return git<string>({ cwd: repoPath }, ...params, ref1, ref2);
+		return this.git<string>({ cwd: repoPath }, ...params, ref1, ref2);
 	}
 
-	export function reflog(
+	async merge_base__is_ancestor(repoPath: string, ref1: string, ref2: string): Promise<boolean> {
+		const params = ['merge-base', '--is-ancestor'];
+		const exitCode = await this.git({ cwd: repoPath, exitCodeOnly: true }, ...params, ref1, ref2);
+		return exitCode === 0;
+	}
+
+	reflog(
 		repoPath: string,
 		{
 			all,
@@ -1096,31 +1086,31 @@ export namespace Git {
 			params.push(branch);
 		}
 
-		return git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
+		return this.git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
 	}
 
-	export function remote(repoPath: string): Promise<string> {
-		return git<string>({ cwd: repoPath }, 'remote', '-v');
+	remote(repoPath: string): Promise<string> {
+		return this.git<string>({ cwd: repoPath }, 'remote', '-v');
 	}
 
-	export function remote__add(repoPath: string, name: string, url: string) {
-		return git<string>({ cwd: repoPath }, 'remote', 'add', name, url);
+	remote__add(repoPath: string, name: string, url: string) {
+		return this.git<string>({ cwd: repoPath }, 'remote', 'add', name, url);
 	}
 
-	export function remote__prune(repoPath: string, remoteName: string) {
-		return git<string>({ cwd: repoPath }, 'remote', 'prune', remoteName);
+	remote__prune(repoPath: string, remoteName: string) {
+		return this.git<string>({ cwd: repoPath }, 'remote', 'prune', remoteName);
 	}
 
-	export function remote__get_url(repoPath: string, remote: string): Promise<string> {
-		return git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
+	remote__get_url(repoPath: string, remote: string): Promise<string> {
+		return this.git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
 	}
 
-	export function reset(repoPath: string | undefined, fileName: string) {
-		return git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
+	reset(repoPath: string | undefined, fileName: string) {
+		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
 	}
 
-	export async function rev_list__count(repoPath: string, ref: string): Promise<number | undefined> {
-		let data = await git<string>(
+	async rev_list__count(repoPath: string, ref: string): Promise<number | undefined> {
+		let data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-list',
 			'--count',
@@ -1134,11 +1124,11 @@ export namespace Git {
 		return isNaN(result) ? undefined : result;
 	}
 
-	export async function rev_list__left_right(
+	async rev_list__left_right(
 		repoPath: string,
 		refs: string[],
 	): Promise<{ ahead: number; behind: number } | undefined> {
-		const data = await git<string>(
+		const data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-list',
 			'--left-right',
@@ -1162,16 +1152,17 @@ export namespace Git {
 		return result;
 	}
 
-	export async function rev_parse__currentBranch(
+	async rev_parse__currentBranch(
 		repoPath: string,
 		ordering: string | null,
 	): Promise<[string, string | undefined] | undefined> {
 		try {
-			const data = await git<string>(
+			const data = await this.git<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--abbrev-ref',
 				'--symbolic-full-name',
+				'--end-of-options',
 				'@',
 				'@{u}',
 				'--',
@@ -1185,17 +1176,17 @@ export namespace Git {
 				}
 
 				try {
-					const data = await symbolic_ref(repoPath, 'HEAD');
+					const data = await this.symbolic_ref(repoPath, 'HEAD');
 					if (data != null) return [data.trim(), undefined];
 				} catch {}
 
 				try {
-					const data = await symbolic_ref(repoPath, 'refs/remotes/origin/HEAD');
+					const data = await this.symbolic_ref(repoPath, 'refs/remotes/origin/HEAD');
 					if (data != null) return [data.trim().substr('origin/'.length), undefined];
 				} catch (ex) {
 					if (/is not a symbolic ref/.test(ex.stderr)) {
 						try {
-							const data = await ls_remote__HEAD(repoPath, 'origin');
+							const data = await this.ls_remote__HEAD(repoPath, 'origin');
 							if (data != null) {
 								const match = /ref:\s(\S+)\s+HEAD/m.exec(data);
 								if (match != null) {
@@ -1207,8 +1198,8 @@ export namespace Git {
 					}
 				}
 
-				const defaultBranch = (await config__get('init.defaultBranch', repoPath, { local: true })) ?? 'main';
-				const branchConfig = await config__get_regex(`branch\\.${defaultBranch}\\.+`, repoPath, {
+				const defaultBranch = (await this.config__get('init.defaultBranch', repoPath)) ?? 'main';
+				const branchConfig = await this.config__get_regex(`branch\\.${defaultBranch}\\.+`, repoPath, {
 					local: true,
 				});
 
@@ -1230,7 +1221,7 @@ export namespace Git {
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
-				const sha = await log__recent(repoPath, ordering);
+				const sha = await this.log__recent(repoPath, ordering);
 				if (sha === undefined) return undefined;
 
 				return [`(HEAD detached at ${GitRevision.shorten(sha)})`, sha];
@@ -1241,16 +1232,23 @@ export namespace Git {
 		}
 	}
 
-	export async function rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
+	async rev_parse__git_dir(cwd: string): Promise<string | undefined> {
+		const data = await this.git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--git-dir');
+		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+		// Keep trailing spaces which are part of the directory name
+		return data.length === 0 ? undefined : normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+	}
+
+	async rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
 		try {
-			const data = await git<string>(
+			const data = await this.git<string>(
 				{ cwd: cwd, errors: GitErrorHandling.Throw },
 				'rev-parse',
 				'--show-toplevel',
 			);
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			return data.length === 0 ? undefined : Strings.normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+			return data.length === 0 ? undefined : normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
 		} catch (ex) {
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			if (inDotGit || ex.code === 'ENOENT') {
@@ -1258,39 +1256,32 @@ export namespace Git {
 				let exists = inDotGit ? false : await fsExists(cwd);
 				if (!exists) {
 					do {
-						const parent = paths.dirname(cwd);
+						const parent = dirname(cwd);
 						if (parent === cwd || parent.length === 0) return undefined;
 
 						cwd = parent;
 						exists = await fsExists(cwd);
 					} while (!exists);
 
-					return rev_parse__show_toplevel(cwd);
+					return this.rev_parse__show_toplevel(cwd);
 				}
 			}
 			return undefined;
 		}
 	}
 
-	export async function rev_parse__verify(
-		repoPath: string,
-		ref: string,
-		fileName?: string,
-	): Promise<string | undefined> {
-		const data = await git<string>(
+	async rev_parse__verify(repoPath: string, ref: string, fileName?: string): Promise<string | undefined> {
+		const data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'rev-parse',
 			'--verify',
+			'--end-of-options',
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export function shortlog(repoPath: string) {
-		return git<string>({ cwd: repoPath }, 'shortlog', '-sne', '--all', '--no-merges', 'HEAD');
-	}
-
-	export async function show<TOut extends string | Buffer>(
+	async show<TOut extends string | Buffer>(
 		repoPath: string | undefined,
 		fileName: string,
 		ref: string,
@@ -1298,7 +1289,7 @@ export namespace Git {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
 		} = {},
 	): Promise<TOut | undefined> {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (GitRevision.isUncommittedStaged(ref)) {
 			ref = ':';
@@ -1314,12 +1305,12 @@ export namespace Git {
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await git<TOut>(opts, 'show', '--textconv', args, '--');
+			const data = await this.git<TOut>(opts, 'show', '--textconv', args, '--');
 			return data;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (ref === ':' && GitErrors.badRevision.test(msg)) {
-				return Git.show<TOut>(repoPath, fileName, 'HEAD:', options);
+				return this.show<TOut>(repoPath, fileName, 'HEAD:', options);
 			}
 
 			if (
@@ -1334,7 +1325,7 @@ export namespace Git {
 		}
 	}
 
-	export function show__diff(
+	show__diff(
 		repoPath: string,
 		fileName: string,
 		ref: string,
@@ -1355,31 +1346,27 @@ export namespace Git {
 			params.push(originalFileName);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	export function show__name_status(repoPath: string, fileName: string, ref: string) {
-		return git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
+	show__name_status(repoPath: string, fileName: string, ref: string) {
+		return this.git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
 	}
 
-	export function show_ref__tags(repoPath: string) {
-		return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
+	show_ref__tags(repoPath: string) {
+		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
 	}
 
-	export function stash__apply(
-		repoPath: string,
-		stashName: string,
-		deleteAfter: boolean,
-	): Promise<string | undefined> {
+	stash__apply(repoPath: string, stashName: string, deleteAfter: boolean): Promise<string | undefined> {
 		if (!stashName) return Promise.resolve(undefined);
-		return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
+		return this.git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
-	export async function stash__delete(repoPath: string, stashName: string, ref?: string) {
+	async stash__delete(repoPath: string, stashName: string, ref?: string) {
 		if (!stashName) return undefined;
 
 		if (ref) {
-			const stashRef = await git<string>(
+			const stashRef = await this.git<string>(
 				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 				'show',
 				'--format=%H',
@@ -1391,17 +1378,17 @@ export namespace Git {
 			}
 		}
 
-		return git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
+		return this.git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
 	}
 
-	export function stash__list(
+	stash__list(
 		repoPath: string,
 		{
 			format = GitStashParser.defaultFormat,
 			similarityThreshold,
 		}: { format?: string; similarityThreshold?: number | null } = {},
 	) {
-		return git<string>(
+		return this.git<string>(
 			{ cwd: repoPath },
 			'stash',
 			'list',
@@ -1411,7 +1398,7 @@ export namespace Git {
 		);
 	}
 
-	export async function stash__push(
+	async stash__push(
 		repoPath: string,
 		message?: string,
 		{
@@ -1436,7 +1423,7 @@ export namespace Git {
 		}
 
 		if (stdin && pathspecs != null && pathspecs.length !== 0) {
-			void (await git<string>(
+			void (await this.git<string>(
 				{ cwd: repoPath, stdin: pathspecs.join('\0') },
 				...params,
 				'--pathspec-from-file=-',
@@ -1451,10 +1438,10 @@ export namespace Git {
 			params.push(...pathspecs);
 		}
 
-		void (await git<string>({ cwd: repoPath }, ...params));
+		void (await this.git<string>({ cwd: repoPath }, ...params));
 	}
 
-	export async function status(
+	async status(
 		repoPath: string,
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
@@ -1465,31 +1452,31 @@ export namespace Git {
 			'--branch',
 			'-u',
 		];
-		if (await Git.isAtLeastVersion('2.18')) {
+		if (await this.isAtLeastVersion('2.18')) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: repoPath, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
 		);
 	}
 
-	export async function status__file(
+	async status__file(
 		repoPath: string,
 		fileName: string,
 		porcelainVersion: number = 1,
 		{ similarityThreshold }: { similarityThreshold?: number | null } = {},
 	): Promise<string> {
-		const [file, root] = Paths.splitPath(fileName, repoPath);
+		const [file, root] = splitPath(fileName, repoPath, true);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
-		if (await Git.isAtLeastVersion('2.18')) {
+		if (await this.isAtLeastVersion('2.18')) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
-		return git<string>(
+		return this.git<string>(
 			{ cwd: root, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
@@ -1497,31 +1484,31 @@ export namespace Git {
 		);
 	}
 
-	export function symbolic_ref(repoPath: string, ref: string) {
-		return git<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
+	symbolic_ref(repoPath: string, ref: string) {
+		return this.git<string>({ cwd: repoPath }, 'symbolic-ref', '--short', ref);
 	}
 
-	export function tag(repoPath: string) {
-		return git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
+	tag(repoPath: string) {
+		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
 	}
 
-	export async function readDotGitFile(
+	async readDotGitFile(
 		repoPath: string,
 		paths: string[],
 		options?: { numeric?: false; throw?: boolean; trim?: boolean },
 	): Promise<string | undefined>;
-	export async function readDotGitFile(
+	async readDotGitFile(
 		repoPath: string,
 		path: string[],
 		options?: { numeric: true; throw?: boolean; trim?: boolean },
 	): Promise<number | undefined>;
-	export async function readDotGitFile(
+	async readDotGitFile(
 		repoPath: string,
 		pathParts: string[],
 		options?: { numeric?: boolean; throw?: boolean; trim?: boolean },
 	): Promise<string | number | undefined> {
 		try {
-			const bytes = await workspace.fs.readFile(Uri.file(paths.join(...[repoPath, '.git', ...pathParts])));
+			const bytes = await workspace.fs.readFile(Uri.file(joinPaths(repoPath, '.git', ...pathParts)));
 			let contents = textDecoder.decode(bytes);
 			contents = options?.trim ?? true ? contents.trim() : contents;
 
@@ -1537,8 +1524,4 @@ export namespace Git {
 			return undefined;
 		}
 	}
-}
-
-export function isFolderGlob(path: string) {
-	return paths.basename(path) === '*';
 }

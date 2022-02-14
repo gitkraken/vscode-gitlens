@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	commands,
@@ -10,11 +9,12 @@ import {
 	window,
 } from 'vscode';
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { ContextKeys, GlyphChars, setContext } from '../constants';
+import { Commands, ContextKeys, GlyphChars } from '../constants';
 import { Container } from '../container';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import {
-	GitLogCommit,
+	GitCommit,
 	GitReference,
 	GitRevisionReference,
 	Repository,
@@ -22,7 +22,10 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { debug, Functions, gate, Strings } from '../system';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
+import { disposableInterval } from '../system/function';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
@@ -49,7 +52,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			if (this.view.state.myCommitsOnly) {
 				const user = await this.view.container.git.getCurrentUser(this.repo.path);
 				if (user != null) {
-					authors = [`^${user.name} <${user.email}>$`];
+					authors = [{ name: user.name, email: user.email, username: user.username, id: user.id }];
 				}
 			}
 
@@ -86,7 +89,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				await super.subscribe(),
-				Functions.interval(() => {
+				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
@@ -149,15 +152,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
 					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}${
-					child.repo.supportsChangeEvents
-						? ''
-						: `${Strings.pad(GlyphChars.Warning, 3, 2)}Auto-refresh unavailable`
-				}`;
-			} else {
-				this.view.description = child.repo.supportsChangeEvents
-					? undefined
-					: `${Strings.pad(GlyphChars.Warning, 1, 2)}Auto-refresh unavailable`;
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
 			}
 
 			return child.getChildren();
@@ -202,7 +197,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(
@@ -288,16 +283,18 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return true;
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		const branch = await this.container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		if (!(await this.container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) {
-			return undefined;
-		}
+		const branches = await Container.instance.git.getCommitBranches(commit.repoPath, commit.ref, {
+			branch: branch.name,
+			commitDate: GitCommit.is(commit) ? commit.committer.date : undefined,
+		});
+		if (!branches.length) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,

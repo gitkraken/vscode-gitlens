@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	commands,
@@ -10,7 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -20,7 +19,8 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { gate, Strings } from '../system';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
 import {
 	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
@@ -65,10 +65,6 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
-
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
 
 			const stash = await child.repo.getStash();
 			if (stash == null) {
@@ -116,7 +112,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(

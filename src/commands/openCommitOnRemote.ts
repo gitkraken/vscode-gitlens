@@ -1,20 +1,19 @@
-'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { GitRevision } from '../git/models';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { command, executeCommand } from '../system/command';
 import {
 	ActiveEditorCommand,
-	command,
 	CommandContext,
-	Commands,
-	executeCommand,
 	getCommandUri,
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
-} from './common';
+} from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
@@ -31,7 +30,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		return super.getMarkdownCommandArgsCore<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
@@ -71,9 +70,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				const blameline = editor == null ? 0 : editor.selection.active.line;
 				if (blameline < 0) return;
 
-				const blame = editor?.document.isDirty
-					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.instance.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage(
 						'Unable to open commit on remote provider',
@@ -82,18 +79,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					return;
 				}
 
-				let commit = blame.commit;
-				// If the line is uncommitted, find the previous commit
-				if (commit.isUncommitted) {
-					commit = commit.with({
-						sha: commit.previousSha,
-						fileName: commit.previousFileName,
-						previousSha: null,
-						previousFileName: null,
-					});
-				}
-
-				args.sha = commit.sha;
+				// If the line is uncommitted, use previous commit
+				args.sha = blame.commit.isUncommitted
+					? (await blame.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing
+					: blame.commit.sha;
 			}
 
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {

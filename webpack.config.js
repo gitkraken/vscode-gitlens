@@ -5,7 +5,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
-'use strict';
 const { spawnSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
@@ -25,7 +24,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 module.exports =
 	/**
 	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
-	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
+	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig[] }
 	 */
 	function (env, argv) {
@@ -35,7 +34,7 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
-			squoosh: false,
+			squoosh: true,
 			...env,
 		};
 
@@ -65,10 +64,10 @@ function getExtensionConfig(target, mode, env) {
 				files: 'src/**/*.ts',
 				options: {
 					// cache: true,
-					cacheLocation: path.join(
-						__dirname,
-						target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
-					),
+					// cacheLocation: path.join(
+					// 	__dirname,
+					// 	target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
+					// ),
 					overrideConfigFile: path.join(
 						__dirname,
 						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
@@ -99,7 +98,7 @@ function getExtensionConfig(target, mode, env) {
 	}
 
 	if (env.analyzeBundle) {
-		plugins.push(new BundleAnalyzerPlugin());
+		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
 	}
 
 	return {
@@ -145,14 +144,17 @@ function getExtensionConfig(target, mode, env) {
 							},
 					  }),
 			],
-			splitChunks: {
-				// Disable all non-async code splitting
-				chunks: () => false,
-				cacheGroups: {
-					default: false,
-					vendors: false,
-				},
-			},
+			splitChunks:
+				target === 'webworker'
+					? false
+					: {
+							// Disable all non-async code splitting
+							chunks: () => false,
+							cacheGroups: {
+								default: false,
+								vendors: false,
+							},
+					  },
 		},
 		externals: {
 			vscode: 'commonjs vscode',
@@ -193,12 +195,19 @@ function getExtensionConfig(target, mode, env) {
 			],
 		},
 		resolve: {
-			alias: { '@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target) },
+			alias: {
+				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+				// This dependency is very large, and isn't needed for our use-case
+				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
+			},
 			fallback: target === 'webworker' ? { path: require.resolve('path-browserify') } : undefined,
 			mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
 		plugins: plugins,
+		infrastructureLogging: {
+			level: 'log', // enables logging required for problem matchers
+		},
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
@@ -478,6 +487,9 @@ function getWebviewsConfig(mode, env) {
 			modules: [basePath, 'node_modules'],
 		},
 		plugins: plugins,
+		infrastructureLogging: {
+			level: 'log', // enables logging required for problem matchers
+		},
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
@@ -486,9 +498,6 @@ function getWebviewsConfig(mode, env) {
 			errorsCount: true,
 			warningsCount: true,
 			timings: true,
-		},
-		infrastructureLogging: {
-			level: 'log', // enables logging required for problem matchers
 		},
 	};
 }

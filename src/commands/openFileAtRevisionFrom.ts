@@ -1,16 +1,16 @@
-'use strict';
-import * as paths from 'path';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models';
 import { Messages } from '../messages';
-import { ReferencePicker, StashPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
-import { GitActions } from './gitCommands';
+import { StashPicker } from '../quickpicks/commitPicker';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { command } from '../system/command';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import { GitActions } from './gitCommands.actions';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;
@@ -23,7 +23,7 @@ export interface OpenFileAtRevisionFromCommandArgs {
 
 @command()
 export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.OpenFileAtRevisionFrom);
 	}
 
@@ -44,20 +44,21 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		if (args.reference == null) {
 			if (args?.stash) {
-				const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
+				const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
 
-				const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await StashPicker.show(
-					Container.instance.git.getStash(gitUri.repoPath),
+					this.container.git.getStash(gitUri.repoPath),
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 					'Choose a stash to compare with',
-					{ filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName) },
+					// Stashes should always come with files, so this should be fine (but protect it just in case)
+					{ filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true },
 				);
 				if (pick == null) return;
 
 				args.reference = pick;
 			} else {
-				const title = `Open File at Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `Open File at Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await ReferencePicker.show(
 					gitUri.repoPath,
 					`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
@@ -69,7 +70,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 							const [item] = quickpick.activeItems;
 							if (item != null) {
 								void (await GitActions.Commit.openFileAtRevision(
-									GitUri.toRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
+									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
 										annotationType: args!.annotationType,
 										line: args!.line,
@@ -88,7 +89,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 		}
 
 		void (await GitActions.Commit.openFileAtRevision(
-			GitUri.toRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
+			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
 			{
 				annotationType: args.annotationType,
 				line: args.line,

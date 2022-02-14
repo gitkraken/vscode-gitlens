@@ -1,4 +1,3 @@
-'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/models';
@@ -61,7 +60,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		if (this.branchOrCommit instanceof GitCommit) {
+		if (GitCommit.is(this.branchOrCommit)) {
 			tooltip.appendMarkdown(
 				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
 			);
@@ -69,7 +68,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 		const linkTitle = ` "Open Pull Request \\#${this.pullRequest.id} on ${this.pullRequest.provider.name}"`;
 		tooltip.appendMarkdown(
-			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title}**](${
+			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title.trim()}**](${
 				this.pullRequest.url
 			}${linkTitle}) \\\n[#${this.pullRequest.id}](${this.pullRequest.url}${linkTitle}) by [@${
 				this.pullRequest.author.name

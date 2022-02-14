@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	commands,
@@ -16,19 +15,20 @@ import {
 	ViewFilesLayout,
 	ViewShowBranchComparison,
 } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
 	GitBranchReference,
-	GitLogCommit,
+	GitCommit,
 	GitReference,
 	GitRevisionReference,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { gate, Strings } from '../system';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
 import {
 	BranchesNode,
 	BranchNode,
@@ -84,10 +84,6 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
-
 			const branches = await child.repo.getBranches({ filter: b => !b.remote });
 			if (branches.values.length === 0) {
 				this.view.message = 'No branches could be found.';
@@ -134,7 +130,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(
@@ -242,11 +238,15 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		});
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on
-		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref);
+		const branches = await this.container.git.getCommitBranches(
+			commit.repoPath,
+			commit.ref,
+			GitCommit.is(commit) ? { commitDate: commit.committer.date } : undefined,
+		);
 		if (branches.length === 0) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {

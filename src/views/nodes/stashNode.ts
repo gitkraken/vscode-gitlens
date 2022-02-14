@@ -1,10 +1,10 @@
-'use strict';
-import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters';
 import { GitStashCommit, GitStashReference } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import { makeHierarchical } from '../../system/array';
+import { joinPaths, normalizePath } from '../../system/path';
+import { sortCompare } from '../../system/string';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
@@ -16,7 +16,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 	}
 
 	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
-		super(commit.toGitUri(), view, parent);
+		super(commit.getGitUri(), view, parent);
 	}
 
 	override toClipboard(): string {
@@ -32,25 +32,22 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		// Ensure we have checked for untracked files
-		await this.commit.checkForUntrackedFiles();
-
-		let children: FileNode[] = this.commit.files.map(
-			s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!),
-		);
+		// Ensure we have checked for untracked files (inside the getCommitsForFiles call)
+		const commits = await this.commit.getCommitsForFiles();
+		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => sortCompare(a.label!, b.label!));
 		}
 		return children;
 	}

@@ -1,10 +1,11 @@
-'use strict';
-import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
-import { Arrays, Iterables, Strings } from '../../system';
+import { groupBy, makeHierarchical } from '../../system/array';
+import { filter, flatMap, map } from '../../system/iterable';
+import { joinPaths, normalizePath } from '../../system/path';
+import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatus } from './branchTrackingStatusNode';
@@ -53,21 +54,29 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 			),
 		});
 
-		const files =
-			log != null
-				? [
-						...Iterables.flatMap(log.commits.values(), c =>
-							c.files.map(s => {
-								const file: GitFileWithCommit = { ...s, commit: c };
-								return file;
-							}),
-						),
-				  ]
-				: [];
+		let files: GitFileWithCommit[];
+
+		if (log != null) {
+			await Promise.allSettled(
+				map(
+					filter(log.commits.values(), c => c.files == null),
+					c => c.ensureFullDetails(),
+				),
+			);
+
+			files = [
+				...flatMap(
+					log.commits.values(),
+					c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
+				),
+			];
+		} else {
+			files = [];
+		}
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
 
-		const groups = Arrays.groupBy(files, s => s.fileName);
+		const groups = groupBy(files, s => s.path);
 
 		let children: FileNode[] = Object.values(groups).map(
 			files =>
@@ -81,17 +90,17 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, false);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -102,9 +111,9 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 			this.repoPath,
 			`${this.status.upstream}${this.direction === 'behind' ? '..' : '...'}`,
 		);
-		const files = stats?.files ?? 0;
+		const files = stats?.changedFiles ?? 0;
 
-		const label = `${Strings.pluralize('file', files)} changed`;
+		const label = `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.BranchStatusFiles;

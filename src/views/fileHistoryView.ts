@@ -1,9 +1,10 @@
-'use strict';
 import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { configuration, FileHistoryViewConfig } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
+import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
+import { executeCommand } from '../system/command';
 import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
@@ -36,7 +37,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

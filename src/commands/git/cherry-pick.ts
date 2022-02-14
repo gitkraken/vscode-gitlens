@@ -1,7 +1,6 @@
-'use strict';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
@@ -44,8 +43,8 @@ export interface CherryPickGitCommandArgs {
 type CherryPickStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class CherryPickGitCommand extends QuickCommand<State> {
-	constructor(args?: CherryPickGitCommandArgs) {
-		super('cherry-pick', 'cherry-pick', 'Cherry Pick', {
+	constructor(container: Container, args?: CherryPickGitCommandArgs) {
+		super(container, 'cherry-pick', 'cherry-pick', 'Cherry Pick', {
 			description: 'integrates changes from specified commits into the current branch',
 		});
 
@@ -82,8 +81,8 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			selectedBranchOrTag: undefined,
@@ -165,7 +164,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.instance.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 

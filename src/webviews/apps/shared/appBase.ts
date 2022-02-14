@@ -1,4 +1,3 @@
-'use strict';
 /*global window document*/
 import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { Disposable } from './events';
@@ -23,7 +22,7 @@ function nextIpcId() {
 	return `webview:${ipcSequence}`;
 }
 
-export abstract class App<State extends object> {
+export abstract class App<State extends object = any> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 
@@ -79,6 +78,8 @@ export abstract class App<State extends object> {
 
 	protected setState(state: State) {
 		this.state = state;
+		if (state == null) return;
+
 		this._api.setState(state);
 	}
 

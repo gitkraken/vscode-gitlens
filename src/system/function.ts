@@ -1,4 +1,4 @@
-'use strict';
+// eslint-disable-next-line no-restricted-imports
 import { debounce as _debounce, once as _once } from 'lodash-es';
 import { Disposable } from 'vscode';
 
@@ -12,19 +12,6 @@ export interface Deferrable<T extends (...args: any[]) => any> {
 interface PropOfValue {
 	(): any;
 	value: string | undefined;
-}
-
-export function cachedOnce<T>(fn: (...args: any[]) => Promise<T>, seed: T): (...args: any[]) => Promise<T> {
-	let cached: T | undefined = seed;
-	return (...args: any[]) => {
-		if (cached !== undefined) {
-			const promise = Promise.resolve(cached);
-			cached = undefined;
-
-			return promise;
-		}
-		return fn(...args);
-	};
 }
 
 export interface DebounceOptions {
@@ -151,54 +138,17 @@ export function propOf<T, K extends Extract<keyof T, string>>(o: T, key: K) {
 	return propOfCore(o, key);
 }
 
-export function interval(fn: (...args: any[]) => void, ms: number): Disposable {
-	let timer: any | undefined;
+export function disposableInterval(fn: (...args: any[]) => void, ms: number): Disposable {
+	let timer: ReturnType<typeof setInterval> | undefined;
 	const disposable = {
 		dispose: () => {
-			if (timer !== undefined) {
+			if (timer != null) {
 				clearInterval(timer);
 				timer = undefined;
 			}
 		},
 	};
-	timer = globalThis.setInterval(fn, ms);
+	timer = setInterval(fn, ms);
 
 	return disposable;
-}
-
-export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
-	return new Promise((resolve, reject) => {
-		let timer: any | undefined;
-		timer = globalThis.setInterval(() => {
-			if (onProgress()) {
-				if (timer !== undefined) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-			}
-		}, intervalMs);
-
-		promise.then(
-			() => {
-				if (timer !== undefined) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-
-				resolve(promise);
-			},
-			ex => {
-				if (timer !== undefined) {
-					clearInterval(timer);
-					timer = undefined;
-				}
-
-				reject(ex);
-			},
-		);
-	});
-}
-
-export async function wait(ms: number) {
-	await new Promise(resolve => setTimeout(resolve, ms));
 }

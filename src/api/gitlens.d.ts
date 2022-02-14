@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable } from 'vscode';
 
 export { Disposable } from 'vscode';

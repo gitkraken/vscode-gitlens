@@ -1,12 +1,13 @@
-'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import { TextEditor, Uri, window } from 'vscode';
 import { TextEditorComparer, UriComparer } from '../comparers';
-import { BuiltInCommands } from '../constants';
-import { Container } from '../container';
+import { Commands, CoreCommands } from '../constants';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Functions } from '../system';
-import { Command, command, Commands, getRepoPathOrPrompt } from './common';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCoreCommand } from '../system/command';
+import { debounce } from '../system/function';
+import { Command } from './base';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -16,7 +17,7 @@ export interface CloseUnchangedFilesCommandArgs {
 export class CloseUnchangedFilesCommand extends Command {
 	private _onEditorChangedFn: ((editor: TextEditor | undefined) => void) | undefined;
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CloseUnchangedFiles);
 	}
 
@@ -25,10 +26,10 @@ export class CloseUnchangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repoPath = await getRepoPathOrPrompt('Close All Unchanged Files');
-				if (!repoPath) return;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Close All Unchanged Files');
+				if (repository == null) return;
 
-				const status = await Container.instance.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to close unchanged files');
 
@@ -39,13 +40,13 @@ export class CloseUnchangedFilesCommand extends Command {
 			}
 
 			if (args.uris.length === 0) {
-				void commands.executeCommand(BuiltInCommands.CloseAllEditors);
+				void executeCoreCommand(CoreCommands.CloseAllEditors);
 
 				return;
 			}
 
 			const disposable = window.onDidChangeActiveTextEditor(
-				Functions.debounce((e: TextEditor | undefined) => this._onEditorChangedFn?.(e), 50),
+				debounce((e: TextEditor | undefined) => this._onEditorChangedFn?.(e), 50),
 			);
 
 			let editor = window.activeTextEditor;
@@ -107,7 +108,7 @@ export class CloseUnchangedFilesCommand extends Command {
 	private async closeEditor(timeout: number = 500): Promise<TextEditor | undefined> {
 		const editor = window.activeTextEditor;
 
-		void (await commands.executeCommand(BuiltInCommands.CloseActiveEditor));
+		void (await executeCoreCommand(CoreCommands.CloseActiveEditor));
 
 		if (editor !== window.activeTextEditor) {
 			return window.activeTextEditor;
@@ -119,7 +120,7 @@ export class CloseUnchangedFilesCommand extends Command {
 	private async nextEditor(timeout: number = 500): Promise<TextEditor | undefined> {
 		const editor = window.activeTextEditor;
 
-		void (await commands.executeCommand(BuiltInCommands.NextEditor));
+		void (await executeCoreCommand(CoreCommands.NextEditor));
 
 		if (editor !== window.activeTextEditor) {
 			return window.activeTextEditor;
@@ -130,7 +131,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 	private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
 		return new Promise<TextEditor | undefined>(resolve => {
-			let timer: any | undefined;
+			let timer: ReturnType<typeof setTimeout> | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {
 				if (timer != null) {

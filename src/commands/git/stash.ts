@@ -1,16 +1,18 @@
-'use strict';
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
-import { GlyphChars } from '../../constants';
+import { ContextKeys, GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { getContext } from '../../context';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
-import { GitUri } from '../../git/gitUri';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
+import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { formatPath } from '../../system/formatPath';
+import { pad } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions, GitCommandsCommand } from '../gitCommands';
+import { GitActions } from '../gitCommands.actions';
+import { getSteps } from '../gitCommands.utils';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,
@@ -30,6 +32,7 @@ import {
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
+	readonly: boolean;
 	title: string;
 }
 
@@ -48,7 +51,7 @@ interface DropState {
 interface ListState {
 	subcommand: 'list';
 	repo: string | Repository;
-	reference: /*GitStashReference |*/ GitStashCommit;
+	reference: GitStashReference | GitStashCommit;
 }
 
 interface PopState {
@@ -95,8 +98,8 @@ export interface StashGitCommandArgs {
 export class StashGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
-	constructor(args?: StashGitCommandArgs) {
-		super('stash', 'stash', 'Stash', {
+	constructor(container: Container, args?: StashGitCommandArgs) {
+		super(container, 'stash', 'stash', 'Stash', {
 			description: 'shelves (stashes) local changes to be reapplied later',
 		});
 
@@ -147,8 +150,12 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.stashesView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.stashesView,
+			readonly:
+				getContext<boolean>(ContextKeys.Readonly, false) ||
+				getContext<boolean>(ContextKeys.Untrusted, false) ||
+				getContext<boolean>(ContextKeys.HasVirtualFolders, false),
 			title: this.title,
 		};
 
@@ -156,6 +163,10 @@ export class StashGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
+
+			if (context.readonly) {
+				state.subcommand = 'list';
+			}
 
 			if (state.counter < 1 || state.subcommand == null) {
 				this.subcommand = undefined;
@@ -262,7 +273,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await Container.instance.git.getStash(state.repo.path),
+					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null
 							? `No stashes found in ${state.repo.formattedName}`
@@ -360,7 +371,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
-					stash: await Container.instance.git.getStash(state.repo.path),
+					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to delete',
 					picked: state.reference?.ref,
@@ -421,7 +432,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
-					stash: await Container.instance.git.getStash(state.repo.path),
+					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
 					picked: state.reference?.ref,
@@ -432,11 +443,8 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			// if (!(state.reference instanceof GitStashCommit)) {
-			// 	state.reference = await Container.instance.git.getCommit(state.repo.path, state.reference.ref);
-			// }
-
-			const result = yield* GitCommandsCommand.getSteps(
+			const result = yield* getSteps(
+				this.container,
 				{
 					command: 'show',
 					state: {
@@ -507,9 +515,9 @@ export class StashGitCommand extends QuickCommand<State> {
 				state,
 				context,
 				state.uris != null
-					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					? `${pad(GlyphChars.Dot, 2, 2)}${
 							state.uris.length === 1
-								? GitUri.getFormattedFileName(state.uris[0])
+								? formatPath(state.uris[0], { fileOnly: true })
 								: `${state.uris.length} files`
 					  }`
 					: undefined,
@@ -555,7 +563,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: context.title,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFileName(state.uris[0])
+									? formatPath(state.uris[0], { fileOnly: true })
 									: `${state.uris.length} files`
 							}`,
 						}),
@@ -563,7 +571,7 @@ export class StashGitCommand extends QuickCommand<State> {
 							label: `${context.title} & Keep Staged`,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedFileName(state.uris[0])
+									? formatPath(state.uris[0], { fileOnly: true })
 									: `${state.uris.length} files`
 							}, but will keep staged files intact`,
 						}),

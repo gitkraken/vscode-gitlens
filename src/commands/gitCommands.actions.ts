@@ -1,24 +1,20 @@
 import { env, Range, TextDocumentShowOptions, Uri, window } from 'vscode';
-import {
+import type {
 	BrowseRepoAtRevisionCommandArgs,
-	Commands,
 	DiffWithCommandArgs,
 	DiffWithWorkingCommandArgs,
-	executeCommand,
-	executeEditorCommand,
-	findOrOpenEditor,
-	findOrOpenEditors,
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { FileAnnotationType } from '../configuration';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
 	GitBranchReference,
+	GitCommit,
 	GitContributor,
 	GitFile,
-	GitLogCommit,
 	GitReference,
 	GitRemote,
 	GitRevision,
@@ -27,7 +23,9 @@ import {
 	GitTagReference,
 	Repository,
 } from '../git/models';
-import { RepositoryPicker } from '../quickpicks';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { executeCommand, executeEditorCommand } from '../system/command';
+import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 
@@ -35,8 +33,10 @@ export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<v
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
 }
 
-async function ensureRepo(repo: string | Repository): Promise<Repository> {
-	return typeof repo === 'string' ? (await Container.instance.git.getRepository(repo))! : repo;
+function ensureRepo(repo: string | Repository): Repository {
+	const repository = typeof repo === 'string' ? Container.instance.git.getRepository(repo) : repo;
+	if (repository == null) throw new Error('Repository not found');
+	return repository;
 }
 
 export namespace GitActions {
@@ -174,42 +174,51 @@ export namespace GitActions {
 			));
 		}
 
-		export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitLogCommit) {
+		export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
 			void (await env.clipboard.writeText(ref.ref));
 		}
 
-		export async function copyMessageToClipboard(ref: { repoPath: string; ref: string } | GitLogCommit) {
-			let message;
-			if (GitLogCommit.is(ref)) {
-				message = ref.message;
+		export async function copyMessageToClipboard(
+			ref: { repoPath: string; ref: string } | GitCommit,
+		): Promise<void> {
+			let commit;
+			if (GitCommit.is(ref)) {
+				commit = ref;
+				if (commit.message == null) {
+					await commit.ensureFullDetails();
+				}
 			} else {
-				const commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
+				commit = await Container.instance.git.getCommit(ref.repoPath, ref.ref);
 				if (commit == null) return;
-
-				message = commit.message;
 			}
 
+			const message = commit.message ?? commit.summary;
 			void (await env.clipboard.writeText(message));
 		}
 
-		export async function openAllChanges(commit: GitLogCommit, options?: TextDocumentShowOptions): Promise<void>;
+		export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
 		export async function openAllChanges(
 			files: GitFile[],
 			refs: { repoPath: string; ref1: string; ref2: string },
 			options?: TextDocumentShowOptions,
 		): Promise<void>;
 		export async function openAllChanges(
-			commitOrFiles: GitLogCommit | GitFile[],
+			commitOrFiles: GitCommit | GitFile[],
 			refsOrOptions: { repoPath: string; ref1: string; ref2: string } | TextDocumentShowOptions | undefined,
 			options?: TextDocumentShowOptions,
 		) {
 			let files;
 			let refs;
-			if (GitLogCommit.is(commitOrFiles)) {
-				files = commitOrFiles.files;
+			if (GitCommit.is(commitOrFiles)) {
+				if (commitOrFiles.files == null) {
+					await commitOrFiles.ensureFullDetails();
+				}
+
+				files = commitOrFiles.files ?? [];
 				refs = {
 					repoPath: commitOrFiles.repoPath,
-					ref1: commitOrFiles.previousSha != null ? commitOrFiles.previousSha : GitRevision.deletedOrMissing,
+					// Don't need to worry about verifying the previous sha, as the DiffWith command will
+					ref1: commitOrFiles.unresolvedPreviousSha,
 					ref2: commitOrFiles.sha,
 				};
 
@@ -235,18 +244,22 @@ export namespace GitActions {
 			}
 		}
 
-		export async function openAllChangesWithDiffTool(commit: GitLogCommit): Promise<void>;
+		export async function openAllChangesWithDiffTool(commit: GitCommit): Promise<void>;
 		export async function openAllChangesWithDiffTool(
 			files: GitFile[],
 			ref: { repoPath: string; ref: string },
 		): Promise<void>;
 		export async function openAllChangesWithDiffTool(
-			commitOrFiles: GitLogCommit | GitFile[],
+			commitOrFiles: GitCommit | GitFile[],
 			ref?: { repoPath: string; ref: string },
 		) {
 			let files;
-			if (GitLogCommit.is(commitOrFiles)) {
-				files = commitOrFiles.files;
+			if (GitCommit.is(commitOrFiles)) {
+				if (commitOrFiles.files == null) {
+					await commitOrFiles.ensureFullDetails();
+				}
+
+				files = commitOrFiles.files ?? [];
 				ref = {
 					repoPath: commitOrFiles.repoPath,
 					ref: commitOrFiles.sha,
@@ -270,7 +283,7 @@ export namespace GitActions {
 		}
 
 		export async function openAllChangesWithWorking(
-			commit: GitLogCommit,
+			commit: GitCommit,
 			options?: TextDocumentShowOptions,
 		): Promise<void>;
 		export async function openAllChangesWithWorking(
@@ -279,14 +292,18 @@ export namespace GitActions {
 			options?: TextDocumentShowOptions,
 		): Promise<void>;
 		export async function openAllChangesWithWorking(
-			commitOrFiles: GitLogCommit | GitFile[],
+			commitOrFiles: GitCommit | GitFile[],
 			refOrOptions: { repoPath: string; ref: string } | TextDocumentShowOptions | undefined,
 			options?: TextDocumentShowOptions,
 		) {
 			let files;
 			let ref;
-			if (GitLogCommit.is(commitOrFiles)) {
-				files = commitOrFiles.files;
+			if (GitCommit.is(commitOrFiles)) {
+				if (commitOrFiles.files == null) {
+					await commitOrFiles.ensureFullDetails();
+				}
+
+				files = commitOrFiles.files ?? [];
 				ref = {
 					repoPath: commitOrFiles.repoPath,
 					ref: commitOrFiles.sha,
@@ -316,7 +333,7 @@ export namespace GitActions {
 
 		export async function openChanges(
 			file: string | GitFile,
-			commit: GitLogCommit,
+			commit: GitCommit,
 			options?: TextDocumentShowOptions,
 		): Promise<void>;
 		export async function openChanges(
@@ -326,13 +343,13 @@ export namespace GitActions {
 		): Promise<void>;
 		export async function openChanges(
 			file: string | GitFile,
-			commitOrRefs: GitLogCommit | { repoPath: string; ref1: string; ref2: string },
+			commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitLogCommit.is(commitOrRefs)) throw new Error('Invalid arguments');
+				if (!GitCommit.is(commitOrRefs)) throw new Error('Invalid arguments');
 
-				const f = commitOrRefs.findFile(file);
+				const f = await commitOrRefs.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
 
 				file = f;
@@ -340,11 +357,11 @@ export namespace GitActions {
 
 			if (file.status === 'A') return;
 
-			const refs = GitLogCommit.is(commitOrRefs)
+			const refs = GitCommit.is(commitOrRefs)
 				? {
 						repoPath: commitOrRefs.repoPath,
-						ref1:
-							commitOrRefs.previousSha != null ? commitOrRefs.previousSha : GitRevision.deletedOrMissing,
+						// Don't need to worry about verifying the previous sha, as the DiffWith command will
+						ref1: commitOrRefs.unresolvedPreviousSha,
 						ref2: commitOrRefs.sha,
 				  }
 				: commitOrRefs;
@@ -367,7 +384,7 @@ export namespace GitActions {
 
 		export function openChangesWithDiffTool(
 			file: string | GitFile,
-			commit: GitLogCommit,
+			commit: GitCommit,
 			tool?: string,
 		): Promise<void>;
 		export function openChangesWithDiffTool(
@@ -377,13 +394,13 @@ export namespace GitActions {
 		): Promise<void>;
 		export async function openChangesWithDiffTool(
 			file: string | GitFile,
-			commitOrRef: GitLogCommit | { repoPath: string; ref: string },
+			commitOrRef: GitCommit | { repoPath: string; ref: string },
 			tool?: string,
 		) {
 			if (typeof file === 'string') {
-				if (!GitLogCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
 
-				const f = commitOrRef.findFile(file);
+				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
 
 				file = f;
@@ -403,7 +420,7 @@ export namespace GitActions {
 
 		export async function openChangesWithWorking(
 			file: string | GitFile,
-			commit: GitLogCommit,
+			commit: GitCommit,
 			options?: TextDocumentShowOptions,
 		): Promise<void>;
 		export async function openChangesWithWorking(
@@ -413,13 +430,13 @@ export namespace GitActions {
 		): Promise<void>;
 		export async function openChangesWithWorking(
 			file: string | GitFile,
-			commitOrRef: GitLogCommit | { repoPath: string; ref: string },
+			commitOrRef: GitCommit | { repoPath: string; ref: string },
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitLogCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
 
-				const f = commitOrRef.files.find(f => f.fileName === file);
+				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
 
 				file = f;
@@ -428,7 +445,7 @@ export namespace GitActions {
 			if (file.status === 'D') return;
 
 			let ref;
-			if (GitLogCommit.is(commitOrRef)) {
+			if (GitCommit.is(commitOrRef)) {
 				ref = {
 					repoPath: commitOrRef.repoPath,
 					ref: commitOrRef.sha,
@@ -455,13 +472,13 @@ export namespace GitActions {
 		}
 
 		export async function openDirectoryCompareWithPrevious(
-			ref: { repoPath: string; ref: string } | GitLogCommit,
+			ref: { repoPath: string; ref: string } | GitCommit,
 		): Promise<void> {
 			return openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`);
 		}
 
 		export async function openDirectoryCompareWithWorking(
-			ref: { repoPath: string; ref: string } | GitLogCommit,
+			ref: { repoPath: string; ref: string } | GitCommit,
 		): Promise<void> {
 			return openDirectoryCompare(ref.repoPath, ref.ref, undefined);
 		}
@@ -500,28 +517,28 @@ export namespace GitActions {
 		): Promise<void>;
 		export async function openFileAtRevision(
 			file: string | GitFile,
-			commit: GitLogCommit,
+			commit: GitCommit,
 			options?: TextDocumentShowOptions & { annotationType?: FileAnnotationType; line?: number },
 		): Promise<void>;
 		export async function openFileAtRevision(
 			fileOrRevisionUri: string | GitFile | Uri,
-			commitOrOptions?: GitLogCommit | TextDocumentShowOptions,
+			commitOrOptions?: GitCommit | TextDocumentShowOptions,
 			options?: TextDocumentShowOptions & { annotationType?: FileAnnotationType; line?: number },
 		): Promise<void> {
 			let uri;
 			if (fileOrRevisionUri instanceof Uri) {
-				if (GitLogCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
 
 				uri = fileOrRevisionUri;
 				options = commitOrOptions;
 			} else {
-				if (!GitLogCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (!GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
 
 				const commit = commitOrOptions;
 
 				let file;
 				if (typeof fileOrRevisionUri === 'string') {
-					const f = commit.findFile(fileOrRevisionUri);
+					const f = await commit.findFile(fileOrRevisionUri);
 					if (f == null) throw new Error('Invalid arguments');
 
 					file = f;
@@ -529,8 +546,8 @@ export namespace GitActions {
 					file = fileOrRevisionUri;
 				}
 
-				uri = GitUri.toRevisionUri(
-					file.status === 'D' ? commit.previousFileSha : commit.sha,
+				uri = Container.instance.git.getRevisionUri(
+					file.status === 'D' ? (await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing : commit.sha,
 					file,
 					commit.repoPath,
 				);
@@ -554,16 +571,20 @@ export namespace GitActions {
 			}
 		}
 
-		export async function openFiles(commit: GitLogCommit): Promise<void>;
+		export async function openFiles(commit: GitCommit): Promise<void>;
 		export async function openFiles(files: GitFile[], repoPath: string, ref: string): Promise<void>;
 		export async function openFiles(
-			commitOrFiles: GitLogCommit | GitFile[],
+			commitOrFiles: GitCommit | GitFile[],
 			repoPath?: string,
 			ref?: string,
 		): Promise<void> {
 			let files;
-			if (GitLogCommit.is(commitOrFiles)) {
-				files = commitOrFiles.files;
+			if (GitCommit.is(commitOrFiles)) {
+				if (commitOrFiles.files == null) {
+					await commitOrFiles.ensureFullDetails();
+				}
+
+				files = commitOrFiles.files ?? [];
 				repoPath = commitOrFiles.repoPath;
 				ref = commitOrFiles.sha;
 			} else {
@@ -589,7 +610,7 @@ export namespace GitActions {
 			findOrOpenEditors(uris);
 		}
 
-		export async function openFilesAtRevision(commit: GitLogCommit): Promise<void>;
+		export async function openFilesAtRevision(commit: GitCommit): Promise<void>;
 		export async function openFilesAtRevision(
 			files: GitFile[],
 			repoPath: string,
@@ -597,17 +618,21 @@ export namespace GitActions {
 			ref2: string,
 		): Promise<void>;
 		export async function openFilesAtRevision(
-			commitOrFiles: GitLogCommit | GitFile[],
+			commitOrFiles: GitCommit | GitFile[],
 			repoPath?: string,
 			ref1?: string,
 			ref2?: string,
 		): Promise<void> {
 			let files;
-			if (GitLogCommit.is(commitOrFiles)) {
-				files = commitOrFiles.files;
+			if (GitCommit.is(commitOrFiles)) {
+				if (commitOrFiles.files == null) {
+					await commitOrFiles.ensureFullDetails();
+				}
+
+				files = commitOrFiles.files ?? [];
 				repoPath = commitOrFiles.repoPath;
 				ref1 = commitOrFiles.sha;
-				ref2 = commitOrFiles.previousFileSha;
+				ref2 = await commitOrFiles.getPreviousSha();
 			} else {
 				files = commitOrFiles;
 			}
@@ -622,13 +647,15 @@ export namespace GitActions {
 			}
 
 			findOrOpenEditors(
-				files.map(file => GitUri.toRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!)),
+				files.map(file =>
+					Container.instance.git.getRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!),
+				),
 			);
 		}
 
 		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {
 			void (await Container.instance.git.checkout(ref.repoPath, ref.ref, {
-				fileName: typeof file === 'string' ? file : file.fileName,
+				fileName: typeof file === 'string' ? file : file.path,
 			}));
 		}
 
@@ -686,7 +713,7 @@ export namespace GitActions {
 	export namespace Remote {
 		export async function add(repo?: string | Repository) {
 			if (repo == null) {
-				repo = Container.instance.git.highlanderRepoPath;
+				repo = Container.instance.git.highlander;
 
 				if (repo == null) {
 					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
@@ -711,7 +738,7 @@ export namespace GitActions {
 			});
 			if (url == null || url.length === 0) return undefined;
 
-			repo = await ensureRepo(repo);
+			repo = ensureRepo(repo);
 			void (await Container.instance.git.addRemote(repo.path, name, url));
 			void (await repo.fetch({ remote: name }));
 
@@ -720,7 +747,7 @@ export namespace GitActions {
 
 		export async function fetch(repo: string | Repository, remote: string) {
 			if (typeof repo === 'string') {
-				const r = await Container.instance.git.getRepository(repo);
+				const r = Container.instance.git.getRepository(repo);
 				if (r == null) return;
 
 				repo = r;

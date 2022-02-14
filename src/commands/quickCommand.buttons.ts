@@ -1,4 +1,3 @@
-'use strict';
 import { QuickInput, QuickInputButton, ThemeIcon, Uri } from 'vscode';
 import { Container } from '../container';
 

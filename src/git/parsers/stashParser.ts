@@ -1,6 +1,17 @@
-'use strict';
-import { Arrays, debug, Strings } from '../../system';
-import { GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../models';
+import type { Container } from '../../container';
+import { filterMap } from '../../system/array';
+import { debug } from '../../system/decorators/log';
+import { normalizePath } from '../../system/path';
+import { getLines } from '../../system/string';
+import {
+	GitCommit,
+	GitCommitIdentity,
+	GitFile,
+	GitFileChange,
+	GitFileIndexStatus,
+	GitStash,
+	GitStashCommit,
+} from '../models';
 import { fileStatusRegex } from './logParser';
 // import { Logger } from './logger';
 
@@ -9,9 +20,6 @@ const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
 const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
 const sp = '%x20'; // `%x${' '.charCodeAt(0).toString(16)}`;
-
-const emptyStr = '';
-const emptyEntry: StashEntry = {};
 
 interface StashEntry {
 	ref?: string;
@@ -37,21 +45,21 @@ export class GitStashParser {
 	].join('%n');
 
 	@debug({ args: false, singleLine: true })
-	static parse(data: string, repoPath: string): GitStash | undefined {
+	static parse(container: Container, data: string, repoPath: string): GitStash | undefined {
 		if (!data) return undefined;
 
-		const lines = Strings.lines(`${data}</f>`);
+		const lines = getLines(`${data}</f>`);
 		// Skip the first line since it will always be </f>
 		let next = lines.next();
 		if (next.done) return undefined;
 
 		if (repoPath !== undefined) {
-			repoPath = Strings.normalizePath(repoPath);
+			repoPath = normalizePath(repoPath);
 		}
 
 		const commits = new Map<string, GitStashCommit>();
 
-		let entry: StashEntry = emptyEntry;
+		let entry: StashEntry = {};
 		let line: string | undefined = undefined;
 		let token: number;
 
@@ -131,26 +139,25 @@ export class GitStashParser {
 								if (renamedFileName !== undefined) {
 									entry.files.push({
 										status: match[1] as GitFileIndexStatus,
-										fileName: renamedFileName,
-										originalFileName: match[2],
+										path: renamedFileName,
+										originalPath: match[2],
 									});
 								} else {
 									entry.files.push({
 										status: match[1] as GitFileIndexStatus,
-										fileName: match[2],
+										path: match[2],
 									});
 								}
 							}
 						}
 
-						if (entry.files !== undefined) {
-							entry.fileNames = Arrays.filterMap(entry.files, f =>
-								f.fileName ? f.fileName : undefined,
-							).join(', ');
+						if (entry.files != null) {
+							entry.fileNames = filterMap(entry.files, f => (f.path ? f.path : undefined)).join(', ');
 						}
 					}
 
-					GitStashParser.parseEntry(entry, repoPath, commits);
+					GitStashParser.parseEntry(container, entry, repoPath, commits);
+					entry = {};
 			}
 		}
 
@@ -161,20 +168,28 @@ export class GitStashParser {
 		return stash;
 	}
 
-	private static parseEntry(entry: StashEntry, repoPath: string, commits: Map<string, GitStashCommit>) {
+	private static parseEntry(
+		container: Container,
+		entry: StashEntry,
+		repoPath: string,
+		commits: Map<string, GitStashCommit>,
+	) {
 		let commit = commits.get(entry.ref!);
-		if (commit === undefined) {
-			commit = new GitStashCommit(
-				GitCommitType.Stash,
-				entry.stashName!,
+		if (commit == null) {
+			commit = new GitCommit(
+				container,
 				repoPath,
 				entry.ref!,
-				new Date((entry.date! as any) * 1000),
-				new Date((entry.committedDate! as any) * 1000),
-				entry.summary === undefined ? emptyStr : entry.summary,
-				entry.fileNames!,
-				entry.files ?? [],
-			);
+				new GitCommitIdentity('You', undefined, new Date((entry.date! as any) * 1000)),
+				new GitCommitIdentity('You', undefined, new Date((entry.committedDate! as any) * 1000)),
+				entry.summary?.split('\n', 1)[0] ?? '',
+				[],
+				entry.summary ?? '',
+				entry.files?.map(f => new GitFileChange(repoPath, f.path, f.status, f.originalPath)) ?? [],
+				undefined,
+				[],
+				entry.stashName,
+			) as GitStashCommit;
 		}
 
 		commits.set(entry.ref!, commit);

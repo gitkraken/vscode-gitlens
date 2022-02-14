@@ -1,4 +1,3 @@
-'use strict';
 import {
 	Command,
 	Disposable,
@@ -22,7 +21,10 @@ import {
 	RepositoryChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { debug, Functions, gate, log, logName, Strings } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug, log, logName } from '../../system/decorators/log';
+import { is as isA } from '../../system/function';
+import { pad } from '../../system/string';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export const enum ContextValues {
@@ -83,8 +85,6 @@ export const enum ContextValues {
 	Tags = 'gitlens:tags',
 }
 
-export const unknownGitUri = new GitUri();
-
 export interface ViewNode {
 	readonly id?: string;
 }
@@ -121,9 +121,7 @@ export abstract class ViewNode<TView extends View = View> {
 
 	abstract getTreeItem(): TreeItem | Promise<TreeItem>;
 
-	resolveTreeItem(item: TreeItem): TreeItem | Promise<TreeItem> {
-		return item;
-	}
+	resolveTreeItem?(item: TreeItem): TreeItem | Promise<TreeItem>;
 
 	getCommand(): Command | undefined {
 		return undefined;
@@ -180,7 +178,7 @@ export interface PageableViewNode {
 
 export namespace PageableViewNode {
 	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
-		return Functions.is<ViewNode & PageableViewNode>(node, 'loadMore');
+		return isA<ViewNode & PageableViewNode>(node, 'loadMore');
 	}
 }
 
@@ -375,18 +373,11 @@ export abstract class RepositoryFolderNode<
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		let expand = this.repo.starred;
-		const [active, branch] = await Promise.all([
-			expand ? undefined : this.view.container.git.isActiveRepoPath(this.uri.repoPath),
-			this.repo.getBranch(),
-		]);
-
+		const branch = await this.repo.getBranch();
 		const ahead = (branch?.state.ahead ?? 0) > 0;
 		const behind = (branch?.state.behind ?? 0) > 0;
 
-		if (!expand && (active || ahead || behind)) {
-			expand = true;
-		}
+		const expand = ahead || behind || this.repo.starred || this.view.container.git.isRepositoryForEditor(this.repo);
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
@@ -404,18 +395,16 @@ export abstract class RepositoryFolderNode<
 			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 
 			const status = branch.getTrackingStatus();
-			item.description = `${this.repo.supportsChangeEvents ? '' : Strings.pad(GlyphChars.Warning, 1, 2)}${
-				status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''
-			}${branch.name}${
+			item.description = `${status ? `${status}${pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
 				lastFetched
-					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 					: ''
 			}`;
 
 			let providerName;
 			if (branch.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(branch.repoPath),
+					await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -426,7 +415,7 @@ export abstract class RepositoryFolderNode<
 			item.tooltip = new MarkdownString(
 				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
-						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
 								lastFetched,
 								false,
 						  )}`
@@ -449,21 +438,12 @@ export abstract class RepositoryFolderNode<
 								}`,
 						  })}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
-				}${
-					this.repo.supportsChangeEvents
-						? ''
-						: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 				}`,
 				true,
 			);
 		} else {
-			item.description = this.repo.supportsChangeEvents ? undefined : Strings.pad(GlyphChars.Warning, 1, 0);
 			item.tooltip = `${
 				this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
-			}${
-				this.repo.supportsChangeEvents
-					? ''
-					: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 			}`;
 		}
 
@@ -538,7 +518,7 @@ export abstract class RepositoriesSubscribeableNode<
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(unknownGitUri, view);
+		super(GitUri.unknown, view);
 	}
 
 	override async getSplattedChild() {
@@ -580,7 +560,7 @@ interface AutoRefreshableView {
 }
 
 export function canAutoRefreshView(view: View): view is View & AutoRefreshableView {
-	return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
+	return isA<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
 export function canClearNode(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {

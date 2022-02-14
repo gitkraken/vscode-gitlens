@@ -1,21 +1,22 @@
-'use strict';
 import { QuickInputButton, QuickPickItem } from 'vscode';
-import { Commands, GitCommandsCommand, GitCommandsCommandArgs } from '../commands';
-import { GlyphChars } from '../constants';
-import { emojify } from '../emojis';
+import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
+import { getSteps } from '../../commands/gitCommands.utils';
+import { Commands, GlyphChars } from '../../constants';
+import { Container } from '../../container';
+import { emojify } from '../../emojis';
 import {
 	GitBranch,
+	GitCommit,
 	GitContributor,
-	GitLogCommit,
 	GitReference,
 	GitRemoteType,
 	GitRevision,
-	GitStashCommit,
 	GitTag,
 	Repository,
-} from '../git/models';
-import { Dates, Strings } from '../system';
-import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
+} from '../../git/models';
+import { fromNow } from '../../system/date';
+import { pad } from '../../system/string';
+import { CommandQuickPickItem, QuickPickItemOfT } from './common';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);
@@ -25,7 +26,7 @@ export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCo
 	}
 
 	executeSteps(pickedVia: 'menu' | 'command') {
-		return GitCommandsCommand.getSteps(this.args![0], pickedVia);
+		return getSteps(Container.instance, this.args![0], pickedVia);
 	}
 }
 
@@ -39,7 +40,7 @@ export namespace BranchQuickPickItem {
 	export async function create(
 		branch: GitBranch,
 		picked?: boolean,
-		options: {
+		options?: {
 			alwaysShow?: boolean;
 			buttons?: QuickInputButton[];
 			checked?: boolean;
@@ -47,28 +48,28 @@ export namespace BranchQuickPickItem {
 			ref?: boolean;
 			status?: boolean;
 			type?: boolean | 'remote';
-		} = {},
-	) {
+		},
+	): Promise<BranchQuickPickItem> {
 		let description = '';
-		if (options.type === true) {
-			if (options.current === true && branch.current) {
+		if (options?.type === true) {
+			if (options?.current === true && branch.current) {
 				description = 'current branch';
 			} else {
 				description = 'branch';
 			}
-		} else if (options.type === 'remote') {
+		} else if (options?.type === 'remote') {
 			if (branch.remote) {
 				description = 'remote branch';
 			}
-		} else if (options.current === true && branch.current) {
+		} else if (options?.current === true && branch.current) {
 			description = 'current branch';
 		}
 
-		if (options.status && !branch.remote && branch.upstream != null) {
+		if (options?.status && !branch.remote && branch.upstream != null) {
 			let arrows = GlyphChars.Dash;
 
-			const remote = await branch.getRemote();
 			if (!branch.upstream.missing) {
+				const remote = await branch.getRemote();
 				if (remote != null) {
 					let left;
 					let right;
@@ -102,29 +103,29 @@ export namespace BranchQuickPickItem {
 			description = `${description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status}`;
 		}
 
-		if (options.ref) {
+		if (options?.ref) {
 			if (branch.sha) {
 				description = description
-					? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitRevision.shorten(branch.sha)}`
-					: `${Strings.pad('$(git-commit)', 0, 2)}${GitRevision.shorten(branch.sha)}`;
+					? `${description}${pad('$(git-commit)', 2, 2)}${GitRevision.shorten(branch.sha)}`
+					: `${pad('$(git-commit)', 0, 2)}${GitRevision.shorten(branch.sha)}`;
 			}
 
 			if (branch.date !== undefined) {
 				description = description
-					? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${branch.formattedDate}`
+					? `${description}${pad(GlyphChars.Dot, 2, 2)}${branch.formattedDate}`
 					: branch.formattedDate;
 			}
 		}
 
 		const checked =
-			options.checked || (options.checked == null && options.current === 'checkmark' && branch.current);
+			options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 		const item: BranchQuickPickItem = {
-			label: `${Strings.pad('$(git-branch)', 0, 2)}${branch.starred ? '$(star-full) ' : ''}${branch.name}${
+			label: `${pad('$(git-branch)', 0, 2)}${branch.starred ? '$(star-full) ' : ''}${branch.name}${
 				checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
 			}`,
 			description: description,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked ?? branch.current,
 			item: branch,
 			current: branch.current,
@@ -141,25 +142,23 @@ export class CommitLoadMoreQuickPickItem implements QuickPickItem {
 	readonly alwaysShow = true;
 }
 
-export type CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> = QuickPickItemOfT<T>;
+export type CommitQuickPickItem<T extends GitCommit = GitCommit> = QuickPickItemOfT<T>;
 
 export namespace CommitQuickPickItem {
-	export function create<T extends GitLogCommit = GitLogCommit>(
+	export function create<T extends GitCommit = GitCommit>(
 		commit: T,
 		picked?: boolean,
 		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean } = {},
 	) {
-		if (GitStashCommit.is(commit)) {
+		if (GitCommit.isStash(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
 
 			if (options.compact) {
 				const item: CommitQuickPickItem<T> = {
-					label: `${options.icon ? Strings.pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
-					description: `${commit.formattedDate}${Strings.pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${commit.getFormattedDiffStatus({ compact: true })}`,
+					label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
+					description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
+						compact: true,
+					})}`,
 					alwaysShow: options.alwaysShow,
 					buttons: options.buttons,
 					picked: picked,
@@ -170,13 +169,13 @@ export namespace CommitQuickPickItem {
 			}
 
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? Strings.pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
+				label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
 				description: '',
-				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${Strings.pad(
+				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(
 					GlyphChars.Dot,
 					2,
 					2,
-				)}${commit.getFormattedDiffStatus({ compact: true })}`,
+				)}${commit.formatStats({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
 				picked: picked,
@@ -188,10 +187,10 @@ export namespace CommitQuickPickItem {
 
 		if (options.compact) {
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? Strings.pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
-				description: `${commit.author}, ${commit.formattedDate}${Strings.pad('$(git-commit)', 2, 2)}${
+				label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
+				description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 2)}${
 					commit.shortSha
-				}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
+				}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
 				picked: picked,
@@ -201,13 +200,13 @@ export namespace CommitQuickPickItem {
 		}
 
 		const item: CommitQuickPickItem<T> = {
-			label: `${options.icon ? Strings.pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
+			label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
 			description: '',
-			detail: `${GlyphChars.Space.repeat(2)}${commit.author}, ${commit.formattedDate}${Strings.pad(
+			detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${commit.formattedDate}${pad(
 				'$(git-commit)',
 				2,
 				2,
-			)}${commit.shortSha}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({
+			)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 				compact: true,
 			})}`,
 			alwaysShow: options.alwaysShow,
@@ -228,7 +227,7 @@ export namespace ContributorQuickPickItem {
 		options: { alwaysShow?: boolean; buttons?: QuickInputButton[] } = {},
 	): ContributorQuickPickItem {
 		const item: ContributorQuickPickItem = {
-			label: contributor.name,
+			label: contributor.label,
 			description: contributor.email,
 			alwaysShow: options.alwaysShow,
 			buttons: options.buttons,
@@ -254,7 +253,7 @@ export namespace RefQuickPickItem {
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
-				label: `${options.icon ? Strings.pad('$(file-directory)', 0, 2) : ''}Working Tree`,
+				label: `${options.icon ? pad('$(file-directory)', 0, 2) : ''}Working Tree`,
 				description: '',
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
@@ -268,7 +267,7 @@ export namespace RefQuickPickItem {
 
 		if (ref === 'HEAD') {
 			return {
-				label: `${options.icon ? Strings.pad('$(git-branch)', 0, 2) : ''}HEAD`,
+				label: `${options.icon ? pad('$(git-branch)', 0, 2) : ''}HEAD`,
 				description: '',
 				alwaysShow: options.alwaysShow,
 				buttons: options.buttons,
@@ -349,7 +348,7 @@ export namespace RepositoryQuickPickItem {
 			if (repoStatus.files.length !== 0) {
 				workingStatus = repoStatus.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 2, 2),
+					prefix: pad(GlyphChars.Dot, 2, 2),
 				});
 			}
 
@@ -366,10 +365,8 @@ export namespace RepositoryQuickPickItem {
 		if (options.fetched) {
 			const lastFetched = await repository.getLastFetched();
 			if (lastFetched !== 0) {
-				const fetched = `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
-				description = `${
-					description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched
-				}`;
+				const fetched = `Last fetched ${fromNow(new Date(lastFetched))}`;
+				description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched}`;
 			}
 		}
 
@@ -412,22 +409,20 @@ export namespace TagQuickPickItem {
 		}
 
 		if (options.ref) {
-			description = `${description}${Strings.pad('$(git-commit)', description ? 2 : 0, 2)}${GitRevision.shorten(
+			description = `${description}${pad('$(git-commit)', description ? 2 : 0, 2)}${GitRevision.shorten(
 				tag.sha,
 			)}`;
 
-			description = `${description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}` : ''}${
-				tag.formattedDate
-			}`;
+			description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${tag.formattedDate}`;
 		}
 
 		if (options.message) {
 			const message = emojify(tag.message);
-			description = description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${message}` : message;
+			description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${message}` : message;
 		}
 
 		const item: TagQuickPickItem = {
-			label: `${Strings.pad('$(tag)', 0, 2)}${tag.name}${
+			label: `${pad('$(tag)', 0, 2)}${tag.name}${
 				options.checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
 			}`,
 			description: description,

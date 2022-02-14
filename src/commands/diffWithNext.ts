@@ -1,15 +1,16 @@
-'use strict';
 import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitLogCommit } from '../git/models';
+import { GitCommit } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, executeCommand, getCommandUri } from './common';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {
-	commit?: GitLogCommit;
+	commit?: GitCommit;
 	range?: Range;
 
 	inDiffLeftEditor?: boolean;
@@ -19,7 +20,7 @@ export interface DiffWithNextCommandArgs {
 
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft, Commands.DiffWithNextInDiffRight]);
 	}
 
@@ -40,9 +41,9 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		const gitUri = args.commit != null ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
+		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 		try {
-			const diffUris = await Container.instance.git.getNextDiffUris(
+			const diffUris = await this.container.git.getNextComparisonUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

@@ -1,4 +1,3 @@
-'use strict';
 /*global window document MutationObserver*/
 import { darken, lighten, opacity } from './colors';
 

@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	ConfigurationChangeEvent,
@@ -16,7 +15,8 @@ import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug } from '../system';
+import { debug } from '../system/decorators/log';
+import { once } from '../system/event';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
 
@@ -27,7 +27,7 @@ export class LineHoverController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			container.onReady(this.onReady, this),
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 	}
@@ -35,7 +35,7 @@ export class LineHoverController implements Disposable {
 	dispose() {
 		this.unregister();
 
-		this.container.lineTracker.stop(this);
+		this.container.lineTracker.unsubscribe(this);
 		this._disposable.dispose();
 	}
 
@@ -49,14 +49,14 @@ export class LineHoverController implements Disposable {
 		}
 
 		if (this.container.config.hovers.enabled && this.container.config.hovers.currentLine.enabled) {
-			this.container.lineTracker.start(
+			this.container.lineTracker.subscribe(
 				this,
 				this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 			);
 
 			this.register(window.activeTextEditor);
 		} else {
-			this.container.lineTracker.stop(this);
+			this.container.lineTracker.unsubscribe(this);
 			this.unregister();
 		}
 	}
@@ -116,23 +116,6 @@ export class LineHoverController implements Disposable {
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
-		// Get the full commit message -- since blame only returns the summary
-		let logCommit = lineState?.logCommit;
-		if (logCommit == null && !commit.isUncommitted) {
-			logCommit = await this.container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
-				ref: commit.sha,
-			});
-			if (logCommit != null) {
-				// Preserve the previous commit from the blame commit
-				logCommit.previousSha = commit.previousSha;
-				logCommit.previousFileName = commit.previousFileName;
-
-				if (lineState != null) {
-					lineState.logCommit = logCommit;
-				}
-			}
-		}
-
 		let editorLine = position.line;
 		const line = editorLine + 1;
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
@@ -142,7 +125,7 @@ export class LineHoverController implements Disposable {
 		if (trackedDocument == null) return undefined;
 
 		const message = await Hovers.detailsMessage(
-			logCommit ?? commit,
+			commit,
 			trackedDocument.uri,
 			editorLine,
 			this.container.config.hovers.detailsMarkdownFormat,
@@ -193,7 +176,12 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await Hovers.changesMessage(commit, trackedDocument.uri, position.line);
+		const message = await Hovers.changesMessage(
+			commit,
+			trackedDocument.uri,
+			position.line,
+			trackedDocument.document,
+		);
 		if (message == null) return undefined;
 
 		return new Hover(message, range);

@@ -1,9 +1,10 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, GitLog, GitRemote, IssueOrPullRequest, PullRequest } from '../../git/models';
 import { RichRemoteProvider } from '../../git/remotes/provider';
-import { debug, gate, Promises } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { PromiseCancelledErrorWithId } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { MessageNode } from './common';
@@ -19,8 +20,11 @@ export interface FilesQueryResults {
 	};
 }
 
+let instanceId = 0;
+
 export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 	private _children: ViewNode[] | undefined;
+	private _instanceId: number;
 
 	constructor(
 		view: ViewsWithCommits,
@@ -30,10 +34,11 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 		public readonly log: GitLog,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+		this._instanceId = instanceId++;
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:autolinked`;
+		return `${this.parent!.id}:results:autolinked:${this._instanceId}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -44,26 +49,27 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 			if (commits.length) {
 				const combineMessages = commits.map(c => c.message).join('\n');
 
-				const [autolinkedMapResult, ...prsResults] = await Promise.allSettled([
+				const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
 					this.view.container.autolinks.getIssueOrPullRequestLinks(combineMessages, this.remote),
-					...commits.map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
+					// Only get PRs from the first 100 commits to attempt to avoid hitting the api limits
+					// ...commits.slice(0, 100).map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
 				]);
 
 				const items = new Map<string, IssueOrPullRequest | PullRequest>();
 
 				if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
 					for (const [id, issue] of autolinkedMapResult.value) {
-						if (issue == null || issue instanceof Promises.CancellationErrorWithId) continue;
+						if (issue == null || issue instanceof PromiseCancelledErrorWithId) continue;
 
 						items.set(id, issue);
 					}
 				}
 
-				for (const result of prsResults) {
-					if (result.status !== 'fulfilled' || result.value == null) continue;
+				// for (const result of prsResults) {
+				// 	if (result.status !== 'fulfilled' || result.value == null) continue;
 
-					items.set(result.value.id, result.value);
-				}
+				// 	items.set(result.value.id, result.value);
+				// }
 
 				children = [...items.values()].map(item =>
 					PullRequest.is(item)

@@ -1,4 +1,3 @@
-'use strict';
 import {
 	CancellationToken,
 	commands,
@@ -10,13 +9,13 @@ import {
 	window,
 } from 'vscode';
 import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
 	GitBranch,
 	GitBranchReference,
-	GitLogCommit,
+	GitCommit,
 	GitReference,
 	GitRemote,
 	GitRevisionReference,
@@ -24,7 +23,8 @@ import {
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/models';
-import { gate, Strings } from '../system';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
 import {
 	BranchNode,
 	BranchOrTagFolderNode,
@@ -78,10 +78,6 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
-			if (!child.repo.supportsChangeEvents) {
-				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
-			}
-
 			const remotes = await child.repo.getRemotes();
 			if (remotes.length === 0) {
 				this.view.message = 'No remotes could be found.';
@@ -128,7 +124,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.selection),
 				this,
 			),
 			commands.registerCommand(
@@ -233,11 +229,15 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		});
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the remote branches the commit is on
-		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		const branches = await this.container.git.getCommitBranches(
+			commit.repoPath,
+			commit.ref,
+			GitCommit.is(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+		);
 		if (branches.length === 0) return undefined;
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);

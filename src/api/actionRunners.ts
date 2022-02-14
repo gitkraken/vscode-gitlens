@@ -1,11 +1,10 @@
-'use strict';
 import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
-import { Commands } from '../commands/common';
 import { Config, configuration } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
+import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
-import { getQuickPickIgnoreFocusOut } from '../quickpicks';
-import { Strings } from '../system';
+import { setContext } from '../context';
+import { sortCompare } from '../system/string';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
 type Actions = ActionContext['type'];
@@ -256,7 +255,7 @@ export class ActionRunners implements Disposable {
 		if (runners.length > 1 || runners.every(r => r.type !== ActionRunnerType.BuiltIn)) {
 			const items: (ActionRunnerQuickPickItem | NoActionRunnersQuickPickItem)[] = runners
 				// .filter(r => r.when(context))
-				.sort((a, b) => a.order - b.order || Strings.sortCompare(a.name, b.name))
+				.sort((a, b) => a.order - b.order || sortCompare(a.name, b.name))
 				.map(r => new ActionRunnerQuickPickItem(r, context));
 
 			if (items.length === 0) {
@@ -296,7 +295,6 @@ export class ActionRunners implements Disposable {
 								placeholder = 'Choose what you would like to do';
 								break;
 							default:
-								// eslint-disable-next-line no-debugger
 								debugger;
 								break;
 						}

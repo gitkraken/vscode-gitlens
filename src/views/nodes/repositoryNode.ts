@@ -1,4 +1,3 @@
-'use strict';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
@@ -12,7 +11,11 @@ import {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models';
-import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
+import { findLastIndex } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { disposableInterval } from '../../system/function';
+import { pad } from '../../system/string';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
@@ -177,10 +180,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		let description;
 		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 			lastFetched
-				? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-						lastFetched,
-						false,
-				  )}`
+				? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched, false)}`
 				: ''
 		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
 		let iconSuffix = '';
@@ -198,12 +198,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = status.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 1, 1),
+					prefix: pad(GlyphChars.Dot, 1, 1),
 				});
 			}
 
 			const upstreamStatus = status.getUpstreamStatus({
-				suffix: Strings.pad(GlyphChars.Dot, 1, 1),
+				suffix: pad(GlyphChars.Dot, 1, 1),
 			});
 
 			description = `${upstreamStatus}${status.branch}${status.rebasing ? ' (Rebasing)' : ''}${workingStatus}`;
@@ -211,7 +211,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			let providerName;
 			if (status.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(status.repoPath),
+					await this.view.container.git.getRemotesWithProviders(status.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -250,20 +250,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			}
 		}
 
-		if (!this.repo.supportsChangeEvents) {
-			description = `${Strings.pad(GlyphChars.Warning, 1, 0)}${
-				description ? Strings.pad(description, 2, 0) : ''
-			}`;
-			tooltip += `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`;
-		}
-
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
-			lastFetched
-				? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
-				: ''
+			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 		}`;
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
@@ -327,7 +318,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			disposables.push(
-				Functions.interval(() => {
+				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
@@ -375,7 +366,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
 				let deleteCount = 1;
 				if (index === -1) {
-					index = Arrays.findLastIndex(
+					index = findLastIndex(
 						this._children,
 						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode,
 					);

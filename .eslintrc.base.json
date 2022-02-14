@@ -33,7 +33,7 @@
 		"no-console": "off",
 		"no-constant-condition": ["warn", { "checkLoops": false }],
 		"no-caller": "error",
-		"no-debugger": "warn",
+		"no-debugger": "off",
 		"no-dupe-class-members": "off",
 		"no-else-return": "warn",
 		"no-empty": ["warn", { "allowEmptyCatch": true }],
@@ -50,6 +50,55 @@
 		"no-lonely-if": "error",
 		"no-loop-func": "error",
 		"no-multi-spaces": "error",
+		"no-restricted-imports": [
+			"error",
+			{
+				"paths": [
+					"lodash",
+					"lodash-es",
+					// Disallow node imports below
+					"assert",
+					"buffer",
+					"child_process",
+					"cluster",
+					"crypto",
+					"dgram",
+					"dns",
+					"domain",
+					"events",
+					"freelist",
+					"fs",
+					"http",
+					"https",
+					"module",
+					"net",
+					"os",
+					"path",
+					"punycode",
+					"querystring",
+					"readline",
+					"repl",
+					"smalloc",
+					"stream",
+					"string_decoder",
+					"sys",
+					"timers",
+					"tls",
+					"tracing",
+					"tty",
+					"url",
+					"util",
+					"vm",
+					"zlib"
+				],
+				"patterns": [
+					{
+						"group": ["**/env/**/*"],
+						"message": "Use @env/ instead"
+					}
+				]
+			}
+		],
 		"no-return-assign": "error",
 		"no-return-await": "warn",
 		"no-self-compare": "error",
@@ -265,5 +314,14 @@
 				"alwaysTryTypes": true // always try to resolve types under `<root>@types` directory even it doesn't contain any source code, like `@types/unist`
 			}
 		}
-	}
+	},
+	"ignorePatterns": ["dist/*", "out/*", "**/@types/*", "emojis.json", "tsconfig*.tsbuildinfo", "webpack.config*.js"],
+	"overrides": [
+		{
+			"files": ["src/env/node/**/*"],
+			"rules": {
+				"no-restricted-imports": "off"
+			}
+		}
+	]
 }

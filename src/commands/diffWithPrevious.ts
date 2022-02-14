@@ -1,19 +1,13 @@
-'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	findOrOpenEditor,
-	getCommandUri,
-} from './common';
+import { command, executeCommand } from '../system/command';
+import { findOrOpenEditor } from '../system/utils';
+import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
@@ -27,7 +21,7 @@ export interface DiffWithPreviousCommandArgs {
 
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
 	}
 
@@ -53,17 +47,17 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		}
 
 		let gitUri;
-		if (args.commit != null) {
+		if (args.commit?.file != null) {
 			if (!args.commit.isUncommitted) {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
-						uri: args.commit.originalUri,
+						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
 						sha: args.commit.sha || '',
-						uri: args.commit.uri,
+						uri: args.commit.file.uri,
 					},
 					line: args.line,
 					showOptions: args.showOptions,
@@ -72,7 +66,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			gitUri = GitUri.fromCommit(args.commit);
+			gitUri = args.commit?.getGitUri();
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}
@@ -83,7 +77,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// }
 
 		try {
-			const diffUris = await Container.instance.git.getPreviousDiffUris(
+			const diffUris = await this.container.git.getPreviousComparisonUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,

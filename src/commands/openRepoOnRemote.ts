@@ -1,18 +1,12 @@
-'use strict';
 import { TextEditor, Uri, window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-	isCommandContextViewNodeHasRemote,
-} from './common';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
@@ -22,7 +16,7 @@ export interface OpenRepoOnRemoteCommandArgs {
 
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
@@ -43,13 +37,15 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(
-			gitUri,
-			editor,
-			args?.clipboard
-				? 'Choose which repository to copy the url from'
-				: 'Choose which repository to open on remote',
-		);
+		const repoPath = (
+			await RepositoryPicker.getBestRepositoryOrShow(
+				gitUri,
+				editor,
+				args?.clipboard
+					? 'Choose which repository to copy the url from'
+					: 'Choose which repository to open on remote',
+			)
+		)?.path;
 		if (!repoPath) return;
 
 		try {

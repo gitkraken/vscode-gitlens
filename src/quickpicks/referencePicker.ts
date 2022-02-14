@@ -1,12 +1,12 @@
-'use strict';
 import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
-import { GitActions } from '../commands';
+import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
-import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -88,17 +88,14 @@ export namespace ReferencePicker {
 
 		quickpick.show();
 
-		const getValidateGitReference = getValidateGitReferenceFn(
-			(await Container.instance.git.getRepository(repoPath))!,
-			{
-				buttons: [QuickCommandButtons.RevealInSideBar],
-				ranges:
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-					options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
-						? options.allowEnteringRefs.ranges
-						: undefined,
-			},
-		);
+		const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
+			buttons: [QuickCommandButtons.RevealInSideBar],
+			ranges:
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
+					? options.allowEnteringRefs.ranges
+					: undefined,
+		});
 
 		quickpick.items = await items;
 
@@ -164,7 +161,7 @@ export namespace ReferencePicker {
 		include = include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
 		const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
-			(await Container.instance.git.getRepository(repoPath))!,
+			Container.instance.git.getRepository(repoPath),
 			include && ReferencesQuickPickIncludes.BranchesAndTags
 				? ['branches', 'tags']
 				: include && ReferencesQuickPickIncludes.Branches

@@ -1,5 +1,3 @@
-'use strict';
-
 export const enum GitErrorHandling {
 	Throw = 0,
 	Ignore = 1,

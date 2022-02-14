@@ -1,8 +1,8 @@
-'use strict';
 import { commands, Disposable } from 'vscode';
-import { ContextKeys, setContext } from './constants';
+import { ContextKeys } from './constants';
+import { setContext } from './context';
 import { Logger } from './logger';
-import { log } from './system';
+import { log } from './system/decorators/log';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;
@@ -84,7 +84,7 @@ export class KeyboardScope implements Disposable {
 		}
 
 		mapping[key] = undefined;
-		await setContext(`${ContextKeys.Key}:${key}`, false);
+		await setContext(`${ContextKeys.KeyPrefix}${key}`, false);
 	}
 
 	@log({
@@ -138,12 +138,12 @@ export class KeyboardScope implements Disposable {
 
 		mapping[key] = command;
 		if (!set) {
-			await setContext(`${ContextKeys.Key}:${key}`, true);
+			await setContext(`${ContextKeys.KeyPrefix}${key}`, true);
 		}
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		await Promise.all(keys.map(key => setContext(`${ContextKeys.Key}:${key}`, Boolean(mapping?.[key]))));
+		await Promise.all(keys.map(key => setContext(`${ContextKeys.KeyPrefix}${key}`, Boolean(mapping?.[key]))));
 	}
 }
 

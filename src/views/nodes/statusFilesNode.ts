@@ -1,19 +1,11 @@
-'use strict';
-import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import {
-	GitCommitType,
-	GitFileWithCommit,
-	GitLog,
-	GitLogCommit,
-	GitRevision,
-	GitStatus,
-	GitStatusFile,
-	GitTrackingState,
-} from '../../git/models';
-import { Arrays, Iterables, Strings } from '../../system';
+import { GitCommit, GitFileWithCommit, GitLog, GitStatus, GitStatusFile, GitTrackingState } from '../../git/models';
+import { groupBy, makeHierarchical } from '../../system/array';
+import { filter, flatMap, map } from '../../system/iterable';
+import { joinPaths, normalizePath } from '../../system/path';
+import { pluralize, sortCompare } from '../../system/string';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
@@ -58,12 +50,17 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		if (this.range != null) {
 			log = await this.view.container.git.getLog(repoPath, { limit: 0, ref: this.range });
 			if (log != null) {
+				await Promise.allSettled(
+					map(
+						filter(log.commits.values(), c => c.files == null),
+						c => c.ensureFullDetails(),
+					),
+				);
+
 				files = [
-					...Iterables.flatMap(log.commits.values(), c =>
-						c.files.map(s => {
-							const file: GitFileWithCommit = { ...s, commit: c };
-							return file;
-						}),
+					...flatMap(
+						log.commits.values(),
+						c => c.files?.map<GitFileWithCommit>(f => ({ ...f, commit: c })) ?? [],
 					),
 				];
 			}
@@ -73,28 +70,15 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			files.splice(
 				0,
 				0,
-				...Iterables.flatMap(this.status.files, s => {
-					if (s.workingTreeStatus != null && s.indexStatus != null) {
-						// Decrements the date to guarantee this entry will be sorted after the previous entry (most recent first)
-						const older = new Date();
-						older.setMilliseconds(older.getMilliseconds() - 1);
-
-						return [
-							this.toStatusFile(s, GitRevision.uncommitted, GitRevision.uncommittedStaged),
-							this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD', older),
-						];
-					} else if (s.indexStatus != null) {
-						return [this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD')];
-					}
-
-					return [this.toStatusFile(s, GitRevision.uncommitted, 'HEAD')];
-				}),
+				...flatMap(this.status.files, f =>
+					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),
+				),
 			);
 		}
 
 		files.sort((a, b) => b.commit.date.getTime() - a.commit.date.getTime());
 
-		const groups = Arrays.groupBy(files, s => s.fileName);
+		const groups = groupBy(files, s => s.path);
 
 		let children: FileNode[] = Object.values(groups).map(
 			files =>
@@ -108,17 +92,17 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
+				(...parts: string[]) => normalizePath(joinPaths(...parts)),
 				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) => a.priority - b.priority || Strings.sortCompare(a.label!, b.label!));
+			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));
 		}
 
 		return children;
@@ -138,10 +122,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 					if (aheadFiles != null) {
 						const uniques = new Set();
 						for (const f of this.status.files) {
-							uniques.add(f.fileName);
+							uniques.add(f.path);
 						}
 						for (const f of aheadFiles) {
-							uniques.add(f.fileName);
+							uniques.add(f.path);
 						}
 
 						files = uniques.size;
@@ -152,7 +136,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						`${this.status.upstream}...`,
 					);
 					if (stats != null) {
-						files += stats.files;
+						files += stats.changedFiles;
 					} else {
 						files = -1;
 					}
@@ -160,7 +144,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			}
 		}
 
-		const label = files === -1 ? '?? files changed' : `${Strings.pluralize('file', files)} changed`;
+		const label = files === -1 ? '?? files changed' : `${pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;
@@ -172,30 +156,15 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		return item;
 	}
 
-	private toStatusFile(file: GitStatusFile, ref: string, previousRef: string, date?: Date): GitFileWithCommit {
+	private getFileWithPseudoCommit(file: GitStatusFile, commit: GitCommit): GitFileWithCommit {
 		return {
 			status: file.status,
 			repoPath: file.repoPath,
 			indexStatus: file.indexStatus,
 			workingTreeStatus: file.workingTreeStatus,
-			fileName: file.fileName,
-			originalFileName: file.originalFileName,
-			commit: new GitLogCommit(
-				GitCommitType.LogFile,
-				file.repoPath,
-				ref,
-				'You',
-				undefined,
-				date ?? new Date(),
-				date ?? new Date(),
-				'',
-				file.fileName,
-				[file],
-				file.status,
-				file.originalFileName,
-				previousRef,
-				file.fileName,
-			),
+			path: file.path,
+			originalPath: file.originalPath,
+			commit: commit,
 		};
 	}
 }

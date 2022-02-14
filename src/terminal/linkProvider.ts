@@ -1,11 +1,10 @@
-'use strict';
 import { commands, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider, window } from 'vscode';
-import {
-	Commands,
+import type {
 	GitCommandsCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickCommitCommandArgs,
 } from '../commands';
+import { Commands } from '../constants';
 import { Container } from '../container';
 import { PagedResult } from '../git/gitProvider';
 import { GitBranch, GitReference, GitTag } from '../git/models';
@@ -38,8 +37,8 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 	async provideTerminalLinks(context: TerminalLinkContext): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0) return [];
 
-		const repoPath = this.container.git.highlanderRepoPath;
-		if (repoPath == null) return [];
+		const repoPath = this.container.git.highlander?.path;
+		if (!repoPath) return [];
 
 		const links: GitTerminalLink[] = [];
 

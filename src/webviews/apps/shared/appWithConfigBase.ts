@@ -1,4 +1,3 @@
-'use strict';
 /*global document*/
 import {
 	AppStateWithConfig,
@@ -9,13 +8,13 @@ import {
 	PreviewConfigurationCommandType,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { getDateFormatter } from '../shared/date';
+import { formatDate } from '../shared/date';
 import { App } from './appBase';
 import { DOM } from './dom';
 
 const offset = (new Date().getTimezoneOffset() / 60) * 100;
-const dateFormatter = getDateFormatter(
-	new Date(`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`),
+const date = new Date(
+	`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`,
 );
 
 let ipcSequence = 0;
@@ -420,7 +419,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					value = el.dataset.settingPreviewDefault;
 				}
 
-				el.innerText = value == null ? '' : dateFormatter.format(value);
+				el.innerText = value == null ? '' : formatDate(date, value);
 				break;
 			}
 			case 'commit': {

@@ -1,8 +1,6 @@
-'use strict';
-import * as paths from 'path';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
-import { GitUri } from '../../git/gitUri';
+import type { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
 	GitLog,
@@ -13,7 +11,11 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { Arrays, debug, gate, Iterables, memoize } from '../../system';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
+import { basename } from '../../system/path';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -76,17 +78,19 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 		if (fileStatuses?.length) {
 			if (this.folder) {
-				const commits = Arrays.uniqueBy(
-					[...Iterables.flatMap(fileStatuses, f => f.toPsuedoCommits(currentUser))],
-					c => c.sha,
-					(original, c) => void original.files.push(...c.files),
+				// Combine all the working/staged changes into single pseudo commits
+				const commits = map(
+					uniqueBy(
+						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
+						c => c.sha,
+						(original, c) => original.with({ files: { files: [...original.files!, ...c.files!] } }),
+					),
+					commit => new CommitNode(this.view, this, commit),
 				);
-				if (commits.length) {
-					children.push(...commits.map(commit => new CommitNode(this.view, this, commit)));
-				}
+				children.push(...commits);
 			} else {
 				const [file] = fileStatuses;
-				const commits = file.toPsuedoCommits(currentUser);
+				const commits = file.getPseudoCommits(this.view.container, currentUser);
 				if (commits.length) {
 					children.push(
 						...commits.map(commit => new FileRevisionAsCommitNode(this.view, this, file, commit)),
@@ -98,10 +102,10 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
-					Iterables.map(log.commits.values(), c =>
+					filterMap(log.commits.values(), c =>
 						this.folder
 							? new CommitNode(
-									this.view as any,
+									this.view,
 									this,
 									c,
 									unpublishedCommits?.has(c.ref),
@@ -111,11 +115,13 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 										expand: false,
 									},
 							  )
-							: new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
+							: c.file != null
+							? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
 									branch: this.branch,
 									getBranchAndTagTips: getBranchAndTagTips,
 									unpublished: unpublishedCommits?.has(c.ref),
-							  }),
+							  })
+							: undefined,
 					),
 					this,
 				),
@@ -151,7 +157,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	get label() {
 		// Check if this is a base folder
 		if (this.folder && this.uri.fileName === '') {
-			return `${paths.basename(this.uri.fsPath)}${
+			return `${basename(this.uri.path)}${
 				this.uri.sha
 					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
@@ -166,8 +172,8 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	}
 
 	@debug()
-	protected async subscribe() {
-		const repo = await this.view.container.git.getRepository(this.uri);
+	protected subscribe() {
+		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -242,7 +248,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	@memoize()
 	private getPathOrGlob() {
-		return this.folder ? paths.join(this.uri.fsPath, '*') : this.uri.fsPath;
+		return this.folder ? Uri.joinPath(this.uri, '*') : this.uri;
 	}
 
 	get hasMore() {

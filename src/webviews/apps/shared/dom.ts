@@ -1,4 +1,3 @@
-'use strict';
 /*global document*/
 
 export interface Disposable {

@@ -1,11 +1,12 @@
-'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitCommit, GitRevision } from '../git/models';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
@@ -17,7 +18,7 @@ export interface DiffLineWithWorkingCommandArgs {
 
 @command()
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffLineWithWorking);
 	}
 
@@ -32,14 +33,15 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		let lhsSha: string;
+		let lhsUri: Uri;
+
 		if (args.commit == null || args.commit.isUncommitted) {
 			const blameline = args.line;
 			if (blameline < 0) return;
 
 			try {
-				const blame = editor?.document.isDirty
-					? await Container.instance.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-					: await Container.instance.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
@@ -48,28 +50,38 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 				args.commit = blame.commit;
 
-				// If the line is uncommitted, change the previous commit
+				// If the line is uncommitted, use previous commit (or index if the file is staged)
 				if (args.commit.isUncommitted) {
-					const status = await Container.instance.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
-					args.commit = args.commit.with({
-						sha: status?.indexStatus != null ? GitRevision.uncommittedStaged : args.commit.previousSha!,
-						fileName: args.commit.previousFileName!,
-						originalFileName: null,
-						previousSha: null,
-						previousFileName: null,
-					});
-					// editor lines are 0-based
-					args.line = blame.line.line - 1;
+					const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
+					if (status?.indexStatus != null) {
+						lhsSha = GitRevision.uncommittedStaged;
+						lhsUri = this.container.git.getAbsoluteUri(
+							status.originalPath || status.path,
+							args.commit.repoPath,
+						);
+					} else {
+						// Don't need to worry about verifying the previous sha, as the DiffWith command will
+						lhsSha = args.commit.unresolvedPreviousSha;
+						lhsUri = args.commit.file!.originalUri ?? args.commit.file!.uri;
+					}
+				} else {
+					lhsSha = args.commit.sha;
+					lhsUri = args.commit.file!.uri;
 				}
+				// editor lines are 0-based
+				args.line = blame.line.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
 				void Messages.showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}
+		} else {
+			lhsSha = args.commit.sha;
+			lhsUri = args.commit.file?.uri ?? gitUri;
 		}
 
-		const workingUri = await args.commit.getWorkingUri();
+		const workingUri = await args.commit.file?.getWorkingUri();
 		if (workingUri == null) {
 			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 
@@ -79,8 +91,8 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: args.commit.repoPath,
 			lhs: {
-				sha: args.commit.sha,
-				uri: args.commit.uri,
+				sha: lhsSha,
+				uri: lhsUri,
 			},
 			rhs: {
 				sha: '',
