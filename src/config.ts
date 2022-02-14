@@ -1,12 +1,5 @@
 import { DateTimeFormat } from './system/date';
 
-export const enum OutputLevel {
-	Silent = 'silent',
-	Errors = 'errors',
-	Verbose = 'verbose',
-	Debug = 'debug',
-}
-
 export interface Config {
 	autolinks: AutolinkReference[] | null;
 	blame: {
@@ -272,6 +265,13 @@ export const enum KeyMap {
 	Alternate = 'alternate',
 	Chorded = 'chorded',
 	None = 'none',
+}
+
+export const enum OutputLevel {
+	Silent = 'silent',
+	Errors = 'errors',
+	Verbose = 'verbose',
+	Debug = 'debug',
 }
 
 export const enum StatusBarCommand {

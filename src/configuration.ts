@@ -9,7 +9,7 @@ import {
 	ExtensionContext,
 	workspace,
 } from 'vscode';
-import { Config } from './config';
+import type { Config } from './config';
 import { areEqual } from './system/object';
 
 const configPrefix = 'gitlens';
