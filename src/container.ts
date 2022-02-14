@@ -50,9 +50,9 @@ import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { VslsController } from './vsls/vsls';
-import { RebaseEditorProvider } from './webviews/rebaseEditor';
-import { SettingsWebview } from './webviews/settingsWebview';
-import { WelcomeWebview } from './webviews/welcomeWebview';
+import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
+import { SettingsWebview } from './webviews/settings/settingsWebview';
+import { WelcomeWebview } from './webviews/welcome/welcomeWebview';
 
 export class Container {
 	static #instance: Container | undefined;

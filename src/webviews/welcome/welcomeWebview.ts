@@ -1,7 +1,7 @@
-import { Commands } from '../constants';
-import { Container } from '../container';
-import { WelcomeState } from './protocol';
-import { WebviewBase } from './webviewBase';
+import { Commands } from '../../constants';
+import { Container } from '../../container';
+import { WelcomeState } from '../protocol';
+import { WebviewBase } from '../webviewBase';
 
 export class WelcomeWebview extends WebviewBase {
 	constructor(container: Container) {

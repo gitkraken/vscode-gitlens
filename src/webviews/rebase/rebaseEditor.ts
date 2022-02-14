@@ -13,18 +13,18 @@ import {
 	WorkspaceEdit,
 } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowQuickCommitCommand } from '../commands';
-import { configuration } from '../configuration';
-import { CoreCommands } from '../constants';
-import { Container } from '../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { executeCoreCommand } from '../system/command';
-import { gate } from '../system/decorators/gate';
-import { debug } from '../system/decorators/log';
-import { join, map } from '../system/iterable';
-import { normalizePath } from '../system/path';
+import { ShowQuickCommitCommand } from '../../commands';
+import { configuration } from '../../configuration';
+import { CoreCommands } from '../../constants';
+import { Container } from '../../container';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models';
+import { Logger } from '../../logger';
+import { Messages } from '../../messages';
+import { executeCoreCommand } from '../../system/command';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { join, map } from '../../system/iterable';
+import { normalizePath } from '../../system/path';
 import {
 	Author,
 	Commit,
@@ -40,7 +40,7 @@ import {
 	RebaseEntry,
 	RebaseEntryAction,
 	RebaseState,
-} from './protocol';
+} from '../protocol';
 
 let ipcSequence = 0;
 function nextIpcId() {

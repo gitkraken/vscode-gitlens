@@ -1,15 +1,15 @@
 import { commands, Disposable, workspace } from 'vscode';
-import { configuration } from '../configuration';
-import { Commands } from '../constants';
-import { Container } from '../container';
+import { configuration } from '../../configuration';
+import { Commands } from '../../constants';
+import { Container } from '../../container';
 import {
 	IpcMessage,
 	onIpcCommand,
 	ReadyCommandType,
 	SettingsDidRequestJumpToNotificationType,
 	SettingsState,
-} from './protocol';
-import { WebviewBase } from './webviewBase';
+} from '../protocol';
+import { WebviewBase } from '../webviewBase';
 
 const anchorRegex = /.*?#(.*)/;
 
