@@ -1,11 +1,11 @@
 /*global document*/
+import type { Config } from '../../../config';
 import {
-	AppStateWithConfig,
 	DidChangeConfigurationNotificationType,
-	DidPreviewConfigurationNotificationType,
+	DidGenerateConfigurationPreviewNotificationType,
+	GenerateConfigurationPreviewCommandType,
 	IpcMessage,
-	onIpcNotification,
-	PreviewConfigurationCommandType,
+	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
 import { formatDate } from '../shared/date';
@@ -17,22 +17,16 @@ const date = new Date(
 	`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`,
 );
 
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `${ipcSequence}`;
+interface AppStateWithConfig {
+	config: Config;
+	customSettings?: Record<string, boolean>;
 }
 
-export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
+export abstract class AppWithConfig<State extends AppStateWithConfig> extends App<State> {
 	private _changes = Object.create(null) as Record<string, any>;
 	private _updating: boolean = false;
 
-	constructor(appName: string, state: TState) {
+	constructor(appName: string, state: State) {
 		super(appName, state);
 	}
 
@@ -43,40 +37,27 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
-
 		disposables.push(
-			DOM.on('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
-				return me.onInputChecked(this);
-			}),
+			DOM.on('input[type=checkbox][data-setting]', 'change', (e, target: HTMLInputElement) =>
+				this.onInputChecked(target),
+			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'blur',
-				function (this: HTMLInputElement) {
-					return me.onInputBlurred(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputBlurred(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'focus',
-				function (this: HTMLInputElement) {
-					return me.onInputFocused(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputFocused(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
 				'input',
-				function (this: HTMLInputElement) {
-					return me.onInputChanged(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
-			DOM.on('select[data-setting]', 'change', function (this: HTMLSelectElement) {
-				return me.onInputSelected(this);
-			}),
-			DOM.on('.popup', 'mousedown', function (this: HTMLElement, e: Event) {
-				return me.onPopupMouseDown(this, e as MouseEvent);
-			}),
+			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
+			DOM.on('.popup', 'mousedown', (e, target: HTMLElement) => this.onPopupMouseDown(target, e)),
 		);
 
 		return disposables;
@@ -87,7 +68,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 		switch (msg.method) {
 			case DidChangeConfigurationNotificationType.method:
-				onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
+				onIpc(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
 					this.state.customSettings = params.customSettings;
 
@@ -96,9 +77,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 				break;
 
 			default:
-				if (super.onMessageReceived !== undefined) {
-					super.onMessageReceived(e);
-				}
+				super.onMessageReceived?.(e);
 		}
 	}
 
@@ -437,24 +416,18 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					return;
 				}
 
-				const id = nextIpcId();
-				const disposable = DOM.on(window, 'message', (e: MessageEvent) => {
-					const msg = e.data as IpcMessage;
-
-					if (msg.method === DidPreviewConfigurationNotificationType.method && msg.params.id === id) {
-						disposable.dispose();
-						onIpcNotification(DidPreviewConfigurationNotificationType, msg, params => {
-							el.innerText = params.preview ?? '';
-						});
-					}
-				});
-
-				this.sendCommand(PreviewConfigurationCommandType, {
-					key: el.dataset.settingPreview!,
-					type: 'commit',
-					id: id,
-					format: value,
-				});
+				this.sendCommandWithCompletion(
+					GenerateConfigurationPreviewCommandType,
+					{
+						key: el.dataset.settingPreview!,
+						type: 'commit',
+						format: value,
+					},
+					DidGenerateConfigurationPreviewNotificationType,
+					params => {
+						el.innerText = params.preview ?? '';
+					},
+				);
 
 				break;
 			}

@@ -1,31 +1,23 @@
 import { Commands } from '../../constants';
-import { Container } from '../../container';
-import { WelcomeState } from '../protocol';
-import { WebviewBase } from '../webviewBase';
+import type { Container } from '../../container';
+import { WebviewWithConfigBase } from '../webviewWithConfigBase';
+import type { State } from './protocol';
 
-export class WelcomeWebview extends WebviewBase {
+export class WelcomeWebview extends WebviewWithConfigBase<State> {
 	constructor(container: Container) {
-		super(Commands.ShowWelcomePage, container);
+		super(
+			container,
+			'gitlens.welcome',
+			'welcome.html',
+			'images/gitlens-icon.png',
+			'Welcome to GitLens',
+			Commands.ShowWelcomePage,
+		);
 	}
 
-	get fileName(): string {
-		return 'welcome.html';
-	}
-
-	get id(): string {
-		return 'gitlens.welcome';
-	}
-
-	get title(): string {
-		return 'Welcome to GitLens';
-	}
-
-	override renderEndOfBody() {
-		const bootstrap: WelcomeState = {
+	protected override includeBootstrap(): State {
+		return {
 			config: this.container.config,
 		};
-		return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
-			bootstrap,
-		)};</script>`;
 	}
 }

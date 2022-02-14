@@ -1,19 +1,19 @@
 /*global document window*/
 import '../scss/rebase.scss';
 import Sortable from 'sortablejs';
+import { onIpc } from '../../protocol';
 import {
-	onIpcNotification,
-	RebaseDidAbortCommandType,
-	RebaseDidChangeEntryCommandType,
-	RebaseDidChangeNotificationType,
-	RebaseDidDisableCommandType,
-	RebaseDidMoveEntryCommandType,
-	RebaseDidStartCommandType,
-	RebaseDidSwitchCommandType,
+	AbortCommandType,
+	ChangeEntryCommandType,
+	DidChangeNotificationType,
+	DisableCommandType,
+	MoveEntryCommandType,
 	RebaseEntry,
 	RebaseEntryAction,
-	RebaseState,
-} from '../../protocol';
+	StartCommandType,
+	State,
+	SwitchCommandType,
+} from '../../rebase/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
@@ -34,7 +34,7 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['D', 'drop'],
 ]);
 
-class RebaseEditor extends App<RebaseState> {
+class RebaseEditor extends App<State> {
 	private readonly commitTokenRegex = new RegExp(encodeURIComponent(`\${commit}`));
 
 	constructor() {
@@ -51,9 +51,6 @@ class RebaseEditor extends App<RebaseState> {
 
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
-
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
 
 		const $container = document.getElementById('entries')!;
 		Sortable.create($container, {
@@ -108,7 +105,7 @@ class RebaseEditor extends App<RebaseState> {
 		}
 
 		disposables.push(
-			DOM.on(window, 'keydown', (e: KeyboardEvent) => {
+			DOM.on(window, 'keydown', e => {
 				if (e.ctrlKey || e.metaKey) {
 					if (e.key === 'Enter' || e.key === 'r') {
 						e.preventDefault();
@@ -127,78 +124,78 @@ class RebaseEditor extends App<RebaseState> {
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
 			DOM.on('[data-action="disable"]', 'click', () => this.onDisableClicked()),
 			DOM.on('[data-action="switch"]', 'click', () => this.onSwitchClicked()),
-			DOM.on('li[data-ref]', 'keydown', function (this: Element, e: KeyboardEvent) {
-				if ((e.target as HTMLElement).matches('select[data-ref]')) {
+			DOM.on('li[data-ref]', 'keydown', (e, target: HTMLElement) => {
+				if (target.matches('select[data-ref]')) {
 					if (e.key === 'Escape') {
-						(this as HTMLLIElement).focus();
+						target.focus();
 					}
 
 					return;
 				}
 
 				if (e.key === 'Enter' || e.key === ' ') {
-					if (e.key === 'Enter' && (e.target as HTMLElement).matches('a.entry-ref')) {
+					if (e.key === 'Enter' && target.matches('a.entry-ref')) {
 						return;
 					}
 
-					const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
+					const $select = target.querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
 					if ($select != null) {
 						$select.focus();
 					}
 				} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
 						if (e.altKey) {
-							const ref = (this as HTMLLIElement).dataset.ref;
+							const ref = target.dataset.ref;
 							if (ref) {
 								e.stopPropagation();
 
-								me.moveEntry(ref, e.key === 'ArrowDown' ? 1 : -1, true);
+								this.moveEntry(ref, e.key === 'ArrowDown' ? 1 : -1, true);
 							}
 						} else {
-							if (me.state == null) return;
+							if (this.state == null) return;
 
-							let ref = (this as HTMLLIElement).dataset.ref;
+							let ref = target.dataset.ref;
 							if (ref == null) return;
 
 							e.preventDefault();
 
-							let index = me.getEntryIndex(ref) + (e.key === 'ArrowDown' ? 1 : -1);
+							let index = this.getEntryIndex(ref) + (e.key === 'ArrowDown' ? 1 : -1);
 							if (index < 0) {
-								index = me.state.entries.length - 1;
-							} else if (index === me.state.entries.length) {
+								index = this.state.entries.length - 1;
+							} else if (index === this.state.entries.length) {
 								index = 0;
 							}
 
-							ref = me.state.entries[index].ref;
+							ref = this.state.entries[index].ref;
 							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 						}
 					}
 				} else if (e.key === 'j' || e.key === 'k') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-						if (me.state == null) return;
+						if (this.state == null) return;
 
-						let ref = (this as HTMLLIElement).dataset.ref;
+						let ref = target.dataset.ref;
 						if (ref == null) return;
 
 						e.preventDefault();
 
-						let index = me.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
+						let index = this.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
 						if (index < 0) {
-							index = me.state.entries.length - 1;
-						} else if (index === me.state.entries.length) {
+							index = this.state.entries.length - 1;
+						} else if (index === this.state.entries.length) {
 							index = 0;
 						}
 
-						ref = me.state.entries[index].ref;
+						ref = this.state.entries[index].ref;
 						document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 					}
 				} else if (e.key === 'J' || e.key === 'K') {
 					if (!e.metaKey && !e.ctrlKey && !e.altKey && e.shiftKey) {
-						const ref = (this as HTMLLIElement).dataset.ref;
+						const ref = target.dataset.ref;
 						if (ref) {
 							e.stopPropagation();
 
-							me.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
+							this.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
@@ -206,19 +203,15 @@ class RebaseEditor extends App<RebaseState> {
 					if (action !== undefined) {
 						e.stopPropagation();
 
-						const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>(
-							'select[data-ref]',
-						)[0];
+						const $select = target.querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
 						if ($select != null && !$select.disabled) {
 							$select.value = action;
-							me.onSelectChanged($select);
+							this.onSelectChanged($select);
 						}
 					}
 				}
 			}),
-			DOM.on('select[data-ref]', 'input', function (this: Element) {
-				return me.onSelectChanged(this as HTMLSelectElement);
-			}),
+			DOM.on('select[data-ref]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
 		);
 
 		return disposables;
@@ -235,7 +228,7 @@ class RebaseEditor extends App<RebaseState> {
 	private moveEntry(ref: string, index: number, relative: boolean) {
 		const entry = this.getEntry(ref);
 		if (entry != null) {
-			this.sendCommand(RebaseDidMoveEntryCommandType, {
+			this.sendCommand(MoveEntryCommandType, {
 				ref: entry.ref,
 				to: index,
 				relative: relative,
@@ -248,7 +241,7 @@ class RebaseEditor extends App<RebaseState> {
 		if (entry != null) {
 			if (entry.action === action) return;
 
-			this.sendCommand(RebaseDidChangeEntryCommandType, {
+			this.sendCommand(ChangeEntryCommandType, {
 				ref: entry.ref,
 				action: action,
 			});
@@ -256,11 +249,11 @@ class RebaseEditor extends App<RebaseState> {
 	}
 
 	private onAbortClicked() {
-		this.sendCommand(RebaseDidAbortCommandType, {});
+		this.sendCommand(AbortCommandType, undefined);
 	}
 
 	private onDisableClicked() {
-		this.sendCommand(RebaseDidDisableCommandType, {});
+		this.sendCommand(DisableCommandType, undefined);
 	}
 
 	private onSelectChanged($el: HTMLSelectElement) {
@@ -271,19 +264,19 @@ class RebaseEditor extends App<RebaseState> {
 	}
 
 	private onStartClicked() {
-		this.sendCommand(RebaseDidStartCommandType, {});
+		this.sendCommand(StartCommandType, undefined);
 	}
 
 	private onSwitchClicked() {
-		this.sendCommand(RebaseDidSwitchCommandType, {});
+		this.sendCommand(SwitchCommandType, undefined);
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data;
 
 		switch (msg.method) {
-			case RebaseDidChangeNotificationType.method:
-				onIpcNotification(RebaseDidChangeNotificationType, msg, params => {
+			case DidChangeNotificationType.method:
+				onIpc(DidChangeNotificationType, msg, params => {
 					this.setState({ ...this.state, ...params.state });
 					this.refresh(this.state);
 				});
@@ -294,7 +287,7 @@ class RebaseEditor extends App<RebaseState> {
 		}
 	}
 
-	private refresh(state: RebaseState) {
+	private refresh(state: State) {
 		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-ref]')?.dataset.ref;
 		let focusSelect = false;
 		if (document.activeElement?.matches('select[data-ref]')) {
@@ -395,7 +388,7 @@ class RebaseEditor extends App<RebaseState> {
 
 	private createEntry(
 		entry: RebaseEntry,
-		state: RebaseState,
+		state: State,
 		tabIndex: number,
 		squashToHere: boolean,
 	): [HTMLLIElement, number] {

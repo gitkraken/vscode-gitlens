@@ -16,7 +16,7 @@ import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -25,22 +25,21 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { join, map } from '../../system/iterable';
 import { normalizePath } from '../../system/path';
+import { IpcMessage, onIpc } from '../protocol';
 import {
+	AbortCommandType,
 	Author,
+	ChangeEntryCommandType,
 	Commit,
-	IpcMessage,
-	onIpcCommand,
-	RebaseDidAbortCommandType,
-	RebaseDidChangeEntryCommandType,
-	RebaseDidChangeNotificationType,
-	RebaseDidDisableCommandType,
-	RebaseDidMoveEntryCommandType,
-	RebaseDidStartCommandType,
-	RebaseDidSwitchCommandType,
+	DidChangeNotificationType,
+	DisableCommandType,
+	MoveEntryCommandType,
 	RebaseEntry,
 	RebaseEntryAction,
-	RebaseState,
-} from '../protocol';
+	StartCommandType,
+	State,
+	SwitchCommandType,
+} from './protocol';
 
 let ipcSequence = 0;
 function nextIpcId() {
@@ -237,12 +236,12 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const state = await this.parseState(context);
 		void this.postMessage(context, {
 			id: nextIpcId(),
-			method: RebaseDidChangeNotificationType.method,
+			method: DidChangeNotificationType.method,
 			params: { state: state },
 		});
 	}
 
-	private async parseState(context: RebaseEditorContext): Promise<RebaseState> {
+	private async parseState(context: RebaseEditorContext): Promise<State> {
 		const branch = await this.container.git.getBranch(context.repoPath);
 		const state = await parseRebaseTodo(this.container, context.document.getText(), context.repoPath, branch?.name);
 		return state;
@@ -270,25 +269,25 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 			// 	break;
 
-			case RebaseDidAbortCommandType.method:
-				onIpcCommand(RebaseDidAbortCommandType, e, () => this.abort(context));
+			case AbortCommandType.method:
+				onIpc(AbortCommandType, e, () => this.abort(context));
 
 				break;
 
-			case RebaseDidDisableCommandType.method:
-				onIpcCommand(RebaseDidDisableCommandType, e, () => this.disable(context));
+			case DisableCommandType.method:
+				onIpc(DisableCommandType, e, () => this.disable(context));
 				break;
 
-			case RebaseDidStartCommandType.method:
-				onIpcCommand(RebaseDidStartCommandType, e, () => this.rebase(context));
+			case StartCommandType.method:
+				onIpc(StartCommandType, e, () => this.rebase(context));
 				break;
 
-			case RebaseDidSwitchCommandType.method:
-				onIpcCommand(RebaseDidSwitchCommandType, e, () => this.switch(context));
+			case SwitchCommandType.method:
+				onIpc(SwitchCommandType, e, () => this.switch(context));
 				break;
 
-			case RebaseDidChangeEntryCommandType.method:
-				onIpcCommand(RebaseDidChangeEntryCommandType, e, async params => {
+			case ChangeEntryCommandType.method:
+				onIpc(ChangeEntryCommandType, e, async params => {
 					const entries = parseRebaseTodoEntries(context.document);
 
 					const entry = entries.find(e => e.ref === params.ref);
@@ -345,8 +344,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 				break;
 
-			case RebaseDidMoveEntryCommandType.method:
-				onIpcCommand(RebaseDidMoveEntryCommandType, e, async params => {
+			case MoveEntryCommandType.method:
+				onIpc(MoveEntryCommandType, e, async params => {
 					const entries = parseRebaseTodoEntries(context.document);
 
 					const entry = entries.find(e => e.ref === params.ref);
@@ -516,7 +515,7 @@ async function parseRebaseTodo(
 	contents: string | { entries: RebaseEntry[]; onto: string },
 	repoPath: string,
 	branch: string | undefined,
-): Promise<Omit<RebaseState, 'rebasing'>> {
+): Promise<Omit<State, 'rebasing'>> {
 	let onto: string;
 	let entries;
 	if (typeof contents === 'string') {

@@ -1,26 +1,26 @@
-import { commands, Disposable, workspace } from 'vscode';
+import { commands, workspace } from 'vscode';
 import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
-import { Container } from '../../container';
-import {
-	IpcMessage,
-	onIpcCommand,
-	ReadyCommandType,
-	SettingsDidRequestJumpToNotificationType,
-	SettingsState,
-} from '../protocol';
-import { WebviewBase } from '../webviewBase';
+import type { Container } from '../../container';
+import { WebviewWithConfigBase } from '../webviewWithConfigBase';
+import { DidJumpToNotificationType, State } from './protocol';
 
 const anchorRegex = /.*?#(.*)/;
 
-export class SettingsWebview extends WebviewBase {
+export class SettingsWebview extends WebviewWithConfigBase<State> {
 	private _pendingJumpToAnchor: string | undefined;
 
 	constructor(container: Container) {
-		super(Commands.ShowSettingsPage, container);
+		super(
+			container,
+			'gitlens.settings',
+			'settings.html',
+			'images/gitlens-icon.png',
+			'GitLens Settings',
+			Commands.ShowSettingsPage,
+		);
 
-		this.disposable = Disposable.from(
-			this.disposable,
+		this.disposables.push(
 			...[
 				Commands.ShowSettingsPageAndJumpToBranchesView,
 				Commands.ShowSettingsPageAndJumpToCommitsView,
@@ -46,6 +46,15 @@ export class SettingsWebview extends WebviewBase {
 		);
 	}
 
+	protected override onReady() {
+		if (this._pendingJumpToAnchor != null) {
+			void this.notify(DidJumpToNotificationType, {
+				anchor: this._pendingJumpToAnchor,
+			});
+			this._pendingJumpToAnchor = undefined;
+		}
+	}
+
 	protected override onShowCommand(anchor?: string) {
 		if (anchor) {
 			this._pendingJumpToAnchor = anchor;
@@ -53,54 +62,18 @@ export class SettingsWebview extends WebviewBase {
 		super.onShowCommand();
 	}
 
-	protected override onMessageReceived(e: IpcMessage) {
-		switch (e.method) {
-			case ReadyCommandType.method:
-				onIpcCommand(ReadyCommandType, e, _params => {
-					if (this._pendingJumpToAnchor !== undefined) {
-						void this.notify(SettingsDidRequestJumpToNotificationType, {
-							anchor: this._pendingJumpToAnchor,
-						});
-						this._pendingJumpToAnchor = undefined;
-					}
-				});
-
-				break;
-
-			default:
-				super.onMessageReceived(e);
-
-				break;
-		}
-	}
-
-	get fileName(): string {
-		return 'settings.html';
-	}
-
-	get id(): string {
-		return 'gitlens.settings';
-	}
-
-	get title(): string {
-		return 'GitLens Settings';
-	}
-
-	override renderEndOfBody() {
+	protected override includeBootstrap(): State {
 		const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
 		if (workspace.workspaceFolders?.length) {
 			scopes.push(['workspace', 'Workspace']);
 		}
 
-		const bootstrap: SettingsState = {
+		return {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
 			config: configuration.get(),
 			customSettings: this.getCustomSettings(),
 			scope: 'user',
 			scopes: scopes,
 		};
-		return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
-			bootstrap,
-		)};</script>`;
 	}
 }

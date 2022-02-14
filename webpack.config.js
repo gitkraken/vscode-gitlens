@@ -117,32 +117,37 @@ function getExtensionConfig(target, mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				env.esbuild
-					? new TerserPlugin({
-							minify: TerserPlugin.esbuildMinify,
-							terserOptions: {
-								drop: ['debugger'],
+				new TerserPlugin(
+					env.esbuild
+						? {
+								minify: TerserPlugin.esbuildMinify,
+								terserOptions: {
+									// @ts-ignore
+									drop: ['debugger'],
+									// @ts-ignore
+									format: 'cjs',
+									minify: true,
+									treeShaking: true,
+									// Keep the class names otherwise @log won't provide a useful name
+									keepNames: true,
+									target: 'es2020',
+								},
+						  }
+						: {
+								compress: {
+									drop_debugger: true,
+								},
+								extractComments: false,
+								parallel: true,
 								// @ts-ignore
-								format: 'cjs',
-								minify: true,
-								treeShaking: true,
-								// Keep the class names otherwise @log won't provide a useful name
-								keepNames: true,
-								target: 'es2020',
-							},
-					  })
-					: new TerserPlugin({
-							drop_debugger: true,
-							extractComments: false,
-							parallel: true,
-							// @ts-ignore
-							terserOptions: {
-								ecma: 2020,
-								// Keep the class names otherwise @log won't provide a useful name
-								keep_classnames: true,
-								module: true,
-							},
-					  }),
+								terserOptions: {
+									ecma: 2020,
+									// Keep the class names otherwise @log won't provide a useful name
+									keep_classnames: true,
+									module: true,
+								},
+						  },
+				),
 			],
 			splitChunks:
 				target === 'webworker'
@@ -228,67 +233,6 @@ function getExtensionConfig(target, mode, env) {
 function getWebviewsConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
-	const cspHtmlPlugin = new CspHtmlPlugin(
-		{
-			'default-src': "'none'",
-			'img-src': ['#{cspSource}', 'https:', 'data:'],
-			'script-src':
-				mode !== 'production'
-					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
-					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'font-src': ['#{cspSource}'],
-		},
-		{
-			enabled: true,
-			hashingMethod: 'sha256',
-			hashEnabled: {
-				'script-src': true,
-				'style-src': true,
-			},
-			nonceEnabled: {
-				'script-src': true,
-				'style-src': true,
-			},
-		},
-	);
-	// Override the nonce creation so we can dynamically generate them at runtime
-	// @ts-ignore
-	cspHtmlPlugin.createNonce = () => '#{cspNonce}';
-
-	/** @type ImageMinimizerPlugin.Generator<any> */
-	// @ts-ignore
-	let imageGeneratorConfig = env.squoosh
-		? {
-				type: 'asset',
-				implementation: ImageMinimizerPlugin.squooshGenerate,
-				options: {
-					encodeOptions: {
-						webp: {
-							// quality: 90,
-							lossless: 1,
-						},
-					},
-				},
-		  }
-		: {
-				type: 'asset',
-				implementation: ImageMinimizerPlugin.imageminGenerate,
-				options: {
-					plugins: [
-						[
-							'imagemin-webp',
-							{
-								lossless: true,
-								nearLossless: 0,
-								quality: 100,
-								method: mode === 'production' ? 4 : 0,
-							},
-						],
-					],
-				},
-		  };
-
 	/** @type WebpackConfig['plugins'] | any */
 	const plugins = [
 		new CleanPlugin(
@@ -314,70 +258,11 @@ function getWebviewsConfig(mode, env) {
 				configFile: path.join(basePath, 'tsconfig.json'),
 			},
 		}),
-		new MiniCssExtractPlugin({
-			filename: '[name].css',
-		}),
-		new HtmlPlugin({
-			template: 'rebase/rebase.html',
-			chunks: ['rebase'],
-			filename: path.join(__dirname, 'dist', 'webviews', 'rebase.html'),
-			inject: true,
-			inlineSource: mode === 'production' ? '.css$' : undefined,
-			minify:
-				mode === 'production'
-					? {
-							removeComments: true,
-							collapseWhitespace: true,
-							removeRedundantAttributes: false,
-							useShortDoctype: true,
-							removeEmptyAttributes: true,
-							removeStyleLinkTypeAttributes: true,
-							keepClosingSlash: true,
-							minifyCSS: true,
-					  }
-					: false,
-		}),
-		new HtmlPlugin({
-			template: 'settings/settings.html',
-			chunks: ['settings'],
-			filename: path.join(__dirname, 'dist', 'webviews', 'settings.html'),
-			inject: true,
-			inlineSource: mode === 'production' ? '.css$' : undefined,
-			minify:
-				mode === 'production'
-					? {
-							removeComments: true,
-							collapseWhitespace: true,
-							removeRedundantAttributes: false,
-							useShortDoctype: true,
-							removeEmptyAttributes: true,
-							removeStyleLinkTypeAttributes: true,
-							keepClosingSlash: true,
-							minifyCSS: true,
-					  }
-					: false,
-		}),
-		new HtmlPlugin({
-			template: 'welcome/welcome.html',
-			chunks: ['welcome'],
-			filename: path.join(__dirname, 'dist', 'webviews', 'welcome.html'),
-			inject: true,
-			inlineSource: mode === 'production' ? '.css$' : undefined,
-			minify:
-				mode === 'production'
-					? {
-							removeComments: true,
-							collapseWhitespace: true,
-							removeRedundantAttributes: false,
-							useShortDoctype: true,
-							removeEmptyAttributes: true,
-							removeStyleLinkTypeAttributes: true,
-							keepClosingSlash: true,
-							minifyCSS: true,
-					  }
-					: false,
-		}),
-		cspHtmlPlugin,
+		new MiniCssExtractPlugin({ filename: '[name].css' }),
+		getHtmlPlugin('rebase', false, mode, env),
+		getHtmlPlugin('settings', false, mode, env),
+		getHtmlPlugin('welcome', false, mode, env),
+		getCspHtmlPlugin(mode, env),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
 			patterns: [
@@ -399,6 +284,8 @@ function getWebviewsConfig(mode, env) {
 			],
 		}),
 	];
+
+	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
 
 	if (mode !== 'production') {
 		plugins.push(
@@ -427,6 +314,38 @@ function getWebviewsConfig(mode, env) {
 		},
 		optimization: {
 			minimizer: [
+				new TerserPlugin(
+					env.esbuild
+						? {
+								minify: TerserPlugin.esbuildMinify,
+								terserOptions: {
+									// @ts-ignore
+									drop: ['debugger', 'console'],
+									// @ts-ignore
+									format: 'esm',
+									minify: true,
+									treeShaking: true,
+									// // Keep the class names otherwise @log won't provide a useful name
+									// keepNames: true,
+									target: 'es2020',
+								},
+						  }
+						: {
+								compress: {
+									drop_debugger: true,
+									drop_console: true,
+								},
+								extractComments: false,
+								parallel: true,
+								// @ts-ignore
+								terserOptions: {
+									ecma: 2020,
+									// // Keep the class names otherwise @log won't provide a useful name
+									// keep_classnames: true,
+									module: true,
+								},
+						  },
+				),
 				new ImageMinimizerPlugin({
 					deleteOriginalAssets: true,
 					generator: [imageGeneratorConfig],
@@ -500,6 +419,113 @@ function getWebviewsConfig(mode, env) {
 			timings: true,
 		},
 	};
+}
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @returns { CspHtmlPlugin }
+ */
+function getCspHtmlPlugin(mode, env) {
+	const cspPlugin = new CspHtmlPlugin(
+		{
+			'default-src': "'none'",
+			'img-src': ['#{cspSource}', 'https:', 'data:'],
+			'script-src':
+				mode !== 'production'
+					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
+					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
+			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'"],
+			'font-src': ['#{cspSource}'],
+		},
+		{
+			enabled: true,
+			hashingMethod: 'sha256',
+			hashEnabled: {
+				'script-src': true,
+				'style-src': true,
+			},
+			nonceEnabled: {
+				'script-src': true,
+				'style-src': true,
+			},
+		},
+	);
+	// Override the nonce creation so we can dynamically generate them at runtime
+	// @ts-ignore
+	cspPlugin.createNonce = () => '#{cspNonce}';
+
+	return cspPlugin;
+}
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @returns { ImageMinimizerPlugin.Generator<any> }
+ */
+function getImageMinimizerConfig(mode, env) {
+	/** @type ImageMinimizerPlugin.Generator<any> */
+	// @ts-ignore
+	return env.squoosh
+		? {
+				type: 'asset',
+				implementation: ImageMinimizerPlugin.squooshGenerate,
+				options: {
+					encodeOptions: {
+						webp: {
+							// quality: 90,
+							lossless: 1,
+						},
+					},
+				},
+		  }
+		: {
+				type: 'asset',
+				implementation: ImageMinimizerPlugin.imageminGenerate,
+				options: {
+					plugins: [
+						[
+							'imagemin-webp',
+							{
+								lossless: true,
+								nearLossless: 0,
+								quality: 100,
+								method: mode === 'production' ? 4 : 0,
+							},
+						],
+					],
+				},
+		  };
+}
+
+/**
+ * @param { string } name
+ * @param { boolean } premium
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @returns { HtmlPlugin }
+ */
+function getHtmlPlugin(name, premium, mode, env) {
+	return new HtmlPlugin({
+		template: premium ? path.join('premium', name, `${name}.html`) : path.join(name, `${name}.html`),
+		chunks: [name],
+		filename: path.join(__dirname, 'dist', 'webviews', `${name}.html`),
+		inject: true,
+		inlineSource: mode === 'production' ? '.css$' : undefined,
+		minify:
+			mode === 'production'
+				? {
+						removeComments: true,
+						collapseWhitespace: true,
+						removeRedundantAttributes: false,
+						useShortDoctype: true,
+						removeEmptyAttributes: true,
+						removeStyleLinkTypeAttributes: true,
+						keepClosingSlash: true,
+						minifyCSS: true,
+				  }
+				: false,
+	});
 }
 
 class InlineChunkHtmlPlugin {

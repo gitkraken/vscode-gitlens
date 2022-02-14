@@ -72,6 +72,12 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-link-foreground', color);
 		bodyStyle.setProperty('--color-link-foreground--darken-20', darken(color, 20));
 		bodyStyle.setProperty('--color-link-foreground--lighten-20', lighten(color, 20));
+
+		color = computedStyle.getPropertyValue('--vscode-sideBar-foreground').trim();
+		bodyStyle.setProperty('--color-view-foreground', color);
+
+		color = computedStyle.getPropertyValue('--vscode-sideBarSectionHeader-foreground').trim();
+		bodyStyle.setProperty('--color-view-header-foreground', color);
 	};
 
 	const observer = new MutationObserver(onColorThemeChanged);
