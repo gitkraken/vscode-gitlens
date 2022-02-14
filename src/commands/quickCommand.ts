@@ -6,6 +6,18 @@ import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
 
+export interface CustomStep<T = unknown> {
+	ignoreFocusOut?: boolean;
+
+	show(step: CustomStep<T>): Promise<StepResult<Directive | T>>;
+}
+
+export function isCustomStep(
+	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResult.Break,
+): step is CustomStep {
+	return typeof step === 'object' && (step as CustomStep).show != null;
+}
+
 export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
@@ -24,7 +36,7 @@ export interface QuickInputStep {
 export function isQuickInputStep(
 	step: QuickPickStep | QuickInputStep | typeof StepResult.Break,
 ): step is QuickInputStep {
-	return typeof step === 'object' && (step as QuickPickStep).items == null;
+	return typeof step === 'object' && (step as QuickPickStep).items == null && (step as CustomStep).show == null;
 }
 
 export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
@@ -59,23 +71,35 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	validate?(selection: T[]): boolean;
 }
 
-export function isQuickPickStep(step: QuickPickStep | QuickInputStep | typeof StepResult.Break): step is QuickPickStep {
+export function isQuickPickStep(
+	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResult.Break,
+): step is QuickPickStep {
 	return typeof step === 'object' && (step as QuickPickStep).items != null;
 }
 
 export type StepGenerator =
-	| Generator<QuickPickStep | QuickInputStep, StepResult<void | undefined>, any | undefined>
-	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<void | undefined>, any | undefined>;
+	| Generator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>, any | undefined>
+	| AsyncGenerator<QuickPickStep | QuickInputStep | CustomStep, StepResult<void | undefined>, any | undefined>;
 
-export type StepItemType<T> = T extends QuickPickStep<infer U> ? U[] : T extends QuickInputStep ? string : never;
+export type StepItemType<T> = T extends CustomStep<infer U>
+	? U
+	: T extends QuickPickStep<infer U>
+	? U[]
+	: T extends QuickInputStep
+	? string
+	: never;
 export type StepNavigationKeys = Exclude<Keys, 'left' | 'alt+left' | 'ctrl+left'>;
 export namespace StepResult {
 	export const Break = Symbol('BreakStep');
 }
 export type StepResult<T> = typeof StepResult.Break | T;
-export type StepResultGenerator<T> = Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
+export type StepResultGenerator<T> = Generator<
+	QuickPickStep | QuickInputStep | CustomStep,
+	StepResult<T>,
+	any | undefined
+>;
 export type AsyncStepResultGenerator<T> = AsyncGenerator<
-	QuickPickStep | QuickInputStep,
+	QuickPickStep | QuickInputStep | CustomStep,
 	StepResult<T>,
 	any | undefined
 >;
@@ -83,7 +107,9 @@ export type AsyncStepResultGenerator<T> = AsyncGenerator<
 // export type StepResultGenerator<T> =
 // 	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>
 // 	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
-export type StepSelection<T> = T extends QuickPickStep<infer U>
+export type StepSelection<T> = T extends CustomStep<infer U>
+	? U | Directive
+	: T extends QuickPickStep<infer U>
 	? U[] | Directive
 	: T extends QuickInputStep
 	? string | Directive
@@ -97,7 +123,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 	protected initialState: PartialStepState<State> | undefined;
 
-	private _currentStep: QuickPickStep | QuickInputStep | undefined;
+	private _currentStep: QuickPickStep | QuickInputStep | CustomStep | undefined;
 	private _stepsIterator: StepGenerator | undefined;
 
 	constructor(
@@ -145,7 +171,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return `${this.key}:${this.pickedVia}`;
 	}
 
-	get value(): QuickPickStep | QuickInputStep | undefined {
+	get value(): QuickPickStep | QuickInputStep | CustomStep | undefined {
 		return this._currentStep;
 	}
 
@@ -176,7 +202,9 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return (await this.next(Directive.Back)).value;
 	}
 
-	async next(value?: StepSelection<any>): Promise<IteratorResult<QuickPickStep | QuickInputStep | undefined>> {
+	async next(
+		value?: StepSelection<any>,
+	): Promise<IteratorResult<QuickPickStep | QuickInputStep | CustomStep | undefined>> {
 		if (this._stepsIterator == null) {
 			this._stepsIterator = this.steps(this.getStepState(false));
 		}
@@ -196,7 +224,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return result;
 	}
 
-	async retry(): Promise<QuickPickStep | QuickInputStep | undefined> {
+	async retry(): Promise<QuickPickStep | QuickInputStep | CustomStep | undefined> {
 		await this.next(Directive.Noop);
 		return this.value;
 	}
@@ -314,6 +342,10 @@ export namespace QuickCommand {
 	}
 
 	export function createPickStep<T extends QuickPickItem>(step: QuickPickStep<T>): QuickPickStep<T> {
+		return step;
+	}
+
+	export function createCustomStep<T>(step: CustomStep<T>): CustomStep<T> {
 		return step;
 	}
 

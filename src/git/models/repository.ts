@@ -43,6 +43,7 @@ import { GitRemote } from './remote';
 import { GitStash } from './stash';
 import { GitStatus } from './status';
 import { GitTag, TagSortOptions } from './tag';
+import { GitWorktree } from './worktree';
 
 const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
@@ -72,6 +73,7 @@ export const enum RepositoryChange {
 	 */
 	Status = 'status',
 	Tags = 'tags',
+	Worktrees = 'worktrees',
 }
 
 export const enum RepositoryChangeComparisonMode {
@@ -247,6 +249,7 @@ export class Repository implements Disposable {
 **/.git/refs/**,\
 **/.git/rebase-merge/**,\
 **/.git/sequencer/**,\
+**/.git/worktrees/**,\
 **/.gitignore\
 }',
 			),
@@ -306,7 +309,7 @@ export class Repository implements Disposable {
 
 		const match =
 			uri != null
-				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags))/.exec(
+				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags)|worktrees)/.exec(
 						uri.path,
 				  )
 				: undefined;
@@ -367,6 +370,10 @@ export class Repository implements Disposable {
 
 				case 'refs/tags':
 					this.fireChange(RepositoryChange.Tags);
+					return;
+
+				case 'worktrees':
+					this.fireChange(RepositoryChange.Worktrees);
 					return;
 			}
 		}
@@ -601,6 +608,25 @@ export class Repository implements Disposable {
 
 	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }) {
 		return this.container.git.getTags(this.path, options);
+	}
+
+	createWorktree(
+		uri: Uri,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void> {
+		return this.container.git.createWorktree(this.path, uri.fsPath, options);
+	}
+
+	getWorktrees(): Promise<GitWorktree[]> {
+		return this.container.git.getWorktrees(this.path);
+	}
+
+	async getWorktreesDefaultUri(): Promise<Uri | undefined> {
+		return this.container.git.getWorktreesDefaultUri(this.path);
+	}
+
+	deleteWorktree(uri: Uri, options?: { force?: boolean }): Promise<void> {
+		return this.container.git.deleteWorktree(this.path, uri.fsPath, options);
 	}
 
 	async hasRemotes(): Promise<boolean> {

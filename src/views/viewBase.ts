@@ -29,6 +29,7 @@ import {
 	viewsCommonConfigKeys,
 	viewsConfigKeys,
 	ViewsConfigKeys,
+	WorktreesViewConfig,
 } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -48,6 +49,7 @@ import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
+import { WorktreesView } from './worktreesView';
 
 export type View =
 	| BranchesView
@@ -59,7 +61,8 @@ export type View =
 	| RepositoriesView
 	| SearchAndCompareView
 	| StashesView
-	| TagsView;
+	| TagsView
+	| WorktreesView;
 export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
 export type ViewsWithRepositoryFolders = Exclude<View, RepositoriesView | FileHistoryView | LineHistoryView>;
 
@@ -79,7 +82,8 @@ export abstract class ViewBase<
 		| RepositoriesViewConfig
 		| SearchAndCompareViewConfig
 		| StashesViewConfig
-		| TagsViewConfig,
+		| TagsViewConfig
+		| WorktreesViewConfig,
 > implements TreeDataProvider<ViewNode>, Disposable
 {
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();

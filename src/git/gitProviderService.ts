@@ -81,6 +81,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	GitWorktree,
 	PullRequest,
 	PullRequestState,
 	Repository,
@@ -1798,7 +1799,6 @@ export class GitProviderService implements Disposable {
 	getBestRepository(uri?: Uri): Repository | undefined;
 	getBestRepository(editor?: TextEditor): Repository | undefined;
 	getBestRepository(uri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined;
-
 	@log<GitProviderService['getBestRepository']>({ exit: r => `returned ${r?.path}` })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		if (this.repositoryCount === 0) return undefined;
@@ -2156,6 +2156,33 @@ export class GitProviderService implements Disposable {
 		return provider.stashSave(path, message, uris, options);
 	}
 
+	@log()
+	createWorktree(
+		repoPath: string | Uri,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void> {
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return Promise.resolve(provider.createWorktree?.(rp, path, options));
+	}
+
+	@log()
+	async getWorktrees(repoPath: string | Uri): Promise<GitWorktree[]> {
+		const { provider, path } = this.getProvider(repoPath);
+		return (await provider.getWorktrees?.(path)) ?? [];
+	}
+
+	@log()
+	async getWorktreesDefaultUri(path: string | Uri): Promise<Uri | undefined> {
+		const { provider, path: rp } = this.getProvider(path);
+		return provider.getWorktreesDefaultUri?.(rp);
+	}
+
+	@log()
+	deleteWorktree(repoPath: string | Uri, path: string, options?: { force?: boolean }): Promise<void> {
+		const { provider, path: rp } = this.getProvider(repoPath);
+		return Promise.resolve(provider.deleteWorktree?.(rp, path, options));
+	}
 	@log()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
 		const results = await Promise.allSettled([...this._providers.values()].map(p => p.getOpenScmRepositories()));

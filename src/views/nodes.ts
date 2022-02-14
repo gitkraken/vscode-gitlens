@@ -42,3 +42,5 @@ export * from './nodes/statusFileNode';
 export * from './nodes/statusFilesNode';
 export * from './nodes/tagsNode';
 export * from './nodes/tagNode';
+export * from './nodes/worktreeNode';
+export * from './nodes/worktreesNode';

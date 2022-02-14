@@ -21,11 +21,13 @@ import {
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
+	GitWorktree,
 	Repository,
 } from '../git/models';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { ensure } from '../system/array';
 import { executeCommand, executeEditorCommand } from '../system/command';
-import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
+import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 
@@ -880,6 +882,37 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealTag(tag, options)
 				: await Container.instance.repositoriesView.revealTag(tag, options);
+			return node;
+		}
+	}
+
+	export namespace Worktree {
+		export function create(repo?: string | Repository, uri?: Uri, ref?: GitReference) {
+			return executeGitCommand({
+				command: 'worktree',
+				state: { subcommand: 'create', repo: repo, uri: uri, reference: ref },
+			});
+		}
+
+		export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation }) {
+			return openWorkspace(worktree.uri, options);
+		}
+
+		export function remove(repo?: string | Repository, uri?: Uri) {
+			return executeGitCommand({
+				command: 'worktree',
+				state: { subcommand: 'delete', repo: repo, uris: ensure(uri) },
+			});
+		}
+
+		export async function reveal(
+			worktree: GitWorktree,
+			options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+		) {
+			const view = Container.instance.worktreesView;
+			const node = view.canReveal
+				? await view.revealWorktree(worktree, options)
+				: await Container.instance.repositoriesView.revealWorktree(worktree, options);
 			return node;
 		}
 	}

@@ -32,6 +32,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 				Commands.ShowSettingsPageAndJumpToSearchAndCompareView,
 				Commands.ShowSettingsPageAndJumpToStashesView,
 				Commands.ShowSettingsPageAndJumpToTagsView,
+				Commands.ShowSettingsPageAndJumpToWorkTreesView,
 				Commands.ShowSettingsPageAndJumpToViews,
 			].map(c => {
 				// The show and jump commands are structured to have a # separating the base command from the anchor

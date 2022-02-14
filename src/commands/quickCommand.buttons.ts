@@ -107,6 +107,11 @@ export namespace QuickCommandButtons {
 		}
 	};
 
+	export const OpenInNewWindow: QuickInputButton = {
+		iconPath: new ThemeIcon('empty-window'),
+		tooltip: 'Open in New Window',
+	};
+
 	export const RevealInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
 		tooltip: 'Reveal in Side Bar',

@@ -148,6 +148,10 @@ export interface Config {
 		enabled: boolean;
 	};
 	views: ViewsConfig;
+	worktrees: {
+		defaultLocation: string | null;
+		promptForLocation: boolean;
+	};
 	advanced: AdvancedConfig;
 }
 
@@ -518,6 +522,7 @@ interface ViewsConfigs {
 	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
+	worktrees: WorktreesViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
@@ -532,6 +537,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'tags',
 	'contributors',
 	'searchAndCompare',
+	'worktrees',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
@@ -624,6 +630,7 @@ export interface RepositoriesViewConfig {
 	showStashes: boolean;
 	showTags: boolean;
 	showUpstreamStatus: boolean;
+	showWorktrees: boolean;
 }
 
 export interface SearchAndCompareViewConfig {
@@ -646,6 +653,16 @@ export interface TagsViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	reveal: boolean;
+}
+
+export interface WorktreesViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForCommits: boolean;
+	};
 	reveal: boolean;
 }
 

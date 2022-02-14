@@ -50,6 +50,7 @@ import { StashesView } from './views/stashesView';
 import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
+import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
 import { HomeWebviewView } from './webviews/premium/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
@@ -182,6 +183,7 @@ export class Container {
 		context.subscriptions.push((this._remotesView = new RemotesView(this)));
 		context.subscriptions.push((this._stashesView = new StashesView(this)));
 		context.subscriptions.push((this._tagsView = new TagsView(this)));
+		context.subscriptions.push((this._worktreesView = new WorktreesView(this)));
 		context.subscriptions.push((this._contributorsView = new ContributorsView(this)));
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView(this)));
 
@@ -505,6 +507,15 @@ export class Container {
 	private _welcomeWebview: WelcomeWebview;
 	get welcomeWebview() {
 		return this._welcomeWebview;
+	}
+
+	private _worktreesView: WorktreesView | undefined;
+	get worktreesView() {
+		if (this._worktreesView == null) {
+			this._context.subscriptions.push((this._worktreesView = new WorktreesView(this)));
+		}
+
+		return this._worktreesView;
 	}
 
 	private applyMode(config: Config) {

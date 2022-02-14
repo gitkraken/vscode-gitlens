@@ -11,7 +11,9 @@ import {
 	GitReference,
 	GitRemoteType,
 	GitRevision,
+	GitStatus,
 	GitTag,
+	GitWorktree,
 	Repository,
 } from '../../git/models';
 import { fromNow } from '../../system/date';
@@ -433,6 +435,74 @@ export namespace TagQuickPickItem {
 			current: false,
 			ref: tag.name,
 			remote: false,
+		};
+
+		return item;
+	}
+}
+
+export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
+	readonly opened: boolean;
+	readonly hasChanges: boolean | undefined;
+}
+
+export namespace WorktreeQuickPickItem {
+	export function create(
+		worktree: GitWorktree,
+		picked?: boolean,
+		options: {
+			alwaysShow?: boolean;
+			buttons?: QuickInputButton[];
+			checked?: boolean;
+			message?: boolean;
+			ref?: boolean;
+			type?: boolean;
+			status?: GitStatus;
+		} = {},
+	) {
+		let description = '';
+		if (options.type) {
+			description = 'worktree';
+		}
+
+		if (options.status != null) {
+			description += options.status.hasChanges
+				? pad(`Uncommited Changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
+				: pad('No Changes', description ? 2 : 0, 0);
+		}
+
+		if (options.ref) {
+			description += `${description ? pad(GlyphChars.Dot, 2, 2) : ''}${worktree.friendlyPath}`;
+		}
+
+		let icon;
+		let label;
+		switch (worktree.type) {
+			case 'bare':
+				label = '(bare)';
+				icon = '$(folder)';
+				break;
+			case 'branch':
+				label = worktree.branch!;
+				icon = '$(git-branch)';
+				break;
+			case 'detached':
+				label = GitRevision.shorten(worktree.sha);
+				icon = '$(git-commit)';
+				break;
+		}
+
+		const item: WorktreeQuickPickItem = {
+			label: `${pad(icon, 0, 2)}${label}${
+				options.checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
+			}`,
+			description: description,
+			alwaysShow: options.alwaysShow,
+			buttons: options.buttons,
+			picked: picked,
+			item: worktree,
+			opened: worktree.opened,
+			hasChanges: options.status?.hasChanges,
 		};
 
 		return item;

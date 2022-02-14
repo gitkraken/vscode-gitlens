@@ -1,5 +1,5 @@
 import { readdir, realpath } from 'fs';
-import { hostname, userInfo } from 'os';
+import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import {
 	Disposable,
@@ -7,6 +7,8 @@ import {
 	Event,
 	EventEmitter,
 	extensions,
+	FileStat,
+	FileSystemError,
 	FileType,
 	Range,
 	TextDocument,
@@ -26,7 +28,14 @@ import type {
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
+import {
+	StashApplyError,
+	StashApplyErrorReason,
+	WorktreeCreateError,
+	WorktreeCreateErrorReason,
+	WorktreeDeleteError,
+	WorktreeDeleteErrorReason,
+} from '../../../git/errors';
 import {
 	Features,
 	GitProvider,
@@ -74,6 +83,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	GitWorktree,
 	isUserMatch,
 	Repository,
 	RepositoryChange,
@@ -92,6 +102,7 @@ import {
 	GitStatusParser,
 	GitTagParser,
 	GitTreeParser,
+	GitWorktreeParser,
 	LogType,
 } from '../../../git/parsers';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
@@ -110,6 +121,7 @@ import {
 	getBestPath,
 	isAbsolute,
 	isFolderGlob,
+	joinPaths,
 	maybeUri,
 	normalizePath,
 	relative,
@@ -3675,11 +3687,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
 				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
-						StashApplyErrorReason.WorkingChanges,
-						ex,
-					);
+					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex);
 				}
 
 				if (
@@ -3693,14 +3701,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return;
 				}
 
-				throw new StashApplyError(
-					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
-					undefined,
-					ex,
-				);
+				throw new StashApplyError(`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`, ex);
 			}
 
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, undefined, ex);
+			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex);
 		}
 	}
 
@@ -3742,6 +3746,98 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			pathspecs: pathspecs,
 			stdin: stdin,
 		});
+	}
+
+	@log()
+	async createWorktree(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	) {
+		const uri = Uri.file(path);
+
+		let stat: FileStat | undefined;
+		try {
+			stat = await workspace.fs.stat(uri);
+		} catch (ex) {
+			if (!(ex instanceof FileSystemError && ex.code === FileSystemError.FileNotFound().code)) {
+				throw ex;
+			}
+		}
+
+		if (stat?.type !== FileType.Directory) {
+			await workspace.fs.createDirectory(uri);
+		}
+
+		try {
+			await this.git.worktree__add(repoPath, path, options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			const msg = String(ex);
+			if (GitErrors.alreadyCheckedOut.test(msg)) {
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex);
+			}
+
+			if (GitErrors.alreadyExists.test(msg)) {
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex);
+			}
+
+			throw new WorktreeCreateError(undefined, ex);
+		}
+	}
+
+	@gate()
+	@log()
+	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
+		await this.ensureGitVersion(
+			'2.7.6',
+			'Displaying worktrees',
+			' Please install a more recent version of Git and try again.',
+		);
+
+		const data = await this.git.worktree__list(repoPath);
+		return GitWorktreeParser.parse(data, repoPath);
+	}
+
+	@log()
+	async getWorktreesDefaultUri(repoPath: string): Promise<Uri> {
+		let location = configuration.get(
+			'worktrees.defaultLocation',
+			workspace.getWorkspaceFolder(this.getAbsoluteUri(repoPath, repoPath)),
+		);
+		if (location == null) {
+			const dotGit = await this.getGitDir(repoPath);
+			return Uri.joinPath(Uri.file(dotGit), '.worktrees');
+		}
+
+		if (location.startsWith('~')) {
+			location = joinPaths(homedir(), location.slice(1));
+		}
+
+		return this.getAbsoluteUri(location, repoPath); //isAbsolute(location) ? GitUri.file(location) : ;
+	}
+
+	@log()
+	async deleteWorktree(repoPath: string, path: string, options?: { force?: boolean }) {
+		await this.ensureGitVersion(
+			'2.17.0',
+			'Deleting worktrees',
+			' Please install a more recent version of Git and try again.',
+		);
+
+		try {
+			await this.git.worktree__remove(repoPath, path, options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			const msg = String(ex);
+			if (GitErrors.uncommittedChanges.test(msg)) {
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
+			}
+
+			throw new WorktreeDeleteError(undefined, ex);
+		}
 	}
 
 	private _scmGitApi: Promise<BuiltInGitApi | undefined> | undefined;

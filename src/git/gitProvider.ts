@@ -27,6 +27,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	GitWorktree,
 	Repository,
 	RepositoryChangeEvent,
 	TagSortOptions,
@@ -89,9 +90,13 @@ export interface RepositoryOpenEvent {
 	readonly uri: Uri;
 }
 
-export const enum Features {}
+export const enum Features {
+	Worktrees = 'worktrees',
+}
 
-export const enum PremiumFeatures {}
+export const enum PremiumFeatures {
+	Worktrees = 'worktrees',
+}
 
 export const enum RepositoryVisibility {
 	Private = 'private',
@@ -426,6 +431,15 @@ export interface GitProvider extends Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined },
 	): Promise<void>;
+
+	createWorktree?(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void>;
+	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
+	getWorktreesDefaultUri?(repoPath: string): Promise<Uri>;
+	deleteWorktree?(repoPath: string, path: string, options?: { force?: boolean }): Promise<void>;
 }
 
 export interface RevisionUriData {

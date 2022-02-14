@@ -25,13 +25,17 @@ import type { StashGitCommandArgs } from './git/stash';
 import type { StatusGitCommandArgs } from './git/status';
 import type { SwitchGitCommandArgs } from './git/switch';
 import type { TagGitCommandArgs } from './git/tag';
+import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
 import {
+	CustomStep,
+	isCustomStep,
 	isQuickInputStep,
 	isQuickPickStep,
 	QuickCommand,
 	QuickInputStep,
 	QuickPickStep,
+	StepResult,
 	StepSelection,
 } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
@@ -56,7 +60,8 @@ export type GitCommandsCommandArgs =
 	| StashGitCommandArgs
 	| StatusGitCommandArgs
 	| SwitchGitCommandArgs
-	| TagGitCommandArgs;
+	| TagGitCommandArgs
+	| WorktreeGitCommandArgs;
 
 @command()
 export class GitCommandsCommand extends Command {
@@ -73,6 +78,7 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsRevert,
 			Commands.GitCommandsSwitch,
 			Commands.GitCommandsTag,
+			Commands.GitCommandsWorktree,
 		]);
 	}
 
@@ -102,6 +108,9 @@ export class GitCommandsCommand extends Command {
 			case Commands.GitCommandsTag:
 				args = { command: 'tag' };
 				break;
+			case Commands.GitCommandsWorktree:
+				args = { command: 'worktree' };
+				break;
 		}
 
 		return this.execute(args);
@@ -116,7 +125,7 @@ export class GitCommandsCommand extends Command {
 
 		let ignoreFocusOut;
 
-		let step;
+		let step: QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined;
 		if (command == null) {
 			step = commandsStep;
 		} else {
@@ -157,14 +166,23 @@ export class GitCommandsCommand extends Command {
 				continue;
 			}
 
+			if (isCustomStep(step)) {
+				step = await this.showCustomStep(step, commandsStep);
+				if (step?.ignoreFocusOut === true) {
+					ignoreFocusOut = true;
+				}
+
+				continue;
+			}
+
 			break;
 		}
 	}
 
 	private async showLoadingIfNeeded(
 		command: QuickCommand<any>,
-		stepPromise: Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined>,
-	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined> {
+		stepPromise: Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined>,
+	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined> {
 		const stepOrTimeout = await Promise.race([
 			stepPromise,
 			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(() => resolve(showLoadingSymbol), 250)),
@@ -179,23 +197,25 @@ export class GitCommandsCommand extends Command {
 
 		const disposables: Disposable[] = [];
 
-		let step: QuickPickStep<QuickPickItem> | QuickInputStep | undefined;
+		let step: QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined;
 		try {
-			// eslint-disable-next-line no-async-promise-executor
-			return await new Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined>(async resolve => {
-				disposables.push(quickpick.onDidHide(() => resolve(step)));
+			return await new Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined>(
+				// eslint-disable-next-line no-async-promise-executor
+				async resolve => {
+					disposables.push(quickpick.onDidHide(() => resolve(step)));
 
-				quickpick.title = command.title;
-				quickpick.placeholder = 'Loading...';
-				quickpick.busy = true;
-				quickpick.enabled = false;
+					quickpick.title = command.title;
+					quickpick.placeholder = 'Loading...';
+					quickpick.busy = true;
+					quickpick.enabled = false;
 
-				quickpick.show();
+					quickpick.show();
 
-				step = await stepPromise;
+					step = await stepPromise;
 
-				quickpick.hide();
-			});
+					quickpick.hide();
+				},
+			);
 		} finally {
 			quickpick.dispose();
 			disposables.forEach(d => d.dispose());
@@ -253,18 +273,53 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private async nextStep(
-		quickInput: InputBox | QuickPick<QuickPickItem>,
 		command: QuickCommand,
 		value: StepSelection<any> | undefined,
+		quickInput?: InputBox | QuickPick<QuickPickItem>,
 	) {
-		quickInput.busy = true;
-		// quickInput.enabled = false;
+		if (quickInput != null) {
+			quickInput.busy = true;
+			// quickInput.enabled = false;
+		}
 
 		const next = await command.next(value);
 		if (next.done) return undefined;
 
-		quickInput.value = '';
+		if (quickInput != null) {
+			quickInput.value = '';
+		}
 		return next.value;
+	}
+
+	private async showCustomStep(step: CustomStep, commandsStep: PickCommandStep) {
+		const result = await step.show(step);
+		if (result === StepResult.Break) return undefined;
+
+		if (Directive.is(result)) {
+			switch (result) {
+				case Directive.Back:
+					return (await commandsStep?.command?.previous()) ?? commandsStep;
+				case Directive.Noop:
+					return commandsStep.command?.retry();
+				case Directive.Cancel:
+				default:
+					return undefined;
+			}
+		} else {
+			return this.nextStep(commandsStep.command!, result);
+		}
+		// switch (result.directive) {
+		// 	case 'back':
+		// 		return (await commandsStep?.command?.previous()) ?? commandsStep;
+		// 	case 'cancel':
+		// 		return undefined;
+		// 	case 'next':
+		// 		return this.nextStep(commandsStep.command!, result.value);
+		// 	case 'retry':
+		// 		return commandsStep.command?.retry();
+		// 	default:
+		// 		return undefined;
+		// }
 	}
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
@@ -349,7 +404,7 @@ export class GitCommandsCommand extends Command {
 						input.validationMessage = message;
 					}),
 					input.onDidAccept(async () => {
-						resolve(await this.nextStep(input, commandsStep.command!, input.value));
+						resolve(await this.nextStep(commandsStep.command!, input.value, input));
 					}),
 				);
 
@@ -453,7 +508,7 @@ export class GitCommandsCommand extends Command {
 					quickpick.onDidHide(() => resolve(undefined)),
 					quickpick.onDidTriggerItemButton(async e => {
 						if ((await step.onDidClickItemButton?.(quickpick, e.button, e.item)) === true) {
-							resolve(await this.nextStep(quickpick, commandsStep.command!, [e.item]));
+							resolve(await this.nextStep(commandsStep.command!, [e.item], quickpick));
 						}
 					}),
 					quickpick.onDidTriggerButton(async e => {
@@ -564,7 +619,7 @@ export class GitCommandsCommand extends Command {
 									items = [item];
 								}
 
-								resolve(await this.nextStep(quickpick, commandsStep.command!, items));
+								resolve(await this.nextStep(commandsStep.command!, items, quickpick));
 								return;
 							}
 						}
@@ -619,7 +674,7 @@ export class GitCommandsCommand extends Command {
 
 								if (step.onDidAccept == null) {
 									if (step.allowEmpty) {
-										resolve(await this.nextStep(quickpick, commandsStep.command!, []));
+										resolve(await this.nextStep(commandsStep.command!, [], quickpick));
 									}
 
 									return;
@@ -628,7 +683,7 @@ export class GitCommandsCommand extends Command {
 								quickpick.busy = true;
 
 								if (await step.onDidAccept(quickpick)) {
-									resolve(await this.nextStep(quickpick, commandsStep.command!, value));
+									resolve(await this.nextStep(commandsStep.command!, value, quickpick));
 								}
 
 								quickpick.busy = false;
@@ -655,17 +710,9 @@ export class GitCommandsCommand extends Command {
 										return;
 
 									case Directive.RequiresVerification:
-										void Container.instance.subscription.resendVerification();
-										resolve(undefined);
-										return;
-
 									case Directive.RequiresFreeSubscription:
-										void Container.instance.subscription.loginOrSignUp();
-										resolve(undefined);
-										return;
-
 									case Directive.RequiresPaidSubscription:
-										void Container.instance.subscription.purchase();
+										void Container.instance.subscription.showHomeView();
 										resolve(undefined);
 										return;
 								}
@@ -691,7 +738,7 @@ export class GitCommandsCommand extends Command {
 							}
 						}
 
-						resolve(await this.nextStep(quickpick, commandsStep.command!, items as QuickPickItem[]));
+						resolve(await this.nextStep(commandsStep.command!, items as QuickPickItem[], quickpick));
 					}),
 				);
 

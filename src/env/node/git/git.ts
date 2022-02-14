@@ -27,6 +27,9 @@ export const GitErrors = {
 	noMergeBase: /no merge base/i,
 	notAValidObjectName: /Not a valid object name/i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
+	uncommittedChanges: /contains modified or untracked files/i,
+	alreadyExists: /already exists/i,
+	alreadyCheckedOut: /already checked out/i,
 };
 
 const GitWarnings = {
@@ -1490,6 +1493,47 @@ export class Git {
 
 	tag(repoPath: string) {
 		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
+	}
+
+	worktree__add(
+		repoPath: string,
+		path: string,
+		{
+			commitish,
+			createBranch,
+			detach,
+			force,
+		}: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean } = {},
+	) {
+		const params = ['worktree', 'add'];
+		if (force) {
+			params.push('--force');
+		}
+		if (createBranch) {
+			params.push('-b', createBranch);
+		}
+		if (detach) {
+			params.push('--detach');
+		}
+		params.push(path);
+		if (commitish) {
+			params.push(commitish);
+		}
+		return this.git<string>({ cwd: repoPath }, ...params);
+	}
+
+	worktree__list(repoPath: string) {
+		return this.git<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
+	}
+
+	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}) {
+		const params = ['worktree', 'remove'];
+		if (force) {
+			params.push('--force');
+		}
+		params.push(worktree);
+
+		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...params);
 	}
 
 	async readDotGitFile(

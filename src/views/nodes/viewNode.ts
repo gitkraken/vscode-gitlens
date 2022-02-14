@@ -84,6 +84,9 @@ export const enum ContextValues {
 	StatusSameAsUpstream = 'gitlens:status:upstream:same',
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
+	UncommittedFiles = 'gitlens:uncommitted:files',
+	Worktree = 'gitlens:worktree',
+	Worktrees = 'gitlens:worktrees',
 }
 
 export interface ViewNode {

@@ -31,6 +31,7 @@ import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
 import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	static key = ':repository';
@@ -157,6 +158,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 			if (this.view.config.showTags) {
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showWorktrees) {
+				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showContributors) {

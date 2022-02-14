@@ -19,6 +19,7 @@ import {
 	GitStatus,
 	GitTag,
 	GitTagReference,
+	GitWorktree,
 	Repository,
 	TagSortOptions,
 } from '../git/models';
@@ -58,6 +59,7 @@ import {
 	RefQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
+	WorktreeQuickPickItem,
 } from '../quickpicks/items/gitCommands';
 import { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
 import {
@@ -69,6 +71,7 @@ import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { pad, pluralize, truncate } from '../system/string';
+import { OpenWorkspaceLocation } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { GitActions } from './gitCommands.actions';
 import {
@@ -139,6 +142,39 @@ export async function getTags(
 		picked: options?.picked,
 		sort: options?.sort != null ? { tags: options.sort } : true,
 	}) as Promise<TagQuickPickItem[]>;
+}
+
+export async function getWorktrees(
+	repoOrWorktrees: Repository | GitWorktree[],
+	{
+		buttons,
+		filter,
+		includeStatus,
+		picked,
+	}: {
+		buttons?: QuickInputButton[];
+		filter?: (t: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+	},
+): Promise<WorktreeQuickPickItem[]> {
+	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
+	return Promise.all<WorktreeQuickPickItem>([
+		...worktrees
+			.filter(w => filter == null || filter(w))
+			.map(async w =>
+				WorktreeQuickPickItem.create(
+					w,
+					picked != null &&
+						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					{
+						buttons: buttons,
+						ref: true,
+						status: includeStatus ? await w.getStatus() : undefined,
+					},
+				),
+			),
+	]);
 }
 
 export async function getBranchesAndOrTags(
@@ -1385,6 +1421,127 @@ export async function* pickTagsStep<
 			if (quickpick.activeItems.length === 0) return;
 
 			await GitActions.Tag.reveal(quickpick.activeItems[0].item, {
+				select: true,
+				focus: false,
+				expand: true,
+			});
+		},
+	});
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+}
+
+export async function* pickWorktreeStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string; worktrees?: GitWorktree[] },
+>(
+	state: State,
+	context: Context,
+	{
+		filter,
+		includeStatus,
+		picked,
+		placeholder,
+		titleContext,
+	}: {
+		filter?: (b: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+		placeholder: string;
+		titleContext?: string;
+	},
+): AsyncStepResultGenerator<GitWorktree> {
+	const worktrees = await getWorktrees(context.worktrees ?? state.repo, {
+		buttons: [QuickCommandButtons.OpenInNewWindow, QuickCommandButtons.RevealInSideBar],
+		filter: filter,
+		includeStatus: includeStatus,
+		picked: picked,
+	});
+
+	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
+		matchOnDetail: true,
+		items:
+			worktrees.length === 0
+				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				: worktrees,
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			switch (button) {
+				case QuickCommandButtons.OpenInNewWindow:
+					void GitActions.Worktree.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Worktree.reveal(item, { select: true, focus: false, expand: true });
+					break;
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: async quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			await GitActions.Worktree.reveal(quickpick.activeItems[0].item, {
+				select: true,
+				focus: false,
+				expand: true,
+			});
+		},
+	});
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+}
+
+export async function* pickWorktreesStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string; worktrees?: GitWorktree[] },
+>(
+	state: State,
+	context: Context,
+	{
+		filter,
+		includeStatus,
+		picked,
+		placeholder,
+		titleContext,
+	}: {
+		filter?: (b: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+		placeholder: string;
+		titleContext?: string;
+	},
+): AsyncStepResultGenerator<GitWorktree[]> {
+	const worktrees = await getWorktrees(context.worktrees ?? state.repo, {
+		buttons: [QuickCommandButtons.OpenInNewWindow, QuickCommandButtons.RevealInSideBar],
+		filter: filter,
+		includeStatus: includeStatus,
+		picked: picked,
+	});
+
+	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+		multiselect: worktrees.length !== 0,
+		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
+		matchOnDetail: true,
+		items:
+			worktrees.length === 0
+				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				: worktrees,
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			switch (button) {
+				case QuickCommandButtons.OpenInNewWindow:
+					void GitActions.Worktree.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Worktree.reveal(item, { select: true, focus: false, expand: true });
+					break;
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: async quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			await GitActions.Worktree.reveal(quickpick.activeItems[0].item, {
 				select: true,
 				focus: false,
 				expand: true,

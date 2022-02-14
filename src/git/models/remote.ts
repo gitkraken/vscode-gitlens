@@ -9,7 +9,7 @@ export const enum GitRemoteType {
 }
 
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | RichRemoteProvider | undefined> {
-	static getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
+	static getHighlanderProviders(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
@@ -21,7 +21,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return undefined;
 	}
 
-	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
+	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);

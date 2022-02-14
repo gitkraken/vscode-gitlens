@@ -19,6 +19,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowSearchAndCompareView,
 			Commands.ShowStashesView,
 			Commands.ShowTagsView,
+			Commands.ShowWorktreesView,
 			Commands.ShowWelcomeView,
 			Commands.ShowHomeView,
 		]);
@@ -50,6 +51,8 @@ export class ShowViewCommand extends Command {
 				return this.container.stashesView.show();
 			case Commands.ShowTagsView:
 				return this.container.tagsView.show();
+			case Commands.ShowWorktreesView:
+				return this.container.worktreesView.show();
 			case Commands.ShowWelcomeView:
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
 				void this.container.storage.store(SyncedStorageKeys.WelcomeViewVisible, true);
