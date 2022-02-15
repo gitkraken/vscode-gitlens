@@ -124,7 +124,6 @@ function getExtensionConfig(target, mode, env) {
 								terserOptions: {
 									// @ts-ignore
 									drop: ['debugger'],
-									// @ts-ignore
 									format: 'cjs',
 									minify: true,
 									treeShaking: true,
@@ -139,7 +138,6 @@ function getExtensionConfig(target, mode, env) {
 								},
 								extractComments: false,
 								parallel: true,
-								// @ts-ignore
 								terserOptions: {
 									ecma: 2020,
 									// Keep the class names otherwise @log won't provide a useful name
