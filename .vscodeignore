@@ -10,6 +10,7 @@ images/docs/**
 images/originals/**
 node_modules/**
 out/**
+patches/**
 scripts/**
 src/**
 test/**
