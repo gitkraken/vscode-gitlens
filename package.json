@@ -10125,15 +10125,38 @@
 			{
 				"id": "gitlens.welcome",
 				"title": "Get Started with GitLens",
-				"description": "Discover and customize GitLens' most valuable features.",
+				"description": "Discover and personalize features that supercharge your Git experience",
 				"steps": [
 					{
-						"id": "gitlens.welcome.currentLineBlame",
-						"title": "Current Line Blame",
-						"description": "The Current Line Blame view shows the blame information for the current line.",
+						"id": "gitlens.welcome.experience",
+						"title": "Get Setup Quickly",
+						"description": "Get started\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")",
 						"media": {
-							"image": "images/docs/current-line-blame.png",
-							"altText": "Current Line Blame"
+							"markdown": "walkthroughs/getting-started/1-setup.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.settings",
+						"title": "Customize GitLens exactly how you want it",
+						"description": "GitLens provides a rich interactive settings editing experience to allow for seemingly endless customization possibilities.\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\")",
+						"media": {
+							"markdown": "walkthroughs/getting-started/2-customize.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.currentLineBlame",
+						"title": "Understand who made what changes at a glance",
+						"description": "At the end of every line of code and in the status bar, GitLens exposes details about the last commit that modified that line, including the author, when the commit was made, and other information like pull request details. Hovering over these blame annotations will reveal more details and links to explore more about the commit.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/3-current-line-blame.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitCodeLens",
+						"title": "View Git Authorship Via CodeLens",
+						"description": "At the top of each file and at the beginning of each block of code, GitLens exposes the most recent commit and number of authors. It does this by leveraging CodeLens, one of the most powerful tools inside VS Code, which provides clickable links exposing commit details and allows you to select from a quick pick menu to compare, navigate and further explore each commit.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/4-git-codelens.md"
 						}
 					}
 				]
