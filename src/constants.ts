@@ -243,6 +243,7 @@ export const enum ContextKeys {
 
 	Premium = 'gitlens:premium',
 	PremiumPaid = 'gitlens:premium:paid',
+	PremiumRequiresVerification = 'gitlens:premium:requiresVerification',
 	PremiumUpgradeRequired = 'gitlens:premium:upgradeRequired',
 }
 

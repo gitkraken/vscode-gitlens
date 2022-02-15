@@ -2236,27 +2236,30 @@ export async function* ensureAccessStep<
 	const access = await Container.instance.git.access(feature, state.repo.path);
 	if (access.allowed) return undefined;
 
-	let directive: Directive;
+	const directives: DirectiveQuickPickItem[] = [];
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
-		directive = Directive.RequiresVerification;
+		directives.push(DirectiveQuickPickItem.create(Directive.RequiresVerification, true));
 		placeholder = 'You must verify your account email address before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 
 		if (isPaidSubscriptionPlan(access.subscription.required)) {
-			directive = Directive.RequiresPaidSubscription;
-			placeholder = 'Requires a paid subscription';
+			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
+			placeholder = 'Premium features require an upgraded account';
 		} else {
-			directive = Directive.RequiresFreeSubscription;
-			placeholder = 'Requires a Free+ account';
+			directives.push(
+				DirectiveQuickPickItem.create(Directive.StartPreview, true),
+				DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription),
+			);
+			placeholder = 'Premium features require an account';
 		}
 	}
 
 	const step = QuickCommand.createPickStep<DirectiveQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: placeholder,
-		items: [DirectiveQuickPickItem.create(directive, true), DirectiveQuickPickItem.create(Directive.Cancel)],
+		items: [...directives, DirectiveQuickPickItem.create(Directive.Cancel)],
 	});
 
 	const selection: StepSelection<typeof step> = yield step;

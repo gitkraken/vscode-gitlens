@@ -1,6 +1,7 @@
 import {
 	authentication,
 	AuthenticationSession,
+	version as codeVersion,
 	commands,
 	Disposable,
 	env,
@@ -13,6 +14,7 @@ import {
 	window,
 } from 'vscode';
 import { fetch } from '@env/fetch';
+import { getPlatform } from '@env/platform';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
@@ -157,6 +159,8 @@ export class SubscriptionService implements Disposable {
 	}
 
 	async loginOrSignUp(): Promise<boolean> {
+		void this.showHomeView();
+
 		const session = await this.ensureSession(true);
 		return Boolean(session);
 	}
@@ -232,10 +236,10 @@ export class SubscriptionService implements Disposable {
 		let { plan, preview } = this._subscription;
 		if (preview != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			if (plan.effective.id === SubscriptionPlanId.Free) {
-				const ok = { title: 'Create Free+ Account' };
+				const ok = { title: 'Extend Trial' };
 				const cancel = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your premium feature preview has expired. Please create a Free+ account to extend your trial.',
+					'Your premium feature trial has expired. Please create a free account to extend your trial.',
 					ok,
 					cancel,
 				);
@@ -249,13 +253,16 @@ export class SubscriptionService implements Disposable {
 
 		const startedOn = new Date();
 
+		let days;
 		let expiresOn = new Date(startedOn);
 		if (!this.container.debugging && this.container.env !== 'dev') {
 			// Normalize the date to just before midnight on the same day
 			expiresOn.setHours(23, 59, 59, 999);
 			expiresOn = createFromDateDelta(expiresOn, { days: 3 });
+			days = 3;
 		} else {
 			expiresOn = createFromDateDelta(expiresOn, { minutes: 1 });
+			days = 0;
 		}
 
 		preview = {
@@ -271,6 +278,8 @@ export class SubscriptionService implements Disposable {
 			},
 			preview: preview,
 		});
+
+		void window.showInformationMessage(`You can now try premium GitLens features for ${days} days.`);
 	}
 
 	async validate(): Promise<void> {
@@ -282,12 +291,24 @@ export class SubscriptionService implements Disposable {
 
 	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
 		try {
+			const checkInData = {
+				id: session.account.id,
+				platform: getPlatform(),
+				gitlensVersion: this.container.version,
+				vscodeEdition: env.appName,
+				vscodeHost: env.appHost,
+				vscodeVersion: codeVersion,
+				previewStartedOn: this._subscription.preview?.startedOn,
+				previewExpiresOn: this._subscription.preview?.expiresOn,
+			};
+
 			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'gitlens/checkin').toString(), {
 				method: 'POST',
 				headers: {
 					Authorization: `Bearer ${session.accessToken}`,
 					'User-Agent': userAgent,
 				},
+				body: JSON.stringify(checkInData),
 			});
 
 			if (!rsp.ok) {
@@ -506,6 +527,7 @@ export class SubscriptionService implements Disposable {
 
 		void setContext(ContextKeys.Premium, actual.id);
 		void setContext(ContextKeys.PremiumPaid, isPaidSubscriptionPlan(actual.id));
+		void setContext(ContextKeys.PremiumRequiresVerification, this._subscription.account?.verified === false);
 	}
 
 	private updateStatusBar(pending: boolean = false): void {
@@ -530,7 +552,7 @@ export class SubscriptionService implements Disposable {
 				this._statusBarSubscription.text = effective.name;
 				this._statusBarSubscription.command = Commands.ShowHomeView;
 				this._statusBarSubscription.tooltip = new MarkdownString(
-					`You are on **${effective.name}**\n\nClick to upgrade to Free+ for access to premium features for public code`,
+					`You are on **${effective.name}**\n\nClick to upgrade to Free+ for access to premium features for public repos`,
 					true,
 				);
 				break;

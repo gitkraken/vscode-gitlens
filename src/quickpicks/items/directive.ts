@@ -7,8 +7,10 @@ export enum Directive {
 	LoadMore,
 	Noop,
 	RequiresVerification,
+
 	RequiresFreeSubscription,
 	RequiresPaidSubscription,
+	StartPreview,
 }
 
 export namespace Directive {
@@ -43,17 +45,21 @@ export namespace DirectiveQuickPickItem {
 				case Directive.Noop:
 					label = 'Try again';
 					break;
+				case Directive.StartPreview:
+					label = 'Try Premium Features Now';
+					detail = 'Try premium features for free, without an account, for 3 days';
+					break;
 				case Directive.RequiresVerification:
 					label = 'Resend Verification Email';
 					detail = 'You must verify your account email address before you can continue';
 					break;
 				case Directive.RequiresFreeSubscription:
-					label = 'Create a Free+ Account';
-					detail = 'To unlock all premium features for public code';
+					label = 'Create a Free Account';
+					detail = 'To unlock premium features';
 					break;
 				case Directive.RequiresPaidSubscription:
-					label = 'Upgrade to a paid subscription';
-					detail = 'To unlock all premium features for private code';
+					label = 'Upgrade Your Account';
+					detail = 'To unlock premium features for private repos';
 					break;
 			}
 		}

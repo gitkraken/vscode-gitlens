@@ -52,7 +52,9 @@
 					individually.
 				</li>
 			</ul>
-			<vscode-button data-action="command:gitlens.home.hideWelcome" appearance="secondary">Hide</vscode-button>
+			<vscode-button data-action="command:gitlens.home.hideWelcome" appearance="secondary"
+				>Dismiss welcome</vscode-button
+			>
 		</section>
 	</template>
 
@@ -62,8 +64,11 @@
 			<p>
 				Premium features like <a href="">Git Worktrees</a> and <a href="">Visual File History</a> are available
 				with a free account, with many more features coming soon, including a commit graph and GitHub Enterprise
-				integration. Access to premium features for private code is available with a paid account.
-				<a href="">Learn more</a> about GitLens premium features.
+				integration. Access to premium features for private repos is available with a paid account.
+			</p>
+			<p>
+				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
+				features.
 			</p>
 			<p>
 				You can try these premium features for free, without an account, for 3 days. All non-premium features
@@ -83,11 +88,14 @@
 			<p>
 				You are currently trying premium GitLens features, like <a href="">Git Worktrees</a> and
 				<a href="">Visual File History</a>, for <span data-bind="previewDays">3 more days</span>.
-				<a href="">Learn more</a> about GitLens premium features.
+			</p>
+			<p>
+				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
+				features.
 			</p>
 			<p>
 				After that time, a free account will be required to continue using these premium features for public
-				code, or you can puchase a paid plan to access premium features for private code.
+				code, or you can puchase a paid plan to access premium features for private repos.
 			</p>
 			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
@@ -101,15 +109,16 @@
 			<p>
 				Premium GitLens features like <a href="">Git Worktrees</a> and <a href="">Visual File History</a>, a
 				commit graph (coming soon), and GitHub Enterprise integration (coming soon) are only available with an
-				account. <a href="">Learn more</a> about GitLens premium features.
+				account.
+			</p>
+			<p>
+				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
+				features.
 			</p>
 			<p>Create a free account to continue trialing premium features for all code for an additional 7 days.</p>
 			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
 			<p>All non-premium features will continue to be free without an account.</p>
-			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
-				>Close</vscode-button
-			>
 		</section>
 	</template>
 
@@ -118,14 +127,14 @@
 			<h3>Premium Feature Trial</h3>
 			<p>
 				You are currently trialing premium GitLens features like <a href="">Git Worktrees</a> and
-				<a href="">Visual File History</a> for both public and private code. In
-				<span data-bind="trialDays">7 days</span>, accessing these premium features for private code will
+				<a href="">Visual File History</a> for both public and private repos. In
+				<span data-bind="trialDays">7 days</span>, accessing these premium features for private repos will
 				require a paid account.
 			</p>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
 			<p>
-				With your free account, you will continue to have access to premium features for public code, as well as
-				all non-premium features.
+				With your free account, you will continue to have access to premium features for public repos, as well
+				as all non-premium features.
 			</p>
 			<!-- <vscode-button appearance="secondary">Close</vscode-button> -->
 		</section>
@@ -133,12 +142,12 @@
 
 	<template id="state:verify-email">
 		<section>
-			<h3>Please validate your email</h3>
-			<p>To continue using premium GitLens features, please validate the email for the account you created.</p>
+			<h3>Please verify your email</h3>
+			<p>To continue using premium GitLens features, please verify the email for the account you created.</p>
 			<vscode-button data-action="command:gitlens.premium.resendVerification"
 				>Resend verification email</vscode-button
 			>
-			<vscode-button data-action="command:gitlens.premium.validate">Refresh validation</vscode-button>
+			<vscode-button data-action="command:gitlens.premium.validate">Refresh verification status</vscode-button>
 			<p>All non-premium features will continue to be free without an account.</p>
 		</section>
 	</template>
@@ -148,15 +157,15 @@
 			<h3>GitLens Free+</h3>
 			<p>
 				With your free account, you have access to GitLens Free+, which unlocks premium features like
-				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for public code. More premium
+				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for public repos. More premium
 				features like a commit graph and GitHub Enterprise integration are coming soon.
-				<a href="">Learn more</a> about GitLens premium features.
 			</p>
-			<p>Access to premium features for private code requires a paid plan.</p>
+			<p>
+				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
+				features.
+			</p>
+			<p>Access to premium features for private repos requires a paid plan.</p>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
-			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
-				>Close</vscode-button
-			>
 		</section>
 	</template>
 
@@ -172,9 +181,6 @@
 				Additional premium featues like a commit graph and GitHub Enterprise integration are coming soon.
 				<a href="">Learn more</a> about GitLens premium features.
 			</p>
-			<vscode-button data-action="command:gitlens.home.hideSubscription" appearance="secondary"
-				>Close</vscode-button
-			>
 		</section>
 	</template>
 </html>

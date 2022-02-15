@@ -3583,7 +3583,7 @@
 			},
 			{
 				"command": "gitlens.premium.purchase",
-				"title": "Unlock Premium Features for Private Code...",
+				"title": "Unlock Premium Features for Private Repos...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -10464,18 +10464,28 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which require a free account for public code. [Learn more](https://dev.gitkraken.com/gitlens/premium-features).",
-				"when": "gitlens:premium:upgradeRequired == free+"
+				"contents": "To use premium GitLens features, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)",
+				"when": "gitlens:premium:requiresVerification"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which require at least a Pro subscription for private code. [Learn more](https://dev.gitkraken.com/gitlens/premium-features).",
+				"contents": "Worktrees are a premium feature, which require a free account for public repos. [Learn more](https://dev.gitkraken.com/gitlens/premium-features).\n\nYou can try these premium features for free, without an account, for 3 days. All non-premium features will continue to be free without an account.",
+				"when": "gitlens:premium:upgradeRequired == free+ && !gitlens:premium:requiresVerification"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "[Try premium features now](command:gitlens.premium.startPreview)\n\n[Create a free account](command:gitlens.premium.loginOrSignUp)",
+				"when": "gitlens:premium:upgradeRequired == free+ && !gitlens:premium:requiresVerification"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Worktrees are a premium feature, which require at least a Pro subscription for private repos. [Learn more](https://dev.gitkraken.com/gitlens/premium-features).",
 				"when": "gitlens:premium:upgradeRequired == paid"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Unlock Premium Features](command:gitlens.showHomeView)",
-				"when": "gitlens:premium:upgradeRequired"
+				"contents": "[Upgrade your account](command:gitlens.premium.purchase)",
+				"when": "gitlens:premium:upgradeRequired == paid"
 			}
 		],
 		"views": {
