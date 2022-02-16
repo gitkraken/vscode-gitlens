@@ -9,7 +9,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { configuration, ViewFilesLayout, WorktreesViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
 import { Container } from '../container';
 import { PremiumFeatures } from '../git/gitProvider';
 import { GitUri } from '../git/gitUri';
@@ -171,6 +171,26 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 				() => this.setShowAvatars(false),
 				this,
 			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOn'),
+				() => this.setShowBranchComparison(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchComparisonOff'),
+				() => this.setShowBranchComparison(false),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOn'),
+				() => this.setShowBranchPullRequest(true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowBranchPullRequestOff'),
+				() => this.setShowBranchPullRequest(false),
+				this,
+			),
 		];
 	}
 
@@ -259,5 +279,17 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective(`views.${this.configKey}.avatars` as const, enabled);
+	}
+
+	private setShowBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			`views.${this.configKey}.showBranchComparison` as const,
+			enabled ? ViewShowBranchComparison.Branch : false,
+		);
+	}
+
+	private async setShowBranchPullRequest(enabled: boolean) {
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.showForBranches` as const, enabled);
+		await configuration.updateEffective(`views.${this.configKey}.pullRequests.enabled` as const, enabled);
 	}
 }

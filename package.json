@@ -1236,14 +1236,14 @@
 					"gitlens.views.branches.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.views.branches.pullRequests.showForBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 21
 					},
@@ -1343,14 +1343,14 @@
 					"gitlens.views.remotes.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.views.remotes.pullRequests.showForBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 11
 					},
@@ -1559,29 +1559,58 @@
 				"title": "Worktrees View",
 				"order": 29,
 				"properties": {
-					"gitlens.worktrees.defaultLocation": {
-						"type": "string",
-						"default": null,
-						"markdownDescription": "Specifies the default path in which new worktrees will be created",
-						"scope": "resource"
-					},
 					"gitlens.worktrees.promptForLocation": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to prompt for a path when creating new worktrees",
-						"scope": "resource"
+						"scope": "resource",
+						"order": 10
+					},
+					"gitlens.worktrees.defaultLocation": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies the default path in which new worktrees will be created",
+						"scope": "resource",
+						"order": 11
+					},
+					"gitlens.views.worktrees.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the worktree branch with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag. etc) in the _Worktrees_ view",
+						"scope": "window",
+						"order": 20
 					},
 					"gitlens.views.worktrees.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window"
+						"markdownDescription": "Specifies whether to query for pull requests associated with the worktree branch and commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.worktrees.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the worktree branch in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 31
 					},
 					"gitlens.views.worktrees.pullRequests.showForCommits": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-						"scope": "window"
+						"scope": "window",
+						"order": 32
 					},
 					"gitlens.views.worktrees.files.layout": {
 						"type": "string",
@@ -1597,32 +1626,36 @@
 							"Displays files as a tree"
 						],
 						"markdownDescription": "Specifies how the _Worktrees_ view will display files",
-						"scope": "window"
+						"scope": "window",
+						"order": 40
 					},
 					"gitlens.views.worktrees.files.threshold": {
 						"type": "number",
 						"default": 5,
 						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `auto`",
-						"scope": "window"
+						"scope": "window",
+						"order": 41
 					},
 					"gitlens.views.worktrees.files.compact": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `tree` or `auto`",
-						"scope": "window"
+						"scope": "window",
+						"order": 42
 					},
 					"gitlens.views.worktrees.avatars": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Worktrees_ view",
-						"scope": "window"
+						"scope": "window",
+						"order": 50
 					},
 					"gitlens.views.worktrees.reveal": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to reveal worktrees in the _Worktrees_ view, otherwise they revealed in the _Repositories_ view",
 						"scope": "window",
-						"order": 20
+						"order": 60
 					}
 				}
 			},
@@ -5821,6 +5854,26 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+				"title": "Show Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+				"title": "Hide Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+				"title": "Show Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+				"title": "Hide Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.enableDebugLogging",
 				"title": "Enable Debug Logging",
 				"category": "GitLens"
@@ -7333,6 +7386,22 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.enableDebugLogging",
 					"when": "config.gitlens.outputLevel != debug"
 				},
@@ -8316,13 +8385,33 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && !config.gitlens.views.worktrees.showBranchComparison",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.showBranchComparison",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && !config.gitlens.views.worktrees.pullRequests.enabled && !config.gitlens.views.worktrees.pullRequests.showForBranches",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.pullRequests.enabled && config.gitlens.views.worktrees.pullRequests.showForBranches",
+					"group": "5_gitlens@2"
+				},
+				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
-					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{

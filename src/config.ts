@@ -661,9 +661,11 @@ export interface WorktreesViewConfig {
 	files: ViewsFilesConfig;
 	pullRequests: {
 		enabled: boolean;
+		showForBranches: boolean;
 		showForCommits: boolean;
 	};
 	reveal: boolean;
+	showBranchComparison: false | ViewShowBranchComparison.Branch;
 }
 
 export interface ViewsFilesConfig {

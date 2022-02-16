@@ -2,6 +2,7 @@ import { Uri, workspace, WorkspaceFolder } from 'vscode';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { normalizePath, relative } from '../../system/path';
+import { GitBranch } from './branch';
 import { GitRevision } from './reference';
 import type { GitStatus } from './status';
 
@@ -45,6 +46,18 @@ export class GitWorktree {
 	@memoize()
 	get workspaceFolder(): WorkspaceFolder | undefined {
 		return workspace.getWorkspaceFolder(this.uri);
+	}
+
+	private _branch: Promise<GitBranch | undefined> | undefined;
+	getBranch(): Promise<GitBranch | undefined> {
+		if (this.type !== 'branch' || this.branch == null) return Promise.resolve(undefined);
+
+		if (this._branch == null) {
+			this._branch = Container.instance.git
+				.getBranches(this.repoPath, { filter: b => b.name === this.branch })
+				.then(b => b.values[0]);
+		}
+		return this._branch;
 	}
 
 	private _status: Promise<GitStatus | undefined> | undefined;

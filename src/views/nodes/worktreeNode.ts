@@ -1,7 +1,15 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitLog, GitRemote, GitRemoteType, GitRevision, GitWorktree } from '../../git/models';
+import {
+	GitBranch,
+	GitLog,
+	GitRemote,
+	GitRemoteType,
+	GitRevision,
+	GitWorktree,
+	PullRequestState,
+} from '../../git/models';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
@@ -10,7 +18,9 @@ import { RepositoriesView } from '../repositoriesView';
 import { WorktreesView } from '../worktreesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
+import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
+import { PullRequestNode } from './pullRequestNode';
 import { RepositoryNode } from './repositoryNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -20,6 +30,9 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 	static getId(repoPath: string, uri: Uri): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri.path})`;
 	}
+
+	private _branch: GitBranch | undefined;
+	private _children: ViewNode[] | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -43,29 +56,106 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await this.getLog();
-		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (this._children == null) {
+			const branch = this._branch;
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
-		const children = [
-			...insertDateMarkers(
-				map(
-					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
+			let prPromise;
+			if (
+				branch != null &&
+				this.view.config.pullRequests.enabled &&
+				this.view.config.pullRequests.showForBranches &&
+				(branch.upstream != null || branch.remote)
+			) {
+				prPromise = branch.getAssociatedPullRequest({
+					include: [PullRequestState.Open, PullRequestState.Merged],
+				});
+			}
+
+			const range =
+				branch != null && !branch.remote
+					? await this.view.container.git.getBranchAheadRange(branch)
+					: undefined;
+			const [log, getBranchAndTagTips, status, unpublishedCommits] = await Promise.all([
+				this.getLog(),
+				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+				this.worktree.getStatus(),
+				range
+					? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
+							limit: 0,
+							ref: range,
+					  })
+					: undefined,
+			]);
+			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+
+			const children = [];
+
+			let prInsertIndex = 0;
+
+			if (branch != null && this.view.config.showBranchComparison !== false) {
+				prInsertIndex++;
+				children.push(
+					new CompareBranchNode(
+						this.uri,
+						this.view,
+						this,
+						branch,
+						this.view.config.showBranchComparison,
+						this.splatted,
+					),
+				);
+			}
+
+			children.push(
+				...insertDateMarkers(
+					map(
+						log.commits.values(),
+						c =>
+							new CommitNode(
+								this.view,
+								this,
+								c,
+								unpublishedCommits?.has(c.ref),
+								branch,
+								getBranchAndTagTips,
+							),
+					),
+					this,
 				),
-				this,
-			),
-		];
+			);
 
-		if (log.hasMore) {
-			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
-		}
+			if (log.hasMore) {
+				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+			}
 
-		const status = await this.worktree.getStatus();
-		if (status?.hasChanges) {
-			children.splice(0, 0, new UncommittedFilesNode(this.view, this, status, undefined));
+			if (status?.hasChanges) {
+				children.splice(0, 0, new UncommittedFilesNode(this.view, this, status, undefined));
+			}
+
+			if (prPromise != null) {
+				const pr = await prPromise;
+				if (pr != null) {
+					children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, branch!));
+				}
+
+				// const pr = await Promise.race([
+				// 	prPromise,
+				// 	new Promise<null>(resolve => setTimeout(() => resolve(null), 100)),
+				// ]);
+				// if (pr != null) {
+				// 	children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, this.branch));
+				// } else if (pr === null) {
+				// 	void prPromise.then(pr => {
+				// 		if (pr == null) return;
+
+				// 		void this.triggerChange();
+				// 	});
+				// }
+			}
+
+			this._children = children;
 		}
-		return children;
+		return this._children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -97,14 +187,8 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 				);
 				break;
 			case 'branch': {
-				const [branch, status] = await Promise.all([
-					this.worktree.branch
-						? this.view.container.git
-								.getBranches(this.uri.repoPath, { filter: b => b.name === this.worktree.branch })
-								.then(b => b.values[0])
-						: undefined,
-					this.worktree.getStatus(),
-				]);
+				const [branch, status] = await Promise.all([this.worktree.getBranch(), this.worktree.getStatus()]);
+				this._branch = branch;
 
 				tooltip.appendMarkdown(
 					`${this.worktree.main ? '$(pass) ' : ''}Worktree for Branch $(git-branch) ${
@@ -231,6 +315,7 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
+		this._children = undefined;
 		if (reset) {
 			this._log = undefined;
 		}
@@ -269,6 +354,7 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 		this._log = log;
 		this.limit = log?.count;
 
+		this._children = undefined;
 		void this.triggerChange(false);
 	}
 }

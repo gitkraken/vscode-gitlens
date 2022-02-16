@@ -131,8 +131,6 @@ export class BranchNode
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const children = [];
-
 			let prPromise;
 			if (
 				this.view.config.pullRequests.enabled &&
@@ -167,6 +165,8 @@ export class BranchNode
 				],
 			);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+
+			const children = [];
 
 			let prInsertIndex = 0;
 

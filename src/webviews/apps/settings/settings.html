@@ -241,6 +241,8 @@
 				<!-- prettier-ignore -->
 				<%= require('html-loader?{"esModule":false}!./partials/views.tags.html') %>
 				<!-- prettier-ignore -->
+				<%= require('html-loader?{"esModule":false}!./partials/views.worktrees.html') %>
+				<!-- prettier-ignore -->
 				<%= require('html-loader?{"esModule":false}!./partials/views.contributors.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader?{"esModule":false}!./partials/views.searchAndCompare.html') %>
@@ -382,6 +384,15 @@
 								href="#tags-view"
 								title="Jump to Tags view settings"
 								>Tags view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#worktrees-view"
+								title="Jump to Worktrees view settings"
+								>Worktrees view</a
 							>
 						</li>
 						<li>
