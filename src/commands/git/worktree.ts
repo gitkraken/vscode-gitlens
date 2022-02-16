@@ -1,4 +1,4 @@
-import { MessageItem, QuickInputButtons, Uri, window } from 'vscode';
+import { MessageItem, QuickInputButtons, Uri, window, workspace } from 'vscode';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import {
@@ -401,13 +401,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		context: Context,
 		options?: { titleContext?: string },
 	): AsyncStepResultGenerator<Uri> {
+		let uri = state.uri ?? context.defaultUri;
+		if (uri == null) {
+			const folder = state.repo.folder ?? workspace.workspaceFolders?.[0];
+			if (folder != null) {
+				uri = Uri.joinPath(folder.uri, '..');
+			}
+		}
+
 		const step = QuickCommand.createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
 				const uris = await window.showOpenDialog({
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
-					defaultUri: state.uri ?? context.defaultUri,
+					defaultUri: uri,
 					openLabel: 'Select Worktree Location',
 					title: `${appendReposToTitle(
 						`Choose Worktree Location${options?.titleContext ?? ''}`,
