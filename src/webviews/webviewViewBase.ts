@@ -7,6 +7,7 @@ import {
 	WebviewViewProvider,
 	WebviewViewResolveContext,
 	window,
+	WindowState,
 	workspace,
 } from 'vscode';
 import { getNonce } from '@env/crypto';
@@ -89,6 +90,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
+	protected onVisibilityChanged?(visible: boolean): void;
+	protected onWindowFocusChanged?(focused: boolean): void;
 
 	protected registerCommands(): Disposable[] {
 		return emptyCommands;
@@ -115,14 +118,15 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 		this._disposableView = Disposable.from(
 			this._view.onDidDispose(this.onViewDisposed, this),
-			// this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
+			this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
 			this._view.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
+			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			...this.registerCommands(),
 		);
 
 		webviewView.webview.html = await this.getHtml(webviewView.webview);
 
-		// this.onViewVisibilityChanged();
+		this.onViewVisibilityChanged();
 	}
 
 	private onViewDisposed() {
@@ -131,24 +135,13 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		this._view = undefined;
 	}
 
-	// private _disposableVisibility: Disposable | undefined;
-	// private onViewVisibilityChanged() {
-	// 	if (this._view?.visible) {
-	// 		console.log('became visible');
-	// 		if (this._disposableVisibility == null) {
-	// 			// this._disposableVisibility = window.onDidChangeActiveTextEditor(
-	// 			// 	debounce(this.onActiveEditorChanged, 500),
-	// 			// 	this,
-	// 			// );
-	// 			// this.onActiveEditorChanged(window.activeTextEditor);
-	// 		}
-	// 	} else {
-	// 		console.log('became hidden');
-	// 		this._disposableVisibility?.dispose();
-	// 		this._disposableVisibility = undefined;
-	// 		// this.setTitle(this.title);
-	// 	}
-	// }
+	private onViewVisibilityChanged() {
+		this.onVisibilityChanged?.(this.visible);
+	}
+
+	private onWindowStateChanged(e: WindowState) {
+		this.onWindowFocusChanged?.(e.focused);
+	}
 
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;

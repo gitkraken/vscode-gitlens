@@ -16,11 +16,35 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		void this.notifyDidChangeData(e.current);
 	}
 
+	protected override onVisibilityChanged(visible: boolean): void {
+		if (!visible) return;
+
+		void this.validateSubscription();
+	}
+
+	protected override onWindowFocusChanged(focused: boolean): void {
+		if (!focused) return;
+
+		void this.validateSubscription();
+	}
+
+	private _validating: Promise<void> | undefined;
+	private async validateSubscription(): Promise<void> {
+		if (this._validating == null) {
+			this._validating = this.container.subscription.validate();
+			try {
+				void (await this._validating);
+			} finally {
+				this._validating = undefined;
+			}
+		}
+	}
+
 	protected override registerCommands(): Disposable[] {
-		// TODO@eamodio implement hide commands
 		return [
-			commands.registerCommand('gitlens.home.hideWelcome', () => {}),
-			commands.registerCommand('gitlens.home.hideSubscription', () => {}),
+			commands.registerCommand('gitlens.home.hideWelcome', () => {
+				// TODO@eamodio implement hiding the welcome section and show a help/links section
+			}),
 		];
 	}
 
