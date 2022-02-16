@@ -70,7 +70,7 @@ export class HomeApp extends App<State> {
 				this.insertTemplate('state:free', this.$slot2);
 				break;
 			case SubscriptionState.FreeInPreview: {
-				const remaining = getSubscriptionTimeRemaining(subscription, 'days');
+				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				this.insertTemplate('state:free-preview', this.$slot1, {
 					previewDays: `${remaining === 1 ? `${remaining} more day` : `${remaining} more days`}`,
 				});
@@ -82,7 +82,7 @@ export class HomeApp extends App<State> {
 				this.insertTemplate('welcome', this.$slot2);
 				break;
 			case SubscriptionState.FreePlusInTrial: {
-				const remaining = getSubscriptionTimeRemaining(subscription, 'days');
+				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				this.insertTemplate('state:plus-trial', this.$slot1, {
 					trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
 				});

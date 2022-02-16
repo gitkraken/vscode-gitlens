@@ -20,7 +20,7 @@ import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
-import { StorageKeys } from '../../storage';
+import { StorageKeys, WorkspaceStorageKeys } from '../../storage';
 import {
 	computeSubscriptionState,
 	getSubscriptionPlan,
@@ -115,6 +115,10 @@ export class SubscriptionService implements Disposable {
 		return Uri.parse('https://gitkraken.com');
 	}
 
+	private get connectedKey(): `${WorkspaceStorageKeys.ConnectedPrefix}${string}` {
+		return `${WorkspaceStorageKeys.ConnectedPrefix}gitkraken`;
+	}
+
 	private _etag: number = 0;
 	get etag(): number {
 		return this._etag;
@@ -161,12 +165,16 @@ export class SubscriptionService implements Disposable {
 	async loginOrSignUp(): Promise<boolean> {
 		void this.showHomeView();
 
+		await this.container.storage.deleteWorkspace(this.connectedKey);
+
 		const session = await this.ensureSession(true);
 		return Boolean(session);
 	}
 
 	logout(): void {
 		this._sessionPromise = undefined;
+		void this.container.storage.storeWorkspace(this.connectedKey, false);
+
 		this.reset(false);
 	}
 
@@ -381,7 +389,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (effective == null) {
-			effective = actual;
+			effective = { ...actual };
 		}
 
 		this.changeSubscription({
@@ -403,6 +411,12 @@ export class SubscriptionService implements Disposable {
 
 		if (this._session != null) return this._session;
 		if (this._session === null && !createIfNeeded) return undefined;
+
+		if (createIfNeeded) {
+			await this.container.storage.deleteWorkspace(this.connectedKey);
+		} else if (this.container.storage.getWorkspace<boolean>(this.connectedKey) === false) {
+			return undefined;
+		}
 
 		if (this._sessionPromise === undefined) {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded);
