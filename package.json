@@ -4861,6 +4861,11 @@
 				"icon": "$(empty-window)"
 			},
 			{
+				"command": "gitlens.views.revealWorktreeInExplorer",
+				"title": "Reveal Worktree in File Explorer",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -6649,6 +6654,10 @@
 				},
 				{
 					"command": "gitlens.views.openWorktreeInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.revealWorktreeInExplorer",
 					"when": "false"
 				},
 				{
@@ -9540,6 +9549,11 @@
 					"command": "gitlens.views.openWorktreeInNewWindow",
 					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+active\\b)/ && workspaceFolderCount != 1",
 					"group": "2_gitlens_quickopen@2"
+				},
+				{
+					"command": "gitlens.views.revealWorktreeInExplorer",
+					"when": "viewItem =~ /gitlens:worktree\\b/",
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.deleteWorktree",

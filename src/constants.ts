@@ -266,6 +266,8 @@ export const enum CoreCommands {
 	NextEditor = 'workbench.action.nextEditor',
 	PreviewHtml = 'vscode.previewHtml',
 	RevealLine = 'revealLine',
+	RevealInExplorer = 'revealInExplorer',
+	RevealInFileExplorer = 'revealFileInOS',
 	SetContext = 'setContext',
 	ShowExplorer = 'workbench.view.explorer',
 	ShowReferences = 'editor.action.showReferences',

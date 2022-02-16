@@ -232,6 +232,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.createWorktree', this.createWorktree, this);
 		commands.registerCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
 		commands.registerCommand('gitlens.views.openWorktree', this.openWorktree, this);
+		commands.registerCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
 		commands.registerCommand(
 			'gitlens.views.openWorktreeInNewWindow',
 			n => this.openWorktree(n, { location: OpenWorkspaceLocation.NewWindow }),
@@ -326,6 +327,13 @@ export class ViewCommands {
 		if (!(node instanceof WorktreeNode)) return undefined;
 
 		return GitActions.Worktree.open(node.worktree, options);
+	}
+
+	@debug()
+	private revealWorktreeInExplorer(node: WorktreeNode) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.revealInFileExplorer(node.worktree);
 	}
 
 	@debug()

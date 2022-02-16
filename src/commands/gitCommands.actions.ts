@@ -7,7 +7,7 @@ import type {
 	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { FileAnnotationType } from '../configuration';
-import { Commands } from '../constants';
+import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -26,7 +26,7 @@ import {
 } from '../git/models';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
-import { executeCommand, executeEditorCommand } from '../system/command';
+import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
 import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
@@ -914,6 +914,10 @@ export namespace GitActions {
 				? await view.revealWorktree(worktree, options)
 				: await Container.instance.repositoriesView.revealWorktree(worktree, options);
 			return node;
+		}
+
+		export async function revealInFileExplorer(worktree: GitWorktree) {
+			void (await executeCoreCommand(CoreCommands.RevealInFileExplorer, worktree.uri));
 		}
 	}
 }
