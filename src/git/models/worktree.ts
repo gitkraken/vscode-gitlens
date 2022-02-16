@@ -11,6 +11,7 @@ export class GitWorktree {
 	}
 
 	constructor(
+		public readonly main: boolean,
 		public readonly type: 'bare' | 'branch' | 'detached',
 		public readonly repoPath: string,
 		public readonly uri: Uri,

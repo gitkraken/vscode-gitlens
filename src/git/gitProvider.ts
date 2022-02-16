@@ -438,7 +438,7 @@ export interface GitProvider extends Disposable {
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	): Promise<void>;
 	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
-	getWorktreesDefaultUri?(repoPath: string): Promise<Uri>;
+	getWorktreesDefaultUri?(repoPath: string): Promise<Uri | undefined>;
 	deleteWorktree?(repoPath: string, path: string, options?: { force?: boolean }): Promise<void>;
 }
 

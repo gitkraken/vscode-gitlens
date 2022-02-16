@@ -75,10 +75,26 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 		const tooltip = new MarkdownString('', true);
 		let icon: ThemeIcon | undefined;
 		let hasChanges = false;
+
+		const indicators =
+			this.worktree.main || this.worktree.opened
+				? `${pad(GlyphChars.Dash, 2, 2)} ${
+						this.worktree.main
+							? `_Main${this.worktree.opened ? ', Active_' : '_'}`
+							: this.worktree.opened
+							? '_Active_'
+							: ''
+				  } `
+				: '';
+
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
-				tooltip.appendMarkdown(`Bare Worktree\\\n\`${this.worktree.friendlyPath}\``);
+				tooltip.appendMarkdown(
+					`${this.worktree.main ? '$(pass) ' : ''}Bare Worktree${indicators}\\\n\`${
+						this.worktree.friendlyPath
+					}\``,
+				);
 				break;
 			case 'branch': {
 				const [branch, status] = await Promise.all([
@@ -91,9 +107,9 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 				]);
 
 				tooltip.appendMarkdown(
-					`Worktree for Branch $(git-branch) ${branch?.getNameWithoutRemote() ?? this.worktree.branch}${
-						this.worktree.opened ? `${pad(GlyphChars.Dash, 2, 2)} _Active_ ` : ''
-					}\\\n\`${this.worktree.friendlyPath}\``,
+					`${this.worktree.main ? '$(pass) ' : ''}Worktree for Branch $(git-branch) ${
+						branch?.getNameWithoutRemote() ?? this.worktree.branch
+					}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 				icon = new ThemeIcon('git-branch');
 
@@ -179,9 +195,9 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 			case 'detached': {
 				icon = new ThemeIcon('git-commit');
 				tooltip.appendMarkdown(
-					`Detached Worktree at $(git-commit) ${GitRevision.shorten(this.worktree.sha)}${
-						this.worktree.opened ? `${pad(GlyphChars.Dash, 2, 2)} _Active_` : ''
-					}\\\n\`${this.worktree.friendlyPath}\``,
+					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${GitRevision.shorten(
+						this.worktree.sha,
+					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 
 				const status = await this.worktree.getStatus();
@@ -203,7 +219,9 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
-		item.contextValue = `${ContextValues.Worktree}${this.worktree.opened ? '+active' : ''}`;
+		item.contextValue = `${ContextValues.Worktree}${this.worktree.main ? '+main' : ''}${
+			this.worktree.opened ? '+active' : ''
+		}`;
 		item.iconPath = this.worktree.opened ? new ThemeIcon('check') : icon;
 		item.tooltip = tooltip;
 		item.resourceUri = hasChanges ? Uri.parse('gitlens-view://worktree/changes') : undefined;

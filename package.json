@@ -1567,7 +1567,7 @@
 					},
 					"gitlens.worktrees.promptForLocation": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to prompt for a path when creating new worktrees",
 						"scope": "resource"
 					},
@@ -9543,7 +9543,7 @@
 				},
 				{
 					"command": "gitlens.views.deleteWorktree",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+(active|main)\\b)/",
 					"group": "6_gitlens_actions@1"
 				},
 				{

@@ -19,7 +19,7 @@ export class GitWorktreeParser {
 	static parse(data: string, repoPath: string): GitWorktree[] {
 		if (!data) return [];
 
-		if (repoPath !== undefined) {
+		if (repoPath != null) {
 			repoPath = normalizePath(repoPath);
 		}
 
@@ -31,13 +31,15 @@ export class GitWorktreeParser {
 		let value: string;
 		let locked: string;
 		let prunable: string;
+		let main = true; // the first worktree is the main worktree
 
 		for (line of getLines(data)) {
 			[key, value] = line.split(' ', 2);
 
-			if (key.length === 0 && entry !== undefined) {
+			if (key.length === 0 && entry != null) {
 				worktrees.push(
 					new GitWorktree(
+						main,
 						entry.bare ? 'bare' : entry.detached ? 'detached' : 'branch',
 						repoPath,
 						Uri.file(entry.path!),
@@ -47,11 +49,13 @@ export class GitWorktreeParser {
 						entry.branch,
 					),
 				);
+
 				entry = undefined;
+				main = false;
 				continue;
 			}
 
-			if (entry === undefined) {
+			if (entry == null) {
 				entry = {};
 			}
 

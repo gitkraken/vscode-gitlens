@@ -30,6 +30,7 @@ export const GitErrors = {
 	uncommittedChanges: /contains modified or untracked files/i,
 	alreadyExists: /already exists/i,
 	alreadyCheckedOut: /already checked out/i,
+	mainWorkingTree: /is a main working tree/i,
 };
 
 const GitWarnings = {

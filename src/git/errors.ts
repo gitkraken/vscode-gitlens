@@ -69,6 +69,7 @@ export class WorktreeCreateError extends Error {
 
 export const enum WorktreeDeleteErrorReason {
 	HasChanges = 1,
+	MainWorkingTree = 2,
 }
 
 export class WorktreeDeleteError extends Error {
@@ -87,8 +88,13 @@ export class WorktreeDeleteError extends Error {
 			reason = undefined;
 		} else {
 			reason = messageOrReason;
-			if (reason === WorktreeDeleteErrorReason.HasChanges) {
-				message = 'Unable to delete worktree because there are uncommitted changes';
+			switch (reason) {
+				case WorktreeDeleteErrorReason.HasChanges:
+					message = 'Unable to delete worktree because there are uncommitted changes';
+					break;
+				case WorktreeDeleteErrorReason.MainWorkingTree:
+					message = 'Unable to delete worktree because it is a main working tree';
+					break;
 			}
 		}
 		super(message);

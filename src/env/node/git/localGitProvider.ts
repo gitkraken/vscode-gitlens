@@ -7,8 +7,6 @@ import {
 	Event,
 	EventEmitter,
 	extensions,
-	FileStat,
-	FileSystemError,
 	FileType,
 	Range,
 	TextDocument,
@@ -3754,27 +3752,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	) {
-		const uri = Uri.file(path);
-
-		let stat: FileStat | undefined;
-		try {
-			stat = await workspace.fs.stat(uri);
-		} catch (ex) {
-			if (!(ex instanceof FileSystemError && ex.code === FileSystemError.FileNotFound().code)) {
-				throw ex;
-			}
-		}
-
-		if (stat?.type !== FileType.Directory) {
-			await workspace.fs.createDirectory(uri);
-		}
-
 		try {
 			await this.git.worktree__add(repoPath, path, options);
 		} catch (ex) {
 			Logger.error(ex);
 
 			const msg = String(ex);
+
 			if (GitErrors.alreadyCheckedOut.test(msg)) {
 				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex);
 			}
@@ -3800,16 +3784,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return GitWorktreeParser.parse(data, repoPath);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	@log()
-	async getWorktreesDefaultUri(repoPath: string): Promise<Uri> {
-		let location = configuration.get(
-			'worktrees.defaultLocation',
-			workspace.getWorkspaceFolder(this.getAbsoluteUri(repoPath, repoPath)),
-		);
-		if (location == null) {
-			const dotGit = await this.getGitDir(repoPath);
-			return Uri.joinPath(Uri.file(dotGit), '.worktrees');
-		}
+	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
+		let location = configuration.get('worktrees.defaultLocation');
+		if (location == null) return undefined;
 
 		if (location.startsWith('~')) {
 			location = joinPaths(homedir(), location.slice(1));
@@ -3832,6 +3811,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.error(ex);
 
 			const msg = String(ex);
+
+			if (GitErrors.mainWorkingTree.test(msg)) {
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.MainWorkingTree, ex);
+			}
+
 			if (GitErrors.uncommittedChanges.test(msg)) {
 				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
 			}
