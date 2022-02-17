@@ -63,8 +63,16 @@ vscode-button {
 	width: 100%;
 }
 
+span.button-subaction {
+	align-self: center;
+	margin-top: 0.75rem;
+}
+
 @media (min-width: 640px) {
 	vscode-button {
+		align-self: flex-start;
+	}
+	span.button-subaction {
 		align-self: flex-start;
 	}
 }
