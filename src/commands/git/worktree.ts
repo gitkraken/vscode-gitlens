@@ -401,7 +401,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					void window.showErrorMessage(
 						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
 							uri,
-						)} because that folder already exists and is not empty.`,
+						)}' because the folder already exists and is not empty.`,
+						'OK',
 					);
 				} else {
 					void Messages.showGenericErrorMessage(
