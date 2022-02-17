@@ -36,6 +36,7 @@ import {
 } from '../../subscription';
 import { executeCommand } from '../../system/command';
 import { createFromDateDelta } from '../../system/date';
+import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
 
@@ -162,6 +163,7 @@ export class SubscriptionService implements Disposable {
 		return this._subscription;
 	}
 
+	@log()
 	async loginOrSignUp(): Promise<boolean> {
 		void this.showHomeView();
 
@@ -171,6 +173,7 @@ export class SubscriptionService implements Disposable {
 		return Boolean(session);
 	}
 
+	@log()
 	logout(): void {
 		this._sessionPromise = undefined;
 		void this.container.storage.storeWorkspace(this.connectedKey, false);
@@ -178,11 +181,13 @@ export class SubscriptionService implements Disposable {
 		this.reset(false);
 	}
 
+	@log()
 	async purchase(): Promise<void> {
 		void this.showPlans();
 		await this.showHomeView();
 	}
 
+	@log()
 	async resendVerification(): Promise<void> {
 		if (this._subscription.account?.verified) return;
 
@@ -217,6 +222,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	@log()
 	reset(all: boolean = true): void {
 		if (all && this.container.debugging) {
 			this.changeSubscription(undefined);
@@ -232,6 +238,7 @@ export class SubscriptionService implements Disposable {
 		});
 	}
 
+	@log()
 	async showHomeView(): Promise<void> {
 		await executeCommand(Commands.ShowHomeView);
 	}
@@ -240,6 +247,7 @@ export class SubscriptionService implements Disposable {
 		void env.openExternal(Uri.joinPath(this.baseSiteUri, 'gitlens/pricing'));
 	}
 
+	@log()
 	async startPreview(): Promise<void> {
 		let { plan, preview } = this._subscription;
 		if (preview != null || plan.effective.id !== SubscriptionPlanId.Free) {
@@ -290,6 +298,7 @@ export class SubscriptionService implements Disposable {
 		void window.showInformationMessage(`You can now try premium GitLens features for ${days} days.`);
 	}
 
+	@log()
 	async validate(): Promise<void> {
 		const session = await this.ensureSession(false);
 		if (session == null) return;
@@ -336,6 +345,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	@debug()
 	private validateSubscription(data: GKLicenseInfo) {
 		const account: Subscription['account'] = {
 			id: data.user.id,
@@ -460,6 +470,7 @@ export class SubscriptionService implements Disposable {
 		return session;
 	}
 
+	@debug()
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
 		silent: boolean = false,
