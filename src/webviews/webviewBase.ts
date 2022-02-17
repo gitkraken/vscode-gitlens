@@ -142,7 +142,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	}
 
 	protected onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
-		Logger.log(
+		Logger.debug(
 			`Webview(${this.id}).onViewStateChanged`,
 			`active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`,
 		);
@@ -151,7 +151,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		Logger.log(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+		Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:

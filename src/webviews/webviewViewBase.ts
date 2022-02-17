@@ -136,7 +136,9 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	}
 
 	private onViewVisibilityChanged() {
-		this.onVisibilityChanged?.(this.visible);
+		const visible = this.visible;
+		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
+		this.onVisibilityChanged?.(visible);
 	}
 
 	private onWindowStateChanged(e: WindowState) {
@@ -146,7 +148,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		Logger.log(`WebviewView(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+		Logger.debug(`WebviewView(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:
