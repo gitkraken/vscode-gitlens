@@ -294,6 +294,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
+
 			try {
 				void (await state.repo.stashApply(
 					// pop can only take a stash index, e.g. `stash@{1}`
@@ -303,14 +304,12 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (ex instanceof StashApplyError) {
-					if (ex.reason === StashApplyErrorReason.WorkingChanges) {
-						void window.showWarningMessage(
-							'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
-						);
-					} else {
-						void Messages.showGenericErrorMessage(ex.message);
-					}
+				if (StashApplyError.is(ex, StashApplyErrorReason.WorkingChanges)) {
+					void window.showWarningMessage(
+						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+					);
+				} else {
+					void Messages.showGenericErrorMessage(ex.message);
 				}
 			}
 		}

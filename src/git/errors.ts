@@ -3,6 +3,10 @@ export const enum StashApplyErrorReason {
 }
 
 export class StashApplyError extends Error {
+	static is(ex: any, reason?: StashApplyErrorReason): ex is StashApplyError {
+		return ex instanceof StashApplyError && (reason == null || ex.reason === reason);
+	}
+
 	readonly original?: Error;
 	readonly reason: StashApplyErrorReason | undefined;
 
@@ -35,6 +39,10 @@ export const enum WorktreeCreateErrorReason {
 }
 
 export class WorktreeCreateError extends Error {
+	static is(ex: any, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
+		return ex instanceof WorktreeCreateError && (reason == null || ex.reason === reason);
+	}
+
 	readonly original?: Error;
 	readonly reason: WorktreeCreateErrorReason | undefined;
 
@@ -73,6 +81,10 @@ export const enum WorktreeDeleteErrorReason {
 }
 
 export class WorktreeDeleteError extends Error {
+	static is(ex: any, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
+		return ex instanceof WorktreeDeleteError && (reason == null || ex.reason === reason);
+	}
+
 	readonly original?: Error;
 	readonly reason: WorktreeDeleteErrorReason | undefined;
 

@@ -367,9 +367,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				});
 			} catch (ex) {
 				if (
-					!state.flags.includes('--force') &&
-					ex instanceof WorktreeCreateError &&
-					ex.reason === WorktreeCreateErrorReason.AlreadyCheckedOut
+					WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyCheckedOut) &&
+					!state.flags.includes('--force')
 				) {
 					const createBranch: MessageItem = { title: 'Create New Branch' };
 					const force: MessageItem = { title: 'Create Anyway' };
@@ -398,11 +397,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						state.confirm = false;
 						continue;
 					}
-				} else if (ex instanceof WorktreeCreateError && ex.reason === WorktreeCreateErrorReason.AlreadyExists) {
-					void Messages.showGenericErrorMessage(
+				} else if (WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyExists)) {
+					void window.showErrorMessage(
 						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
 							uri,
-						)} because that folder already exists.`,
+						)} because that folder already exists and is not empty.`,
 					);
 				} else {
 					void Messages.showGenericErrorMessage(
@@ -610,7 +609,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 						await state.repo.deleteWorktree(uri, { force: force });
 					} catch (ex) {
-						if (ex instanceof WorktreeDeleteError) {
+						if (WorktreeDeleteError.is(ex)) {
 							if (ex.reason === WorktreeDeleteErrorReason.MainWorkingTree) {
 								void window.showErrorMessage('Unable to delete the main worktree');
 							} else if (!force) {
