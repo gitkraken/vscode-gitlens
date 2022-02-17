@@ -1,4 +1,4 @@
-import { MessageItem, QuickInputButtons, Uri, window, workspace } from 'vscode';
+import { MessageItem, QuickInputButtons, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import {
@@ -14,7 +14,7 @@ import { QuickPickItemOfT, QuickPickSeparator } from '../../quickpicks/items/com
 import { Directive } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
-import { pad, pluralize, truncateLeft } from '../../system/string';
+import { pluralize, truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
@@ -401,21 +401,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		context: Context,
 		options?: { titleContext?: string },
 	): AsyncStepResultGenerator<Uri> {
-		let uri = state.uri ?? context.defaultUri;
-		if (uri == null) {
-			const folder = state.repo.folder ?? workspace.workspaceFolders?.[0];
-			if (folder != null) {
-				uri = Uri.joinPath(folder.uri, '..');
-			}
-		}
-
 		const step = QuickCommand.createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
 				const uris = await window.showOpenDialog({
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
-					defaultUri: uri,
+					defaultUri: state.uri ?? context.defaultUri,
 					openLabel: 'Select Worktree Location',
 					title: `${appendReposToTitle(
 						`Choose Worktree Location${options?.titleContext ?? ''}`,
@@ -446,120 +438,89 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		state: CreateStepState,
 		context: Context,
 	): StepResultGenerator<[Uri, CreateFlags[]]> {
-		const chosenUri = state.uri;
-		const chosenFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(chosenUri), 60);
+		/**
+		 * Here are the rules for creating the recommended path for the new worktree:
+		 *
+		 * If the user picks a folder outside the repo, it will be `<chosen-path>/<repo>.worktrees/<?branch>`
+		 * If the user picks the repo folder, it will be `<repo>/../<repo>.worktrees/<?branch>`
+		 * If the user picks a folder inside the repo, it will be `<repo>/../<repo>.worktrees/<?branch>`
+		 */
 
-		let allowCreateInRoot = true;
-		let chosenWithRepoSubfoldersUri = chosenUri;
+		const pickedUri = state.uri;
+		const pickedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(pickedUri), 60);
 
-		const folderUri = state.repo.folder?.uri;
-		if (folderUri != null) {
-			if (folderUri.toString() !== chosenUri.toString()) {
-				const descendent = isDescendent(chosenUri, folderUri);
-				if (!descendent) {
-					chosenWithRepoSubfoldersUri = Uri.joinPath(chosenUri, basename(folderUri.path));
-				}
+		let canCreateDirectlyInPicked = true;
+		let recommendedRootUri;
+
+		const repoUri = state.repo.uri;
+		if (repoUri.toString() !== pickedUri.toString()) {
+			if (isDescendent(pickedUri, repoUri)) {
+				recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
 			} else {
-				allowCreateInRoot = false;
+				recommendedRootUri = Uri.joinPath(pickedUri, `${basename(repoUri.path)}.worktrees`);
 			}
+		} else {
+			recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
+			// Don't allow creating directly into the main worktree folder
+			canCreateDirectlyInPicked = false;
 		}
 
-		let chosenWithRepoAndRefSubfoldersUri;
-		let chosenWithRepoAndRefSubfoldersFriendlyPath: string = undefined!;
+		const recommendedUri =
+			state.reference != null
+				? Uri.joinPath(recommendedRootUri, ...state.reference.name.replace(/\\/g, '/').split('/'))
+				: recommendedRootUri;
+		const recommendedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(recommendedUri), 65);
 
-		if (state.reference != null) {
-			chosenWithRepoAndRefSubfoldersUri = Uri.joinPath(
-				chosenWithRepoSubfoldersUri ?? chosenUri,
-				...state.reference.name.replace(/\\/g, '/').split('/'),
-			);
-			chosenWithRepoAndRefSubfoldersFriendlyPath = truncateLeft(
-				GitWorktree.getFriendlyPath(chosenWithRepoAndRefSubfoldersUri),
-				65,
-			);
-		}
-
-		const chosenWithRepoAndNewRefSubfoldersUri = Uri.joinPath(
-			chosenWithRepoSubfoldersUri ?? chosenUri,
-			'<new-branch-name>',
-		);
-		const chosenWithRepoAndNewRefSubfoldersFriendlyPath = truncateLeft(
-			GitWorktree.getFriendlyPath(chosenWithRepoAndNewRefSubfoldersUri),
-			58,
+		const recommendedNewBranchFriendlyPath = truncateLeft(
+			GitWorktree.getFriendlyPath(Uri.joinPath(recommendedRootUri, '<new-branch-name>')),
+			60,
 		);
 
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				...(chosenWithRepoAndRefSubfoldersUri != null
+				FlagsQuickPickItem.create<CreateFlags, Uri>(
+					state.flags,
+					[],
+					{
+						label: context.title,
+						description: ` for ${GitReference.toString(state.reference)}`,
+						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
+					},
+					recommendedUri,
+				),
+				FlagsQuickPickItem.create<CreateFlags, Uri>(
+					state.flags,
+					['-b'],
+					{
+						label: 'Create New Branch and Worktree',
+						description: ` from ${GitReference.toString(state.reference)}`,
+						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
+					},
+					recommendedRootUri,
+				),
+				...(canCreateDirectlyInPicked
 					? [
-							FlagsQuickPickItem.create<CreateFlags, Uri>(
-								state.flags,
-								[],
-								{
-									label: context.title,
-									description: ` for ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree in${pad(
-										'$(folder)',
-										2,
-										2,
-									)}${chosenWithRepoAndRefSubfoldersFriendlyPath}`,
-								},
-								chosenWithRepoAndRefSubfoldersUri,
-							),
-					  ]
-					: []),
-				...(chosenWithRepoSubfoldersUri != null
-					? [
-							FlagsQuickPickItem.create<CreateFlags, Uri>(
-								state.flags,
-								['-b'],
-								{
-									label: 'Create New Branch and Worktree',
-									description: ` from ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree in${pad(
-										'$(folder)',
-										2,
-										2,
-									)}${chosenWithRepoAndNewRefSubfoldersFriendlyPath}`,
-								},
-								chosenWithRepoSubfoldersUri,
-							),
-					  ]
-					: []),
-				QuickPickSeparator.create(),
-				...(allowCreateInRoot
-					? [
+							QuickPickSeparator.create(),
 							FlagsQuickPickItem.create<CreateFlags, Uri>(
 								state.flags,
 								[],
 								{
 									label: `${context.title} (directly in folder)`,
 									description: ` for ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree directly in${pad(
-										'$(folder)',
-										2,
-										2,
-									)}${chosenFriendlyPath}`,
+									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},
-								chosenUri,
+								pickedUri,
 							),
-					  ]
-					: []),
-				...(allowCreateInRoot
-					? [
 							FlagsQuickPickItem.create<CreateFlags, Uri>(
 								state.flags,
 								['-b'],
 								{
 									label: 'Create New Branch and Worktree (directly in folder)',
 									description: ` from ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree directly in${pad(
-										'$(folder)',
-										2,
-										2,
-									)}${chosenWithRepoAndNewRefSubfoldersFriendlyPath}`,
+									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},
-								chosenUri,
+								pickedUri,
 							),
 					  ]
 					: []),
@@ -667,20 +628,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					label: context.title,
 					detail: `Will delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
-					})}${
-						state.uris.length === 1
-							? ` in${pad('$(folder)', 2, 2)}${GitWorktree.getFriendlyPath(state.uris[0])}`
-							: ''
-					}`,
+					})}${state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''}`,
 				}),
 				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
 					})} even with UNCOMMITTED changes${
-						state.uris.length === 1
-							? ` in${pad('$(folder)', 2, 2)}${GitWorktree.getFriendlyPath(state.uris[0])}`
-							: ''
+						state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''
 					}`,
 				}),
 			],

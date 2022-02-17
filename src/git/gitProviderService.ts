@@ -2175,7 +2175,15 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getWorktreesDefaultUri(path: string | Uri): Promise<Uri | undefined> {
 		const { provider, path: rp } = this.getProvider(path);
-		return provider.getWorktreesDefaultUri?.(rp);
+		let defaultUri = await provider.getWorktreesDefaultUri?.(rp);
+		if (defaultUri != null) return defaultUri;
+
+		// If we don't have a default set, default it to the parent folder of the repo folder
+		defaultUri = this.getRepository(rp)?.uri;
+		if (defaultUri != null) {
+			defaultUri = Uri.joinPath(defaultUri, '..');
+		}
+		return defaultUri;
 	}
 
 	@log()
