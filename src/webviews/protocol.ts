@@ -76,6 +76,7 @@ export interface DidGenerateConfigurationPreviewParams {
 	completionId: string;
 	preview: string;
 }
+
 export const DidGenerateConfigurationPreviewNotificationType =
 	new IpcNotificationType<DidGenerateConfigurationPreviewParams>('configuration/didPreview');
 

@@ -30,6 +30,8 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { SubscriptionService } from './premium/subscription/subscriptionService';
+import { TimelineWebview } from './premium/webviews/timeline/timelineWebview';
+import { TimelineWebviewView } from './premium/webviews/timeline/timelineWebviewView';
 import { StatusBarController } from './statusbar/statusBarController';
 import { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -171,10 +173,12 @@ export class Container {
 		context.subscriptions.push((this._codeLensController = new GitCodeLensController(this)));
 
 		context.subscriptions.push((this._settingsWebview = new SettingsWebview(this)));
+		context.subscriptions.push((this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 
 		context.subscriptions.push(new ViewFileDecorationProvider());
+
 		context.subscriptions.push((this._repositoriesView = new RepositoriesView(this)));
 		context.subscriptions.push((this._commitsView = new CommitsView(this)));
 		context.subscriptions.push((this._fileHistoryView = new FileHistoryView(this)));
@@ -188,6 +192,7 @@ export class Container {
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView(this)));
 
 		context.subscriptions.push((this._homeWebviewView = new HomeWebviewView(this)));
+		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -479,6 +484,16 @@ export class Container {
 		}
 
 		return this._tagsView;
+	}
+
+	private _timelineView: TimelineWebviewView;
+	get timelineView() {
+		return this._timelineView;
+	}
+
+	private _timelineWebview: TimelineWebview;
+	get timelineWebview() {
+		return this._timelineWebview;
 	}
 
 	private _tracker: GitDocumentTracker;

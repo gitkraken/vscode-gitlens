@@ -193,6 +193,7 @@ export const enum Commands {
 	ShowStashesView = 'gitlens.showStashesView',
 	ShowTagsView = 'gitlens.showTagsView',
 	ShowWorktreesView = 'gitlens.showWorktreesView',
+	ShowTimelinePage = 'gitlens.showTimelinePage',
 	ShowWelcomePage = 'gitlens.showWelcomePage',
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',

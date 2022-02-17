@@ -2,6 +2,7 @@ import type { RequiredSubscriptionPlans, Subscription } from './subscription';
 
 export const enum Features {
 	Stashes = 'stashes',
+	Timeline = 'timeline',
 	Worktrees = 'worktrees',
 }
 
@@ -10,5 +11,6 @@ export type FeatureAccess =
 	| { allowed: false; subscription: { current: Subscription; required?: RequiredSubscriptionPlans } };
 
 export const enum PremiumFeatures {
+	Timeline = 'timeline',
 	Worktrees = 'worktrees',
 }

@@ -3717,6 +3717,15 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showTimelinePage",
+				"title": "Open Visual File History",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-history.svg",
+					"light": "images/light/icon-history.svg"
+				}
+			},
+			{
 				"command": "gitlens.showWelcomePage",
 				"title": "Welcome (Quick Setup)",
 				"category": "GitLens"
@@ -10530,6 +10539,13 @@
 					"title": "GitLens",
 					"icon": "images/gitlens-activitybar.svg"
 				}
+			],
+			"panel": [
+				{
+					"id": "gitlensPanel",
+					"title": "GitLens",
+					"icon": "images/views/history.svg"
+				}
 			]
 		},
 		"viewsWelcome": [
@@ -10599,9 +10615,20 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"-when": "!gitlens:disabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg",
+					"visibility": "visible"
+				}
+			],
+			"gitlensPanel": [
+				{
+					"type": "webview",
+					"id": "gitlens.views.timeline",
+					"name": "Visual File History",
+					"when": "!gitlens:disabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg",
 					"visibility": "visible"
 				}
 			],
@@ -10881,6 +10908,7 @@
 		"@vscode/codicons": "0.0.28",
 		"@vscode/webview-ui-toolkit": "0.9.1",
 		"ansi-regex": "6.0.1",
+		"billboard.js": "3.3.2",
 		"chroma-js": "2.3.0",
 		"iconv-lite": "0.6.3",
 		"lodash-es": "4.17.21",

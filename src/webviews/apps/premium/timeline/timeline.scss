@@ -1,0 +1,165 @@
+* {
+	box-sizing: border-box;
+}
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+}
+
+body {
+	background-color: var(--color-background);
+	color: var(--color-view-foreground);
+	font-family: var(--font-family);
+	height: 100%;
+	line-height: 1.4;
+	font-size: 100% !important;
+	overflow: hidden;
+	margin: 0 20px 20px 20px;
+	padding: 0;
+}
+
+.container {
+	display: grid;
+	grid-template-rows: min-content 1fr min-content;
+	min-height: 100%;
+	// width: 100%;
+}
+
+section {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+}
+
+h2 {
+	font-weight: 400;
+
+	&[data-bind='title'] {
+		flex: auto 0 1;
+	}
+
+	&[data-bind='description'] {
+		flex: auto 1 1;
+		font-size: 1.3em;
+		font-weight: 200;
+		margin-left: 1.5rem;
+		opacity: 0.7;
+	}
+}
+
+h3 {
+	border: none;
+	color: var(--color-view-header-foreground);
+	font-size: 1.5rem;
+	font-weight: 600;
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+h4 {
+	font-size: 1.5rem;
+	font-weight: 400;
+	margin: 0.5rem 0 1rem 0;
+}
+
+a {
+	text-decoration: none;
+
+	&:focus {
+		outline-color: var(--focus-border);
+	}
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+b {
+	font-weight: 600;
+}
+
+p {
+	margin-bottom: 0;
+}
+
+vscode-button {
+	align-self: center;
+	margin-top: 1.5rem;
+	max-width: 300px;
+	width: 100%;
+}
+
+span.button-subaction {
+	align-self: center;
+	margin-top: 0.75rem;
+}
+
+@media (min-width: 640px) {
+	vscode-button {
+		align-self: flex-start;
+	}
+	span.button-subaction {
+		align-self: flex-start;
+	}
+}
+
+section#header {
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+
+	@media all and (max-width: 500px) {
+		flex-wrap: wrap;
+	}
+}
+
+.select-container {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin: 1em;
+	flex: 100% 0 1;
+
+	label {
+		margin-right: 1em;
+		font-size: var(--font-size);
+	}
+}
+
+// .chart-container {
+// 	height: calc(100% - 0.5em);
+// 	width: 100%;
+// 	overflow: hidden;
+// }
+
+#chart {
+	height: 100%;
+	width: 100%;
+}
+
+[data-visible] {
+	display: none;
+}
+
+#overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+
+	background-color: var(--color-background);
+	font-size: 1.3em;
+	min-height: 100%;
+	padding: 0 2rem 2rem 2rem;
+
+	display: none;
+	grid-template-rows: min-content;
+
+	&.subscription-required {
+		display: grid;
+	}
+}
+
+@import './chart';
