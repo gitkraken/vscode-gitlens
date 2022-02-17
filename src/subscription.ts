@@ -152,6 +152,11 @@ export function getTimeRemaining(
 ): number | undefined {
 	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit) : undefined;
 }
+
+export function isSubscriptionPaid(subscription: Optional<Subscription, 'state'>): boolean {
+	return isSubscriptionPaidPlan(subscription.plan.effective.id);
+}
+
 export function isSubscriptionPaidPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {
 	return id !== SubscriptionPlanId.Free && id !== SubscriptionPlanId.FreePlus;
 }

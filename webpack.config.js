@@ -260,6 +260,7 @@ function getWebviewsConfig(mode, env) {
 		getHtmlPlugin('home', false, mode, env),
 		getHtmlPlugin('rebase', false, mode, env),
 		getHtmlPlugin('settings', false, mode, env),
+		getHtmlPlugin('timeline', true, mode, env),
 		getHtmlPlugin('welcome', false, mode, env),
 		getCspHtmlPlugin(mode, env),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
@@ -302,6 +303,7 @@ function getWebviewsConfig(mode, env) {
 			home: './home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
+			timeline: './premium/timeline/timeline.ts',
 			welcome: './welcome/welcome.ts',
 		},
 		mode: mode,
@@ -435,7 +437,7 @@ function getCspHtmlPlugin(mode, env) {
 				mode !== 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
 					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'"],
+			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"],
 			'font-src': ['#{cspSource}'],
 		},
 		{

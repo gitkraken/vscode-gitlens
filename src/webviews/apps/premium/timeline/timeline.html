@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<body class="preload">
+		<div class="container">
+			<section id="header">
+				<h2 data-bind="title"></h2>
+				<h2 data-bind="description"></h2>
+				<div class="select-container">
+					<label for="periods">Since</label>
+					<vscode-dropdown id="periods" name="periods" position="below">
+						<vscode-option value="7|D">1 week ago</vscode-option>
+						<vscode-option value="1|M">1 month ago</vscode-option>
+						<vscode-option value="3|M" selected="true">3 months ago</vscode-option>
+						<vscode-option value="6|M">6 months ago</vscode-option>
+						<vscode-option value="9|M">9 months ago</vscode-option>
+						<vscode-option value="1|Y">1 year ago</vscode-option>
+						<vscode-option value="2|Y">2 years ago</vscode-option>
+						<vscode-option value="4|Y">4 years ago</vscode-option>
+					</vscode-dropdown>
+				</div>
+			</section>
+			<section id="content">
+				<div id="chart"></div>
+			</section>
+			<section id="footer"></section>
+		</div>
+		<div id="overlay">
+			<p>
+				The
+				<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
+					>Visual File History</a
+				>
+				allows you to clearly see the history of a file, including: when changes were made, how large they were,
+				and who made them. Authors who have contributed changes to a file are on one axis, and dates on the
+				other. Color-coded dots represent points in time where that author made changes to the file, and
+				vertical lines represent the magnitude of the change in two colors: green for lines added, and red for
+				lines removed.
+			</p>
+			<div id="overlay-slot"></div>
+		</div>
+		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				src: url('#{root}/dist/webviews/codicon.ttf?669d352dfabff8f6eaa466c8ae820e43') format('truetype');
+			}
+		</style>
+	</body>
+
+	<!-- prettier-ignore -->
+	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
+</html>
