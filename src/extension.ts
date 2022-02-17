@@ -122,8 +122,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			setTimeout(async () => {
 				if (cfg.outputLevel !== OutputLevel.Debug) return;
 
-				if (await Messages.showDebugLoggingWarningMessage()) {
-					void executeCommand(Commands.DisableDebugLogging);
+				if (!container.insiders) {
+					if (await Messages.showDebugLoggingWarningMessage()) {
+						void executeCommand(Commands.DisableDebugLogging);
+					}
 				}
 			}, 60000);
 		}
