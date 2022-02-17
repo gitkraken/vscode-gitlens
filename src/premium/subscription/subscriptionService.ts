@@ -36,6 +36,7 @@ import {
 } from '../../subscription';
 import { executeCommand } from '../../system/command';
 import { createFromDateDelta } from '../../system/date';
+import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
@@ -149,7 +150,7 @@ export class SubscriptionService implements Disposable {
 
 			commands.registerCommand('gitlens.premium.startPreview', () => this.startPreview()),
 			commands.registerCommand('gitlens.premium.purchase', () => this.purchase()),
-			commands.registerCommand('gitlens.premium.reset', () => this.reset()),
+			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
 
 			commands.registerCommand('gitlens.premium.resendVerification', () => this.resendVerification()),
 			commands.registerCommand('gitlens.premium.validate', () => this.validate()),
@@ -163,6 +164,7 @@ export class SubscriptionService implements Disposable {
 		return this._subscription;
 	}
 
+	@gate()
 	@log()
 	async loginOrSignUp(): Promise<boolean> {
 		void this.showHomeView();
@@ -173,12 +175,26 @@ export class SubscriptionService implements Disposable {
 		return Boolean(session);
 	}
 
+	@gate()
 	@log()
-	logout(): void {
+	logout(reset: boolean = false): void {
 		this._sessionPromise = undefined;
+		this._session = undefined;
 		void this.container.storage.storeWorkspace(this.connectedKey, false);
 
-		this.reset(false);
+		// TODO@eamodio remove this before release
+		if (reset && this.container.env === 'dev') {
+			this.changeSubscription(undefined);
+		}
+
+		this.changeSubscription({
+			...this._subscription,
+			plan: {
+				actual: getSubscriptionPlan(SubscriptionPlanId.Free),
+				effective: getSubscriptionPlan(SubscriptionPlanId.Free),
+			},
+			account: undefined,
+		});
 	}
 
 	@log()
@@ -187,6 +203,7 @@ export class SubscriptionService implements Disposable {
 		await this.showHomeView();
 	}
 
+	@gate()
 	@log()
 	async resendVerification(): Promise<void> {
 		if (this._subscription.account?.verified) return;
@@ -223,30 +240,17 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	reset(all: boolean = true): void {
-		if (all && this.container.debugging) {
-			this.changeSubscription(undefined);
-		}
-
-		this.changeSubscription({
-			...this._subscription,
-			plan: {
-				actual: getSubscriptionPlan(SubscriptionPlanId.Free),
-				effective: getSubscriptionPlan(SubscriptionPlanId.Free),
-			},
-			account: undefined,
-		});
-	}
-
-	@log()
 	async showHomeView(): Promise<void> {
-		await executeCommand(Commands.ShowHomeView);
+		if (!this.container.homeWebviewView.visible) {
+			await executeCommand(Commands.ShowHomeView);
+		}
 	}
 
 	private showPlans(): void {
 		void env.openExternal(Uri.joinPath(this.baseSiteUri, 'gitlens/pricing'));
 	}
 
+	@gate()
 	@log()
 	async startPreview(): Promise<void> {
 		let { plan, preview } = this._subscription;
@@ -298,6 +302,7 @@ export class SubscriptionService implements Disposable {
 		void window.showInformationMessage(`You can now try premium GitLens features for ${days} days.`);
 	}
 
+	@gate()
 	@log()
 	async validate(): Promise<void> {
 		const session = await this.ensureSession(false);
@@ -413,6 +418,8 @@ export class SubscriptionService implements Disposable {
 
 	private _sessionPromise: Promise<AuthenticationSession | null> | undefined;
 	private _session: AuthenticationSession | null | undefined;
+
+	@gate()
 	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null && this._session === undefined) {
 			this._session = await this._sessionPromise;
