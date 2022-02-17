@@ -453,7 +453,7 @@ export namespace WorktreeQuickPickItem {
 			buttons?: QuickInputButton[];
 			checked?: boolean;
 			message?: boolean;
-			ref?: boolean;
+			path?: boolean;
 			type?: boolean;
 			status?: GitStatus;
 		},
@@ -465,12 +465,8 @@ export namespace WorktreeQuickPickItem {
 
 		if (options?.status != null) {
 			description += options.status.hasChanges
-				? pad(`Uncommited Changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
-				: pad('No Changes', description ? 2 : 0, 0);
-		}
-
-		if (options?.ref) {
-			description += `${description ? pad(GlyphChars.Dot, 2, 2) : ''}${worktree.friendlyPath}`;
+				? pad(`Uncommited changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
+				: pad('No changes', description ? 2 : 0, 0);
 		}
 
 		let icon;
@@ -493,6 +489,7 @@ export namespace WorktreeQuickPickItem {
 		const item: WorktreeQuickPickItem = {
 			label: `${icon}${GlyphChars.Space}${label}${options?.checked ? pad('$(check)', 2) : ''}`,
 			description: description,
+			detail: options?.path ? `In $(folder) ${worktree.friendlyPath}` : undefined,
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
 			picked: picked,

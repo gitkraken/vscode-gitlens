@@ -67,7 +67,7 @@ interface DeleteState {
 	flags: DeleteFlags[];
 }
 
-type OpenFlags = '--new-window';
+type OpenFlags = '--new-window' | '--reveal-explorer';
 
 interface OpenState {
 	subcommand: 'open';
@@ -632,9 +632,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}),
 				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
+					description: 'including ANY UNCOMMITTED changes',
 					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
-					})} even with UNCOMMITTED changes${
+					})} ${
 						state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''
 					}`,
 				}),
@@ -678,11 +679,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 
 			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString())!;
-			GitActions.Worktree.open(worktree, {
-				location: state.flags.includes('--new-window')
-					? OpenWorkspaceLocation.NewWindow
-					: OpenWorkspaceLocation.CurrentWindow,
-			});
+			if (state.flags.includes('--reveal-explorer')) {
+				void GitActions.Worktree.revealInFileExplorer(worktree);
+			} else {
+				GitActions.Worktree.open(worktree, {
+					location: state.flags.includes('--new-window')
+						? OpenWorkspaceLocation.NewWindow
+						: OpenWorkspaceLocation.CurrentWindow,
+				});
+			}
 		}
 	}
 
@@ -692,11 +697,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			[
 				FlagsQuickPickItem.create<OpenFlags>(state.flags, [], {
 					label: context.title,
-					detail: `Will open the worktree in ${GitWorktree.getFriendlyPath(state.uri)} in the current window`,
+					detail: `Will open, in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+						state.uri,
+					)}`,
 				}),
 				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--new-window'], {
-					label: `${context.title} in New Window`,
-					detail: `Will open the worktree in ${GitWorktree.getFriendlyPath(state.uri)} in a new window`,
+					label: `${context.title} in a New Window`,
+					detail: `Will open, in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+						state.uri,
+					)}`,
+				}),
+				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--reveal-explorer'], {
+					label: `Reveal in File Explorer`,
+					detail: `Will open, in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+						state.uri,
+					)}`,
 				}),
 			],
 			context,

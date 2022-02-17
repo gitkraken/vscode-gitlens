@@ -169,7 +169,7 @@ export async function getWorktrees(
 						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
 					{
 						buttons: buttons,
-						ref: true,
+						path: true,
 						status: includeStatus ? await w.getStatus() : undefined,
 					},
 				),
