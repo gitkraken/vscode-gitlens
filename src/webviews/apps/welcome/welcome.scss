@@ -1,6 +1,6 @@
-@import 'base';
-@import 'buttons';
-@import 'icons';
+@import '../shared/base';
+@import '../shared/buttons';
+@import '../shared/icons';
 
 body {
 	&.vscode-light {
@@ -535,8 +535,8 @@ section {
 	}
 }
 
-@import 'utils';
-// @import 'snow';
+@import '../shared/utils';
+// @import '../shared/snow';
 
 .sidebar {
 	margin-right: 14px;

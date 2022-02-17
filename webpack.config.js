@@ -56,7 +56,7 @@ function getExtensionConfig(target, mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!webviews/**'] }),
+		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!dist/webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -237,7 +237,7 @@ function getWebviewsConfig(mode, env) {
 			mode === 'production'
 				? {
 						cleanOnceBeforeBuildPatterns: [
-							path.posix.join(__dirname.replace(/\\/g, '/'), 'images', 'settings', '**'),
+							path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews', 'media', '**'),
 						],
 						dangerouslyAllowCleanPatternsOutsideProject: true,
 						dry: false,
@@ -266,8 +266,8 @@ function getWebviewsConfig(mode, env) {
 		new CopyPlugin({
 			patterns: [
 				{
-					from: path.posix.join(basePath.replace(/\\/g, '/'), 'images', 'settings', '*.png'),
-					to: __dirname.replace(/\\/g, '/'),
+					from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.*'),
+					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 				},
 				{
 					from: path.posix.join(

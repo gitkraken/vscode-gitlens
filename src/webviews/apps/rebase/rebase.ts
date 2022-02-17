@@ -1,5 +1,5 @@
 /*global document window*/
-import '../scss/rebase.scss';
+import './rebase.scss';
 import Sortable from 'sortablejs';
 import { onIpc } from '../../protocol';
 import {
@@ -16,7 +16,6 @@ import {
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
-// import { Snow } from '../shared/snow';
 
 const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -473,4 +472,3 @@ class RebaseEditor extends App<State> {
 }
 
 new RebaseEditor();
-// requestAnimationFrame(() => new Snow(false));

@@ -1,6 +1,6 @@
-@import 'base';
-@import 'buttons';
-@import 'utils';
+@import '../shared/base';
+@import '../shared/buttons';
+@import '../shared/utils';
 
 body {
 	height: unset;
@@ -399,5 +399,4 @@ $entry-padding: 5px;
 	}
 }
 
-@import 'codicons';
-// @import 'snow';
+@import '../shared/codicons';

@@ -1,5 +1,5 @@
 /*global window document IntersectionObserver*/
-import '../scss/settings.scss';
+import './settings.scss';
 import { IpcMessage, onIpc } from '../../protocol';
 import { DidJumpToNotificationType, State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';

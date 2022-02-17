@@ -174,7 +174,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	}
 
 	private async getHtml(webview: Webview): Promise<string> {
-		const uri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews', this.fileName);
+		const webRootUri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
+		const uri = Uri.joinPath(webRootUri, this.fileName);
 		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		const [bootstrap, head, body, endOfBody] = await Promise.all([
@@ -186,7 +187,9 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 		const cspSource = webview.cspSource;
 		const cspNonce = getNonce();
+
 		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
+		const webRoot = webview.asWebviewUri(webRootUri).toString();
 
 		const html = content
 			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
@@ -205,7 +208,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 						return '';
 				}
 			})
-			.replace(/#{(cspSource|cspNonce|root)}/g, (_substring, token) => {
+			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (_substring, token) => {
 				switch (token) {
 					case 'cspSource':
 						return cspSource;
@@ -213,6 +216,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 						return cspNonce;
 					case 'root':
 						return root;
+					case 'webroot':
+						return webRoot;
 					default:
 						return '';
 				}
