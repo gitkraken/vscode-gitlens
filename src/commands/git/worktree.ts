@@ -42,12 +42,13 @@ interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	defaultUri?: Uri;
+	pickedUri?: Uri;
 	showTags: boolean;
 	title: string;
 	worktrees?: GitWorktree[];
 }
 
-type CreateFlags = '--force' | '-b' | '--detach';
+type CreateFlags = '--force' | '-b' | '--detach' | '--direct';
 
 interface CreateState {
 	subcommand: 'create';
@@ -99,7 +100,7 @@ export interface WorktreeGitCommandArgs {
 
 export class WorktreeGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
-	private overrideCanConfirm: boolean | undefined;
+	private canSkipConfirmOverride: boolean | undefined;
 
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
 		super(container, 'worktree', 'worktree', 'Worktree', {
@@ -148,11 +149,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	override get canConfirm(): boolean {
-		return this.overrideCanConfirm != null ? this.overrideCanConfirm : this.subcommand != null;
+		return this.subcommand != null;
 	}
 
 	override get canSkipConfirm(): boolean {
-		return false;
+		return this.canSkipConfirmOverride ?? false;
 	}
 
 	override get skipConfirmKey() {
@@ -276,9 +277,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.flags = [];
 		}
 
-		while (this.canStepsContinue(state)) {
-			this.overrideCanConfirm = undefined;
+		context.pickedUri = undefined;
 
+		// Don't allow skipping the confirm step
+		state.confirm = true;
+		this.canSkipConfirmOverride = undefined;
+
+		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
@@ -311,23 +316,23 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					if (result === StepResult.Break) continue;
 
 					state.uri = result;
+					// Keep track of the actual uri they picked, because we will modify it in later steps
+					context.pickedUri = state.uri;
 				}
 			}
 
-			// Clear the flags, since we can backup after the confirm step below (which is non-standard)
-			state.flags = [];
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.createCommandConfirmStep(state, context);
+				if (result === StepResult.Break) continue;
 
-			// if (this.confirm(state.confirm)) {
-			const result = yield* this.createCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+				[state.uri, state.flags] = result;
+			}
 
-			let uri;
-			[uri, state.flags] = result;
-			// }
+			// Reset any confirmation overrides
+			state.confirm = true;
+			this.canSkipConfirmOverride = undefined;
 
 			if (state.flags.includes('-b') && state.createBranch == null) {
-				this.overrideCanConfirm = false;
-
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
 					titleContext: ` from ${GitReference.toString(state.reference, {
@@ -337,62 +342,76 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					})}`,
 					value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResult.Break) {
+					// Clear the flags, since we can backup after the confirm step below (which is non-standard)
+					state.flags = [];
+					continue;
+				}
 
 				state.createBranch = result;
-				uri = Uri.joinPath(uri, state.createBranch);
+			}
+
+			const uri = state.flags.includes('--direct')
+				? state.uri
+				: Uri.joinPath(
+						state.uri,
+						...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
+				  );
+
+			try {
+				await state.repo.createWorktree(uri, {
+					commitish: state.reference?.name,
+					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
+					detach: state.flags.includes('--detach'),
+					force: state.flags.includes('--force'),
+				});
+			} catch (ex) {
+				if (
+					!state.flags.includes('--force') &&
+					ex instanceof WorktreeCreateError &&
+					ex.reason === WorktreeCreateErrorReason.AlreadyCheckedOut
+				) {
+					const createBranch: MessageItem = { title: 'Create New Branch' };
+					const force: MessageItem = { title: 'Create Anyway' };
+					const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`Unable to create the new worktree because ${GitReference.toString(state.reference, {
+							icon: false,
+							quoted: true,
+						})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
+						{ modal: true },
+						createBranch,
+						force,
+						cancel,
+					);
+
+					if (result === createBranch) {
+						state.flags.push('-b');
+						this.canSkipConfirmOverride = true;
+						state.confirm = false;
+						continue;
+					}
+
+					if (result === force) {
+						state.flags.push('--force');
+						this.canSkipConfirmOverride = true;
+						state.confirm = false;
+						continue;
+					}
+				} else if (ex instanceof WorktreeCreateError && ex.reason === WorktreeCreateErrorReason.AlreadyExists) {
+					void Messages.showGenericErrorMessage(
+						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
+							uri,
+						)} because that folder already exists.`,
+					);
+				} else {
+					void Messages.showGenericErrorMessage(
+						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(uri)}.`,
+					);
+				}
 			}
 
 			QuickCommand.endSteps(state);
-
-			const friendlyPath = GitWorktree.getFriendlyPath(uri);
-
-			let retry = false;
-			do {
-				retry = false;
-				const force = state.flags.includes('--force');
-
-				try {
-					await state.repo.createWorktree(uri, {
-						commitish: state.reference?.name,
-						createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
-						detach: state.flags.includes('--detach'),
-						force: force,
-					});
-				} catch (ex) {
-					if (
-						!force &&
-						ex instanceof WorktreeCreateError &&
-						ex.reason === WorktreeCreateErrorReason.AlreadyCheckedOut
-					) {
-						const confirm: MessageItem = { title: 'Create Anyway' };
-						const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-						const result = await window.showWarningMessage(
-							`Unable to create a new worktree in '${friendlyPath}' because ${GitReference.toString(
-								state.reference,
-								{ icon: false, quoted: true },
-							)} is already checked out.\n\nWould you like to create this worktree anyway?`,
-							{ modal: true },
-							confirm,
-							cancel,
-						);
-
-						if (result === confirm) {
-							state.flags.push('--force');
-							retry = true;
-						}
-					} else if (
-						ex instanceof WorktreeCreateError &&
-						ex.reason === WorktreeCreateErrorReason.AlreadyExists
-					) {
-						void Messages.showGenericErrorMessage(
-							`Unable to create a new worktree in '${friendlyPath} because that folder already exists.`,
-						);
-					} else {
-						void Messages.showGenericErrorMessage(`Unable to create a new worktree in '${friendlyPath}.`);
-					}
-				}
-			} while (retry);
 		}
 	}
 
@@ -407,7 +426,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
-					defaultUri: state.uri ?? context.defaultUri,
+					defaultUri: context.pickedUri ?? state.uri ?? context.defaultUri,
 					openLabel: 'Select Worktree Location',
 					title: `${appendReposToTitle(
 						`Choose Worktree Location${options?.titleContext ?? ''}`,
@@ -446,7 +465,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		 * If the user picks a folder inside the repo, it will be `<repo>/../<repo>.worktrees/<?branch>`
 		 */
 
-		const pickedUri = state.uri;
+		const pickedUri = context.pickedUri ?? state.uri;
 		const pickedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(pickedUri), 60);
 
 		let canCreateDirectlyInPicked = true;
@@ -487,7 +506,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						description: ` for ${GitReference.toString(state.reference)}`,
 						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
 					},
-					recommendedUri,
+					recommendedRootUri,
 				),
 				FlagsQuickPickItem.create<CreateFlags, Uri>(
 					state.flags,
@@ -504,7 +523,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							QuickPickSeparator.create(),
 							FlagsQuickPickItem.create<CreateFlags, Uri>(
 								state.flags,
-								[],
+								['--direct'],
 								{
 									label: `${context.title} (directly in folder)`,
 									description: ` for ${GitReference.toString(state.reference)}`,
@@ -514,7 +533,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							),
 							FlagsQuickPickItem.create<CreateFlags, Uri>(
 								state.flags,
-								['-b'],
+								['-b', '--direct'],
 								{
 									label: 'Create New Branch and Worktree (directly in folder)',
 									description: ` from ${GitReference.toString(state.reference)}`,
