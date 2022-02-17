@@ -172,7 +172,7 @@ export class Git {
 			if (exception != null) {
 				Logger.error(
 					'',
-					`[GIT  ] [${runOpts.cwd}] git ${(exception.message || exception.toString() || '')
+					`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
 						.trim()
 						.replace(/fatal: /g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
