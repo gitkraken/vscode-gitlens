@@ -172,7 +172,41 @@ export class SubscriptionService implements Disposable {
 		await this.container.storage.deleteWorkspace(this.connectedKey);
 
 		const session = await this.ensureSession(true);
-		return Boolean(session);
+		const loggedIn = Boolean(session);
+		if (loggedIn) {
+			const {
+				account,
+				plan: { actual, effective },
+			} = this._subscription;
+
+			if (account?.verified === false) {
+				const confirm = { title: 'Resend Verification' };
+				const cancel = { title: 'Cancel' };
+				const result = await window.showInformationMessage(
+					`Before you can access your ${actual.name} account, you must verify your email address.`,
+					confirm,
+					cancel,
+				);
+
+				if (result === confirm) {
+					void this.resendVerification();
+				}
+			} else if (isSubscriptionTrial(this._subscription)) {
+				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+				void window.showInformationMessage(
+					`You are now signed in to your ${actual.name} account. There are ${pluralize(
+						'day',
+						remaining ?? 0,
+					)} remaining in your ${
+						effective.name
+					} trial which grants you access to premium features for private repos.`,
+					'OK',
+				);
+			} else {
+				void window.showInformationMessage(`You are now signed in to your ${actual.name} account.`, 'OK');
+			}
+		}
+		return loggedIn;
 	}
 
 	@gate()
@@ -227,14 +261,14 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
-		const ok = { title: 'Recheck' };
+		const confirm = { title: 'Recheck' };
 		const cancel = { title: 'Cancel' };
 		const result = await window.showInformationMessage(
 			"Once you have verified your email address, click 'Recheck'.",
-			ok,
+			confirm,
 			cancel,
 		);
-		if (result === ok) {
+		if (result === confirm) {
 			await this.validate();
 		}
 	}
@@ -256,15 +290,15 @@ export class SubscriptionService implements Disposable {
 		let { plan, preview } = this._subscription;
 		if (preview != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			if (plan.effective.id === SubscriptionPlanId.Free) {
-				const ok = { title: 'Extend Trial' };
+				const confirm = { title: 'Extend Trial' };
 				const cancel = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
 					'Your premium feature trial has expired. Please create a free account to extend your trial.',
-					ok,
+					confirm,
 					cancel,
 				);
 
-				if (result === ok) {
+				if (result === confirm) {
 					void this.loginOrSignUp();
 				}
 			}
@@ -584,7 +618,7 @@ export class SubscriptionService implements Disposable {
 				this._statusBarSubscription.text = effective.name;
 				this._statusBarSubscription.command = Commands.ShowHomeView;
 				this._statusBarSubscription.tooltip = new MarkdownString(
-					`You are on **${effective.name}**\n\nClick to upgrade to Free+ for access to premium features for public repos`,
+					`You are on **${effective.name}**\n\nClick for details`,
 					true,
 				);
 				break;
@@ -600,8 +634,8 @@ export class SubscriptionService implements Disposable {
 				if (account?.verified === false) {
 					this._statusBarSubscription.tooltip = new MarkdownString(
 						trial
-							? `Before you can trial **${effective.name}**, you must verify your email address.\n\nClick to verify your email address`
-							: `Before you can access **${effective.name}**, you must verify your email address.\n\nClick to verify your email address`,
+							? `Before you can trial **${effective.name}**, you must verify your email address.\n\nClick for details`
+							: `Before you can access **${effective.name}**, you must verify your email address.\n\nClick for details`,
 						true,
 					);
 				} else {
@@ -612,8 +646,8 @@ export class SubscriptionService implements Disposable {
 							? `You are trialing **${effective.name}**\n\nYou have ${pluralize(
 									'day',
 									remaining ?? 0,
-							  )} remaining in your trial.\n\nClick to see your subscription details`
-							: `You are on **${effective.name}**\n\nClick to see your subscription details`,
+							  )} remaining in your trial.\n\nClick for details`
+							: `You are on **${effective.name}**\n\nClick for details`,
 						true,
 					);
 				}
