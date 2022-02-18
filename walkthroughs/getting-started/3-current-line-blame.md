@@ -8,3 +8,7 @@ Adds a [customizable](command:gitlens.showSettingsPage?%22current-line%22 'Jump 
 
 - Contains the author, date, and message of the current line's most recent commit (by default)
 - Adds a [_Toggle Line Blame Annotations_](command:gitlens.toggleLineBlame) command to toggle the blame annotation on and off
+
+<p align="center">
+  <img src="../../images/docs/hovers-current-line.png" alt="Current Line Blame Hover" />
+</p>
