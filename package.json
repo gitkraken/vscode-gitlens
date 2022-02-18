@@ -72,6 +72,7 @@
 		"onCommand:gitlens.premium.purchase",
 		"onCommand:gitlens.premium.reset",
 		"onCommand:gitlens.getStarted",
+		"onCommand:gitlens.learnAboutPremium",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#branches-view",
@@ -3627,6 +3628,11 @@
 			{
 				"command": "gitlens.getStarted",
 				"title": "Get Started",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.learnAboutPremium",
+				"title": "Learn about Premium Features",
 				"category": "GitLens"
 			},
 			{

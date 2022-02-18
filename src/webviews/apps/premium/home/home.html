@@ -50,7 +50,8 @@
 					<a href="command:workbench.scm.focus">Source Control side bar</a> by default.
 				</li>
 				<li>
-					To <a href="command:gitlens.setViewsLayout">display them here</a> in the GitLens side bar, run
+					To <a href="command:gitlens.setViewsLayout">display the side bar views here</a> in the GitLens side
+					bar, run
 					<i
 						><a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Set%20Views%20Layout%22"
 							>GitLens: Set Views Layout</a
@@ -73,6 +74,11 @@
 					<ul>
 						<li>
 							<a href="command:gitlens.getStarted" appearance="secondary">Walkthrough</a>
+						</li>
+						<li>
+							<a href="command:gitlens.learnAboutPremium" appearance="secondary"
+								>Premium features walkthrough</a
+							>
 						</li>
 						<li>
 							<a href="command:gitlens.showWelcomePage?%22quick-setup%22" appearance="secondary"
@@ -141,13 +147,10 @@
 				integration. Access to premium features for private repos is available with a paid account.
 			</p>
 			<p>
-				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
-				features.
-			</p>
-			<p>
 				You can try these premium features for free, without an account, for 3 days. All non-premium features
 				will continue to be free without an account.
 			</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.startPreview">Try premium features now</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
 			<span class="button-subaction"
@@ -167,13 +170,10 @@
 				<a href="">Visual File History</a>, for <span data-bind="previewDays">3 more days</span>.
 			</p>
 			<p>
-				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
-				features.
-			</p>
-			<p>
 				After that time, a free account will be required to continue using these premium features for public
 				code, or you can puchase a paid plan to access premium features for private repos.
 			</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
 			<span class="button-subaction"
 				>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
@@ -191,11 +191,8 @@
 				commit graph (coming soon), and GitHub Enterprise integration (coming soon) are only available with an
 				account.
 			</p>
-			<p>
-				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
-				features.
-			</p>
 			<p>Create a free account to continue trialing premium features for all code for an additional 7 days.</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
 			<span class="button-subaction"
 				>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
@@ -214,12 +211,12 @@
 				<span data-bind="trialDays">7 days</span>, accessing these premium features for private repos will
 				require a paid account.
 			</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
 			<p>
 				With your free account, you will continue to have access to premium features for public repos, as well
 				as all non-premium features.
 			</p>
-			<!-- <vscode-button appearance="secondary">Close</vscode-button> -->
 		</section>
 	</template>
 
@@ -243,11 +240,8 @@
 				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for public repos. More premium
 				features like a commit graph and GitHub Enterprise integration are coming soon.
 			</p>
-			<p>
-				<a href="https://dev.gitkraken.com/gitlens/premium-features">Learn more</a> about GitLens premium
-				features.
-			</p>
 			<p>Access to premium features for private repos requires a paid plan.</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 			<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
 		</section>
 	</template>
@@ -260,10 +254,8 @@
 				<span data-bind="plan">GitLens Pro</span> account, you can access premium features like
 				<a href="">Git Worktrees</a> and <a href="">Visual File History</a> for all of your code.
 			</p>
-			<p>
-				Additional premium featues like a commit graph and GitHub Enterprise integration are coming soon.
-				<a href="">Learn more</a> about GitLens premium features.
-			</p>
+			<p>Additional premium featues like a commit graph and GitHub Enterprise integration are coming soon.</p>
+			<vscode-button data-action="command:gitlens.learnAboutPremium">Learn about premium features</vscode-button>
 		</section>
 	</template>
 </html>

@@ -20,3 +20,19 @@ export class GetStartedCommand extends Command {
 		void executeCoreCommand(CoreCommands.OpenWalkthrough, `${id}#${step ?? 'gitlens.welcome'}`, true);
 	}
 }
+
+@command()
+export class LearnAboutPremiumCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.LearnAboutPremium);
+	}
+
+	execute() {
+		// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
+		void executeCoreCommand(
+			CoreCommands.OpenWalkthrough,
+			`${this.container.context.extension.id}#gitlens.premium`,
+			true,
+		);
+	}
+}
