@@ -18,6 +18,7 @@ import { getPlatform } from '@env/platform';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
+import { AccountValidationError } from '../../errors';
 import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
 import { StorageKeys, WorkspaceStorageKeys } from '../../storage';
@@ -339,10 +340,17 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async validate(): Promise<void> {
+		const cc = Logger.getCorrelationContext();
+
 		const session = await this.ensureSession(false);
 		if (session == null) return;
 
-		await this.checkInAndValidate(session);
+		try {
+			await this.checkInAndValidate(session);
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+		}
 	}
 
 	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
@@ -368,10 +376,7 @@ export class SubscriptionService implements Disposable {
 			});
 
 			if (!rsp.ok) {
-				// TODO@eamodio clear the details if there is an error?
-				debugger;
-				this.logout();
-				return;
+				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
 			const data: GKLicenseInfo = await rsp.json();
@@ -379,8 +384,9 @@ export class SubscriptionService implements Disposable {
 		} catch (ex) {
 			Logger.error(ex);
 			debugger;
-			// TODO@eamodio clear the details if there is an error?
-			this.logout();
+			if (ex instanceof AccountValidationError) throw ex;
+
+			throw new AccountValidationError('Unable to validate account', ex);
 		}
 	}
 
@@ -506,7 +512,25 @@ export class SubscriptionService implements Disposable {
 			return session ?? null;
 		}
 
-		await this.checkInAndValidate(session);
+		try {
+			await this.checkInAndValidate(session);
+		} catch (ex) {
+			Logger.error(ex);
+			debugger;
+
+			const name = session.account.label;
+			session = null;
+			if (ex instanceof AccountValidationError) {
+				this.logout();
+
+				if (createIfNeeded) {
+					void window.showErrorMessage(
+						`Unable to sign in to your account. Please try again. If this issue persists, please contact support. Account=${name} Error=${ex.message}`,
+						'OK',
+					);
+				}
+			}
+		}
 
 		return session;
 	}

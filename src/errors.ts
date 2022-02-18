@@ -23,6 +23,22 @@ export class AccessDeniedError extends Error {
 	}
 }
 
+export class AccountValidationError extends Error {
+	readonly original?: Error;
+	readonly statusCode?: number;
+	readonly statusText?: string;
+
+	constructor(message: string, original?: Error, statusCode?: number, statusText?: string) {
+		message += `; status=${statusCode}: ${statusText}`;
+		super(message);
+
+		this.original = original;
+		this.statusCode = statusCode;
+		this.statusText = statusText;
+		Error.captureStackTrace?.(this, AccountValidationError);
+	}
+}
+
 export const enum AuthenticationErrorReason {
 	UserDidNotConsent = 1,
 	Unauthorized = 2,
