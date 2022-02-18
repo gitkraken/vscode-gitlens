@@ -3607,7 +3607,7 @@
 			},
 			{
 				"command": "gitlens.premium.logout",
-				"title": "Logout",
+				"title": "Disconnect Account",
 				"category": "GitLens Premium"
 			},
 			{
