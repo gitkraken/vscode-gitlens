@@ -1,6 +1,7 @@
 import {
 	authentication,
 	AuthenticationSession,
+	AuthenticationSessionsChangeEvent,
 	version as codeVersion,
 	commands,
 	Disposable,
@@ -40,6 +41,7 @@ import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
 
 // TODO: What user-agent should we use?
@@ -64,7 +66,10 @@ export class SubscriptionService implements Disposable {
 	private _statusBarSubscription: StatusBarItem | undefined;
 
 	constructor(private readonly container: Container) {
-		this._disposable = this.container.onReady(this.onReady, this);
+		this._disposable = Disposable.from(
+			once(container.onReady)(this.onReady, this),
+			authentication.onDidChangeSessions(this.onAuthenticationChanged, this),
+		);
 
 		this.changeSubscription(this.getStoredSubscription(), true);
 		setTimeout(() => void this.ensureSession(false), 10000);
@@ -74,6 +79,12 @@ export class SubscriptionService implements Disposable {
 		this._statusBarSubscription?.dispose();
 
 		this._disposable.dispose();
+	}
+
+	private onAuthenticationChanged(e: AuthenticationSessionsChangeEvent): void {
+		if (e.provider.id !== SubscriptionService.authenticationProviderId) return;
+
+		void this.ensureSession(false);
 	}
 
 	@memoize()
@@ -515,7 +526,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (session == null) {
-			this.updateContext();
+			this.logout();
 			return session ?? null;
 		}
 
