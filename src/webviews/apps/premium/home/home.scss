@@ -17,7 +17,12 @@ body {
 	color: var(--color-view-foreground);
 	display: grid;
 	font-size: 1.3em;
-	padding-bottom: 1.5rem;
+	grid-template-rows: auto repeat(2, min-content);
+	min-height: 100%;
+}
+
+.welcome {
+	grid-template-rows: repeat(3, min-content);
 }
 
 section {
@@ -34,6 +39,12 @@ h3 {
 	font-weight: 600;
 	margin-bottom: 0;
 	white-space: nowrap;
+}
+
+h4 {
+	font-size: 1.5rem;
+	font-weight: 400;
+	margin: 0.5rem 0 1rem 0;
 }
 
 a {
@@ -54,6 +65,33 @@ b {
 
 p {
 	margin-bottom: 0;
+}
+
+.welcome {
+	ul {
+		list-style: none;
+		padding: 0;
+		margin: 1rem 3rem;
+	}
+
+	li {
+		margin: 1rem 0;
+	}
+}
+
+.links {
+	display: grid;
+	grid-template-columns: repeat(3, auto);
+	grid-gap: 2rem;
+	justify-content: space-between;
+	margin: 1rem;
+
+	ul {
+		list-style: none;
+		margin: 0.5rem 0 0 0;
+		padding: 0;
+		white-space: nowrap;
+	}
 }
 
 vscode-button {

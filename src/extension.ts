@@ -85,18 +85,12 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	let exitMessage;
 	if (Logger.enabled(LogLevel.Debug)) {
 		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${context.globalState.get<boolean>(
-			SyncedStorageKeys.WelcomeViewVisible,
+			SyncedStorageKeys.HomeViewWelcomeVisible,
 		)}`;
 	}
 
 	if (previousVersion == null) {
-		void context.globalState.update(SyncedStorageKeys.WelcomeViewVisible, true);
-		void setContext(ContextKeys.ViewsWelcomeVisible, true);
-	} else {
-		void setContext(
-			ContextKeys.ViewsWelcomeVisible,
-			context.globalState.get<boolean>(SyncedStorageKeys.WelcomeViewVisible) ?? false,
-		);
+		void context.globalState.update(SyncedStorageKeys.HomeViewWelcomeVisible, true);
 	}
 
 	Configuration.configure(context);
@@ -165,7 +159,7 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 	return context.globalState?.setKeysForSync([
 		...keys,
 		SyncedStorageKeys.Version,
-		SyncedStorageKeys.WelcomeViewVisible,
+		SyncedStorageKeys.HomeViewWelcomeVisible,
 	]);
 }
 
@@ -204,6 +198,9 @@ function registerBuiltInActionRunners(container: Container): void {
 async function showWelcomeOrWhatsNew(container: Container, version: string, previousVersion: string | undefined) {
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
+
+		void executeCommand(Commands.ShowHomeView);
+
 		if (container.config.showWelcomeOnInstall === false) return;
 
 		if (window.state.focused) {
@@ -237,16 +234,15 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	const [major, minor] = version.split('.').map(v => parseInt(v, 10));
 	const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
-	if (
-		(major === prevMajor && minor === prevMinor) ||
-		// Don't notify on downgrades
-		major < prevMajor ||
-		(major === prevMajor && minor < prevMinor)
-	) {
+
+	// Don't notify on downgrades
+	if (major === prevMajor || major < prevMajor || (major === prevMajor && minor < prevMinor)) {
 		return;
 	}
 
-	if (major !== prevMajor && container.config.showWhatsNewAfterUpgrades) {
+	void executeCommand(Commands.ShowHomeView);
+
+	if (container.config.showWhatsNewAfterUpgrades) {
 		if (window.state.focused) {
 			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 			await Messages.showWhatsNewMessage(version);

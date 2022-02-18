@@ -11,11 +11,21 @@ body {
 header {
 	grid-area: header;
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
-	grid-gap: 1em 3em;
+	grid-template-columns: max-content minmax(396px, auto);
+	grid-gap: 1em 4em;
 	align-items: center;
-	justify-items: center;
-	margin: 0 3em;
+	margin: 0 2em;
+	// grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+	// grid-gap: 1em 3em;
+	// align-items: center;
+	// justify-items: center;
+	// margin: 0 3em;
+
+	@media all and (max-width: 768px) {
+		grid-template-columns: auto;
+		justify-items: center;
+		grid-gap: 1rem;
+	}
 }
 
 .blurb {
@@ -99,26 +109,26 @@ header {
 
 .header__blurb {
 	color: var(--color-foreground--75);
-	flex: 2 1 55%;
 	font-size: 1.5rem;
 	font-weight: 200;
 	margin: 0;
-	min-width: 345px;
-
-	@media all and (max-width: 880px) {
-		margin: 0 2em;
-	}
+	text-align: justify;
 }
 
 .header__link {
 	color: var(--color-foreground);
 	outline: none;
+	margin: 0 1rem 0.75rem 2rem;
 
 	&:hover,
 	&:active,
 	&:focus {
 		color: var(--color-foreground);
 		outline: none;
+	}
+
+	@media all and (max-width: 768px) {
+		margin: 0 0 0.75rem 0;
 	}
 }
 

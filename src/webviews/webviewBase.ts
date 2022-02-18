@@ -151,7 +151,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+		Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:
@@ -238,6 +238,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	private postMessage(message: IpcMessage) {
 		if (this._panel == null) return Promise.resolve(false);
 
+		Logger.debug(`Webview(${this.id}).postMessage: method=${message.method}`);
 		return this._panel.webview.postMessage(message);
 	}
 }

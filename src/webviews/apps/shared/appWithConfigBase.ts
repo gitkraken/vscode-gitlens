@@ -3,6 +3,7 @@ import type { Config } from '../../../config';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
+	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
 	IpcMessage,
 	onIpc,
@@ -66,7 +67,15 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 
+		this.log(`${this.appName}.onMessageReceived: name=${msg.method}`);
+
 		switch (msg.method) {
+			case DidOpenAnchorNotificationType.method: {
+				onIpc(DidOpenAnchorNotificationType, msg, params => {
+					this.scrollToAnchor(params.anchor, params.scrollBehavior);
+				});
+				break;
+			}
 			case DidChangeConfigurationNotificationType.method:
 				onIpc(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
@@ -257,6 +266,17 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		e.stopPropagation();
 		e.stopImmediatePropagation();
 		e.preventDefault();
+	}
+
+	protected scrollToAnchor(anchor: string, behavior: ScrollBehavior, offset?: number) {
+		const el = document.getElementById(anchor);
+		if (el == null) return;
+
+		const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
+		window.scrollTo({
+			top: top,
+			behavior: behavior ?? 'smooth',
+		});
 	}
 
 	private evaluateStateExpression(expression: string, changes: Record<string, string | boolean>): boolean {

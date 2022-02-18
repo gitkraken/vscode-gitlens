@@ -70,7 +70,7 @@ export const enum StorageKeys {
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
-	WelcomeViewVisible = 'gitlens:views:welcome:visible',
+	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }

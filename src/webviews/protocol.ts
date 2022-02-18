@@ -78,3 +78,9 @@ export interface DidGenerateConfigurationPreviewParams {
 }
 export const DidGenerateConfigurationPreviewNotificationType =
 	new IpcNotificationType<DidGenerateConfigurationPreviewParams>('configuration/didPreview');
+
+export interface DidOpenAnchorParams {
+	anchor: string;
+	scrollBehavior: 'auto' | 'smooth';
+}
+export const DidOpenAnchorNotificationType = new IpcNotificationType<DidOpenAnchorParams>('webview/didOpenAnchor');

@@ -71,6 +71,7 @@
 		"onCommand:gitlens.premium.startPreview",
 		"onCommand:gitlens.premium.purchase",
 		"onCommand:gitlens.premium.reset",
+		"onCommand:gitlens.getStarted",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#branches-view",
@@ -89,6 +90,7 @@
 		"onCommand:gitlens.showCommitsView",
 		"onCommand:gitlens.showContributorsView",
 		"onCommand:gitlens.showFileHistoryView",
+		"onCommand:gitlens.showHomeView",
 		"onCommand:gitlens.showLineHistoryView",
 		"onCommand:gitlens.showRemotesView",
 		"onCommand:gitlens.showRepositoriesView",
@@ -96,8 +98,6 @@
 		"onCommand:gitlens.showStashesView",
 		"onCommand:gitlens.showTagsView",
 		"onCommand:gitlens.showWorktreesView",
-		"onCommand:gitlens.showWelcomeView",
-		"onCommand:gitlens.closeWelcomeView",
 		"onCommand:gitlens.compareWith",
 		"onCommand:gitlens.compareHeadWith",
 		"onCommand:gitlens.compareWorkingWith",
@@ -3625,6 +3625,11 @@
 				"category": "GitLens Premium"
 			},
 			{
+				"command": "gitlens.getStarted",
+				"title": "Get Started",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -3728,6 +3733,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showHomeView",
+				"title": "Show Home View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showLineHistoryView",
 				"title": "Show Line History View",
 				"category": "GitLens"
@@ -3761,17 +3771,6 @@
 				"command": "gitlens.showWorktreesView",
 				"title": "Show Worktrees View",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showWelcomeView",
-				"title": "Show Welcome View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.closeWelcomeView",
-				"title": "Close",
-				"category": "GitLens",
-				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.compareWith",
@@ -5978,6 +5977,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.showHomeView",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.showLineHistoryView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
@@ -6003,15 +6006,7 @@
 				},
 				{
 					"command": "gitlens.showWorktreesView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showWelcomeView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.closeWelcomeView",
-					"when": "false"
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.compareWith",
@@ -7685,14 +7680,19 @@
 			],
 			"extension/context": [
 				{
-					"command": "gitlens.showWelcomePage",
+					"command": "gitlens.getStarted",
 					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage",
+					"command": "gitlens.showWelcomePage",
 					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@2"
+				},
+				{
+					"command": "gitlens.showSettingsPage",
+					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
+					"group": "9_gitlens@3"
 				}
 			],
 			"git.commit": [
@@ -7789,11 +7789,6 @@
 				}
 			],
 			"view/title": [
-				{
-					"command": "gitlens.closeWelcomeView",
-					"when": "view == gitlens.views.welcome",
-					"group": "navigation@1"
-				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.branches/",
@@ -10530,18 +10525,6 @@
 		},
 		"viewsWelcome": [
 			{
-				"view": "gitlens.views.welcome",
-				"contents": "GitLens 11 is powerful, feature rich, and highly customizable to meet your needs. You can use the GitLens Welcome experience to get setup quickly.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")\n\nFor more options, run [GitLens: Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") from the Command Palette to open the interactive GitLens settings editor."
-			},
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "[GitLens views](command:gitlens.showSettingsPage%23views) are shown on the Source Control side bar, by default. Run [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") from the Command Palette to switch to an alternate side bar layout, or drag & drop them."
-			},
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "[Close](command:gitlens.closeWelcomeView \"Closes the Welcome view\")"
-			},
-			{
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
 				"when": "!gitlens:hasVirtualFolders"
@@ -10597,15 +10580,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"-when": "!gitlens:disabled && gitlens:views:home:visible != false",
-					"contextualTitle": "GitLens",
-					"icon": "images/gitlens-activitybar.svg",
-					"visibility": "visible"
-				},
-				{
-					"id": "gitlens.views.welcome",
-					"name": "Welcome",
-					"when": "gitlens:views:welcome:visible != false",
+					"-when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "visible"

@@ -36,6 +36,8 @@ export class HomeApp extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeSubscriptionNotificationType.method:
+				this.log(`${this.appName}.onMessageReceived: name=${msg.method}`);
+
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state = params;
 					this.updateState();
@@ -56,46 +58,54 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateState() {
-		const { subscription } = this.state;
+		const { subscription, welcomeVisible } = this.state;
 		if (subscription.account?.verified === false) {
 			this.insertTemplate('state:verify-email', this.$slot1);
-			this.insertTemplate('welcome', this.$slot2);
+			this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 
 			return;
 		}
 
+		const $container = document.getElementById('container') as HTMLDivElement;
+		$container.classList.toggle('welcome', welcomeVisible);
+
 		switch (subscription.state) {
 			case SubscriptionState.Free:
-				this.insertTemplate('welcome', this.$slot1);
-				this.insertTemplate('state:free', this.$slot2);
+				if (welcomeVisible) {
+					this.insertTemplate('welcome', this.$slot1);
+					this.insertTemplate('state:free', this.$slot2);
+				} else {
+					this.insertTemplate('state:free', this.$slot1);
+					this.insertTemplate('links', this.$slot2);
+				}
 				break;
 			case SubscriptionState.FreeInPreview: {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				this.insertTemplate('state:free-preview', this.$slot1, {
 					previewDays: `${remaining === 1 ? `${remaining} more day` : `${remaining} more days`}`,
 				});
-				this.insertTemplate('welcome', this.$slot2);
+				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			}
 			case SubscriptionState.FreePreviewExpired:
 				this.insertTemplate('state:free-preview-expired', this.$slot1);
-				this.insertTemplate('welcome', this.$slot2);
+				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			case SubscriptionState.FreePlusInTrial: {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				this.insertTemplate('state:plus-trial', this.$slot1, {
 					trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
 				});
-				this.insertTemplate('welcome', this.$slot2);
+				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			}
 			case SubscriptionState.FreePlusTrialExpired:
 				this.insertTemplate('state:plus-trial-expired', this.$slot1);
-				this.insertTemplate('welcome', this.$slot2);
+				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			case SubscriptionState.Paid:
 				this.insertTemplate('state:paid', this.$slot1);
-				this.insertTemplate('welcome', this.$slot2);
+				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 		}
 	}

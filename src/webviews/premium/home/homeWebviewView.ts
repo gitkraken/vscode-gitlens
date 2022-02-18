@@ -1,6 +1,7 @@
 import { commands, Disposable, window } from 'vscode';
 import type { Container } from '../../../container';
 import type { SubscriptionChangeEvent } from '../../../premium/subscription/subscriptionService';
+import { SyncedStorageKeys } from '../../../storage';
 import type { Subscription } from '../../../subscription';
 import { WebviewViewBase } from '../../webviewViewBase';
 import { DidChangeSubscriptionNotificationType, State } from './protocol';
@@ -42,8 +43,13 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
-			commands.registerCommand('gitlens.home.hideWelcome', () => {
+			commands.registerCommand('gitlens.home.toggleWelcome', async () => {
 				// TODO@eamodio implement hiding the welcome section and show a help/links section
+				const welcomeVisible = this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true);
+				await this.container.storage.store(SyncedStorageKeys.HomeViewWelcomeVisible, !welcomeVisible);
+
+				const subscription = await this.container.subscription.getSubscription();
+				void this.notifyDidChangeData(subscription);
 			}),
 		];
 	}
@@ -52,6 +58,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		const subscription = await this.container.subscription.getSubscription();
 		return {
 			subscription: subscription,
+			welcomeVisible: this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true),
 		};
 	}
 
@@ -59,7 +66,10 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		if (!this.isReady) return false;
 
 		return window.withProgress({ location: { viewId: this.id } }, () =>
-			this.notify(DidChangeSubscriptionNotificationType, { subscription: subscription }),
+			this.notify(DidChangeSubscriptionNotificationType, {
+				subscription: subscription,
+				welcomeVisible: this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true),
+			}),
 		);
 	}
 }

@@ -3,13 +3,11 @@ import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
-import { DidJumpToNotificationType, State } from './protocol';
+import { State } from './protocol';
 
 const anchorRegex = /.*?#(.*)/;
 
 export class SettingsWebview extends WebviewWithConfigBase<State> {
-	private _pendingJumpToAnchor: string | undefined;
-
 	constructor(container: Container) {
 		super(
 			container,
@@ -45,22 +43,6 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 				return commands.registerCommand(c, () => this.onShowCommand(anchor), this);
 			}),
 		);
-	}
-
-	protected override onReady() {
-		if (this._pendingJumpToAnchor != null) {
-			void this.notify(DidJumpToNotificationType, {
-				anchor: this._pendingJumpToAnchor,
-			});
-			this._pendingJumpToAnchor = undefined;
-		}
-	}
-
-	protected override onShowCommand(anchor?: string) {
-		if (anchor) {
-			this._pendingJumpToAnchor = anchor;
-		}
-		super.onShowCommand();
 	}
 
 	protected override includeBootstrap(): State {

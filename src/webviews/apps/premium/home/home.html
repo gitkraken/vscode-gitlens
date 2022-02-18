@@ -11,7 +11,7 @@
 	</head>
 
 	<body class="preload">
-		<div class="container">
+		<div id="container" class="container">
 			<div id="slot1"></div>
 			<vscode-divider></vscode-divider>
 			<div id="slot2"></div>
@@ -21,8 +21,8 @@
 	</body>
 
 	<template id="welcome">
-		<section>
-			<h3>Welcome to GitLens 12!</h3>
+		<section class="welcome">
+			<h3>Welcome to GitLens 12</h3>
 			<p>
 				GitLens <b>supercharges</b> Git inside VS Code and <b>unlocks</b> the untapped <b>knowledge</b> within
 				each repository. While GitLens is both very <b>powerful</b> and feature rich, it is <b>intuitive</b> and
@@ -31,30 +31,104 @@
 			<p>
 				Jump over to the getting started experience to familiarize yourself with the features GitLens provides.
 			</p>
-			<vscode-button data-action="command:gitlens.getStarted">Get Started</vscode-button>
+			<vscode-button data-action="command:gitlens.getStarted">Get started walkthrough</vscode-button>
 			<p>Or, you can use the GitLens welcome experience to get setup quickly.</p>
 			<vscode-button data-action="command:gitlens.showWelcomePage">Welcome (Quick Setup)</vscode-button>
 			<ul>
 				<li>
-					To view all GitLens settings, run
-					<a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Open%20Settings%22"
-						>GitLens: Open Settings</a
+					To <a href="command:gitlens.showSettingsPage">view all GitLens settings</a>, run
+					<i
+						><a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Open%20Settings%22"
+							>GitLens: Open Settings</a
+						></i
 					>
 					from the Command Palette.
 				</li>
 				<li>
 					<a href="command:gitlens.showSettingsPage%23views">GitLens side bar views</a>
-					for commits, branches, etc. are displayed within the Source Control side bar by default.
-					<a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Set%20Views%20Layout%22"
-						>Run GitLens: Set Views Layout</a
+					for commits, branches, etc. are shown within the
+					<a href="command:workbench.scm.focus">Source Control side bar</a> by default.
+				</li>
+				<li>
+					To <a href="command:gitlens.setViewsLayout">display them here</a> in the GitLens side bar, run
+					<i
+						><a href="command:workbench.action.quickOpen?%22>GitLens%3A%20Set%20Views%20Layout%22"
+							>GitLens: Set Views Layout</a
+						></i
 					>
-					from the Command Palette to display them here in the GitLens side bar, or drag & drop them
-					individually.
+					from the Command Palette, or drag & drop them individually.
 				</li>
 			</ul>
-			<vscode-button data-action="command:gitlens.home.hideWelcome" appearance="secondary"
+			<vscode-button data-action="command:gitlens.home.toggleWelcome" appearance="secondary"
 				>Dismiss welcome</vscode-button
 			>
+		</section>
+	</template>
+
+	<template id="links">
+		<section>
+			<div class="links">
+				<div class="links__group">
+					<h4>Get Started</h4>
+					<ul>
+						<li>
+							<a href="command:gitlens.getStarted" appearance="secondary">Walkthrough</a>
+						</li>
+						<li>
+							<a href="command:gitlens.showWelcomePage?%22quick-setup%22" appearance="secondary"
+								>Quick&nbsp;setup</a
+							>
+						</li>
+						<li>
+							<a href="command:gitlens.showSettingsPage" appearance="secondary"
+								>Interactive&nbsp;settings&nbsp;editor</a
+							>
+						</li>
+						<li>
+							<a href="command:gitlens.home.toggleWelcome">Restore&nbsp;welcome</a>
+						</li>
+					</ul>
+				</div>
+				<div class="links__group">
+					<h4>Help</h4>
+					<ul>
+						<li>
+							<i class="codicon codicon-book"></i>
+							<a href="https://github.com/eamodio/vscode-gitlens#readme">Documentation</a>
+						</li>
+						<li>
+							<i class="codicon codicon-comment-discussion"></i>
+							<a href="https://github.com/eamodio/vscode-gitlens/discussions">Questions</a>
+						</li>
+						<li>
+							<i class="codicon codicon-issues"></i>
+							<a href="https://github.com/eamodio/vscode-gitlens/issues">Issues</a>
+						</li>
+						<li>
+							<i class="codicon codicon-comment"></i>
+							<a href="https://gitkraken.slack.com">Slack</a>
+						</li>
+						<li>
+							<i class="codicon codicon-twitter"></i>
+							<a href="https://twitter.com/gitlens">Twitter</a>
+						</li>
+					</ul>
+				</div>
+				<div class="links__group">
+					<h4>Resources</h4>
+					<ul>
+						<li><a href="https://gitlens.amod.io">Website</a></li>
+						<li><a href="https://gitlens.amod.io/#whats-new">What's new</a></li>
+						<li>
+							<a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens"
+								>Marketplace</a
+							>
+						</li>
+						<li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
+						<li><a href="https://github.com/eamodio/vscode-gitlens/blob/main/LICENSE">License</a></li>
+					</ul>
+				</div>
+			</div>
 		</section>
 	</template>
 

@@ -15,6 +15,7 @@ import { Logger } from '../logger';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
+	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
 	IpcMessage,
 	onIpc,
@@ -23,6 +24,8 @@ import {
 import { WebviewBase } from './webviewBase';
 
 export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
+	private _pendingJumpToAnchor: string | undefined;
+
 	constructor(
 		container: Container,
 		id: string,
@@ -56,6 +59,29 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		void this.notifyDidChangeConfiguration();
 	}
 
+	protected override onReady() {
+		if (this._pendingJumpToAnchor != null) {
+			const anchor = this._pendingJumpToAnchor;
+			this._pendingJumpToAnchor = undefined;
+
+			void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'auto' });
+		}
+	}
+
+	protected override onShowCommand(anchor?: string) {
+		if (anchor) {
+			if (this.isReady && this.visible) {
+				queueMicrotask(
+					() => void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'smooth' }),
+				);
+				return;
+			}
+
+			this._pendingJumpToAnchor = anchor;
+		}
+		super.onShowCommand();
+	}
+
 	protected override onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
 		super.onViewStateChanged(e);
 
@@ -70,7 +96,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 		switch (e.method) {
 			case UpdateConfigurationCommandType.method:
-				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
 
 				onIpc(UpdateConfigurationCommandType, e, async params => {
 					const target =
@@ -110,7 +136,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 				break;
 
 			case GenerateConfigurationPreviewCommandType.method:
-				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
 
 				onIpc(GenerateConfigurationPreviewCommandType, e, async params => {
 					switch (params.type) {

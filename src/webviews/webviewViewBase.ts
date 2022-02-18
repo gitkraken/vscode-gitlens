@@ -129,6 +129,12 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		this.onViewVisibilityChanged();
 	}
 
+	protected async refresh(): Promise<void> {
+		if (this._view == null) return;
+
+		this._view.webview.html = await this.getHtml(this._view.webview);
+	}
+
 	private onViewDisposed() {
 		this._disposableView?.dispose();
 		this._disposableView = undefined;
@@ -139,6 +145,10 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		const visible = this.visible;
 		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
 		this.onVisibilityChanged?.(visible);
+
+		if (this.container.debugging) {
+			void this.refresh();
+		}
 	}
 
 	private onWindowStateChanged(e: WindowState) {
@@ -148,7 +158,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
 
-		Logger.debug(`WebviewView(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+		Logger.debug(`WebviewView(${this.id}).onMessageReceived: method=${e.method}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:

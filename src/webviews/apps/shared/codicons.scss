@@ -37,3 +37,35 @@
 		margin: 0 3px;
 	}
 }
+
+.codicon[class*='codicon-'] {
+	font: normal normal normal 16px/1 codicon;
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+
+	vertical-align: middle;
+	line-height: 2rem;
+}
+
+.codicon-book:before {
+	content: '\eaa4';
+}
+.codicon-comment:before {
+	content: '\ea6b';
+}
+.codicon-comment-discussion:before {
+	content: '\eac7';
+}
+.codicon-issues:before {
+	content: '\eb0c';
+}
+.codicon-twitter:before {
+	content: '\eb72';
+}
