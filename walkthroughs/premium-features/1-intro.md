@@ -1,0 +1,4 @@
+- Introduce concept of premium features (home/learn more page)
+- public vs private repos
+- link to learn more
+- button to try premium features in left?

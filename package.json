@@ -10685,23 +10685,23 @@
 				"steps": [
 					{
 						"id": "gitlens.welcome.experience",
-						"title": "Get Setup Quickly",
-						"description": "Get started\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")",
+						"title": "Get setup quickly",
+						"description": "Use the Quick Setup to easily configure frequently used GitLens features.\n\n[Open Quick Setup](command:gitlens.showWelcomePage \"Opens the GitLens Quick Setup\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/1-setup.md"
 						}
 					},
 					{
 						"id": "gitlens.welcome.settings",
-						"title": "Customize GitLens exactly how you want it",
-						"description": "GitLens provides a rich interactive settings editing experience to allow for seemingly endless customization possibilities.\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\")",
+						"title": "Easily customize every aspect of GitLens",
+						"description": "A rich, interactive settings editor enables seemingly endless customization possibilities.\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/2-customize.md"
 						}
 					},
 					{
 						"id": "gitlens.welcome.currentLineBlame",
-						"title": "Understand who made what changes at a glance",
+						"title": "See who made what changes at a glance",
 						"description": "At the end of every line of code and in the status bar, GitLens exposes details about the last commit that modified that line, including the author, when the commit was made, and other information like pull request details. Hovering over these blame annotations will reveal more details and links to explore more about the commit.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/3-current-line-blame.md"
@@ -10713,6 +10713,101 @@
 						"description": "At the top of each file and at the beginning of each block of code, GitLens exposes the most recent commit and number of authors. It does this by leveraging CodeLens, one of the most powerful tools inside VS Code, which provides clickable links exposing commit details and allows you to select from a quick pick menu to compare, navigate and further explore each commit.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/4-git-codelens.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.revisionHistory",
+						"title": "Easily navigate revision history",
+						"description": "With just a click of a button, you can navigate backwards and forwards through any file's history. Compare changes over time and see the revision history of the whole file or every individual line of code. Customizable and unobtrusive Git blame annotations are still shown on every line, telling you the author, date, and message for the last commit!",
+						"media": {
+							"markdown": "walkthroughs/getting-started/5-revision-history.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.fileAnnotations",
+						"title": "Customize file annotations",
+						"description": "See customizable file annotations in the editor's status bar and in the gutter, the space beside the line number. Choose between:\n\nBlame – showing the commit and author for each line.\n\nChanges – highlighting any local, unpublished, changes or lines changed by the most recent commit.\n\nHeatmap – to show how recently lines were changed relative to all the other changes in the file.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/6-file-annotations.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitSideBarViews",
+						"title": "View more source control details in the side bar",
+						"description": "GitLens adds side bar views that provide rich source control details and functionality. GitLens views for Commits, File History, Branches, Remotes, Stashes, Tags, Contributors, and the Search & Compare can be displayed in either the Source Control side bar or on the GitLens side bar.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/7-git-side-bar-views.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.hostingServiceIntegrations",
+						"title": "Integrate with Git hosting services",
+						"description": "GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Gitea, Gerrit, Bitbucket, Bitbucket Server, Azure DevOps and custom servers. Quickly gain insights from pull requests and issues without leaving your codebase.\n\nAll Git host integrations provide issue and pull request auto-linking, while advanced integrations (e.g. GitHub) provide more detailed hover information, plus the ability to associate pull requests with branches/commits, and avatars.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/8-hosting-service-integrations.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitCommandPalette",
+						"title": "Work faster with Git Command Palette",
+						"description": "The Git Command Palette provides guided, step-by-step access to many common Git commands, as well as quick access to commits (history and search), stashes, and status (current branch and working tree).",
+						"media": {
+							"markdown": "walkthroughs/getting-started/9-git-command-palette.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.interactiveRebaseEditor",
+						"title": "Visualize interactive rebase operations",
+						"description": "A user-friendly editor to easily configure an interactive rebase session. Simply drag & drop to reorder commits and select which ones you want to edit, squash, or drop.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/9-interactive-rebase-editor.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.terminal",
+						"title": "Jump to git details from the terminal",
+						"description": "Using ctrl+click on autolinks in the integrated terminal will quickly jump to more details for commits, branches, tags, and more.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/10-terminal.md"
+						}
+					}
+				]
+			},
+			{
+				"id": "gitlens.premium",
+				"title": "GitLens Premium Features",
+				"description": "gitLens premium features walkthrough description",
+				"steps": [
+					{
+						"id": "gitlens.premium.intro",
+						"title": "premium features intro",
+						"description": "you can get premium features now",
+						"media": {
+							"markdown": "walkthroughs/premium-features/1-intro.md"
+						}
+					},
+					{
+						"id": "gitlens.premium.worktrees",
+						"title": "Do more with Worktrees",
+						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository. This makes it easier to develop on, or test multiple branches, by minimizing the context switching between branches.",
+						"media": {
+							"markdown": "walkthroughs/premium-features/2-worktrees.md"
+						}
+					},
+					{
+						"id": "gitlens.premium.visualFileHistory",
+						"title": "Visualize file history",
+						"description": "Clearly see the history of a file, including: when changes were made, how large they were, and who made them. Authors who have contributed changes to a file are on one axis, and dates on the other. Color-coded dots represent points in time where that author made changes to the file, and vertical lines represent the magnitude of the change in two colors: green for lines added, and red for lines removed.",
+						"media": {
+							"markdown": "walkthroughs/premium-features/3-visual-file-history.md"
+						}
+					},
+					{
+						"id": "gitlens.premium.comingSoon",
+						"title": "More coming soon",
+						"description": "You can expect more premium features like the GitKraken commit graph, which will help you visualize branch structure and commit history. It not only helps verify your recent Git actions on the repo, but also shows who made what code changes and when.",
+						"media": {
+							"markdown": "walkthroughs/premium-features/4-coming-soon.md"
 						}
 					}
 				]
