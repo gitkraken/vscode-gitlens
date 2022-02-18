@@ -1,6 +1,7 @@
-import { Commands, CoreCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, executeCoreCommand } from '../system/command';
+import { command } from '../system/command';
+import { openWalkthrough } from '../system/utils';
 import { Command } from './base';
 
 @command()
@@ -9,15 +10,14 @@ export class GetStartedCommand extends Command {
 		super(Commands.GetStarted);
 	}
 
-	execute(step?: string) {
-		const id = this.container.context.extension.id;
-		// If the step param is the same as the extension id, then this was run from the extensions view gear menu
-		if (step === id) {
-			step = undefined;
+	execute(walkthroughId?: string) {
+		const extensionId = this.container.context.extension.id;
+		// If the walkthroughId param is the same as the extension id, then this was run from the extensions view gear menu
+		if (walkthroughId === extensionId) {
+			walkthroughId = undefined;
 		}
 
-		// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
-		void executeCoreCommand(CoreCommands.OpenWalkthrough, `${id}#${step ?? 'gitlens.welcome'}`, true);
+		void openWalkthrough(extensionId, walkthroughId ?? 'gitlens.welcome');
 	}
 }
 
@@ -28,11 +28,6 @@ export class LearnAboutPremiumCommand extends Command {
 	}
 
 	execute() {
-		// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
-		void executeCoreCommand(
-			CoreCommands.OpenWalkthrough,
-			`${this.container.context.extension.id}#gitlens.premium`,
-			true,
-		);
+		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium');
 	}
 }

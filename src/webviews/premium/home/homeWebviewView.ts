@@ -3,6 +3,7 @@ import type { Container } from '../../../container';
 import type { SubscriptionChangeEvent } from '../../../premium/subscription/subscriptionService';
 import { SyncedStorageKeys } from '../../../storage';
 import type { Subscription } from '../../../subscription';
+import { openWalkthrough } from '../../../system/utils';
 import { WebviewViewBase } from '../../webviewViewBase';
 import { DidChangeSubscriptionNotificationType, State } from './protocol';
 
@@ -44,12 +45,15 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	protected override registerCommands(): Disposable[] {
 		return [
 			commands.registerCommand('gitlens.home.toggleWelcome', async () => {
-				// TODO@eamodio implement hiding the welcome section and show a help/links section
 				const welcomeVisible = this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true);
 				await this.container.storage.store(SyncedStorageKeys.HomeViewWelcomeVisible, !welcomeVisible);
 
 				const subscription = await this.container.subscription.getSubscription();
 				void this.notifyDidChangeData(subscription);
+			}),
+			commands.registerCommand('gitlens.home.openWalkthrough', (idOrIdPlusStepId: string) => {
+				const [walkthroughId, stepId] = idOrIdPlusStepId.split('|');
+				void openWalkthrough(this.container.context.extension.id, walkthroughId, stepId);
 			}),
 		];
 	}
