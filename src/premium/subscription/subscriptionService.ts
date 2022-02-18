@@ -488,6 +488,8 @@ export class SubscriptionService implements Disposable {
 
 	@debug()
 	private async getOrCreateSession(createIfNeeded: boolean): Promise<AuthenticationSession | null> {
+		const cc = Logger.getCorrelationContext();
+
 		let session: AuthenticationSession | null | undefined;
 
 		this.updateStatusBar(true);
@@ -508,6 +510,8 @@ export class SubscriptionService implements Disposable {
 				this.logout();
 				return null;
 			}
+
+			Logger.error(ex, cc);
 		}
 
 		if (session == null) {
@@ -518,7 +522,7 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(session);
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, cc);
 			debugger;
 
 			const name = session.account.label;
