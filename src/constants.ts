@@ -100,6 +100,7 @@ export const enum Commands {
 	FetchRepositories = 'gitlens.fetchRepositories',
 	GetStarted = 'gitlens.getStarted',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
+	LearnAboutPremium = 'gitlens.learnAboutPremium',
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
 	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',
 	OpenBranchOnRemote = 'gitlens.openBranchOnRemote',
