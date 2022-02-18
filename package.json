@@ -10766,7 +10766,7 @@
 						"title": "Visualize interactive rebase operations",
 						"description": "A user-friendly editor to easily configure an interactive rebase session. Simply drag & drop to reorder commits and select which ones you want to edit, squash, or drop.",
 						"media": {
-							"markdown": "walkthroughs/getting-started/9-interactive-rebase-editor.md"
+							"markdown": "walkthroughs/getting-started/10-interactive-rebase-editor.md"
 						}
 					},
 					{
@@ -10774,7 +10774,15 @@
 						"title": "Jump to git details from the terminal",
 						"description": "Using ctrl+click on autolinks in the integrated terminal will quickly jump to more details for commits, branches, tags, and more.",
 						"media": {
-							"markdown": "walkthroughs/getting-started/10-terminal.md"
+							"markdown": "walkthroughs/getting-started/11-terminal.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.premium",
+						"title": "Premium GitLens Features",
+						"description": "TODO - summay of premium features with link to LEARN MORE (https://gitkraken.com/gitlens/premium-features) on marketing site.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/12-premium-features.md"
 						}
 					}
 				]
