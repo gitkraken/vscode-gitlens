@@ -353,6 +353,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
 		try {
 			const checkInData = {
@@ -460,6 +461,7 @@ export class SubscriptionService implements Disposable {
 	private _session: AuthenticationSession | null | undefined;
 
 	@gate()
+	@debug()
 	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null && this._session === undefined) {
 			this._session = await this._sessionPromise;
@@ -484,6 +486,7 @@ export class SubscriptionService implements Disposable {
 		return this._session ?? undefined;
 	}
 
+	@debug()
 	private async getOrCreateSession(createIfNeeded: boolean): Promise<AuthenticationSession | null> {
 		let session: AuthenticationSession | null | undefined;
 
