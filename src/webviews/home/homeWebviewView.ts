@@ -1,9 +1,9 @@
 import { commands, Disposable, window } from 'vscode';
-import type { Container } from '../../../container';
-import type { SubscriptionChangeEvent } from '../../../premium/subscription/subscriptionService';
-import { SyncedStorageKeys } from '../../../storage';
-import type { Subscription } from '../../../subscription';
-import { WebviewViewBase } from '../../webviewViewBase';
+import type { Container } from '../../container';
+import type { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
+import { SyncedStorageKeys } from '../../storage';
+import type { Subscription } from '../../subscription';
+import { WebviewViewBase } from '../webviewViewBase';
 import { DidChangeSubscriptionNotificationType, State } from './protocol';
 
 export class HomeWebviewView extends WebviewViewBase<State> {
