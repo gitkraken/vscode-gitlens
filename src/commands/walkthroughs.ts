@@ -22,12 +22,13 @@ export class GetStartedCommand extends Command {
 }
 
 @command()
-export class LearnAboutPremiumCommand extends Command {
+export class OpenWalkthroughCommand extends Command {
 	constructor(private readonly container: Container) {
-		super(Commands.LearnAboutPremium);
+		super(Commands.OpenWalkthrough);
 	}
 
-	execute() {
-		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium');
+	execute(walkthroughAndStep?: string) {
+		const [walkthroughId, stepId] = walkthroughAndStep?.split('|') ?? 'gitlens.welcome';
+		void openWalkthrough(this.container.context.extension.id, walkthroughId, stepId);
 	}
 }

@@ -10,7 +10,7 @@ export enum Directive {
 
 	RequiresFreeSubscription,
 	RequiresPaidSubscription,
-	StartPreview,
+	StartPreviewTrial,
 }
 
 export namespace Directive {
@@ -45,7 +45,7 @@ export namespace DirectiveQuickPickItem {
 				case Directive.Noop:
 					label = 'Try again';
 					break;
-				case Directive.StartPreview:
+				case Directive.StartPreviewTrial:
 					label = 'Try Premium Features Now';
 					detail = 'Try premium features for free, without an account, for 3 days';
 					break;

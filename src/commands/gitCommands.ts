@@ -709,8 +709,8 @@ export class GitCommandsCommand extends Command {
 										void loadMore();
 										return;
 
-									case Directive.StartPreview:
-										void Container.instance.subscription.startPreview();
+									case Directive.StartPreviewTrial:
+										void Container.instance.subscription.startPreviewTrial();
 										resolve(undefined);
 										return;
 

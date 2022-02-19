@@ -28,7 +28,7 @@ import { WorkspaceStorageKeys } from '../storage';
 import {
 	FreeSubscriptionPlans,
 	getSubscriptionPlanPriority,
-	isPaidSubscriptionPlan,
+	isSubscriptionPaidPlan,
 	RequiredSubscriptionPlans,
 	Subscription,
 	SubscriptionPlanId,
@@ -559,7 +559,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		const plan = subscription.plan.effective.id;
-		if (isPaidSubscriptionPlan(plan) || GitProviderService.previewFeatures?.get(feature)) {
+		if (isSubscriptionPaidPlan(plan) || GitProviderService.previewFeatures?.get(feature)) {
 			return { allowed: true, subscription: { current: subscription } };
 		}
 

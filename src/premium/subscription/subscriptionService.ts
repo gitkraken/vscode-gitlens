@@ -29,8 +29,9 @@ import {
 	getSubscriptionPlanPriority,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
-	isPaidSubscriptionPlan,
 	isSubscriptionExpired,
+	isSubscriptionPaidPlan,
+	isSubscriptionPreviewTrialExpired,
 	isSubscriptionTrial,
 	Subscription,
 	SubscriptionPlanId,
@@ -43,6 +44,7 @@ import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
+import { openWalkthrough } from '../../system/utils';
 
 // TODO: What user-agent should we use?
 const userAgent = 'Visual-Studio-Code-GitLens';
@@ -155,25 +157,32 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand('gitlens.premium.login', () => this.loginOrSignUp()),
-			commands.registerCommand('gitlens.premium.loginOrSignUp', () => this.loginOrSignUp()),
-			commands.registerCommand('gitlens.premium.signUp', () => this.loginOrSignUp()),
-			commands.registerCommand('gitlens.premium.logout', () => this.logout()),
+			commands.registerCommand(Commands.PremiumLearn, () => this.learn()),
+			commands.registerCommand(Commands.PremiumLogin, () => this.loginOrSignUp()),
+			commands.registerCommand(Commands.PremiumLoginOrSignUp, () => this.loginOrSignUp()),
+			commands.registerCommand(Commands.PremiumSignUp, () => this.loginOrSignUp()),
+			commands.registerCommand(Commands.PremiumLogout, () => this.logout()),
 
-			commands.registerCommand('gitlens.premium.startPreview', () => this.startPreview()),
-			commands.registerCommand('gitlens.premium.purchase', () => this.purchase()),
+			commands.registerCommand(Commands.PremiumStartPreviewTrial, () => this.startPreviewTrial()),
+			commands.registerCommand(Commands.PremiumPurchase, () => this.purchase()),
+			// TODO@eamodio remove before release
 			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
 
-			commands.registerCommand('gitlens.premium.resendVerification', () => this.resendVerification()),
-			commands.registerCommand('gitlens.premium.validate', () => this.validate()),
+			commands.registerCommand(Commands.PremiumResendVerification, () => this.resendVerification()),
+			commands.registerCommand(Commands.PremiumValidate, () => this.validate()),
 
-			commands.registerCommand('gitlens.premium.showPlans', () => this.showPlans()),
+			commands.registerCommand(Commands.PremiumShowPlans, () => this.showPlans()),
 		];
 	}
 
 	async getSubscription(): Promise<Subscription> {
 		void (await this.ensureSession(false));
 		return this._subscription;
+	}
+
+	@debug()
+	learn(): void {
+		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium');
 	}
 
 	@gate()
@@ -298,9 +307,9 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async startPreview(): Promise<void> {
-		let { plan, preview } = this._subscription;
-		if (preview != null || plan.effective.id !== SubscriptionPlanId.Free) {
+	async startPreviewTrial(): Promise<void> {
+		let { plan, previewTrial } = this._subscription;
+		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			if (plan.effective.id === SubscriptionPlanId.Free) {
 				const confirm = { title: 'Extend Trial' };
 				const cancel = { title: 'Cancel' };
@@ -331,7 +340,7 @@ export class SubscriptionService implements Disposable {
 			days = 0;
 		}
 
-		preview = {
+		previewTrial = {
 			startedOn: startedOn.toISOString(),
 			expiresOn: expiresOn.toISOString(),
 		};
@@ -342,7 +351,7 @@ export class SubscriptionService implements Disposable {
 				...this._subscription.plan,
 				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, startedOn, expiresOn),
 			},
-			preview: preview,
+			previewTrial: previewTrial,
 		});
 
 		void window.showInformationMessage(`You can now try premium GitLens features for ${days} days.`);
@@ -374,8 +383,8 @@ export class SubscriptionService implements Disposable {
 				vscodeEdition: env.appName,
 				vscodeHost: env.appHost,
 				vscodeVersion: codeVersion,
-				previewStartedOn: this._subscription.preview?.startedOn,
-				previewExpiresOn: this._subscription.preview?.expiresOn,
+				previewStartedOn: this._subscription.previewTrial?.startedOn,
+				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
 			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'gitlens/checkin').toString(), {
@@ -572,13 +581,13 @@ export class SubscriptionService implements Disposable {
 		// If the effective plan is Free, then check if the preview has expired, if not apply it
 		if (
 			subscription.plan.effective.id === SubscriptionPlanId.Free &&
-			subscription.preview != null &&
-			(getTimeRemaining(subscription.preview.expiresOn) ?? 0) > 0
+			subscription.previewTrial != null &&
+			(getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0
 		) {
 			(subscription.plan as PickMutable<Subscription['plan'], 'effective'>).effective = getSubscriptionPlan(
 				SubscriptionPlanId.Pro,
-				new Date(subscription.preview.startedOn),
-				new Date(subscription.preview.expiresOn),
+				new Date(subscription.previewTrial.startedOn),
+				new Date(subscription.previewTrial.expiresOn),
 			);
 		}
 
@@ -620,22 +629,25 @@ export class SubscriptionService implements Disposable {
 		queueMicrotask(async () => {
 			const { allowed, subscription } = await this.container.git.access();
 			void setContext(
-				ContextKeys.PremiumUpgradeRequired,
+				ContextKeys.PremiumRequired,
 				allowed
 					? false
-					: subscription.required != null && isPaidSubscriptionPlan(subscription.required)
+					: subscription.required != null && isSubscriptionPaidPlan(subscription.required)
 					? 'paid'
 					: 'free+',
 			);
 		});
 
 		const {
+			account,
 			plan: { actual },
 		} = this._subscription;
 
-		void setContext(ContextKeys.Premium, actual.id);
-		void setContext(ContextKeys.PremiumPaid, isPaidSubscriptionPlan(actual.id));
-		void setContext(ContextKeys.PremiumRequiresVerification, this._subscription.account?.verified === false);
+		void setContext(ContextKeys.Premium, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
+		void setContext(ContextKeys.PremiumPaid, isSubscriptionPaidPlan(actual.id));
+		void setContext(ContextKeys.PremiumRequiresVerification, account?.verified === false);
+		void setContext(ContextKeys.PremiumTrial, isSubscriptionTrial(this._subscription));
+		void setContext(ContextKeys.PremiumPreviewTrialExpired, isSubscriptionPreviewTrialExpired(this._subscription));
 	}
 
 	private updateStatusBar(pending: boolean = false): void {
