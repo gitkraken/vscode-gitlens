@@ -1152,3 +1152,11 @@ Also special thanks to the people that have provided support, testing, brainstor
 - Matt King ([@KattMingMing](https://github.com/KattMingMing))
 
 And of course the awesome [vscode](https://github.com/Microsoft/vscode/graphs/contributors) team!
+
+# License
+
+This repository contains both OSS-licensed and non-OSS-licensed files.
+
+All files in or under any directory named "premium" fall under LICENSE.premium.
+
+The remaining files fall under the MIT license.
