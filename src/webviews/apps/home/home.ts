@@ -1,11 +1,11 @@
 /*global window*/
 import './home.scss';
 import { Disposable } from 'vscode';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
-import { DidChangeSubscriptionNotificationType, State } from '../../../premium/home/protocol';
-import { ExecuteCommandType, IpcMessage, onIpc } from '../../../protocol';
-import { App } from '../../shared/appBase';
-import { DOM } from '../../shared/dom';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
+import { DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
+import { ExecuteCommandType, IpcMessage, onIpc } from '../../protocol';
+import { App } from '../shared/appBase';
+import { DOM } from '../shared/dom';
 
 export class HomeApp extends App<State> {
 	private $slot1!: HTMLDivElement;

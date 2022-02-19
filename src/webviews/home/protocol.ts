@@ -1,5 +1,5 @@
-import type { Subscription } from '../../../subscription';
-import { IpcNotificationType } from '../../protocol';
+import type { Subscription } from '../../subscription';
+import { IpcNotificationType } from '../protocol';
 
 export interface State {
 	subscription: Subscription;
