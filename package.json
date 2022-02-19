@@ -47,6 +47,9 @@
 		"annotation",
 		"multi-root ready"
 	],
+	"extensionDependencies": [
+		"gitkraken.gitkraken-authentication"
+	],
 	"activationEvents": [
 		"onCustomEditor:gitlens.rebase",
 		"onFileSystem:gitlens",
