@@ -128,9 +128,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
 
+	private readonly _disposables: Disposable[] = [];
+
 	constructor(private readonly container: Container) {}
 
-	dispose() {}
+	dispose() {
+		this._disposables.forEach(d => d.dispose());
+	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
 		// if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
@@ -493,7 +497,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
-				session?.accessToken,
+				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
@@ -630,7 +634,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = !uri.sha || uri.sha === 'HEAD' ? (await metadata.getRevision()).revision : uri.sha;
 			const blame = await github.getBlame(
-				session?.accessToken,
+				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
@@ -796,7 +800,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 					while (true) {
 						const result = await github.getBranches(
-							session?.accessToken,
+							session.accessToken,
 							metadata.repo.owner,
 							metadata.repo.name,
 							{ cursor: cursor },
@@ -879,7 +883,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const commit = await github.getCommit(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref);
+			const commit = await github.getCommit(session.accessToken, metadata.repo.owner, metadata.repo.name, ref);
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
@@ -942,7 +946,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			if (options?.branch) {
 				branches = await github.getCommitOnBranch(
-					session?.accessToken,
+					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
 					options?.branch,
@@ -951,7 +955,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				);
 			} else {
 				branches = await github.getCommitBranches(
-					session?.accessToken,
+					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
 					ref,
@@ -1008,7 +1012,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
 			const commit = await github.getCommitForFile(
-				session?.accessToken,
+				session.accessToken,
 				metadata.repo.owner,
 				metadata.repo.name,
 				ref,
@@ -1080,7 +1084,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const results = await github.getContributors(session?.accessToken, metadata.repo.owner, metadata.repo.name);
+			const results = await github.getContributors(session.accessToken, metadata.repo.owner, metadata.repo.name);
 			const currentUser = await this.getCurrentUser(repoPath);
 
 			const contributors = [];
@@ -1127,7 +1131,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-			user = await github.getCurrentUser(session?.accessToken, metadata.repo.owner, metadata.repo.name);
+			user = await github.getCurrentUser(session.accessToken, metadata.repo.owner, metadata.repo.name);
 
 			this._repoInfoCache.set(repoPath, { ...repo, user: user ?? null });
 			return user;
@@ -1149,7 +1153,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-			return await github.getDefaultBranchName(session?.accessToken, metadata.repo.owner, metadata.repo.name);
+			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
 		} catch (ex) {
 			Logger.error(ex, cc);
 			debugger;
@@ -1229,7 +1233,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
-			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
+			const result = await github.getCommits(session.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				authors: options?.authors,
 				after: options?.cursor,
@@ -1462,7 +1466,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
 			const result = await github.searchCommits(
-				session?.accessToken,
+				session.accessToken,
 				`repo:${metadata.repo.owner}/${metadata.repo.name}+${query.join('+').trim()}`,
 				{
 					cursor: options?.cursor,
@@ -1783,7 +1787,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// }
 
 			const ref = !options?.ref || options.ref === 'HEAD' ? (await metadata.getRevision()).revision : options.ref;
-			const result = await github.getCommits(session?.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
+			const result = await github.getCommits(session.accessToken, metadata.repo.owner, metadata.repo.name, ref, {
 				all: options?.all,
 				after: options?.cursor,
 				path: relativePath,
@@ -2245,7 +2249,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 					while (true) {
 						const result = await github.getTags(
-							session?.accessToken,
+							session.accessToken,
 							metadata.repo.owner,
 							metadata.repo.name,
 							{ cursor: cursor },
@@ -2521,7 +2525,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		let github;
 		let session;
 		try {
-			[github, session] = await Promise.all([this.container.github, this.ensureSession()]);
+			[github, session] = await Promise.all([this.ensureGitHub(), this.ensureSession()]);
 		} catch (ex) {
 			debugger;
 			if (ex instanceof AuthenticationError) {
@@ -2542,6 +2546,24 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		return { github: github, metadata: metadata, remotehub: remotehub, session: session };
+	}
+
+	private _github: GitHubApi | undefined;
+	@gate()
+	private async ensureGitHub() {
+		if (this._github == null) {
+			const github = await this.container.github;
+			if (github != null) {
+				this._disposables.push(
+					github.onDidReauthenticate(() => {
+						this._sessionPromise = undefined;
+						void this.ensureSession(true);
+					}),
+				);
+			}
+			this._github = github;
+		}
+		return this._github;
 	}
 
 	/** Only use this if you NEED non-promise access to RemoteHub */
@@ -2570,10 +2592,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private _sessionPromise: Promise<AuthenticationSession> | undefined;
-	private async ensureSession(): Promise<AuthenticationSession> {
+	private async ensureSession(force: boolean = false): Promise<AuthenticationSession> {
 		if (this._sessionPromise == null) {
 			async function getSession(): Promise<AuthenticationSession> {
 				try {
+					if (force) {
+						return await authentication.getSession('github', githubAuthenticationScopes, {
+							forceNewSession: true,
+						});
+					}
+
 					return await authentication.getSession('github', githubAuthenticationScopes, {
 						createIfNone: true,
 					});

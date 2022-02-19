@@ -56,7 +56,7 @@ export class AuthenticationError extends Error {
 		let message;
 		let reason: AuthenticationErrorReason | undefined;
 		if (messageOrReason == null) {
-			message = `Unable to get required authentication session for '${id}`;
+			message = `Unable to get required authentication session for '${id}'`;
 		} else if (typeof messageOrReason === 'string') {
 			message = messageOrReason;
 			reason = undefined;
@@ -64,13 +64,13 @@ export class AuthenticationError extends Error {
 			reason = messageOrReason;
 			switch (reason) {
 				case AuthenticationErrorReason.UserDidNotConsent:
-					message = `'${id} authentication is required for this operation`;
+					message = `'${id}' authentication is required for this operation`;
 					break;
 				case AuthenticationErrorReason.Unauthorized:
-					message = `The provided '${id}' credentials are either invalid or expired`;
+					message = `Your '${id}' credentials are either invalid or expired`;
 					break;
 				case AuthenticationErrorReason.Forbidden:
-					message = `The provided '${id}' credentials do not have the required access`;
+					message = `Your '${id}' credentials do not have the required access`;
 					break;
 			}
 		}
