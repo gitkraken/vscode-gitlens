@@ -58,6 +58,7 @@ import {
 	ViewRefFileNode,
 	ViewRefNode,
 	WorktreeNode,
+	WorktreesNode,
 } from './nodes';
 
 interface CompareSelectedInfo {
@@ -316,8 +317,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async createWorktree(node?: BranchNode) {
-		if (node !== undefined && !(node instanceof BranchNode)) return undefined;
+	private async createWorktree(node?: BranchNode | WorktreesNode) {
+		if (node instanceof WorktreesNode) {
+			node = undefined;
+		}
+		if (node != null && !(node instanceof BranchNode)) return undefined;
 
 		return GitActions.Worktree.create(node?.repoPath, undefined, node?.ref);
 	}

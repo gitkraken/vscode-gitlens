@@ -212,10 +212,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return allowed;
 	}
 
-	private _supportedFeatures = new Map<Features, boolean>();
-	async supports(feature: Features): Promise<boolean> {
-		const supported = this._supportedFeatures.get(feature);
-		if (supported != null) return supported;
+	// private _supportedFeatures = new Map<Features, boolean>();
+	async supports(_feature: Features): Promise<boolean> {
+		// const supported = this._supportedFeatures.get(feature);
+		// if (supported != null) return supported;
 
 		return false;
 	}
@@ -227,18 +227,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const origin = remotes.find(r => r.name === 'origin');
 		if (origin != null) {
 			return this.getRemoteVisibility(origin);
-		}
-
-		const upstream = remotes.find(r => r.name === 'upstream');
-		if (upstream != null) {
-			return this.getRemoteVisibility(upstream);
-		}
-
-		const results = await Promise.allSettled(remotes.map(r => this.getRemoteVisibility(r)));
-		for (const result of results) {
-			if (result.status !== 'fulfilled') continue;
-
-			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
 		}
 
 		return RepositoryVisibility.Private;

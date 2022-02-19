@@ -91,6 +91,7 @@ export interface RepositoryOpenEvent {
 }
 
 export const enum Features {
+	Stashes = 'stashes',
 	Worktrees = 'worktrees',
 }
 
