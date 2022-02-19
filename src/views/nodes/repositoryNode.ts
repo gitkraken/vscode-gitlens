@@ -1,5 +1,6 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
+import { Features } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
@@ -152,7 +153,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showStashes) {
+			if (this.view.config.showStashes && (await this.repo.supports(Features.Stashes))) {
 				children.push(new StashesNode(this.uri, this.view, this, this.repo));
 			}
 
@@ -160,7 +161,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showWorktrees) {
+			if (this.view.config.showWorktrees && (await this.repo.supports(Features.Worktrees))) {
 				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 

@@ -27,7 +27,8 @@ import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
-import { GitProviderDescriptor } from '../gitProvider';
+import { Features, GitProviderDescriptor, PremiumFeatures } from '../gitProvider';
+import { FeatureAccess } from '../gitProviderService';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import { SearchPattern } from '../search';
@@ -391,6 +392,16 @@ export class Repository implements Disposable {
 		if (changed) {
 			this.fireChange(RepositoryChange.Closed);
 		}
+	}
+
+	@log()
+	access(feature?: PremiumFeatures): Promise<FeatureAccess> {
+		return this.container.git.access(feature, this.uri);
+	}
+
+	@log()
+	supports(feature: Features): Promise<boolean> {
+		return this.container.git.supports(this.uri, feature);
 	}
 
 	@log()

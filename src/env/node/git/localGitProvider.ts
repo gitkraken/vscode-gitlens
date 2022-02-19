@@ -426,12 +426,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private _supportedFeatures = new Map<Features, boolean>();
-	// eslint-disable-next-line @typescript-eslint/require-await
 	async supports(feature: Features): Promise<boolean> {
-		const supported = this._supportedFeatures.get(feature);
+		let supported = this._supportedFeatures.get(feature);
 		if (supported != null) return supported;
 
-		return false;
+		switch (feature) {
+			case Features.Worktrees:
+				supported = await this.git.isAtLeastVersion('2.17.0');
+				this._supportedFeatures.set(feature, supported);
+				return supported;
+			default:
+				return true;
+		}
 	}
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
