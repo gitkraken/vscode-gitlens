@@ -18,7 +18,7 @@ export interface Subscription {
 		readonly effective: SubscriptionPlan;
 	};
 	account: SubscriptionAccount | undefined;
-	preview?: SubscriptionPreview;
+	previewTrial?: SubscriptionPreviewTrial;
 
 	state: SubscriptionState;
 }
@@ -37,7 +37,7 @@ export interface SubscriptionAccount {
 	readonly verified: boolean;
 }
 
-export interface SubscriptionPreview {
+export interface SubscriptionPreviewTrial {
 	readonly startedOn: string;
 	readonly expiresOn: string;
 }
@@ -45,11 +45,11 @@ export interface SubscriptionPreview {
 export const enum SubscriptionState {
 	/** Indicates a user who hasn't verified their email address yet */
 	VerificationRequired = -1,
-	/** Indicates a Free user who hasn't yet started the preview */
+	/** Indicates a Free user who hasn't yet started the preview trial */
 	Free = 0,
-	/** Indicates a Free user who is in preview */
+	/** Indicates a Free user who is in preview trial */
 	FreeInPreview,
-	/** Indicates a Free user who's preview has expired */
+	/** Indicates a Free user who's preview has expired trial */
 	FreePreviewExpired,
 	/** Indicates a Free+ user with a completed trial */
 	FreePlusInTrial,
@@ -63,7 +63,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	const {
 		account,
 		plan: { actual, effective },
-		preview,
+		previewTrial: preview,
 	} = subscription;
 
 	if (account?.verified === false) return SubscriptionState.VerificationRequired;
@@ -152,7 +152,7 @@ export function getTimeRemaining(
 ): number | undefined {
 	return expiresOn != null ? getDateDifference(Date.now(), new Date(expiresOn), unit) : undefined;
 }
-export function isPaidSubscriptionPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {
+export function isSubscriptionPaidPlan(id: SubscriptionPlanId): id is PaidSubscriptionPlans {
 	return id !== SubscriptionPlanId.Free && id !== SubscriptionPlanId.FreePlus;
 }
 
@@ -163,4 +163,9 @@ export function isSubscriptionExpired(subscription: Optional<Subscription, 'stat
 
 export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'>): boolean {
 	return subscription.plan.actual.id !== subscription.plan.effective.id;
+}
+
+export function isSubscriptionPreviewTrialExpired(subscription: Optional<Subscription, 'state'>): boolean | undefined {
+	const remaining = getTimeRemaining(subscription.previewTrial?.expiresOn);
+	return remaining != null ? remaining <= 0 : undefined;
 }

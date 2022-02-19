@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import { isPaidSubscriptionPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
+import { isSubscriptionPaidPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -9,7 +9,7 @@ export class AccessDeniedError extends Error {
 		let message;
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';
-		} else if (required != null && isPaidSubscriptionPlan(required)) {
+		} else if (required != null && isSubscriptionPaidPlan(required)) {
 			message = 'Paid subscription required';
 		} else {
 			message = 'Subscription required';

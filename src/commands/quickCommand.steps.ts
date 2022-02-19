@@ -66,7 +66,7 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
-import { isPaidSubscriptionPlan } from '../subscription';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
@@ -2244,14 +2244,21 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return undefined;
 
-		if (isPaidSubscriptionPlan(access.subscription.required)) {
+		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
 			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
 			placeholder = 'Premium features require an upgraded account';
 		} else {
-			directives.push(
-				DirectiveQuickPickItem.create(Directive.StartPreview, true),
-				DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription),
-			);
+			if (
+				access.subscription.current.account == null &&
+				!isSubscriptionPreviewTrialExpired(access.subscription.current)
+			) {
+				directives.push(
+					DirectiveQuickPickItem.create(Directive.StartPreviewTrial, true),
+					DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription),
+				);
+			} else {
+				directives.push(DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription));
+			}
 			placeholder = 'Premium features require an account';
 		}
 	}
