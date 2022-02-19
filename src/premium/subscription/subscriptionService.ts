@@ -84,7 +84,7 @@ export class SubscriptionService implements Disposable {
 	private onAuthenticationChanged(e: AuthenticationSessionsChangeEvent): void {
 		if (e.provider.id !== SubscriptionService.authenticationProviderId) return;
 
-		void this.ensureSession(false);
+		void this.ensureSession(false, true);
 	}
 
 	@memoize()
@@ -473,13 +473,13 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@debug()
-	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
+	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null && this._session === undefined) {
 			this._session = await this._sessionPromise;
 			this._sessionPromise = undefined;
 		}
 
-		if (this._session != null) return this._session;
+		if (!force && this._session != null) return this._session;
 		if (this._session === null && !createIfNeeded) return undefined;
 
 		if (createIfNeeded) {
