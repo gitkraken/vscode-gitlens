@@ -2,7 +2,7 @@ import { Octokit } from '@octokit/core';
 import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
-import { window } from 'vscode';
+import { Event, EventEmitter, window } from 'vscode';
 import { fetch } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import {
@@ -32,6 +32,11 @@ const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
 export class GitHubApi {
+	private readonly _onDidReauthenticate = new EventEmitter<void>();
+	get onDidReauthenticate(): Event<void> {
+		return this._onDidReauthenticate.event;
+	}
+
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
 		provider: RichRemoteProvider,
@@ -102,7 +107,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -170,7 +175,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -222,7 +227,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -292,7 +297,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -392,7 +397,7 @@ export class GitHubApi {
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -485,7 +490,7 @@ export class GitHubApi {
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -561,7 +566,7 @@ export class GitHubApi {
 			return { ranges: ranges, viewer: rsp.viewer?.name };
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, emptyBlameResult);
+			return this.handleException(ex, cc, emptyBlameResult);
 		}
 	}
 
@@ -639,7 +644,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, emptyPagedResult);
+			return this.handleException(ex, cc, emptyPagedResult);
 		}
 	}
 
@@ -685,7 +690,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 
 		// const results = await this.getCommits(token, owner, repo, ref, { limit: 1 });
@@ -777,7 +782,7 @@ export class GitHubApi {
 			return branches;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError<string[]>(ex, cc, []);
+			return this.handleException<string[]>(ex, cc, []);
 		}
 	}
 
@@ -824,7 +829,7 @@ export class GitHubApi {
 			return count;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -893,7 +898,7 @@ export class GitHubApi {
 			return branches;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError<string[]>(ex, cc, []);
+			return this.handleException<string[]>(ex, cc, []);
 		}
 	}
 
@@ -1031,7 +1036,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, emptyPagedResult);
+			return this.handleException(ex, cc, emptyPagedResult);
 		}
 	}
 
@@ -1091,7 +1096,7 @@ export class GitHubApi {
 			return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, emptyPagedResult);
+			return this.handleException(ex, cc, emptyPagedResult);
 		}
 	}
 
@@ -1179,7 +1184,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1257,7 +1262,7 @@ export class GitHubApi {
 			return date;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1280,7 +1285,7 @@ export class GitHubApi {
 			return rsp.data;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError<GitHubContributor[]>(ex, cc, []);
+			return this.handleException<GitHubContributor[]>(ex, cc, []);
 		}
 	}
 
@@ -1318,7 +1323,7 @@ export class GitHubApi {
 			return rsp.repository?.defaultBranchRef?.name ?? undefined;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1359,7 +1364,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1399,7 +1404,7 @@ export class GitHubApi {
 			return rsp.repository.visibility === 'PUBLIC' ? RepositoryVisibility.Public : RepositoryVisibility.Private;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1482,7 +1487,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, emptyPagedResult);
+			return this.handleException(ex, cc, emptyPagedResult);
 		}
 	}
 
@@ -1561,7 +1566,7 @@ export class GitHubApi {
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1639,7 +1644,7 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			debugger;
-			return this.handleRequestError(ex, cc, undefined);
+			return this.handleException(ex, cc, undefined);
 		}
 	}
 
@@ -1704,9 +1709,14 @@ export class GitHubApi {
 					case 'FORBIDDEN':
 						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 				}
+
+				void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`, 'OK');
+			} else if (ex instanceof RequestError) {
+				this.handleRequestError(ex);
+			} else {
+				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
 			}
 
-			void window.showErrorMessage(`Unable to complete GitHub request: ${ex.message}`);
 			throw ex;
 		}
 	}
@@ -1720,38 +1730,80 @@ export class GitHubApi {
 			return (await this.octokit(token).request<R>(route, options)) as any;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
-				switch (ex.status) {
-					case 404: // Not found
-					case 410: // Gone
-					case 422: // Unprocessable Entity
-						throw new ProviderRequestNotFoundError(ex);
-					// case 429: //Too Many Requests
-					case 401: // Unauthorized
-						throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
-					case 403: // Forbidden
-						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
-					case 500: // Internal Server Error
-						if (ex.response != null) {
-							// TODO@eamodio: Handle GitHub down errors
-						}
-						break;
-					default:
-						if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
-						break;
-				}
+				this.handleRequestError(ex);
+			} else {
+				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
 			}
 
-			void window.showErrorMessage(`Unable to complete GitHub request: ${ex.message}`);
 			throw ex;
 		}
 	}
 
-	private handleRequestError<T>(ex: unknown | Error, cc: LogCorrelationContext | undefined, defaultValue: T): T {
+	private handleRequestError(ex: RequestError): void {
+		switch (ex.status) {
+			case 404: // Not found
+			case 410: // Gone
+			case 422: // Unprocessable Entity
+				throw new ProviderRequestNotFoundError(ex);
+			// case 429: //Too Many Requests
+			case 401: // Unauthorized
+				throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
+			case 403: // Forbidden
+				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+			case 500: // Internal Server Error
+				if (ex.response != null) {
+					void window.showErrorMessage(
+						'GitHub failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
+						'OK',
+					);
+				}
+				break;
+			case 502: // Bad Gateway
+				// GitHub seems to return this status code for timeouts
+				if (ex.message.includes('timeout')) {
+					void window.showErrorMessage('GitHub request timed out', 'OK');
+					return;
+				}
+				break;
+			default:
+				if (ex.status >= 400 && ex.status < 500) throw new ProviderRequestClientError(ex);
+				break;
+		}
+
+		void window.showErrorMessage(
+			`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+			'OK',
+		);
+	}
+
+	private handleException<T>(ex: unknown | Error, cc: LogCorrelationContext | undefined, defaultValue: T): T {
 		if (ex instanceof ProviderRequestNotFoundError) return defaultValue;
 
 		Logger.error(ex, cc);
 		debugger;
+
+		if (ex instanceof AuthenticationError) {
+			void this.showAuthenticationErrorMessage(ex);
+		}
 		throw ex;
+	}
+
+	private async showAuthenticationErrorMessage(ex: AuthenticationError) {
+		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
+			const confirm = 'Reauthenticate';
+			const result = await window.showErrorMessage(
+				`${ex.message}. Would you like to try reauthenticating${
+					ex.reason === AuthenticationErrorReason.Forbidden ? ' to provide additional access' : ''
+				}?`,
+				confirm,
+			);
+
+			if (result === confirm) {
+				this._onDidReauthenticate.fire();
+			}
+		} else {
+			void window.showErrorMessage(ex.message, 'OK');
+		}
 	}
 }
 
