@@ -1,12 +1,15 @@
+* {
+	box-sizing: border-box;
+}
+
 html {
 	height: 100%;
 	font-size: 62.5%;
-	box-sizing: border-box;
 }
 
 body {
 	background-color: var(--color-background);
-	color: var(--color-foreground);
+	color: var(--color-view-foreground);
 	font-family: var(--font-family);
 	height: 100%;
 	line-height: 1.4;
@@ -14,7 +17,6 @@ body {
 }
 
 .container {
-	color: var(--color-view-foreground);
 	display: grid;
 	font-size: 1.3em;
 	grid-template-rows: auto repeat(2, min-content);
@@ -26,7 +28,6 @@ body {
 }
 
 section {
-	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
 	padding: 0;
