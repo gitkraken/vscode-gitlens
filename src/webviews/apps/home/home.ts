@@ -44,7 +44,7 @@ export class HomeApp extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeSubscriptionNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived: name=${msg.method}`);
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state = params;

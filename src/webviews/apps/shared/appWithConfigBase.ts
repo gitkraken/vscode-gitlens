@@ -67,7 +67,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 
-		this.log(`${this.appName}.onMessageReceived: name=${msg.method}`);
+		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 		switch (msg.method) {
 			case DidOpenAnchorNotificationType.method: {
