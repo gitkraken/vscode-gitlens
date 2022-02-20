@@ -8,19 +8,19 @@ export namespace DOM {
 	export function on<K extends keyof WindowEventMap>(
 		window: Window,
 		name: K,
-		listener: (e: WindowEventMap[K]) => void,
+		listener: (e: WindowEventMap[K], target: Window) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<K extends keyof DocumentEventMap>(
 		document: Document,
 		name: K,
-		listener: (e: DocumentEventMap[K]) => void,
+		listener: (e: DocumentEventMap[K], target: Document) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
-	export function on<K extends keyof DocumentEventMap>(
-		element: Element,
+	export function on<T extends HTMLElement, K extends keyof DocumentEventMap>(
+		element: T,
 		name: K,
-		listener: (e: DocumentEventMap[K]) => void,
+		listener: (e: DocumentEventMap[K], target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
 	export function on<T extends Element, K extends keyof DocumentEventMap>(
