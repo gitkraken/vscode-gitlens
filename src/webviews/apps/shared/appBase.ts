@@ -84,7 +84,10 @@ export abstract class App<State = void> {
 		command: TCommand,
 		params: IpcMessageParams<TCommand>,
 	): void {
-		return this.postMessage({ id: nextIpcId(), method: command.method, params: params });
+		const id = nextIpcId();
+		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
+
+		return this.postMessage({ id: id, method: command.method, params: params });
 	}
 
 	protected sendCommandWithCompletion<
@@ -97,6 +100,7 @@ export abstract class App<State = void> {
 		callback: (params: IpcMessageParams<TCompletion>) => void,
 	): void {
 		const id = nextIpcId();
+		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
 		const disposable = DOM.on(window, 'message', e => {
 			onIpc(completion, e.data as IpcMessage, params => {
