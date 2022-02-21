@@ -1,0 +1,11 @@
+<template id="state:verify-email">
+	<section>
+		<h3>Please verify your email</h3>
+		<p>To continue using premium GitLens features, please verify the email for the account you created.</p>
+		<vscode-button data-action="command:gitlens.premium.resendVerification"
+			>Resend verification email</vscode-button
+		>
+		<vscode-button data-action="command:gitlens.premium.validate">Refresh verification status</vscode-button>
+		<p>All non-premium features will continue to be free without an account.</p>
+	</section>
+</template>

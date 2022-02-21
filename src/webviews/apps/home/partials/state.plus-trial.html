@@ -1,0 +1,23 @@
+<template id="state:plus-trial">
+	<section>
+		<h3>Premium Feature Trial</h3>
+		<p>
+			You are currently trialing premium GitLens features like
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
+				>Git Worktrees</a
+			>
+			and
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
+				>Visual File History</a
+			>
+			for both public and private repos. In <span data-bind="trialDays">7 days</span>, accessing these premium
+			features for private repos will require a paid account.
+		</p>
+		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
+		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+		<p>
+			With your free account, you will continue to have access to premium features for public repos, as well as
+			all non-premium features.
+		</p>
+	</section>
+</template>
