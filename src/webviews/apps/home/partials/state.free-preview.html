@@ -1,0 +1,26 @@
+<template id="state:free-preview">
+	<section>
+		<h3>Trying Premium Features</h3>
+		<p>
+			You are currently trying premium GitLens features, like
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
+				>Git Worktrees</a
+			>
+			and
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
+				>Visual File History</a
+			>, for <span data-bind="previewDays">3 more days</span>.
+		</p>
+		<p>
+			After that time, a free account will be required to continue using these premium features for public code,
+			or you can puchase a paid plan to access premium features for private repos.
+		</p>
+		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
+		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
+		<span class="button-subaction"
+			>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
+		>
+		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+		<p>All non-premium features will continue to be free without an account.</p>
+	</section>
+</template>
