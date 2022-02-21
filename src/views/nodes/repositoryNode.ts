@@ -1,6 +1,6 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Features } from '../../git/gitProvider';
+import { Features } from '../../features';
 import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,

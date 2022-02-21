@@ -1,6 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { PremiumFeatures } from '../../git/gitProvider';
+import { PremiumFeatures } from '../../features';
 import { GitUri } from '../../git/gitUri';
 import { Repository } from '../../git/models';
 import { gate } from '../../system/decorators/gate';

@@ -1,13 +1,13 @@
 import { MessageItem, QuickInputButtons, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
+import { PremiumFeatures } from '../../features';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { PremiumFeatures } from '../../git/gitProvider';
 import { GitReference, GitWorktree, Repository } from '../../git/models';
 import { Messages } from '../../messages';
 import { QuickPickItemOfT, QuickPickSeparator } from '../../quickpicks/items/common';

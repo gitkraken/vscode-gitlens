@@ -21,6 +21,7 @@ import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../const
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
+import type { FeatureAccess, Features, PremiumFeatures } from '../features';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../premium/subscription/subscriptionService';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
@@ -41,13 +42,11 @@ import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } 
 import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import {
-	Features,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
-	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
 	RepositoryVisibility,
@@ -112,10 +111,6 @@ export type RepositoriesChangeEvent = {
 	readonly added: readonly Repository[];
 	readonly removed: readonly Repository[];
 };
-
-export type FeatureAccess =
-	| { allowed: true; subscription: { current: Subscription; required?: undefined } }
-	| { allowed: false; subscription: { current: Subscription; required?: RequiredSubscriptionPlans } };
 
 export interface GitProviderResult {
 	provider: GitProvider;
