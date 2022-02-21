@@ -10554,7 +10554,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "To use premium GitLens features, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)",
+				"contents": "To use premium GitLens features, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)\n\n[Refresh verification status](command:gitlens.premium.validate)",
 				"when": "gitlens:premium:requiresVerification"
 			},
 			{
