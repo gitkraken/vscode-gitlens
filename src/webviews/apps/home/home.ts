@@ -1,5 +1,6 @@
 /*global window*/
 import './home.scss';
+import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDivider } from '@vscode/webview-ui-toolkit';
 import { Disposable } from 'vscode';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
 import { DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
@@ -17,6 +18,13 @@ export class HomeApp extends App<State> {
 	}
 
 	protected override onInitialize() {
+		provideVSCodeDesignSystem().register({
+			register: function (container: any, context: any) {
+				vsCodeButton().register(container, context);
+				vsCodeDivider().register(container, context);
+			},
+		});
+
 		this.$slot1 = document.getElementById('slot1') as HTMLDivElement;
 		this.$slot2 = document.getElementById('slot2') as HTMLDivElement;
 
