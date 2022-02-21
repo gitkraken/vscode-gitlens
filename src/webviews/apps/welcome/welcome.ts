@@ -1,4 +1,4 @@
-/*global window*/
+/*global*/
 import './welcome.scss';
 import type { State } from '../../welcome/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
@@ -6,8 +6,7 @@ import { AppWithConfig } from '../shared/appWithConfigBase';
 
 export class WelcomeApp extends AppWithConfig<State> {
 	constructor() {
-		super('WelcomeApp', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('WelcomeApp');
 	}
 }
 

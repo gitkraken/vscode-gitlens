@@ -69,4 +69,40 @@ export namespace DOM {
 			},
 		};
 	}
+
+	export function insertTemplate(
+		id: string,
+		$slot: HTMLDivElement,
+		options?: { bindings?: Record<string, unknown>; visible?: Record<string, boolean> },
+	): void {
+		const $template = (document.getElementById(id) as HTMLTemplateElement)?.content.cloneNode(true);
+		$slot.replaceChildren($template);
+
+		if (options?.visible != null) {
+			const $els = $slot.querySelectorAll<HTMLElement>(`[data-visible]`);
+			for (const $el of $els) {
+				const key = $el.dataset.visible;
+				if (!key) continue;
+
+				if (options.visible[key]) {
+					$el.style.display = 'initial';
+				} else {
+					$el.style.display = 'none';
+				}
+			}
+		}
+
+		if (options?.bindings != null) {
+			const $els = $slot.querySelectorAll<HTMLElement>(`[data-bind]`);
+			for (const $el of $els) {
+				const key = $el.dataset.bind;
+				if (!key) continue;
+
+				const value = options.bindings[key];
+				if (value == null) continue;
+
+				$el.textContent = String(value);
+			}
+		}
+	}
 }

@@ -34,13 +34,15 @@ export abstract class App<State = void> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 
-	constructor(protected readonly appName: string, state: State) {
+	constructor(protected readonly appName: string) {
 		this.log(`${this.appName}.ctor`);
+
+		this.state = (window as any).bootstrap;
+		(window as any).bootstrap = undefined;
 
 		this._api = acquireVsCodeApi();
 		initializeAndWatchThemeColors();
 
-		this.state = state;
 		requestAnimationFrame(() => {
 			this.log(`${this.appName}.initializing`);
 

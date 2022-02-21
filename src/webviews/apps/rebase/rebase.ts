@@ -37,8 +37,7 @@ class RebaseEditor extends App<State> {
 	private readonly commitTokenRegex = new RegExp(encodeURIComponent(`\${commit}`));
 
 	constructor() {
-		super('RebaseEditor', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('RebaseEditor');
 	}
 
 	protected override onInitialize() {
