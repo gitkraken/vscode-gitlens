@@ -15,6 +15,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
+import { log } from '../system/decorators/log';
 import {
 	ExecuteCommandType,
 	IpcMessage,
@@ -51,7 +52,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 	constructor(
 		protected readonly container: Container,
-		public readonly id: string,
+		public readonly id: `gitlens.views.${string}`,
 		protected readonly fileName: string,
 		title: string,
 	) {
@@ -86,6 +87,17 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 	get visible() {
 		return this._view?.visible ?? false;
+	}
+
+	@log()
+	async show(options?: { preserveFocus?: boolean }) {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			void (await executeCommand(`${this.id}.focus`, options));
+		} catch (ex) {
+			Logger.error(ex, cc);
+		}
 	}
 
 	protected onReady?(): void;

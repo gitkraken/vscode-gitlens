@@ -191,7 +191,7 @@ export class Container {
 		context.subscriptions.push((this._contributorsView = new ContributorsView(this)));
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView(this)));
 
-		context.subscriptions.push((this._homeWebviewView = new HomeWebviewView(this)));
+		context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
 		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
 		if (config.terminalLinks.enabled) {
@@ -365,6 +365,15 @@ export class Container {
 		}
 	}
 
+	private _homeView: HomeWebviewView | undefined;
+	get homeView() {
+		if (this._homeView == null) {
+			this._context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
+		}
+
+		return this._homeView;
+	}
+
 	@memoize()
 	get insiders() {
 		return this._context.extension.id.endsWith('-insiders');
@@ -406,15 +415,6 @@ export class Container {
 		}
 
 		return this._rebaseEditor;
-	}
-
-	private _homeWebviewView: HomeWebviewView | undefined;
-	get homeWebviewView() {
-		if (this._homeWebviewView == null) {
-			this._context.subscriptions.push((this._homeWebviewView = new HomeWebviewView(this)));
-		}
-
-		return this._homeWebviewView;
 	}
 
 	private _remotesView: RemotesView | undefined;

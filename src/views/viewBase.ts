@@ -512,10 +512,12 @@ export abstract class ViewBase<
 
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
+		const cc = Logger.getCorrelationContext();
+
 		try {
 			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, cc);
 		}
 	}
 

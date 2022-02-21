@@ -1,6 +1,6 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { command, executeCommand } from '../system/command';
+import { command } from '../system/command';
 import { Command, CommandContext } from './base';
 
 @command()
@@ -17,6 +17,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowSearchAndCompareView,
 			Commands.ShowStashesView,
 			Commands.ShowTagsView,
+			Commands.ShowTimelineView,
 			Commands.ShowWorktreesView,
 			Commands.ShowHomeView,
 		]);
@@ -36,6 +37,8 @@ export class ShowViewCommand extends Command {
 				return this.container.contributorsView.show();
 			case Commands.ShowFileHistoryView:
 				return this.container.fileHistoryView.show();
+			case Commands.ShowHomeView:
+				return this.container.homeView.show();
 			case Commands.ShowLineHistoryView:
 				return this.container.lineHistoryView.show();
 			case Commands.ShowRemotesView:
@@ -48,11 +51,10 @@ export class ShowViewCommand extends Command {
 				return this.container.stashesView.show();
 			case Commands.ShowTagsView:
 				return this.container.tagsView.show();
+			case Commands.ShowTimelineView:
+				return this.container.timelineView.show();
 			case Commands.ShowWorktreesView:
 				return this.container.worktreesView.show();
-			case Commands.ShowHomeView:
-				void (await executeCommand('gitlens.views.home.focus'));
-				break;
 		}
 
 		return Promise.resolve(undefined);

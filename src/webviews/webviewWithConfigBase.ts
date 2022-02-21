@@ -28,7 +28,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 	constructor(
 		container: Container,
-		id: string,
+		id: `gitlens.${string}`,
 		fileName: string,
 		iconPath: string,
 		title: string,
