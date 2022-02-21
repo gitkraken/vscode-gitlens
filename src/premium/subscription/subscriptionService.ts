@@ -276,6 +276,7 @@ export class SubscriptionService implements Disposable {
 				headers: {
 					Authorization: `Bearer ${session.accessToken}`,
 					'User-Agent': userAgent,
+					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({ id: session.account.id }),
 			});
@@ -407,6 +408,7 @@ export class SubscriptionService implements Disposable {
 				headers: {
 					Authorization: `Bearer ${session.accessToken}`,
 					'User-Agent': userAgent,
+					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify(checkInData),
 			});
