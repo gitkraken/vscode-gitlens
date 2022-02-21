@@ -280,17 +280,6 @@ function getWebviewsConfig(mode, env) {
 					),
 					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 				},
-				{
-					from: path.posix.join(
-						__dirname.replace(/\\/g, '/'),
-						'node_modules',
-						'@vscode',
-						'webview-ui-toolkit',
-						'dist',
-						'toolkit.min.js',
-					),
-					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-				},
 			],
 		}),
 	];
@@ -522,6 +511,7 @@ function getHtmlPlugin(name, premium, mode, env) {
 		chunks: [name],
 		filename: path.join(__dirname, 'dist', 'webviews', `${name}.html`),
 		inject: true,
+		scriptLoading: 'module',
 		inlineSource: mode === 'production' ? '.css$' : undefined,
 		minify:
 			mode === 'production'
@@ -577,10 +567,10 @@ class InlineChunkHtmlPlugin {
 
 		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
 			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
-
+			const sortFn = (a, b) => (a.tagName === 'script' ? 1 : -1) - (b.tagName === 'script' ? 1 : -1);
 			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
-				assets.headTags = assets.headTags.map(getInlinedTagFn);
-				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn);
+				assets.headTags = assets.headTags.map(getInlinedTagFn).sort(sortFn);
+				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn).sort(sortFn);
 			});
 		});
 	}
