@@ -1,4 +1,4 @@
-/*global window document IntersectionObserver*/
+/*global document IntersectionObserver*/
 import './settings.scss';
 import { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
@@ -15,8 +15,7 @@ export class SettingsApp extends AppWithConfig<State> {
 	private _sections = new Map<string, boolean>();
 
 	constructor() {
-		super('SettingsApp', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('SettingsApp');
 	}
 
 	protected override onInitialize() {

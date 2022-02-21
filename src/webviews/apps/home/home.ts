@@ -1,4 +1,4 @@
-/*global window*/
+/*global*/
 import './home.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDivider } from '@vscode/webview-ui-toolkit';
 import { Disposable } from 'vscode';
@@ -13,8 +13,7 @@ export class HomeApp extends App<State> {
 	private $slot2!: HTMLDivElement;
 
 	constructor() {
-		super('HomeApp', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('HomeApp');
 	}
 
 	protected override onInitialize() {
@@ -34,7 +33,7 @@ export class HomeApp extends App<State> {
 	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
-		disposables.push(DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onClicked(e, target)));
+		disposables.push(DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onActionClicked(e, target)));
 
 		return disposables;
 	}
@@ -58,7 +57,7 @@ export class HomeApp extends App<State> {
 		}
 	}
 
-	private onClicked(e: MouseEvent, target: HTMLElement) {
+	private onActionClicked(e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
 		if (action?.startsWith('command:')) {
 			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
@@ -68,8 +67,8 @@ export class HomeApp extends App<State> {
 	private updateState() {
 		const { subscription, welcomeVisible } = this.state;
 		if (subscription.account?.verified === false) {
-			this.insertTemplate('state:verify-email', this.$slot1);
-			this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+			DOM.insertTemplate('state:verify-email', this.$slot1);
+			DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 
 			return;
 		}
@@ -80,55 +79,45 @@ export class HomeApp extends App<State> {
 		switch (subscription.state) {
 			case SubscriptionState.Free:
 				if (welcomeVisible) {
-					this.insertTemplate('welcome', this.$slot1);
-					this.insertTemplate('state:free', this.$slot2);
+					DOM.insertTemplate('welcome', this.$slot1);
+					DOM.insertTemplate('state:free', this.$slot2);
 				} else {
-					this.insertTemplate('state:free', this.$slot1);
-					this.insertTemplate('links', this.$slot2);
+					DOM.insertTemplate('state:free', this.$slot1);
+					DOM.insertTemplate('links', this.$slot2);
 				}
 				break;
 			case SubscriptionState.FreeInPreview: {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-				this.insertTemplate('state:free-preview', this.$slot1, {
-					previewDays: `${remaining === 1 ? `${remaining} more day` : `${remaining} more days`}`,
+				DOM.insertTemplate('state:free-preview', this.$slot1, {
+					bindings: {
+						previewDays: `${remaining === 1 ? `${remaining} more day` : `${remaining} more days`}`,
+					},
 				});
-				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			}
 			case SubscriptionState.FreePreviewExpired:
-				this.insertTemplate('state:free-preview-expired', this.$slot1);
-				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+				DOM.insertTemplate('state:free-preview-expired', this.$slot1);
+				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			case SubscriptionState.FreePlusInTrial: {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-				this.insertTemplate('state:plus-trial', this.$slot1, {
-					trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+				DOM.insertTemplate('state:plus-trial', this.$slot1, {
+					bindings: {
+						trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+					},
 				});
-				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			}
 			case SubscriptionState.FreePlusTrialExpired:
-				this.insertTemplate('state:plus-trial-expired', this.$slot1);
-				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+				DOM.insertTemplate('state:plus-trial-expired', this.$slot1);
+				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			case SubscriptionState.Paid:
-				this.insertTemplate('state:paid', this.$slot1);
-				this.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+				DOM.insertTemplate('state:paid', this.$slot1);
+				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
-		}
-	}
-
-	private insertTemplate(id: string, $slot: HTMLDivElement, bindings?: Record<string, unknown>): void {
-		const $template = (document.getElementById(id) as HTMLTemplateElement)?.content.cloneNode(true);
-		$slot.replaceChildren($template);
-
-		if (bindings != null) {
-			for (const [key, value] of Object.entries(bindings)) {
-				const $el = $slot.querySelector(`[data-bind="${key}"]`);
-				if ($el != null) {
-					$el.textContent = String(value);
-				}
-			}
 		}
 	}
 }
