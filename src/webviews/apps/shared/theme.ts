@@ -52,15 +52,15 @@ export function initializeAndWatchThemeColors() {
 		color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
 		bodyStyle.setProperty('--color-button-foreground', color);
 
-		color = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
-		if (!color) {
-			color = computedStyle.getPropertyValue('--vscode-foreground').trim();
+		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
+		if (!foregroundColor) {
+			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
 		}
-		bodyStyle.setProperty('--color-foreground', color);
-		bodyStyle.setProperty('--color-foreground--85', opacity(color, 85));
-		bodyStyle.setProperty('--color-foreground--75', opacity(color, 75));
-		bodyStyle.setProperty('--color-foreground--65', opacity(color, 65));
-		bodyStyle.setProperty('--color-foreground--50', opacity(color, 50));
+		bodyStyle.setProperty('--color-foreground', foregroundColor);
+		bodyStyle.setProperty('--color-foreground--85', opacity(foregroundColor, 85));
+		bodyStyle.setProperty('--color-foreground--75', opacity(foregroundColor, 75));
+		bodyStyle.setProperty('--color-foreground--65', opacity(foregroundColor, 65));
+		bodyStyle.setProperty('--color-foreground--50', opacity(foregroundColor, 50));
 
 		color = computedStyle.getPropertyValue('--vscode-focusBorder').trim();
 		bodyStyle.setProperty('--color-focus-border', color);
@@ -71,10 +71,14 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-link-foreground--lighten-20', lighten(color, 20));
 
 		color = computedStyle.getPropertyValue('--vscode-sideBar-foreground').trim();
-		bodyStyle.setProperty('--color-view-foreground', color);
+		bodyStyle.setProperty('--color-view-foreground', color || foregroundColor);
 
-		color = computedStyle.getPropertyValue('--vscode-sideBarSectionHeader-foreground').trim();
-		bodyStyle.setProperty('--color-view-header-foreground', color);
+		bodyStyle.setProperty(
+			'--color-view-header-foreground',
+			computedStyle.getPropertyValue('--vscode-sideBarSectionHeader-foreground').trim() ||
+				color ||
+				foregroundColor,
+		);
 
 		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-background').trim();
 		bodyStyle.setProperty('--color-hover-background', color);
