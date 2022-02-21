@@ -2,7 +2,8 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { PagedResult, PremiumFeatures } from '../git/gitProvider';
+import type { PremiumFeatures } from '../features';
+import type { PagedResult } from '../git/gitProvider';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -72,7 +73,7 @@ import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { pad, pluralize, truncate } from '../system/string';
 import { OpenWorkspaceLocation } from '../system/utils';
-import { ViewsWithRepositoryFolders } from '../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { GitActions } from './gitCommands.actions';
 import {
 	AsyncStepResultGenerator,

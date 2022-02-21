@@ -11,7 +11,7 @@ import {
 } from 'vscode';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
 import { Container } from '../container';
-import { PremiumFeatures } from '../git/gitProvider';
+import { PremiumFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
 import { gate } from '../system/decorators/gate';

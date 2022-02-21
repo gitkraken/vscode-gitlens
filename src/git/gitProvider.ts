@@ -1,8 +1,9 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
-import { Commit, InputBox } from '../@types/vscode.git';
-import { SubscriptionPlanId } from '../subscription';
-import { GitUri } from './gitUri';
-import {
+import type { Commit, InputBox } from '../@types/vscode.git';
+import { Features, PremiumFeatures } from '../features';
+import type { SubscriptionPlanId } from '../subscription';
+import type { GitUri } from './gitUri';
+import type {
 	BranchSortOptions,
 	GitBlame,
 	GitBlameLine,
@@ -32,9 +33,9 @@ import {
 	RepositoryChangeEvent,
 	TagSortOptions,
 } from './models';
-import { RemoteProviders } from './remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from './remotes/provider';
-import { SearchPattern } from './search';
+import type { RemoteProviders } from './remotes/factory';
+import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import type { SearchPattern } from './search';
 
 export const enum GitProviderId {
 	Git = 'git',
@@ -88,15 +89,6 @@ export interface RepositoryCloseEvent {
 
 export interface RepositoryOpenEvent {
 	readonly uri: Uri;
-}
-
-export const enum Features {
-	Stashes = 'stashes',
-	Worktrees = 'worktrees',
-}
-
-export const enum PremiumFeatures {
-	Worktrees = 'worktrees',
 }
 
 export const enum RepositoryVisibility {

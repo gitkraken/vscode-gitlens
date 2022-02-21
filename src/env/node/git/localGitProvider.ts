@@ -26,6 +26,7 @@ import type {
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
+import { Features, PremiumFeatures } from '../../../features';
 import {
 	StashApplyError,
 	StashApplyErrorReason,
@@ -35,13 +36,11 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import {
-	Features,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
-	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,

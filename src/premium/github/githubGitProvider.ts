@@ -25,13 +25,12 @@ import {
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
+import { Features, PremiumFeatures } from '../../features';
 import {
-	Features,
 	GitProvider,
 	GitProviderId,
 	NextComparisionUrisResult,
 	PagedResult,
-	PremiumFeatures,
 	PreviousComparisionUrisResult,
 	PreviousLineComparisionUrisResult,
 	RepositoryCloseEvent,
@@ -217,11 +216,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	// private _supportedFeatures = new Map<Features, boolean>();
-	async supports(_feature: Features): Promise<boolean> {
+	async supports(feature: Features): Promise<boolean> {
 		// const supported = this._supportedFeatures.get(feature);
 		// if (supported != null) return supported;
 
-		return false;
+		switch (feature) {
+			case Features.Worktrees:
+				return false;
+			default:
+				return true;
+		}
 	}
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
