@@ -263,40 +263,53 @@ export class SubscriptionService implements Disposable {
 	async resendVerification(): Promise<void> {
 		if (this._subscription.account?.verified) return;
 
+		const cc = Logger.getCorrelationContext();
+
 		void this.showHomeView();
 
 		const session = await this.ensureSession(false);
 		if (session == null) return;
 
-		const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'resend-email').toString(), {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${session.accessToken}`,
-				'User-Agent': userAgent,
-			},
-			body: JSON.stringify({ id: session.account.id }),
-		});
+		try {
+			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'resend-email').toString(), {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${session.accessToken}`,
+					'User-Agent': userAgent,
+				},
+				body: JSON.stringify({ id: session.account.id }),
+			});
 
-		if (!rsp.ok) {
+			if (!rsp.ok) {
+				debugger;
+				Logger.error('', cc, `Unable to resend verification email; status=(${rsp.status}): ${rsp.statusText}`);
+
+				void window.showErrorMessage(`Unable to resend verification email; Status: ${rsp.statusText}`, 'OK');
+
+				return;
+			}
+
+			const confirm = { title: 'Recheck' };
+			const cancel = { title: 'Cancel' };
+			const result = await window.showInformationMessage(
+				"Once you have verified your email address, click 'Recheck'.",
+				confirm,
+				cancel,
+			);
+			if (result === confirm) {
+				await this.validate();
+			}
+		} catch (ex) {
+			Logger.error(ex, cc);
 			debugger;
-			return;
-		}
 
-		const confirm = { title: 'Recheck' };
-		const cancel = { title: 'Cancel' };
-		const result = await window.showInformationMessage(
-			"Once you have verified your email address, click 'Recheck'.",
-			confirm,
-			cancel,
-		);
-		if (result === confirm) {
-			await this.validate();
+			void window.showErrorMessage('Unable to resend verification email', 'OK');
 		}
 	}
 
 	@log()
 	async showHomeView(): Promise<void> {
-		if (!this.container.homeWebviewView.visible) {
+		if (!this.container.homeView.visible) {
 			await executeCommand(Commands.ShowHomeView);
 		}
 	}
@@ -375,6 +388,8 @@ export class SubscriptionService implements Disposable {
 
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
+		const cc = Logger.getCorrelationContext();
+
 		try {
 			const checkInData = {
 				id: session.account.id,
@@ -403,7 +418,7 @@ export class SubscriptionService implements Disposable {
 			const data: GKLicenseInfo = await rsp.json();
 			this.validateSubscription(data);
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, cc);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
 
