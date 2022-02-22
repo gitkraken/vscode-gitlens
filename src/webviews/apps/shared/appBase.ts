@@ -46,20 +46,22 @@ export abstract class App<State = void> {
 		requestAnimationFrame(() => {
 			this.log(`${this.appName}.initializing`);
 
-			this.onInitialize?.();
-			this.bind();
+			try {
+				this.onInitialize?.();
+				this.bind();
 
-			if (this.onMessageReceived != null) {
-				window.addEventListener('message', this.onMessageReceived.bind(this));
+				if (this.onMessageReceived != null) {
+					window.addEventListener('message', this.onMessageReceived.bind(this));
+				}
+
+				this.sendCommand(WebviewReadyCommandType, undefined);
+
+				this.onInitialized?.();
+			} finally {
+				setTimeout(() => {
+					document.body.classList.remove('preload');
+				}, 500);
 			}
-
-			this.sendCommand(WebviewReadyCommandType, undefined);
-
-			this.onInitialized?.();
-
-			setTimeout(() => {
-				document.body.classList.remove('preload');
-			}, 500);
 		});
 	}
 
