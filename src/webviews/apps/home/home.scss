@@ -93,6 +93,14 @@ p {
 		padding: 0;
 		white-space: nowrap;
 	}
+
+	@media screen and (max-width: 450px) {
+		grid-template-columns: repeat(2, auto);
+	}
+
+	@media screen and (max-width: 350px) {
+		grid-template-columns: 1fr;
+	}
 }
 
 vscode-button {
