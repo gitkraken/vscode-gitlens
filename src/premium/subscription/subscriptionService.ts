@@ -165,13 +165,13 @@ export class SubscriptionService implements Disposable {
 
 			commands.registerCommand(Commands.PremiumStartPreviewTrial, () => this.startPreviewTrial()),
 			commands.registerCommand(Commands.PremiumPurchase, () => this.purchase()),
-			// TODO@eamodio remove before release
-			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
 
 			commands.registerCommand(Commands.PremiumResendVerification, () => this.resendVerification()),
 			commands.registerCommand(Commands.PremiumValidate, () => this.validate()),
 
 			commands.registerCommand(Commands.PremiumShowPlans, () => this.showPlans()),
+
+			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
 		];
 	}
 
@@ -237,9 +237,10 @@ export class SubscriptionService implements Disposable {
 		this._session = undefined;
 		void this.container.storage.storeWorkspace(this.connectedKey, false);
 
-		// TODO@eamodio remove this before release
-		if (reset && this.container.env === 'dev') {
+		if (reset && this.container.debugging) {
 			this.changeSubscription(undefined);
+
+			return;
 		}
 
 		this.changeSubscription({
