@@ -93,7 +93,7 @@ export class TimelineApp extends App<State> {
 
 	private updateState(): void {
 		const $overlay = document.getElementById('overlay') as HTMLDivElement;
-		$overlay.classList.toggle('subscription-required', !this.state.access.allowed);
+		$overlay.classList.toggle('hidden', this.state.access.allowed);
 
 		const $slot = document.getElementById('overlay-slot') as HTMLDivElement;
 
@@ -131,6 +131,12 @@ export class TimelineApp extends App<State> {
 		}
 
 		let { title } = this.state;
+
+		const empty = this.state.dataset == null || this.state.dataset.length === 0;
+		if (empty) {
+			title = '';
+		}
+
 		let description = '';
 		const index = title.lastIndexOf('/');
 		if (index >= 0) {
