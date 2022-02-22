@@ -5370,6 +5370,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.home.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.lineHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
@@ -5833,6 +5839,12 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.timeline.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.worktrees.copy",
@@ -7054,6 +7066,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.home.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.lineHistory.changeBase",
 					"when": "false"
 				},
@@ -7379,6 +7395,10 @@
 				},
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.timeline.refresh",
 					"when": "false"
 				},
 				{
@@ -8099,6 +8119,11 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.home.refresh",
+					"when": "view =~ /^gitlens\\.views\\.home/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.showLineHistoryView",
 					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.fileHistory/",
 					"group": "8_gitlens_toggles@0"
@@ -8372,6 +8397,11 @@
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.timeline.refresh",
+					"when": "view =~ /^gitlens\\.views\\.timeline/",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.views.createWorktree",

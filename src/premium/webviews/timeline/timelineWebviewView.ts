@@ -62,6 +62,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		return this.getState(this._context);
 	}
 
+	protected override registerCommands(): Disposable[] {
+		return [commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this)];
+	}
+
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
 		if (!this.updatePendingEditor(editor)) return;

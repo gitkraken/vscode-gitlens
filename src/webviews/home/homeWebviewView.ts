@@ -43,6 +43,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
+			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
 			commands.registerCommand('gitlens.home.toggleWelcome', async () => {
 				const welcomeVisible = this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true);
 				await this.container.storage.store(SyncedStorageKeys.HomeViewWelcomeVisible, !welcomeVisible);
