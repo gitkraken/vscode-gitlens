@@ -1,8 +1,7 @@
 ## Quick Setup
 
 <p align="center">
-  <!-- <img src="../../images/docs/settings.png" alt="GitLens Interactive Settings" /> -->
-  WELCOME IMAGE HERE
+  <img src="../../images/docs/quick-setup.png" alt="GitLens Interactive Quick Setup" />
 </p>
 
 GitLens is powerful, feature rich, and highly customizable to meet your needs. Do you find code lens intrusive or the current line blame annotation distracting — no problem, quickly turn them off or change how they behave using the Quick Setup.
