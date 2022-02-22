@@ -5934,7 +5934,8 @@
 					"when": "!gitlens:premium:paid"
 				},
 				{
-					"command": "gitlens.premium.reset"
+					"command": "gitlens.premium.reset",
+					"when": "gitlens:debugging"
 				},
 				{
 					"command": "gitlens.showSettingsPage#views",

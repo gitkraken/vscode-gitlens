@@ -233,6 +233,7 @@ export const enum ContextKeys {
 
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
+	Debugging = 'gitlens:debugging',
 	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
 	Disabled = 'gitlens:disabled',
 	Enabled = 'gitlens:enabled',
