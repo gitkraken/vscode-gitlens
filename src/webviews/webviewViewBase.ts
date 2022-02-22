@@ -157,10 +157,6 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		const visible = this.visible;
 		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
 		this.onVisibilityChanged?.(visible);
-
-		if (this.container.debugging) {
-			void this.refresh();
-		}
 	}
 
 	private onWindowStateChanged(e: WindowState) {
