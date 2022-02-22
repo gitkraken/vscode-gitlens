@@ -52,6 +52,7 @@ const userAgent = 'Visual-Studio-Code-GitLens';
 export interface SubscriptionChangeEvent {
 	readonly current: Subscription;
 	readonly previous: Subscription;
+	readonly etag: number;
 }
 
 export class SubscriptionService implements Disposable {
@@ -625,7 +626,7 @@ export class SubscriptionService implements Disposable {
 		this.updateContext();
 
 		if (!silent && previous != null) {
-			this._onDidChange.fire({ current: subscription, previous: previous });
+			this._onDidChange.fire({ current: subscription, previous: previous, etag: this._etag });
 		}
 	}
 
