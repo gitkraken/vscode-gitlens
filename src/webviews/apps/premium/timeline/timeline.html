@@ -2,33 +2,46 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<style>
+			.hidden {
+				display: none !important;
+			}
+			.preload .header {
+				visibility: hidden;
+			}
+		</style>
 	</head>
 
 	<body class="preload">
 		<div class="container">
-			<section id="header">
+			<section class="header">
 				<h2 data-bind="title"></h2>
 				<h2 data-bind="description"></h2>
-				<div class="select-container">
-					<label for="periods">Since</label>
-					<vscode-dropdown id="periods" name="periods" position="below">
-						<vscode-option value="7|D">1 week ago</vscode-option>
-						<vscode-option value="1|M">1 month ago</vscode-option>
-						<vscode-option value="3|M" selected="true">3 months ago</vscode-option>
-						<vscode-option value="6|M">6 months ago</vscode-option>
-						<vscode-option value="9|M">9 months ago</vscode-option>
-						<vscode-option value="1|Y">1 year ago</vscode-option>
-						<vscode-option value="2|Y">2 years ago</vscode-option>
-						<vscode-option value="4|Y">4 years ago</vscode-option>
-					</vscode-dropdown>
+				<div class="toolbox">
+					<div class="select-container">
+						<label for="periods">Timeframe</label>
+						<vscode-dropdown id="periods" name="periods" position="below">
+							<vscode-option value="7|D">1 week</vscode-option>
+							<vscode-option value="1|M">1 month</vscode-option>
+							<vscode-option value="3|M" selected="true">3 months</vscode-option>
+							<vscode-option value="6|M">6 months</vscode-option>
+							<vscode-option value="9|M">9 months</vscode-option>
+							<vscode-option value="1|Y">1 year</vscode-option>
+							<vscode-option value="2|Y">2 years</vscode-option>
+							<vscode-option value="4|Y">4 years</vscode-option>
+						</vscode-dropdown>
+					</div>
 				</div>
 			</section>
 			<section id="content">
 				<div id="chart"></div>
+				<div id="chart-empty-overlay" class="hidden">
+					<h1 data-bind="empty"></h1>
+				</div>
 			</section>
 			<section id="footer"></section>
 		</div>
-		<div id="overlay">
+		<div id="overlay" class="hidden">
 			<p>
 				The
 				<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"

@@ -17,6 +17,9 @@ body {
 	overflow: hidden;
 	margin: 0 20px 20px 20px;
 	padding: 0;
+
+	min-width: 400px;
+	overflow-x: scroll;
 }
 
 .container {
@@ -24,6 +27,7 @@ body {
 	grid-template-rows: min-content 1fr min-content;
 	min-height: 100%;
 	// width: 100%;
+	overflow: hidden;
 }
 
 section {
@@ -34,18 +38,6 @@ section {
 
 h2 {
 	font-weight: 400;
-
-	&[data-bind='title'] {
-		flex: auto 0 1;
-	}
-
-	&[data-bind='description'] {
-		flex: auto 1 1;
-		font-size: 1.3em;
-		font-weight: 200;
-		margin-left: 1.5rem;
-		opacity: 0.7;
-	}
 }
 
 h3 {
@@ -83,6 +75,19 @@ p {
 	margin-bottom: 0;
 }
 
+.select-container {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	// margin: 1em;
+	flex: 100% 0 1;
+
+	label {
+		margin: 0 1em;
+		font-size: var(--font-size);
+	}
+}
+
 vscode-button {
 	align-self: center;
 	margin-top: 1.5rem;
@@ -104,38 +109,70 @@ span.button-subaction {
 	}
 }
 
-section#header {
-	display: flex;
-	flex-direction: row;
+.header {
+	display: grid;
+	grid-template-columns: max-content minmax(min-content, 1fr) max-content;
 	align-items: baseline;
+	grid-template-areas: 'title description toolbox';
+	justify-content: start;
+	margin-bottom: 1rem;
 
 	@media all and (max-width: 500px) {
-		flex-wrap: wrap;
+		grid-template-areas:
+			'title description'
+			'empty toolbox';
+		grid-template-columns: max-content minmax(min-content, 1fr);
+	}
+
+	h2[data-bind='title'] {
+		grid-area: title;
+		margin-bottom: 0;
+	}
+
+	h2[data-bind='description'] {
+		grid-area: description;
+		font-size: 1.3em;
+		font-weight: 200;
+		margin-left: 1.5rem;
+		opacity: 0.7;
+		overflow-wrap: anywhere;
+	}
+
+	.toolbox {
+		grid-area: toolbox;
 	}
 }
 
-.select-container {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	margin: 1em;
-	flex: 100% 0 1;
-
-	label {
-		margin-right: 1em;
-		font-size: var(--font-size);
-	}
+#content {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	// height: calc(100% - 1rem);
+	// height: 100%;
 }
-
-// .chart-container {
-// 	height: calc(100% - 0.5em);
-// 	width: 100%;
-// 	overflow: hidden;
-// }
 
 #chart {
 	height: 100%;
 	width: 100%;
+	overflow: hidden;
+}
+
+#chart-empty-overlay {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	background-color: var(--color-background);
+
+	h1 {
+		font-weight: 600;
+		padding-bottom: 10%;
+	}
 }
 
 [data-visible] {
@@ -154,12 +191,12 @@ section#header {
 	min-height: 100%;
 	padding: 0 2rem 2rem 2rem;
 
-	display: none;
+	display: grid;
 	grid-template-rows: min-content;
+}
 
-	&.subscription-required {
-		display: grid;
-	}
+.hidden {
+	display: none !important;
 }
 
 @import './chart';

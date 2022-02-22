@@ -5,9 +5,10 @@ import { Commands } from '../../../constants';
 import { Container } from '../../../container';
 import { PremiumFeatures } from '../../../features';
 import { GitUri } from '../../../git/gitUri';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
-import { debounce } from '../../../system/function';
+import { debounce, Deferrable } from '../../../system/function';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewViewBase } from '../../../webviews/webviewViewBase';
@@ -16,72 +17,92 @@ import {
 	Commit,
 	DidChangeStateNotificationType,
 	OpenDataPointCommandType,
+	Period,
 	State,
 	UpdatePeriodCommandType,
 } from './protocol';
 
+interface Context {
+	editor: TextEditor | undefined;
+	period: Period | undefined;
+	etagRepository: number | undefined;
+	etagSubscription: number | undefined;
+}
+
+const defaultPeriod: Period = '3|M';
+
 export class TimelineWebviewView extends WebviewViewBase<State> {
-	private _editor: TextEditor | undefined;
-	private _period: `${number}|${'D' | 'M' | 'Y'}` = '3|M';
+	private _bootstraping = true;
+	/** The context the webview has */
+	private _context: Context;
+	/** The context the webview should have */
+	private _pendingContext: Partial<Context> | undefined;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History');
 
-		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
-	}
+		this._context = {
+			editor: undefined,
+			period: defaultPeriod,
+			etagRepository: 0,
+			etagSubscription: this.container.subscription.etag,
+		};
 
-	override dispose() {
-		super.dispose();
-		this._disposableVisibility?.dispose();
-	}
-
-	protected override onReady() {
-		this.onActiveEditorChanged(window.activeTextEditor);
+		this.disposables.push(
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this),
+			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
+		);
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
-		return this.getState(undefined);
+		this._bootstraping = true;
+		this.updatePendingEditor(window.activeTextEditor);
+		this._context = { ...this._context, ...this._pendingContext };
+		return this.getState(this._context);
 	}
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		if (!this.isReady || (this._editor === editor && editor != null)) return;
-		if (editor == null && hasVisibleTextEditor()) return;
-		if (editor != null && !isTextEditor(editor)) return;
+		if (!this.updatePendingEditor(editor)) return;
 
-		this._editor = editor;
-		void this.notifyDidChangeState(editor);
+		this.updateState();
 	}
 
-	private onSubscriptionChanged(_e: SubscriptionChangeEvent) {
-		void this.notifyDidChangeState(this._editor);
-	}
-
-	private _disposableVisibility: Disposable | undefined;
-	protected override onVisibilityChanged(visible: boolean) {
-		if (visible) {
-			if (this._disposableVisibility == null) {
-				this._disposableVisibility = window.onDidChangeActiveTextEditor(
-					debounce(this.onActiveEditorChanged, 500),
-					this,
-				);
-			}
-			this.onActiveEditorChanged(window.activeTextEditor);
-		} else {
-			this._disposableVisibility?.dispose();
-			this._disposableVisibility = undefined;
-
-			this._editor = undefined;
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (!e.changed(RepositoryChange.Heads, RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+			return;
 		}
+
+		if (this.updatePendingContext({ etagRepository: e.repository.etag })) {
+			this.updateState();
+		}
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (this.updatePendingContext({ etagSubscription: e.etag })) {
+			this.updateState();
+		}
+	}
+
+	protected override onVisibilityChanged(visible: boolean) {
+		if (!visible) return;
+
+		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
+		if (this._bootstraping) {
+			this._bootstraping = false;
+			return;
+		}
+		this.updateState(true);
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenDataPointCommandType.method:
 				onIpc(OpenDataPointCommandType, e, params => {
-					if (params.data == null || this._editor == null || !params.data.selected) return;
+					if (params.data == null || !params.data.selected || this._context.editor == null) return;
 
-					const repository = this.container.git.getRepository(this._editor.document.uri);
+					const repository = this.container.git.getRepository(this._context.editor.document.uri);
 					if (repository == null) return;
 
 					const commandArgs: ShowQuickCommitCommandArgs = {
@@ -111,33 +132,35 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 			case UpdatePeriodCommandType.method:
 				onIpc(UpdatePeriodCommandType, e, params => {
-					this._period = params.period;
-					void this.notifyDidChangeState(this._editor);
+					if (this.updatePendingContext({ period: params.period })) {
+						this.updateState(true);
+					}
 				});
 
 				break;
 		}
 	}
 
-	@debug({ args: { 0: e => e?.document.uri.toString(true) } })
-	private async getState(editor: TextEditor | undefined): Promise<State> {
+	@debug({ args: false })
+	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PremiumFeatures.Timeline);
 
+		const period = current.period ?? defaultPeriod;
+
 		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		if (editor == null || !access.allowed) {
+		if (current.editor == null || !access.allowed) {
 			return {
-				period: this._period,
+				period: period,
 				title: 'There are no editors open that can provide file history information',
 				dateFormat: dateFormat,
 				access: access,
 			};
 		}
 
-		const gitUri = await GitUri.fromUri(editor.document.uri);
+		const gitUri = await GitUri.fromUri(current.editor.document.uri);
 		const repoPath = gitUri.repoPath!;
 		const title = gitUri.relativePath;
 
-		// this.setTitle(`${this.title} \u2022 ${gitUri.fileName}`);
 		this.description = gitUri.fileName;
 
 		const [currentUser, log] = await Promise.all([
@@ -145,16 +168,16 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			this.container.git.getLogForFile(repoPath, gitUri.fsPath, {
 				limit: 0,
 				ref: gitUri.sha,
-				since: this.getPeriodDate().toISOString(),
+				since: this.getPeriodDate(period).toISOString(),
 			}),
 		]);
 
 		if (log == null) {
 			return {
 				dataset: [],
-				period: this._period,
-				title: title,
-				uri: editor.document.uri.toString(),
+				period: period,
+				title: 'No commits found for the specified time period',
+				uri: current.editor.document.uri.toString(),
 				dateFormat: dateFormat,
 				access: access,
 			};
@@ -181,17 +204,15 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 		return {
 			dataset: dataset,
-			period: this._period,
+			period: period,
 			title: title,
-			uri: editor.document.uri.toString(),
+			uri: current.editor.document.uri.toString(),
 			dateFormat: dateFormat,
 			access: access,
 		};
 	}
 
-	private getPeriodDate(): Date {
-		const period = this._period ?? '3|M';
-
+	private getPeriodDate(period: Period): Date {
 		const [number, unit] = period.split('|');
 
 		switch (unit) {
@@ -206,13 +227,72 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		}
 	}
 
-	private async notifyDidChangeState(editor: TextEditor | undefined) {
-		if (!this.isReady) return false;
+	private updatePendingContext(context: Partial<Context>): boolean {
+		let changed = false;
+		for (const [key, value] of Object.entries(context)) {
+			if ((this._context as unknown as Record<string, unknown>)[key] !== value) {
+				if (this._pendingContext == null) {
+					this._pendingContext = {};
+				}
 
-		return window.withProgress({ location: { viewId: this.id } }, async () =>
-			this.notify(DidChangeStateNotificationType, {
-				state: await this.getState(editor),
-			}),
-		);
+				(this._pendingContext as Record<string, unknown>)[key] = value;
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+	private updatePendingEditor(editor: TextEditor | undefined): boolean {
+		if (editor == null && hasVisibleTextEditor()) return false;
+		if (editor != null && !isTextEditor(editor)) return false;
+
+		let etag;
+		if (editor != null) {
+			const repository = this.container.git.getRepository(editor.document.uri);
+			etag = repository?.etag ?? 0;
+		} else {
+			etag = 0;
+		}
+
+		return this.updatePendingContext({ editor: editor, etagRepository: etag });
+	}
+
+	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateState(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		this.updatePendingEditor(window.activeTextEditor);
+
+		if (immediate) {
+			void this.notifyDidChangeState();
+			return;
+		}
+
+		if (this._notifyDidChangeStateDebounced == null) {
+			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
+		}
+
+		this._notifyDidChangeStateDebounced();
+	}
+
+	@debug()
+	private async notifyDidChangeState() {
+		if (!this.isReady || !this.visible) return false;
+
+		this._notifyDidChangeStateDebounced?.cancel();
+		const context = { ...this._context, ...this._pendingContext };
+
+		return window.withProgress({ location: { viewId: this.id } }, async () => {
+			const success = await this.notify(DidChangeStateNotificationType, {
+				state: await this.getState(context),
+			});
+			if (success) {
+				this._context = context;
+				this._pendingContext = undefined;
+			}
+		});
 	}
 }
