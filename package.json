@@ -10831,7 +10831,7 @@
 					{
 						"id": "gitlens.welcome.premium",
 						"title": "Premium GitLens Features",
-						"description": "TODO - summay of premium features with link to LEARN MORE (https://gitkraken.com/gitlens/premium-features) on marketing site.",
+						"description": "New premium features like Worktrees and Visual File History are now available in GitLens.\n\n[Learn About Premium Features](command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium%22 \"Opens the GitLens Premium Features Walkthrough\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/12-premium-features.md"
 						}
@@ -10841,12 +10841,12 @@
 			{
 				"id": "gitlens.premium",
 				"title": "GitLens Premium Features",
-				"description": "gitLens premium features walkthrough description",
+				"description": "Get even more out of Git in VS Code!",
 				"steps": [
 					{
 						"id": "gitlens.premium.intro",
-						"title": "premium features intro",
-						"description": "you can get premium features now",
+						"title": "Introducting GitLens premium features",
+						"description": "New premium features like Worktrees and Visual File History can be unlocked with a GitLens Free+ account. Additional premium features like GitHub Enterprise and GitLab Self-Managed integrations, and a visual commit graph are coming soon.\n\n",
 						"media": {
 							"markdown": "walkthroughs/premium-features/1-intro.md"
 						}
@@ -10854,7 +10854,7 @@
 					{
 						"id": "gitlens.premium.worktrees",
 						"title": "Do more with Worktrees",
-						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository. This makes it easier to develop on, or test multiple branches, by minimizing the context switching between branches.",
+						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository. This makes it easier to develop on, or test multiple branches, by minimizing the context switching between branches.\n\nNote: Worktrees do not yet work with VS Code on the web.",
 						"media": {
 							"markdown": "walkthroughs/premium-features/2-worktrees.md"
 						}
