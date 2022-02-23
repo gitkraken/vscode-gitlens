@@ -1,4 +1,4 @@
-## Personalize
+## Customize GitLens
 
 <p align="center">
   <figure>
