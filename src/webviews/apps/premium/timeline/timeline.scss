@@ -26,7 +26,6 @@ body {
 	display: grid;
 	grid-template-rows: min-content 1fr min-content;
 	min-height: 100%;
-	// width: 100%;
 	overflow: hidden;
 }
 
@@ -189,8 +188,8 @@ span.button-subaction {
 	min-height: 100%;
 	padding: 0 2rem 2rem 2rem;
 
-	display: grid;
-	grid-template-rows: min-content;
+	display: flex;
+	flex-direction: column;
 }
 
 .hidden {
