@@ -34,14 +34,6 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-const emptyCommands: Disposable[] = [
-	{
-		dispose: function () {
-			/* noop */
-		},
-	},
-];
-
 export abstract class WebviewBase<State> implements Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
@@ -104,7 +96,8 @@ export abstract class WebviewBase<State> implements Disposable {
 				this._panel.onDidDispose(this.onPanelDisposed, this),
 				this._panel.onDidChangeViewState(this.onViewStateChanged, this),
 				this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
-				...this.registerCommands(),
+				...(this.onInitializing?.() ?? []),
+				...(this.registerCommands?.() ?? []),
 			);
 
 			this._panel.webview.html = await this.getHtml(this._panel.webview);
@@ -119,19 +112,29 @@ export abstract class WebviewBase<State> implements Disposable {
 		}
 	}
 
+	protected onInitializing?(): Disposable[] | undefined;
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
+	protected onFocusChanged?(focused: boolean): void;
+	protected onVisibilityChanged?(visible: boolean): void;
 
-	protected registerCommands(): Disposable[] {
-		return emptyCommands;
-	}
+	protected registerCommands?(): Disposable[];
 
 	protected includeBootstrap?(): State | Promise<State>;
 	protected includeHead?(): string | Promise<string>;
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
 
+	protected async refresh(): Promise<void> {
+		if (this._panel == null) return;
+
+		this._panel.webview.html = await this.getHtml(this._panel.webview);
+	}
+
 	private onPanelDisposed() {
+		this.onVisibilityChanged?.(false);
+		this.onFocusChanged?.(false);
+
 		this._disposablePanel?.dispose();
 		this._disposablePanel = undefined;
 		this._panel = undefined;
@@ -146,6 +149,8 @@ export abstract class WebviewBase<State> implements Disposable {
 			`Webview(${this.id}).onViewStateChanged`,
 			`active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`,
 		);
+		this.onVisibilityChanged?.(e.webviewPanel.visible);
+		this.onFocusChanged?.(e.webviewPanel.active);
 	}
 
 	protected onMessageReceivedCore(e: IpcMessage) {
