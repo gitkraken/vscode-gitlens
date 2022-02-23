@@ -75,20 +75,7 @@ p {
 	margin-bottom: 0;
 }
 
-.select-container {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	// margin: 1em;
-	flex: 100% 0 1;
-
-	label {
-		margin: 0 1em;
-		font-size: var(--font-size);
-	}
-}
-
-vscode-button {
+vscode-button:not([appearance='icon']) {
 	align-self: center;
 	margin-top: 1.5rem;
 	max-width: 300px;
@@ -101,7 +88,7 @@ span.button-subaction {
 }
 
 @media (min-width: 640px) {
-	vscode-button {
+	vscode-button:not([appearance='icon']) {
 		align-self: flex-start;
 	}
 	span.button-subaction {
@@ -140,6 +127,20 @@ span.button-subaction {
 
 	.toolbox {
 		grid-area: toolbox;
+		display: flex;
+	}
+}
+
+.select-container {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	flex: 100% 0 1;
+	// margin: 1em;
+
+	label {
+		margin: 0 1em;
+		font-size: var(--font-size);
 	}
 }
 

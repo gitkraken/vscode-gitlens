@@ -36,14 +36,6 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-const emptyCommands: Disposable[] = [
-	{
-		dispose: function () {
-			/* noop */
-		},
-	},
-];
-
 export abstract class WebviewViewBase<State> implements WebviewViewProvider, Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
@@ -100,14 +92,13 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		}
 	}
 
+	protected onInitializing?(): Disposable[] | undefined;
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
 	protected onVisibilityChanged?(visible: boolean): void;
 	protected onWindowFocusChanged?(focused: boolean): void;
 
-	protected registerCommands(): Disposable[] {
-		return emptyCommands;
-	}
+	protected registerCommands?(): Disposable[];
 
 	protected includeBootstrap?(): State | Promise<State>;
 	protected includeHead?(): string | Promise<string>;
@@ -133,7 +124,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 			this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
 			this._view.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
-			...this.registerCommands(),
+			...(this.onInitializing?.() ?? []),
+			...(this.registerCommands?.() ?? []),
 		);
 
 		webviewView.webview.html = await this.getHtml(webviewView.webview);

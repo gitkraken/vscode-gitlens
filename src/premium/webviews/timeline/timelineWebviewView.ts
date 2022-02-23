@@ -1,5 +1,5 @@
 'use strict';
-import { commands, Disposable, TextEditor, window } from 'vscode';
+import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
 import { ShowQuickCommitCommandArgs } from '../../../commands';
 import { Commands } from '../../../constants';
 import { Container } from '../../../container';
@@ -23,7 +23,7 @@ import {
 } from './protocol';
 
 interface Context {
-	editor: TextEditor | undefined;
+	uri: Uri | undefined;
 	period: Period | undefined;
 	etagRepository: number | undefined;
 	etagSubscription: number | undefined;
@@ -42,51 +42,39 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History');
 
 		this._context = {
-			editor: undefined,
+			uri: undefined,
+			period: defaultPeriod,
+			etagRepository: 0,
+			etagSubscription: 0,
+		};
+	}
+
+	protected override onInitializing(): Disposable[] | undefined {
+		this._context = {
+			uri: undefined,
 			period: defaultPeriod,
 			etagRepository: 0,
 			etagSubscription: this.container.subscription.etag,
 		};
 
-		this.disposables.push(
+		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this),
 			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
-		);
+		];
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
 		this._bootstraping = true;
 		this.updatePendingEditor(window.activeTextEditor);
 		this._context = { ...this._context, ...this._pendingContext };
+		this._pendingContext = undefined;
+
 		return this.getState(this._context);
 	}
 
 	protected override registerCommands(): Disposable[] {
 		return [commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this)];
-	}
-
-	@debug({ args: false })
-	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		if (!this.updatePendingEditor(editor)) return;
-
-		this.updateState();
-	}
-
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed(RepositoryChange.Heads, RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-			return;
-		}
-
-		if (this.updatePendingContext({ etagRepository: e.repository.etag })) {
-			this.updateState();
-		}
-	}
-
-	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
-		if (this.updatePendingContext({ etagSubscription: e.etag })) {
-			this.updateState();
-		}
 	}
 
 	protected override onVisibilityChanged(visible: boolean) {
@@ -104,9 +92,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		switch (e.method) {
 			case OpenDataPointCommandType.method:
 				onIpc(OpenDataPointCommandType, e, params => {
-					if (params.data == null || !params.data.selected || this._context.editor == null) return;
+					if (params.data == null || !params.data.selected || this._context.uri == null) return;
 
-					const repository = this.container.git.getRepository(this._context.editor.document.uri);
+					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
 					const commandArgs: ShowQuickCommitCommandArgs = {
@@ -146,13 +134,38 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	}
 
 	@debug({ args: false })
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		if (!this.updatePendingEditor(editor)) return;
+
+		this.updateState();
+	}
+
+	@debug({ args: false })
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (!e.changed(RepositoryChange.Heads, RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+			return;
+		}
+
+		if (this.updatePendingContext({ etagRepository: e.repository.etag })) {
+			this.updateState();
+		}
+	}
+
+	@debug({ args: false })
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (this.updatePendingContext({ etagSubscription: e.etag })) {
+			this.updateState();
+		}
+	}
+
+	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PremiumFeatures.Timeline);
 
 		const period = current.period ?? defaultPeriod;
 
 		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		if (current.editor == null || !access.allowed) {
+		if (current.uri == null || !access.allowed) {
 			return {
 				period: period,
 				title: 'There are no editors open that can provide file history information',
@@ -161,7 +174,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			};
 		}
 
-		const gitUri = await GitUri.fromUri(current.editor.document.uri);
+		const gitUri = await GitUri.fromUri(current.uri);
 		const repoPath = gitUri.repoPath!;
 		const title = gitUri.relativePath;
 
@@ -181,7 +194,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 				dataset: [],
 				period: period,
 				title: 'No commits found for the specified time period',
-				uri: current.editor.document.uri.toString(),
+				uri: current.uri.toString(),
 				dateFormat: dateFormat,
 				access: access,
 			};
@@ -210,7 +223,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			dataset: dataset,
 			period: period,
 			title: title,
-			uri: current.editor.document.uri.toString(),
+			uri: current.uri.toString(),
 			dateFormat: dateFormat,
 			access: access,
 		};
@@ -234,14 +247,20 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private updatePendingContext(context: Partial<Context>): boolean {
 		let changed = false;
 		for (const [key, value] of Object.entries(context)) {
-			if ((this._context as unknown as Record<string, unknown>)[key] !== value) {
-				if (this._pendingContext == null) {
-					this._pendingContext = {};
-				}
-
-				(this._pendingContext as Record<string, unknown>)[key] = value;
-				changed = true;
+			const current = (this._context as unknown as Record<string, unknown>)[key];
+			if (
+				current === value ||
+				((current instanceof Uri || value instanceof Uri) && (current as any)?.toString() === value?.toString())
+			) {
+				continue;
 			}
+
+			if (this._pendingContext == null) {
+				this._pendingContext = {};
+			}
+
+			(this._pendingContext as Record<string, unknown>)[key] = value;
+			changed = true;
 		}
 
 		return changed;
@@ -259,7 +278,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			etag = 0;
 		}
 
-		return this.updatePendingContext({ editor: editor, etagRepository: etag });
+		return this.updatePendingContext({ uri: editor?.document.uri, etagRepository: etag });
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
