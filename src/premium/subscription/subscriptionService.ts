@@ -332,11 +332,13 @@ export class SubscriptionService implements Disposable {
 	async startPreviewTrial(): Promise<void> {
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
+			void this.showHomeView();
+
 			if (plan.effective.id === SubscriptionPlanId.Free) {
 				const confirm = { title: 'Extend Trial' };
 				const cancel = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your premium feature trial has expired. Please create a free account to extend your trial.',
+					'Your premium features trial has expired. Please create a free account to extend your trial.',
 					confirm,
 					cancel,
 				);
