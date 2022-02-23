@@ -2401,7 +2401,7 @@
 			{
 				"id": "visual-history",
 				"title": "Visual File History",
-				"order": 112,
+				"order": 113,
 				"properties": {
 					"gitlens.visualHistory.queryLimit": {
 						"type": "number",
