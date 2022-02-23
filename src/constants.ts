@@ -257,11 +257,9 @@ export const enum ContextKeys {
 	Vsls = 'gitlens:vsls',
 
 	Premium = 'gitlens:premium',
-	PremiumPaid = 'gitlens:premium:paid',
+	PremiumAllowed = 'gitlens:premium:allowed',
 	PremiumRequired = 'gitlens:premium:required',
-	PremiumRequiresVerification = 'gitlens:premium:requiresVerification',
-	PremiumTrial = 'gitlens:premium:trial',
-	PremiumPreviewTrialExpired = 'gitlens:premium:previewTrial:expired',
+	PremiumState = 'gitlens:premium:state',
 }
 
 export const enum CoreCommands {
