@@ -11,6 +11,7 @@ import {
 	MarkdownString,
 	StatusBarAlignment,
 	StatusBarItem,
+	ThemeColor,
 	Uri,
 	window,
 } from 'vscode';
@@ -536,8 +537,6 @@ export class SubscriptionService implements Disposable {
 
 		let session: AuthenticationSession | null | undefined;
 
-		this.updateStatusBar(true);
-
 		try {
 			session = await authentication.getSession(
 				SubscriptionService.authenticationProviderId,
@@ -670,63 +669,58 @@ export class SubscriptionService implements Disposable {
 		void setContext(ContextKeys.PremiumState, state);
 	}
 
-	private updateStatusBar(pending: boolean = false): void {
-		this._statusBarSubscription =
-			this._statusBarSubscription ??
-			window.createStatusBarItem('gitlens.subscription', StatusBarAlignment.Left, 1);
-		this._statusBarSubscription.name = 'GitLens Subscription';
-
-		if (pending) {
-			this._statusBarSubscription.text = `$(sync~spin) GitLens signing in...`;
-			this._statusBarSubscription.tooltip = 'Signing in or validating your subscription...';
-			return;
-		}
-
+	private updateStatusBar(): void {
 		const {
 			account,
 			plan: { effective },
 		} = this._subscription;
 
-		switch (effective.id) {
-			case SubscriptionPlanId.Free:
-				this._statusBarSubscription.text = effective.name;
-				this._statusBarSubscription.command = Commands.ShowHomeView;
-				this._statusBarSubscription.tooltip = new MarkdownString(
-					`You are on **${effective.name}**\n\nClick for details`,
-					true,
-				);
-				break;
+		if (effective.id === SubscriptionPlanId.Free) {
+			this._statusBarSubscription?.dispose();
+			this._statusBarSubscription = undefined;
+			return;
+		}
 
-			case SubscriptionPlanId.FreePlus:
-			case SubscriptionPlanId.Pro:
-			case SubscriptionPlanId.Teams:
-			case SubscriptionPlanId.Enterprise: {
-				const trial = isSubscriptionTrial(this._subscription);
-				this._statusBarSubscription.text = trial ? `${effective.name} (Trial)` : effective.name;
-				this._statusBarSubscription.command = Commands.ShowHomeView;
+		const trial = isSubscriptionTrial(this._subscription);
+		if (!trial && account?.verified !== false) {
+			this._statusBarSubscription?.dispose();
+			this._statusBarSubscription = undefined;
+			return;
+		}
 
-				if (account?.verified === false) {
-					this._statusBarSubscription.tooltip = new MarkdownString(
-						trial
-							? `Before you can trial **${effective.name}**, you must verify your email address.\n\nClick for details`
-							: `Before you can access **${effective.name}**, you must verify your email address.\n\nClick for details`,
-						true,
-					);
-				} else {
-					const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+		if (this._statusBarSubscription == null) {
+			this._statusBarSubscription = window.createStatusBarItem(
+				'gitlens.subscription',
+				StatusBarAlignment.Left,
+				1,
+			);
+		}
 
-					this._statusBarSubscription.tooltip = new MarkdownString(
-						trial
-							? `You are trialing **${effective.name}**\n\nYou have ${pluralize(
-									'day',
-									remaining ?? 0,
-							  )} remaining in your trial.\n\nClick for details`
-							: `You are on **${effective.name}**\n\nClick for details`,
-						true,
-					);
-				}
-				break;
-			}
+		this._statusBarSubscription.name = 'GitLens Subscription';
+		this._statusBarSubscription.command = Commands.ShowHomeView;
+
+		if (account?.verified === false) {
+			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
+			this._statusBarSubscription.backgroundColor = new ThemeColor('statusBarItem.warningBackground');
+			this._statusBarSubscription.tooltip = new MarkdownString(
+				trial
+					? `**Please verify your email**\n\nBefore you can start your **${effective.name}** trial, please verify the email for the account you created.\n\nClick for details`
+					: `**Please verify your email**\n\nBefore you use premium GitLens features, please verify the email for the account you created.\n\nClick for details`,
+				true,
+			);
+		} else {
+			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+
+			this._statusBarSubscription.text = `${effective.name} (Trial)`;
+			this._statusBarSubscription.tooltip = new MarkdownString(
+				`You are currently trialing **${
+					effective.name
+				}**, which gives you access to premium GitLens features. You have ${pluralize(
+					'day',
+					remaining ?? 0,
+				)} remaining in your trial.\n\nClick for details`,
+				true,
+			);
 		}
 
 		this._statusBarSubscription.show();
