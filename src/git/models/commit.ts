@@ -202,6 +202,20 @@ export class GitCommit implements GitRevisionReference {
 		this._message = commit.message;
 		this._files = commit.files as GitFileChange[];
 
+		if (this._file != null) {
+			const file = this._files.find(f => f.path === this._file!.path);
+			if (file != null) {
+				this._file = new GitFileChange(
+					file.repoPath,
+					file.path,
+					file.status,
+					file.originalPath ?? this._file.originalPath,
+					file.previousSha ?? this._file.previousSha,
+					file.stats ?? this._file.stats,
+				);
+			}
+		}
+
 		if (untrackedResult.status === 'fulfilled' && untrackedResult.value != null) {
 			this._stashUntrackedFilesLoaded = true;
 			commit = untrackedResult.value;
