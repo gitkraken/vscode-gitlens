@@ -395,6 +395,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
+	private _lastCheckInDate: Date | undefined;
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
 		const cc = Logger.getCorrelationContext();
@@ -427,13 +428,30 @@ export class SubscriptionService implements Disposable {
 
 			const data: GKLicenseInfo = await rsp.json();
 			this.validateSubscription(data);
+			this._lastCheckInDate = new Date();
 		} catch (ex) {
 			Logger.error(ex, cc);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
 
 			throw new AccountValidationError('Unable to validate account', ex);
+		} finally {
+			this.startDailyCheckInTimer();
 		}
+	}
+
+	private _dailyCheckInTimer: ReturnType<typeof setInterval> | undefined;
+	private startDailyCheckInTimer(): void {
+		if (this._dailyCheckInTimer != null) {
+			clearInterval(this._dailyCheckInTimer);
+		}
+
+		// Check twice a day to ensure we check in at least once a day
+		this._dailyCheckInTimer = setInterval(() => {
+			if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
+				void this.ensureSession(false, true);
+			}
+		}, 1000 * 60 * 60 * 12);
 	}
 
 	@debug()
