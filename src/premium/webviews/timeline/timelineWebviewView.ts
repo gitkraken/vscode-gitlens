@@ -1,14 +1,17 @@
 'use strict';
 import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
 import { ShowQuickCommitCommandArgs } from '../../../commands';
+import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import { Container } from '../../../container';
 import { PremiumFeatures } from '../../../features';
+import { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import { debounce, Deferrable } from '../../../system/function';
+import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewViewBase } from '../../../webviews/webviewViewBase';
@@ -25,6 +28,7 @@ import {
 interface Context {
 	uri: Uri | undefined;
 	period: Period | undefined;
+	etagRepositories: number | undefined;
 	etagRepository: number | undefined;
 	etagSubscription: number | undefined;
 }
@@ -44,6 +48,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,
+			etagRepositories: 0,
 			etagRepository: 0,
 			etagSubscription: 0,
 		};
@@ -53,6 +58,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,
+			etagRepositories: this.container.git.etag,
 			etagRepository: 0,
 			etagSubscription: this.container.subscription.etag,
 		};
@@ -65,6 +71,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this),
 			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
+			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 		];
 	}
 
@@ -90,7 +97,11 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
 		if (this._bootstraping) {
 			this._bootstraping = false;
-			return;
+
+			// If the uri changed since bootstrap still send the update
+			if (this._pendingContext == null || !('uri' in this._pendingContext)) {
+				return;
+			}
 		}
 
 		// Should be immediate, but it causes the bubbles to go missing on the chart, since the update happens while it still rendering
@@ -147,6 +158,15 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
+	}
+
+	@debug({ args: false })
+	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
+		const changed = this.updatePendingUri(this._context.uri);
+
+		if (this.updatePendingContext({ etagRepositories: e.etag }) || changed) {
+			this.updateState();
+		}
 	}
 
 	@debug({ args: false })
@@ -209,16 +229,37 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			};
 		}
 
+		let queryRequiredCommits = [
+			...filter(log.commits.values(), c => c.file?.stats == null && c.stats?.changedFiles !== 1),
+		];
+
+		if (queryRequiredCommits.length !== 0) {
+			const limit = configuration.get('visualHistory.queryLimit') ?? 20;
+
+			const repository = this.container.git.getRepository(current.uri);
+			const name = repository?.provider.name;
+
+			if (queryRequiredCommits.length > limit) {
+				void window.showWarningMessage(
+					`Unable able to show more than the first ${limit} commits for the specified time period because of ${
+						name ? `${name} ` : ''
+					}rate limits.`,
+				);
+				queryRequiredCommits = queryRequiredCommits.slice(0, 20);
+			}
+
+			void (await Promise.allSettled(queryRequiredCommits.map(c => c.ensureFullDetails())));
+		}
+
 		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
 
 		const dataset: Commit[] = [];
 		for (const commit of log.commits.values()) {
-			const stats = commit.file?.stats;
+			const stats = commit.file?.stats ?? (commit.stats?.changedFiles === 1 ? commit.stats : undefined);
 			dataset.push({
 				author: commit.author.name === 'You' ? name : commit.author.name,
-				additions: stats?.additions ?? 0,
-				// changed: stats?.changes ?? 0,
-				deletions: stats?.deletions ?? 0,
+				additions: stats?.additions,
+				deletions: stats?.deletions,
 				commit: commit.sha,
 				date: commit.date.toISOString(),
 				message: commit.message ?? commit.summary,
@@ -286,15 +327,19 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		if (editor == null && hasVisibleTextEditor()) return false;
 		if (editor != null && !isTextEditor(editor)) return false;
 
+		return this.updatePendingUri(editor?.document.uri);
+	}
+
+	private updatePendingUri(uri: Uri | undefined): boolean {
 		let etag;
-		if (editor != null) {
-			const repository = this.container.git.getRepository(editor.document.uri);
+		if (uri != null) {
+			const repository = this.container.git.getRepository(uri);
 			etag = repository?.etag ?? 0;
 		} else {
 			etag = 0;
 		}
 
-		return this.updatePendingContext({ uri: editor?.document.uri, etagRepository: etag });
+		return this.updatePendingContext({ uri: uri, etagRepository: etag });
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;

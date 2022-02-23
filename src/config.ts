@@ -148,6 +148,9 @@ export interface Config {
 		enabled: boolean;
 	};
 	views: ViewsConfig;
+	visualHistory: {
+		queryLimit: number;
+	};
 	worktrees: {
 		defaultLocation: string | null;
 		promptForLocation: boolean;

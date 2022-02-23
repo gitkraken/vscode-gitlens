@@ -105,11 +105,13 @@ const weightedDefaultBranches = new Map<string, number>([
 export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
 	readonly removed: readonly GitProvider[];
+	readonly etag: number;
 };
 
 export type RepositoriesChangeEvent = {
 	readonly added: readonly Repository[];
 	readonly removed: readonly Repository[];
+	readonly etag: number;
 };
 
 export interface GitProviderResult {
@@ -133,7 +135,7 @@ export class GitProviderService implements Disposable {
 	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
 		this._etag = Date.now();
 
-		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [] });
+		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 	}
 
 	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangeEvent>();
@@ -148,7 +150,7 @@ export class GitProviderService implements Disposable {
 		if (removed?.length) {
 			this._visibilityCache.clear();
 		}
-		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [] });
+		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 	}
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();

@@ -1,6 +1,7 @@
 'use strict';
 import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
 import { ShowQuickCommitCommandArgs } from '../../../commands';
+import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
@@ -10,6 +11,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import { debounce, Deferrable } from '../../../system/function';
+import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
@@ -117,7 +119,11 @@ export class TimelineWebview extends WebviewBase<State> {
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
 		if (this._bootstraping) {
 			this._bootstraping = false;
-			return;
+
+			// If the uri changed since bootstrap still send the update
+			if (this._pendingContext == null || !('uri' in this._pendingContext)) {
+				return;
+			}
 		}
 
 		// Should be immediate, but it causes the bubbles to go missing on the chart, since the update happens while it still rendering
@@ -229,16 +235,37 @@ export class TimelineWebview extends WebviewBase<State> {
 			};
 		}
 
+		let queryRequiredCommits = [
+			...filter(log.commits.values(), c => c.file?.stats == null && c.stats?.changedFiles !== 1),
+		];
+
+		if (queryRequiredCommits.length !== 0) {
+			const limit = configuration.get('visualHistory.queryLimit') ?? 20;
+
+			const repository = this.container.git.getRepository(current.uri);
+			const name = repository?.provider.name;
+
+			if (queryRequiredCommits.length > limit) {
+				void window.showWarningMessage(
+					`Unable able to show more than the first ${limit} commits for the specified time period because of ${
+						name ? `${name} ` : ''
+					}rate limits.`,
+				);
+				queryRequiredCommits = queryRequiredCommits.slice(0, 20);
+			}
+
+			void (await Promise.allSettled(queryRequiredCommits.map(c => c.ensureFullDetails())));
+		}
+
 		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
 
 		const dataset: Commit[] = [];
 		for (const commit of log.commits.values()) {
-			const stats = commit.file?.stats;
+			const stats = commit.file?.stats ?? (commit.stats?.changedFiles === 1 ? commit.stats : undefined);
 			dataset.push({
 				author: commit.author.name === 'You' ? name : commit.author.name,
-				additions: stats?.additions ?? 0,
-				// changed: stats?.changes ?? 0,
-				deletions: stats?.deletions ?? 0,
+				additions: stats?.additions,
+				deletions: stats?.deletions,
 				commit: commit.sha,
 				date: commit.date.toISOString(),
 				message: commit.message ?? commit.summary,
