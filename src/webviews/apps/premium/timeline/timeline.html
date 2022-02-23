@@ -42,13 +42,20 @@
 			<p>
 				The
 				<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
-					>Visual File History</a
+					><b>Visual File History</b></a
 				>
-				allows you to clearly see the history of a file, including: when changes were made, how large they were,
-				and who made them. Authors who have contributed changes to a file are on one axis, and dates on the
-				other. Color-coded dots represent points in time where that author made changes to the file, and
-				vertical lines represent the magnitude of the change in two colors: green for lines added, and red for
-				lines removed.
+				allows you to quickly see the evolution of a file, including when changes were made, how large they
+				were, and who made them.
+			</p>
+			<p>
+				Authors who have contributed changes to the file are on the left y-axis to create a swim-lane of their
+				commits over time (the x-axis). Commit are plotted as color-coded (per-author) bubbles, whose size
+				represents the relative magnitude of the changes.
+			</p>
+			<p>
+				Additionally, each commit's additions and deletions are visualized as color-coded, stacked, vertical
+				bars, whose height represents the number of affected lines (right y-axis). Added lines are shown in
+				green, while deleted lines are red.
 			</p>
 			<div id="overlay-slot"></div>
 		</div>
