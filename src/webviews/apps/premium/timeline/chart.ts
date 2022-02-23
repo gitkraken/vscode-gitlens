@@ -111,8 +111,8 @@ export class TimelineChart {
 		let commit: Commit;
 		let author: string;
 		let date: string;
-		let additions: number;
-		let deletions: number;
+		let additions: number | undefined;
+		let deletions: number | undefined;
 
 		// // Get the min and max additions and deletions from the dataset
 		// let minChanges = Infinity;
@@ -178,16 +178,16 @@ export class TimelineChart {
 
 				types[author] = bubble();
 
-				group.push(author, authorX);
+				group.push(authorX);
 			}
 
 			series[x].push(date);
-			series['additions'].push(additions);
-			series['deletions'].push(deletions);
+			series['additions'].push(additions ?? 0);
+			series['deletions'].push(deletions ?? 0);
 
 			series[authorX].push(date);
 
-			const z = additions + deletions; //bubbleScale(additions + deletions);
+			const z = additions == null && deletions == null ? 6 : (additions ?? 0) + (deletions ?? 0); //bubbleScale(additions + deletions);
 			series[author].push({
 				y: this._indexByAuthors.get(author),
 				z: z,
@@ -249,8 +249,6 @@ export class TimelineChart {
 		const config: ChartOptions = {
 			bindto: this._selector,
 			data: {
-				columns: [],
-				types: { time: bubble(), additions: bar(), deletions: bar() },
 				xFormat: '%Y-%m-%dT%H:%M:%S.%LZ',
 				xLocaltime: false,
 				// selection: {

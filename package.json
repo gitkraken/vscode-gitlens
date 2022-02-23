@@ -2399,6 +2399,19 @@
 				}
 			},
 			{
+				"id": "visual-history",
+				"title": "Visual File History",
+				"order": 112,
+				"properties": {
+					"gitlens.visualHistory.queryLimit": {
+						"type": "number",
+						"default": 20,
+						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the Visual File History, because of rate limits. Only applies to virtual workspaces.",
+						"scope": "window"
+					}
+				}
+			},
+			{
 				"id": "date-times",
 				"title": "Date & Times",
 				"order": 120,

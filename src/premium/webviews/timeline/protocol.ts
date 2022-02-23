@@ -17,8 +17,8 @@ export interface Commit {
 	date: string;
 	message: string;
 
-	additions: number;
-	deletions: number;
+	additions: number | undefined;
+	deletions: number | undefined;
 
 	sort: number;
 }
