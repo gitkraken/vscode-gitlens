@@ -31,7 +31,6 @@ import {
 	getTimeRemaining,
 	isSubscriptionExpired,
 	isSubscriptionPaidPlan,
-	isSubscriptionPreviewTrialExpired,
 	isSubscriptionTrial,
 	Subscription,
 	SubscriptionPlanId,
@@ -256,7 +255,13 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async purchase(): Promise<void> {
-		void this.showPlans();
+		if (this._subscription.account == null) {
+			void this.showPlans();
+		} else {
+			void env.openExternal(
+				Uri.joinPath(this.baseAccountUri, 'create-organization').with({ query: 'product=gitlens' }),
+			);
+		}
 		await this.showHomeView();
 	}
 
@@ -647,26 +652,22 @@ export class SubscriptionService implements Disposable {
 
 		queueMicrotask(async () => {
 			const { allowed, subscription } = await this.container.git.access();
-			void setContext(
-				ContextKeys.PremiumRequired,
-				allowed
-					? false
-					: subscription.required != null && isSubscriptionPaidPlan(subscription.required)
-					? 'paid'
-					: 'free+',
-			);
+			const required = allowed
+				? false
+				: subscription.required != null && isSubscriptionPaidPlan(subscription.required)
+				? 'paid'
+				: 'free+';
+			void setContext(ContextKeys.PremiumAllowed, allowed);
+			void setContext(ContextKeys.PremiumRequired, required);
 		});
 
 		const {
-			account,
 			plan: { actual },
+			state,
 		} = this._subscription;
 
 		void setContext(ContextKeys.Premium, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
-		void setContext(ContextKeys.PremiumPaid, isSubscriptionPaidPlan(actual.id));
-		void setContext(ContextKeys.PremiumRequiresVerification, account?.verified === false);
-		void setContext(ContextKeys.PremiumTrial, isSubscriptionTrial(this._subscription));
-		void setContext(ContextKeys.PremiumPreviewTrialExpired, isSubscriptionPreviewTrialExpired(this._subscription));
+		void setContext(ContextKeys.PremiumState, state);
 	}
 
 	private updateStatusBar(pending: boolean = false): void {

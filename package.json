@@ -3601,7 +3601,7 @@
 			},
 			{
 				"command": "gitlens.premium.login",
-				"title": "Login...",
+				"title": "Sign In...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -3611,7 +3611,7 @@
 			},
 			{
 				"command": "gitlens.premium.signUp",
-				"title": "Create Free Account...",
+				"title": "Create a Free Account...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -3621,12 +3621,12 @@
 			},
 			{
 				"command": "gitlens.premium.startPreviewTrial",
-				"title": "Try Premium Features...",
+				"title": "Try Premium Features Now",
 				"category": "GitLens Premium"
 			},
 			{
 				"command": "gitlens.premium.purchase",
-				"title": "Unlock Premium Features for Private Repos...",
+				"title": "Purchase a Plan...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -5955,7 +5955,7 @@
 				},
 				{
 					"command": "gitlens.premium.purchase",
-					"when": "!gitlens:premium:paid"
+					"when": "gitlens:premium:required == paid"
 				},
 				{
 					"command": "gitlens.premium.reset",
@@ -10645,43 +10645,38 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "To use premium GitLens features, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)\n\n[Refresh verification status](command:gitlens.premium.validate)",
-				"when": "gitlens:premium:requiresVerification"
-			},
-			{
-				"view": "gitlens.views.worktrees",
 				"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
-				"when": "gitlens:premium || gitlens:premium:trial && !gitlens:premium:required && !gitlens:premium:requiresVerification"
+				"when": "gitlens:premium:allowed"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which require a free account for public repos.\n\nYou can try these premium features for free, without an account, for 3 days. All non-premium features will continue to be free without an account.",
-				"when": "!gitlens:premium:trial && gitlens:premium:required == free+ && !gitlens:premium:requiresVerification"
+				"contents": "Please verify your email\n\nTo use the Worktrees premium feature, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)\n\n[Refresh verification status](command:gitlens.premium.validate)",
+				"when": "gitlens:premium:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which require at least a Pro subscription for private repos.",
-				"when": "!gitlens:premium:trial && gitlens:premium:required == paid && !gitlens:premium:requiresVerification"
+				"contents": "Worktrees are a premium feature, which requires a free account for public repos.",
+				"when": "gitlens:premium:state != -1 && gitlens:premium:required == free+"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Learn about premium features](command:gitlens.premium.learn)",
-				"when": "!gitlens:premium:paid && gitlens:premium:required && !gitlens:premium:requiresVerification"
+				"contents": "Worktrees are a premium feature, which requires at least a Pro subscription for private repos.",
+				"when": "gitlens:premium:state != -1 && gitlens:premium:required == paid"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try premium features now](command:gitlens.premium.startPreviewTrial)",
-				"when": "!gitlens:premium && !gitlens:premium:trial && !gitlens:premium:previewTrial:expired"
+				"contents": "[Learn about premium features](command:gitlens.premium.learn)\n\n[Try premium features now](command:gitlens.premium.startPreviewTrial)\n\n[Create a free account](command:gitlens.premium.loginOrSignUp)\n\nHave an existing account? [Sign in](command:gitlens.premium.loginOrSignUp)\n\n[View paid plans](command:gitlens.premium.showPlans)",
+				"when": "gitlens:premium:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Create a free account](command:gitlens.premium.loginOrSignUp)\n\nHave an existing account? [Sign in](command:gitlens.premium.loginOrSignUp)",
-				"when": "!gitlens:premium && gitlens:premium:required && !gitlens:premium:requiresVerification"
+				"contents": "Create a free account to continue trialing premium features for all repos for an additional 7 days.\n\n[Learn about premium features](command:gitlens.premium.learn)\n\n[Create a free account](command:gitlens.premium.loginOrSignUp)\n\nHave an existing account? [Sign in](command:gitlens.premium.loginOrSignUp)\n\n[Purchase a plan](command:gitlens.premium.purchase)",
+				"when": "gitlens:premium:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade your account](command:gitlens.premium.purchase)",
-				"when": "gitlens:premium && gitlens:premium:required == paid && !gitlens:premium:requiresVerification"
+				"contents": "[Learn about premium features](command:gitlens.premium.learn)\n\n[Purchase a plan](command:gitlens.premium.purchase)",
+				"when": "gitlens:premium:state == 4"
 			}
 		],
 		"views": {
