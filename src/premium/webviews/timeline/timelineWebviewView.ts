@@ -74,7 +74,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	}
 
 	protected override registerCommands(): Disposable[] {
-		return [commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this)];
+		return [
+			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
+			commands.registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
+		];
 	}
 
 	protected override onVisibilityChanged(visible: boolean) {
@@ -242,6 +245,13 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			default:
 				return createFromDateDelta(new Date(), { months: -3 });
 		}
+	}
+
+	private openInTab() {
+		const uri = this._context.uri;
+		if (uri == null) return;
+
+		void commands.executeCommand(Commands.ShowTimelinePage, uri);
 	}
 
 	private updatePendingContext(context: Partial<Context>): boolean {

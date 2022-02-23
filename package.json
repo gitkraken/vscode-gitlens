@@ -3719,12 +3719,18 @@
 			},
 			{
 				"command": "gitlens.showTimelinePage",
-				"title": "Open Visual File History",
+				"title": "Open Visual File History of Active File",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-history.svg",
 					"light": "images/light/icon-history.svg"
 				}
+			},
+			{
+				"command": "gitlens.refreshTimelinePage",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.showWelcomePage",
@@ -5841,6 +5847,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.timeline.openInTab",
+				"title": "Open in Editor Area",
+				"category": "GitLens",
+				"icon": "$(link-external)"
+			},
+			{
 				"command": "gitlens.views.timeline.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -5995,6 +6007,14 @@
 				},
 				{
 					"command": "gitlens.showSettingsPage#worktrees-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showTimelinePage",
+					"when": "gitlens:enabled && editorFocus"
+				},
+				{
+					"command": "gitlens.refreshTimelinePage",
 					"when": "false"
 				},
 				{
@@ -7398,6 +7418,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.timeline.openInTab",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.timeline.refresh",
 					"when": "false"
 				},
@@ -7647,6 +7671,11 @@
 					"command": "gitlens.clearFileAnnotations",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.refreshTimelinePage",
+					"when": "gitlens:timelinePage:focused",
+					"group": "navigation@-99"
 				}
 			],
 			"editor/title/context": [
@@ -8397,6 +8426,11 @@
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.timeline.openInTab",
+					"when": "view =~ /^gitlens\\.views\\.timeline/",
+					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.views.timeline.refresh",
