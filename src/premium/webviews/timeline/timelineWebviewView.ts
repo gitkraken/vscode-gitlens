@@ -57,6 +57,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			etagSubscription: this.container.subscription.etag,
 		};
 
+		this.updatePendingEditor(window.activeTextEditor);
+		this._context = { ...this._context, ...this._pendingContext };
+		this._pendingContext = undefined;
+
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this),
@@ -66,7 +70,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	protected override async includeBootstrap(): Promise<State> {
 		this._bootstraping = true;
-		this.updatePendingEditor(window.activeTextEditor);
+
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
@@ -88,7 +92,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			this._bootstraping = false;
 			return;
 		}
-		this.updateState(true);
+
+		// Should be immediate, but it causes the bubbles to go missing on the chart, since the update happens while it still rendering
+		this.updateState();
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
@@ -316,6 +322,8 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		if (!this.isReady || !this.visible) return false;
 
 		this._notifyDidChangeStateDebounced?.cancel();
+		if (this._pendingContext == null) return false;
+
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
