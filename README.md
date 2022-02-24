@@ -6,18 +6,6 @@
 
 <p align="center">
   <br />
-    <a
-      title="Learn more about GitKraken and GitLens joining forces!"
-      href="https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code"
-      target="_blank"
-       alt="Learn more about GitKraken and GitLens joining forces!"
-    >
-      <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gk+gl.png" alt="GitKraken and GitLens are joining forces!" />
-    </a>
-</p>
-
-<p align="center">
-  <br />
   <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-logo.png" alt="GitLens Logo" /></a>
 </p>
 
@@ -25,7 +13,14 @@
 
 <p align="center">
   <br />
-  <a title="What's New in GitLens 11" href="https://gitlens.amod.io/#whats-new"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/whats-new-button.png" alt="What's New in GitLens 11 Button" /></a>
+  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12"><img width="600px" src="./src/webviews/apps/media/gitlens-12-card.png" alt="Open What's New in GitLens 12" /></a>
+  <br/>
+</p>
+
+<p align="center">
+  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
+  <br/>
+  or read the <a href="https://gitlens.amod.io/#whats-new">release notes</a>
 </p>
 
 # GitLens
@@ -96,7 +91,7 @@ Here are just some of the **features** that GitLens provides,
 
 - Adds an unobtrusive, [customizable](#current-line-blame-settings- 'Jump to the Current Line Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
   - Contains the author, date, and message of the current line's most recent commit (by [default](#current-line-blame-settings- 'Jump to the Current Line Blame settings'))
-  - Adds a _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) to toggle the blame annotation on and off
+  - Adds a _Toggle Line Blame_ command (`gitlens.toggleLineBlame`) to toggle the blame annotation on and off
 
 ## Git CodeLens [#](#git-codelens- 'Git CodeLens')
 
@@ -214,7 +209,7 @@ Here are just some of the **features** that GitLens provides,
   - Contains the commit message and date, by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')
   - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')) of the gutter to provide an easy, at-a-glance way to tell how recently lines were changed ([optional](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), on by default)
     - See the [gutter heatmap](#gutter-Heatmap- 'Jump to Gutter Heatmap') section below for more details
-  - Adds a _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
+  - Adds a _Toggle File Blame_ command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
 ## Gutter Changes [#](#gutter-changes- 'Gutter Changes')
