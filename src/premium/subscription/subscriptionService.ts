@@ -97,7 +97,7 @@ export class SubscriptionService implements Disposable {
 			return Uri.parse('https://stagingapi.gitkraken.com');
 		}
 
-		if (env === 'dev' || this.container.debugging) {
+		if (env === 'dev') {
 			return Uri.parse('https://devapi.gitkraken.com');
 		}
 
@@ -111,7 +111,7 @@ export class SubscriptionService implements Disposable {
 			return Uri.parse('https://stagingaccount.gitkraken.com');
 		}
 
-		if (env === 'dev' || this.container.debugging) {
+		if (env === 'dev') {
 			return Uri.parse('https://devaccount.gitkraken.com');
 		}
 
@@ -125,7 +125,7 @@ export class SubscriptionService implements Disposable {
 			return Uri.parse('https://staging.gitkraken.com');
 		}
 
-		if (env === 'dev' || this.container.debugging) {
+		if (env === 'dev') {
 			return Uri.parse('https://dev.gitkraken.com');
 		}
 
@@ -354,7 +354,7 @@ export class SubscriptionService implements Disposable {
 
 		let days;
 		let expiresOn = new Date(startedOn);
-		if (!this.container.debugging && this.container.env !== 'dev') {
+		if (!this.container.debugging) {
 			// Normalize the date to just before midnight on the same day
 			expiresOn.setHours(23, 59, 59, 999);
 			expiresOn = createFromDateDelta(expiresOn, { days: 3 });
