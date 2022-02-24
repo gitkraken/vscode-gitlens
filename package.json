@@ -10917,7 +10917,7 @@
 				"steps": [
 					{
 						"id": "gitlens.premium.intro",
-						"title": "Introducting GitLens premium features",
+						"title": "Introducing GitLens premium features",
 						"description": "",
 						"media": {
 							"markdown": "walkthroughs/premium-features/1-intro.md"
