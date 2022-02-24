@@ -333,6 +333,31 @@ section {
 	}
 }
 
+.section__whatsnew {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	font-weight: 200;
+	margin: 1rem;
+
+	img {
+		width: 100%;
+		max-width: 600px;
+		border-radius: 8px;
+		box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
+		margin-bottom: 2rem;
+	}
+
+	a {
+		font-weight: 600;
+	}
+}
+
+.button__subaction {
+	color: var(--color-foreground--65);
+	margin-top: -0.5rem;
+}
+
 .setting {
 	flex: 0 1 auto;
 	position: relative;
