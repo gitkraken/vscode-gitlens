@@ -10815,7 +10815,7 @@
 					{
 						"id": "gitlens.welcome.experience",
 						"title": "Get setup quickly",
-						"description": "Use the Quick Setup to easily configure frequently used GitLens features.\n\n[Open Quick Setup](command:gitlens.showWelcomePage \"Opens the GitLens Quick Setup\")",
+						"description": "Use the Quick Setup to easily configure frequently used GitLens features.\n\n[Open Quick Setup](command:gitlens.showWelcomePage?%22quick-setup%22 \"Opens the GitLens Quick Setup\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/1-setup.md"
 						}
@@ -10831,14 +10831,14 @@
 					{
 						"id": "gitlens.welcome.currentLineBlame",
 						"title": "See who made what changes at a glance",
-						"description": "Current line blame provides historical context about line changes.",
+						"description": "Current line and status bar blame provide historical context about line changes.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/3-current-line-blame.md"
 						}
 					},
 					{
 						"id": "gitlens.welcome.gitCodeLens",
-						"title": "View Git Authorship Via CodeLens",
+						"title": "View Git authorship via CodeLens",
 						"description": "CodeLens adds contextual authorship information and links at the top of each file and at the beginning of each block of code.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/4-git-codelens.md"
@@ -10854,8 +10854,8 @@
 					},
 					{
 						"id": "gitlens.welcome.fileAnnotations",
-						"title": "Customize file annotations",
-						"description": "File annotations place visual indicators in the gutter and status bar that provide additional context about changes. ",
+						"title": "See more context with file annotations",
+						"description": "Whole file annotations place visual indicators in the gutter and scroll bar that provide additional context about changes.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/6-file-annotations.md"
 						}
@@ -10863,7 +10863,7 @@
 					{
 						"id": "gitlens.welcome.gitSideBarViews",
 						"title": "View more source control details in the side bar",
-						"description": "Additional views expose even more Git functionality in your side bar.",
+						"description": "Additional views expose even more Git functionality in your side bar.\n\n[Set Views Layout](command:gitlens.setViewsLayout)",
 						"media": {
 							"markdown": "walkthroughs/getting-started/7-git-side-bar-views.md"
 						}
@@ -10871,7 +10871,7 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Quickly gain insights from pull requests and issues without leaving your codebase.",
+						"description": "Quickly gain insights from pull requests and issues without leaving your editor.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/8-hosting-service-integrations.md"
 						}
@@ -10879,7 +10879,7 @@
 					{
 						"id": "gitlens.welcome.gitCommandPalette",
 						"title": "Work faster with Git Command Palette",
-						"description": "",
+						"description": "Now you don't have to remember all those Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)",
 						"media": {
 							"markdown": "walkthroughs/getting-started/9-git-command-palette.md"
 						}
@@ -10887,7 +10887,7 @@
 					{
 						"id": "gitlens.welcome.interactiveRebaseEditor",
 						"title": "Visualize interactive rebase operations",
-						"description": "",
+						"description": "A user-friendly interactive rebase editor to easily configure an interactive rebase session",
 						"media": {
 							"markdown": "walkthroughs/getting-started/10-interactive-rebase-editor.md"
 						}
@@ -10895,7 +10895,7 @@
 					{
 						"id": "gitlens.welcome.terminal",
 						"title": "Jump to git details from the terminal",
-						"description": "Using ctrl+click on autolinks in the integrated terminal will quickly jump to more details for commits, branches, tags, and more.",
+						"description": "Using ctrl/cmd+click on autolinks in the integrated terminal will quickly jump to more details for commits, branches, tags, and more.",
 						"media": {
 							"markdown": "walkthroughs/getting-started/11-terminal.md"
 						}
@@ -10903,7 +10903,7 @@
 					{
 						"id": "gitlens.welcome.premium",
 						"title": "Premium GitLens Features",
-						"description": "New premium features like Worktrees and Visual File History are now available in GitLens.\n\n[Learn About Premium Features](command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium%22 \"Opens the GitLens Premium Features Walkthrough\")",
+						"description": "New premium features like Worktrees and Visual File History are now available in GitLens.\n\n[Learn About Premium Features](command:gitlens.premium.learn?false \"Opens the GitLens Premium Features Walkthrough\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/12-premium-features.md"
 						}
@@ -10926,7 +10926,7 @@
 					{
 						"id": "gitlens.premium.worktrees",
 						"title": "Do more with Worktrees",
-						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository.",
+						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository.\n\n[Open Worktrees View](command:gitlens.showWorktreesView)",
 						"media": {
 							"markdown": "walkthroughs/premium-features/2-worktrees.md"
 						}
@@ -10934,7 +10934,7 @@
 					{
 						"id": "gitlens.premium.visualFileHistory",
 						"title": "Visualize file history",
-						"description": "A more visual way to analyze and explore changes made to a file.",
+						"description": "A more visual way to analyze and explore changes made to a file.\n\n[Open Visual File History](command:gitlens.showTimelineView)",
 						"media": {
 							"markdown": "walkthroughs/premium-features/3-visual-file-history.md"
 						}
@@ -10942,7 +10942,7 @@
 					{
 						"id": "gitlens.premium.comingSoon",
 						"title": "More coming soon",
-						"description": "",
+						"description": "Stay tuned!",
 						"media": {
 							"markdown": "walkthroughs/premium-features/4-coming-soon.md"
 						}
@@ -10952,7 +10952,7 @@
 						"title": "Try premium features now",
 						"description": "Try premium features now, without an account, for 3 days.\n\n[Try Premium GitLens Features](command:gitlens.premium.startPreviewTrial)",
 						"media": {
-							"markdown": "walkthroughs/premium-features/5-try-premium-now.md"
+							"markdown": "walkthroughs/premium-features/5-try-now.md"
 						}
 					}
 				]

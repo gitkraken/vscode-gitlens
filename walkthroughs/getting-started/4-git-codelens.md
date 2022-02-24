@@ -4,22 +4,10 @@
   <img src="../../images/docs/code-lens.png" alt="Git CodeLens" />
 </p>
 
-Adds Git authorship **CodeLens** to the top of the file and on code blocks
+GitLens adds Git authorship CodeLens to the top of the file and on code blocks. The **recent change** CodeLens shows the author and date of the most recent commit for the code block or file, while the **authors** CodeLens shows the number of authors of the code block or file and the most prominent author (if there is more than one).
 
-- **Recent Change** &mdash; author and date of the most recent commit for the file or code block
-  - Click the CodeLens to show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#git-codelens-settings- 'Jump to the Git CodeLens settings'))
-- **Authors** &mdash; number of authors of the file or code block and the most prominent author (if there is more than one)
+Clicking on the CodeLens performs a [customizable](command:gitlens.showSettingsPage?%22code-lens%22 'Jump to the Git CodeLens settings') action. For example, the **recent change** CodeLens will open a quick pick menu with the commit's file details and actions, where as the **authors** will toggle the whole file Git blame annotations.
 
-  - Click the CodeLens to toggle the file Git blame annotations on and off of the whole file (by [default](#git-codelens-settings- 'Jump to the Git CodeLens settings'))
-  - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
+💡 Use the [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) command to turn the CodeLens on and off.
 
-- Provides [customizable](command:gitlens.showSettingsPage?%22code-lens%22 'Jump to the Git CodeLens settings') click behavior for each CodeLens &mdash; choose between one of the following
-
-  - Toggle file blame annotations on and off
-  - Compare the commit with the previous commit
-  - Show a quick pick menu with details and commands for the commit
-  - Show a quick pick menu with file details and commands for the commit
-  - Show a quick pick menu with the commit history of the file
-  - Show a quick pick menu with the commit history of the current branch
-
-- Adds a _Toggle Git CodeLens_ command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the CodeLens on and off
+⚙️ Use the settings editor to customize the [Git CodeLens](command:gitlens.showSettingsPage?%22code-lens%22 'Jump to the Git CodeLens settings').

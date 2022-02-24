@@ -120,7 +120,12 @@ export async function openEditor(
 	}
 }
 
-export async function openWalkthrough(extensionId: string, walkthroughId: string, stepId?: string): Promise<void> {
+export async function openWalkthrough(
+	extensionId: string,
+	walkthroughId: string,
+	stepId?: string,
+	openToSide: boolean = true,
+): Promise<void> {
 	// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
 	void (await executeCoreCommand(
 		CoreCommands.OpenWalkthrough,
@@ -128,7 +133,7 @@ export async function openWalkthrough(extensionId: string, walkthroughId: string
 			category: `${extensionId}#${walkthroughId}`,
 			step: stepId ? `${extensionId}#${walkthroughId}#${stepId}` : undefined,
 		},
-		true,
+		openToSide,
 	));
 }
 

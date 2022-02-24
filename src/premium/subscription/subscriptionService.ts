@@ -158,7 +158,7 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(Commands.PremiumLearn, () => this.learn()),
+			commands.registerCommand(Commands.PremiumLearn, openToSide => this.learn(openToSide)),
 			commands.registerCommand(Commands.PremiumLogin, () => this.loginOrSignUp()),
 			commands.registerCommand(Commands.PremiumLoginOrSignUp, () => this.loginOrSignUp()),
 			commands.registerCommand(Commands.PremiumSignUp, () => this.loginOrSignUp()),
@@ -182,8 +182,8 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	learn(): void {
-		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium');
+	learn(openToSide: boolean = true): void {
+		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium', undefined, openToSide);
 	}
 
 	@gate()
