@@ -6,6 +6,6 @@
   </figure>
 </p>
 
-GitLens provides a rich **interactive settings editor**, an easy-to-use interface, to configure many of GitLens' powerful features.
+GitLens provides a rich interactive settings editor, an easy-to-use interface, to configure many of GitLens' powerful features.
 
-It can be accessed via the [_GitLens: Open Settings_](command:gitlens.showSettingsPage) command from the [_Command Palette_](command:workbench.action.quickOpen?%22GitLens%3A%20Open%20Settings%22).
+💡 Use the [GitLens: Open Settings](command:gitlens.showSettingsPage) command from the [Command Palette](command:workbench.action.quickOpen?%22>GitLens%3A%20Open%20Settings%22) to open it.
