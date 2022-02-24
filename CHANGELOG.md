@@ -8,21 +8,51 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds (preview) VS Code for Web support!
+  - Get the power and insights of GitLens for any GitHub repository directly in your browser on vscode.dev or github.dev
+- Introducing Premium Features &mdash; [learn about premium features](https://gitkraken.com/gitlens/premium-features)
+
+  - Access to premium features requires a free account for public repos and a paid account for private repos. All non-premium features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love.
+  - Visual File History &mdash; a visual way to analyze and explore changes to a file
+
+    - The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them
+
+      ![Visual File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/visual-file-history-hover.png)
+
+  - Worktrees &mdash; allow multiple branches to be checked-out at once
+
+    - Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace
+
+      ![Worktrees view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/worktrees-view.png)
+
+- Adds a new GitLens Home view &mdash; see welcome content, help resource, and subscription information
+- Adds a _Get Started with GitLens_ walkthrough to introduce new (and existing) users to many of the powerful features of GitLens &mdash; try it via _GitLens: Get Started_ from the Command Palette
 - Adds a new _Autolinked Issues and Pull Requests_ node to comparisons to list autolinked issues in commit messages and associated pull requests
+  - Now you can quickly see all the issues fixed in a release and more
   - Currently only supported for connected GitHub remote providers
 - Adds the ability to choose a stash when opening or comparing file revisions, via the _Open Changes with Revision..._ & _Open File at Revision..._ commands
-- Adds improved hover information shown on pull requests in the GitLens views
+- Adds improved hover information, including status and color-coding, shown on pull requests in the GitLens views
+- Adds a `gitlens.codeLens.dateFormat` setting to specify how to format absolute dates in the Git CodeLens
 - Adds an easier method to choose a specific commit to the _Git Command Palette_'s _merge_ & _rebase_ commands
+- Adds a new commit format token: `${link}`
 
 ### Changed
 
-- Refactors GitLens internals into a new flexible Git provider model (read: lots of internal changes) to ultimately allow GitLens to work on the web in vscode.dev/github.dev
+- Completely refactors the internals of GitLens into a new flexible Git provider model to allow GitLens to work on the web and in virtual environments like vscode.dev and github.dev
+- Improves the user experience of the commit details and file details quick pick menus
+  - Commands are now grouped and easier to understand and access &mdash; thanks to Tyler Leonhardt ([@tylerLeonhardt](https://github.com/tylerLeonhardt)) on the VS Code team for the quick pick API additions
+- Improves performance and reduces latency across many workflows
+- Improves startup performance on previously opened workspaces by remembering details from the last time the workspace was opened
+- Improves performance of the all GitLens webviews, most noticeable on the GitLens settings editor
+- Improves GitLens view refreshing when folders are added or removed from a workspace
 - Changes the icon of the _Open Changes_ action on the hovers to be clearer
 - Changes footnotes in hovers to be above the command bar rather than below
-- Improves GitLens view refreshing when folders are added or removed from a workspace
+- Reworks many internal Git parsers to reduce memory usage and improve performance
 
 ### Fixed
 
+- Fixes [#1818](https://github.com/gitkraken/vscode-gitlens/issues/1818) - Ambiguous error message on GitHub authentication errors
+- Fixes [#1645](https://github.com/gitkraken/vscode-gitlens/issues/1645) - Possible catastrophic backtracking with large inputs
 - Fixes [#1506](https://github.com/gitkraken/vscode-gitlens/issues/1506) - Annoying Github login request
 - Fixes [#1735](https://github.com/gitkraken/vscode-gitlens/issues/1735) - "gitlens.hovers.detailsMarkdownFormat" edit error
 - Fixes [#1745](https://github.com/gitkraken/vscode-gitlens/issues/1745) - autolinks.url encodes hash char
@@ -36,6 +66,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues using quotes when searching for commits in certain scenarios
 - Fixes issues when revealing items in GitLens views the item wouldn't get selected properly
 - Fixes issues with retries on _Git Command Palette_ command steps
+- Fixes code splitting issue where GitHub support wasn't split out of the main bundle for better loading performance
+- Fixes issue with quotes and commit search
+- Fixes a leaked disposable on cancellable promises
 
 ## [11.7.0] - 2021-11-18
 
@@ -243,13 +276,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds rebase and/or merge status when applicable to the _Commits_ and _Repositories_ views
+
   - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+
     ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-merge.png)
+
   - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+
     ![Rebasing](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-rebase.png)
+
 - Adds rebase and/or merge conflict status when applicable to the _File History_ and _Line History_ views
+
   - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+
     ![Merge Conflicts](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view-merge-conflict.png)
+
 - Adds status indicator colors to pull request icons in GitLens views
 - Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
 - Adds the _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
