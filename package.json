@@ -1,7 +1,7 @@
 {
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
-	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
+	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
 	"version": "11.7.0",
 	"engines": {
 		"vscode": "^1.64.0"
