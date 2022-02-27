@@ -514,6 +514,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this.changeSubscription({
+			...this._subscription,
 			plan: {
 				actual: actual,
 				effective: effective,
