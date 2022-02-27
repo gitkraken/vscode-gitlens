@@ -272,11 +272,35 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		const el = document.getElementById(anchor);
 		if (el == null) return;
 
+		this.scrollTo(el, behavior, offset);
+	}
+
+	private _scrollTimer: ReturnType<typeof setTimeout> | undefined;
+	private scrollTo(el: HTMLElement, behavior: ScrollBehavior, offset?: number) {
 		const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
+
 		window.scrollTo({
 			top: top,
 			behavior: behavior ?? 'smooth',
 		});
+
+		const fn = () => {
+			if (this._scrollTimer != null) {
+				clearTimeout(this._scrollTimer);
+			}
+
+			this._scrollTimer = setTimeout(() => {
+				window.removeEventListener('scroll', fn);
+
+				const newTop =
+					el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
+				if (top === newTop) return;
+
+				this.scrollTo(el, behavior, offset);
+			}, 50);
+		};
+
+		window.addEventListener('scroll', fn, false);
 	}
 
 	private evaluateStateExpression(expression: string, changes: Record<string, string | boolean>): boolean {
