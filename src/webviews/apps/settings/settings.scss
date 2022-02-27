@@ -11,21 +11,11 @@ body {
 header {
 	grid-area: header;
 	display: grid;
-	grid-template-columns: max-content minmax(396px, auto);
-	grid-gap: 1em 4em;
+	grid-template-columns: auto;
+	grid-gap: 1rem;
 	align-items: center;
+	justify-items: center;
 	margin: 0 2em;
-	// grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
-	// grid-gap: 1em 3em;
-	// align-items: center;
-	// justify-items: center;
-	// margin: 0 3em;
-
-	@media all and (max-width: 768px) {
-		grid-template-columns: auto;
-		justify-items: center;
-		grid-gap: 1rem;
-	}
 }
 
 .blurb {
@@ -65,20 +55,16 @@ header {
 
 .container {
 	display: grid;
-	grid-template-areas: 'header header' 'cta cta' 'hero sidebar' 'content sidebar';
+	grid-template-areas: 'header header' 'hero sidebar' 'content sidebar';
 	grid-template-columns: repeat(1, 1fr min-content);
 	grid-gap: 1em 3em;
 	margin: 1em auto;
 	max-width: 1200px;
 	min-width: 450px;
 
-	@media all and (max-width: 815px) {
+	@media all and (max-width: 925px) {
 		grid-gap: 1em 0;
 	}
-}
-
-.cta {
-	grid-area: cta;
 }
 
 .content__area {
@@ -93,7 +79,7 @@ header {
 		background-color: var(--color-background);
 	}
 
-	@media all and (max-width: 815px) {
+	@media all and (max-width: 925px) {
 		grid-column: span 1;
 	}
 }
@@ -107,28 +93,15 @@ header {
 	}
 }
 
-.header__blurb {
-	color: var(--color-foreground--75);
-	font-size: 1.5rem;
-	font-weight: 200;
-	margin: 0;
-	text-align: justify;
-}
-
 .header__link {
 	color: var(--color-foreground);
 	outline: none;
-	margin: 0 1rem 0.75rem 2rem;
 
 	&:hover,
 	&:active,
 	&:focus {
 		color: var(--color-foreground);
 		outline: none;
-	}
-
-	@media all and (max-width: 768px) {
-		margin: 0 0 0.75rem 0;
 	}
 }
 
@@ -168,8 +141,8 @@ header {
 
 .hero__area--sticky {
 	background: var(--color-background);
-	margin: 0;
-	padding: 1em 0;
+	margin: 0 0 0 0;
+	padding: 0 0 0.5rem 0;
 	position: sticky;
 	top: -1px;
 	z-index: 1;
@@ -214,7 +187,7 @@ header {
 		background-color: var(--color-background) !important;
 		margin-right: 0;
 
-		@media all and (max-width: 815px) {
+		@media all and (max-width: 925px) {
 			margin-right: unset;
 		}
 	}
@@ -642,10 +615,11 @@ section {
 	font-size: 1.3rem;
 	position: sticky;
 	top: 0;
-	margin-right: -10px;
+	margin-right: -2rem;
+	min-width: 160px;
 	z-index: 2;
 
-	@media all and (max-width: 815px) {
+	@media all and (max-width: 925px) {
 		display: none;
 	}
 
@@ -661,7 +635,7 @@ section {
 .is-sidebar-hidden {
 	display: none;
 
-	@media all and (max-width: 815px) {
+	@media all and (max-width: 925px) {
 		display: initial;
 	}
 }
@@ -706,7 +680,3 @@ section {
 @import '../shared/utils';
 @import '../shared/popup';
 // @import '../shared/snow';
-
-.sidebar {
-	top: 12px;
-}
