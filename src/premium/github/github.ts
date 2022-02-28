@@ -1610,7 +1610,7 @@ export class GitHubApi {
 			});
 
 			const data = rsp?.data;
-			if (data == null) return undefined;
+			if (data == null || data.items.length === 0) return undefined;
 
 			const commits = data.items.map<GitHubCommit>(result => ({
 				oid: result.sha,
