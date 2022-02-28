@@ -6189,7 +6189,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/"
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.toggleFileChangesOnly",
@@ -7651,7 +7651,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100",
 					"alt": "gitlens.toggleFileBlame"
 				},
@@ -9987,7 +9987,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens@3"
 				}
 			],
