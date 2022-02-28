@@ -1,7 +1,9 @@
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
+import { Commands } from './constants';
 import { GitCommit } from './git/models';
 import { Logger } from './logger';
+import { executeCommand } from './system/command';
 
 export const enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
@@ -154,17 +156,17 @@ export class Messages {
 	}
 
 	static async showWhatsNewMessage(version: string) {
-		const whatsnew = { title: "What's New" };
+		const whatsnew = { title: "See What's New" };
 		const result = await Messages.showMessage(
 			'info',
-			`GitLens has been updated to v${version} — check out what's new!`,
+			`GitLens ${version} is here — check out what's new!`,
 			undefined,
 			null,
 			whatsnew,
 		);
 
 		if (result === whatsnew) {
-			await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
+			void (await executeCommand(Commands.ShowWelcomePage));
 		}
 	}
 
