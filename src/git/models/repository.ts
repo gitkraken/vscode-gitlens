@@ -892,7 +892,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async switch(ref: string, options: { createBranch?: string | undefined; progress?: boolean } = {}) {
+	async switch(ref: string, options: { createBranch?: string | undefined; progress?: boolean; track?: boolean } = {}) {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -906,7 +906,7 @@ export class Repository implements Disposable {
 		));
 	}
 
-	private async switchCore(ref: string, options: { createBranch?: string } = {}) {
+	private async switchCore(ref: string, options: { createBranch?: string; track?: boolean } = {}) {
 		try {
 			void (await this.container.git.checkout(this.path, ref, options));
 

@@ -387,11 +387,15 @@ export class Git {
 	checkout(
 		repoPath: string,
 		ref: string,
-		{ createBranch, fileName }: { createBranch?: string; fileName?: string } = {},
+		{ createBranch, track, fileName }: { createBranch?: string; track?: boolean; fileName?: string } = {},
 	) {
 		const params = ['checkout'];
 		if (createBranch) {
-			params.push('-b', createBranch, ref, '--');
+			params.push('-b', createBranch);
+			if (!track) {
+				params.push('--no-track');
+			}
+			params.push(ref, '--');
 		} else {
 			params.push(ref, '--');
 

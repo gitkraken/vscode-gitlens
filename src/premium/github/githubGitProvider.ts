@@ -370,7 +370,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async checkout(
 		_repoPath: string,
 		_ref: string,
-		_options?: { createBranch?: string } | { fileName?: string },
+		_options?: { createBranch?: string; track?: boolean } | { fileName?: string },
 	): Promise<void> {}
 
 	@log()
