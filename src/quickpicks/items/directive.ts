@@ -47,19 +47,20 @@ export namespace DirectiveQuickPickItem {
 					break;
 				case Directive.StartPreviewTrial:
 					label = 'Try Premium Features Now';
-					detail = 'Try premium features for free, without an account, for 3 days';
+					detail = 'Try premium features now, without an account, for 3 days';
 					break;
 				case Directive.RequiresVerification:
 					label = 'Resend Verification Email';
 					detail = 'You must verify your account email address before you can continue';
 					break;
 				case Directive.RequiresFreeSubscription:
-					label = 'Create a Free Account';
-					detail = 'To unlock premium features';
+					label = 'Sign In';
+					detail =
+						'To use premium features for public repos and get a free 7-day trial for both public and private repos';
 					break;
 				case Directive.RequiresPaidSubscription:
-					label = 'Upgrade Your Account';
-					detail = 'To unlock premium features for private repos';
+					label = 'Purchase a Plan';
+					detail = 'To use premium features for both public and private repos';
 					break;
 			}
 		}

@@ -190,11 +190,22 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PremiumFeatures.Timeline);
-
+		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
 		const period = current.period ?? defaultPeriod;
 
-		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		if (current.uri == null || !access.allowed) {
+		if (!access.allowed) {
+			const dataset = generateRandomTimelineDataset();
+			return {
+				dataset: dataset.sort((a, b) => b.sort - a.sort),
+				period: period,
+				title: 'src/app/index.ts',
+				uri: Uri.file('src/app/index.ts').toString(),
+				dateFormat: dateFormat,
+				access: access,
+			};
+		}
+
+		if (current.uri == null) {
 			return {
 				period: period,
 				title: 'There are no editors open that can provide file history information',
@@ -381,4 +392,28 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			}
 		});
 	}
+}
+
+export function generateRandomTimelineDataset(): Commit[] {
+	const dataset: Commit[] = [];
+	const authors = ['Eric Amodio', 'Justin Roberts', 'Ada Lovelace', 'Grace Hopper'];
+
+	const count = 10;
+	for (let i = 0; i < count; i++) {
+		// Generate a random date between now and 3 months ago
+		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+
+		dataset.push({
+			commit: String(i),
+			author: authors[Math.floor(Math.random() * authors.length)],
+			date: date.toISOString(),
+			message: '',
+			// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit
+			additions: i === 0 ? 2 : i === count - 1 ? 50 : Math.floor(Math.random() * 20) + 1,
+			deletions: i === 0 ? 1 : i === count - 1 ? 25 : Math.floor(Math.random() * 20) + 1,
+			sort: date.getTime(),
+		});
+	}
+
+	return dataset;
 }

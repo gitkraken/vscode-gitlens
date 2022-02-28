@@ -24,6 +24,7 @@ import {
 	State,
 	UpdatePeriodCommandType,
 } from './protocol';
+import { generateRandomTimelineDataset } from './timelineWebviewView';
 
 interface Context {
 	uri: Uri | undefined;
@@ -196,11 +197,22 @@ export class TimelineWebview extends WebviewBase<State> {
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PremiumFeatures.Timeline);
-
+		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
 		const period = current.period ?? defaultPeriod;
 
-		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		if (current.uri == null || !access.allowed) {
+		if (!access.allowed) {
+			const dataset = generateRandomTimelineDataset();
+			return {
+				dataset: dataset.sort((a, b) => b.sort - a.sort),
+				period: period,
+				title: 'src/app/index.ts',
+				uri: Uri.file('src/app/index.ts').toString(),
+				dateFormat: dateFormat,
+				access: access,
+			};
+		}
+
+		if (current.uri == null) {
 			return {
 				period: period,
 				title: 'There are no editors open that can provide file history information',

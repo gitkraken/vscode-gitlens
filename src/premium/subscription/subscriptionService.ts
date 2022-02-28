@@ -9,6 +9,7 @@ import {
 	Event,
 	EventEmitter,
 	MarkdownString,
+	MessageItem,
 	StatusBarAlignment,
 	StatusBarItem,
 	ThemeColor,
@@ -159,12 +160,11 @@ export class SubscriptionService implements Disposable {
 
 		return [
 			commands.registerCommand(Commands.PremiumLearn, openToSide => this.learn(openToSide)),
-			commands.registerCommand(Commands.PremiumLogin, () => this.loginOrSignUp()),
 			commands.registerCommand(Commands.PremiumLoginOrSignUp, () => this.loginOrSignUp()),
-			commands.registerCommand(Commands.PremiumSignUp, () => this.loginOrSignUp()),
 			commands.registerCommand(Commands.PremiumLogout, () => this.logout()),
 
 			commands.registerCommand(Commands.PremiumStartPreviewTrial, () => this.startPreviewTrial()),
+			commands.registerCommand(Commands.PremiumManage, () => this.manage()),
 			commands.registerCommand(Commands.PremiumPurchase, () => this.purchase()),
 
 			commands.registerCommand(Commands.PremiumResendVerification, () => this.resendVerification()),
@@ -198,12 +198,12 @@ export class SubscriptionService implements Disposable {
 		if (loggedIn) {
 			const {
 				account,
-				plan: { actual, effective },
+				plan: { actual },
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm = { title: 'Resend Verification' };
-				const cancel = { title: 'Cancel' };
+				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
+				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
 					`Before you can access your ${actual.name} account, you must verify your email address.`,
 					confirm,
@@ -215,15 +215,24 @@ export class SubscriptionService implements Disposable {
 				}
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
-				void window.showInformationMessage(
-					`You are now signed in to your ${actual.name} account. There are ${pluralize(
-						'day',
+
+				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const learn: MessageItem = { title: 'Learn More' };
+				const result = await window.showInformationMessage(
+					`You are now signed in to your ${
+						actual.name
+					} account which gives you access to premium features for public repos.\n\nYou were also granted a trial of premium features for both public and private repos for ${pluralize(
+						'more day',
 						remaining ?? 0,
-					)} remaining in your ${
-						effective.name
-					} trial which grants you access to premium features for private repos.`,
-					'OK',
+					)}.`,
+					{ modal: true },
+					confirm,
+					learn,
 				);
+
+				if (result === learn) {
+					void this.learn();
+				}
 			} else {
 				void window.showInformationMessage(`You are now signed in to your ${actual.name} account.`, 'OK');
 			}
@@ -252,6 +261,11 @@ export class SubscriptionService implements Disposable {
 			},
 			account: undefined,
 		});
+	}
+
+	@log()
+	manage(): void {
+		void env.openExternal(this.baseAccountUri);
 	}
 
 	@log()
@@ -335,10 +349,11 @@ export class SubscriptionService implements Disposable {
 			void this.showHomeView();
 
 			if (plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm = { title: 'Extend Trial' };
-				const cancel = { title: 'Cancel' };
+				const confirm: MessageItem = { title: 'Sign In', isCloseAffordance: true };
+				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your premium features trial has expired. Please create a free account to extend your trial.',
+					'Your GitLens premium features trial has ended.\nPlease sign in to use premium features on public repos and get a free 7-day trial for both public and private repos.',
+					{ modal: true },
 					confirm,
 					cancel,
 				);
@@ -378,7 +393,18 @@ export class SubscriptionService implements Disposable {
 			previewTrial: previewTrial,
 		});
 
-		void window.showInformationMessage(`You can now try premium GitLens features for ${days} days.`);
+		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+		const learn: MessageItem = { title: 'Learn More' };
+		const result = await window.showInformationMessage(
+			`You have started a ${days} day trial of GitLens premium features for both public and private repos.`,
+			{ modal: true },
+			confirm,
+			learn,
+		);
+
+		if (result === learn) {
+			void this.learn();
+		}
 	}
 
 	@gate()

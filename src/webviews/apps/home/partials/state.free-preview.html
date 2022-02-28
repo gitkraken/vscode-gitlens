@@ -1,26 +1,34 @@
 <template id="state:free-preview">
 	<section>
-		<h3>Trying Premium Features</h3>
+		<h3>Trying GitLens Premium Features</h3>
+		<p>You have <span data-bind="previewDays">3 days</span> left in your premium features trial.</p>
+		<p>Once your trial ends, you'll need a free account to continue using premium features on public repos.</p>
+		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Sign in</vscode-button>
 		<p>
-			You are currently trying premium GitLens features, like
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
-				>Git Worktrees</a
-			>
-			and
+			Or, you can <a href="command:gitlens.premium.purchase">purchase a plan</a> for access to both public and
+			private repos.
+		</p>
+		<h3>Premium Features</h3>
+		<p>
+			Premium features are all-new features that enhance your current GitLens experience and require an account to
+			access. All non-premium features are unrestricted. Learn more about
+			<a href="command:gitlens.premium.learn">premium features</a>.
+		</p>
+		<h4>Visual File History</h4>
+		<img class="image--preview" src="#{root}/images/docs/visual-file-history-hover.png" alt="Visual File History" />
+		<p>
+			The Visual File History allows you to quickly see the evolution of a file, including when changes were made,
+			how large they were, and who made them. Learn more about the
 			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
 				>Visual File History</a
-			>, for <span data-bind="previewDays">3 more days</span>.
+			>.
 		</p>
+		<h4>Worktrees</h4>
+		<img class="image--preview" src="#{root}/images/docs/worktrees-view.png" alt="Worktrees" />
 		<p>
-			After that time, a free account will be required to continue using these premium features for public code,
-			or you can puchase a paid plan to access premium features for private repos.
+			Worktrees allow you to easily work on different branches of a repository simultaneously. Learn more about
+
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22">worktrees</a>.
 		</p>
-		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
-		<span class="button-subaction"
-			>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
-		>
-		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
-		<p>All non-premium features will continue to be free without an account.</p>
 	</section>
 </template>

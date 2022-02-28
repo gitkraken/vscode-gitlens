@@ -68,13 +68,11 @@
 		"onWebviewPanel:gitlens.welcome",
 		"onWebviewPanel:gitlens.settings",
 		"onCommand:gitlens.premium.learn",
-		"onCommand:gitlens.premium.login",
 		"onCommand:gitlens.premium.loginOrSignUp",
-		"onCommand:gitlens.premium.signUp",
 		"onCommand:gitlens.premium.logout",
 		"onCommand:gitlens.premium.startPreviewTrial",
+		"onCommand:gitlens.premium.manage",
 		"onCommand:gitlens.premium.purchase",
-		"onCommand:gitlens.premium.reset",
 		"onCommand:gitlens.getStarted",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
@@ -3613,18 +3611,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.premium.login",
-				"title": "Sign In...",
-				"category": "GitLens Premium"
-			},
-			{
 				"command": "gitlens.premium.loginOrSignUp",
-				"title": "Unlock Premium Features...",
-				"category": "GitLens Premium"
-			},
-			{
-				"command": "gitlens.premium.signUp",
-				"title": "Create a Free Account...",
+				"title": "Sign In (for premium features)...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -3635,6 +3623,11 @@
 			{
 				"command": "gitlens.premium.startPreviewTrial",
 				"title": "Try Premium Features Now",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.manage",
+				"title": "Manage my account...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -5947,15 +5940,7 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "gitlens.premium.login",
-					"when": "!gitlens:premium"
-				},
-				{
 					"command": "gitlens.premium.loginOrSignUp",
-					"when": "!gitlens:premium"
-				},
-				{
-					"command": "gitlens.premium.signUp",
 					"when": "!gitlens:premium"
 				},
 				{
@@ -5967,8 +5952,8 @@
 					"when": "!gitlens:premium"
 				},
 				{
-					"command": "gitlens.premium.purchase",
-					"when": "gitlens:premium:required == paid"
+					"command": "gitlens.premium.manage",
+					"when": "gitlens:premium"
 				},
 				{
 					"command": "gitlens.premium.reset",
@@ -10654,7 +10639,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Worktrees](command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22 \"Learn more about worktrees\") allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
+				"contents": "Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -10663,33 +10648,33 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Please verify your email\n\nTo use the Worktrees premium feature, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)\n\n[Refresh verification status](command:gitlens.premium.validate)",
+				"contents": "Please verify your email\n\nTo use Worktrees, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.premium.resendVerification)\n\n[Refresh verification status](command:gitlens.premium.validate)",
 				"when": "gitlens:premium:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which requires a free account for public repos.",
-				"when": "gitlens:premium:state != -1 && gitlens:premium:required == free+"
-			},
-			{
-				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees are a premium feature, which requires at least a Pro subscription for private repos.",
-				"when": "gitlens:premium:state != -1 && gitlens:premium:required == paid"
-			},
-			{
-				"view": "gitlens.views.worktrees",
-				"contents": "[Learn about premium features](command:gitlens.premium.learn)\n\n[Try premium features now](command:gitlens.premium.startPreviewTrial)\n\n[Create a free account](command:gitlens.premium.loginOrSignUp)\n\nHave an existing account? [Sign in](command:gitlens.premium.loginOrSignUp)\n\n[View paid plans](command:gitlens.premium.showPlans)",
+				"contents": "Try worktrees now, without an account, for 3 days on public and private repos, or [sign in](command:gitlens.premium.loginOrSignUp) to use worktrees on public repos.\n\n[Try worktrees now](command:gitlens.premium.startPreviewTrial)\n\n✨ Worktrees are a premium feature, open the [premium features walkthrough](command:gitlens.premium.learn) to learn more.",
 				"when": "gitlens:premium:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Create a free account to continue trialing premium features for all repos for an additional 7 days.\n\n[Learn about premium features](command:gitlens.premium.learn)\n\n[Create a free account](command:gitlens.premium.loginOrSignUp)\n\nHave an existing account? [Sign in](command:gitlens.premium.loginOrSignUp)\n\n[Purchase a plan](command:gitlens.premium.purchase)",
+				"contents": "Sign in to use worktrees and other premium features on public repos and get a free 7-day trial for both public and private repos.\n\n[Sign in](command:gitlens.premium.loginOrSignUp)",
 				"when": "gitlens:premium:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Learn about premium features](command:gitlens.premium.learn)\n\n[Purchase a plan](command:gitlens.premium.purchase)",
+				"contents": "[Purchase a plan](command:gitlens.premium.purchase)",
 				"when": "gitlens:premium:state == 4"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "✨ Worktrees are a premium feature, which requires a free account for public repos. Learn more about [premium features](command:gitlens.premium.learn), or [purchase a plan](command:gitlens.premium.purchase).",
+				"when": "gitlens:premium:state > 0 && gitlens:premium:required == free+"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "✨ Worktrees are a premium feature, which requires at least a Pro subscription for private repos. Learn more about [premium features](command:gitlens.premium.learn), or [purchase a plan](command:gitlens.premium.purchase).",
+				"when": "gitlens:premium:state > 0 && gitlens:premium:required == paid"
 			}
 		],
 		"views": {
@@ -10862,8 +10847,8 @@
 					},
 					{
 						"id": "gitlens.welcome.gitSideBarViews",
-						"title": "View more source control details in the side bar",
-						"description": "Additional views expose even more Git functionality in your side bar.\n\n[Set Views Layout](command:gitlens.setViewsLayout)",
+						"title": "Explore repositories from the side bar",
+						"description": "Rich views expose even more Git functionality in your side bar.\n\n[Set Views Layout](command:gitlens.setViewsLayout)",
 						"media": {
 							"markdown": "walkthroughs/getting-started/7-git-side-bar-views.md"
 						}
@@ -10902,8 +10887,8 @@
 					},
 					{
 						"id": "gitlens.welcome.premium",
-						"title": "Premium GitLens Features",
-						"description": "New premium features like Worktrees and Visual File History are now available in GitLens.\n\n[Learn About Premium Features](command:gitlens.premium.learn?false \"Opens the GitLens Premium Features Walkthrough\")",
+						"title": "✨ Premium features",
+						"description": "New premium features like Visual File History and Worktrees are now available in GitLens.\n\n[Learn about Premium Features](command:gitlens.premium.learn?false \"Opens the GitLens Premium Features walkthrough\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/12-premium-features.md"
 						}
@@ -10913,30 +10898,48 @@
 			{
 				"id": "gitlens.premium",
 				"title": "GitLens Premium Features",
-				"description": "Get even more out of Git in VS Code!",
+				"description": "Get even more out of GitLens in VS Code!",
 				"steps": [
 					{
-						"id": "gitlens.premium.intro",
-						"title": "Introducing GitLens premium features",
-						"description": "",
+						"id": "gitlens.premium.intro.tryNow",
+						"title": "Introducing premium features",
+						"description": "Try premium features now, without an account, for 3 days.\n\n[Try premium features now](command:gitlens.premium.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/premium-features/1-intro.md"
+						},
+						"when": "gitlens:premium:state == 0"
+					},
+					{
+						"id": "gitlens.premium.intro.signIn",
+						"title": "Introducing premium features",
+						"description": "Sign in for an additional 7 day trial of premium features.\n\n[Sign in](command:gitlens.premium.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/premium-features/1-intro.md"
+						},
+						"when": "gitlens:premium:state == 1 || gitlens:premium:state == 2"
+					},
+					{
+						"id": "gitlens.premium.intro",
+						"title": "Introducing premium features",
+						"media": {
+							"markdown": "walkthroughs/premium-features/1-intro.md"
+						},
+						"when": "gitlens:premium:state > 2"
+					},
+					{
+						"id": "gitlens.premium.visualFileHistory",
+						"title": "Visualize file history",
+						"description": "A more visual way to analyze and explore changes made to a file.\n\n[Open Visual File History view](command:gitlens.showTimelineView)",
+						"media": {
+							"markdown": "walkthroughs/premium-features/3-visual-file-history.md"
 						}
 					},
 					{
 						"id": "gitlens.premium.worktrees",
 						"title": "Do more with Worktrees",
-						"description": "Create Worktrees that allow multiple branches to be checked-out at once on the same repository.\n\n[Open Worktrees View](command:gitlens.showWorktreesView)",
+						"description": "Create worktrees to allow multiple branches to be checked-out at once on the same repository.\n\n[Open Worktrees view](command:gitlens.showWorktreesView)",
 						"media": {
 							"markdown": "walkthroughs/premium-features/2-worktrees.md"
-						}
-					},
-					{
-						"id": "gitlens.premium.visualFileHistory",
-						"title": "Visualize file history",
-						"description": "A more visual way to analyze and explore changes made to a file.\n\n[Open Visual File History](command:gitlens.showTimelineView)",
-						"media": {
-							"markdown": "walkthroughs/premium-features/3-visual-file-history.md"
 						}
 					},
 					{
@@ -10950,10 +10953,20 @@
 					{
 						"id": "gitlens.premium.tryNow",
 						"title": "Try premium features now",
-						"description": "Try premium features now, without an account, for 3 days.\n\n[Try Premium GitLens Features](command:gitlens.premium.startPreviewTrial)",
+						"description": "Try premium features now, without an account, for 3 days.\n\n[Try premium features now](command:gitlens.premium.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/premium-features/5-try-now.md"
-						}
+						},
+						"when": "gitlens:premium:state == 0"
+					},
+					{
+						"id": "gitlens.premium.signIn",
+						"title": "Extend your premium features trial",
+						"description": "Sign in for an additional 7 day trial of premium features.\n\n[Sign in](command:gitlens.premium.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/premium-features/5-try-now.md"
+						},
+						"when": "gitlens:premium:state == 1 || gitlens:premium:state == 2"
 					}
 				]
 			}

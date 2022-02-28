@@ -90,7 +90,7 @@ export class HomeApp extends App<State> {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				DOM.insertTemplate('state:free-preview', this.$slot1, {
 					bindings: {
-						previewDays: `${remaining === 1 ? `${remaining} more day` : `${remaining} more days`}`,
+						previewDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
 					},
 				});
 				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
