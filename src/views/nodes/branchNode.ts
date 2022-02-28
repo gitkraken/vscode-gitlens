@@ -388,7 +388,7 @@ export class BranchNode
 				if (this.branch.state.ahead || this.branch.state.behind) {
 					if (this.branch.state.ahead) {
 						contextValue += '+ahead';
-						color = new ThemeColor(Colors.UnpushlishedChangesIconColor);
+						color = new ThemeColor(Colors.UnpublishedChangesIconColor);
 						iconSuffix = '-green';
 					}
 					if (this.branch.state.behind) {

@@ -2308,7 +2308,7 @@
 									"properties": {
 										"repository": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a respository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
+											"markdownDescription": "Specifies the format of a repository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
 										},
 										"branches": {
 											"type": "string",
@@ -3451,7 +3451,7 @@
 				}
 			},
 			{
-				"id": "gitlens.unpushlishedChangesIconColor",
+				"id": "gitlens.unpublishedChangesIconColor",
 				"description": "Specifies the icon color of unpublished changes in the GitLens views",
 				"defaults": {
 					"dark": "#35b15e",

@@ -39,7 +39,7 @@ export const enum Colors {
 	OpenAutolinkedIssueIconColor = 'gitlens.openAutolinkedIssueIconColor',
 	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
 	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
-	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
+	UnpublishedChangesIconColor = 'gitlens.unpublishedChangesIconColor',
 	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
