@@ -1,30 +1,33 @@
 <template id="state:free">
 	<section>
-		<h3>Try GitLens Premium Features</h3>
+		<h3>Introducing Premium Features</h3>
 		<p>
-			Premium features like
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
-				>Git Worktrees</a
-			>
-			and
+			Premium features are all-new features that enhance your current GitLens experience and require an account to
+			access. All non-premium features are unrestricted.
+		</p>
+		<vscode-button data-action="command:gitlens.premium.startPreviewTrial">Try premium features now</vscode-button>
+		<p>
+			Try premium features now, without an account, for 3 days on public and private repos, or
+			<a href="command:gitlens.premium.loginOrSignUp">sign in</a> to use premium features on public repos. Learn
+			more about <a href="command:gitlens.premium.learn">premium features</a>.
+		</p>
+		<h4>Visual File History</h4>
+		<img class="image--preview" src="#{root}/images/docs/visual-file-history-hover.png" alt="Visual File History" />
+		<p>
+			The Visual File History allows you to quickly see the evolution of a file, including when changes were made,
+			how large they were, and who made them. Learn more about the
 			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
 				>Visual File History</a
-			>
-			are available with a free account, with many more features coming soon, including a commit graph and GitHub
-			Enterprise integration. Access to premium features for private repos is available with a paid account.
+			>.
 		</p>
+		<h4>Worktrees</h4>
+		<img class="image--preview" src="#{root}/images/docs/worktrees-view.png" alt="Worktrees" />
 		<p>
-			You can try these premium features for free, without an account, for 3 days. All non-premium features will
-			continue to be free without an account.
+			Worktrees allow you to easily work on different branches of a repository simultaneously. Learn more about
+
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22""
+				>worktrees</a
+			>.
 		</p>
-		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.startPreviewTrial">Try premium features now</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
-		<span class="button-subaction"
-			>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
-		>
-		<vscode-button data-action="command:gitlens.premium.showPlans" appearance="secondary"
-			>View paid plans</vscode-button
-		>
 	</section>
 </template>

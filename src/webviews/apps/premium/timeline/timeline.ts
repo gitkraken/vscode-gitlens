@@ -120,10 +120,10 @@ export class TimelineApp extends App<State> {
 					break;
 			}
 
-			return;
+			if (this.state.dataset == null) return;
+		} else {
+			$slot.innerHTML = '';
 		}
-
-		$slot.innerHTML = '';
 
 		if (this._chart == null) {
 			this._chart = new TimelineChart('#chart');

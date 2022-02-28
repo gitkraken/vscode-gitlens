@@ -1,23 +1,33 @@
 <template id="state:plus-trial">
 	<section>
 		<h3>Premium Feature Trial</h3>
+		<p>You have <span data-bind="trialDays">3 days</span> left in your premium features trial.</p>
 		<p>
-			You are currently trialing premium GitLens features like
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
-				>Git Worktrees</a
-			>
-			and
+			Once your trial ends, you can continue using premium features on public repos, or purchase a plan for access
+			to both public and private repos.
+		</p>
+		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+		<h3>Premium Features</h3>
+		<p>
+			Premium features are all-new features that enhance your current GitLens experience and require an account to
+			access. All non-premium features are unrestricted. Learn more about
+			<a href="command:gitlens.premium.learn">premium features</a>.
+		</p>
+		<h4>Visual File History</h4>
+		<img class="image--preview" src="#{root}/images/docs/visual-file-history-hover.png" alt="Visual File History" />
+		<p>
+			The Visual File History allows you to quickly see the evolution of a file, including when changes were made,
+			how large they were, and who made them. Learn more about the
 			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
 				>Visual File History</a
-			>
-			for both public and private repos. In <span data-bind="trialDays">7 days</span>, accessing these premium
-			features for private repos will require a paid account.
+			>.
 		</p>
-		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
+		<h4>Worktrees</h4>
+		<img class="image--preview" src="#{root}/images/docs/worktrees-view.png" alt="Worktrees" />
 		<p>
-			With your free account, you will continue to have access to premium features for public repos, as well as
-			all non-premium features.
+			Worktrees allow you to easily work on different branches of a repository simultaneously. Learn more about
+
+			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22">worktrees</a>.
 		</p>
 	</section>
 </template>

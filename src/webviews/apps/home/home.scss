@@ -45,7 +45,7 @@ h3 {
 h4 {
 	font-size: 1.5rem;
 	font-weight: 400;
-	margin: 0.5rem 0 1rem 0;
+	margin: 1rem 0;
 }
 
 a {
@@ -68,15 +68,21 @@ p {
 	margin-bottom: 0;
 }
 
+.image--preview {
+	border-radius: 8px;
+	box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
+	margin: 1rem 2rem 1rem 1rem;
+}
+
 .welcome {
 	ul {
 		list-style: none;
 		padding: 0;
-		margin: 1rem 3rem;
+		margin: 0 3rem;
 	}
 
 	li {
-		margin: 1rem 0;
+		margin: 0 0 1rem 0;
 	}
 }
 
@@ -86,6 +92,10 @@ p {
 	grid-gap: 2rem;
 	justify-content: space-between;
 	margin: 1rem;
+
+	h4 {
+		margin: 0.5rem 0 1rem 0;
+	}
 
 	ul {
 		list-style: none;

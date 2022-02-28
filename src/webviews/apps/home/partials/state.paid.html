@@ -1,19 +1,14 @@
 <template id="state:paid">
 	<section>
 		<h3 data-bind="plan">GitLens Pro</h3>
+		<p>Thank you for purchasing <span data-bind="plan">GitLens Pro</span>!</p>
 		<p>
-			Thank you for purchasing <span data-bind="plan">GitLens Pro</span>! With a
-			<span data-bind="plan">GitLens Pro</span> account, you can access premium features like
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
-				>Git Worktrees</a
-			>
-			and
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
-				>Visual File History</a
-			>
-			for all of your code.
+			Your <span data-bind="plan">GitLens Pro</span> account gives you access to premium features for both public
+			and private repos.
 		</p>
-		<p>Additional premium featues like a commit graph and GitHub Enterprise integration are coming soon.</p>
 		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
+		<p>
+			<a href="command:gitlens.premium.manage">Manage my account</a>
+		</p>
 	</section>
 </template>

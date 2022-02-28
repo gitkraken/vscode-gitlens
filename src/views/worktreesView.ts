@@ -7,6 +7,7 @@ import {
 	ThemeColor,
 	TreeItem,
 	TreeItemCollapsibleState,
+	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
@@ -14,7 +15,9 @@ import { Container } from '../container';
 import { PremiumFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
+import { pluralize } from '../system/string';
 import {
 	RepositoriesSubscribeableNode,
 	RepositoryFolderNode,
@@ -122,6 +125,45 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 	override get canReveal(): boolean {
 		return this.config.reveal || !configuration.get('views.repositories.showWorktrees');
+	}
+
+	private _visibleDisposable: Disposable | undefined;
+	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
+		if (e.visible) {
+			void this.updateDescription();
+			this._visibleDisposable?.dispose();
+			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
+		} else {
+			this._visibleDisposable?.dispose();
+			this._visibleDisposable = undefined;
+		}
+
+		super.onVisibilityChanged(e);
+	}
+
+	private async updateDescription() {
+		const subscription = await this.container.subscription.getSubscription();
+
+		switch (subscription.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreePreviewExpired:
+			case SubscriptionState.VerificationRequired:
+				this.description = '✨ premium feature';
+				break;
+			case SubscriptionState.FreeInPreview: {
+				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
+				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on public and private repos`;
+				break;
+			}
+			case SubscriptionState.FreePlusInTrial: {
+				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
+				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on private repos`;
+				break;
+			}
+			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.Paid:
+				this.description = undefined;
+		}
 	}
 
 	protected getRoot() {

@@ -1,18 +1,19 @@
 <template id="state:free-preview-expired">
 	<section>
-		<!-- <h3>Continue using Premium Features</h3> -->
+		<p>
+			Sign in to use the Visual File History and other premium features on public repos and get an
+			<b>additional 7-day free trial</b> for both public and private repos.
+		</p>
+		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Sign in</vscode-button>
 		<p data-visible="public">
-			The Visual File History is a premium feature, which requires a free account for public repos.
+			✨ The Visual File History is premium feature, which requires a free account for public repos. Learn more
+			about <a href="command:gitlens.premium.learn">premium features</a>, or
+			<a href="command:gitlens.premium.purchase">purchase a plan</a>.
 		</p>
 		<p data-visible="private">
-			The Visual File History is a premium feature, which requires at least a Pro subscription for private repos.
+			✨ The Visual File History is a premium feature, which requires at least a Pro subscription for private
+			repos. Learn more about <a href="command:gitlens.premium.learn">premium features</a>, or
+			<a href="command:gitlens.premium.purchase">purchase a plan</a>.
 		</p>
-		<p>Create a free account to continue trialing premium features for all repos for an additional 7 days.</p>
-		<vscode-button data-action="command:gitlens.premium.learn">Learn about premium features</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Create a free account</vscode-button>
-		<span class="button-subaction"
-			>Have an existing account? <a href="command:gitlens.premium.loginOrSignUp">Sign in</a></span
-		>
-		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
 	</section>
 </template>
