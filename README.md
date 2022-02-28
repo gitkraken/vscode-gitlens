@@ -6,7 +6,7 @@
 
 <p align="center">
   <br />
-  <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
+  <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** Git inside VS Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and CodeLens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via rich visualizations and powerful comparison commands, and so much more.
@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
+  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
   <br/>
   or read the <a href="https://gitlens.amod.io/#whats-new">release notes</a>
 </p>
@@ -74,7 +74,7 @@ Access to premium features requires a free account for public repos and a paid a
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/visual-file-history-hover.png" alt="Visual File History view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-hover.png" alt="Visual File History view" />
 </p>
 
 The Visual File History view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
@@ -86,7 +86,7 @@ Additionally, each commit's additions and deletions are visualized as color-code
 ## Worktrees view [#](#worktrees-view- 'Worktrees view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/worktrees-view.png" alt="Worktrees view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-view.png" alt="Worktrees view" />
 </p>
 
 Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.
@@ -96,7 +96,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Revision Navigation [#](#revision-navigation- 'Revision Navigation')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/revision-navigation.gif" alt="Revision Navigation" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/revision-navigation.gif" alt="Revision Navigation" />
 </p>
 
 - Adds an _Open Changes with Previous Revision_ command (`gitlens.diffWithPrevious`) to compare the current file or revision with the previous commit revision
@@ -110,7 +110,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Current Line Blame [#](#current-line-blame- 'Current Line Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/current-line-blame.png" alt="Current Line Blame" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/current-line-blame.png" alt="Current Line Blame" />
 </p>
 
 - Adds an unobtrusive, [customizable](#current-line-blame-settings- 'Jump to the Current Line Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
@@ -120,7 +120,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Git CodeLens [#](#git-codelens- 'Git CodeLens')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/code-lens.png" alt="Git CodeLens" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/code-lens.png" alt="Git CodeLens" />
 </p>
 
 - Adds Git authorship **CodeLens** to the top of the file and on code blocks ([optional](#git-codelens-settings- 'Jump to the Git CodeLens settings'), on by default)
@@ -145,7 +145,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Status Bar Blame [#](#status-bar-blame- 'Status Bar Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/status-bar.png" alt="Status Bar Blame" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/status-bar.png" alt="Status Bar Blame" />
 </p>
 
 - Adds a [customizable](#status-bar-settings- 'Jump to the Status Bar Blame settings') **Git blame annotation** showing the commit and author who last modified the current line to the **status bar** ([optional](#status-bar-settings- 'Jump to the Status Bar Blame settings'), on by default)
@@ -168,7 +168,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ### Current Line Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible over the current line
@@ -176,7 +176,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 #### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
+    <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -187,7 +187,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 #### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -197,7 +197,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ### Annotation Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible when annotating
@@ -205,7 +205,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
+    <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -216,7 +216,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -226,7 +226,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Gutter Blame [#](#gutter-blame- 'Gutter Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-blame.png" alt="Gutter Blame">
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-blame.png" alt="Gutter Blame">
 </p>
 
 - Adds on-demand, [customizable](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter blame annotations** to show the commit and author who last modified each line of a file
@@ -239,7 +239,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Gutter Changes [#](#gutter-changes- 'Gutter Changes')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-changes.png" alt="Gutter Changes" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-changes.png" alt="Gutter Changes" />
 </p>
 
 - Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
@@ -249,7 +249,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 ## Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-heatmap.png" alt="Gutter Heatmap" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-heatmap.png" alt="Gutter Heatmap" />
 </p>
 
 - Adds an on-demand **heatmap** to the edge of the gutter to show how recently lines were changed
@@ -273,7 +273,7 @@ GitLens adds many side bar views to provide additional rich functionality. The d
 ### Commits view [#](#commits-view- 'Commits view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view.png" alt="Commits view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view.png" alt="Commits view" />
 </p>
 
 A [customizable](#commits-view-settings- 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits
@@ -294,9 +294,9 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
   - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
-    ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-merge.png)
+    ![Merging](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view-merge.png)
   - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
-    ![Rebasing](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-rebase.png)
+    ![Rebasing](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view-rebase.png)
 - any associated pull request &mdash; shows any opened or merged pull request associated with the current branch
 
 ---
@@ -304,7 +304,7 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 ### Repositories view [#](#repositories-view- 'Repositories view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
 A hidden by default, [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories
@@ -345,7 +345,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### File History view [#](#file-history-view- 'File History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view.png" alt="File History view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png" alt="File History view" />
 </p>
 
 A [customizable](#file-history-view-settings- 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
@@ -359,14 +359,14 @@ The file history view lists all of the commits that changed the current file on 
 - (file history only) a toggle to show commits from all branches rather than just from the current base branch or reference
 - merge conflict status when applicable
   - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
-    ![Merge Conflicts](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view-merge-conflict.png)
+    ![Merge Conflicts](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view-merge-conflict.png)
 
 ---
 
 ### Line History view [#](#line-history-view- 'Line History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/line-history-view.png" alt="Line History view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/line-history-view.png" alt="Line History view" />
 </p>
 
 A hidden by default, [customizable](#line-history-view-settings- 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file
@@ -383,7 +383,7 @@ The line history view lists all of the commits that changed the selected lines o
 ### Branches view [#](#branches-view- 'Branches view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/branches-view.png" alt="Branches view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/branches-view.png" alt="Branches view" />
 </p>
 
 A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches
@@ -421,7 +421,7 @@ The _Branches_ view lists all of the local branches, and additionally provides,
 ### Remotes view [#](#remotes-view- 'Remotes view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/remotes-view.png" alt="Remotes view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/remotes-view.png" alt="Remotes view" />
 </p>
 
 A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches
@@ -437,7 +437,7 @@ The _Remotes_ view lists all of the remotes and their remote branches, and addit
 ### Stashes view [#](#stashes-view- 'Stashes view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/stashes-view.png" alt="Stashes view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/stashes-view.png" alt="Stashes view" />
 </p>
 
 A [customizable](#stashes-view-settings- 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes
@@ -451,7 +451,7 @@ The _Stashes_ view lists all of the stashes, and additionally provides,
 ### Tags view [#](#tags-view- 'Tags view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/tags-view.png" alt="Tags view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/tags-view.png" alt="Tags view" />
 </p>
 
 A [customizable](#tags-view-settings- 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags
@@ -466,7 +466,7 @@ The _Tags_ view lists all of the tags, and additionally provides,
 ### Contributors view [#](#contributors-view- 'Contributors view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
 </p>
 
 A hidden by default, [customizable](#contributors-view-settings- 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors
@@ -480,7 +480,7 @@ The _Contributors_ view lists all of the contributors, and additionally provides
 ### Search & Compare view [#](#search--compare-view- 'Search & Compare view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
 A hidden by default, [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
@@ -515,7 +515,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 ## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/git-command-palette.png" alt="Git Command Palette" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/git-command-palette.png" alt="Git Command Palette" />
 </p>
 
 - Adds a [customizable](#git-command-palette-settings- 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands, as well as quick access to commit history and search, stashes, and more
@@ -528,13 +528,13 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 - Adds a _Show Current Branch History_ command (`gitlens.showQuickRepoHistory`) to show a quick pick menu to explore the commit history of the current branch
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-branch-history.png" alt="Branch History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-branch-history.png" alt="Branch History Quick Pick Menu" />
 </p>
 
 - Adds a _Show File History_ command (`gitlens.showQuickFileHistory`) to show quick pick menu to explore the commit history of the current file
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-file-history.png" alt="File History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-file-history.png" alt="File History Quick Pick Menu" />
 </p>
 
 - Adds a _Search Commits_ command (`gitlens.showCommitSearch`) to show quick pick menu to search for commits
@@ -545,19 +545,19 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   - or, by changes &mdash; use `~<pattern>` to find commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt--Gltregexgt 'Open Git docs')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-commit-search.png" alt="Commit Search Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-commit-search.png" alt="Commit Search Quick Pick Menu" />
 </p>
 
 - Adds a _Show Commit_ command (`gitlens.showQuickCommitDetails`) to show a quick pick menu to explore a commit and take action upon it
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
 </p>
 
 - Adds a _Show Line Commit_ command (`gitlens.showQuickCommitFileDetails`) to show a quick pick menu to explore a file of a commit and take action upon it
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
 </p>
 
 ### Quick Stash Access [#](#quick-stash-access- 'Quick Stash Access')
@@ -565,10 +565,10 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 - Adds a _Show Stashes_ command (`gitlens.showQuickStashList`) to show a quick pick menu to explore your stashes
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-stash-list.png" alt="Stashes Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-stash-list.png" alt="Stashes Quick Pick Menu" />
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
 </p>
 
 ### Quick Status Access [#](#quick-status-access- 'Quick Status Access')
@@ -576,13 +576,13 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 - Adds a _Show Repository Status_ command (`gitlens.showQuickRepoStatus`) to show a quick pick menu to for visualizing the current repository status
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
 </p>
 
 ## Interactive Rebase Editor [#](#interactive-rebase-editor- 'Interactive Rebase Editor')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/rebase.gif" alt="Interactive Rebase Editor" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/rebase.gif" alt="Interactive Rebase Editor" />
 </p>
 
 - Adds a user-friendly interactive rebase editor to more easily configure an interactive rebase session
@@ -600,7 +600,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 ## Terminal Links [#](#terminal-links- 'Terminal Links')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/terminal-links.gif" alt="Terminal Links" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/terminal-links.gif" alt="Terminal Links" />
 </p>
 
 - [Optionally](##terminal-links-settings- 'Jump to the Terminal Links settings') adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
@@ -666,7 +666,7 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 ## Menus & Toolbars [#](#menus--toolbars- 'Menus & Toolbars')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menus.png" alt="Menus &amp; Toolbars" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menus.png" alt="Menus &amp; Toolbars" />
 </p>
 
 GitLens provides [customizable](#menu--toolbar-settings-) menu and toolbar contributions to put you in control over where GitLens' commands are shown. The easiest way to configure these settings is via the GitLens [**interactive settings editor**](#configuration- 'Jump to Configuration').
@@ -674,7 +674,7 @@ GitLens provides [customizable](#menu--toolbar-settings-) menu and toolbar contr
 For example, if you uncheck the _Add to the editor group toolbar_ you will see the following items removed from the toolbar:
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menus-example.png" alt="Editor Group Toolbar example" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menus-example.png" alt="Editor Group Toolbar example" />
 </p>
 
 You can also expand each group to control each area more granularly.
@@ -693,7 +693,7 @@ GitLens supports [user-defined](#modes-settings- 'Jump to the Modes settings') m
 # Configuration [#](#configuration- 'Configuration')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/settings.png" alt="GitLens Interactive Settings" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/settings.png" alt="GitLens Interactive Settings" />
 </p>
 
 GitLens provides a rich **interactive settings editor**, an easy-to-use interface, to configure many of GitLens' powerful features. It can be accessed via the _GitLens: Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
@@ -710,7 +710,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.currentLine.dateFormat`           | Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats                                                                                                      |
 | `gitlens.currentLine.enabled`              | Specifies whether to provide a blame annotation for the current line, by default. Use the _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window                                                                                       |
-| `gitlens.currentLine.format`               | Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.currentLine.dateFormat` setting                                             |
+| `gitlens.currentLine.format`               | Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.currentLine.dateFormat` setting                                           |
 | `gitlens.currentLine.pullRequests.enabled` | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)                                                                                                     |
 | `gitlens.currentLine.scrollable`           | Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `gitlens.hovers.currentLine.over` to `line` to enable the hovers to show anywhere over the line. |
 
@@ -735,10 +735,10 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.statusBar.command`              | Specifies the command to be executed when the blame status bar item is clicked<br /><br />`gitlens.toggleFileBlame` - toggles file blame annotations<br />`gitlens.toggleFileHeatmap` - toggles file heatmap<br />`gitlens.toggleFileChanges` - toggles file changes since before the commit<br />`gitlens.toggleFileChangesOnly` - toggles file changes from the commit<br />`gitlens.diffWithPrevious` - opens changes with the previous revision<br />`gitlens.revealCommitInView` - reveals the commit in the Side Bar<br />`gitlens.showCommitsInView` - searches for commits within the range<br />`gitlens.showQuickCommitDetails` - shows details of the commit<br />`gitlens.showQuickCommitFileDetails` - show file details of the commit<br />`gitlens.showQuickFileHistory` - shows the current file history<br />`gitlens.showQuickRepoHistory` - shows the current branch history<br />`gitlens.openCommitOnRemote` - opens the commit on the remote service (when available)<br />`gitlens.copyRemoteCommitUrl` - copies the remote commit url to the clipboard (when available)<br />`gitlens.openFileOnRemote` - opens the file revision on the remote service (when available)<br />`gitlens.copyRemoteFileUrl` - copies the remote file url to the clipboard (when available) |
 | `gitlens.statusBar.dateFormat`           | Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `gitlens.statusBar.enabled`              | Specifies whether to provide blame information in the status bar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `gitlens.statusBar.format`               | Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.statusBar.dateFormat` setting                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `gitlens.statusBar.format`               | Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.statusBar.dateFormat` setting                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `gitlens.statusBar.pullRequests.enabled` | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the status bar. Requires a connection to a supported remote service (e.g. GitHub)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `gitlens.statusBar.reduceFlicker`        | Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar "flashing"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `gitlens.statusBar.tooltipFormat`        | Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `gitlens.statusBar.tooltipFormat`        | Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ## Hover Settings [#](#hover-settings- 'Hover Settings')
 
@@ -755,7 +755,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.hovers.currentLine.details`   | Specifies whether to provide a _commit details_ hover for the current line                                                                                                                                               |
 | `gitlens.hovers.currentLine.enabled`   | Specifies whether to provide any hovers for the current line                                                                                                                                                             |
 | `gitlens.hovers.currentLine.over`      | Specifies when to trigger hovers for the current line<br /><br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line                               |
-| `gitlens.hovers.detailsMarkdownFormat` | Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                              |
+| `gitlens.hovers.detailsMarkdownFormat` | Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                            |
 | `gitlens.hovers.enabled`               | Specifies whether to provide any hovers                                                                                                                                                                                  |
 | `gitlens.hovers.autolinks.enabled`     | Specifies whether to automatically link external resources in commit messages                                                                                                                                            |
 | `gitlens.hovers.autolinks.enhanced`    | Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)                                         |
@@ -763,17 +763,17 @@ GitLens is highly customizable and provides many configuration settings to allow
 
 ## View Settings [#](#view-settings- 'View Settings')
 
-| Name                                        | Description                                                                                                                                                                         |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.defaultItemLimit`            | Specifies the default number of items to show in a view list. Use 0 to specify no limit                                                                                             |
-| `gitlens.views.formats.commits.label`       | Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs             |
-| `gitlens.views.formats.commits.description` | Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs |
-| `gitlens.views.formats.files.label`         | Specifies the format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs                  |
-| `gitlens.views.formats.files.description`   | Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs      |
-| `gitlens.views.formats.stashes.label`       | Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs             |
-| `gitlens.views.formats.stashes.description` | Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs |
-| `gitlens.views.pageItemLimit`               | Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit                                                                         |
-| `gitlens.views.showRelativeDateMarkers`     | Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views                    |
+| Name                                        | Description                                                                                                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.defaultItemLimit`            | Specifies the default number of items to show in a view list. Use 0 to specify no limit                                                                                               |
+| `gitlens.views.formats.commits.label`       | Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs             |
+| `gitlens.views.formats.commits.description` | Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs |
+| `gitlens.views.formats.files.label`         | Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs                  |
+| `gitlens.views.formats.files.description`   | Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs      |
+| `gitlens.views.formats.stashes.label`       | Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs             |
+| `gitlens.views.formats.stashes.description` | Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs |
+| `gitlens.views.pageItemLimit`               | Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit                                                                           |
+| `gitlens.views.showRelativeDateMarkers`     | Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views                      |
 
 ## Commits View Settings [#](#commits-view-settings- 'Commits View Settings')
 
@@ -944,7 +944,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.blame.avatars`             | Specifies whether to show avatar images in the gutter blame annotations                                                                                                                                                                                                      |
 | `gitlens.blame.compact`             | Specifies whether to compact (deduplicate) matching adjacent gutter blame annotations                                                                                                                                                                                        |
 | `gitlens.blame.dateFormat`          | Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats                                                                              |
-| `gitlens.blame.format`              | Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.blame.dateFormat` setting                     |
+| `gitlens.blame.format`              | Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.blame.dateFormat` setting                   |
 | `gitlens.blame.heatmap.enabled`     | Specifies whether to provide a heatmap indicator in the gutter blame annotations                                                                                                                                                                                             |
 | `gitlens.blame.heatmap.location`    | Specifies where the heatmap indicators will be shown in the gutter blame annotations<br /><br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations |
 | `gitlens.blame.highlight.enabled`   | Specifies whether to highlight lines associated with the current line                                                                                                                                                                                                        |
@@ -1084,86 +1084,86 @@ GitLens defines a set of themable colors which can be provided by vscode themes 
 
 A big thanks to the people that have contributed to this project:
 
-- Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zeeshanadnan)
-- Alex ([@deadmeu](https://github.com/deadmeu)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=deadmeu)
-- Abdulrahman (Abdu) Assabri ([@abdusabri](https://github.com/abdusabri)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=abdusabri)
-- Grey Baker ([@greysteil](https://github.com/greysteil)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=greysteil)
-- Loris Bettazza ([@Pustur](https://github.com/Pustur)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Pustur)
-- Brian Bolte ([@bolte-17](https://github.com/bolte-17)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bolte-17)
-- Zach Boyle ([@zaboyle](https://github.com/zaboyle)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zaboyle)
-- Tony Brix ([@UziTech](https://github.com/UziTech)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=UziTech)
-- Lee Chang ([@MeltingMosaic](https://github.com/MeltingMosaic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=MeltingMosaic)
-- Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=AmandaCameron)
-- Martin Campbell ([@martin-css](https://github.com/martin-css)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=martin-css)
-- Brett Cannon ([@brettcannon](https://github.com/brettcannon)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=brettcannon)
-- Andrea Cigana ([@ciganandrea](https://github.com/ciganandrea)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ciganandrea)
-- Ash Clarke ([@ashclarke](https://github.com/ashclarke)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ashclarke)
-- Travis Collins ([@TravisTX](https://github.com/TravisTX)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=TravisTX)
-- Matt Cooper ([@vtbassmatt](https://github.com/vtbassmatt)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=vtbassmatt)
-- Andrii Dieiev ([@IllusionMH](https://github.com/IllusionMH)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=IllusionMH)
-- egfx-notifications ([@egfx-notifications](https://github.com/egfx-notifications)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=egfx-notifications)
-- Segev Finer ([@segevfiner](https://github.com/segevfiner)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=segevfiner)
-- Cory Forsyth ([@bantic](https://github.com/bantic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bantic)
-- John Gee ([@shadowspawn](https://github.com/shadowspawn)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=shadowspawn)
-- Geoffrey ([@g3offrey](https://github.com/g3offrey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=g3offrey)
-- Guillaume Rozan ([@grozan](https://github.com/grozan)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=grozan)
-- Guillem González Vela ([@guillemglez](https://github.com/guillemglez)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=guillemglez)
-- Vladislav Guleaev ([@vguleaev](https://github.com/vguleaev)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=vguleaev)
-- Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=yrtimiD)
-- Ken Hom ([@kh0m](https://github.com/kh0m)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=kh0m)
-- Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Yukaii)
-- Justin Hutchings ([@jhutchings1](https://github.com/jhutchings1)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jhutchings1)
-- Roy Ivy III ([@rivy](https://github.com/rivy)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rivy)
-- Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=hjanuschka)
-- Nils K ([@septatrix](https://github.com/septatrix)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=septatrix)
-- Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ckaczor)
-- Allan Karlson ([@bees4ever](https://github.com/bees4ever)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bees4ever)
-- Mathew King ([@MathewKing](https://github.com/MathewKing)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=MathewKing)
-- Lior Kletter ([@Git-Lior](https://github.com/Git-Lior)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Git-Lior)
-- Andrei Korigodski ([@korigod](https://github.com/korigod)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=korigod)
-- Kwok ([@mankwok](https://github.com/mankwok)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=mankwok)
-- Marc Lasson ([@mlasson](https://github.com/mlasson)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=mlasson)
-- John Letey ([@johnletey](https://github.com/johnletey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=johnletey)
-- Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky)) &mdash; [contributions]((https://github.com/eamodio/vscode-gitlens/commits?author=slavik-lvovsky)
-- Peng Lyu ([@rebornix](https://github.com/rebornix)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rebornix)
-- Cédric Malard ([@cmalard](https://github.com/cmalard)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=cmalard)
-- Asif Kamran Malick ([@akmalick](https://github.com/akmalick)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=akmalick)
-- Mark Molinaro ([@markjm](https://github.com/markjm)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=markjm)
-- Ahmadou Waly Ndiaye ([@sir-kain](https://github.com/sir-kain)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=sir-kain)
-- Nguyen Long Nhat ([@torn4dom4n](https://github.com/torn4dom4n)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=torn4dom4n)
-- Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)
-- Raaj Patil ([@arrpee](https://github.com/arrpee)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arrpee)
-- Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=connor4312)
-- Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=pmaxim25)
-- Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arajkumar)
-- David Rees ([@studgeek](https://github.com/studgeek)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=studgeek)
-- Rickard ([@rickardp](https://github.com/rickardp)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rickardp)
-- Johannes Rieken ([@jrieken](https://github.com/jrieken)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jrieken)
-- Guillaume Rozan ([@rozangu1](https://github.com/rozangu1)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rozangu1)
-- ryenus ([@ryenus](https://github.com/ryenus)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ryenus)
-- Andrew Savage ([@andrewsavage1](https://github.com/andrewsavage1)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=andrewsavage1)
-- Zack Schuster ([@zackschuster](https://github.com/zackschuster)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
-- Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ahmadalli)
-- Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Shashank-Shastri)
-- Oleg Solomka ([@legomushroom](https://github.com/legomushroom)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=legomushroom)
-- Miguel Solorio ([@misolori](https://github.com/misolori)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=misolori)
-- SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
-- Skybbles ([@Luxray5474](https://github.com/Luxray5474)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Luxray5474)
-- Brendon Smith ([@br3ndonland](https://github.com/br3ndonland)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=br3ndonland)
-- sueka ([@sueka](https://github.com/sueka)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=sueka)
-- Mike Surcouf ([@mikes-gh](https://github.com/mikes-gh)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=mikes-gh)
-- Alexey Svetliakov ([@asvetliakov](https://github.com/asvetliakov)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=asvetliakov)
-- Takashi Tamura ([@tamuratak](https://github.com/tamuratak)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=tamuratak)
-- Andy Tang ([@thewindsofwinter](https://github.com/thewindsofwinter)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=thewindsofwinter)
-- Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=dimaulupov)
-- Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia)
-- Ivan Volzhev ([@ivolzhevbt](https://github.com/ivolzhevbt)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=ivolzhevbt)
-- x13machine ([@x13machine](https://github.com/x13machine)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=x13machine)
-- Alwin Wang ([@alwinw](https://github.com/alwinw)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=alwinw)
-- Ian Wilkinson ([@sgtwilko](https://github.com/sgtwilko)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=sgtwilko)
-- Adaex Yang ([@adaex](https://github.com/adaex)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=adaex)
-- Yan Zhang ([@Eskibear](https://github.com/Eskibear)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Eskibear)
-- Zyck ([@qzyse2017](https://github.com/qzyse2017)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=qzyse2017)
+- Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=zeeshanadnan)
+- Alex ([@deadmeu](https://github.com/deadmeu)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=deadmeu)
+- Abdulrahman (Abdu) Assabri ([@abdusabri](https://github.com/abdusabri)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=abdusabri)
+- Grey Baker ([@greysteil](https://github.com/greysteil)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=greysteil)
+- Loris Bettazza ([@Pustur](https://github.com/Pustur)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Pustur)
+- Brian Bolte ([@bolte-17](https://github.com/bolte-17)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bolte-17)
+- Zach Boyle ([@zaboyle](https://github.com/zaboyle)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=zaboyle)
+- Tony Brix ([@UziTech](https://github.com/UziTech)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=UziTech)
+- Lee Chang ([@MeltingMosaic](https://github.com/MeltingMosaic)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=MeltingMosaic)
+- Amanda Cameron ([@AmandaCameron](https://github.com/AmandaCameron)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=AmandaCameron)
+- Martin Campbell ([@martin-css](https://github.com/martin-css)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=martin-css)
+- Brett Cannon ([@brettcannon](https://github.com/brettcannon)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=brettcannon)
+- Andrea Cigana ([@ciganandrea](https://github.com/ciganandrea)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ciganandrea)
+- Ash Clarke ([@ashclarke](https://github.com/ashclarke)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ashclarke)
+- Travis Collins ([@TravisTX](https://github.com/TravisTX)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=TravisTX)
+- Matt Cooper ([@vtbassmatt](https://github.com/vtbassmatt)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=vtbassmatt)
+- Andrii Dieiev ([@IllusionMH](https://github.com/IllusionMH)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=IllusionMH)
+- egfx-notifications ([@egfx-notifications](https://github.com/egfx-notifications)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=egfx-notifications)
+- Segev Finer ([@segevfiner](https://github.com/segevfiner)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=segevfiner)
+- Cory Forsyth ([@bantic](https://github.com/bantic)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bantic)
+- John Gee ([@shadowspawn](https://github.com/shadowspawn)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=shadowspawn)
+- Geoffrey ([@g3offrey](https://github.com/g3offrey)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=g3offrey)
+- Guillaume Rozan ([@grozan](https://github.com/grozan)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=grozan)
+- Guillem González Vela ([@guillemglez](https://github.com/guillemglez)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=guillemglez)
+- Vladislav Guleaev ([@vguleaev](https://github.com/vguleaev)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=vguleaev)
+- Dmitry Gurovich ([@yrtimiD](https://github.com/yrtimiD)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=yrtimiD)
+- Ken Hom ([@kh0m](https://github.com/kh0m)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=kh0m)
+- Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Yukaii)
+- Justin Hutchings ([@jhutchings1](https://github.com/jhutchings1)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jhutchings1)
+- Roy Ivy III ([@rivy](https://github.com/rivy)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rivy)
+- Helmut Januschka ([@hjanuschka](https://github.com/hjanuschka)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=hjanuschka)
+- Nils K ([@septatrix](https://github.com/septatrix)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=septatrix)
+- Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ckaczor)
+- Allan Karlson ([@bees4ever](https://github.com/bees4ever)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bees4ever)
+- Mathew King ([@MathewKing](https://github.com/MathewKing)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=MathewKing)
+- Lior Kletter ([@Git-Lior](https://github.com/Git-Lior)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Git-Lior)
+- Andrei Korigodski ([@korigod](https://github.com/korigod)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=korigod)
+- Kwok ([@mankwok](https://github.com/mankwok)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=mankwok)
+- Marc Lasson ([@mlasson](https://github.com/mlasson)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=mlasson)
+- John Letey ([@johnletey](https://github.com/johnletey)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=johnletey)
+- Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky)) &mdash; [contributions]((https://github.com/gitkraken/vscode-gitlens/commits?author=slavik-lvovsky)
+- Peng Lyu ([@rebornix](https://github.com/rebornix)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rebornix)
+- Cédric Malard ([@cmalard](https://github.com/cmalard)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=cmalard)
+- Asif Kamran Malick ([@akmalick](https://github.com/akmalick)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=akmalick)
+- Mark Molinaro ([@markjm](https://github.com/markjm)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=markjm)
+- Ahmadou Waly Ndiaye ([@sir-kain](https://github.com/sir-kain)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=sir-kain)
+- Nguyen Long Nhat ([@torn4dom4n](https://github.com/torn4dom4n)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=torn4dom4n)
+- Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=nobitagit)
+- Raaj Patil ([@arrpee](https://github.com/arrpee)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=arrpee)
+- Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=connor4312)
+- Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=pmaxim25)
+- Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=arajkumar)
+- David Rees ([@studgeek](https://github.com/studgeek)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=studgeek)
+- Rickard ([@rickardp](https://github.com/rickardp)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rickardp)
+- Johannes Rieken ([@jrieken](https://github.com/jrieken)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jrieken)
+- Guillaume Rozan ([@rozangu1](https://github.com/rozangu1)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rozangu1)
+- ryenus ([@ryenus](https://github.com/ryenus)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ryenus)
+- Andrew Savage ([@andrewsavage1](https://github.com/andrewsavage1)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=andrewsavage1)
+- Zack Schuster ([@zackschuster](https://github.com/zackschuster)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=zackschuster)
+- Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ahmadalli)
+- Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Shashank-Shastri)
+- Oleg Solomka ([@legomushroom](https://github.com/legomushroom)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=legomushroom)
+- Miguel Solorio ([@misolori](https://github.com/misolori)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=misolori)
+- SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=SpaceEEC)
+- Skybbles ([@Luxray5474](https://github.com/Luxray5474)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Luxray5474)
+- Brendon Smith ([@br3ndonland](https://github.com/br3ndonland)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=br3ndonland)
+- sueka ([@sueka](https://github.com/sueka)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=sueka)
+- Mike Surcouf ([@mikes-gh](https://github.com/mikes-gh)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=mikes-gh)
+- Alexey Svetliakov ([@asvetliakov](https://github.com/asvetliakov)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=asvetliakov)
+- Takashi Tamura ([@tamuratak](https://github.com/tamuratak)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=tamuratak)
+- Andy Tang ([@thewindsofwinter](https://github.com/thewindsofwinter)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=thewindsofwinter)
+- Dmitry Ulupov ([@dimaulupov](https://github.com/dimaulupov)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=dimaulupov)
+- Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=notmedia)
+- Ivan Volzhev ([@ivolzhevbt](https://github.com/ivolzhevbt)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ivolzhevbt)
+- x13machine ([@x13machine](https://github.com/x13machine)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=x13machine)
+- Alwin Wang ([@alwinw](https://github.com/alwinw)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=alwinw)
+- Ian Wilkinson ([@sgtwilko](https://github.com/sgtwilko)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=sgtwilko)
+- Adaex Yang ([@adaex](https://github.com/adaex)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=adaex)
+- Yan Zhang ([@Eskibear](https://github.com/Eskibear)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Eskibear)
+- Zyck ([@qzyse2017](https://github.com/qzyse2017)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=qzyse2017)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

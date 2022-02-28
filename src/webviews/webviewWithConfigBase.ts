@@ -180,7 +180,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 									},
 									'1',
 									'Supercharged',
-									'https://github.com/eamodio/vscode-gitlens/pulls/1',
+									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
 									PullRequestState.Merged,
 									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
 									undefined,

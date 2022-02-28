@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
     - name: Question
-      url: https://github.com/eamodio/vscode-gitlens/discussions?discussions_q=category%3AQ%26A
+      url: https://github.com/gitkraken/vscode-gitlens/discussions?discussions_q=category%3AQ%26A
       about: Ask and answer questions about GitLens

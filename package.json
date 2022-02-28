@@ -14,7 +14,7 @@
 	},
 	"homepage": "https://gitlens.amod.io/",
 	"bugs": {
-		"url": "https://github.com/eamodio/vscode-gitlens/issues"
+		"url": "https://github.com/gitkraken/vscode-gitlens/issues"
 	},
 	"repository": {
 		"type": "git",
@@ -241,7 +241,7 @@
 					"gitlens.currentLine.format": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}",
-						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
@@ -484,7 +484,7 @@
 					"gitlens.statusBar.format": {
 						"type": "string",
 						"default": "${author}, ${agoOrDate}${' via 'pullRequest}",
-						"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
@@ -552,7 +552,7 @@
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
-						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
 					},
@@ -698,7 +698,7 @@
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
-						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
 					},
@@ -748,42 +748,42 @@
 					"gitlens.views.formats.commits.label": {
 						"type": "string",
 						"default": "${❰ tips ❱➤  }${message}",
-						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.views.formats.commits.description": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.views.formats.files.label": {
 						"type": "string",
 						"default": "${working  }${file}",
-						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
 					},
 					"gitlens.views.formats.files.description": {
 						"type": "string",
 						"default": "${directory}${  ←  originalPath}",
-						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 33
 					},
 					"gitlens.views.formats.stashes.label": {
 						"type": "string",
 						"default": "${message}",
-						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 34
 					},
 					"gitlens.views.formats.stashes.description": {
 						"type": "string",
 						"default": "${agoOrDate}",
-						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 35
 					},
@@ -1847,7 +1847,7 @@
 					"gitlens.blame.format": {
 						"type": "string",
 						"default": "${message|50?} ${agoOrDate|14-}",
-						"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
 						"scope": "window",
 						"order": 20
 					},
