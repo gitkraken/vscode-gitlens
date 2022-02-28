@@ -23,10 +23,6 @@ body {
 	min-height: 100%;
 }
 
-.welcome {
-	grid-template-rows: repeat(3, min-content);
-}
-
 section {
 	display: flex;
 	flex-direction: column;
@@ -75,6 +71,8 @@ p {
 }
 
 .welcome {
+	grid-template-rows: repeat(3, min-content);
+
 	ul {
 		list-style: none;
 		padding: 0;
@@ -84,6 +82,11 @@ p {
 	li {
 		margin: 0 0 1rem 0;
 	}
+}
+
+.welcomelink__whatsnew {
+	max-width: 400px;
+	margin: 1rem auto 0 auto;
 }
 
 .links {

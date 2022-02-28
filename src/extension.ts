@@ -245,6 +245,10 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		return;
 	}
 
+	if (major !== prevMajor) {
+		version = String(major);
+	}
+
 	void executeCommand(Commands.ShowHomeView);
 
 	if (container.config.showWhatsNewAfterUpgrades) {
