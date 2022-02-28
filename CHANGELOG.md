@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1844](https://github.com/gitkraken/vscode-gitlens/issues/1844) - Autolinked issues aren't properly paged when there are too many commits
 - Fixes [#1843](https://github.com/gitkraken/vscode-gitlens/issues/1843) - Compare references doesn't work if you have multiple repos open
 
 ## [12.0.0] - 2022-02-28

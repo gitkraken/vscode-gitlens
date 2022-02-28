@@ -71,12 +71,18 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return [];
 
-		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const [getBranchAndTagTips, provider] = await Promise.all([
+			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+			this.view.container.git.getRichRemoteProvider(this.repoPath),
+		]);
+
 		const children = [];
 
-		const remote = await this.view.container.git.getRichRemoteProvider(this.repoPath);
-		if (remote != null) {
-			children.push(new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, remote, log));
+		if (provider != null) {
+			children.push(
+				new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, provider, log, this._expandAutolinks),
+			);
+			this._expandAutolinks = false;
 		}
 
 		const { files } = this._results;
@@ -188,11 +194,15 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this._hasMore;
 	}
 
+	private _expandAutolinks: boolean = false;
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async loadMore(limit?: number) {
+	async loadMore(limit?: number, context?: Record<string, unknown>): Promise<void> {
 		const results = await this.getCommitsQueryResults();
 		if (results == null || !results.hasMore) return;
 
+		if (context != null && 'expandAutolinks' in context) {
+			this._expandAutolinks = Boolean(context.expandAutolinks);
+		}
 		await results.more?.(limit ?? this.view.config.pageItemLimit);
 
 		this.limit = results.log?.count;

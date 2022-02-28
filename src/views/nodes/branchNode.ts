@@ -267,9 +267,9 @@ export class BranchNode
 
 			if (log.hasMore) {
 				children.push(
-					new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-						this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
-					),
+					new LoadMoreNode(this.view, this, children[children.length - 1], {
+						getCount: () => this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
+					}),
 				);
 			}
 
