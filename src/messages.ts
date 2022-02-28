@@ -1,4 +1,4 @@
-import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
+import { ConfigurationTarget, MessageItem, window } from 'vscode';
 import { configuration } from './configuration';
 import { Commands } from './constants';
 import { GitCommit } from './git/models';
