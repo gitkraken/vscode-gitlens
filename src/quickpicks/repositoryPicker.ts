@@ -25,9 +25,12 @@ export namespace RepositoryPicker {
 	}
 
 	export async function getRepositoryOrShow(title: string, uri?: Uri): Promise<Repository | undefined> {
-		if (uri == null) return Container.instance.git.highlander;
-
-		const repository = await Container.instance.git.getOrOpenRepository(uri);
+		let repository;
+		if (uri == null) {
+			repository = Container.instance.git.highlander;
+		} else {
+			repository = await Container.instance.git.getOrOpenRepository(uri);
+		}
 		if (repository != null) return repository;
 
 		const pick = await RepositoryPicker.show(title);
