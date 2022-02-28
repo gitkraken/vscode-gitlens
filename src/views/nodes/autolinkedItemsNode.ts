@@ -7,7 +7,7 @@ import { debug } from '../../system/decorators/log';
 import { PromiseCancelledErrorWithId } from '../../system/promise';
 import { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
-import { MessageNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -32,6 +32,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 		public readonly repoPath: string,
 		public readonly remote: GitRemote<RichRemoteProvider>,
 		public readonly log: GitLog,
+		private expand: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 		this._instanceId = instanceId++;
@@ -82,13 +83,25 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 				children = [new MessageNode(this.view, this, 'No autolinked issues or pull requests could be found.')];
 			}
 
+			if (this.log.hasMore) {
+				children.push(
+					new LoadMoreNode(this.view, this.parent as any, children[children.length - 1], {
+						context: { expandAutolinks: true },
+						message: 'Load more commits to search for autolinks',
+					}),
+				);
+			}
+
 			this._children = children;
 		}
 		return this._children;
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Autolinked Issues and Pull Requests', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			'Autolinked Issues and Pull Requests',
+			this.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.contextValue = ContextValues.AutolinkedItems;
 

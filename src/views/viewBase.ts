@@ -533,12 +533,13 @@ export abstract class ViewBase<
 		node: ViewNode & PageableViewNode,
 		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
+		context?: Record<string, unknown>,
 	) {
 		if (previousNode != null) {
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
-		await node.loadMore(limit);
+		await node.loadMore(limit, context);
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 

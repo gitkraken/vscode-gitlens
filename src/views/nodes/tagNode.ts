@@ -63,9 +63,9 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 
 		if (log.hasMore) {
 			children.push(
-				new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-					this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
-				),
+				new LoadMoreNode(this.view, this, children[children.length - 1], {
+					getCount: () => this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
+				}),
 			);
 		}
 		return children;
