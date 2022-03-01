@@ -384,21 +384,17 @@ export class Git {
 		}
 	}
 
-	checkout(
-		repoPath: string,
-		ref: string,
-		{ createBranch, fileName }: { createBranch?: string; fileName?: string } = {},
-	) {
+	checkout(repoPath: string, ref: string, { createBranch, path }: { createBranch?: string; path?: string } = {}) {
 		const params = ['checkout'];
 		if (createBranch) {
 			params.push('-b', createBranch, ref, '--');
 		} else {
 			params.push(ref, '--');
 
-			if (fileName) {
-				[fileName, repoPath] = splitPath(fileName, repoPath, true);
+			if (path) {
+				[path, repoPath] = splitPath(path, repoPath, true);
 
-				params.push(fileName);
+				params.push(path);
 			}
 		}
 

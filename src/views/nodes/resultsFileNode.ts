@@ -23,10 +23,6 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	}
 
 	override toClipboard(): string {
-		return this.fileName;
-	}
-
-	get fileName(): string {
 		return this.file.path;
 	}
 

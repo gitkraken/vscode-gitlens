@@ -166,10 +166,9 @@ export abstract class ViewRefNode<
 
 export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
 	abstract get file(): GitFile;
-	abstract get fileName(): string;
 
 	override toString(): string {
-		return `${super.toString()}:${this.fileName}`;
+		return `${super.toString()}:${this.file.path}`;
 	}
 }
 
