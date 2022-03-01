@@ -324,6 +324,11 @@
   resolved "https://registry.yarnpkg.com/@types/sortablejs/-/sortablejs-1.10.7.tgz#ab9039c85429f0516955ec6dbc0bb20139417b15"
   integrity sha512-lGCwwgpj8zW/ZmaueoPVSP7nnc9t8VqVWXS+ASX3eoUUENmiazv0rlXyTRludXzuX9ALjPsMqBu85TgJNWbTOg==
 
+"@types/uuid@8.3.4":
+  version "8.3.4"
+  resolved "https://registry.yarnpkg.com/@types/uuid/-/uuid-8.3.4.tgz#bd86a43617df0594787d38b735f55c805becf1bc"
+  integrity sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==
+
 "@types/vscode@1.64.0":
   version "1.64.0"
   resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.64.0.tgz#bfd82c8d92dc7824c1be084be1ab46ce20d7fb55"
@@ -5930,6 +5935,11 @@ utila@~0.4:
   version "0.4.0"
   resolved "https://registry.yarnpkg.com/utila/-/utila-0.4.0.tgz#8a16a05d445657a3aea5eecc5b12a4fa5379772c"
   integrity sha1-ihagXURWV6Oupe7MWxKk+lN5dyw=
+
+uuid@8.3.2:
+  version "8.3.2"
+  resolved "https://registry.yarnpkg.com/uuid/-/uuid-8.3.2.tgz#80d5b5ced271bb9af6c445f21a1a04c606cefbe2"
+  integrity sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==
 
 uuid@^3.0.1:
   version "3.4.0"

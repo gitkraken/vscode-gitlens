@@ -47,10 +47,8 @@
 		"annotation",
 		"multi-root ready"
 	],
-	"extensionDependencies": [
-		"gitkraken.gitkraken-authentication"
-	],
 	"activationEvents": [
+		"onAuthenticationRequest:gitlens-gitkraken",
 		"onCustomEditor:gitlens.rebase",
 		"onFileSystem:gitlens",
 		"onView:gitlens.views.home",
@@ -11019,7 +11017,8 @@
 		"md5.js": "1.3.5",
 		"node-fetch": "2.6.7",
 		"path-browserify": "1.0.1",
-		"sortablejs": "1.14.0"
+		"sortablejs": "1.14.0",
+		"uuid": "8.3.2"
 	},
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
@@ -11029,6 +11028,7 @@
 		"@types/mocha": "9.1.0",
 		"@types/node": "14.17.4",
 		"@types/sortablejs": "1.10.7",
+		"@types/uuid": "8.3.4",
 		"@types/vscode": "1.64.0",
 		"@typescript-eslint/eslint-plugin": "5.13.0",
 		"@typescript-eslint/parser": "5.13.0",

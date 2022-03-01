@@ -1,9 +1,21 @@
-import { ExtensionContext } from 'vscode';
+import { Disposable, Event, EventEmitter, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
 
-export class Storage {
-	constructor(private readonly context: ExtensionContext) {}
+export class Storage implements Disposable {
+	private _onDidChangeSecrets = new EventEmitter<SecretStorageChangeEvent>();
+	get onDidChangeSecrets(): Event<SecretStorageChangeEvent> {
+		return this._onDidChangeSecrets.event;
+	}
+
+	private readonly _disposable: Disposable;
+	constructor(private readonly context: ExtensionContext) {
+		this._disposable = this.context.secrets.onDidChange(e => this._onDidChangeSecrets.fire(e));
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	get<T>(key: StorageKeys | SyncedStorageKeys): T | undefined;
 	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue: T): T;
