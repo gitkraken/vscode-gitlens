@@ -29,6 +29,8 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
+import { SubscriptionAuthenticationProvider } from './premium/subscription/authenticationProvider';
+import { ServerConnection } from './premium/subscription/serverConnection';
 import { SubscriptionService } from './premium/subscription/subscriptionService';
 import { TimelineWebview } from './premium/webviews/timeline/timelineWebview';
 import { TimelineWebviewView } from './premium/webviews/timeline/timelineWebviewView';
@@ -151,10 +153,14 @@ export class Container {
 	private constructor(context: ExtensionContext, config: Config) {
 		this._context = context;
 		this._config = this.applyMode(config);
-		this._storage = new Storage(this._context);
+
+		context.subscriptions.push((this._storage = new Storage(this._context)));
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
+		const server = new ServerConnection(this);
+		context.subscriptions.push(server);
+		context.subscriptions.push(new SubscriptionAuthenticationProvider(this, server));
 		context.subscriptions.push((this._subscription = new SubscriptionService(this)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));

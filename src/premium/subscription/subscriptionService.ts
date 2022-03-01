@@ -57,7 +57,7 @@ export interface SubscriptionChangeEvent {
 }
 
 export class SubscriptionService implements Disposable {
-	private static authenticationProviderId = 'gitkraken';
+	private static authenticationProviderId = 'gitlens-gitkraken';
 	private static authenticationScopes = ['gitlens'];
 
 	private _onDidChange = new EventEmitter<SubscriptionChangeEvent>();
