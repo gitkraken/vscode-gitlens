@@ -636,7 +636,7 @@ export class ViewCommands {
 	private restore(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
-		return GitActions.Commit.restoreFile(node.fileName, node.ref);
+		return GitActions.Commit.restoreFile(node.file, node.ref);
 	}
 
 	@debug()

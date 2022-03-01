@@ -655,10 +655,18 @@ export namespace GitActions {
 			);
 		}
 
-		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {
-			void (await Container.instance.git.checkout(ref.repoPath, ref.ref, {
-				fileName: typeof file === 'string' ? file : file.path,
-			}));
+		export async function restoreFile(file: string | GitFile, revision: GitRevisionReference) {
+			let path;
+			let ref;
+			if (typeof file === 'string') {
+				path = file;
+				ref = revision.ref;
+			} else {
+				path = file.path;
+				ref = file.status === 'D' ? `${revision.ref}^` : revision.ref;
+			}
+
+			void (await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
 		}
 
 		export async function reveal(

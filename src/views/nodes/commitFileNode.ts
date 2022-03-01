@@ -25,10 +25,6 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	override toClipboard(): string {
-		return this.fileName;
-	}
-
-	get fileName(): string {
 		return this.file.path;
 	}
 
