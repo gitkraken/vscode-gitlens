@@ -179,8 +179,10 @@ export class TrackedDocument<T> implements Disposable {
 			this._isTracked = false;
 			this._hasRemotes = false;
 		} else {
-			this._isTracked = true;
-			this._hasRemotes = await repo.hasRemotes();
+			[this._isTracked, this._hasRemotes] = await Promise.all([
+				this.container.git.isTracked(this._uri),
+				repo.hasRemotes(),
+			]);
 		}
 
 		if (active != null) {

@@ -2032,6 +2032,13 @@ export class GitProviderService implements Disposable {
 		return provider.isTrackable(uri);
 	}
 
+	async isTracked(uri: Uri): Promise<boolean> {
+		if (!this.supportedSchemes.has(uri.scheme)) return false;
+
+		const { provider } = this.getProvider(uri);
+		return provider.isTracked(uri);
+	}
+
 	@log()
 	async getDiffTool(repoPath?: string | Uri): Promise<string | undefined> {
 		if (repoPath == null) return undefined;

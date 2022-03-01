@@ -1064,7 +1064,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		const paths = await this.isTracked(uri);
+		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
@@ -1144,7 +1144,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		const paths = await this.isTracked(uri);
+		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
@@ -2528,7 +2528,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitLog | undefined> {
-		const paths = await this.isTracked(path, repoPath, ref);
+		const paths = await this.isTrackedPrivate(path, repoPath, ref);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
@@ -3403,11 +3403,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.supportedSchemes.has(uri.scheme);
 	}
 
-	private async isTracked(uri: GitUri): Promise<[string, string] | undefined>;
-	private async isTracked(path: string, repoPath?: string, ref?: string): Promise<[string, string] | undefined>;
-	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${Boolean(tracked)}` })
-	private async isTracked(
-		pathOrUri: string | GitUri,
+	async isTracked(uri: Uri): Promise<boolean> {
+		return (await this.isTrackedPrivate(uri)) != null;
+	}
+
+	private async isTrackedPrivate(uri: Uri | GitUri): Promise<[string, string] | undefined>;
+	private async isTrackedPrivate(
+		path: string,
+		repoPath?: string,
+		ref?: string,
+	): Promise<[string, string] | undefined>;
+	@log<LocalGitProvider['isTrackedPrivate']>({ exit: tracked => `returned ${Boolean(tracked)}` })
+	private async isTrackedPrivate(
+		pathOrUri: string | Uri | GitUri,
 		repoPath?: string,
 		ref?: string,
 	): Promise<[string, string] | undefined> {
@@ -3424,9 +3432,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} else {
 			if (!this.isTrackable(pathOrUri)) return undefined;
 
-			// Always use the ref of the GitUri
-			ref = pathOrUri.sha;
-			if (ref === GitRevision.deletedOrMissing) return undefined;
+			if (pathOrUri instanceof GitUri) {
+				// Always use the ref of the GitUri
+				ref = pathOrUri.sha;
+				if (ref === GitRevision.deletedOrMissing) return undefined;
+			}
 
 			repository = this.container.git.getRepository(pathOrUri);
 			repoPath = repoPath || repository?.path;
