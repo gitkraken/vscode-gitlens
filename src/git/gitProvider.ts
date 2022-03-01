@@ -388,6 +388,7 @@ export interface GitProvider extends Disposable {
 
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	isTrackable(uri: Uri): boolean;
+	isTracked(uri: Uri): Promise<boolean>;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;
 	openDiffTool(

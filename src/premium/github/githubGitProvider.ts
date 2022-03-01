@@ -2398,6 +2398,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.supportedSchemes.has(uri.scheme);
 	}
 
+	isTracked(uri: Uri): Promise<boolean> {
+		return Promise.resolve(this.isTrackable(uri) && this.container.git.getRepository(uri) != null);
+	}
+
 	@log()
 	async getDiffTool(_repoPath?: string): Promise<string | undefined> {
 		return undefined;

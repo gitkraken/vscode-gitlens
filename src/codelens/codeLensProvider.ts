@@ -165,10 +165,16 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 			if (blame == null || blame?.lines.length === 0) return lenses;
 		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
-			symbols = await executeCoreCommand<[Uri], SymbolInformation[]>(
-				CoreCommands.ExecuteDocumentSymbolProvider,
-				document.uri,
-			);
+			let tracked;
+			[tracked, symbols] = await Promise.all([
+				this.container.git.isTracked(gitUri),
+				executeCoreCommand<[Uri], SymbolInformation[]>(
+					CoreCommands.ExecuteDocumentSymbolProvider,
+					document.uri,
+				),
+			]);
+
+			if (!tracked) return lenses;
 		}
 
 		if (token.isCancellationRequested) return lenses;
