@@ -212,13 +212,18 @@ export class Repository implements Disposable {
 	) {
 		folder = workspace.getWorkspaceFolder(uri) ?? folder;
 		if (folder != null) {
-			this.name = folder.name;
-
 			if (root) {
+				this.name = folder.name;
 				this.formattedName = this.name;
 			} else {
-				const relativePath = container.git.getRelativePath(folder.uri, uri);
-				this.formattedName = relativePath ? `${this.name} (${relativePath})` : this.name;
+				const relativePath = container.git.getRelativePath(uri, folder.uri);
+				if (relativePath) {
+					this.name = `${folder.name}/${relativePath}`;
+					this.formattedName = `${folder.name} (${relativePath})`;
+				} else {
+					this.name = folder.name;
+					this.formattedName = this.name;
+				}
 			}
 		} else {
 			this.name = basename(uri.path);
