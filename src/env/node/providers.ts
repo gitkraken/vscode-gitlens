@@ -26,7 +26,7 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 		new VslsGitProvider(container, new VslsGit(git)),
 	];
 
-	if (container.config.experimental.virtualRepositories.enabled) {
+	if (container.config.virtualRepositories.enabled) {
 		const GitHubGitProvider = (
 			await import(/* webpackChunkName: "github" */ '../../premium/github/githubGitProvider')
 		).GitHubGitProvider;

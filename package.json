@@ -3251,23 +3251,16 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.virtualRepositories.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable virtual repositories support",
+						"scope": "window",
+						"order": 70
+					},
 					"gitlens.insiders": {
 						"deprecationMessage": "Deprecated. Use the Insiders edition of GitLens instead",
 						"markdownDeprecationMessage": "Deprecated. Use the [Insiders edition](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens-insiders) of GitLens instead"
-					}
-				}
-			},
-			{
-				"id": "experimental",
-				"title": "Experimental",
-				"order": 9999,
-				"properties": {
-					"gitlens.experimental.virtualRepositories.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable the experimental virtual repositories support",
-						"scope": "window",
-						"order": 0
 					}
 				}
 			}
