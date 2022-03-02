@@ -1,15 +1,20 @@
 <template id="state:free">
 	<section>
 		<p>
-			Try the Visual File History now, without an account, for 3 days on public and private repos, or
-			<a href="command:gitlens.premium.loginOrSignUp">sign in</a> to use the Visual File History on public repos.
+			Try it now, without an account, for 3 days on public and private repos, or
+			<a title="Sign in now" href="command:gitlens.premium.loginOrSignUp">sign in</a> for unlimited use on public
+			repos.
 		</p>
 		<vscode-button data-action="command:gitlens.premium.startPreviewTrial"
 			>Try the Visual File History now</vscode-button
 		>
 		<p>
-			✨ The Visual File History is a premium feature, open the
-			<a href="command:gitlens.premium.learn">premium features walkthrough</a> to learn more.
+			✨ The Visual File History is
+			<a title="Learn more about premium features" href="command:gitlens.premium.learn">premium feature</a> which
+			can be used on public repos with a
+			<a title="Sign in" href="command:gitlens.premium.loginOrSignUp">free account</a> and private repos with a
+			<a title="View plans" href="command:gitlens.premium.purchase">paid account</a>.
 		</p>
+		<p><i class="codicon codicon-info"></i>&nbsp;Non-premium features can always be used on any repo.</p>
 	</section>
 </template>

@@ -56,11 +56,11 @@ export namespace DirectiveQuickPickItem {
 				case Directive.RequiresFreeSubscription:
 					label = 'Sign In';
 					detail =
-						'To use premium features for public repos and get a free 7-day trial for both public and private repos';
+						'To use premium features on public repos and get a free 7-day trial for both public and private repos';
 					break;
 				case Directive.RequiresPaidSubscription:
-					label = 'Purchase a Plan';
-					detail = 'To use premium features for both public and private repos';
+					label = 'Upgrade your account';
+					detail = 'To use premium features on both public and private repos';
 					break;
 			}
 		}
