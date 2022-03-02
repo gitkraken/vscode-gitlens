@@ -3625,12 +3625,12 @@
 			},
 			{
 				"command": "gitlens.premium.manage",
-				"title": "Manage my account...",
+				"title": "Manage Your Account...",
 				"category": "GitLens Premium"
 			},
 			{
 				"command": "gitlens.premium.purchase",
-				"title": "Purchase a Plan...",
+				"title": "Upgrade Your Account...",
 				"category": "GitLens Premium"
 			},
 			{
@@ -10651,7 +10651,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Try worktrees now, without an account, for 3 days on public and private repos, or [sign in](command:gitlens.premium.loginOrSignUp) to use worktrees on public repos.\n\n[Try worktrees now](command:gitlens.premium.startPreviewTrial)\n\n✨ Worktrees are a premium feature, open the [premium features walkthrough](command:gitlens.premium.learn) to learn more.",
+				"contents": "Try worktrees now, without an account, for 3 days on public and private repos, or [sign in](command:gitlens.premium.loginOrSignUp \"Sign in now\") for unlimited use on public repos.\n\n[Try worktrees now](command:gitlens.premium.startPreviewTrial)",
 				"when": "gitlens:premium:state == 0"
 			},
 			{
@@ -10661,18 +10661,13 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Purchase a plan](command:gitlens.premium.purchase)",
+				"contents": "[Upgrade your account](command:gitlens.premium.purchase)",
 				"when": "gitlens:premium:state == 4"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "✨ Worktrees are a premium feature, which requires a free account for public repos. Learn more about [premium features](command:gitlens.premium.learn), or [purchase a plan](command:gitlens.premium.purchase).",
-				"when": "gitlens:premium:state > 0 && gitlens:premium:required == free+"
-			},
-			{
-				"view": "gitlens.views.worktrees",
-				"contents": "✨ Worktrees are a premium feature, which requires at least a Pro subscription for private repos. Learn more about [premium features](command:gitlens.premium.learn), or [purchase a plan](command:gitlens.premium.purchase).",
-				"when": "gitlens:premium:state > 0 && gitlens:premium:required == paid"
+				"contents": "✨ Worktrees are a [premium feature](command:gitlens.premium.learn) which can be used on public repos with a [free account](command:gitlens.premium.loginOrSignUp) and private repos with a [paid account](command:gitlens.premium.purchase).\n\n🛈 Non-premium features can always be used on any repo.",
+				"when": "gitlens:premium:state > -1"
 			}
 		],
 		"views": {

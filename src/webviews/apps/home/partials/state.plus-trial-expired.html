@@ -1,14 +1,19 @@
 <template id="state:plus-trial-expired">
 	<section>
 		<h3>GitLens Free+</h3>
-		<p>Your GitLens Free+ account gives you access to premium features on public repos.</p>
-		<p>Purchase a plan for access to both public and private repos.</p>
-		<vscode-button data-action="command:gitlens.premium.purchase">Purchase a plan</vscode-button>
-		<vscode-button data-action="command:gitlens.premium.learn" appearance="secondary"
-			>Learn about premium features</vscode-button
-		>
 		<p>
-			<a href="command:gitlens.premium.manage">Manage my account</a>
+			Your Free+ account gives you access to use
+			<a title="Learn more about premium features" href="command:gitlens.premium.learn">premium features</a> on
+			public repos.
+		</p>
+		<p>
+			<a title="Manage your account" href="command:gitlens.premium.manage">Manage your account</a>
+		</p>
+		<p>Upgrade your account for access to both public and private repos.</p>
+		<vscode-button data-action="command:gitlens.premium.purchase">Upgrade your account</vscode-button>
+		<p>
+			<i class="codicon codicon-info"></i>&nbsp;Non-premium features are always accessible, without an account,
+			and will continue to evolve and be invested in.
 		</p>
 	</section>
 </template>

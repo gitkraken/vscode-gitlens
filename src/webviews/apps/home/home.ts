@@ -1,6 +1,6 @@
 /*global*/
 import './home.scss';
-import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDivider } from '@vscode/webview-ui-toolkit';
+import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import { Disposable } from 'vscode';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
 import { DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
@@ -20,7 +20,6 @@ export class HomeApp extends App<State> {
 		provideVSCodeDesignSystem().register({
 			register: function (container: any, context: any) {
 				vsCodeButton().register(container, context);
-				vsCodeDivider().register(container, context);
 			},
 		});
 

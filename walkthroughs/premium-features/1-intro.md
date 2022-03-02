@@ -1,16 +1,18 @@
 ## Introducing Premium Features
 
-Premium features are all-new features that enhance your current GitLens experience and require an account to access. Anyone can try premium features for public and private repos for 3 days, without an account.
+Premium features are all-new, completely optional, features that enhance your current GitLens experience when you sign with an account. Anyone can try premium features for public and private repos for 3 days, without an account.
+
+🛈 Non-premium features are always accessible, without an account, and will continue to evolve and be invested in.
 
 <p align="center">
   <img src="../../images/docs/visual-file-history-hover.png" alt="Visual File History View"/>
 </p>
 
-The Visual File History and Worktrees premium features can be accessed with a GitLens Free+ account. Free+ accounts have to access premium features on public repos, while a paid account is required for private repos.
+The new Visual File History and Worktrees premium features can be used with a free, GitLens Free+ account. Free+ accounts can use premium features on public repos, while paid accounts can also use them on private repos.
 
 [**Try premium features now**](command:gitlens.premium.startPreviewTrial 'Try premium features now')
 
-[**Learn more about premium features**](https://gitkraken.com/gitlens/premium-features 'Learn more')
+[Learn more about premium features](https://gitkraken.com/gitlens/premium-features 'Learn more')
 
 ## More premium features coming soon
 

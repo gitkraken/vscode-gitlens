@@ -64,14 +64,25 @@ p {
 	margin-bottom: 0;
 }
 
+.feature-desc {
+	margin-bottom: 1rem;
+}
+
 .image--preview {
 	border-radius: 8px;
 	box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
 	margin: 1rem 2rem 1rem 1rem;
 }
 
+.divider {
+	border-top: 1px solid var(--divider-background);
+	margin-top: 2rem;
+}
+
 .welcome {
 	grid-template-rows: repeat(3, min-content);
+	display: flex;
+	flex-direction: column;
 
 	ul {
 		list-style: none;
@@ -82,11 +93,12 @@ p {
 	li {
 		margin: 0 0 1rem 0;
 	}
-}
 
-.welcomelink__whatsnew {
-	max-width: 400px;
-	margin: 1rem auto 0 auto;
+	.link--preview {
+		align-self: center;
+		max-width: 400px;
+		margin: 1rem 2rem 0 0;
+	}
 }
 
 .links {
@@ -142,3 +154,8 @@ vscode-divider {
 }
 
 @import '../shared/codicons';
+
+.codicon {
+	position: relative;
+	top: -2px;
+}

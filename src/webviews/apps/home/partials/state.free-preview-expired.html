@@ -1,37 +1,55 @@
 <template id="state:free-preview-expired">
 	<section>
 		<h3>Continue using Premium Features</h3>
-		<p>Your premium features trial has ended.</p>
+		<p>
+			Your
+			<a title="Learn more about premium features" href="command:gitlens.premium.learn">premium features</a> trial
+			has ended. Don't worry, non-premium features are always accessible.
+		</p>
 		<p>
 			Sign in to use premium features on public repos and get an <b>additional 7-day free trial</b> for both
 			public and private repos.
 		</p>
 		<vscode-button data-action="command:gitlens.premium.loginOrSignUp">Sign in</vscode-button>
 		<p>
-			Or, you can <a href="command:gitlens.premium.purchase">purchase a plan</a> for access to both public and
-			private repos.
+			Or, <a title="Upgrade your account" href="command:gitlens.premium.purchase">upgrade your account</a> to use
+			premium features on both public and private repos.
 		</p>
-		<h3>Premium Features</h3>
+		<h3>Premium Features (Optional)</h3>
 		<p>
-			Premium features are all-new features that enhance your current GitLens experience and require an account to
-			access. All non-premium features are unrestricted. Learn more about
-			<a href="command:gitlens.premium.learn">premium features</a>.
+			<a title="Learn more about premium features" href="command:gitlens.premium.learn">Premium features</a> are
+			all-new, completely optional, features that enhance your current GitLens experience when you sign with an
+			account.
+		</p>
+		<p>
+			<i class="codicon codicon-info"></i>&nbsp;Non-premium features are always accessible, without an account,
+			and will continue to evolve and be invested in.
 		</p>
 		<h4>Visual File History</h4>
-		<img class="image--preview" src="#{root}/images/docs/visual-file-history-hover.png" alt="Visual File History" />
-		<p>
-			The Visual File History allows you to quickly see the evolution of a file, including when changes were made,
-			how large they were, and who made them. Learn more about the
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
+		<img
+			class="image--preview"
+			src="#{root}/images/docs/visual-file-history-hover.png"
+			alt="Visual File History screenshot"
+		/>
+		<p class="feature-desc">
+			The
+			<a
+				title="Learn more about the Visual File History"
+				href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.visualFileHistory%22"
 				>Visual File History</a
-			>.
+			>
+			allows you to quickly see the evolution of a file, including when changes were made, how large they were,
+			and who made them.
 		</p>
 		<h4>Worktrees</h4>
-		<img class="image--preview" src="#{root}/images/docs/worktrees-view.png" alt="Worktrees" />
-		<p>
-			Worktrees allow you to easily work on different branches of a repository simultaneously. Learn more about
-
-			<a href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22">worktrees</a>.
+		<img class="image--preview" src="#{root}/images/docs/worktrees-view.png" alt="Worktrees screenshot" />
+		<p class="feature-desc">
+			<a
+				title="Learn more about worktrees"
+				href="command:gitlens.openWalkthrough?%22gitlens.premium%7Cgitlens.premium.worktrees%22"
+				>Worktrees</a
+			>
+			allow you to easily work on different branches of a repository simultaneously.
 		</p>
 	</section>
 </template>

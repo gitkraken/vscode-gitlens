@@ -215,3 +215,9 @@ span.button-subaction {
 }
 
 @import './chart';
+@import '../../shared/codicons.scss';
+
+.codicon {
+	position: relative;
+	top: -1px;
+}
