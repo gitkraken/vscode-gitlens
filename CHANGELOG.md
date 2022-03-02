@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1854](https://github.com/gitkraken/vscode-gitlens/issues/1854) - All repos have the same name
 - Fixes [#1866](https://github.com/gitkraken/vscode-gitlens/issues/1866) - Copy SHA and Copy Message don't work from the views (commits, branches, etc)
 - Fixes [#1865](https://github.com/gitkraken/vscode-gitlens/issues/1865) - Value shortOffset out of range for Intl.DateTimeFormat options property timeZoneName
 - Fixes [#1742](https://github.com/gitkraken/vscode-gitlens/issues/1742) - New file lines keep jumping down
