@@ -413,7 +413,10 @@ export class SubscriptionService implements Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		const session = await this.ensureSession(false);
-		if (session == null) return;
+		if (session == null) {
+			this.changeSubscription(this._subscription);
+			return;
+		}
 
 		try {
 			await this.checkInAndValidate(session);
