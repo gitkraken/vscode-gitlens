@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1865](https://github.com/gitkraken/vscode-gitlens/issues/1865) - Value shortOffset out of range for Intl.DateTimeFormat options property timeZoneName
 - Fixes [#1742](https://github.com/gitkraken/vscode-gitlens/issues/1742) - New file lines keep jumping down
 - Fixes [#1846](https://github.com/gitkraken/vscode-gitlens/issues/1846) - Restoring (checkout) a deleted file from a commit doesn't work
 - Fixes [#1844](https://github.com/gitkraken/vscode-gitlens/issues/1844) - Autolinked issues aren't properly paged when there are too many commits

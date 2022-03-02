@@ -265,7 +265,7 @@ function getDateTimeFormatOptionsFromFormatString(
 					options.hour12 = true;
 					break;
 				case 'timeZoneName':
-					options.timeZoneName = (value.length === 2 ? 'longOffset' : 'shortOffset') as any;
+					options.timeZoneName = value.length === 2 ? 'long' : 'short';
 					break;
 			}
 		}
