@@ -1,6 +1,7 @@
 import { commands, Disposable, window } from 'vscode';
 import type { Container } from '../../container';
 import type { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
+import { ensurePremiumFeaturesEnabled } from '../../premium/subscription/utils';
 import { SyncedStorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { WebviewViewBase } from '../webviewViewBase';
@@ -11,6 +12,11 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		super(container, 'gitlens.views.home', 'home.html', 'Home');
 
 		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
+	}
+
+	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+		return super.show(options);
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
