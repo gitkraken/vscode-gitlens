@@ -1,6 +1,6 @@
 'use strict';
-import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
-import { ShowQuickCommitCommandArgs } from '../../../commands';
+import { commands, Disposable, TextEditor, Uri, ViewColumn, window } from 'vscode';
+import type { ShowQuickCommitCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
@@ -15,7 +15,8 @@ import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
-import { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import { ensurePremiumFeaturesEnabled } from '../../subscription/utils';
 import {
 	Commit,
 	DidChangeStateNotificationType,
@@ -59,6 +60,11 @@ export class TimelineWebview extends WebviewBase<State> {
 			etagRepository: 0,
 			etagSubscription: 0,
 		};
+	}
+
+	override async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+		return super.show(column);
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {

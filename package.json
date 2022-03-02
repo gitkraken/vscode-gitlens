@@ -3634,6 +3634,16 @@
 				"category": "GitLens Premium"
 			},
 			{
+				"command": "gitlens.premium.hide",
+				"title": "Hide Premium Features...",
+				"category": "GitLens Premium"
+			},
+			{
+				"command": "gitlens.premium.restore",
+				"title": "Restore Premium Features...",
+				"category": "GitLens Premium"
+			},
+			{
 				"command": "gitlens.premium.reset",
 				"title": "Reset...",
 				"category": "GitLens Premium"
@@ -5952,6 +5962,14 @@
 				{
 					"command": "gitlens.premium.manage",
 					"when": "gitlens:premium"
+				},
+				{
+					"command": "gitlens.premium.hide",
+					"when": "config.gitlens.premiumFeatures.enabled"
+				},
+				{
+					"command": "gitlens.premium.restore",
+					"when": "!config.gitlens.premiumFeatures.enabled"
 				},
 				{
 					"command": "gitlens.premium.reset",

@@ -15,6 +15,7 @@ import { Container } from '../container';
 import { PremiumFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import { ensurePremiumFeaturesEnabled } from '../premium/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
@@ -115,7 +116,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 					return {
 						badge: '●',
-						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor'),
+						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColoSr'),
 						tooltip: 'Has Uncommitted Changes',
 					};
 				},
@@ -125,6 +126,11 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 	override get canReveal(): boolean {
 		return this.config.reveal || !configuration.get('views.repositories.showWorktrees');
+	}
+
+	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+		return super.show(options);
 	}
 
 	private _visibleDisposable: Disposable | undefined;

@@ -18,6 +18,7 @@ import {
 } from 'vscode';
 import { fetch } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import { configuration } from '../../configuration';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
@@ -46,6 +47,7 @@ import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
+import { ensurePremiumFeaturesEnabled } from './utils';
 
 // TODO: What user-agent should we use?
 const userAgent = 'Visual-Studio-Code-GitLens';
@@ -172,6 +174,13 @@ export class SubscriptionService implements Disposable {
 
 			commands.registerCommand(Commands.PremiumShowPlans, () => this.showPlans()),
 
+			commands.registerCommand(Commands.PremiumHide, () =>
+				configuration.updateEffective('premiumFeatures.enabled', false),
+			),
+			commands.registerCommand(Commands.PremiumRestore, () =>
+				configuration.updateEffective('premiumFeatures.enabled', true),
+			),
+
 			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
 		];
 	}
@@ -189,6 +198,8 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async loginOrSignUp(): Promise<boolean> {
+		if (!(await ensurePremiumFeaturesEnabled())) return false;
+
 		void this.showHomeView();
 
 		await this.container.storage.deleteWorkspace(this.connectedKey);
@@ -270,6 +281,8 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async purchase(): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+
 		if (this._subscription.account == null) {
 			void this.showPlans();
 		} else {
@@ -287,7 +300,7 @@ export class SubscriptionService implements Disposable {
 
 		const cc = Logger.getCorrelationContext();
 
-		void this.showHomeView();
+		void this.showHomeView(true);
 
 		const session = await this.ensureSession(false);
 		if (session == null) return;
@@ -331,7 +344,9 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async showHomeView(): Promise<void> {
+	async showHomeView(silent: boolean = false): Promise<void> {
+		if (silent && !configuration.get('premiumFeatures.enabled', undefined, true)) return;
+
 		if (!this.container.homeView.visible) {
 			await executeCommand(Commands.ShowHomeView);
 		}
@@ -344,6 +359,8 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async startPreviewTrial(): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			void this.showHomeView();

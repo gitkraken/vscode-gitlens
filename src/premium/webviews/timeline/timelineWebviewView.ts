@@ -1,11 +1,11 @@
 'use strict';
 import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
-import { ShowQuickCommitCommandArgs } from '../../../commands';
+import type { ShowQuickCommitCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import { Container } from '../../../container';
 import { PremiumFeatures } from '../../../features';
-import { RepositoriesChangeEvent } from '../../../git/gitProviderService';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
 import { createFromDateDelta } from '../../../system/date';
@@ -16,6 +16,7 @@ import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewViewBase } from '../../../webviews/webviewViewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import { ensurePremiumFeaturesEnabled } from '../../subscription/utils';
 import {
 	Commit,
 	DidChangeStateNotificationType,
@@ -52,6 +53,11 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			etagRepository: 0,
 			etagSubscription: 0,
 		};
+	}
+
+	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
+		if (!(await ensurePremiumFeaturesEnabled())) return;
+		return super.show(options);
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {
