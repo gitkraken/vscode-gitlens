@@ -14,6 +14,7 @@ import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { StorageKeys, SyncedStorageKeys } from './storage';
 import { executeCommand, registerCommands } from './system/command';
+import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare } from './system/version';
@@ -95,6 +96,15 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	Configuration.configure(context);
 	const cfg = configuration.get();
+
+	setDefaultDateLocales(cfg.defaultDateLocale);
+	context.subscriptions.push(
+		configuration.onDidChange(e => {
+			if (!e.affectsConfiguration('gitlens.defaultDateLocale')) return;
+			setDefaultDateLocales(configuration.get('defaultDateLocale'));
+		}),
+	);
+
 	// await migrateSettings(context, previousVersion);
 
 	const container = Container.create(context, cfg);

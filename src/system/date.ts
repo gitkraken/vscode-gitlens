@@ -1,11 +1,7 @@
 // NOTE@eamodio If this changes we need to update the replacement function too (since its parameter number/order relies on the matching)
 const customDateTimeFormatParserRegex =
 	/(?<literal>\[.*?\])|(?<year>YYYY|YY)|(?<month>M{1,4})|(?<day>Do|DD?)|(?<weekday>d{2,4})|(?<hour>HH?|hh?)|(?<minute>mm?)|(?<second>ss?)|(?<fractionalSecond>SSS)|(?<dayPeriod>A|a)|(?<timeZoneName>ZZ?)/g;
-const dateTimeFormatCache = new Map<string | undefined, Intl.DateTimeFormat>();
 const dateTimeFormatRegex = /(?<dateStyle>full|long|medium|short)(?:\+(?<timeStyle>full|long|medium|short))?/;
-let defaultRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
-let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
-let locale: string | undefined;
 const relativeUnitThresholds: [Intl.RelativeTimeFormatUnit, number, string][] = [
 	['year', 24 * 60 * 60 * 1000 * 365, 'yr'],
 	['month', (24 * 60 * 60 * 1000 * 365) / 12, 'mo'],
@@ -19,6 +15,24 @@ const relativeUnitThresholds: [Intl.RelativeTimeFormatUnit, number, string][] = 
 type DateStyle = 'full' | 'long' | 'medium' | 'short';
 type TimeStyle = 'full' | 'long' | 'medium' | 'short';
 export type DateTimeFormat = DateStyle | `${DateStyle}+${TimeStyle}`;
+
+let locale: string | undefined;
+const dateTimeFormatCache = new Map<string | undefined, Intl.DateTimeFormat>();
+let defaultLocales: string[] | undefined;
+let defaultRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
+let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
+
+export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
+	if (typeof locales === 'string') {
+		defaultLocales = [locales];
+	} else {
+		defaultLocales = locales ?? undefined;
+	}
+	defaultRelativeTimeFormat = undefined;
+	defaultShortRelativeTimeFormat = undefined;
+	dateTimeFormatCache.clear();
+	locale = undefined;
+}
 
 export function createFromDateDelta(
 	date: Date,
@@ -67,7 +81,7 @@ export function fromNow(date: Date, short?: boolean): string {
 					} else if (defaultRelativeTimeFormat != null) {
 						locale = defaultRelativeTimeFormat.resolvedOptions().locale;
 					} else {
-						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 							localeMatcher: 'best fit',
 							numeric: 'always',
 							style: 'narrow',
@@ -82,7 +96,7 @@ export function fromNow(date: Date, short?: boolean): string {
 				}
 
 				if (defaultShortRelativeTimeFormat == null) {
-					defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+					defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 						localeMatcher: 'best fit',
 						numeric: 'always',
 						style: 'narrow',
@@ -93,7 +107,7 @@ export function fromNow(date: Date, short?: boolean): string {
 			}
 
 			if (defaultRelativeTimeFormat == null) {
-				defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(undefined, {
+				defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 					localeMatcher: 'best fit',
 					numeric: 'auto',
 					style: 'long',
@@ -112,7 +126,7 @@ export function formatDate(date: Date, format: 'full' | 'long' | 'medium' | 'sho
 	let formatter = dateTimeFormatCache.get(format);
 	if (formatter == null) {
 		const options = getDateTimeFormatOptionsFromFormatString(format);
-		formatter = new Intl.DateTimeFormat(undefined, options);
+		formatter = new Intl.DateTimeFormat(defaultLocales, options);
 		dateTimeFormatCache.set(format, formatter);
 	}
 
