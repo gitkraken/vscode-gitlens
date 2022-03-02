@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changes
+
+- Removes dependency on GitKraken Authentication extension
+
 ### Fixed
 
 - Fixes [#1865](https://github.com/gitkraken/vscode-gitlens/issues/1865) - Value shortOffset out of range for Intl.DateTimeFormat options property timeZoneName
