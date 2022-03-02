@@ -18,7 +18,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/eamodio/vscode-gitlens.git"
+		"url": "https://github.com/gitkraken/vscode-gitlens.git"
 	},
 	"main": "./dist/gitlens.js",
 	"browser": "./dist/browser/gitlens.js",
