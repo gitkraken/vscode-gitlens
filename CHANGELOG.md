@@ -199,7 +199,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Open Folder History_ command to folders in the _Explorer_ view to show the folder's history in the _File History_ view
 - Adds [Gitea](https://gitea.io/) remote provider support &mdash; closes [#1379](https://github.com/gitkraken/vscode-gitlens/issues/1379) thanks to [PR #1396](https://github.com/gitkraken/vscode-gitlens/pull/1396) by Nils K ([septatrix](https://github.com/septatrix))
 - Adds a `gitlens.advanced.commitOrdering` setting to specify the order by which commits will be shown. If unspecified, commits will be shown in reverse chronological order &mdash; closes [#1257](https://github.com/gitkraken/vscode-gitlens/issues/1257) thanks to [PR #1344](https://github.com/gitkraken/vscode-gitlens/pull/1344) by Andy Tang ([thewindsofwinter](https://github.com/thewindsofwinter)) and Shashank Shastri ([Shashank-Shastri](https://github.com/Shashank-Shastri))
-- Adds [documentation](https://github.com/eamodio/vscode-gitlens#side-bar-views-) for the _GitLens: Set Views Layout_ command &mdash; thanks to [PR #1404](https://github.com/gitkraken/vscode-gitlens/pull/1404) by Asif Kamran Malick ([@akmalick](https://github.com/akmalick))
+- Adds [documentation](https://github.com/gitkraken/vscode-gitlens#side-bar-views-) for the _GitLens: Set Views Layout_ command &mdash; thanks to [PR #1404](https://github.com/gitkraken/vscode-gitlens/pull/1404) by Asif Kamran Malick ([@akmalick](https://github.com/akmalick))
 - Adds an _Enable Debug Logging_ command (`gitlens.enableDebugLogging`) to enable debug logging to the GitLens output channel
 - Adds a _Disable Debug Logging_ command (`gitlens.disableDebugLogging`) to disable debug logging to the GitLens output channel
 
@@ -528,35 +528,35 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - Moves all GitLens views to the _Source Control_ side bar by default. You can move them back to the _GitLens_ side bar via the _Set Views Layout_ (`gitlens.setViewsLayout`) command or individually via drag and drop
 
-  - [**_Commits_ view**](https://github.com/eamodio/vscode-gitlens#commits-view-) &mdash; visualize, explore, and manage Git commits
+  - [**_Commits_ view**](https://github.com/gitkraken/vscode-gitlens#commits-view-) &mdash; visualize, explore, and manage Git commits
 
     ![Commits view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view.png)
 
     - Adds an indicator icon (up arrow) to unpublished (unpushed) commits
 
-  - [**_Branches_ view**](https://github.com/eamodio/vscode-gitlens#branches-view-) &mdash; visualize, explore, and manage Git branches
+  - [**_Branches_ view**](https://github.com/gitkraken/vscode-gitlens#branches-view-) &mdash; visualize, explore, and manage Git branches
 
     ![Branches view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/branches-view.png)
 
-  - [**_Remotes_ view**](https://github.com/eamodio/vscode-gitlens#remotes-view-) &mdash; visualize, explore, and manage Git remotes and remote branches
+  - [**_Remotes_ view**](https://github.com/gitkraken/vscode-gitlens#remotes-view-) &mdash; visualize, explore, and manage Git remotes and remote branches
 
     ![Remotes view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/remotes-view.png)
 
-  - [**_Stashes_ view**](https://github.com/eamodio/vscode-gitlens#stashes-view-) &mdash; visualize, explore, and manage Git stashes
+  - [**_Stashes_ view**](https://github.com/gitkraken/vscode-gitlens#stashes-view-) &mdash; visualize, explore, and manage Git stashes
 
     ![Stashes view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/stashes-view.png)
 
-  - [**_Tags_ view**](https://github.com/eamodio/vscode-gitlens#tags-view-) &mdash; visualize, explore, and manage Git tags
+  - [**_Tags_ view**](https://github.com/gitkraken/vscode-gitlens#tags-view-) &mdash; visualize, explore, and manage Git tags
 
     ![Tags view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/tags-view.png)
 
-  - [**_Contributors_ view**](https://github.com/eamodio/vscode-gitlens#contributors-view-) &mdash; visualize, navigate, and explore contributors
+  - [**_Contributors_ view**](https://github.com/gitkraken/vscode-gitlens#contributors-view-) &mdash; visualize, navigate, and explore contributors
 
     ![Contributors view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/contributors-view.png)
 
     - Moves the current user to be first and adds a `(you)` suffix
 
-  - [**_Search & Compare_ view**](https://github.com/eamodio/vscode-gitlens#search--compare-view-) &mdash; search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+  - [**_Search & Compare_ view**](https://github.com/gitkraken/vscode-gitlens#search--compare-view-) &mdash; search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 
     ![Search & Compare view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/search-and-compare-view.png)
 
@@ -566,7 +566,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - Disables the _Repositories_ view by default, as it has been superseded by many new views. You can re-enable it by setting `"gitlens.views.repositories.enabled": true` or via the GitLens Interactive Settings
 
-  - Integrates line history into the [**_File History_ view**](https://github.com/eamodio/vscode-gitlens#file-history-view-)
+  - Integrates line history into the [**_File History_ view**](https://github.com/gitkraken/vscode-gitlens#file-history-view-)
 
     ![File History view view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png)
 
@@ -577,15 +577,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - _Welcome_ view &mdash; quickly setup GitLens to meet your needs (for first time users only)
 
-- Adds a user-friendly [**interactive rebase editor**](https://github.com/eamodio/vscode-gitlens#interactive-rebase-editor-) to easily configure an interactive rebase session
+- Adds a user-friendly [**interactive rebase editor**](https://github.com/gitkraken/vscode-gitlens#interactive-rebase-editor-) to easily configure an interactive rebase session
 
   ![Rebase Editor](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/rebase.gif)
 
-- Adds [**terminal links**](https://github.com/eamodio/vscode-gitlens#terminal-links-) &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
+- Adds [**terminal links**](https://github.com/gitkraken/vscode-gitlens#terminal-links-) &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
 
   ![Terminal Links](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/terminal-links.gif)
 
-- Adds [**rich integration**](https://github.com/eamodio/vscode-gitlens#remote-provider-integrations-) with GitHub
+- Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitHub
 
   - Adds GitHub avatar support!
   - Adds associated pull request to line annotations and hovers
@@ -599,7 +599,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds associated pull requests to branches and commits in GitLens views
   - Adds autolinks for GitHub issues and pull requests, including titles, status, and authors
 
-- Adds a new and improved [**_Gutter Heatmap_**](https://github.com/eamodio/vscode-gitlens#gutter-heatmap-) file annotations, via the _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
+- Adds a new and improved [**_Gutter Heatmap_**](https://github.com/gitkraken/vscode-gitlens#gutter-heatmap-) file annotations, via the _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
 
   ![Gutter Heatmap](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-heatmap.png)
 
@@ -607,7 +607,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds improved heatmap colorization for better clarity of old and new code
   - Adds the hot/cold age threshold to the GitLens Interactive Settings
 
-- Adds a new and improved [**_Gutter Changes_**](https://github.com/eamodio/vscode-gitlens#gutter-changes-) file annotations, via the _Toggle File Changes Annotations_ command (`gitlens.toggleFileChanges`) &mdash; closes [#396](https://github.com/gitkraken/vscode-gitlens/issues/396)
+- Adds a new and improved [**_Gutter Changes_**](https://github.com/gitkraken/vscode-gitlens#gutter-changes-) file annotations, via the _Toggle File Changes Annotations_ command (`gitlens.toggleFileChanges`) &mdash; closes [#396](https://github.com/gitkraken/vscode-gitlens/issues/396)
 
   ![Gutter Changes](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-changes.png)
 
@@ -615,7 +615,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Similar to the built-in Git gutter changes for un-staged changes, but shows all local (un-pushed) changes
   - Shows a changes hover with the full set of changes (diff hunk) and even with unsaved changes
 
-- Adds many refinements to the [**_Git Command Palette_**](https://github.com/eamodio/vscode-gitlens#git-command-palette-) (previously _Git Commands_), and adds new commands
+- Adds many refinements to the [**_Git Command Palette_**](https://github.com/gitkraken/vscode-gitlens#git-command-palette-) (previously _Git Commands_), and adds new commands
 
   ![Git Command Palette](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/git-command-palette.png)
 
@@ -3078,7 +3078,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new recent changes annotations of the whole-file - annotates and highlights all the lines changed in the most recent commit
-  - Can customize the [layout](https://github.com/eamodio/vscode-gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
+  - Can customize the [layout](https://github.com/gitkraken/vscode-gitlens#file-recent-changes-annotation-settings), as well as the [theme](https://github.com/gitkraken/vscode-gitlens#theme-settings)
 - Adds _Toggle Recent File Changes Annotations_ command (`gitlens.toggleFileRecentChanges`) - toggles the recent changes annotations on and off
 - Adds ability to press `Escape` to quickly toggle any whole-file annotations off
 - Improves performance
@@ -3103,13 +3103,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds all-new, beautiful, highly customizable and themable, file blame annotations
-  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#file-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/gitkraken/vscode-gitlens#file-blame-annotation-settings), as well as the [theme](https://github.com/gitkraken/vscode-gitlens#theme-settings)
 - Adds all-new configurability and themeability to the current line blame annotations
-  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#line-blame-annotation-settings), as well as the [theme](https://github.com/eamodio/vscode-gitlens#theme-settings)
+  - Can now fully customize the [layout and content](https://github.com/gitkraken/vscode-gitlens#line-blame-annotation-settings), as well as the [theme](https://github.com/gitkraken/vscode-gitlens#theme-settings)
 - Adds all-new configurability to the status bar blame information
-  - Can now fully customize the [layout and content](https://github.com/eamodio/vscode-gitlens#status-bar-settings)
-- Adds all-new [configurability](https://github.com/eamodio/vscode-gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
-- Adds better [configurability](https://github.com/eamodio/vscode-gitlens#code-lens-settings) over where Git CodeLens will be shown &mdash; both by default and per language
+  - Can now fully customize the [layout and content](https://github.com/gitkraken/vscode-gitlens#status-bar-settings)
+- Adds all-new [configurability](https://github.com/gitkraken/vscode-gitlens#advanced-settings) over which commands are added to which menus via the `gitlens.advanced.menus` setting
+- Adds better [configurability](https://github.com/gitkraken/vscode-gitlens#code-lens-settings) over where Git CodeLens will be shown &mdash; both by default and per language
 - Adds an all-new **changes** (diff) hover annotation to the current line - provides instant access to the line's previous version
 - Adds _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) - toggles the current line blame annotations on and off
 - Adds _Show Line Blame Annotations_ command (`gitlens.showLineBlame`) - shows the current line blame annotations
@@ -3124,7 +3124,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/eamodio/vscode-gitlens#extension-settings)`
+- (BREAKING) Almost all of the GitLens settings have either been renamed, removed, or otherwise changed - see the [README](https://github.com/gitkraken/vscode-gitlens#extension-settings)`
 - Changes the positioning of the Git CodeLens to try to be at the end of any other CodeLens on the same line
 - Changes the position of the _Open File in Remote_ command (`gitlens.openFileInRemote`) in the context menus - now in the `navigation` group
 - Changes the _Toggle Git CodeLens_ command (`gitlens.toggleCodeLens`) to always toggle the Git CodeLens on and off
@@ -3263,7 +3263,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Completely overhauls the [GitLens documentation](https://github.com/eamodio/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
+- Completely overhauls the [GitLens documentation](https://github.com/gitkraken/vscode-gitlens) and messaging &mdash; make sure to check it out to see all the powerful features GitLen provides!
 - Adds `gitlens.blame.annotation.activeLineDarkColor` & `gitlens.blame.annotation.activeLineLightColor` settings to control the colors of the active line blame annotation
 
 ### Changed
