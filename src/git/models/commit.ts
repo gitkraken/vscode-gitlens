@@ -13,6 +13,7 @@ import { GitUri } from '../gitUri';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
 import { PullRequest } from './pullRequest';
 import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
+import { Repository } from './repository';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -471,6 +472,10 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		return this._previousShaPromise;
+	}
+
+	getRepository(): Repository | undefined {
+		return this.container.git.getRepository(this.repoPath);
 	}
 
 	@gate()
