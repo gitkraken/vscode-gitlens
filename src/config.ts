@@ -35,6 +35,7 @@ export interface Config {
 	};
 	debug: boolean;
 	defaultDateFormat: DateTimeFormat | string | null;
+	defaultDateLocale: string | null;
 	defaultDateShortFormat: DateTimeFormat | string | null;
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
