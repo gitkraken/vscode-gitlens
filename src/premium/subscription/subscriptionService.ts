@@ -181,7 +181,7 @@ export class SubscriptionService implements Disposable {
 				configuration.updateEffective('premiumFeatures.enabled', true),
 			),
 
-			commands.registerCommand('gitlens.premium.reset', () => this.logout(true)),
+			commands.registerCommand('gitlens.plus.reset', () => this.logout(true)),
 		];
 	}
 
@@ -192,7 +192,7 @@ export class SubscriptionService implements Disposable {
 
 	@debug()
 	learn(openToSide: boolean = true): void {
-		void openWalkthrough(this.container.context.extension.id, 'gitlens.premium', undefined, openToSide);
+		void openWalkthrough(this.container.context.extension.id, 'gitlens.plus', undefined, openToSide);
 	}
 
 	@gate()

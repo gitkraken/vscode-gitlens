@@ -74,8 +74,8 @@ export const enum StorageKeys {
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
 	Version = 'gitlens:version',
 
-	PremiumSubscription = 'gitlens:premium:subscription',
-	PremiumPreview = 'gitlens:premium:preview',
+	PremiumSubscription = 'gitlens:plus:subscription',
+	PremiumPreview = 'gitlens:plus:preview',
 
 	Deprecated_Version = 'gitlensVersion',
 }
