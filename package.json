@@ -3251,6 +3251,13 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.premiumFeatures.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable premium features",
+						"scope": "window",
+						"order": 60
+					},
 					"gitlens.virtualRepositories.enabled": {
 						"type": "boolean",
 						"default": true,
@@ -10669,7 +10676,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"when": "!gitlens:disabled",
+					"when": "!gitlens:disabled && config.gitlens.premiumFeatures.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "visible"
@@ -10680,7 +10687,7 @@
 					"type": "webview",
 					"id": "gitlens.views.timeline",
 					"name": "Visual File History",
-					"when": "!gitlens:disabled",
+					"when": "!gitlens:disabled && config.gitlens.premiumFeatures.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
 					"visibility": "visible"
@@ -10754,7 +10761,7 @@
 				{
 					"id": "gitlens.views.worktrees",
 					"name": "Worktrees",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && config.gitlens.premiumFeatures.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/worktrees.svg",
 					"visibility": "collapsed"

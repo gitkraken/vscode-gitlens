@@ -112,6 +112,9 @@ export interface Config {
 			[key: string]: any;
 		}
 	> | null;
+	premiumFeatures: {
+		enabled: boolean;
+	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
