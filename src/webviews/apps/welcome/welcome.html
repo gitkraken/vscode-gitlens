@@ -331,6 +331,40 @@
 						<div class="settings">
 							<div class="setting">
 								<div class="setting__input">
+									<label for="defaultDateLocale">Date&nbsp;locale</label>
+									<input
+										id="defaultDateLocale"
+										name="defaultDateLocale"
+										type="text"
+										placeholder="defaults to VS Code locale"
+										data-setting
+										data-setting-preview
+									/>
+									<a
+										class="link__learn-more"
+										title="See possible BCP 47 language tag for supported locale values"
+										href="https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags"
+									>
+										<i class="icon icon__info"></i>
+									</a>
+								</div>
+								<span class="setting__hint">
+									<span style="line-height: 2rem">
+										<i class="icon icon--sm icon__info"></i> Use <code>system</code> for the system
+										locale, or a locale language tag, e.g. en-US
+									</span>
+									<br />
+									Example date:
+									<span
+										data-setting-preview="defaultDateLocale"
+										data-setting-preview-type="date-locale"
+										data-setting-preview-default="defaultDateFormat"
+									></span>
+								</span>
+							</div>
+
+							<div class="setting">
+								<div class="setting__input">
 									<label for="defaultDateFormat">Date&nbsp;format</label>
 									<input
 										id="defaultDateFormat"
@@ -342,7 +376,7 @@
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
@@ -371,7 +405,7 @@
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
@@ -400,7 +434,7 @@
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
