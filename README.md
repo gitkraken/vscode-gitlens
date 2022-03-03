@@ -67,9 +67,15 @@ Here are just some of the **features** that GitLens provides,
 - user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
-# Introducing Premium Features [#](#introducing-premium-features- 'Premium features')
+# Introducing GitLens+ [#](#introducing-gitlens+-features- 'GitLens+ features')
 
-Access to premium features requires a free account for public repos and a paid account for private repos. All non-premium features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love. Learn more about [ premium features](https://gitkraken.com/gitlens/premium-features).
+GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [ GitLens+ features](https://gitkraken.com/gitlens/plus-features).
+
+🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
+
+## Does this affect existing features?
+
+No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
 
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 

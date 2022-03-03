@@ -110,7 +110,7 @@ yarn run package
 
 Please follow all the instructions in the [PR template](.github/PULL_REQUEST_TEMPLATE.md).
 
-### Contributions to GitLens Premium Licensed Files
+### Contributions to GitLens+ Licensed Files
 
 This repository contains both OSS-licensed and non-OSS-licensed files. All files in or under any directory named "premium" fall under LICENSE.premium. The remaining files fall under LICENSE, the MIT license.
 
