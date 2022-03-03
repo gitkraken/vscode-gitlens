@@ -3625,7 +3625,7 @@
 			},
 			{
 				"command": "gitlens.plus.logout",
-				"title": "Disconnect from GitLens+",
+				"title": "Sign out of GitLens+",
 				"category": "GitLens+"
 			},
 			{

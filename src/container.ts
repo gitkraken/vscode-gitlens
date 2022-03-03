@@ -160,7 +160,9 @@ export class Container {
 
 		const server = new ServerConnection(this);
 		context.subscriptions.push(server);
-		context.subscriptions.push(new SubscriptionAuthenticationProvider(this, server));
+		context.subscriptions.push(
+			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
+		);
 		context.subscriptions.push((this._subscription = new SubscriptionService(this)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
@@ -450,13 +452,14 @@ export class Container {
 		return this._searchAndCompareView;
 	}
 
-	private _subscription: SubscriptionService | undefined;
+	private _subscription: SubscriptionService;
 	get subscription() {
-		if (this._subscription == null) {
-			this._subscription = new SubscriptionService(this);
-		}
-
 		return this._subscription;
+	}
+
+	private _subscriptionAuthentication: SubscriptionAuthenticationProvider;
+	get subscriptionAuthentication() {
+		return this._subscriptionAuthentication;
 	}
 
 	private _settingsWebview: SettingsWebview;

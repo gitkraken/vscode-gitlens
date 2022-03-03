@@ -1,7 +1,7 @@
 import {
 	authentication,
+	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
-	AuthenticationSessionsChangeEvent,
 	version as codeVersion,
 	commands,
 	Disposable,
@@ -25,10 +25,11 @@ import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
-import { StorageKeys, WorkspaceStorageKeys } from '../../storage';
+import { StorageKeys } from '../../storage';
 import {
 	computeSubscriptionState,
 	getSubscriptionPlan,
+	getSubscriptionPlanName,
 	getSubscriptionPlanPriority,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
@@ -74,7 +75,10 @@ export class SubscriptionService implements Disposable {
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
-			authentication.onDidChangeSessions(this.onAuthenticationChanged, this),
+			this.container.subscriptionAuthentication.onDidChangeSessions(
+				e => setTimeout(() => this.onAuthenticationChanged(e), 0),
+				this,
+			),
 		);
 
 		this.changeSubscription(this.getStoredSubscription(), true);
@@ -87,10 +91,28 @@ export class SubscriptionService implements Disposable {
 		this._disposable.dispose();
 	}
 
-	private onAuthenticationChanged(e: AuthenticationSessionsChangeEvent): void {
-		if (e.provider.id !== SubscriptionService.authenticationProviderId) return;
+	private async onAuthenticationChanged(e: AuthenticationProviderAuthenticationSessionsChangeEvent) {
+		let session = this._session;
+		if (session == null && this._sessionPromise != null) {
+			session = await this._sessionPromise;
+		}
 
-		void this.ensureSession(false, true);
+		if (session != null && e.removed?.some(s => s.id === session!.id)) {
+			this._session = undefined;
+			this._sessionPromise = undefined;
+			void this.logout();
+			return;
+		}
+
+		const updated = e.added?.[0] ?? e.changed?.[0];
+		if (updated == null) return;
+
+		if (updated.id === session?.id && updated.accessToken === session?.accessToken) {
+			return;
+		}
+
+		this._session = session;
+		void this.validate();
 	}
 
 	@memoize()
@@ -133,10 +155,6 @@ export class SubscriptionService implements Disposable {
 		}
 
 		return Uri.parse('https://gitkraken.com');
-	}
-
-	private get connectedKey(): `${WorkspaceStorageKeys.ConnectedPrefix}${string}` {
-		return `${WorkspaceStorageKeys.ConnectedPrefix}gitkraken`;
 	}
 
 	private _etag: number = 0;
@@ -202,8 +220,6 @@ export class SubscriptionService implements Disposable {
 
 		void this.showHomeView();
 
-		await this.container.storage.deleteWorkspace(this.connectedKey);
-
 		const session = await this.ensureSession(true);
 		const loggedIn = Boolean(session);
 		if (loggedIn) {
@@ -254,8 +270,10 @@ export class SubscriptionService implements Disposable {
 	@log()
 	logout(reset: boolean = false): void {
 		this._sessionPromise = undefined;
-		this._session = undefined;
-		void this.container.storage.storeWorkspace(this.connectedKey, false);
+		if (this._session != null) {
+			void this.container.subscriptionAuthentication.removeSession(this._session.id);
+			this._session = undefined;
+		}
 
 		if (reset && this.container.debugging) {
 			this.changeSubscription(undefined);
@@ -575,26 +593,29 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._sessionPromise != null && this._session === undefined) {
-			this._session = await this._sessionPromise;
-			this._sessionPromise = undefined;
+			void (await this._sessionPromise);
 		}
 
 		if (!force && this._session != null) return this._session;
 		if (this._session === null && !createIfNeeded) return undefined;
 
-		if (createIfNeeded) {
-			await this.container.storage.deleteWorkspace(this.connectedKey);
-		} else if (this.container.storage.getWorkspace<boolean>(this.connectedKey) === false) {
-			return undefined;
-		}
-
 		if (this._sessionPromise === undefined) {
-			this._sessionPromise = this.getOrCreateSession(createIfNeeded);
+			this._sessionPromise = this.getOrCreateSession(createIfNeeded).then(
+				s => {
+					this._session = s;
+					this._sessionPromise = undefined;
+					return this._session;
+				},
+				() => {
+					this._session = null;
+					this._sessionPromise = undefined;
+					return this._session;
+				},
+			);
 		}
 
-		this._session = await this._sessionPromise;
-		this._sessionPromise = undefined;
-		return this._session ?? undefined;
+		const session = await this._sessionPromise;
+		return session ?? undefined;
 	}
 
 	@debug()
@@ -621,6 +642,11 @@ export class SubscriptionService implements Disposable {
 			}
 
 			Logger.error(ex, cc);
+		}
+
+		// If we didn't find a session, check if we could migrate one from the GK auth provider
+		if (session === undefined) {
+			session = await this.container.subscriptionAuthentication.tryMigrateSession();
 		}
 
 		if (session == null) {
@@ -702,7 +728,19 @@ export class SubscriptionService implements Disposable {
 
 	private getStoredSubscription(): Subscription | undefined {
 		const storedSubscription = this.container.storage.get<Stored<Subscription>>(StorageKeys.Subscription);
-		return storedSubscription?.data;
+
+		const subscription = storedSubscription?.data;
+		if (subscription != null) {
+			// Migrate the plan names to the latest names
+			(subscription.plan.actual as Mutable<Subscription['plan']['actual']>).name = getSubscriptionPlanName(
+				subscription.plan.actual.id,
+			);
+			(subscription.plan.effective as Mutable<Subscription['plan']['effective']>).name = getSubscriptionPlanName(
+				subscription.plan.effective.id,
+			);
+		}
+
+		return subscription;
 	}
 
 	private async storeSubscription(subscription: Subscription): Promise<void> {
@@ -756,13 +794,13 @@ export class SubscriptionService implements Disposable {
 
 		if (this._statusBarSubscription == null) {
 			this._statusBarSubscription = window.createStatusBarItem(
-				'gitlens.subscription',
+				'gitlens.plus.subscription',
 				StatusBarAlignment.Left,
 				1,
 			);
 		}
 
-		this._statusBarSubscription.name = 'GitLens Subscription';
+		this._statusBarSubscription.name = 'GitLens+ Subscription';
 		this._statusBarSubscription.command = Commands.ShowHomeView;
 
 		if (account?.verified === false) {
