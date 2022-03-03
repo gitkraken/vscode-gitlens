@@ -74,6 +74,7 @@ export const enum StorageKeys {
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
 	Version = 'gitlens:version',
 
+	MigratedAuthentication = 'gitlens:plus:migratedAuthentication',
 	Subscription = 'gitlens:premium:subscription', // Don't change this key name as its the stored subscription
 
 	Deprecated_Version = 'gitlensVersion',

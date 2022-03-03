@@ -6,10 +6,12 @@ import {
 	AuthenticationSession,
 	Disposable,
 	EventEmitter,
+	extensions,
 	window,
 } from 'vscode';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
+import { StorageKeys } from '../../storage';
 import { debug } from '../../system/decorators/log';
 import { ServerConnection } from './serverConnection';
 
@@ -26,7 +28,6 @@ interface StoredSession {
 
 const authenticationId = 'gitlens+';
 const authenticationLabel = 'GitLens+';
-const authenticationSecretKey = `gitlens.plus.auth`;
 
 export class SubscriptionAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
@@ -51,6 +52,10 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 	dispose() {
 		this._disposable.dispose();
+	}
+
+	private get secretStorageKey(): string {
+		return `gitlens.plus.auth:${this.container.env}`;
 	}
 
 	@debug()
@@ -124,9 +129,53 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			this._onDidChangeSessions.fire({ added: [], removed: [session], changed: [] });
 		} catch (ex) {
 			Logger.error(ex, cc);
-			void window.showErrorMessage(`Unable to sign out: ${ex}`);
+			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
 			throw ex;
 		}
+	}
+
+	private _migrated: boolean | undefined;
+	async tryMigrateSession(): Promise<AuthenticationSession | undefined> {
+		if (this._migrated == null) {
+			this._migrated = this.container.storage.get<boolean>(StorageKeys.MigratedAuthentication, false);
+		}
+		if (this._migrated) return undefined;
+
+		let session: AuthenticationSession | undefined;
+		try {
+			if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
+
+			session = await authentication.getSession('gitkraken', ['gitlens'], {
+				createIfNone: false,
+			});
+			if (session == null) return;
+
+			session = {
+				id: uuid(),
+				accessToken: session.accessToken,
+				account: { ...session.account },
+				scopes: session.scopes,
+			};
+
+			const sessions = await this._sessionsPromise;
+			const scopesKey = getScopesKey(session.scopes);
+			const sessionIndex = sessions.findIndex(s => s.id === session!.id || getScopesKey(s.scopes) === scopesKey);
+			if (sessionIndex > -1) {
+				sessions.splice(sessionIndex, 1, session);
+			} else {
+				sessions.push(session);
+			}
+
+			await this.storeSessions(sessions);
+
+			this._onDidChangeSessions.fire({ added: [session], removed: [], changed: [] });
+		} catch (ex) {
+			Logger.error(ex, 'Unable to migrate authentication');
+		} finally {
+			this._migrated = true;
+			void this.container.storage.store<boolean>(StorageKeys.MigratedAuthentication, true);
+		}
+		return session;
 	}
 
 	private async checkForUpdates() {
@@ -171,14 +220,14 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		let storedSessions: StoredSession[];
 
 		try {
-			const sessionsJSON = await this.container.storage.getSecret(authenticationSecretKey);
+			const sessionsJSON = await this.container.storage.getSecret(this.secretStorageKey);
 			if (!sessionsJSON || sessionsJSON === '[]') return [];
 
 			try {
 				storedSessions = JSON.parse(sessionsJSON);
 			} catch (ex) {
 				try {
-					await this.container.storage.deleteSecret(authenticationSecretKey);
+					await this.container.storage.deleteSecret(this.secretStorageKey);
 				} catch {}
 
 				throw ex;
@@ -233,7 +282,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 	private async storeSessions(sessions: AuthenticationSession[]): Promise<void> {
 		try {
 			this._sessionsPromise = Promise.resolve(sessions);
-			await this.container.storage.storeSecret(authenticationSecretKey, JSON.stringify(sessions));
+			await this.container.storage.storeSecret(this.secretStorageKey, JSON.stringify(sessions));
 		} catch (ex) {
 			Logger.error(ex, `Unable to store ${sessions.length} sessions`);
 		}
