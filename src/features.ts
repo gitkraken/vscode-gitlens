@@ -10,7 +10,7 @@ export type FeatureAccess =
 	| { allowed: true; subscription: { current: Subscription; required?: undefined } }
 	| { allowed: false; subscription: { current: Subscription; required?: RequiredSubscriptionPlans } };
 
-export const enum PremiumFeatures {
+export const enum PlusFeatures {
 	Timeline = 'timeline',
 	Worktrees = 'worktrees',
 }

@@ -14,7 +14,7 @@ import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
 import { Container } from '../../container';
-import type { FeatureAccess, Features, PremiumFeatures } from '../../features';
+import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
@@ -400,7 +400,7 @@ export class Repository implements Disposable {
 	}
 
 	@log()
-	access(feature?: PremiumFeatures): Promise<FeatureAccess> {
+	access(feature?: PlusFeatures): Promise<FeatureAccess> {
 		return this.container.git.access(feature, this.uri);
 	}
 

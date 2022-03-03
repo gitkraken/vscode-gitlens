@@ -47,7 +47,7 @@ import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
-import { ensurePremiumFeaturesEnabled } from './utils';
+import { ensurePlusFeaturesEnabled } from './utils';
 
 // TODO: What user-agent should we use?
 const userAgent = 'Visual-Studio-Code-GitLens';
@@ -59,7 +59,7 @@ export interface SubscriptionChangeEvent {
 }
 
 export class SubscriptionService implements Disposable {
-	private static authenticationProviderId = 'gitlens-gitkraken';
+	private static authenticationProviderId = 'gitlens+';
 	private static authenticationScopes = ['gitlens'];
 
 	private _onDidChange = new EventEmitter<SubscriptionChangeEvent>();
@@ -161,24 +161,24 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(Commands.PremiumLearn, openToSide => this.learn(openToSide)),
-			commands.registerCommand(Commands.PremiumLoginOrSignUp, () => this.loginOrSignUp()),
-			commands.registerCommand(Commands.PremiumLogout, () => this.logout()),
+			commands.registerCommand(Commands.PlusLearn, openToSide => this.learn(openToSide)),
+			commands.registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
+			commands.registerCommand(Commands.PlusLogout, () => this.logout()),
 
-			commands.registerCommand(Commands.PremiumStartPreviewTrial, () => this.startPreviewTrial()),
-			commands.registerCommand(Commands.PremiumManage, () => this.manage()),
-			commands.registerCommand(Commands.PremiumPurchase, () => this.purchase()),
+			commands.registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
+			commands.registerCommand(Commands.PlusManage, () => this.manage()),
+			commands.registerCommand(Commands.PlusPurchase, () => this.purchase()),
 
-			commands.registerCommand(Commands.PremiumResendVerification, () => this.resendVerification()),
-			commands.registerCommand(Commands.PremiumValidate, () => this.validate()),
+			commands.registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
+			commands.registerCommand(Commands.PlusValidate, () => this.validate()),
 
-			commands.registerCommand(Commands.PremiumShowPlans, () => this.showPlans()),
+			commands.registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
 
-			commands.registerCommand(Commands.PremiumHide, () =>
-				configuration.updateEffective('premiumFeatures.enabled', false),
+			commands.registerCommand(Commands.PlusHide, () =>
+				configuration.updateEffective('plusFeatures.enabled', false),
 			),
-			commands.registerCommand(Commands.PremiumRestore, () =>
-				configuration.updateEffective('premiumFeatures.enabled', true),
+			commands.registerCommand(Commands.PlusRestore, () =>
+				configuration.updateEffective('plusFeatures.enabled', true),
 			),
 
 			commands.registerCommand('gitlens.plus.reset', () => this.logout(true)),
@@ -198,7 +198,7 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async loginOrSignUp(): Promise<boolean> {
-		if (!(await ensurePremiumFeaturesEnabled())) return false;
+		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		void this.showHomeView();
 
@@ -209,7 +209,7 @@ export class SubscriptionService implements Disposable {
 		if (loggedIn) {
 			const {
 				account,
-				plan: { actual },
+				plan: { actual, effective },
 			} = this._subscription;
 
 			if (account?.verified === false) {
@@ -232,10 +232,9 @@ export class SubscriptionService implements Disposable {
 				const result = await window.showInformationMessage(
 					`You are now signed in to your ${
 						actual.name
-					} account which gives you access to premium features for public repos.\n\nYou were also granted a trial of premium features for both public and private repos for ${pluralize(
-						'more day',
-						remaining ?? 0,
-					)}.`,
+					} account which gives you access to GitLens+ features on public repos.\n\nYou were also granted a trial of ${
+						effective.name
+					} for both public and private repos for ${pluralize('more day', remaining ?? 0)}.`,
 					{ modal: true },
 					confirm,
 					learn,
@@ -281,7 +280,7 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async purchase(): Promise<void> {
-		if (!(await ensurePremiumFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this._subscription.account == null) {
 			void this.showPlans();
@@ -345,7 +344,7 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async showHomeView(silent: boolean = false): Promise<void> {
-		if (silent && !configuration.get('premiumFeatures.enabled', undefined, true)) return;
+		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
 		if (!this.container.homeView.visible) {
 			await executeCommand(Commands.ShowHomeView);
@@ -359,17 +358,17 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async startPreviewTrial(): Promise<void> {
-		if (!(await ensurePremiumFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			void this.showHomeView();
 
 			if (plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Sign In', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'Sign in to GitLens+', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your GitLens premium features trial has ended.\nPlease sign in to use premium features on public repos and get a free 7-day trial for both public and private repos.',
+					'Your GitLens+ features trial has ended.\nPlease sign in to use GitLens+ features on public repos and get a free 7-day trial for both public and private repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -413,7 +412,7 @@ export class SubscriptionService implements Disposable {
 		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 		const learn: MessageItem = { title: 'Learn More' };
 		const result = await window.showInformationMessage(
-			`You have started a ${days} day trial of GitLens premium features for both public and private repos.`,
+			`You have started a ${days} day trial of GitLens+ features for both public and private repos.`,
 			{ modal: true },
 			confirm,
 			learn,
@@ -642,7 +641,7 @@ export class SubscriptionService implements Disposable {
 
 				if (createIfNeeded) {
 					void window.showErrorMessage(
-						`Unable to sign in to your account. Please try again. If this issue persists, please contact support. Account=${name} Error=${ex.message}`,
+						`Unable to sign in to your GitLens+ account. Please try again. If this issue persists, please contact support. Account=${name} Error=${ex.message}`,
 						'OK',
 					);
 				}
@@ -702,12 +701,12 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private getStoredSubscription(): Subscription | undefined {
-		const storedSubscription = this.container.storage.get<Stored<Subscription>>(StorageKeys.PremiumSubscription);
+		const storedSubscription = this.container.storage.get<Stored<Subscription>>(StorageKeys.Subscription);
 		return storedSubscription?.data;
 	}
 
 	private async storeSubscription(subscription: Subscription): Promise<void> {
-		return this.container.storage.store<Stored<Subscription>>(StorageKeys.PremiumSubscription, {
+		return this.container.storage.store<Stored<Subscription>>(StorageKeys.Subscription, {
 			v: 1,
 			data: subscription,
 		});
@@ -723,8 +722,8 @@ export class SubscriptionService implements Disposable {
 				: subscription.required != null && isSubscriptionPaidPlan(subscription.required)
 				? 'paid'
 				: 'free+';
-			void setContext(ContextKeys.PremiumAllowed, allowed);
-			void setContext(ContextKeys.PremiumRequired, required);
+			void setContext(ContextKeys.PlusAllowed, allowed);
+			void setContext(ContextKeys.PlusRequired, required);
 		});
 
 		const {
@@ -732,8 +731,8 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		void setContext(ContextKeys.Premium, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
-		void setContext(ContextKeys.PremiumState, state);
+		void setContext(ContextKeys.Plus, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
+		void setContext(ContextKeys.PlusState, state);
 	}
 
 	private updateStatusBar(): void {
@@ -772,7 +771,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**Please verify your email**\n\nBefore you can start your **${effective.name}** trial, please verify the email for the account you created.\n\nClick for details`
-					: `**Please verify your email**\n\nBefore you use premium GitLens features, please verify the email for the account you created.\n\nClick for details`,
+					: `**Please verify your email**\n\nBefore you can use GitLens+ features, please verify the email for the account you created.\n\nClick for details`,
 				true,
 			);
 		} else {
@@ -782,7 +781,7 @@ export class SubscriptionService implements Disposable {
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				`You are currently trialing **${
 					effective.name
-				}**, which gives you access to premium GitLens features. You have ${pluralize(
+				}**, which gives you access to GitLens+ features on both public and private repos. You have ${pluralize(
 					'day',
 					remaining ?? 0,
 				)} remaining in your trial.\n\nClick for details`,

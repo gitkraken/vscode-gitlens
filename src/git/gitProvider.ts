@@ -1,6 +1,6 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
-import { Features, PremiumFeatures } from '../features';
+import { Features, PlusFeatures } from '../features';
 import type { SubscriptionPlanId } from '../subscription';
 import type { GitUri } from './gitUri';
 import type {
@@ -115,7 +115,7 @@ export interface GitProvider extends Disposable {
 	): Repository;
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
-	allows(feature: PremiumFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean>;
+	allows(feature: PlusFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean>;
 	supports(feature: Features): Promise<boolean>;
 	visibility(repoPath: string): Promise<RepositoryVisibility>;
 

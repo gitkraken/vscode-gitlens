@@ -2,7 +2,7 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import type { PremiumFeatures } from '../features';
+import type { PlusFeatures } from '../features';
 import type { PagedResult } from '../git/gitProvider';
 import {
 	BranchSortOptions,
@@ -2233,7 +2233,7 @@ function getShowRepositoryStatusStepItems<
 export async function* ensureAccessStep<
 	State extends PartialStepState & { repo: Repository },
 	Context extends { repos: Repository[]; title: string },
->(state: State, context: Context, feature: PremiumFeatures): AsyncStepResultGenerator<void> {
+>(state: State, context: Context, feature: PlusFeatures): AsyncStepResultGenerator<void> {
 	const access = await Container.instance.git.access(feature, state.repo.path);
 	if (access.allowed) return undefined;
 
@@ -2247,7 +2247,7 @@ export async function* ensureAccessStep<
 
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
 			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
-			placeholder = 'Premium features require an upgraded account';
+			placeholder = 'GitLens+ features require an upgraded account';
 		} else {
 			if (
 				access.subscription.current.account == null &&
@@ -2260,7 +2260,7 @@ export async function* ensureAccessStep<
 			} else {
 				directives.push(DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription));
 			}
-			placeholder = 'Premium features require an account';
+			placeholder = 'GitLens+ features require a free account';
 		}
 	}
 

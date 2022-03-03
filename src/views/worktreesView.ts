@@ -12,10 +12,10 @@ import {
 } from 'vscode';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
 import { Container } from '../container';
-import { PremiumFeatures } from '../features';
+import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
-import { ensurePremiumFeaturesEnabled } from '../premium/subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../premium/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
@@ -50,7 +50,7 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
-		const access = await this.view.container.git.access(PremiumFeatures.Worktrees);
+		const access = await this.view.container.git.access(PlusFeatures.Worktrees);
 		if (!access.allowed) return [];
 
 		if (this.children == null) {
@@ -129,7 +129,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
-		if (!(await ensurePremiumFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
 	}
 
@@ -154,7 +154,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewExpired:
 			case SubscriptionState.VerificationRequired:
-				this.description = '✨ premium feature';
+				this.description = '✨ GitLens+ feature';
 				break;
 			case SubscriptionState.FreeInPreview: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
