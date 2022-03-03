@@ -1,7 +1,7 @@
 import { commands, Disposable, window } from 'vscode';
 import type { Container } from '../../container';
-import type { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../premium/subscription/utils';
+import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import { SyncedStorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { WebviewViewBase } from '../webviewViewBase';

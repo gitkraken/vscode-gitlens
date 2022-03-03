@@ -21,7 +21,7 @@ import {
 	RepositoryChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
-import { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
+import { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';

@@ -15,7 +15,7 @@ import { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
 import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
-import { ensurePlusFeaturesEnabled } from '../premium/subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';

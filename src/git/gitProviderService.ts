@@ -23,7 +23,7 @@ import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures } from '../features';
 import { Logger } from '../logger';
-import type { SubscriptionChangeEvent } from '../premium/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
 import { WorkspaceStorageKeys } from '../storage';
 import {

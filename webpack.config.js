@@ -303,7 +303,7 @@ function getWebviewsConfig(mode, env) {
 			home: './home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
-			timeline: './premium/timeline/timeline.ts',
+			timeline: './plus/timeline/timeline.ts',
 			welcome: './welcome/welcome.ts',
 		},
 		mode: mode,
@@ -502,14 +502,14 @@ function getImageMinimizerConfig(mode, env) {
 
 /**
  * @param { string } name
- * @param { boolean } premium
+ * @param { boolean } plus
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
  * @returns { HtmlPlugin }
  */
-function getHtmlPlugin(name, premium, mode, env) {
+function getHtmlPlugin(name, plus, mode, env) {
 	return new HtmlPlugin({
-		template: premium ? path.join('premium', name, `${name}.html`) : path.join(name, `${name}.html`),
+		template: plus ? path.join('plus', name, `${name}.html`) : path.join(name, `${name}.html`),
 		chunks: [name],
 		filename: path.join(__dirname, 'dist', 'webviews', `${name}.html`),
 		inject: true,
