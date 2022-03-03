@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes dependency on GitKraken Authentication extension
 - Changes date formatting to follow the VS Code language locale by default
 - Changes framing of premium features into GitLens+
+- Changes repository naming to better reflect its folder name, related to [#1854](https://github.com/gitkraken/vscode-gitlens/issues/1854)
 
 ### Fixed
 

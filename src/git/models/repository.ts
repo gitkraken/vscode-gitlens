@@ -214,20 +214,12 @@ export class Repository implements Disposable {
 		if (folder != null) {
 			if (root) {
 				this.name = folder.name;
-				this.formattedName = this.name;
 			} else {
 				const relativePath = container.git.getRelativePath(uri, folder.uri);
-				if (relativePath) {
-					this.name = `${folder.name}/${relativePath}`;
-					this.formattedName = `${folder.name} (${relativePath})`;
-				} else {
-					this.name = folder.name;
-					this.formattedName = this.name;
-				}
+				this.name = relativePath ? relativePath : folder.name;
 			}
 		} else {
 			this.name = basename(uri.path);
-			this.formattedName = this.name;
 
 			// TODO@eamodio should we create a fake workspace folder?
 			// folder = {
@@ -236,6 +228,7 @@ export class Repository implements Disposable {
 			// 	index: container.git.repositoryCount,
 			// };
 		}
+		this.formattedName = this.name;
 		this.index = folder?.index ?? container.git.repositoryCount;
 
 		this.id = asRepoComparisonKey(uri);
