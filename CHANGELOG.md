@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds `gitlens.defaultDateFormat` setting to specify the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag), to use for date formatting
+- Adds `gitlens.defaultDateFormat` setting to specify the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags), to use for date formatting
 
 ### Changes
 

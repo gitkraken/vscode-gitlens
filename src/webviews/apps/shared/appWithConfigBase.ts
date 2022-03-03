@@ -9,7 +9,7 @@ import {
 	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { formatDate } from '../shared/date';
+import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { App } from './appBase';
 import { DOM } from './dom';
 
@@ -357,6 +357,8 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	private updateState() {
 		this._updating = true;
 
+		setDefaultDateLocales(this.state.config.defaultDateLocale);
+
 		try {
 			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-setting]')) {
 				if (el.dataset.settingType === 'custom') {
@@ -439,11 +441,28 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
-				if (value == null || value.length === 0) {
+				if (!value) {
 					value = el.dataset.settingPreviewDefault;
 				}
 
-				el.innerText = value == null ? '' : formatDate(date, value);
+				el.innerText = value == null ? '' : formatDate(date, value, undefined, false);
+				break;
+			}
+			case 'date-locale': {
+				if (value === undefined) {
+					value = this.getSettingValue<string>(el.dataset.settingPreview!);
+				}
+
+				if (!value) {
+					value = undefined;
+				}
+
+				const format = this.getSettingValue<string>(el.dataset.settingPreviewDefault!) ?? 'MMMM Do, YYYY h:mma';
+				try {
+					el.innerText = formatDate(date, format, value, false);
+				} catch (ex) {
+					el.innerText = ex.message;
+				}
 				break;
 			}
 			case 'commit': {
@@ -451,7 +470,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
-				if (value == null || value.length === 0) {
+				if (!value) {
 					value = el.dataset.settingPreviewDefault;
 				}
 

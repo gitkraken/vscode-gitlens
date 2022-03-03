@@ -124,14 +124,33 @@ export function fromNow(date: Date, short?: boolean): string {
 	return '';
 }
 
-export function formatDate(date: Date, format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined) {
+export function formatDate(
+	date: Date,
+	format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined,
+	locale?: string,
+	cache: boolean = true,
+) {
 	format = format ?? undefined;
 
-	let formatter = dateTimeFormatCache.get(format);
+	const key = `${locale ?? ''}:${format}`;
+
+	let formatter = dateTimeFormatCache.get(key);
 	if (formatter == null) {
 		const options = getDateTimeFormatOptionsFromFormatString(format);
-		formatter = new Intl.DateTimeFormat(defaultLocales, options);
-		dateTimeFormatCache.set(format, formatter);
+
+		let locales;
+		if (locale == null) {
+			locales = defaultLocales;
+		} else if (locale === 'system') {
+			locales = undefined;
+		} else {
+			locales = [locale];
+		}
+
+		formatter = new Intl.DateTimeFormat(locales, options);
+		if (cache) {
+			dateTimeFormatCache.set(key, formatter);
+		}
 	}
 
 	if (format == null || dateTimeFormatRegex.test(format)) {
