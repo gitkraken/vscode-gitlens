@@ -1,6 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { PremiumFeatures } from '../../features';
+import { PlusFeatures } from '../../features';
 import { GitUri } from '../../git/gitUri';
 import { Repository } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
@@ -39,7 +39,7 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const access = await this.repo.access(PremiumFeatures.Worktrees);
+			const access = await this.repo.access(PlusFeatures.Worktrees);
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.getWorktrees();
@@ -52,7 +52,7 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const access = await this.repo.access(PremiumFeatures.Worktrees);
+		const access = await this.repo.access(PlusFeatures.Worktrees);
 
 		const item = new TreeItem(
 			'Worktrees',
@@ -62,7 +62,7 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  Premium feature which requires an account`;
+			: ` ${GlyphChars.Warning}  GitLens+ feature which requires an account`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

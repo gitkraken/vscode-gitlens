@@ -46,21 +46,21 @@ export namespace DirectiveQuickPickItem {
 					label = 'Try again';
 					break;
 				case Directive.StartPreviewTrial:
-					label = 'Try Premium Features Now';
-					detail = 'Try premium features now, without an account, for 3 days';
+					label = 'Try GitLens+ Features Now';
+					detail = 'Try GitLens+ features now, without an account, for 3 days';
 					break;
 				case Directive.RequiresVerification:
 					label = 'Resend Verification Email';
 					detail = 'You must verify your account email address before you can continue';
 					break;
 				case Directive.RequiresFreeSubscription:
-					label = 'Sign In';
+					label = 'Sign in to GitLens+';
 					detail =
-						'To use premium features on public repos and get a free 7-day trial for both public and private repos';
+						'To use GitLens+ features on public repos and get a free 7-day trial for both public and private repos';
 					break;
 				case Directive.RequiresPaidSubscription:
 					label = 'Upgrade your account';
-					detail = 'To use premium features on both public and private repos';
+					detail = 'To use GitLens+ features on both public and private repos';
 					break;
 			}
 		}

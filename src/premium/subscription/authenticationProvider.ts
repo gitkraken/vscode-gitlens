@@ -24,9 +24,9 @@ interface StoredSession {
 	scopes: string[];
 }
 
-const authenticationId = 'gitlens-gitkraken';
-const authenticationLabel = 'GitKraken';
-const authenticationSecretKey = `gitkraken.auth`;
+const authenticationId = 'gitlens+';
+const authenticationLabel = 'GitLens+';
+const authenticationSecretKey = `gitlens.plus.auth`;
 
 export class SubscriptionAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
@@ -82,7 +82,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			if (ex === 'Cancelled') throw ex;
 
 			Logger.error(ex, cc);
-			void window.showErrorMessage(`Unable to sign in: ${ex}`);
+			void window.showErrorMessage(`Unable to sign in to GitLens+: ${ex}`);
 			throw ex;
 		}
 	}

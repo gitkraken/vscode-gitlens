@@ -1,7 +1,7 @@
 import { commands, Disposable, window } from 'vscode';
 import type { Container } from '../../container';
 import type { SubscriptionChangeEvent } from '../../premium/subscription/subscriptionService';
-import { ensurePremiumFeaturesEnabled } from '../../premium/subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../../premium/subscription/utils';
 import { SyncedStorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { WebviewViewBase } from '../webviewViewBase';
@@ -15,7 +15,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
-		if (!(await ensurePremiumFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
 	}
 

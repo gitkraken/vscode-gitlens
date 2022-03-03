@@ -1,7 +1,7 @@
 import { MessageItem, QuickInputButtons, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
-import { PremiumFeatures } from '../../features';
+import { PlusFeatures } from '../../features';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -200,7 +200,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			const result = yield* ensureAccessStep(state as any, context, PremiumFeatures.Worktrees);
+			const result = yield* ensureAccessStep(state as any, context, PlusFeatures.Worktrees);
 			if (result === StepResult.Break) break;
 
 			context.title = getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);

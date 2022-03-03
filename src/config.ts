@@ -113,7 +113,7 @@ export interface Config {
 			[key: string]: any;
 		}
 	> | null;
-	premiumFeatures: {
+	plusFeatures: {
 		enabled: boolean;
 	};
 	remotes: RemotesConfig[] | null;

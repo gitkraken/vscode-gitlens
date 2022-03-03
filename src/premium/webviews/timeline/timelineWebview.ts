@@ -5,7 +5,7 @@ import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
-import { PremiumFeatures } from '../../../features';
+import { PlusFeatures } from '../../../features';
 import { GitUri } from '../../../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
 import { createFromDateDelta } from '../../../system/date';
@@ -16,7 +16,7 @@ import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { ensurePremiumFeaturesEnabled } from '../../subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import {
 	Commit,
 	DidChangeStateNotificationType,
@@ -63,7 +63,7 @@ export class TimelineWebview extends WebviewBase<State> {
 	}
 
 	override async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
-		if (!(await ensurePremiumFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(column);
 	}
 
@@ -202,7 +202,7 @@ export class TimelineWebview extends WebviewBase<State> {
 
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
-		const access = await this.container.git.access(PremiumFeatures.Timeline);
+		const access = await this.container.git.access(PlusFeatures.Timeline);
 		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
 		const period = current.period ?? defaultPeriod;
 

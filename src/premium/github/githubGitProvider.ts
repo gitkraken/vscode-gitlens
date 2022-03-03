@@ -25,7 +25,7 @@ import {
 	OpenVirtualRepositoryError,
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
-import { Features, PremiumFeatures } from '../../features';
+import { Features, PlusFeatures } from '../../features';
 import {
 	GitProvider,
 	GitProviderId,
@@ -188,8 +188,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	private _allowedFeatures = new Map<string, Map<PremiumFeatures, boolean>>();
-	async allows(feature: PremiumFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean> {
+	private _allowedFeatures = new Map<string, Map<PlusFeatures, boolean>>();
+	async allows(feature: PlusFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean> {
 		if (plan === SubscriptionPlanId.Free) return false;
 		if (plan === SubscriptionPlanId.Pro) return true;
 
@@ -207,7 +207,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			? true
 			: (await this.visibility(repoPath)) === RepositoryVisibility.Public;
 		if (allowedByRepo == null) {
-			allowedByRepo = new Map<PremiumFeatures, boolean>();
+			allowedByRepo = new Map<PlusFeatures, boolean>();
 			this._allowedFeatures.set(repoPath, allowedByRepo);
 		}
 

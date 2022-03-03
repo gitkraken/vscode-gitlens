@@ -21,7 +21,7 @@ import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../const
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
-import type { FeatureAccess, Features, PremiumFeatures } from '../features';
+import type { FeatureAccess, Features, PlusFeatures } from '../features';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../premium/subscription/subscriptionService';
 import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
@@ -126,7 +126,7 @@ export const enum RepositoriesVisibility {
 }
 
 export class GitProviderService implements Disposable {
-	static readonly previewFeatures: Map<PremiumFeatures | undefined, boolean> | undefined; // = new Map();
+	static readonly previewFeatures: Map<PlusFeatures | undefined, boolean> | undefined; // = new Map();
 
 	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
@@ -533,7 +533,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	private _accessCache = new Map<string | undefined, Promise<FeatureAccess>>();
-	async access(feature?: PremiumFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
+	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
 		let cacheKey;
 		if (repoPath != null) {
 			const { path } = this.getProvider(repoPath);
@@ -549,7 +549,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@debug()
-	private async accessCore(feature?: PremiumFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
+	private async accessCore(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
 		const subscription = await this.getSubscription();
 		if (subscription.account?.verified === false) {
 			return { allowed: false, subscription: { current: subscription } };
@@ -630,7 +630,7 @@ export class GitProviderService implements Disposable {
 		return getRepoAccess.call(this, repoPath, plan);
 	}
 
-	async ensureAccess(feature: PremiumFeatures, repoPath?: string): Promise<void> {
+	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
 		const { allowed, subscription } = await this.access(feature, repoPath);
 		if (!allowed) throw new AccessDeniedError(subscription.current, subscription.required);
 	}
