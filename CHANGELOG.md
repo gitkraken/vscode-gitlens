@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changes
 
 - Removes dependency on GitKraken Authentication extension
+- Changes date formatting to follow the VS Code language locale by default
+- Changes framing of premium features into GitLens+
 
 ### Fixed
 
