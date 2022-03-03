@@ -303,9 +303,7 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			void this.showPlans();
 		} else {
-			void env.openExternal(
-				Uri.joinPath(this.baseAccountUri, 'create-organization').with({ query: 'product=gitlens' }),
-			);
+			void env.openExternal(Uri.joinPath(this.baseAccountUri, 'subscription').with({ query: 'product=gitlens' }));
 		}
 		await this.showHomeView();
 	}
