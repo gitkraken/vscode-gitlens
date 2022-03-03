@@ -29,11 +29,11 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
-import { SubscriptionAuthenticationProvider } from './premium/subscription/authenticationProvider';
-import { ServerConnection } from './premium/subscription/serverConnection';
-import { SubscriptionService } from './premium/subscription/subscriptionService';
-import { TimelineWebview } from './premium/webviews/timeline/timelineWebview';
-import { TimelineWebviewView } from './premium/webviews/timeline/timelineWebviewView';
+import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
+import { ServerConnection } from './plus/subscription/serverConnection';
+import { SubscriptionService } from './plus/subscription/subscriptionService';
+import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
+import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
 import { StatusBarController } from './statusbar/statusBarController';
 import { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -353,7 +353,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./premium/github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -364,7 +364,7 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			return new (await import(/* webpackChunkName: "github" */ './premium/github/github')).GitHubApi();
+			return new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi();
 		} catch (ex) {
 			Logger.error(ex);
 			return undefined;

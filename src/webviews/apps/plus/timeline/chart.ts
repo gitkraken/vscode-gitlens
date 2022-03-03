@@ -3,7 +3,7 @@
 import { bar, bb, bubble, Chart, ChartOptions, ChartTypes, DataItem, zoom } from 'billboard.js';
 // import BubbleCompare from 'billboard.js/dist/plugin/billboardjs-plugin-bubblecompare';
 // import { scaleSqrt } from 'd3-scale';
-import { Commit, State } from '../../../../premium/webviews/timeline/protocol';
+import { Commit, State } from '../../../../plus/webviews/timeline/protocol';
 import { formatDate, fromNow } from '../../shared/date';
 import { Emitter, Event } from '../../shared/events';
 import { throttle } from '../../shared/utils';

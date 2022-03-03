@@ -112,6 +112,6 @@ Please follow all the instructions in the [PR template](.github/PULL_REQUEST_TEM
 
 ### Contributions to GitLens+ Licensed Files
 
-This repository contains both OSS-licensed and non-OSS-licensed files. All files in or under any directory named "premium" fall under LICENSE.premium. The remaining files fall under LICENSE, the MIT license.
+This repository contains both OSS-licensed and non-OSS-licensed files. All files in or under any directory named "plus" fall under LICENSE.plus. The remaining files fall under LICENSE, the MIT license.
 
-If a pull request is submitted which contains changes to files in or under any directory named "premium", then you agree that GitKraken and/or its licensors (as applicable) retain all right, title and interest in and to all such modifications and/or patches.
+If a pull request is submitted which contains changes to files in or under any directory named "plus", then you agree that GitKraken and/or its licensors (as applicable) retain all right, title and interest in and to all such modifications and/or patches.

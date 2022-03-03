@@ -7,7 +7,7 @@ import {
 	OpenDataPointCommandType,
 	State,
 	UpdatePeriodCommandType,
-} from '../../../../premium/webviews/timeline/protocol';
+} from '../../../../plus/webviews/timeline/protocol';
 import { SubscriptionPlanId, SubscriptionState } from '../../../../subscription';
 import { ExecuteCommandType, IpcMessage, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';

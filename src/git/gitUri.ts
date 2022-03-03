@@ -4,7 +4,7 @@ import { UriComparer } from '../comparers';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import type { GitHubAuthorityMetadata } from '../premium/remotehub';
+import type { GitHubAuthorityMetadata } from '../plus/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
