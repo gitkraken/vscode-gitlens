@@ -97,11 +97,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	Configuration.configure(context);
 	const cfg = configuration.get();
 
-	setDefaultDateLocales(cfg.defaultDateLocale);
+	setDefaultDateLocales(cfg.defaultDateLocale ?? env.language);
 	context.subscriptions.push(
 		configuration.onDidChange(e => {
 			if (!e.affectsConfiguration('gitlens.defaultDateLocale')) return;
-			setDefaultDateLocales(configuration.get('defaultDateLocale'));
+			setDefaultDateLocales(configuration.get('defaultDateLocale', undefined, env.language));
 		}),
 	);
 

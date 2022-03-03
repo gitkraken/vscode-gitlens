@@ -24,7 +24,11 @@ let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat>
 
 export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
 	if (typeof locales === 'string') {
-		defaultLocales = [locales];
+		if (locales === 'system') {
+			defaultLocales = undefined;
+		} else {
+			defaultLocales = [locales];
+		}
 	} else {
 		defaultLocales = locales ?? undefined;
 	}
