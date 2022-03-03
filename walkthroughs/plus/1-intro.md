@@ -4,7 +4,7 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
 
-[Learn more about GitLens+](https://gitkraken.com/gitlens/premium-features 'Learn more')
+[Learn more about GitLens+](https://gitkraken.com/gitlens/plus-features 'Learn more')
 
 The first new GitLens+ features are the Visual File History and Worktrees.
 
@@ -16,8 +16,6 @@ The first new GitLens+ features are the Visual File History and Worktrees.
 ## Does this affect existing features?
 
 No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
-
-All other features will continue to be free without an account.
 
 ## More GitLens+ features coming soon
 

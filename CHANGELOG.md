@@ -31,9 +31,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds (preview) VS Code for Web support!
   - Get the power and insights of GitLens for any GitHub repository directly in your browser on vscode.dev or github.dev
-- Introducing Premium Features &mdash; [learn about premium features](https://gitkraken.com/gitlens/premium-features)
+- Introducing GitLens+ features &mdash; [learn about GitLens+ features](https://gitkraken.com/gitlens/plus-features)
 
-  - Access to premium features requires a free account for public repos and a paid account for private repos. All non-premium features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love.
+  - GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. All other GitLens features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love.
   - Visual File History &mdash; a visual way to analyze and explore changes to a file
 
     - The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them
