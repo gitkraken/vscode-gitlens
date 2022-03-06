@@ -432,7 +432,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `gitlens.defaultTimeFormat` setting to specify how times will be formatted by default
 - Adds a `gitlens.showWelcomeOnInstall` setting to specify whether to show the Welcome (Quick Setup) experience on first install &mdash; closes [#1049](https://github.com/gitkraken/vscode-gitlens/issues/1049) thanks to [PR #1258](https://github.com/gitkraken/vscode-gitlens/pull/1258) by Rickard ([@rickardp](https://github.com/rickardp))
 - Adds a ⭐ star as a favorite indicator on branches in the quick pick menus
-- Adds ability to toggle the _Toggle Compare with: Working Tree / Branch_ command before a comparision is chosen
+- Adds ability to toggle the _Toggle Compare with: Working Tree / Branch_ command before a comparison is chosen
 - Adds GitLens extensibility APIs
   - Adds an _action runner_ extensibility point to provide a runner (handler) for the new _createPullRequest_ and _openPullRequest_ actions &mdash; see [`gitlens.d.ts`](https://github.com/gitkraken/vscode-gitlens/blob/main/src/api/gitlens.d.ts) for API definitions
 

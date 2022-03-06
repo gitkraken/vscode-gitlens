@@ -23,7 +23,7 @@ import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';
 import { ContactPresence } from '../../vsls/vsls';
-import { PreviousLineComparisionUrisResult } from '../gitProvider';
+import { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
 import { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
@@ -42,7 +42,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	pullRequestOrRemote?: PullRequest | PromiseCancelledError | GitRemote;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
-	previousLineComparisonUris?: PreviousLineComparisionUrisResult;
+	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
 	remotes?: GitRemote<RemoteProvider>[];
 	unpublished?: boolean;
 

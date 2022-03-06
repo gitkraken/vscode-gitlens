@@ -8,7 +8,7 @@ import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
-import { PreviousLineComparisionUrisResult } from '../gitProvider';
+import { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
 import { PullRequest } from './pullRequest';
@@ -430,7 +430,7 @@ export class GitCommit implements GitRevisionReference {
 	getPreviousComparisonUrisForLine(
 		editorLine: number,
 		ref?: string,
-	): Promise<PreviousLineComparisionUrisResult | undefined> {
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		return this.file != null
 			? this.container.git.getPreviousComparisonUrisForLine(
 					this.repoPath,

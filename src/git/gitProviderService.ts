@@ -24,7 +24,7 @@ import { AccessDeniedError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures } from '../features';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
-import { asRepoComparisonKey, RepoComparisionKey, Repositories } from '../repositories';
+import { asRepoComparisonKey, RepoComparisonKey, Repositories } from '../repositories';
 import { WorkspaceStorageKeys } from '../storage';
 import {
 	FreeSubscriptionPlans,
@@ -45,10 +45,10 @@ import {
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
-	NextComparisionUrisResult,
+	NextComparisonUrisResult,
 	PagedResult,
-	PreviousComparisionUrisResult,
-	PreviousLineComparisionUrisResult,
+	PreviousComparisonUrisResult,
+	PreviousLineComparisonUrisResult,
 	RepositoryVisibility,
 	ScmRepository,
 } from './gitProvider';
@@ -161,7 +161,7 @@ export class GitProviderService implements Disposable {
 	readonly supportedSchemes = new Set<string>();
 
 	private readonly _disposable: Disposable;
-	private readonly _pendingRepositories = new Map<RepoComparisionKey, Promise<Repository | undefined>>();
+	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _richRemotesCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
@@ -1504,7 +1504,7 @@ export class GitProviderService implements Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<NextComparisionUrisResult | undefined> {
+	): Promise<NextComparisonUrisResult | undefined> {
 		if (!ref) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -1518,7 +1518,7 @@ export class GitProviderService implements Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		firstParent: boolean = false,
-	): Promise<PreviousComparisionUrisResult | undefined> {
+	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -1532,7 +1532,7 @@ export class GitProviderService implements Disposable {
 		editorLine: number,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<PreviousLineComparisionUrisResult | undefined> {
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
