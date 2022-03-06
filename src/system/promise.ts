@@ -32,6 +32,26 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	});
 }
 
+export async function* fastestSettled<T>(promises: Promise<T>[]): AsyncIterable<PromiseSettledResult<T>> {
+	const map = new Map(
+		promises.map((promise, i) => [
+			i,
+			promise.then(
+				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+				v => ({ index: i, value: v, status: 'fulfilled' } as PromiseFulfilledResult<T> & { index: number }),
+				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+				e => ({ index: i, reason: e, status: 'rejected' } as PromiseRejectedResult & { index: number }),
+			),
+		]),
+	);
+
+	while (map.size) {
+		const result = await Promise.race(map.values());
+		map.delete(result.index);
+		yield result;
+	}
+}
+
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
 	constructor(public readonly promise: T, message: string) {
 		super(message);

@@ -4,13 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Changes local repositories to be considered public rather than private for GitLens+ features (so only a free account would be required)
+
 ## [12.0.1] - 2022-03-03
 
 ### Added
 
 - Adds `gitlens.defaultDateFormat` setting to specify the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags), to use for date formatting
 
-### Changes
+### Changed
 
 - Removes dependency on GitKraken Authentication extension
 - Changes date formatting to follow the VS Code language locale by default
@@ -36,7 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Get the power and insights of GitLens for any GitHub repository directly in your browser on vscode.dev or github.dev
 - Introducing GitLens+ features &mdash; [learn about GitLens+ features](https://gitkraken.com/gitlens/plus-features)
 
-  - GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. All other GitLens features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love.
+  - GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on local and public repos, while a paid account allows you to use them on private repos. All other GitLens features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love, EVER.
   - Visual File History &mdash; a visual way to analyze and explore changes to a file
 
     - The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them
@@ -49,7 +55,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
       ![Worktrees view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-view.png)
 
-- Adds a new GitLens Home view &mdash; see welcome content, help resource, and subscription information
+- Adds a new GitLens Home view &mdash; see welcome content, help resources, and subscription information
 - Adds a _Get Started with GitLens_ walkthrough to introduce new (and existing) users to many of the powerful features of GitLens &mdash; try it via _GitLens: Get Started_ from the Command Palette
 - Adds a new _Autolinked Issues and Pull Requests_ node to comparisons to list autolinked issues in commit messages and associated pull requests
   - Now you can quickly see all the issues fixed in a release and more

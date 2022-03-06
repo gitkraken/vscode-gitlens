@@ -87,6 +87,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
+import { fastestSettled } from '../../system/promise';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../../trackers/trackedDocument';
 import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
@@ -195,8 +196,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (repoPath == null) {
 			const repositories = [...this.container.git.getOpenRepositories(this.descriptor.id)];
-			const results = await Promise.allSettled(repositories.map(r => this.allows(feature, plan, r.path)));
-			return results.every(r => r.status === 'fulfilled' && r.value);
+
+			for await (const result of fastestSettled(repositories.map(r => this.allows(feature, plan, r.path)))) {
+				if (result.status !== 'fulfilled' || !result.value) return false;
+			}
+			return true;
 		}
 
 		let allowedByRepo = this._allowedFeatures.get(repoPath);
@@ -230,7 +234,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
 		const remotes = await this.getRemotes(repoPath);
-		if (remotes.length === 0) return RepositoryVisibility.Private;
+		if (remotes.length === 0) return RepositoryVisibility.Local;
 
 		const origin = remotes.find(r => r.name === 'origin');
 		if (origin != null) {

@@ -94,6 +94,7 @@ export interface RepositoryOpenEvent {
 export const enum RepositoryVisibility {
 	Private = 'private',
 	Public = 'public',
+	Local = 'local',
 }
 
 export interface GitProvider extends Disposable {

@@ -39,7 +39,7 @@ import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map, some } from '../system/iterable';
 import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
-import { cancellable, isPromise, PromiseCancelledError } from '../system/promise';
+import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import {
 	GitProvider,
@@ -122,6 +122,7 @@ export interface GitProviderResult {
 export const enum RepositoriesVisibility {
 	Private = 'private',
 	Public = 'public',
+	Local = 'local',
 	Mixed = 'mixed',
 }
 
@@ -570,7 +571,7 @@ export class GitProviderService implements Disposable {
 			let access = this._accessCache.get(cacheKey);
 			if (access == null) {
 				access = this.visibility(repoPath).then(visibility => {
-					if (visibility === RepositoryVisibility.Public) {
+					if (visibility !== RepositoryVisibility.Private) {
 						switch (plan) {
 							case SubscriptionPlanId.Free:
 								return {
@@ -608,11 +609,10 @@ export class GitProviderService implements Disposable {
 			let requiredPlan: RequiredSubscriptionPlans | undefined;
 			let requiredPriority = -1;
 
-			const results = await Promise.allSettled(repositories.map(r => getRepoAccess.call(this, r.path, plan)));
-			for (const result of results) {
-				if (result.status !== 'fulfilled') continue;
+			const maxPriority = getSubscriptionPlanPriority(SubscriptionPlanId.Pro);
 
-				if (result.value.allowed) continue;
+			for await (const result of fastestSettled(repositories.map(r => getRepoAccess.call(this, r.path, plan)))) {
+				if (result.status !== 'fulfilled' || result.value.allowed) continue;
 
 				allowed = false;
 				const priority = getSubscriptionPlanPriority(result.value.subscription.required);
@@ -620,6 +620,8 @@ export class GitProviderService implements Disposable {
 					requiredPriority = priority;
 					requiredPlan = result.value.subscription.required;
 				}
+
+				if (requiredPriority >= maxPriority) break;
 			}
 
 			return allowed
@@ -688,24 +690,30 @@ export class GitProviderService implements Disposable {
 				return getRepoVisibility.call(this, repositories[0].path);
 			}
 
-			const results = await Promise.allSettled(repositories.map(r => getRepoVisibility.call(this, r.path)));
+			let isPublic = false;
+			let isPrivate = false;
+			let isLocal = false;
 
-			let isPublic: boolean | undefined = undefined;
-			let isPrivate: boolean | undefined = undefined;
-
-			for (const result of results) {
+			for await (const result of fastestSettled(repositories.map(r => getRepoVisibility.call(this, r.path)))) {
 				if (result.status !== 'fulfilled') continue;
 
 				if (result.value === RepositoryVisibility.Public) {
+					if (isLocal || isPrivate) return RepositoriesVisibility.Mixed;
+
 					isPublic = true;
+				} else if (result.value === RepositoryVisibility.Local) {
+					if (isPublic || isPrivate) return RepositoriesVisibility.Mixed;
+
+					isLocal = true;
 				} else if (result.value === RepositoryVisibility.Private) {
+					if (isPublic || isLocal) return RepositoriesVisibility.Mixed;
+
 					isPrivate = true;
 				}
-
-				if (isPublic && isPrivate) break;
 			}
 
-			if (isPublic) return isPrivate ? RepositoriesVisibility.Mixed : RepositoriesVisibility.Public;
+			if (isPublic) return RepositoriesVisibility.Public;
+			if (isLocal) return RepositoriesVisibility.Local;
 			return RepositoriesVisibility.Private;
 		}
 
