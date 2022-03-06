@@ -9,11 +9,11 @@ import { UriTrie } from './system/trie';
 
 const slash = 47; //CharCode.Slash;
 
-export type RepoComparisionKey = string & { __type__: 'RepoComparisionKey' };
+export type RepoComparisonKey = string & { __type__: 'RepoComparisonKey' };
 
-export function asRepoComparisonKey(uri: Uri): RepoComparisionKey {
+export function asRepoComparisonKey(uri: Uri): RepoComparisonKey {
 	const { path } = normalizeRepoUri(uri);
-	return path as RepoComparisionKey;
+	return path as RepoComparisonKey;
 }
 
 export function normalizeRepoUri(uri: Uri): { path: string; ignoreCase: boolean } {

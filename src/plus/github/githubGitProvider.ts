@@ -29,10 +29,10 @@ import { Features, PlusFeatures } from '../../features';
 import {
 	GitProvider,
 	GitProviderId,
-	NextComparisionUrisResult,
+	NextComparisonUrisResult,
 	PagedResult,
-	PreviousComparisionUrisResult,
-	PreviousLineComparisionUrisResult,
+	PreviousComparisonUrisResult,
+	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
 	RepositoryVisibility,
@@ -1987,7 +1987,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<NextComparisionUrisResult | undefined> {
+	): Promise<NextComparisonUrisResult | undefined> {
 		// If we have no ref there is no next commit
 		if (!ref) return undefined;
 
@@ -2036,7 +2036,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		_firstParent: boolean = false,
-	): Promise<PreviousComparisionUrisResult | undefined> {
+	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const cc = Logger.getCorrelationContext();
@@ -2104,7 +2104,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<PreviousLineComparisionUrisResult | undefined> {
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const cc = Logger.getCorrelationContext();

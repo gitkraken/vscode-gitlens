@@ -68,18 +68,18 @@ export interface PagedResult<T> {
 	readonly values: NonNullable<T>[];
 }
 
-export interface NextComparisionUrisResult {
+export interface NextComparisonUrisResult {
 	current: GitUri;
 	next: GitUri | undefined;
 	deleted?: boolean | undefined;
 }
 
-export interface PreviousComparisionUrisResult {
+export interface PreviousComparisonUrisResult {
 	current: GitUri;
 	previous: GitUri | undefined;
 }
 
-export interface PreviousLineComparisionUrisResult extends PreviousComparisionUrisResult {
+export interface PreviousLineComparisonUrisResult extends PreviousComparisonUrisResult {
 	line: number;
 }
 
@@ -332,21 +332,21 @@ export interface GitProvider extends Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<NextComparisionUrisResult | undefined>;
+	): Promise<NextComparisonUrisResult | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 		firstParent?: boolean,
-	): Promise<PreviousComparisionUrisResult | undefined>;
+	): Promise<PreviousComparisonUrisResult | undefined>;
 	getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
 		editorLine: number,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<PreviousLineComparisionUrisResult | undefined>;
+	): Promise<PreviousLineComparisonUrisResult | undefined>;
 	getIncomingActivity(
 		repoPath: string,
 		options?: {
