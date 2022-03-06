@@ -124,7 +124,7 @@ import {
 	relative,
 	splitPath,
 } from '../../../system/path';
-import { any, PromiseOrValue, wait } from '../../../system/promise';
+import { any, fastestSettled, PromiseOrValue, wait } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
@@ -404,8 +404,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (repoPath == null) {
 			const repositories = [...this.container.git.getOpenRepositories(this.descriptor.id)];
-			const results = await Promise.allSettled(repositories.map(r => this.allows(feature, plan, r.path)));
-			return results.every(r => r.status === 'fulfilled' && r.value);
+
+			for await (const result of fastestSettled(repositories.map(r => this.allows(feature, plan, r.path)))) {
+				if (result.status !== 'fulfilled' || !result.value) return false;
+			}
+			return true;
 		}
 
 		let allowedByRepo = this._allowedFeatures.get(repoPath);
@@ -414,7 +417,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		allowed = GitProviderService.previewFeatures?.get(feature)
 			? true
-			: (await this.visibility(repoPath)) === RepositoryVisibility.Public;
+			: (await this.visibility(repoPath)) !== RepositoryVisibility.Private;
 		if (allowedByRepo == null) {
 			allowedByRepo = new Map<PlusFeatures, boolean>();
 			this._allowedFeatures.set(repoPath, allowedByRepo);
@@ -441,7 +444,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
 		const remotes = await this.getRemotes(repoPath);
-		if (remotes.length === 0) return RepositoryVisibility.Private;
+		if (remotes.length === 0) return RepositoryVisibility.Local;
 
 		const origin = remotes.find(r => r.name === 'origin');
 		if (origin != null) {
@@ -453,8 +456,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return this.getRemoteVisibility(upstream);
 		}
 
-		const results = await Promise.allSettled(remotes.map(r => this.getRemoteVisibility(r)));
-		for (const result of results) {
+		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
 			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
