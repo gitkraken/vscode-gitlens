@@ -3645,17 +3645,17 @@
 			},
 			{
 				"command": "gitlens.plus.hide",
-				"title": "Hide GitLens+ Features...",
+				"title": "Hide GitLens+ Features",
 				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.plus.restore",
-				"title": "Restore GitLens+ Features...",
+				"title": "Restore GitLens+ Features",
 				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.plus.reset",
-				"title": "Reset...",
+				"title": "Reset",
 				"category": "GitLens+"
 			},
 			{
