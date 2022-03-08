@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import { Disposable, env, EventEmitter, StatusBarAlignment, StatusBarItem, Uri, UriHandler, window } from 'vscode';
-import { fetch, Response } from '@env/fetch';
+import { fetch, getProxyAgent, Response } from '@env/fetch';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { debug, log } from '../../system/decorators/log';
@@ -60,6 +60,7 @@ export class ServerConnection implements Disposable {
 		let rsp: Response;
 		try {
 			rsp = await fetch(Uri.joinPath(this.baseApiUri, 'user').toString(), {
+				agent: getProxyAgent(),
 				headers: {
 					Authorization: `Bearer ${token}`,
 					// TODO: What user-agent should we use?

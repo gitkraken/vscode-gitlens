@@ -2,9 +2,12 @@ import { Octokit } from '@octokit/core';
 import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
-import { Event, EventEmitter, window } from 'vscode';
-import { fetch } from '@env/fetch';
+import type { HttpsProxyAgent } from 'https-proxy-agent';
+import { Disposable, Event, EventEmitter, window } from 'vscode';
+import { fetch, getProxyAgent } from '@env/fetch';
 import { isWeb } from '@env/platform';
+import { configuration } from '../../configuration';
+import type { Container } from '../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -31,10 +34,45 @@ import { Stopwatch } from '../../system/stopwatch';
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
-export class GitHubApi {
+export class GitHubApi implements Disposable {
 	private readonly _onDidReauthenticate = new EventEmitter<void>();
 	get onDidReauthenticate(): Event<void> {
 		return this._onDidReauthenticate.event;
+	}
+
+	private _disposable: Disposable | undefined;
+
+	constructor(_container: Container) {
+		if (isWeb) return;
+
+		this._disposable = Disposable.from(
+			configuration.onDidChange(e => {
+				if (configuration.changed(e, 'proxy')) {
+					this._proxyAgent = null;
+					this._octokits.clear();
+				}
+			}),
+			configuration.onDidChangeAny(e => {
+				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
+					this._proxyAgent = null;
+					this._octokits.clear();
+				}
+			}),
+		);
+	}
+
+	dispose(): void {
+		this._disposable?.dispose();
+	}
+
+	private _proxyAgent: HttpsProxyAgent | null | undefined = null;
+	private get proxyAgent(): HttpsProxyAgent | undefined {
+		if (isWeb) return undefined;
+
+		if (this._proxyAgent === null) {
+			this._proxyAgent = getProxyAgent();
+		}
+		return this._proxyAgent;
 	}
 
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -1670,7 +1708,7 @@ export class GitHubApi {
 					request: { fetch: fetchCore },
 				});
 			} else {
-				defaults = Octokit.defaults({ auth: `token ${token}` });
+				defaults = Octokit.defaults({ auth: `token ${token}`, request: { agent: this.proxyAgent } });
 			}
 
 			octokit = new defaults(options);

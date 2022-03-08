@@ -16,7 +16,7 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { fetch } from '@env/fetch';
+import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
 import { configuration } from '../../configuration';
 import { Commands, ContextKeys } from '../../constants';
@@ -71,6 +71,7 @@ export class SubscriptionService implements Disposable {
 	private _disposable: Disposable;
 	private _subscription!: Subscription;
 	private _statusBarSubscription: StatusBarItem | undefined;
+	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -269,6 +270,11 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	logout(reset: boolean = false): void {
+		if (this._validationTimer != null) {
+			clearInterval(this._validationTimer);
+			this._validationTimer = undefined;
+		}
+
 		this._sessionPromise = undefined;
 		if (this._session != null) {
 			void this.container.subscriptionAuthentication.removeSession(this._session.id);
@@ -323,6 +329,7 @@ export class SubscriptionService implements Disposable {
 		try {
 			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'resend-email').toString(), {
 				method: 'POST',
+				agent: getProxyAgent(),
 				headers: {
 					Authorization: `Bearer ${session.accessToken}`,
 					'User-Agent': userAgent,
@@ -477,6 +484,7 @@ export class SubscriptionService implements Disposable {
 
 			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'gitlens/checkin').toString(), {
 				method: 'POST',
+				agent: getProxyAgent(),
 				headers: {
 					Authorization: `Bearer ${session.accessToken}`,
 					'User-Agent': userAgent,
@@ -499,22 +507,21 @@ export class SubscriptionService implements Disposable {
 
 			throw new AccountValidationError('Unable to validate account', ex);
 		} finally {
-			this.startDailyCheckInTimer();
+			this.startDailyValidationTimer();
 		}
 	}
 
-	private _dailyCheckInTimer: ReturnType<typeof setInterval> | undefined;
-	private startDailyCheckInTimer(): void {
-		if (this._dailyCheckInTimer != null) {
-			clearInterval(this._dailyCheckInTimer);
+	private startDailyValidationTimer(): void {
+		if (this._validationTimer != null) {
+			clearInterval(this._validationTimer);
 		}
 
-		// Check twice a day to ensure we check in at least once a day
-		this._dailyCheckInTimer = setInterval(() => {
+		// Check 4 times a day to ensure we validate at least once a day
+		this._validationTimer = setInterval(() => {
 			if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
 				void this.ensureSession(false, true);
 			}
-		}, 1000 * 60 * 60 * 12);
+		}, 1000 * 60 * 60 * 6);
 	}
 
 	@debug()

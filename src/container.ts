@@ -366,7 +366,9 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			return new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi();
+			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
+			this.context.subscriptions.push(github);
+			return github;
 		} catch (ex) {
 			Logger.error(ex);
 			return undefined;
