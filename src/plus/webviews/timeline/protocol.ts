@@ -8,6 +8,7 @@ export interface State {
 	uri?: string;
 
 	dateFormat: string;
+	shortDateFormat: string;
 	access: FeatureAccess;
 }
 

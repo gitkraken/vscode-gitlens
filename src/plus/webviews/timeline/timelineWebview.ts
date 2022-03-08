@@ -204,6 +204,7 @@ export class TimelineWebview extends WebviewBase<State> {
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PlusFeatures.Timeline);
 		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
+		const shortDateFormat = this.container.config.defaultDateShortFormat ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
 		if (!access.allowed) {
@@ -214,6 +215,7 @@ export class TimelineWebview extends WebviewBase<State> {
 				title: 'src/app/index.ts',
 				uri: Uri.file('src/app/index.ts').toString(),
 				dateFormat: dateFormat,
+				shortDateFormat: shortDateFormat,
 				access: access,
 			};
 		}
@@ -223,6 +225,7 @@ export class TimelineWebview extends WebviewBase<State> {
 				period: period,
 				title: 'There are no editors open that can provide file history information',
 				dateFormat: dateFormat,
+				shortDateFormat: shortDateFormat,
 				access: access,
 			};
 		}
@@ -249,6 +252,7 @@ export class TimelineWebview extends WebviewBase<State> {
 				title: 'No commits found for the specified time period',
 				uri: current.uri.toString(),
 				dateFormat: dateFormat,
+				shortDateFormat: shortDateFormat,
 				access: access,
 			};
 		}
@@ -299,6 +303,7 @@ export class TimelineWebview extends WebviewBase<State> {
 			title: title,
 			uri: current.uri.toString(),
 			dateFormat: dateFormat,
+			shortDateFormat: shortDateFormat,
 			access: access,
 		};
 	}

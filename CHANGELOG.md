@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1895](https://github.com/gitkraken/vscode-gitlens/issues/1895) - Honor defaultDateShortFormat setting on Visual File History
 - Fixes [#1890](https://github.com/gitkraken/vscode-gitlens/issues/1890) - can no longer see untracked files in stashes
 
 ## [12.0.1] - 2022-03-03
