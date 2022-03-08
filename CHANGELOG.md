@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes local repositories to be considered public rather than private for GitLens+ features (so only a free account would be required)
 
+### Fixed
+
+- Fixes [#1890](https://github.com/gitkraken/vscode-gitlens/issues/1890) - can no longer see untracked files in stashes
+
 ## [12.0.1] - 2022-03-03
 
 ### Added
