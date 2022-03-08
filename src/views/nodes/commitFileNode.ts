@@ -122,7 +122,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 
 	private get tooltip() {
 		const tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\\\\\n\${directory}\n\n\${status}\${ (originalPath)}`,
+			`\${file}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;\\\n'directory}&nbsp;\n\n\${status}\${ (originalPath)}`,
 			this.file,
 		);
 
