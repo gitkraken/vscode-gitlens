@@ -166,7 +166,8 @@ export class ServerConnection implements Disposable {
 }
 
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
-	@log()
+	// Strip query strings from the Uri to avoid logging token, etc
+	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(false) } })
 	public handleUri(uri: Uri) {
 		this.fire(uri);
 	}
