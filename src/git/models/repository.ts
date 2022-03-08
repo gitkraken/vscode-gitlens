@@ -148,7 +148,7 @@ export class Repository implements Disposable {
 		}
 
 		if (short) {
-			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'MMM D, YYYY');
+			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'short');
 		}
 
 		let format =

@@ -32,6 +32,7 @@ export class TimelineChart {
 	private readonly _indexByAuthors = new Map<string, number>();
 
 	private _dateFormat: string = undefined!;
+	private _shortDateFormat: string = undefined!;
 
 	constructor(selector: string) {
 		this._selector = selector;
@@ -76,6 +77,7 @@ export class TimelineChart {
 
 	updateChart(state: State) {
 		this._dateFormat = state.dateFormat;
+		this._shortDateFormat = state.shortDateFormat;
 
 		this._commitsByTimestamp.clear();
 		this._authorsByIndex.clear();
@@ -269,7 +271,8 @@ export class TimelineChart {
 						centered: true,
 						culling: false,
 						fit: false,
-						format: '%-m/%-d/%Y',
+						format: (x: number | Date) =>
+							typeof x === 'number' ? x : formatDate(x, this._shortDateFormat ?? 'short'),
 						multiline: false,
 						// rotate: 15,
 						show: false,
