@@ -103,6 +103,7 @@ export class HomeApp extends App<State> {
 				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				DOM.insertTemplate('state:plus-trial', this.$slot1, {
 					bindings: {
+						plan: subscription.plan.effective.name,
 						trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
 					},
 				});
@@ -114,7 +115,7 @@ export class HomeApp extends App<State> {
 				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 			case SubscriptionState.Paid:
-				DOM.insertTemplate('state:paid', this.$slot1);
+				DOM.insertTemplate('state:paid', this.$slot1, { bindings: { plan: subscription.plan.effective.name } });
 				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
 				break;
 		}
