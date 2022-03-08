@@ -15,7 +15,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
-import { fetch } from '@env/fetch';
+import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type {
@@ -480,7 +480,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				// Check if the url returns a 200 status code
 				try {
-					const response = await fetch(url, { method: 'HEAD' });
+					const response = await fetch(url, { method: 'HEAD', agent: getProxyAgent() });
 					if (response.status === 200) {
 						return RepositoryVisibility.Public;
 					}

@@ -116,6 +116,10 @@ export interface Config {
 	plusFeatures: {
 		enabled: boolean;
 	};
+	proxy: {
+		url: string | null;
+		strictSSL: boolean;
+	} | null;
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;

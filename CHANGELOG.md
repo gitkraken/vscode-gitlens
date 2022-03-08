@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds proxy support to network requests
+  - By default, uses a proxy configuration based on VS Code settings or OS configuration
+  - Adds a `gitlens.proxy` setting to specify a GitLens specific proxy configuration
+
 ### Changed
 
 - Changes local repositories to be considered public rather than private for GitLens+ features (so only a free account would be required)
