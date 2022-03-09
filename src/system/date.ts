@@ -2,14 +2,14 @@
 const customDateTimeFormatParserRegex =
 	/(?<literal>\[.*?\])|(?<year>YYYY|YY)|(?<month>M{1,4})|(?<day>Do|DD?)|(?<weekday>d{2,4})|(?<hour>HH?|hh?)|(?<minute>mm?)|(?<second>ss?)|(?<fractionalSecond>SSS)|(?<dayPeriod>A|a)|(?<timeZoneName>ZZ?)/g;
 const dateTimeFormatRegex = /(?<dateStyle>full|long|medium|short)(?:\+(?<timeStyle>full|long|medium|short))?/;
-const relativeUnitThresholds: [Intl.RelativeTimeFormatUnit, number, string][] = [
-	['year', 24 * 60 * 60 * 1000 * 365, 'yr'],
-	['month', (24 * 60 * 60 * 1000 * 365) / 12, 'mo'],
-	['week', 24 * 60 * 60 * 1000 * 7, 'wk'],
-	['day', 24 * 60 * 60 * 1000, 'd'],
-	['hour', 60 * 60 * 1000, 'h'],
-	['minute', 60 * 1000, 'm'],
-	['second', 1000, 's'],
+const relativeUnitThresholds: [Intl.RelativeTimeFormatUnit, number, number, string][] = [
+	['year', 24 * 60 * 60 * 1000 * (365 * 2 - 1), 24 * 60 * 60 * 1000 * 365, 'yr'],
+	['month', (24 * 60 * 60 * 1000 * 365) / 12, (24 * 60 * 60 * 1000 * 365) / 12, 'mo'],
+	['week', 24 * 60 * 60 * 1000 * 7, 24 * 60 * 60 * 1000 * 7, 'wk'],
+	['day', 24 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 'd'],
+	['hour', 60 * 60 * 1000, 60 * 60 * 1000, 'h'],
+	['minute', 60 * 1000, 60 * 1000, 'm'],
+	['second', 1000, 1000, 's'],
 ];
 
 type DateStyle = 'full' | 'long' | 'medium' | 'short';
@@ -75,7 +75,7 @@ export function createFromDateDelta(
 export function fromNow(date: Date, short?: boolean): string {
 	const elapsed = date.getTime() - new Date().getTime();
 
-	for (const [unit, threshold, shortUnit] of relativeUnitThresholds) {
+	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);
 		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
 			if (short) {
@@ -95,7 +95,7 @@ export function fromNow(date: Date, short?: boolean): string {
 				}
 
 				if (locale === 'en' || locale?.startsWith('en-')) {
-					const value = Math.round(elapsedABS / threshold);
+					const value = Math.round(elapsedABS / divisor);
 					return `${value}${shortUnit}`;
 				}
 
@@ -107,7 +107,7 @@ export function fromNow(date: Date, short?: boolean): string {
 					});
 				}
 
-				return defaultShortRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
+				return defaultShortRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
 			}
 
 			if (defaultRelativeTimeFormat == null) {
@@ -117,7 +117,7 @@ export function fromNow(date: Date, short?: boolean): string {
 					style: 'long',
 				});
 			}
-			return defaultRelativeTimeFormat.format(Math.round(elapsed / threshold), unit);
+			return defaultRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
 		}
 	}
 
