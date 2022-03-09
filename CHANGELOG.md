@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes local repositories to be considered public rather than private for GitLens+ features (so only a free account would be required)
+- Changes relative dates >= 1 year but < 2 years to be shown in months for better granularity - related to [#1546](https://github.com/gitkraken/vscode-gitlens/issues/1546)
 
 ### Fixed
 
