@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [12.0.2] - 2022-03-09
 
 ### Added
 
@@ -4108,6 +4108,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[12.0.2]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.1...gitkraken:v12.0.2
+[12.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.0...gitkraken:v12.0.1
 [12.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v11.7.0...gitkraken:v12.0.0
 [11.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v11.6.1...gitkraken:v11.7.0
 [11.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v11.6.0...gitkraken:v11.6.1
