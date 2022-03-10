@@ -160,7 +160,7 @@ function getAvatarUriFromGravatar(
 	size: number,
 	defaultStyle: GravatarDefaultStyle = GravatarDefaultStyle.Robot,
 ): Uri {
-	return Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${defaultStyle}`);
+	return Uri.parse(`https://www.gravatar.com/avatar/${hash}?s=${size}&d=${defaultStyle}`);
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
