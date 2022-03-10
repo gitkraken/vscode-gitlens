@@ -901,10 +901,10 @@ export class GitProviderService implements Disposable {
 	}
 
 	getRevisionUri(uri: GitUri): Uri;
-	getRevisionUri(ref: string, path: string, repoPath: string): Uri;
-	getRevisionUri(ref: string, file: GitFile, repoPath: string): Uri;
+	getRevisionUri(ref: string, path: string, repoPath: string | Uri): Uri;
+	getRevisionUri(ref: string, file: GitFile, repoPath: string | Uri): Uri;
 	@log()
-	getRevisionUri(refOrUri: string | GitUri, pathOrFile?: string | GitFile, repoPath?: string): Uri {
+	getRevisionUri(refOrUri: string | GitUri, pathOrFile?: string | GitFile, repoPath?: string | Uri): Uri {
 		let path: string;
 		let ref: string | undefined;
 
