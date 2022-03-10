@@ -7,9 +7,7 @@ export async function getRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 export async function getRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 export async function getRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {
 	try {
-		const extension =
-			extensions.getExtension<RemoteHubApi>('GitHub.remotehub') ??
-			extensions.getExtension<RemoteHubApi>('GitHub.remotehub-insiders');
+		const extension = extensions.getExtension<RemoteHubApi>('GitHub.remotehub');
 		if (extension == null) {
 			Logger.log('GitHub Repositories extension is not installed or enabled');
 			throw new ExtensionNotFoundError('GitHub Repositories', 'GitHub.remotehub');
