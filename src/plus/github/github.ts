@@ -1764,11 +1764,13 @@ export class GitHubApi implements Disposable {
 					}
 				}
 
-				void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`, 'OK');
+				if (Logger.isDebugging) {
+					void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`);
+				}
 			} else if (ex instanceof RequestError) {
 				this.handleRequestError(ex, token);
-			} else {
-				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
+			} else if (Logger.isDebugging) {
+				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -1785,8 +1787,8 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof RequestError) {
 				this.handleRequestError(ex, token);
-			} else {
-				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
+			} else if (Logger.isDebugging) {
+				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -1824,11 +1826,11 @@ export class GitHubApi implements Disposable {
 						'OK',
 					);
 				}
-				break;
+				return;
 			case 502: // Bad Gateway
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
-					void window.showErrorMessage('GitHub request timed out', 'OK');
+					void window.showErrorMessage('GitHub request timed out');
 					return;
 				}
 				break;
@@ -1837,10 +1839,11 @@ export class GitHubApi implements Disposable {
 				break;
 		}
 
-		void window.showErrorMessage(
-			`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
-			'OK',
-		);
+		if (Logger.isDebugging) {
+			void window.showErrorMessage(
+				`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+			);
+		}
 	}
 
 	private handleException<T>(ex: unknown | Error, cc: LogCorrelationContext | undefined, defaultValue: T): T {
@@ -1869,7 +1872,7 @@ export class GitHubApi implements Disposable {
 				this._onDidReauthenticate.fire();
 			}
 		} else {
-			void window.showErrorMessage(ex.message, 'OK');
+			void window.showErrorMessage(ex.message);
 		}
 	}
 }
