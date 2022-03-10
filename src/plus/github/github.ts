@@ -50,6 +50,8 @@ export class GitHubApi implements Disposable {
 				if (configuration.changed(e, 'proxy')) {
 					this._proxyAgent = null;
 					this._octokits.clear();
+				} else if (configuration.changed(e, 'outputLevel')) {
+					this._octokits.clear();
 				}
 			}),
 			configuration.onDidChangeAny(e => {
