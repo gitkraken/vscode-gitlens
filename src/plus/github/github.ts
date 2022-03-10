@@ -13,6 +13,7 @@ import {
 	AuthenticationErrorReason,
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
+	ProviderRequestRateLimitError,
 } from '../../errors';
 import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
 import {
@@ -1748,11 +1749,24 @@ export class GitHubApi implements Disposable {
 						throw new ProviderRequestNotFoundError(ex);
 					case 'FORBIDDEN':
 						throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
+					case 'RATE_LIMITED': {
+						let resetAt: number | undefined;
+
+						const reset = ex.headers?.['x-ratelimit-reset'];
+						if (reset != null) {
+							resetAt = parseInt(reset, 10);
+							if (Number.isNaN(resetAt)) {
+								resetAt = undefined;
+							}
+						}
+
+						throw new ProviderRequestRateLimitError(ex, token, resetAt);
+					}
 				}
 
 				void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`, 'OK');
 			} else if (ex instanceof RequestError) {
-				this.handleRequestError(ex);
+				this.handleRequestError(ex, token);
 			} else {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
 			}
@@ -1770,7 +1784,7 @@ export class GitHubApi implements Disposable {
 			return (await this.octokit(token).request<R>(route, options)) as any;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
-				this.handleRequestError(ex);
+				this.handleRequestError(ex, token);
 			} else {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`, 'OK');
 			}
@@ -1779,7 +1793,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleRequestError(ex: RequestError): void {
+	private handleRequestError(ex: RequestError, token: string): void {
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -1789,6 +1803,19 @@ export class GitHubApi implements Disposable {
 			case 401: // Unauthorized
 				throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
+				if (ex.message.includes('rate limit exceeded')) {
+					let resetAt: number | undefined;
+
+					const reset = ex.response?.headers?.['x-ratelimit-reset'];
+					if (reset != null) {
+						resetAt = parseInt(reset, 10);
+						if (Number.isNaN(resetAt)) {
+							resetAt = undefined;
+						}
+					}
+
+					throw new ProviderRequestRateLimitError(ex, token, resetAt);
+				}
 				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
 				if (ex.response != null) {
