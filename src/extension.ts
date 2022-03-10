@@ -4,7 +4,7 @@ import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
 import { configuration, Configuration, OutputLevel } from './configuration';
-import { Commands, ContextKeys } from './constants';
+import { Commands, ContextKeys, CoreCommands } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { GitUri } from './git/gitUri';
@@ -13,7 +13,7 @@ import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { StorageKeys, SyncedStorageKeys } from './storage';
-import { executeCommand, registerCommands } from './system/command';
+import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
@@ -148,6 +148,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''
 		}`,
 	});
+
+	setTimeout(() => uninstallDeprecatedAuthentication(), 30000);
 
 	const api = new Api(container);
 	return Promise.resolve(api);
@@ -284,4 +286,10 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 			container.context.subscriptions.push(disposable);
 		}
 	}
+}
+
+function uninstallDeprecatedAuthentication() {
+	if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
+
+	void executeCoreCommand(CoreCommands.UninstallExtension, 'gitkraken.gitkraken-authentication');
 }
