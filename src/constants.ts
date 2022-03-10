@@ -289,6 +289,7 @@ export const enum CoreCommands {
 	ShowExplorer = 'workbench.view.explorer',
 	ShowReferences = 'editor.action.showReferences',
 	ShowSCM = 'workbench.view.scm',
+	UninstallExtension = 'workbench.extensions.uninstallExtension',
 }
 
 export const enum CoreGitCommands {
