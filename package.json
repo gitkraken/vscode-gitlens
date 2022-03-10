@@ -6069,7 +6069,7 @@
 				},
 				{
 					"command": "gitlens.showTimelinePage",
-					"when": "gitlens:enabled && editorFocus"
+					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
 					"command": "gitlens.refreshTimelinePage",
