@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes an issue where the Visual File History wasn't correctly opening the commit file details quick pick menu
 - Fixes an issue where the _Open Visual File History of Active File_ command wasn't showing in the Command Palette
 
 ## [12.0.3] - 2022-03-10

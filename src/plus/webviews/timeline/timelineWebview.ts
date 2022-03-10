@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable, TextEditor, Uri, ViewColumn, window } from 'vscode';
-import type { ShowQuickCommitCommandArgs } from '../../../commands';
+import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
@@ -12,6 +12,7 @@ import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import { debounce, Deferrable } from '../../../system/function';
 import { filter } from '../../../system/iterable';
+import { getBestPath } from '../../../system/path';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
@@ -146,12 +147,13 @@ export class TimelineWebview extends WebviewBase<State> {
 					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
-					const commandArgs: ShowQuickCommitCommandArgs = {
-						repoPath: repository.path,
-						sha: params.data.id,
+					const commandArgs: ShowQuickCommitFileCommandArgs = {
+						revisionUri: this.container.git
+							.getRevisionUri(params.data.id, getBestPath(this._context.uri), repository.uri)
+							.toString(true),
 					};
 
-					void commands.executeCommand(Commands.ShowQuickCommit, commandArgs);
+					void commands.executeCommand(Commands.ShowQuickCommitFile, commandArgs);
 
 					// const commandArgs: DiffWithPreviousCommandArgs = {
 					// 	line: 0,
