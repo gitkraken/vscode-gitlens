@@ -1,5 +1,16 @@
 import { v4 as uuid } from 'uuid';
-import { Disposable, env, EventEmitter, StatusBarAlignment, StatusBarItem, Uri, UriHandler, window } from 'vscode';
+import {
+	CancellationToken,
+	CancellationTokenSource,
+	Disposable,
+	env,
+	EventEmitter,
+	StatusBarAlignment,
+	StatusBarItem,
+	Uri,
+	UriHandler,
+	window,
+} from 'vscode';
 import { fetch, getProxyAgent, Response } from '@env/fetch';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
@@ -13,6 +24,7 @@ interface AccountInfo {
 }
 
 export class ServerConnection implements Disposable {
+	private _cancellationSource: CancellationTokenSource | undefined;
 	private _deferredCodeExchanges = new Map<string, DeferredEvent<string>>();
 	private _disposable: Disposable;
 	private _pendingStates = new Map<string, string[]>();
@@ -53,8 +65,17 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://account.gitkraken.com');
 	}
 
+	@debug()
+	abort(): Promise<void> {
+		if (this._cancellationSource == null) return Promise.resolve();
+
+		this._cancellationSource.cancel();
+		// This should allow the current auth request to abort before continuing
+		return new Promise<void>(resolve => setTimeout(resolve, 50));
+	}
+
 	@debug({ args: false })
-	public async getAccountInfo(token: string): Promise<AccountInfo> {
+	async getAccountInfo(token: string): Promise<AccountInfo> {
 		const cc = Logger.getCorrelationContext();
 
 		let rsp: Response;
@@ -82,7 +103,7 @@ export class ServerConnection implements Disposable {
 	}
 
 	@debug()
-	public async login(scopes: string[], scopeKey: string): Promise<string> {
+	async login(scopes: string[], scopeKey: string): Promise<string> {
 		this.updateStatusBarItem(true);
 
 		// Include a state parameter here to prevent CSRF attacks
@@ -111,15 +132,80 @@ export class ServerConnection implements Disposable {
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
 
+		if (this._cancellationSource != null) {
+			this._cancellationSource.cancel();
+			this._cancellationSource.dispose();
+			this._cancellationSource = undefined;
+		}
+
+		this._cancellationSource = new CancellationTokenSource();
+
+		void this.openCompletionInputFallback(this._cancellationSource.token);
+
 		return Promise.race([
 			deferredCodeExchange.promise,
-			new Promise<string>((_, reject) => setTimeout(() => reject('Cancelled'), 60000)),
+			new Promise<string>((_, reject) =>
+				this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
+			),
+			new Promise<string>((_, reject) => setTimeout(() => reject('Cancelled'), 120000)),
 		]).finally(() => {
+			this._cancellationSource?.cancel();
+			this._cancellationSource?.dispose();
+			this._cancellationSource = undefined;
+
 			this._pendingStates.delete(scopeKey);
 			deferredCodeExchange?.cancel();
 			this._deferredCodeExchanges.delete(scopeKey);
 			this.updateStatusBarItem(false);
 		});
+	}
+
+	private async openCompletionInputFallback(cancellationToken: CancellationToken) {
+		const input = window.createInputBox();
+		input.ignoreFocusOut = true;
+
+		const disposables: Disposable[] = [];
+
+		try {
+			if (cancellationToken.isCancellationRequested) return;
+
+			const uri = await new Promise<Uri | undefined>(resolve => {
+				disposables.push(
+					cancellationToken.onCancellationRequested(() => input.hide()),
+					input.onDidHide(() => resolve(undefined)),
+					input.onDidChangeValue(e => {
+						if (!e) {
+							input.validationMessage = undefined;
+							return;
+						}
+
+						try {
+							const uri = Uri.parse(e.trim());
+							if (uri.scheme && uri.scheme !== 'file') {
+								input.validationMessage = undefined;
+								return;
+							}
+						} catch {}
+
+						input.validationMessage = 'Please enter a valid authorization URL';
+					}),
+					input.onDidAccept(() => resolve(Uri.parse(input.value.trim()))),
+				);
+
+				input.title = 'GitLens+ Sign In';
+				input.placeholder = 'Please enter the provided authorization URL';
+				input.prompt = 'If the auto-redirect fails, paste the authorization URL';
+
+				input.show();
+			});
+
+			if (uri != null) {
+				this._uriHandler.handleUri(uri);
+			}
+		} finally {
+			input.dispose();
+			disposables.forEach(d => d.dispose());
+		}
 	}
 
 	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<Uri, string> {
@@ -141,7 +227,7 @@ export class ServerConnection implements Disposable {
 				return;
 			}
 
-			const token = query['access-token'];
+			const token = query['access-token'] ?? query['code'];
 			if (token == null) {
 				reject('Token not returned');
 			} else {
@@ -154,7 +240,7 @@ export class ServerConnection implements Disposable {
 		if (signingIn && this._statusBarItem == null) {
 			this._statusBarItem = window.createStatusBarItem('gitlens.plus.signIn', StatusBarAlignment.Left);
 			this._statusBarItem.name = 'GitLens+ Sign in';
-			this._statusBarItem.text = 'Signing into GitLens+...';
+			this._statusBarItem.text = 'Signing in to GitLens+...';
 			this._statusBarItem.show();
 		}
 
@@ -168,7 +254,7 @@ export class ServerConnection implements Disposable {
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	// Strip query strings from the Uri to avoid logging token, etc
 	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(false) } })
-	public handleUri(uri: Uri) {
+	handleUri(uri: Uri) {
 		this.fire(uri);
 	}
 }

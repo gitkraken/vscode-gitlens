@@ -10,6 +10,7 @@ import {
 	EventEmitter,
 	MarkdownString,
 	MessageItem,
+	ProgressLocation,
 	StatusBarAlignment,
 	StatusBarItem,
 	ThemeColor,
@@ -214,11 +215,12 @@ export class SubscriptionService implements Disposable {
 		void openWalkthrough(this.container.context.extension.id, 'gitlens.plus', undefined, openToSide);
 	}
 
-	@gate()
 	@log()
 	async loginOrSignUp(): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
+		// Abort any waiting authentication to ensure we can start a new flow
+		await this.container.subscriptionAuthentication.abort();
 		void this.showHomeView();
 
 		const session = await this.ensureSession(true);
@@ -267,13 +269,14 @@ export class SubscriptionService implements Disposable {
 		return loggedIn;
 	}
 
-	@gate()
 	@log()
-	logout(reset: boolean = false): void {
+	async logout(reset: boolean = false): Promise<void> {
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
 			this._validationTimer = undefined;
 		}
+
+		await this.container.subscriptionAuthentication.abort();
 
 		this._sessionPromise = undefined;
 		if (this._session != null) {
@@ -466,8 +469,28 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private _lastCheckInDate: Date | undefined;
+	private async checkInAndValidate(session: AuthenticationSession, showSlowProgress: boolean = false): Promise<void> {
+		if (!showSlowProgress) return this.checkInAndValidateCore(session);
+
+		const validating = this.checkInAndValidateCore(session);
+		const result = await Promise.race([
+			validating,
+			new Promise<boolean>(resolve => setTimeout(() => resolve(true), 3000)),
+		]);
+
+		if (result) {
+			await window.withProgress(
+				{
+					location: ProgressLocation.Notification,
+					title: 'Validating your GitLens+ account...',
+				},
+				() => validating,
+			);
+		}
+	}
+
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
-	private async checkInAndValidate(session: AuthenticationSession): Promise<void> {
+	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
 		const cc = Logger.getCorrelationContext();
 
 		try {
@@ -642,7 +665,7 @@ export class SubscriptionService implements Disposable {
 			session = null;
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				this.logout();
+				await this.logout();
 				return null;
 			}
 
@@ -655,12 +678,12 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (session == null) {
-			this.logout();
+			await this.logout();
 			return session ?? null;
 		}
 
 		try {
-			await this.checkInAndValidate(session);
+			await this.checkInAndValidate(session, createIfNeeded);
 		} catch (ex) {
 			Logger.error(ex, cc);
 			debugger;
@@ -668,7 +691,7 @@ export class SubscriptionService implements Disposable {
 			const name = session.account.label;
 			session = null;
 			if (ex instanceof AccountValidationError) {
-				this.logout();
+				await this.logout();
 
 				if (createIfNeeded) {
 					void window.showErrorMessage(

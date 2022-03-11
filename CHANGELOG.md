@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds ability to paste in an authorization URL to complete a GitLens+ sign in
+
 ### Fixed
 
 - Fixes an issue where the Visual File History wasn't correctly opening the commit file details quick pick menu
