@@ -59,6 +59,11 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 	}
 
 	@debug()
+	abort(): Promise<void> {
+		return this.server.abort();
+	}
+
+	@debug()
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
 		const cc = Logger.getCorrelationContext();
 
