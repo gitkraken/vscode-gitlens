@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1888](https://github.com/gitkraken/vscode-gitlens/issues/1888) - Gitlens breaks vscode auto repository detection settings
 - Fixes an issue where the Visual File History wasn't correctly opening the commit file details quick pick menu
 - Fixes an issue where the _Open Visual File History of Active File_ command wasn't showing in the Command Palette
 

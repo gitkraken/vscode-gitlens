@@ -376,7 +376,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		suspended?: boolean,
 		closed?: boolean,
 	): Repository {
-		void this.openScmRepository(uri);
+		if (!closed) {
+			void this.openScmRepository(uri);
+		}
+
 		return new Repository(
 			this.container,
 			this.onRepositoryChanged.bind(this),

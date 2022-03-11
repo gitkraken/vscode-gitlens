@@ -1850,8 +1850,15 @@ export class GitProviderService implements Disposable {
 				// If this new repo is inside one of our known roots and we we don't already know about, add it
 				const root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
 
+				const autoRepositoryDetection =
+					configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+						CoreGitConfiguration.AutoRepositoryDetection,
+					) ?? true;
+
+				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
+
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
-				repository = provider.openRepository(root?.folder, repoUri, false);
+				repository = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
 				this._repositories.add(repository);
 
 				this._pendingRepositories.delete(key);
