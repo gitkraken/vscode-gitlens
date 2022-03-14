@@ -1162,7 +1162,6 @@ export class Git {
 				'rev-parse',
 				'--abbrev-ref',
 				'--symbolic-full-name',
-				'--end-of-options',
 				'@',
 				'@{u}',
 				'--',
@@ -1271,11 +1270,15 @@ export class Git {
 	}
 
 	async rev_parse__verify(repoPath: string, ref: string, fileName?: string): Promise<string | undefined> {
+		const params = ['rev-parse', '--verify'];
+
+		if (await this.isAtLeastVersion('2.30')) {
+			params.push('--end-of-options');
+		}
+
 		const data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-parse',
-			'--verify',
-			'--end-of-options',
+			...params,
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
