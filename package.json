@@ -231,7 +231,7 @@
 					},
 					"gitlens.currentLine.pullRequests.enabled": {
 						"type": "boolean",
-						"default": true,
+						"default": false,
 						"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
