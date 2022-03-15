@@ -58,7 +58,6 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		return `gitlens.plus.auth:${this.container.env}`;
 	}
 
-	@debug()
 	abort(): Promise<void> {
 		return this.server.abort();
 	}

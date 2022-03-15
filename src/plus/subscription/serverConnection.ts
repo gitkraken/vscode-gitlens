@@ -65,7 +65,6 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://account.gitkraken.com');
 	}
 
-	@debug()
 	abort(): Promise<void> {
 		if (this._cancellationSource == null) return Promise.resolve();
 
