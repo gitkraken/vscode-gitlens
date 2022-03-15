@@ -27,6 +27,7 @@ export class GitWorktreeParser {
 
 		let entry: Partial<WorktreeEntry> | undefined = undefined;
 		let line: string;
+		let index: number;
 		let key: string;
 		let value: string;
 		let locked: string;
@@ -34,7 +35,14 @@ export class GitWorktreeParser {
 		let main = true; // the first worktree is the main worktree
 
 		for (line of getLines(data)) {
-			[key, value] = line.split(' ', 2);
+			index = line.indexOf(' ');
+			if (index === -1) {
+				key = line;
+				value = '';
+			} else {
+				key = line.substring(0, index);
+				value = line.substring(index + 1);
+			}
 
 			if (key.length === 0 && entry != null) {
 				worktrees.push(

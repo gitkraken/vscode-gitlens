@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1864](https://github.com/gitkraken/vscode-gitlens/issues/1864) - Worktrees fail to load in working path with spaces
 - Fixes [#1881](https://github.com/gitkraken/vscode-gitlens/issues/1881) - Worktrees icon is very small
 - Fixes [#1898](https://github.com/gitkraken/vscode-gitlens/issues/1898) - Hovers display old Gravatar &mdash; thanks to [PR #1899](https://github.com/gitkraken/vscode-gitlens/pull/1899) by Leo Dan Peña ([@amouxaden](https://github.com/amouxaden))
 
