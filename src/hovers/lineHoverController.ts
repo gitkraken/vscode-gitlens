@@ -114,7 +114,12 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : maxSmallIntegerV8, position.line, maxSmallIntegerV8),
+			new Range(
+				position.line,
+				wholeLine ? position.character : maxSmallIntegerV8,
+				position.line,
+				maxSmallIntegerV8,
+			),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
@@ -171,7 +176,12 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : maxSmallIntegerV8, position.line, maxSmallIntegerV8),
+			new Range(
+				position.line,
+				wholeLine ? position.character : maxSmallIntegerV8,
+				position.line,
+				maxSmallIntegerV8,
+			),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
