@@ -8,11 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the current line blame hover to show at the cursor, rather than the start of the line, when showing the hover over the whole line (e.g. line & annotation)
 - Changes the default of showing PR information in the current line blame annotation to reduce overhead (e.g. GitHub queries)
 
 ### Fixed
-
-#
 
 - Fixes [#1829](https://github.com/gitkraken/vscode-gitlens/issues/1829) - Reduce re-rendering by disabling animation in blame info in the status bar
 - Fixes [#1864](https://github.com/gitkraken/vscode-gitlens/issues/1864) - Worktrees fail to load in working path with spaces
