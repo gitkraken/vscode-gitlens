@@ -19,9 +19,11 @@ interface VsCodeApi {
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 let ipcSequence = 0;
 function nextIpcId() {
-	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+	if (ipcSequence === maxSmallIntegerV8) {
 		ipcSequence = 1;
 	} else {
 		ipcSequence++;

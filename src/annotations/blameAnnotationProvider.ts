@@ -9,6 +9,8 @@ import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracke
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected blame: Promise<GitBlame | undefined>;
 	protected hoverProviderDisposable: Disposable | undefined;
@@ -165,7 +167,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 		return new Hover(
 			messages,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
+			document.validateRange(new Range(position.line, 0, position.line, maxSmallIntegerV8)),
 		);
 	}
 

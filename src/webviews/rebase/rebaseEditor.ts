@@ -41,9 +41,11 @@ import {
 	SwitchCommandType,
 } from './protocol';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 let ipcSequence = 0;
 function nextIpcId() {
-	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+	if (ipcSequence === maxSmallIntegerV8) {
 		ipcSequence = 1;
 	} else {
 		ipcSequence++;
@@ -54,7 +56,7 @@ function nextIpcId() {
 
 let webviewId = 0;
 function nextWebviewId() {
-	if (webviewId === Number.MAX_SAFE_INTEGER) {
+	if (webviewId === maxSmallIntegerV8) {
 		webviewId = 1;
 	} else {
 		webviewId++;
@@ -295,7 +297,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 					const start = context.document.positionAt(entry.index);
 					const range = context.document.validateRange(
-						new Range(new Position(start.line, 0), new Position(start.line, Number.MAX_SAFE_INTEGER)),
+						new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
 					);
 
 					let action = params.action;
@@ -328,10 +330,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 						} else {
 							const start = context.document.positionAt(lastEntry.index);
 							const range = context.document.validateRange(
-								new Range(
-									new Position(start.line, 0),
-									new Position(start.line, Number.MAX_SAFE_INTEGER),
-								),
+								new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
 							);
 
 							edit.replace(context.document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);
@@ -406,10 +405,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 						} else {
 							const start = context.document.positionAt(lastEntry.index);
 							const range = context.document.validateRange(
-								new Range(
-									new Position(start.line, 0),
-									new Position(start.line, Number.MAX_SAFE_INTEGER),
-								),
+								new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
 							);
 
 							edit.replace(context.document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);

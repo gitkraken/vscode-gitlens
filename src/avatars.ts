@@ -8,6 +8,8 @@ import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase, md5 } from './system/string';
 import { ContactPresenceStatus } from './vsls/vsls';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
 _onDidFetchAvatar.event(
 	debounce(() => {
@@ -195,7 +197,7 @@ async function getAvatarUriFromRemoteProvider(
 		if (account == null) {
 			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
 			avatar.uri = undefined;
-			avatar.timestamp = Number.MAX_SAFE_INTEGER;
+			avatar.timestamp = maxSmallIntegerV8;
 			avatar.retries = 0;
 
 			return undefined;
