@@ -17,6 +17,8 @@ import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Decorations } from './fileAnnotationController';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
 		super(FileAnnotationType.Blame, editor, trackedDocument, container);
@@ -202,7 +204,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const highlightDecorationRanges = filterMap(blame.lines, l =>
 			l.sha === sha
 				? // editor lines are 0-based
-				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
+				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, maxSmallIntegerV8))
 				: undefined,
 		);
 

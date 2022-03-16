@@ -7,6 +7,8 @@ import { sortCompare } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 type Actions = ActionContext['type'];
 const actions: Actions[] = ['createPullRequest', 'openPullRequest', 'hover.commands'];
 
@@ -50,7 +52,7 @@ class NoActionRunnersQuickPickItem implements QuickPickItem {
 
 let runnerId = 0;
 function nextRunnerId() {
-	if (runnerId === Number.MAX_SAFE_INTEGER) {
+	if (runnerId === maxSmallIntegerV8) {
 		runnerId = 1;
 	} else {
 		runnerId++;
