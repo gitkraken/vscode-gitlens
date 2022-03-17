@@ -220,9 +220,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 							if (hunk.previous.count > hunk.current.count) {
 								state = 'removed';
 							} else {
+								count--;
 								continue;
 							}
 						} else {
+							count--;
 							continue;
 						}
 					} else if (hunkLine.current?.state === 'added') {
@@ -236,6 +238,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 						if (hunk.previous.count > hunk.current.count) {
 							state = 'removed';
 						} else {
+							count--;
 							continue;
 						}
 					} else {
