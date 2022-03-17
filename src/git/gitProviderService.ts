@@ -246,13 +246,7 @@ export class GitProviderService implements Disposable {
 	})
 	private onWorkspaceFoldersChanged(e: WorkspaceFoldersChangeEvent) {
 		if (e.added.length) {
-			const autoRepositoryDetection =
-				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-					CoreGitConfiguration.AutoRepositoryDetection,
-				) ?? true;
-			if (autoRepositoryDetection !== false && autoRepositoryDetection !== 'openEditors') {
-				void this.discoverRepositories(e.added);
-			}
+			void this.discoverRepositories(e.added);
 		}
 
 		if (e.removed.length) {
@@ -436,24 +430,19 @@ export class GitProviderService implements Disposable {
 
 		this._initializing = false;
 
-		const autoRepositoryDetection =
-			configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-				CoreGitConfiguration.AutoRepositoryDetection,
-			) ?? true;
-
 		const { workspaceFolders } = workspace;
-		if (
-			workspaceFolders?.length &&
-			autoRepositoryDetection !== false &&
-			autoRepositoryDetection !== 'openEditors'
-		) {
+		if (workspaceFolders?.length) {
 			void this.discoverRepositories(workspaceFolders);
 		} else {
 			this.updateContext();
 		}
 
 		if (cc != null) {
-			cc.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`;
+			cc.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${
+				workspaceFolders?.length
+			}, git.autoRepositoryDetection=${configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+				CoreGitConfiguration.AutoRepositoryDetection,
+			)}`;
 		}
 	}
 

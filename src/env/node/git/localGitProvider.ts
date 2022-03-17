@@ -338,10 +338,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 					CoreGitConfiguration.AutoRepositoryDetection,
+					uri,
 				) ?? true;
-			if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
 
-			const repositories = await this.repositorySearch(workspace.getWorkspaceFolder(uri)!);
+			const repositories = await this.repositorySearch(
+				workspace.getWorkspaceFolder(uri)!,
+				autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined,
+			);
+
 			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
 				for (const repository of repositories) {
 					void this.openScmRepository(repository.uri);
@@ -504,9 +508,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : ''
 			}`,
 	})
-	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
+	private async repositorySearch(folder: WorkspaceFolder, depth?: number): Promise<Repository[]> {
 		const cc = Logger.getCorrelationContext();
-		const depth = configuration.get('advanced.repositorySearchDepth', folder.uri);
+		depth =
+			depth ??
+			configuration.get('advanced.repositorySearchDepth', folder.uri) ??
+			configuration.getAny<number>(CoreGitConfiguration.RepositoryScanMaxDepth, folder.uri, 1);
 
 		Logger.log(cc, `searching (depth=${depth})...`);
 
