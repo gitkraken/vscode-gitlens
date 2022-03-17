@@ -690,12 +690,30 @@ export class SubscriptionService implements Disposable {
 
 			const name = session.account.label;
 			session = null;
-			if (ex instanceof AccountValidationError) {
-				await this.logout();
 
-				if (createIfNeeded) {
+			if (ex instanceof AccountValidationError) {
+				if (ex.statusCode == null || ex.statusCode < 500) {
+					await this.logout();
+
+					if (createIfNeeded) {
+						const unauthorized = ex.statusCode === 401;
+						queueMicrotask(async () => {
+							const confirm: MessageItem = { title: 'Retry Sign In' };
+							const result = await window.showErrorMessage(
+								`Unable to sign in to your (${name}) GitLens+ account. Please try again. If this issue persists, please contact support.${
+									unauthorized ? '' : ` Error=${ex.message}`
+								}`,
+								confirm,
+							);
+
+							if (result === confirm) {
+								void this.loginOrSignUp();
+							}
+						});
+					}
+				} else {
 					void window.showErrorMessage(
-						`Unable to sign in to your GitLens+ account. Please try again. If this issue persists, please contact support. Account=${name} Error=${ex.message}`,
+						`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
 						'OK',
 					);
 				}
