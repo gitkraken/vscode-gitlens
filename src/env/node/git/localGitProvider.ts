@@ -26,7 +26,7 @@ import type {
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { Features, PlusFeatures } from '../../../features';
+import { Features } from '../../../features';
 import {
 	StashApplyError,
 	StashApplyErrorReason,
@@ -108,7 +108,6 @@ import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
 import { WorkspaceStorageKeys } from '../../../storage';
-import { SubscriptionPlanId } from '../../../subscription';
 import { countStringLength, filterMap } from '../../../system/array';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
@@ -402,36 +401,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			onDidCreate: watcher.onDidCreate,
 			dispose: () => watcher.dispose(),
 		};
-	}
-
-	private _allowedFeatures = new Map<string, Map<PlusFeatures, boolean>>();
-	async allows(feature: PlusFeatures, plan: SubscriptionPlanId, repoPath?: string): Promise<boolean> {
-		if (plan === SubscriptionPlanId.Free) return false;
-		if (plan === SubscriptionPlanId.Pro) return true;
-
-		if (repoPath == null) {
-			const repositories = [...this.container.git.getOpenRepositories(this.descriptor.id)];
-
-			for await (const result of fastestSettled(repositories.map(r => this.allows(feature, plan, r.path)))) {
-				if (result.status !== 'fulfilled' || !result.value) return false;
-			}
-			return true;
-		}
-
-		let allowedByRepo = this._allowedFeatures.get(repoPath);
-		let allowed = allowedByRepo?.get(feature);
-		if (allowed != null) return allowed;
-
-		allowed = GitProviderService.previewFeatures?.get(feature)
-			? true
-			: (await this.visibility(repoPath)) !== RepositoryVisibility.Private;
-		if (allowedByRepo == null) {
-			allowedByRepo = new Map<PlusFeatures, boolean>();
-			this._allowedFeatures.set(repoPath, allowedByRepo);
-		}
-
-		allowedByRepo.set(feature, allowed);
-		return allowed;
 	}
 
 	private _supportedFeatures = new Map<Features, boolean>();
