@@ -364,7 +364,7 @@ export interface AdvancedConfig {
 	quickPick: {
 		closeOnFocusOut: boolean;
 	};
-	repositorySearchDepth: number;
+	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
 }
 

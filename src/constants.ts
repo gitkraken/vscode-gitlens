@@ -303,6 +303,7 @@ export const enum CoreGitCommands {
 
 export const enum CoreGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',
+	RepositoryScanMaxDepth = 'git.repositoryScanMaxDepth',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
