@@ -896,10 +896,12 @@ interface GKLicenseInfo {
 
 type GKLicenseType =
 	| 'gitlens-pro'
+	| 'gitlens-teams'
 	| 'gitlens-hosted-enterprise'
 	| 'gitlens-self-hosted-enterprise'
 	| 'gitlens-standalone-enterprise'
 	| 'bundle-pro'
+	| 'bundle-teams'
 	| 'bundle-hosted-enterprise'
 	| 'bundle-self-hosted-enterprise'
 	| 'bundle-standalone-enterprise';
@@ -909,6 +911,9 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'gitlens-pro':
 		case 'bundle-pro':
 			return SubscriptionPlanId.Pro;
+		case 'gitlens-teams':
+		case 'bundle-teams':
+			return SubscriptionPlanId.Teams;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
 		case 'gitlens-standalone-enterprise':
@@ -926,16 +931,19 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 		case 'active':
 			return 100;
 		case 'expired':
+		case 'cancelled':
 			return -100;
+		case 'in_trial':
 		case 'trial':
 			return 1;
 		case 'canceled':
+		case 'non_renewing':
 			return 0;
 	}
 }
 
 interface GKLicense {
-	latestStatus: 'active' | 'canceled' | 'expired' | 'trial';
+	latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
 	latestStartDate: string;
 	latestEndDate: string;
 }
