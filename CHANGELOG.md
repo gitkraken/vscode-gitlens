@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1864](https://github.com/gitkraken/vscode-gitlens/issues/1864) - Worktrees fail to load in working path with spaces
 - Fixes [#1881](https://github.com/gitkraken/vscode-gitlens/issues/1881) - Worktrees icon is very small
 - Fixes [#1898](https://github.com/gitkraken/vscode-gitlens/issues/1898) - Hovers display old Gravatar &mdash; thanks to [PR #1899](https://github.com/gitkraken/vscode-gitlens/pull/1899) by Leo Dan Peña ([@amouxaden](https://github.com/amouxaden))
+- Fixes an issue where the [**_Gutter Changes_**](https://github.com/gitkraken/vscode-gitlens#gutter-changes-) file annotations could be rendered on the wrong lines in certain cases
 
 ## [12.0.4] - 2022-03-10
 
