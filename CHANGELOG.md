@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the current line blame hover to show at the cursor, rather than the start of the line, when showing the hover over the whole line (e.g. line & annotation)
 - Changes the default of showing PR information in the current line blame annotation to reduce overhead (e.g. GitHub queries)
+- Changes [**_Gutter Changes_**](https://github.com/gitkraken/vscode-gitlens#gutter-changes-) file annotations to be theme-aware
 
 ### Fixed
 
