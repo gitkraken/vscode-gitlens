@@ -759,12 +759,19 @@ export class SubscriptionService implements Disposable {
 
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
-		void this.storeSubscription(subscription);
 
 		const previous = this._subscription; // Can be undefined here, since we call this in the constructor
-		this._subscription = subscription;
 
+		// If the previous and new subscriptions are exactly the same, kick out
+		if (previous != null && JSON.stringify(previous) === JSON.stringify(subscription)) {
+			return;
+		}
+
+		void this.storeSubscription(subscription);
+
+		this._subscription = subscription;
 		this._etag = Date.now();
+
 		this.updateContext();
 
 		if (!silent && previous != null) {
