@@ -1,4 +1,6 @@
 import {
+	ColorTheme,
+	ColorThemeKind,
 	ConfigurationChangeEvent,
 	DecorationRangeBehavior,
 	Disposable,
@@ -86,6 +88,7 @@ export class FileAnnotationController implements Disposable {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
 		);
 
 		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
@@ -111,94 +114,11 @@ export class FileAnnotationController implements Disposable {
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		const cfg = this.container.config;
 
-		if (configuration.changed(e, 'blame.highlight')) {
-			Decorations.gutterBlameHighlight?.dispose();
-			Decorations.gutterBlameHighlight = undefined;
-
-			const highlight = cfg.blame.highlight;
-
-			if (highlight.enabled) {
-				const { locations } = highlight;
-
-				// TODO@eamodio: Read from the theme color when the API exists
-				const gutterHighlightColor = '#00bcf2'; // new ThemeColor(Colors.LineHighlightOverviewRulerColor)
-				const gutterHighlightUri = locations.includes(BlameHighlightLocations.Gutter)
-					? Uri.parse(
-							`data:image/svg+xml,${encodeURIComponent(
-								`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
-							)}`,
-					  )
-					: undefined;
-
-				Decorations.gutterBlameHighlight = window.createTextEditorDecorationType({
-					gutterIconPath: gutterHighlightUri,
-					gutterIconSize: 'contain',
-					isWholeLine: true,
-					overviewRulerLane: OverviewRulerLane.Right,
-					backgroundColor: locations.includes(BlameHighlightLocations.Line)
-						? new ThemeColor(Colors.LineHighlightBackgroundColor)
-						: undefined,
-					overviewRulerColor: locations.includes(BlameHighlightLocations.Overview)
-						? new ThemeColor(Colors.LineHighlightOverviewRulerColor)
-						: undefined,
-				});
-			}
-		}
-
-		if (configuration.changed(e, 'changes.locations')) {
-			Decorations.changesLineAddedAnnotation?.dispose();
-			Decorations.changesLineChangedAnnotation?.dispose();
-			Decorations.changesLineDeletedAnnotation?.dispose();
-
-			const { locations } = cfg.changes;
-
-			Decorations.changesLineAddedAnnotation = window.createTextEditorDecorationType({
-				gutterIconPath: locations.includes(ChangesLocations.Gutter)
-					? Uri.parse(
-							`data:image/svg+xml,${encodeURIComponent(
-								"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='#587c0c' x='13' y='0' width='3' height='18'/></svg>",
-							)}`,
-					  )
-					: undefined,
-				gutterIconSize: 'contain',
-				overviewRulerLane: OverviewRulerLane.Left,
-				overviewRulerColor: locations.includes(ChangesLocations.Overview)
-					? new ThemeColor('editorOverviewRuler.addedForeground')
-					: undefined,
-			});
-
-			Decorations.changesLineChangedAnnotation = window.createTextEditorDecorationType({
-				gutterIconPath: locations.includes(ChangesLocations.Gutter)
-					? Uri.parse(
-							`data:image/svg+xml,${encodeURIComponent(
-								"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='#0c7d9d' x='13' y='0' width='3' height='18'/></svg>",
-							)}`,
-					  )
-					: undefined,
-				gutterIconSize: 'contain',
-				overviewRulerLane: OverviewRulerLane.Left,
-				overviewRulerColor: locations.includes(ChangesLocations.Overview)
-					? new ThemeColor('editorOverviewRuler.modifiedForeground')
-					: undefined,
-			});
-
-			Decorations.changesLineDeletedAnnotation = window.createTextEditorDecorationType({
-				gutterIconPath: locations.includes(ChangesLocations.Gutter)
-					? Uri.parse(
-							`data:image/svg+xml,${encodeURIComponent(
-								"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><polygon fill='#94151b' points='13,10 13,18 17,14'/></svg>",
-							)}`,
-					  )
-					: undefined,
-				gutterIconSize: 'contain',
-				overviewRulerLane: OverviewRulerLane.Left,
-				overviewRulerColor: locations.includes(ChangesLocations.Overview)
-					? new ThemeColor('editorOverviewRuler.deletedForeground')
-					: undefined,
-			});
-		}
-
 		const initializing = e == null;
+
+		if (configuration.changed(e, 'blame.highlight') || configuration.changed(e, 'changes.locations')) {
+			this.updateDecorations(false);
+		}
 
 		if (configuration.changed(e, 'blame.toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
@@ -240,6 +160,10 @@ export class FileAnnotationController implements Disposable {
 				void this.show(provider.editor, provider.annotationType ?? FileAnnotationType.Blame);
 			}
 		}
+	}
+
+	private onThemeChanged(_e: ColorTheme) {
+		this.updateDecorations(true);
 	}
 
 	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
@@ -312,14 +236,11 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private onVisibleTextEditorsChanged(editors: readonly TextEditor[]) {
-		let provider: AnnotationProviderBase | undefined;
 		for (const e of editors) {
-			provider = this.getProvider(e);
-			if (provider == null) continue;
-
-			void provider.restore(e);
+			void this.getProvider(e)?.restore(e);
 		}
 	}
+
 	isInWindowToggle(): boolean {
 		return this.getToggleMode(this._windowAnnotationType) === AnnotationsToggleMode.Window;
 	}
@@ -588,5 +509,142 @@ export class FileAnnotationController implements Disposable {
 		await this.clearCore(provider.correlationKey, AnnotationClearReason.Disposing);
 
 		return undefined;
+	}
+
+	private updateDecorations(refresh: boolean) {
+		const previous = refresh ? Object.entries(Decorations) : (undefined! as []);
+
+		this.updateHighlightDecoration();
+		this.updateChangedDecorations();
+
+		if (!refresh) return;
+
+		const replaceDecorationTypes = new Map<TextEditorDecorationType, TextEditorDecorationType | null>();
+		for (const [key, value] of previous) {
+			if (value == null) continue;
+
+			const newValue = (Decorations as Record<string, TextEditorDecorationType | undefined>)[key] ?? null;
+			if (value === newValue) continue;
+
+			replaceDecorationTypes.set(
+				value,
+				(Decorations as Record<string, TextEditorDecorationType | undefined>)[key] ?? null,
+			);
+		}
+
+		if (replaceDecorationTypes.size === 0) return;
+
+		for (const e of window.visibleTextEditors) {
+			void this.getProvider(e)?.refresh(replaceDecorationTypes);
+		}
+	}
+
+	private updateChangedDecorations() {
+		Decorations.changesLineAddedAnnotation?.dispose();
+		Decorations.changesLineChangedAnnotation?.dispose();
+		Decorations.changesLineDeletedAnnotation?.dispose();
+
+		const { locations } = this.container.config.changes;
+
+		let addedColor;
+		let changedColor;
+		let deletedColor;
+
+		switch (window.activeColorTheme.kind) {
+			case ColorThemeKind.Light:
+				addedColor = '#48985D';
+				changedColor = '#2090D3';
+				deletedColor = '#E51400';
+				break;
+			case ColorThemeKind.HighContrast:
+				addedColor = '#487E02';
+				changedColor = '#1B81A8';
+				deletedColor = '#F14C4C';
+				break;
+			default:
+				addedColor = '#487E02';
+				changedColor = '#1B81A8';
+				deletedColor = '#F14C4C';
+				break;
+		}
+
+		Decorations.changesLineAddedAnnotation = window.createTextEditorDecorationType({
+			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+				? Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${addedColor}' x='13' y='0' width='3' height='18'/></svg>`,
+						)}`,
+				  )
+				: undefined,
+			gutterIconSize: 'contain',
+			overviewRulerLane: OverviewRulerLane.Left,
+			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+				? new ThemeColor('editorOverviewRuler.addedForeground')
+				: undefined,
+		});
+
+		Decorations.changesLineChangedAnnotation = window.createTextEditorDecorationType({
+			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+				? Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${changedColor}' x='13' y='0' width='3' height='18'/></svg>`,
+						)}`,
+				  )
+				: undefined,
+			gutterIconSize: 'contain',
+			overviewRulerLane: OverviewRulerLane.Left,
+			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+				? new ThemeColor('editorOverviewRuler.modifiedForeground')
+				: undefined,
+		});
+
+		Decorations.changesLineDeletedAnnotation = window.createTextEditorDecorationType({
+			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+				? Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><polygon fill='${deletedColor}' points='13,10 13,18 17,14'/></svg>`,
+						)}`,
+				  )
+				: undefined,
+			gutterIconSize: 'contain',
+			overviewRulerLane: OverviewRulerLane.Left,
+			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+				? new ThemeColor('editorOverviewRuler.deletedForeground')
+				: undefined,
+		});
+	}
+
+	private updateHighlightDecoration() {
+		Decorations.gutterBlameHighlight?.dispose();
+		Decorations.gutterBlameHighlight = undefined;
+
+		const { highlight } = this.container.config.blame;
+
+		if (highlight.enabled) {
+			const { locations } = highlight;
+
+			// TODO@eamodio: Read from the theme color when the API exists
+			const gutterHighlightColor = '#00bcf2'; // new ThemeColor(Colors.LineHighlightOverviewRulerColor)
+			const gutterHighlightUri = locations.includes(BlameHighlightLocations.Gutter)
+				? Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
+						)}`,
+				  )
+				: undefined;
+
+			Decorations.gutterBlameHighlight = window.createTextEditorDecorationType({
+				gutterIconPath: gutterHighlightUri,
+				gutterIconSize: 'contain',
+				isWholeLine: true,
+				overviewRulerLane: OverviewRulerLane.Right,
+				backgroundColor: locations.includes(BlameHighlightLocations.Line)
+					? new ThemeColor(Colors.LineHighlightBackgroundColor)
+					: undefined,
+				overviewRulerColor: locations.includes(BlameHighlightLocations.Overview)
+					? new ThemeColor(Colors.LineHighlightOverviewRulerColor)
+					: undefined,
+			});
+		}
 	}
 }
