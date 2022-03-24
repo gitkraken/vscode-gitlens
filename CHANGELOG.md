@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Fixed
 
+- Fixes [#1925](https://github.com/gitkraken/vscode-gitlens/issues/1925) - Branches from remotes outside the repo aren't showing associated pull requests (for connected remotes)
 - Fixes [#1920](https://github.com/gitkraken/vscode-gitlens/issues/1920) - Can't view tags on torvalds/linux
 - Fixes [#1923](https://github.com/gitkraken/vscode-gitlens/issues/1923) - View titles fail to update properly when number of "opened" repos changes
 
