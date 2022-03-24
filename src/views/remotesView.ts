@@ -94,6 +94,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			return child.getChildren();
 		}
 
+		this.view.title = 'Remotes';
+
 		return this.children;
 	}
 

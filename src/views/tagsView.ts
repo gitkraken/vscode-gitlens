@@ -82,6 +82,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			return child.getChildren();
 		}
 
+		this.view.title = 'Tags';
+
 		return this.children;
 	}
 

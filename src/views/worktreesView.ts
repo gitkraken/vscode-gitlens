@@ -88,6 +88,8 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			return children;
 		}
 
+		this.view.title = 'Worktrees';
+
 		return this.children;
 	}
 

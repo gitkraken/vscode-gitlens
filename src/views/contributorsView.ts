@@ -107,6 +107,8 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			return children;
 		}
 
+		this.view.title = 'Contributors';
+
 		return this.children;
 	}
 
