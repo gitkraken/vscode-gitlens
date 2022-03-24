@@ -157,6 +157,31 @@ export function formatDate(
 		return formatter.format(date);
 	}
 
+	function getTimeFormatter(format: TimeStyle) {
+		const key = `${locale ?? ''}:time:${format}`;
+
+		let formatter = dateTimeFormatCache.get(key);
+		if (formatter == null) {
+			const options: Intl.DateTimeFormatOptions = { localeMatcher: 'best fit', timeStyle: format };
+
+			let locales;
+			if (locale == null) {
+				locales = defaultLocales;
+			} else if (locale === 'system') {
+				locales = undefined;
+			} else {
+				locales = [locale];
+			}
+
+			formatter = new Intl.DateTimeFormat(locales, options);
+			if (cache) {
+				dateTimeFormatCache.set(key, formatter);
+			}
+		}
+
+		return formatter;
+	}
+
 	const parts = formatter.formatToParts(date);
 	return format.replace(
 		customDateTimeFormatParserRegex,
@@ -188,7 +213,11 @@ export function formatDate(
 				if (value === 'Do' && part?.type === 'day') {
 					return formatWithOrdinal(Number(part.value));
 				} else if (value === 'a' && part?.type === 'dayPeriod') {
-					return part.value.toLocaleLowerCase();
+					// For some reason the Intl.DateTimeFormat doesn't honor the `dayPeriod` value and always returns the long version, so use the "short" timeStyle instead
+					const dayPeriod = getTimeFormatter('short')
+						.formatToParts(date)
+						.find(p => p.type === 'dayPeriod');
+					return ` ${(dayPeriod ?? part)?.value ?? ''}`;
 				}
 				return part?.value ?? '';
 			}
@@ -300,6 +329,7 @@ function getDateTimeFormatOptionsFromFormatString(
 				case 'dayPeriod':
 					options.dayPeriod = 'narrow';
 					options.hour12 = true;
+					options.hourCycle = 'h12';
 					break;
 				case 'timeZoneName':
 					options.timeZoneName = value.length === 2 ? 'long' : 'short';
