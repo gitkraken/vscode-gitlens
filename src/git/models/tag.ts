@@ -24,14 +24,14 @@ export class GitTag implements GitTagReference {
 
 		switch (options.orderBy) {
 			case TagSorting.DateAsc:
-				return tags.sort((a, b) => a.date.getTime() - b.date.getTime());
+				return tags.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
 			case TagSorting.NameAsc:
 				return tags.sort((a, b) => sortCompare(a.name, b.name));
 			case TagSorting.NameDesc:
 				return tags.sort((a, b) => sortCompare(b.name, a.name));
 			case TagSorting.DateDesc:
 			default:
-				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
+				return tags.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
 		}
 	}
 
@@ -42,7 +42,7 @@ export class GitTag implements GitTagReference {
 		public readonly name: string,
 		public readonly sha: string,
 		public readonly message: string,
-		public readonly date: Date,
+		public readonly date: Date | undefined,
 		public readonly commitDate: Date | undefined,
 	) {}
 
@@ -67,11 +67,11 @@ export class GitTag implements GitTagReference {
 
 	@memoize<GitTag['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
-		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma');
+		return this.date != null ? formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') : '';
 	}
 
 	formatDateFromNow() {
-		return fromNow(this.date);
+		return this.date != null ? fromNow(this.date) : '';
 	}
 
 	@memoize()
