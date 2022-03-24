@@ -48,7 +48,7 @@ export class GitTagParser {
 					` ${ref1 || ref2}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${message}`.substr(1),
-					new Date(date),
+					date ? new Date(date) : undefined,
 					commitDate == null || commitDate.length === 0 ? undefined : new Date(commitDate),
 				),
 			);
