@@ -100,6 +100,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			return child.getChildren();
 		}
 
+		this.view.title = 'Branches';
+
 		return this.children;
 	}
 

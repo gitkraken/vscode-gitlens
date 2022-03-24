@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+## Fixed
+
+- Fixes [#1923](https://github.com/gitkraken/vscode-gitlens/issues/1923) - View titles fail to update properly when number of "opened" repos changes
+
 ## [12.0.5] - 2022-03-17
 
 ### Changed

@@ -82,6 +82,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			return child.getChildren();
 		}
 
+		this.view.title = 'Stashes';
+
 		return this.children;
 	}
 
