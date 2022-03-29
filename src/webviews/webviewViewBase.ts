@@ -130,9 +130,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 			...(this.registerCommands?.() ?? []),
 		);
 
-		webviewView.webview.html = await this.getHtml(webviewView.webview);
-
-		this.onViewVisibilityChanged();
+		await this.refresh();
+		this.onVisibilityChanged?.(true);
 	}
 
 	protected async refresh(): Promise<void> {
@@ -147,9 +146,13 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		this._view = undefined;
 	}
 
-	private onViewVisibilityChanged() {
+	private async onViewVisibilityChanged() {
 		const visible = this.visible;
 		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
+
+		if (visible) {
+			await this.refresh();
+		}
 		this.onVisibilityChanged?.(visible);
 	}
 

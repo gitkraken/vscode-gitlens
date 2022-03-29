@@ -3,14 +3,14 @@ import './home.scss';
 import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import { Disposable } from 'vscode';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
-import { DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
+import { CompletedActions, DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
 import { ExecuteCommandType, IpcMessage, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 
 export class HomeApp extends App<State> {
-	private $slot1!: HTMLDivElement;
-	private $slot2!: HTMLDivElement;
+	private $slots!: HTMLElement[];
+	private $footer!: HTMLElement;
 
 	constructor() {
 		super('HomeApp');
@@ -23,8 +23,12 @@ export class HomeApp extends App<State> {
 			},
 		});
 
-		this.$slot1 = document.getElementById('slot1') as HTMLDivElement;
-		this.$slot2 = document.getElementById('slot2') as HTMLDivElement;
+		this.$slots = [
+			document.getElementById('slot1') as HTMLDivElement,
+			document.getElementById('slot2') as HTMLDivElement,
+			document.getElementById('slot3') as HTMLDivElement,
+		];
+		this.$footer = document.getElementById('slot-footer') as HTMLDivElement;
 
 		this.updateState();
 	}
@@ -64,60 +68,106 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateState() {
-		const { subscription, welcomeVisible } = this.state;
-		if (subscription.account?.verified === false) {
-			DOM.insertTemplate('state:verify-email', this.$slot1);
-			DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
+		const { subscription, completedActions } = this.state;
 
-			return;
+		const viewsVisible = !completedActions.includes(CompletedActions.OpenedSCM);
+		const welcomeVisible = !completedActions.includes(CompletedActions.DismissedWelcome);
+
+		let index = 0;
+
+		if (subscription.account?.verified === false) {
+			DOM.insertTemplate('state:verify-email', this.$slots[index++]);
+			DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slots[index++]);
+		} else {
+			switch (subscription.state) {
+				case SubscriptionState.Free:
+					if (welcomeVisible) {
+						DOM.insertTemplate('welcome', this.$slots[index++]);
+						DOM.resetSlot(this.$footer);
+					} else {
+						DOM.insertTemplate('links', this.$footer);
+					}
+
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					DOM.insertTemplate('state:free', this.$slots[index++]);
+
+					break;
+				case SubscriptionState.FreeInPreview: {
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
+					DOM.insertTemplate('state:free-preview', this.$slots[index++], {
+						bindings: {
+							previewDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+						},
+					});
+
+					break;
+				}
+				case SubscriptionState.FreePreviewExpired:
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					DOM.insertTemplate('state:free-preview-expired', this.$slots[index++]);
+
+					break;
+				case SubscriptionState.FreePlusInTrial: {
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
+					DOM.insertTemplate('state:plus-trial', this.$slots[index++], {
+						bindings: {
+							plan: subscription.plan.effective.name,
+							trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+						},
+					});
+
+					break;
+				}
+				case SubscriptionState.FreePlusTrialExpired:
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					DOM.insertTemplate('state:plus-trial-expired', this.$slots[index++]);
+
+					break;
+				case SubscriptionState.Paid:
+					if (viewsVisible) {
+						DOM.insertTemplate('views', this.$slots[index++]);
+					}
+
+					DOM.insertTemplate('state:paid', this.$slots[index++], {
+						bindings: { plan: subscription.plan.effective.name },
+					});
+
+					break;
+			}
+
+			if (subscription.state !== SubscriptionState.Free) {
+				if (welcomeVisible) {
+					DOM.insertTemplate('welcome', this.$slots[index++]);
+					DOM.resetSlot(this.$footer);
+				} else {
+					DOM.insertTemplate('links', this.$footer);
+				}
+			}
 		}
 
-		const $container = document.getElementById('container') as HTMLDivElement;
-		$container.classList.toggle('welcome', welcomeVisible);
+		for (let i = 1; i < index; i++) {
+			this.$slots[i].classList.add('divider');
+		}
 
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-				if (welcomeVisible) {
-					DOM.insertTemplate('welcome', this.$slot1);
-					DOM.insertTemplate('state:free', this.$slot2);
-				} else {
-					DOM.insertTemplate('state:free', this.$slot1);
-					DOM.insertTemplate('links', this.$slot2);
-				}
-				break;
-			case SubscriptionState.FreeInPreview: {
-				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-				DOM.insertTemplate('state:free-preview', this.$slot1, {
-					bindings: {
-						previewDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
-					},
-				});
-				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
-				break;
-			}
-			case SubscriptionState.FreePreviewExpired:
-				DOM.insertTemplate('state:free-preview-expired', this.$slot1);
-				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
-				break;
-			case SubscriptionState.FreePlusInTrial: {
-				const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-				DOM.insertTemplate('state:plus-trial', this.$slot1, {
-					bindings: {
-						plan: subscription.plan.effective.name,
-						trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
-					},
-				});
-				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
-				break;
-			}
-			case SubscriptionState.FreePlusTrialExpired:
-				DOM.insertTemplate('state:plus-trial-expired', this.$slot1);
-				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
-				break;
-			case SubscriptionState.Paid:
-				DOM.insertTemplate('state:paid', this.$slot1, { bindings: { plan: subscription.plan.effective.name } });
-				DOM.insertTemplate(welcomeVisible ? 'welcome' : 'links', this.$slot2);
-				break;
+		for (let i = index; i < this.$slots.length; i++) {
+			DOM.resetSlot(this.$slots[i]);
 		}
 	}
 }

@@ -72,6 +72,8 @@ export const enum StorageKeys {
 	Avatars = 'gitlens:avatars',
 	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
+	HomeViewActionsCompleted = 'gitlens:home:actions:completed',
+
 	Version = 'gitlens:version',
 
 	MigratedAuthentication = 'gitlens:plus:migratedAuthentication',

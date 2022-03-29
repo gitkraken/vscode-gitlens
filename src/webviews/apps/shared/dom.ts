@@ -72,11 +72,12 @@ export namespace DOM {
 
 	export function insertTemplate(
 		id: string,
-		$slot: HTMLDivElement,
+		$slot: HTMLElement,
 		options?: { bindings?: Record<string, unknown>; visible?: Record<string, boolean> },
 	): void {
-		const $template = (document.getElementById(id) as HTMLTemplateElement)?.content.cloneNode(true);
-		$slot.replaceChildren($template);
+		const $template = document.getElementById(id) as HTMLTemplateElement;
+		$slot.replaceChildren($template?.content.cloneNode(true));
+		$slot.className = $template.className;
 
 		if (options?.visible != null) {
 			const $els = $slot.querySelectorAll<HTMLElement>(`[data-visible]`);
@@ -104,5 +105,10 @@ export namespace DOM {
 				$el.textContent = String(value);
 			}
 		}
+	}
+
+	export function resetSlot($slot: HTMLElement) {
+		$slot.replaceChildren();
+		$slot.className = '';
 	}
 }

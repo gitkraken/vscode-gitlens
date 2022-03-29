@@ -6,8 +6,14 @@
 
 	<body class="preload">
 		<div id="container" class="container">
-			<div id="slot1"></div>
-			<div id="slot2" class="divider"></div>
+			<div class="content">
+				<section id="slot1"></section>
+				<section id="slot2"></section>
+				<section id="slot3"></section>
+			</div>
+			<div>
+				<section id="slot-footer"></section>
+			</div>
 		</div>
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
@@ -20,6 +26,7 @@
 
 	<!-- prettier-ignore -->
 	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
 	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
 	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
 	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview.html') %>
