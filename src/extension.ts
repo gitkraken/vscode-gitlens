@@ -216,8 +216,6 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
 
-		void executeCommand(Commands.ShowHomeView);
-
 		if (container.config.showWelcomeOnInstall === false) return;
 
 		if (window.state.focused) {
