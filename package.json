@@ -10991,8 +10991,8 @@
 					},
 					{
 						"id": "gitlens.plus.worktrees",
-						"title": "Do more with Worktrees",
-						"description": "Create worktrees to allow multiple branches to be checked-out at once on the same repository.\n\n[Open Worktrees view](command:gitlens.showWorktreesView)",
+						"title": "Worktrees",
+						"description": "Create worktrees to have multiple branches checked-out at once on the same repository.\n\n[Open Worktrees view](command:gitlens.showWorktreesView)",
 						"media": {
 							"markdown": "walkthroughs/plus/2-worktrees.md"
 						}
