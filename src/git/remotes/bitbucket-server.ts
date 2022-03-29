@@ -24,6 +24,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 				},
 				{
 					prefix: 'pull request #',
+					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open PR #<num> on ${this.name}`,
 				},
