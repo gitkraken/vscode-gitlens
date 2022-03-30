@@ -71,6 +71,10 @@ export function isActiveDocument(document: TextDocument): boolean {
 	return editor != null && editor.document === document;
 }
 
+export function isVirtualUri(uri: Uri): boolean {
+	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
+}
+
 export function isVisibleDocument(document: TextDocument): boolean {
 	if (window.visibleTextEditors.length === 0) return false;
 

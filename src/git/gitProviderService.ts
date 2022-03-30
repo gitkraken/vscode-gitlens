@@ -834,7 +834,7 @@ export class GitProviderService implements Disposable {
 		throw new ProviderNotFoundError(repoPath);
 
 		// let id = !isWeb ? GitProviderId.Git : undefined;
-		// if (typeof repoPath !== 'string' && repoPath.scheme === DocumentSchemes.Virtual) {
+		// if (typeof repoPath !== 'string' && repoPath.scheme === Schemes.Virtual) {
 		// 	if (repoPath.authority.startsWith('github')) {
 		// 		id = GitProviderId.GitHub;
 		// 	} else {

@@ -2369,8 +2369,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return this.supportedSchemes.has(uri.scheme);
 	}
 
-	isTracked(uri: Uri): Promise<boolean> {
-		return Promise.resolve(this.isTrackable(uri) && this.container.git.getRepository(uri) != null);
+	async isTracked(uri: Uri): Promise<boolean> {
+		if (!this.isTrackable(uri) || this.container.git.getRepository(uri) == null) return false;
+
+		// Don't call out to RemoteHub to keep things more performant, since we only work with GitHub here
+		// const remotehub = await this.ensureRemoteHubApi();
+		// if (remotehub == null) return false;
+
+		// const providerUri = remotehub.getProviderUri(uri);
+		// if (providerUri == null) return false;
+
+		const providerUri = uri.with({ scheme: Schemes.GitHub });
+		const stats = await workspace.fs.stat(providerUri);
+		return stats != null;
 	}
 
 	@log()
