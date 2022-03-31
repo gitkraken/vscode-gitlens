@@ -8,11 +8,12 @@ import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
-import { PreviousLineComparisionUrisResult } from '../gitProvider';
+import { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
 import { PullRequest } from './pullRequest';
 import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
+import { Repository } from './repository';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -34,7 +35,7 @@ export class GitCommit implements GitRevisionReference {
 			commit.message != null &&
 			commit.files != null &&
 			commit.parents.length !== 0 &&
-			(!commit.stashName || commit._stashUntrackedFilesLoaded)
+			(commit.refType !== 'stash' || commit._stashUntrackedFilesLoaded)
 		);
 	}
 
@@ -188,22 +189,42 @@ export class GitCommit implements GitRevisionReference {
 		if (this.isUncommitted || GitCommit.hasFullDetails(this)) return;
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
-			this.container.git.getCommit(this.repoPath, this.sha),
+			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,
 			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 			// See https://stackoverflow.com/questions/12681529/
-			this.stashName ? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`) : undefined,
+			this.refType === 'stash' && !this._stashUntrackedFilesLoaded
+				? this.container.git.getCommit(this.repoPath, `${this.stashName}^3`)
+				: undefined,
 			this.getPreviousSha(),
 		]);
-		if (commitResult.status !== 'fulfilled' || commitResult.value == null) return;
 
-		let commit = commitResult.value;
-		this.parents.push(...(commit.parents ?? []));
-		this._summary = commit.summary;
-		this._message = commit.message;
-		this._files = commit.files as GitFileChange[];
+		let commit;
+
+		if (commitResult.status === 'fulfilled' && commitResult.value != null) {
+			commit = commitResult.value;
+			this.parents.push(...(commit.parents ?? []));
+			this._summary = commit.summary;
+			this._message = commit.message;
+			this._files = commit.files as GitFileChange[];
+
+			if (this._file != null) {
+				const file = this._files.find(f => f.path === this._file!.path);
+				if (file != null) {
+					this._file = new GitFileChange(
+						file.repoPath,
+						file.path,
+						file.status,
+						file.originalPath ?? this._file.originalPath,
+						file.previousSha ?? this._file.previousSha,
+						file.stats ?? this._file.stats,
+					);
+				}
+			}
+		}
 
 		if (untrackedResult.status === 'fulfilled' && untrackedResult.value != null) {
 			this._stashUntrackedFilesLoaded = true;
+
 			commit = untrackedResult.value;
 			if (commit?.files != null && commit.files.length !== 0) {
 				// Since these files are untracked -- make them look that way
@@ -269,13 +290,13 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(path: string): Promise<GitFileChange | undefined>;
 	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
 	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
-		if (this._files == null) {
+		if (!GitCommit.hasFullDetails(this)) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
 
 		const relativePath = this.container.git.getRelativePath(pathOrUri, this.repoPath);
-		return this._files.find(f => f.path === relativePath);
+		return this._files?.find(f => f.path === relativePath);
 	}
 
 	formatDate(format?: string | null) {
@@ -391,13 +412,13 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getCommitsForFiles(): Promise<GitCommit[]> {
-		if (this._files == null) {
+		if (!GitCommit.hasFullDetails(this)) {
 			await this.ensureFullDetails();
 			if (this._files == null) return [];
 		}
 
-		const commits = this._files.map(f => this.with({ files: { file: f } }));
-		return commits;
+		const commits = this._files?.map(f => this.with({ files: { file: f } }));
+		return commits ?? [];
 	}
 
 	@memoize()
@@ -415,7 +436,7 @@ export class GitCommit implements GitRevisionReference {
 	getPreviousComparisonUrisForLine(
 		editorLine: number,
 		ref?: string,
-	): Promise<PreviousLineComparisionUrisResult | undefined> {
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		return this.file != null
 			? this.container.git.getPreviousComparisonUrisForLine(
 					this.repoPath,
@@ -457,6 +478,10 @@ export class GitCommit implements GitRevisionReference {
 		}
 
 		return this._previousShaPromise;
+	}
+
+	getRepository(): Repository | undefined {
+		return this.container.git.getRepository(this.repoPath);
 	}
 
 	@gate()

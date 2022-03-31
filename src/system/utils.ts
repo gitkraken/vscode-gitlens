@@ -71,6 +71,10 @@ export function isActiveDocument(document: TextDocument): boolean {
 	return editor != null && editor.document === document;
 }
 
+export function isVirtualUri(uri: Uri): boolean {
+	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
+}
+
 export function isVisibleDocument(document: TextDocument): boolean {
 	if (window.visibleTextEditors.length === 0) return false;
 
@@ -118,6 +122,23 @@ export async function openEditor(
 		Logger.error(ex, 'openEditor');
 		return undefined;
 	}
+}
+
+export async function openWalkthrough(
+	extensionId: string,
+	walkthroughId: string,
+	stepId?: string,
+	openToSide: boolean = true,
+): Promise<void> {
+	// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
+	void (await executeCoreCommand(
+		CoreCommands.OpenWalkthrough,
+		{
+			category: `${extensionId}#${walkthroughId}`,
+			step: stepId ? `${extensionId}#${walkthroughId}#${stepId}` : undefined,
+		},
+		openToSide,
+	));
 }
 
 export const enum OpenWorkspaceLocation {

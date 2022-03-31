@@ -7,12 +7,13 @@ import { UriComparer } from '../comparers';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import type { GitHubAuthorityMetadata } from '../premium/remotehub';
+import type { GitHubAuthorityMetadata } from '../plus/remotehub';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
 import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
 // import { CharCode } from '../system/string';
+import { isVirtualUri } from '../system/utils';
 import type { RevisionUriData } from './gitProvider';
 import { GitFile, GitRevision } from './models';
 
@@ -86,7 +87,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			return;
 		}
 
-		if (uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub) {
+		if (isVirtualUri(uri)) {
 			super(uri);
 
 			const [, owner, repo] = uri.path.split('/', 3);

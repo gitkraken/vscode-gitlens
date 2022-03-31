@@ -82,6 +82,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			return child.getChildren();
 		}
 
+		this.view.title = 'Stashes';
+
 		return this.children;
 	}
 
@@ -146,6 +148,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&

@@ -1,14 +1,15 @@
 /*global document*/
+import type { Config } from '../../../config';
 import {
-	AppStateWithConfig,
 	DidChangeConfigurationNotificationType,
-	DidPreviewConfigurationNotificationType,
+	DidGenerateConfigurationPreviewNotificationType,
+	DidOpenAnchorNotificationType,
+	GenerateConfigurationPreviewCommandType,
 	IpcMessage,
-	onIpcNotification,
-	PreviewConfigurationCommandType,
+	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { formatDate } from '../shared/date';
+import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { App } from './appBase';
 import { DOM } from './dom';
 
@@ -17,23 +18,17 @@ const date = new Date(
 	`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`,
 );
 
-let ipcSequence = 0;
-function nextIpcId() {
-	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
-		ipcSequence = 1;
-	} else {
-		ipcSequence++;
-	}
-
-	return `${ipcSequence}`;
+interface AppStateWithConfig {
+	config: Config;
+	customSettings?: Record<string, boolean>;
 }
 
-export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
+export abstract class AppWithConfig<State extends AppStateWithConfig> extends App<State> {
 	private _changes = Object.create(null) as Record<string, any>;
 	private _updating: boolean = false;
 
-	constructor(appName: string, state: TState) {
-		super(appName, state);
+	constructor(appName: string) {
+		super(appName);
 	}
 
 	protected override onInitialized() {
@@ -43,40 +38,27 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
-
 		disposables.push(
-			DOM.on('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
-				return me.onInputChecked(this);
-			}),
+			DOM.on('input[type=checkbox][data-setting]', 'change', (e, target: HTMLInputElement) =>
+				this.onInputChecked(target),
+			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'blur',
-				function (this: HTMLInputElement) {
-					return me.onInputBlurred(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputBlurred(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 				'focus',
-				function (this: HTMLInputElement) {
-					return me.onInputFocused(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputFocused(target),
 			),
 			DOM.on(
 				'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
 				'input',
-				function (this: HTMLInputElement) {
-					return me.onInputChanged(this);
-				},
+				(e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
-			DOM.on('select[data-setting]', 'change', function (this: HTMLSelectElement) {
-				return me.onInputSelected(this);
-			}),
-			DOM.on('.popup', 'mousedown', function (this: HTMLElement, e: Event) {
-				return me.onPopupMouseDown(this, e as MouseEvent);
-			}),
+			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
+			DOM.on('.popup', 'mousedown', (e, target: HTMLElement) => this.onPopupMouseDown(target, e)),
 		);
 
 		return disposables;
@@ -85,9 +67,17 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 
+		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
 		switch (msg.method) {
+			case DidOpenAnchorNotificationType.method: {
+				onIpc(DidOpenAnchorNotificationType, msg, params => {
+					this.scrollToAnchor(params.anchor, params.scrollBehavior);
+				});
+				break;
+			}
 			case DidChangeConfigurationNotificationType.method:
-				onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
+				onIpc(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
 					this.state.customSettings = params.customSettings;
 
@@ -96,9 +86,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 				break;
 
 			default:
-				if (super.onMessageReceived !== undefined) {
-					super.onMessageReceived(e);
-				}
+				super.onMessageReceived?.(e);
 		}
 	}
 
@@ -119,9 +107,9 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	protected onInputBlurred(element: HTMLInputElement) {
 		this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
 
-		const popup = document.getElementById(`${element.name}.popup`);
-		if (popup != null) {
-			popup.classList.add('hidden');
+		const $popup = document.getElementById(`${element.name}.popup`);
+		if ($popup != null) {
+			$popup.classList.add('hidden');
 		}
 
 		let value: string | null | undefined = element.value;
@@ -210,14 +198,15 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	protected onInputFocused(element: HTMLInputElement) {
 		this.log(`${this.appName}.onInputFocused: name=${element.name}, value=${element.value}`);
 
-		const popup = document.getElementById(`${element.name}.popup`);
-		if (popup != null) {
-			if (popup.childElementCount === 0) {
-				const template = document.querySelector('#token-popup') as HTMLTemplateElement;
-				const instance = document.importNode(template.content, true);
-				popup.appendChild(instance);
+		const $popup = document.getElementById(`${element.name}.popup`);
+		if ($popup != null) {
+			if ($popup.childElementCount === 0) {
+				const $template = (document.querySelector('#token-popup') as HTMLTemplateElement)?.content.cloneNode(
+					true,
+				);
+				$popup.appendChild($template);
 			}
-			popup.classList.remove('hidden');
+			$popup.classList.remove('hidden');
 		}
 	}
 
@@ -279,6 +268,41 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		e.preventDefault();
 	}
 
+	protected scrollToAnchor(anchor: string, behavior: ScrollBehavior, offset?: number) {
+		const el = document.getElementById(anchor);
+		if (el == null) return;
+
+		this.scrollTo(el, behavior, offset);
+	}
+
+	private _scrollTimer: ReturnType<typeof setTimeout> | undefined;
+	private scrollTo(el: HTMLElement, behavior: ScrollBehavior, offset?: number) {
+		const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
+
+		window.scrollTo({
+			top: top,
+			behavior: behavior ?? 'smooth',
+		});
+
+		const fn = () => {
+			if (this._scrollTimer != null) {
+				clearTimeout(this._scrollTimer);
+			}
+
+			this._scrollTimer = setTimeout(() => {
+				window.removeEventListener('scroll', fn);
+
+				const newTop =
+					el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
+				if (top === newTop) return;
+
+				this.scrollTo(el, behavior, offset);
+			}, 50);
+		};
+
+		window.addEventListener('scroll', fn, false);
+	}
+
 	private evaluateStateExpression(expression: string, changes: Record<string, string | boolean>): boolean {
 		let state = false;
 		for (const expr of expression.trim().split('&')) {
@@ -332,6 +356,8 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 	private updateState() {
 		this._updating = true;
+
+		setDefaultDateLocales(this.state.config.defaultDateLocale);
 
 		try {
 			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-setting]')) {
@@ -415,11 +441,28 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
-				if (value == null || value.length === 0) {
+				if (!value) {
 					value = el.dataset.settingPreviewDefault;
 				}
 
-				el.innerText = value == null ? '' : formatDate(date, value);
+				el.innerText = value == null ? '' : formatDate(date, value, undefined, false);
+				break;
+			}
+			case 'date-locale': {
+				if (value === undefined) {
+					value = this.getSettingValue<string>(el.dataset.settingPreview!);
+				}
+
+				if (!value) {
+					value = undefined;
+				}
+
+				const format = this.getSettingValue<string>(el.dataset.settingPreviewDefault!) ?? 'MMMM Do, YYYY h:mma';
+				try {
+					el.innerText = formatDate(date, format, value, false);
+				} catch (ex) {
+					el.innerText = ex.message;
+				}
 				break;
 			}
 			case 'commit': {
@@ -427,7 +470,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
-				if (value == null || value.length === 0) {
+				if (!value) {
 					value = el.dataset.settingPreviewDefault;
 				}
 
@@ -437,24 +480,18 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					return;
 				}
 
-				const id = nextIpcId();
-				const disposable = DOM.on(window, 'message', (e: MessageEvent) => {
-					const msg = e.data as IpcMessage;
-
-					if (msg.method === DidPreviewConfigurationNotificationType.method && msg.params.id === id) {
-						disposable.dispose();
-						onIpcNotification(DidPreviewConfigurationNotificationType, msg, params => {
-							el.innerText = params.preview ?? '';
-						});
-					}
-				});
-
-				this.sendCommand(PreviewConfigurationCommandType, {
-					key: el.dataset.settingPreview!,
-					type: 'commit',
-					id: id,
-					format: value,
-				});
+				this.sendCommandWithCompletion(
+					GenerateConfigurationPreviewCommandType,
+					{
+						key: el.dataset.settingPreview!,
+						type: 'commit',
+						format: value,
+					},
+					DidGenerateConfigurationPreviewNotificationType,
+					params => {
+						el.innerText = params.preview ?? '';
+					},
+				);
 
 				break;
 			}

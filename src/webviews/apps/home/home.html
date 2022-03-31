@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<body class="preload">
+		<div id="container" class="container">
+			<div class="content">
+				<section id="slot1"></section>
+				<section id="slot2"></section>
+				<section id="slot3"></section>
+			</div>
+			<div>
+				<section id="slot-footer"></section>
+			</div>
+		</div>
+		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+			}
+		</style>
+	</body>
+
+	<!-- prettier-ignore -->
+	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.paid.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
+</html>

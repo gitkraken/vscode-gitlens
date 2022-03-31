@@ -1,7 +1,6 @@
 export * from './commands/addAuthors';
 export * from './commands/browseRepoAtRevision';
 export * from './commands/closeUnchangedFiles';
-export * from './commands/closeView';
 export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
 export * from './commands/copyMessageToClipboard';
@@ -59,3 +58,4 @@ export * from './commands/switchMode';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileAnnotations';
 export * from './commands/toggleLineBlame';
+export * from './commands/walkthroughs';

@@ -63,9 +63,9 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 
 		if (log.hasMore) {
 			children.push(
-				new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-					this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
-				),
+				new LoadMoreNode(this.view, this, children[children.length - 1], {
+					getCount: () => this.view.container.git.getCommitCount(this.tag.repoPath, this.tag.name),
+				}),
 			);
 		}
 		return children;
@@ -78,9 +78,13 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		item.description = emojify(this.tag.message);
 		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${GitRevision.shorten(this.tag.sha, {
 			force: true,
-		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
-			Container.instance.TagDateFormatting.dateFormat,
-		)})\n\n${emojify(this.tag.message)}${
+		})}${
+			this.tag.date != null
+				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
+						Container.instance.TagDateFormatting.dateFormat,
+				  )})`
+				: ''
+		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
 						Container.instance.TagDateFormatting.dateFormat,

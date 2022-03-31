@@ -23,6 +23,8 @@ import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracke
 import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
 import { Decorations } from './fileAnnotationController';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 export interface ChangesAnnotationContext extends AnnotationContext {
 	sha?: string;
 	only?: boolean;
@@ -204,7 +206,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					// }
 
 					const range = this.editor.document.validateRange(
-						new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER)),
+						new Range(new Position(count, 0), new Position(count, maxSmallIntegerV8)),
 					);
 					if (selection == null) {
 						selection = new Selection(range.start, range.end);
@@ -218,9 +220,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 							if (hunk.previous.count > hunk.current.count) {
 								state = 'removed';
 							} else {
+								count--;
 								continue;
 							}
 						} else {
+							count--;
 							continue;
 						}
 					} else if (hunkLine.current?.state === 'added') {
@@ -234,6 +238,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 						if (hunk.previous.count > hunk.current.count) {
 							state = 'removed';
 						} else {
+							count--;
 							continue;
 						}
 					} else {
@@ -323,7 +328,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 								hunk.current.position.start - 1,
 								0,
 								hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1),
-								Number.MAX_SAFE_INTEGER,
+								maxSmallIntegerV8,
 							),
 						),
 					);

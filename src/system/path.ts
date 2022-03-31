@@ -177,7 +177,10 @@ export function normalizePath(path: string): string {
 
 	path = path.replace(pathNormalizeRegex, '/');
 	if (path.charCodeAt(path.length - 1) === slash) {
-		path = path.slice(0, -1);
+		// Don't remove the trailing slash on Windows root folders, such as z:\
+		if (!isWindows || path.length !== 3 || path[1] !== ':') {
+			path = path.slice(0, -1);
+		}
 	}
 
 	if (isWindows) {

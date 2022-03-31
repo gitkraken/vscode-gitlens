@@ -6,10 +6,11 @@
 .yarn/**
 dist/webviews/*.css
 emoji/**
-images/docs/**
+images/docs/gitlens-preview.gif
 images/originals/**
 node_modules/**
 out/**
+patches/**
 scripts/**
 src/**
 test/**

@@ -1,7 +1,8 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
-import { Commit, InputBox } from '../@types/vscode.git';
-import { GitUri } from './gitUri';
-import {
+import type { Commit, InputBox } from '../@types/vscode.git';
+import { Features } from '../features';
+import type { GitUri } from './gitUri';
+import type {
 	BranchSortOptions,
 	GitBlame,
 	GitBlameLine,
@@ -26,13 +27,14 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	GitWorktree,
 	Repository,
 	RepositoryChangeEvent,
 	TagSortOptions,
 } from './models';
-import { RemoteProviders } from './remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from './remotes/provider';
-import { SearchPattern } from './search';
+import type { RemoteProviders } from './remotes/factory';
+import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import type { SearchPattern } from './search';
 
 export const enum GitProviderId {
 	Git = 'git',
@@ -65,18 +67,18 @@ export interface PagedResult<T> {
 	readonly values: NonNullable<T>[];
 }
 
-export interface NextComparisionUrisResult {
+export interface NextComparisonUrisResult {
 	current: GitUri;
 	next: GitUri | undefined;
 	deleted?: boolean | undefined;
 }
 
-export interface PreviousComparisionUrisResult {
+export interface PreviousComparisonUrisResult {
 	current: GitUri;
 	previous: GitUri | undefined;
 }
 
-export interface PreviousLineComparisionUrisResult extends PreviousComparisionUrisResult {
+export interface PreviousLineComparisonUrisResult extends PreviousComparisonUrisResult {
 	line: number;
 }
 
@@ -86,6 +88,12 @@ export interface RepositoryCloseEvent {
 
 export interface RepositoryOpenEvent {
 	readonly uri: Uri;
+}
+
+export const enum RepositoryVisibility {
+	Private = 'private',
+	Public = 'public',
+	Local = 'local',
 }
 
 export interface GitProvider extends Disposable {
@@ -106,6 +114,10 @@ export interface GitProvider extends Disposable {
 		closed?: boolean,
 	): Repository;
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
+
+	supports(feature: Features): Promise<boolean>;
+	visibility(repoPath: string): Promise<RepositoryVisibility>;
+
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 
@@ -123,7 +135,7 @@ export interface GitProvider extends Disposable {
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined } | { fileName?: string | undefined },
+		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
 	resetCaches(
 		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
@@ -319,21 +331,21 @@ export interface GitProvider extends Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<NextComparisionUrisResult | undefined>;
+	): Promise<NextComparisonUrisResult | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 		firstParent?: boolean,
-	): Promise<PreviousComparisionUrisResult | undefined>;
+	): Promise<PreviousComparisonUrisResult | undefined>;
 	getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
 		editorLine: number,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<PreviousLineComparisionUrisResult | undefined>;
+	): Promise<PreviousLineComparisonUrisResult | undefined>;
 	getIncomingActivity(
 		repoPath: string,
 		options?: {
@@ -375,6 +387,7 @@ export interface GitProvider extends Disposable {
 
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	isTrackable(uri: Uri): boolean;
+	isTracked(uri: Uri): Promise<boolean>;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;
 	openDiffTool(
@@ -411,6 +424,15 @@ export interface GitProvider extends Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined },
 	): Promise<void>;
+
+	createWorktree?(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void>;
+	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
+	getWorktreesDefaultUri?(repoPath: string): Promise<Uri | undefined>;
+	deleteWorktree?(repoPath: string, path: string, options?: { force?: boolean }): Promise<void>;
 }
 
 export interface RevisionUriData {

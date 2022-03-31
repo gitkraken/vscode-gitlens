@@ -21,9 +21,10 @@ import {
 	RepositoryChangeEvent,
 } from '../../git/models';
 import { Logger } from '../../logger';
+import { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
-import { is as isA } from '../../system/function';
+import { is as isA, szudzikPairing } from '../../system/function';
 import { pad } from '../../system/string';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
@@ -83,6 +84,9 @@ export const enum ContextValues {
 	StatusSameAsUpstream = 'gitlens:status:upstream:same',
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
+	UncommittedFiles = 'gitlens:uncommitted:files',
+	Worktree = 'gitlens:worktree',
+	Worktrees = 'gitlens:worktrees',
 }
 
 export interface ViewNode {
@@ -162,10 +166,9 @@ export abstract class ViewRefNode<
 
 export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
 	abstract get file(): GitFile;
-	abstract get fileName(): string;
 
 	override toString(): string {
-		return `${super.toString()}:${this.fileName}`;
+		return `${super.toString()}:${this.file.path}`;
 	}
 }
 
@@ -173,7 +176,7 @@ export interface PageableViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;
-	loadMore(limit?: number | { until?: string | undefined }): Promise<void>;
+	loadMore(limit?: number | { until?: string | undefined }, context?: Record<string, unknown>): Promise<void>;
 }
 
 export namespace PageableViewNode {
@@ -541,16 +544,25 @@ export abstract class RepositoriesSubscribeableNode<
 	}
 
 	protected override etag(): number {
-		return this.view.container.git.etag;
+		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
 
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
-		return this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this);
+		return Disposable.from(
+			this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+			this.view.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
 		void this.triggerChange(true);
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (e.current.plan !== e.previous.plan) {
+			void this.triggerChange(true);
+		}
 	}
 }
 

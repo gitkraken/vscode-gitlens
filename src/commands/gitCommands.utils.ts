@@ -20,6 +20,7 @@ import { StashGitCommand } from './git/stash';
 import { StatusGitCommand } from './git/status';
 import { SwitchGitCommand } from './git/switch';
 import { TagGitCommand } from './git/tag';
+import { WorktreeGitCommand } from './git/worktree';
 import type { GitCommandsCommandArgs } from './gitCommands';
 import type { QuickCommand, QuickPickStep, StepGenerator } from './quickCommand';
 
@@ -90,6 +91,9 @@ export class PickCommandStep implements QuickPickStep {
 						args?.command === 'switch' || args?.command === 'checkout' ? args : undefined,
 				  ),
 			readonly ? undefined : new TagGitCommand(container, args?.command === 'tag' ? args : undefined),
+			hasVirtualFolders
+				? undefined
+				: new WorktreeGitCommand(container, args?.command === 'worktree' ? args : undefined),
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
 		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {

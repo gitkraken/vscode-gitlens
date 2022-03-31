@@ -1,4 +1,11 @@
-import { ConfigurationChangeEvent, ConfigurationScope, Event, EventEmitter, ExtensionContext } from 'vscode';
+import {
+	ConfigurationChangeEvent,
+	ConfigurationScope,
+	Event,
+	EventEmitter,
+	ExtensionContext,
+	ExtensionMode,
+} from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
@@ -22,6 +29,11 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
+import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
+import { ServerConnection } from './plus/subscription/serverConnection';
+import { SubscriptionService } from './plus/subscription/subscriptionService';
+import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
+import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
 import { StatusBarController } from './statusbar/statusBarController';
 import { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -42,10 +54,12 @@ import { StashesView } from './views/stashesView';
 import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
+import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
-import { RebaseEditorProvider } from './webviews/rebaseEditor';
-import { SettingsWebview } from './webviews/settingsWebview';
-import { WelcomeWebview } from './webviews/welcomeWebview';
+import { HomeWebviewView } from './webviews/home/homeWebviewView';
+import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
+import { SettingsWebview } from './webviews/settings/settingsWebview';
+import { WelcomeWebview } from './webviews/welcome/welcomeWebview';
 
 export class Container {
 	static #instance: Container | undefined;
@@ -139,9 +153,17 @@ export class Container {
 	private constructor(context: ExtensionContext, config: Config) {
 		this._context = context;
 		this._config = this.applyMode(config);
-		this._storage = new Storage(this._context);
+
+		context.subscriptions.push((this._storage = new Storage(this._context)));
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
+
+		const server = new ServerConnection(this);
+		context.subscriptions.push(server);
+		context.subscriptions.push(
+			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
+		);
+		context.subscriptions.push((this._subscription = new SubscriptionService(this)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
@@ -159,10 +181,12 @@ export class Container {
 		context.subscriptions.push((this._codeLensController = new GitCodeLensController(this)));
 
 		context.subscriptions.push((this._settingsWebview = new SettingsWebview(this)));
+		context.subscriptions.push((this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 
 		context.subscriptions.push(new ViewFileDecorationProvider());
+
 		context.subscriptions.push((this._repositoriesView = new RepositoriesView(this)));
 		context.subscriptions.push((this._commitsView = new CommitsView(this)));
 		context.subscriptions.push((this._fileHistoryView = new FileHistoryView(this)));
@@ -171,8 +195,12 @@ export class Container {
 		context.subscriptions.push((this._remotesView = new RemotesView(this)));
 		context.subscriptions.push((this._stashesView = new StashesView(this)));
 		context.subscriptions.push((this._tagsView = new TagsView(this)));
+		context.subscriptions.push((this._worktreesView = new WorktreesView(this)));
 		context.subscriptions.push((this._contributorsView = new ContributorsView(this)));
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView(this)));
+
+		context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
+		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -292,6 +320,22 @@ export class Container {
 		return this._contributorsView;
 	}
 
+	@memoize()
+	get debugging() {
+		return this._context.extensionMode === ExtensionMode.Development;
+	}
+
+	@memoize()
+	get env(): 'dev' | 'staging' | 'production' {
+		if (this.insiders || this.debugging) {
+			const env = configuration.getAny('gitkraken.env');
+			if (env === 'dev') return 'dev';
+			if (env === 'staging') return 'staging';
+		}
+
+		return 'production';
+	}
+
 	private _fileAnnotationController: FileAnnotationController;
 	get fileAnnotations() {
 		return this._fileAnnotationController;
@@ -311,7 +355,7 @@ export class Container {
 		return this._git;
 	}
 
-	private _github: Promise<import('./premium/github/github').GitHubApi | undefined> | undefined;
+	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
 	get github() {
 		if (this._github == null) {
 			this._github = this._loadGitHubApi();
@@ -322,11 +366,22 @@ export class Container {
 
 	private async _loadGitHubApi() {
 		try {
-			return new (await import(/* webpackChunkName: "github" */ './premium/github/github')).GitHubApi();
+			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
+			this.context.subscriptions.push(github);
+			return github;
 		} catch (ex) {
 			Logger.error(ex);
 			return undefined;
 		}
+	}
+
+	private _homeView: HomeWebviewView | undefined;
+	get homeView() {
+		if (this._homeView == null) {
+			this._context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
+		}
+
+		return this._homeView;
 	}
 
 	@memoize()
@@ -399,6 +454,16 @@ export class Container {
 		return this._searchAndCompareView;
 	}
 
+	private _subscription: SubscriptionService;
+	get subscription() {
+		return this._subscription;
+	}
+
+	private _subscriptionAuthentication: SubscriptionAuthenticationProvider;
+	get subscriptionAuthentication() {
+		return this._subscriptionAuthentication;
+	}
+
 	private _settingsWebview: SettingsWebview;
 	get settingsWebview() {
 		return this._settingsWebview;
@@ -432,6 +497,16 @@ export class Container {
 		return this._tagsView;
 	}
 
+	private _timelineView: TimelineWebviewView;
+	get timelineView() {
+		return this._timelineView;
+	}
+
+	private _timelineWebview: TimelineWebview;
+	get timelineWebview() {
+		return this._timelineWebview;
+	}
+
 	private _tracker: GitDocumentTracker;
 	get tracker() {
 		return this._tracker;
@@ -458,6 +533,15 @@ export class Container {
 	private _welcomeWebview: WelcomeWebview;
 	get welcomeWebview() {
 		return this._welcomeWebview;
+	}
+
+	private _worktreesView: WorktreesView | undefined;
+	get worktreesView() {
+		if (this._worktreesView == null) {
+			this._context.subscriptions.push((this._worktreesView = new WorktreesView(this)));
+		}
+
+		return this._worktreesView;
 	}
 
 	private applyMode(config: Config) {

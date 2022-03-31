@@ -2,17 +2,9 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
-			}
-		</style>
 	</head>
 
 	<body class="preload">
-		<!-- <canvas class="snow"></canvas> -->
-
 		<div class="container">
 			<header>
 				<h2>GitLens Interactive Rebase</h2>
@@ -36,16 +28,6 @@
 					<button name="switch" class="button button--flat-subtle" data-action="switch" tabindex="-1">
 						Switch to Text
 					</button>
-					<!--
-					<div class="snow__trigger-container">
-						<img
-							class="snow__trigger snow__trigger--centered"
-							title="Let it snow — Happy Holidays!"
-							alt="Let it snow — Happy Holidays!"
-							src="#{root}/images/snowman.png"
-						/>
-					</div>
-					-->
 				</div>
 				<div class="actions--right">
 					<button name="start" class="button button--flat-primary" data-action="start">
@@ -58,5 +40,11 @@
 			</div>
 		</div>
 		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+			}
+		</style>
 	</body>
 </html>

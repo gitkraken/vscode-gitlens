@@ -29,6 +29,7 @@ import {
 	viewsCommonConfigKeys,
 	viewsConfigKeys,
 	ViewsConfigKeys,
+	WorktreesViewConfig,
 } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -48,6 +49,7 @@ import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { TagsView } from './tagsView';
+import { WorktreesView } from './worktreesView';
 
 export type View =
 	| BranchesView
@@ -59,7 +61,8 @@ export type View =
 	| RepositoriesView
 	| SearchAndCompareView
 	| StashesView
-	| TagsView;
+	| TagsView
+	| WorktreesView;
 export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
 export type ViewsWithRepositoryFolders = Exclude<View, RepositoriesView | FileHistoryView | LineHistoryView>;
 
@@ -79,7 +82,8 @@ export abstract class ViewBase<
 		| RepositoriesViewConfig
 		| SearchAndCompareViewConfig
 		| StashesViewConfig
-		| TagsViewConfig,
+		| TagsViewConfig
+		| WorktreesViewConfig,
 > implements TreeDataProvider<ViewNode>, Disposable
 {
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
@@ -110,7 +114,7 @@ export abstract class ViewBase<
 	) {
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
-		if (Logger.isDebugging || this.container.config.debug) {
+		if (this.container.debugging || this.container.config.debug) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(
@@ -508,10 +512,12 @@ export abstract class ViewBase<
 
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
+		const cc = Logger.getCorrelationContext();
+
 		try {
 			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, cc);
 		}
 	}
 
@@ -527,12 +533,13 @@ export abstract class ViewBase<
 		node: ViewNode & PageableViewNode,
 		limit: number | { until: string | undefined } | undefined,
 		previousNode?: ViewNode,
+		context?: Record<string, unknown>,
 	) {
 		if (previousNode != null) {
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
-		await node.loadMore(limit);
+		await node.loadMore(limit, context);
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 

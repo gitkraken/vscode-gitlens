@@ -1,11 +1,17 @@
+import { QuickPickItem } from 'vscode';
+import type { Subscription } from '../../subscription';
+
 export enum Directive {
 	Back,
 	Cancel,
 	LoadMore,
 	Noop,
-}
+	RequiresVerification,
 
-import { QuickPickItem } from 'vscode';
+	RequiresFreeSubscription,
+	RequiresPaidSubscription,
+	StartPreviewTrial,
+}
 
 export namespace Directive {
 	export function is<T>(value: Directive | T): value is Directive {
@@ -21,9 +27,10 @@ export namespace DirectiveQuickPickItem {
 	export function create(
 		directive: Directive,
 		picked?: boolean,
-		options: { label?: string; description?: string; detail?: string } = {},
+		options?: { label?: string; description?: string; detail?: string; subscription?: Subscription },
 	) {
-		let label = options.label;
+		let label = options?.label;
+		let detail = options?.detail;
 		if (label == null) {
 			switch (directive) {
 				case Directive.Back:
@@ -38,13 +45,30 @@ export namespace DirectiveQuickPickItem {
 				case Directive.Noop:
 					label = 'Try again';
 					break;
+				case Directive.StartPreviewTrial:
+					label = 'Try GitLens+ Features Now';
+					detail = 'Try GitLens+ features now, without an account, for 3 days';
+					break;
+				case Directive.RequiresVerification:
+					label = 'Resend Verification Email';
+					detail = 'You must verify your account email address before you can continue';
+					break;
+				case Directive.RequiresFreeSubscription:
+					label = 'Sign in to GitLens+';
+					detail =
+						'To use GitLens+ features on public repos and get a free 7-day trial for both public and private repos';
+					break;
+				case Directive.RequiresPaidSubscription:
+					label = 'Upgrade your account';
+					detail = 'To use GitLens+ features on both public and private repos';
+					break;
 			}
 		}
 
 		const item: DirectiveQuickPickItem = {
 			label: label,
-			description: options.description,
-			detail: options.detail,
+			description: options?.description,
+			detail: detail,
 			alwaysShow: true,
 			picked: picked,
 			directive: directive,

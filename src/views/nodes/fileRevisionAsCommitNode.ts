@@ -41,10 +41,6 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		return `${this.commit.shortSha}: ${this.commit.summary}`;
 	}
 
-	get fileName(): string {
-		return this.file.path;
-	}
-
 	get isTip(): boolean {
 		return (this._options.branch?.current && this._options.branch.sha === this.commit.ref) ?? false;
 	}

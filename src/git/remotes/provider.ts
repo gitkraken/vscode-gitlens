@@ -524,7 +524,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
 
-	@gate()
 	@debug()
 	getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> | PullRequest | undefined {
 		let pr = this._prsByCommit.get(ref);

@@ -1,24 +1,3 @@
-declare global {
-	export type PartialDeep<T> = T extends Record<string, unknown> ? { [K in keyof T]?: PartialDeep<T[K]> } : T;
-	export type PickPartialDeep<T, K extends keyof T> = Omit<Partial<T>, K> & { [P in K]?: Partial<T[P]> };
-
-	export type Mutable<T> = { -readonly [P in keyof T]: T[P] };
-	export type PickMutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
-
-	export type ExcludeSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Exclude<T[P], R> };
-
-	export type ExtractAll<T, U> = { [K in keyof T]: T[K] extends U ? T[K] : never };
-	export type ExtractSome<T, K extends keyof T, R> = Omit<T, K> & { [P in K]-?: Extract<T[P], R> };
-
-	export type RequireSome<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: T[P] };
-
-	export type AllNonNullable<T> = { [P in keyof T]-?: NonNullable<T[P]> };
-	export type SomeNonNullable<T, K extends keyof T> = Omit<T, K> & { [P in K]-?: NonNullable<T[P]> };
-
-	export type NarrowRepo<T extends { repo?: unknown }> = ExcludeSome<T, 'repo', string | undefined>;
-	export type NarrowRepos<T extends { repos?: unknown }> = ExcludeSome<T, 'repos', string | string[] | undefined>;
-}
-
 export const quickPickTitleMaxChars = 80;
 export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
@@ -60,13 +39,14 @@ export const enum Colors {
 	OpenAutolinkedIssueIconColor = 'gitlens.openAutolinkedIssueIconColor',
 	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
 	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
-	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
+	UnpublishedChangesIconColor = 'gitlens.unpublishedChangesIconColor',
 	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
 export const enum Commands {
 	ActionPrefix = 'gitlens.action.',
+
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
 	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
@@ -118,6 +98,7 @@ export const enum Commands {
 	ExternalDiff = 'gitlens.externalDiff',
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
+	GetStarted = 'gitlens.getStarted',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
 	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',
@@ -140,6 +121,7 @@ export const enum Commands {
 	OpenRevisionFile = 'gitlens.openRevisionFile',
 	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
 	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
+	OpenWalkthrough = 'gitlens.openWalkthrough',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
 	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
 	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
@@ -154,6 +136,18 @@ export const enum Commands {
 	GitCommandsRevert = 'gitlens.gitCommands.revert',
 	GitCommandsSwitch = 'gitlens.gitCommands.switch',
 	GitCommandsTag = 'gitlens.gitCommands.tag',
+	GitCommandsWorktree = 'gitlens.gitCommands.worktree',
+	PlusHide = 'gitlens.plus.hide',
+	PlusLearn = 'gitlens.plus.learn',
+	PlusLoginOrSignUp = 'gitlens.plus.loginOrSignUp',
+	PlusLogout = 'gitlens.plus.logout',
+	PlusManage = 'gitlens.plus.manage',
+	PlusPurchase = 'gitlens.plus.purchase',
+	PlusResendVerification = 'gitlens.plus.resendVerification',
+	PlusRestore = 'gitlens.plus.restore',
+	PlusShowPlans = 'gitlens.plus.showPlans',
+	PlusStartPreviewTrial = 'gitlens.plus.startPreviewTrial',
+	PlusValidate = 'gitlens.plus.validate',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshHover = 'gitlens.refreshHover',
 	ResetAvatarCache = 'gitlens.resetAvatarCache',
@@ -167,6 +161,7 @@ export const enum Commands {
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowCommitsView = 'gitlens.showCommitsView',
 	ShowContributorsView = 'gitlens.showContributorsView',
+	ShowHomeView = 'gitlens.showHomeView',
 	ShowFileHistoryView = 'gitlens.showFileHistoryView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
@@ -194,11 +189,15 @@ export const enum Commands {
 	ShowSettingsPageAndJumpToSearchAndCompareView = 'gitlens.showSettingsPage#search-compare-view',
 	ShowSettingsPageAndJumpToStashesView = 'gitlens.showSettingsPage#stashes-view',
 	ShowSettingsPageAndJumpToTagsView = 'gitlens.showSettingsPage#tags-view',
+	ShowSettingsPageAndJumpToWorkTreesView = 'gitlens.showSettingsPage#worktrees-view',
 	ShowSettingsPageAndJumpToViews = 'gitlens.showSettingsPage#views',
 	ShowStashesView = 'gitlens.showStashesView',
 	ShowTagsView = 'gitlens.showTagsView',
+	ShowWorktreesView = 'gitlens.showWorktreesView',
+	RefreshTimelinePage = 'gitlens.refreshTimelinePage',
+	ShowTimelinePage = 'gitlens.showTimelinePage',
+	ShowTimelineView = 'gitlens.showTimelineView',
 	ShowWelcomePage = 'gitlens.showWelcomePage',
-	ShowWelcomeView = 'gitlens.showWelcomeView',
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
@@ -236,6 +235,7 @@ export const enum ContextKeys {
 
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
+	Debugging = 'gitlens:debugging',
 	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
 	Disabled = 'gitlens:disabled',
 	Enabled = 'gitlens:enabled',
@@ -244,6 +244,7 @@ export const enum ContextKeys {
 	HasRichRemotes = 'gitlens:hasRichRemotes',
 	HasVirtualFolders = 'gitlens:hasVirtualFolders',
 	Readonly = 'gitlens:readonly',
+	TimelinePageFocused = 'gitlens:timelinePage:focused',
 	Untrusted = 'gitlens:untrusted',
 	ViewsCanCompare = 'gitlens:views:canCompare',
 	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
@@ -254,8 +255,12 @@ export const enum ContextKeys {
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
 	Vsls = 'gitlens:vsls',
+
+	Plus = 'gitlens:plus',
+	PlusAllowed = 'gitlens:plus:allowed',
+	PlusRequired = 'gitlens:plus:required',
+	PlusState = 'gitlens:plus:state',
 }
 
 export const enum CoreCommands {
@@ -273,14 +278,18 @@ export const enum CoreCommands {
 	Open = 'vscode.open',
 	OpenFolder = 'vscode.openFolder',
 	OpenInTerminal = 'openInTerminal',
+	OpenWalkthrough = 'workbench.action.openWalkthrough',
 	OpenWith = 'vscode.openWith',
 	NextEditor = 'workbench.action.nextEditor',
 	PreviewHtml = 'vscode.previewHtml',
 	RevealLine = 'revealLine',
+	RevealInExplorer = 'revealInExplorer',
+	RevealInFileExplorer = 'revealFileInOS',
 	SetContext = 'setContext',
 	ShowExplorer = 'workbench.view.explorer',
 	ShowReferences = 'editor.action.showReferences',
 	ShowSCM = 'workbench.view.scm',
+	UninstallExtension = 'workbench.extensions.uninstallExtension',
 }
 
 export const enum CoreGitCommands {
@@ -294,6 +303,7 @@ export const enum CoreGitCommands {
 
 export const enum CoreGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',
+	RepositoryScanMaxDepth = 'git.repositoryScanMaxDepth',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
 }

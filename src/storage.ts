@@ -1,9 +1,21 @@
-import { ExtensionContext } from 'vscode';
+import { Disposable, Event, EventEmitter, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
 
-export class Storage {
-	constructor(private readonly context: ExtensionContext) {}
+export class Storage implements Disposable {
+	private _onDidChangeSecrets = new EventEmitter<SecretStorageChangeEvent>();
+	get onDidChangeSecrets(): Event<SecretStorageChangeEvent> {
+		return this._onDidChangeSecrets.event;
+	}
+
+	private readonly _disposable: Disposable;
+	constructor(private readonly context: ExtensionContext) {
+		this._disposable = this.context.secrets.onDidChange(e => this._onDidChangeSecrets.fire(e));
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
 
 	get<T>(key: StorageKeys | SyncedStorageKeys): T | undefined;
 	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue: T): T;
@@ -15,7 +27,7 @@ export class Storage {
 		return this.context.globalState.update(key, undefined);
 	}
 
-	async store(key: StorageKeys | SyncedStorageKeys, value: unknown): Promise<void> {
+	async store<T>(key: StorageKeys | SyncedStorageKeys, value: T): Promise<void> {
 		return this.context.globalState.update(key, value);
 	}
 
@@ -46,9 +58,9 @@ export class Storage {
 		return this.context.workspaceState.update(key, undefined);
 	}
 
-	async storeWorkspace(
+	async storeWorkspace<T>(
 		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		value: unknown,
+		value: T,
 	): Promise<void> {
 		return this.context.workspaceState.update(key, value);
 	}
@@ -60,14 +72,19 @@ export const enum StorageKeys {
 	Avatars = 'gitlens:avatars',
 	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
 	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
+	HomeViewActionsCompleted = 'gitlens:home:actions:completed',
+
 	Version = 'gitlens:version',
+
+	MigratedAuthentication = 'gitlens:plus:migratedAuthentication',
+	Subscription = 'gitlens:premium:subscription', // Don't change this key name as its the stored subscription
 
 	Deprecated_Version = 'gitlensVersion',
 }
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
-	WelcomeViewVisible = 'gitlens:views:welcome:visible',
+	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }

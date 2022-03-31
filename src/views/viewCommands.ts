@@ -21,6 +21,7 @@ import {
 	executeEditorCommand,
 } from '../system/command';
 import { debug } from '../system/decorators/log';
+import { OpenWorkspaceLocation } from '../system/utils';
 import { runGitCommandInTerminal } from '../terminal';
 import {
 	BranchesNode,
@@ -56,6 +57,8 @@ import {
 	ViewNode,
 	ViewRefFileNode,
 	ViewRefNode,
+	WorktreeNode,
+	WorktreesNode,
 } from './nodes';
 
 interface CompareSelectedInfo {
@@ -226,6 +229,16 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
 		commands.registerCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
+
+		commands.registerCommand('gitlens.views.createWorktree', this.createWorktree, this);
+		commands.registerCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
+		commands.registerCommand('gitlens.views.openWorktree', this.openWorktree, this);
+		commands.registerCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
+		commands.registerCommand(
+			'gitlens.views.openWorktreeInNewWindow',
+			n => this.openWorktree(n, { location: OpenWorkspaceLocation.NewWindow }),
+			this,
+		);
 	}
 
 	@debug()
@@ -301,6 +314,37 @@ export class ViewCommands {
 			from = branch;
 		}
 		return GitActions.Branch.create(node?.repoPath, from);
+	}
+
+	@debug()
+	private async createWorktree(node?: BranchNode | WorktreesNode) {
+		if (node instanceof WorktreesNode) {
+			node = undefined;
+		}
+		if (node != null && !(node instanceof BranchNode)) return undefined;
+
+		return GitActions.Worktree.create(node?.repoPath, undefined, node?.ref);
+	}
+
+	@debug()
+	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.open(node.worktree, options);
+	}
+
+	@debug()
+	private revealWorktreeInExplorer(node: WorktreeNode) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.revealInFileExplorer(node.worktree);
+	}
+
+	@debug()
+	private async deleteWorktree(node: WorktreeNode) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.remove(node.repoPath, node.worktree.uri);
 	}
 
 	@debug()
@@ -592,7 +636,7 @@ export class ViewCommands {
 	private restore(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
-		return GitActions.Commit.restoreFile(node.fileName, node.ref);
+		return GitActions.Commit.restoreFile(node.file, node.ref);
 	}
 
 	@debug()

@@ -4,7 +4,7 @@ import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
 import { configuration, Configuration, OutputLevel } from './configuration';
-import { Commands, ContextKeys } from './constants';
+import { Commands, ContextKeys, CoreCommands } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { GitUri } from './git/gitUri';
@@ -13,7 +13,8 @@ import { Logger, LogLevel } from './logger';
 import { Messages } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { StorageKeys, SyncedStorageKeys } from './storage';
-import { executeCommand, registerCommands } from './system/command';
+import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
+import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare } from './system/version';
@@ -85,22 +86,25 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	let exitMessage;
 	if (Logger.enabled(LogLevel.Debug)) {
 		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${context.globalState.get<boolean>(
-			SyncedStorageKeys.WelcomeViewVisible,
+			SyncedStorageKeys.HomeViewWelcomeVisible,
 		)}`;
 	}
 
 	if (previousVersion == null) {
-		void context.globalState.update(SyncedStorageKeys.WelcomeViewVisible, true);
-		void setContext(ContextKeys.ViewsWelcomeVisible, true);
-	} else {
-		void setContext(
-			ContextKeys.ViewsWelcomeVisible,
-			context.globalState.get<boolean>(SyncedStorageKeys.WelcomeViewVisible) ?? false,
-		);
+		void context.globalState.update(SyncedStorageKeys.HomeViewWelcomeVisible, true);
 	}
 
 	Configuration.configure(context);
 	const cfg = configuration.get();
+
+	setDefaultDateLocales(cfg.defaultDateLocale ?? env.language);
+	context.subscriptions.push(
+		configuration.onDidChange(e => {
+			if (!e.affectsConfiguration('gitlens.defaultDateLocale')) return;
+			setDefaultDateLocales(configuration.get('defaultDateLocale', undefined, env.language));
+		}),
+	);
+
 	// await migrateSettings(context, previousVersion);
 
 	const container = Container.create(context, cfg);
@@ -122,8 +126,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			setTimeout(async () => {
 				if (cfg.outputLevel !== OutputLevel.Debug) return;
 
-				if (await Messages.showDebugLoggingWarningMessage()) {
-					void executeCommand(Commands.DisableDebugLogging);
+				if (!container.insiders) {
+					if (await Messages.showDebugLoggingWarningMessage()) {
+						void executeCommand(Commands.DisableDebugLogging);
+					}
 				}
 			}, 60000);
 		}
@@ -132,11 +138,18 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	// Signal that the container is now ready
 	await container.ready();
 
+	// Set a context to only show some commands when debugging
+	if (container.debugging) {
+		void setContext(ContextKeys.Debugging, true);
+	}
+
 	sw.stop({
 		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
 			cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''
 		}`,
 	});
+
+	setTimeout(() => uninstallDeprecatedAuthentication(), 30000);
 
 	const api = new Api(container);
 	return Promise.resolve(api);
@@ -163,7 +176,7 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 	return context.globalState?.setKeysForSync([
 		...keys,
 		SyncedStorageKeys.Version,
-		SyncedStorageKeys.WelcomeViewVisible,
+		SyncedStorageKeys.HomeViewWelcomeVisible,
 	]);
 }
 
@@ -202,6 +215,7 @@ function registerBuiltInActionRunners(container: Container): void {
 async function showWelcomeOrWhatsNew(container: Container, version: string, previousVersion: string | undefined) {
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
+
 		if (container.config.showWelcomeOnInstall === false) return;
 
 		if (window.state.focused) {
@@ -235,16 +249,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	const [major, minor] = version.split('.').map(v => parseInt(v, 10));
 	const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
-	if (
-		(major === prevMajor && minor === prevMinor) ||
-		// Don't notify on downgrades
-		major < prevMajor ||
-		(major === prevMajor && minor < prevMinor)
-	) {
+
+	// Don't notify on downgrades
+	if (major === prevMajor || major < prevMajor || (major === prevMajor && minor < prevMinor)) {
 		return;
 	}
 
-	if (major !== prevMajor && container.config.showWhatsNewAfterUpgrades) {
+	if (major !== prevMajor) {
+		version = String(major);
+	}
+
+	void executeCommand(Commands.ShowHomeView);
+
+	if (container.config.showWhatsNewAfterUpgrades) {
 		if (window.state.focused) {
 			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 			await Messages.showWhatsNewMessage(version);
@@ -267,4 +284,10 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 			container.context.subscriptions.push(disposable);
 		}
 	}
+}
+
+function uninstallDeprecatedAuthentication() {
+	if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
+
+	void executeCoreCommand(CoreCommands.UninstallExtension, 'gitkraken.gitkraken-authentication');
 }

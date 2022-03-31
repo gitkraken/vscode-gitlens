@@ -164,7 +164,8 @@ export class GitBranch implements GitBranchReference {
 		const remote = await this.getRemote();
 		if (remote == null) return undefined;
 
-		return Container.instance.git.getPullRequestForBranch(this.getNameWithoutRemote(), remote, options);
+		const branch = this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote();
+		return Container.instance.git.getPullRequestForBranch(branch, remote, options);
 	}
 
 	@memoize()

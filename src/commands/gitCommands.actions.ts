@@ -7,7 +7,7 @@ import type {
 	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { FileAnnotationType } from '../configuration';
-import { Commands } from '../constants';
+import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
@@ -21,11 +21,13 @@ import {
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
+	GitWorktree,
 	Repository,
 } from '../git/models';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
-import { executeCommand, executeEditorCommand } from '../system/command';
-import { findOrOpenEditor, findOrOpenEditors } from '../system/utils';
+import { ensure } from '../system/array';
+import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
+import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { ResetGitCommandArgs } from './git/reset';
 
@@ -653,10 +655,18 @@ export namespace GitActions {
 			);
 		}
 
-		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {
-			void (await Container.instance.git.checkout(ref.repoPath, ref.ref, {
-				fileName: typeof file === 'string' ? file : file.path,
-			}));
+		export async function restoreFile(file: string | GitFile, revision: GitRevisionReference) {
+			let path;
+			let ref;
+			if (typeof file === 'string') {
+				path = file;
+				ref = revision.ref;
+			} else {
+				path = file.path;
+				ref = file.status === 'D' ? `${revision.ref}^` : revision.ref;
+			}
+
+			void (await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
 		}
 
 		export async function reveal(
@@ -881,6 +891,41 @@ export namespace GitActions {
 				? await view.revealTag(tag, options)
 				: await Container.instance.repositoriesView.revealTag(tag, options);
 			return node;
+		}
+	}
+
+	export namespace Worktree {
+		export function create(repo?: string | Repository, uri?: Uri, ref?: GitReference) {
+			return executeGitCommand({
+				command: 'worktree',
+				state: { subcommand: 'create', repo: repo, uri: uri, reference: ref },
+			});
+		}
+
+		export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation }) {
+			return openWorkspace(worktree.uri, options);
+		}
+
+		export function remove(repo?: string | Repository, uri?: Uri) {
+			return executeGitCommand({
+				command: 'worktree',
+				state: { subcommand: 'delete', repo: repo, uris: ensure(uri) },
+			});
+		}
+
+		export async function reveal(
+			worktree: GitWorktree,
+			options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
+		) {
+			const view = Container.instance.worktreesView;
+			const node = view.canReveal
+				? await view.revealWorktree(worktree, options)
+				: await Container.instance.repositoriesView.revealWorktree(worktree, options);
+			return node;
+		}
+
+		export async function revealInFileExplorer(worktree: GitWorktree) {
+			void (await executeCoreCommand(CoreCommands.RevealInFileExplorer, worktree.uri));
 		}
 	}
 }

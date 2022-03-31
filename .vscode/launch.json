@@ -12,7 +12,7 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -35,7 +35,7 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -76,7 +76,7 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -128,7 +128,7 @@
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],

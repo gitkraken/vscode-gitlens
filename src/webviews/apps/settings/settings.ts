@@ -1,11 +1,13 @@
-/*global window document IntersectionObserver*/
-import '../scss/settings.scss';
-import { IpcMessage, onIpcNotification, SettingsDidRequestJumpToNotificationType, SettingsState } from '../../protocol';
+/*global document IntersectionObserver*/
+import './settings.scss';
+import { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
 
-export class SettingsApp extends AppWithConfig<SettingsState> {
+const topOffset = 83;
+
+export class SettingsApp extends AppWithConfig<State> {
 	private _scopes: HTMLSelectElement | null = null;
 	private _observer: IntersectionObserver | undefined;
 
@@ -13,8 +15,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	private _sections = new Map<string, boolean>();
 
 	constructor() {
-		super('SettingsApp', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('SettingsApp');
 	}
 
 	protected override onInitialize() {
@@ -35,7 +36,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 			this._scopes = scopes;
 		}
 
-		let top = 83;
+		let top = topOffset;
 		const header = document.querySelector('.hero__area--sticky');
 		if (header != null) {
 			top = header.clientHeight;
@@ -67,50 +68,38 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
-
 		disposables.push(
-			DOM.on('.section--collapsible>.section__header', 'click', function (this: Element, e: MouseEvent) {
-				return me.onSectionHeaderClicked(this as HTMLInputElement, e);
-			}),
-			DOM.on('.setting--expandable .setting__expander', 'click', function (this: Element, e: MouseEvent) {
-				return me.onSettingExpanderCicked(this as HTMLInputElement, e);
-			}),
-			DOM.on('a[data-action="jump"]', 'mousedown', (e: Event) => {
+			DOM.on('.section--collapsible>.section__header', 'click', (e, target: HTMLInputElement) =>
+				this.onSectionHeaderClicked(target, e),
+			),
+			DOM.on('.setting--expandable .setting__expander', 'click', (e, target: HTMLInputElement) =>
+				this.onSettingExpanderCicked(target, e),
+			),
+			DOM.on('a[data-action="jump"]', 'mousedown', e => {
 				e.stopPropagation();
 				e.preventDefault();
 			}),
-			DOM.on('a[data-action="jump"]', 'click', function (this: Element, e: MouseEvent) {
-				return me.onJumpToLinkClicked(this as HTMLAnchorElement, e);
-			}),
-			DOM.on('[data-action]', 'mousedown', (e: Event) => {
+			DOM.on('a[data-action="jump"]', 'click', (e, target: HTMLAnchorElement) =>
+				this.onJumpToLinkClicked(target, e),
+			),
+			DOM.on('[data-action]', 'mousedown', e => {
 				e.stopPropagation();
 				e.preventDefault();
 			}),
-			DOM.on('[data-action]', 'click', function (this: Element, e: MouseEvent) {
-				return me.onActionLinkClicked(this as HTMLAnchorElement, e);
-			}),
+			DOM.on('[data-action]', 'click', (e, target: HTMLAnchorElement) => this.onActionLinkClicked(target, e)),
 		);
 
 		return disposables;
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-
-		switch (msg.method) {
-			case SettingsDidRequestJumpToNotificationType.method:
-				onIpcNotification(SettingsDidRequestJumpToNotificationType, msg, params => {
-					this.scrollToAnchor(params.anchor);
-				});
-				break;
-
-			default:
-				if (super.onMessageReceived !== undefined) {
-					super.onMessageReceived(e);
-				}
+	protected override scrollToAnchor(anchor: string, behavior: ScrollBehavior): void {
+		let offset = topOffset;
+		const header = document.querySelector('.hero__area--sticky');
+		if (header != null) {
+			offset = header.clientHeight;
 		}
+
+		super.scrollToAnchor(anchor, behavior, offset);
 	}
 
 	private onObserver(entries: IntersectionObserverEntry[], _observer: IntersectionObserver) {
@@ -195,7 +184,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		if (href == null) return;
 
 		const anchor = href.substr(1);
-		this.scrollToAnchor(anchor);
+		this.scrollToAnchor(anchor, 'smooth');
 
 		e.stopPropagation();
 		e.preventDefault();
@@ -211,24 +200,6 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 	private onSettingExpanderCicked(element: HTMLElement, _e: MouseEvent) {
 		element.parentElement!.parentElement!.classList.toggle('expanded');
-	}
-
-	private scrollToAnchor(anchor: string) {
-		const el = document.getElementById(anchor);
-		if (el == null) return;
-
-		let height = 83;
-
-		const header = document.querySelector('.hero__area--sticky');
-		if (header != null) {
-			height = header.clientHeight;
-		}
-
-		const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
-		window.scrollTo({
-			top: top,
-			behavior: 'smooth',
-		});
 	}
 
 	private toggleJumpLink(anchor: string, active: boolean) {

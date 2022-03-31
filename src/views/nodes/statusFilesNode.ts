@@ -7,12 +7,13 @@ import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import { RepositoriesView } from '../repositoriesView';
+import { WorktreesView } from '../worktreesView';
 import { FileNode, FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class StatusFilesNode extends ViewNode<RepositoriesView> {
+export class StatusFilesNode extends ViewNode<RepositoriesView | WorktreesView> {
 	static key = ':status-files';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -21,7 +22,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	readonly repoPath: string;
 
 	constructor(
-		view: RepositoriesView,
+		view: RepositoriesView | WorktreesView,
 		parent: ViewNode,
 		public readonly status:
 			| GitStatus
@@ -66,7 +67,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			}
 		}
 
-		if (this.view.config.includeWorkingTree && this.status.files.length !== 0) {
+		if (
+			(this.view instanceof WorktreesView || this.view.config.includeWorkingTree) &&
+			this.status.files.length !== 0
+		) {
 			files.splice(
 				0,
 				0,
@@ -109,7 +113,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		let files = this.view.config.includeWorkingTree ? this.status.files.length : 0;
+		let files =
+			this.view instanceof WorktreesView || this.view.config.includeWorkingTree ? this.status.files.length : 0;
 
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {

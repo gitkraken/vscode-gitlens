@@ -44,7 +44,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			args.sha = context.node.uri.sha;
 
 			if (isCommandContextViewNodeHasCommit(context)) {
-				args.commit = context.node.commit as any;
+				args.commit = context.node.commit;
 			}
 		}
 
@@ -58,21 +58,21 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		args = { ...args };
 
 		let gitUri;
-		if (args.revisionUri !== undefined) {
+		if (args.revisionUri != null) {
 			gitUri = GitUri.fromRevisionUri(Uri.parse(args.revisionUri, true));
 			args.sha = gitUri.sha;
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}
 
-		if (args.sha === undefined) {
+		if (args.sha == null) {
 			if (editor == null) return;
 
-			const blameline = editor.selection.active.line;
-			if (blameline < 0) return;
+			const blameLine = editor.selection.active.line;
+			if (blameLine < 0) return;
 
 			try {
-				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameLine);
 				if (blame == null) {
 					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
 
@@ -90,7 +90,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				args.commit = blame.commit;
 			} catch (ex) {
-				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
+				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameLine})`);
 				void window.showErrorMessage('Unable to show commit file details. See output channel for more details');
 
 				return;

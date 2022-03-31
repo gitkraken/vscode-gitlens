@@ -22,3 +22,4 @@ export * from './models/status';
 export * from './models/tag';
 export * from './models/tree';
 export * from './models/user';
+export * from './models/worktree';

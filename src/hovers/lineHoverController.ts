@@ -20,6 +20,8 @@ import { once } from '../system/event';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
 
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+
 export class LineHoverController implements Disposable {
 	private readonly _disposable: Disposable;
 	private _hoverProviderDisposable: Disposable | undefined;
@@ -112,7 +114,12 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER),
+			new Range(
+				position.line,
+				wholeLine ? position.character : maxSmallIntegerV8,
+				position.line,
+				maxSmallIntegerV8,
+			),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
@@ -169,7 +176,12 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER),
+			new Range(
+				position.line,
+				wholeLine ? position.character : maxSmallIntegerV8,
+				position.line,
+				maxSmallIntegerV8,
+			),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 

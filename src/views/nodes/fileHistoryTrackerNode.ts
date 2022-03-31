@@ -1,6 +1,6 @@
 import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { ContextKeys, Schemes } from '../../constants';
+import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models';
@@ -9,6 +9,7 @@ import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce, Deferrable } from '../../system/function';
+import { isVirtualUri } from '../../system/utils';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
 import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
@@ -239,7 +240,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		// If we are losing the active editor, give more time before assuming its really gone
 		// For virtual repositories the active editor event takes a while to fire
 		// Ultimately we need to be using the upcoming Tabs api to avoid this
-		if (editor == null && (this._uri?.scheme === Schemes.Virtual || this._uri?.scheme === Schemes.GitHub)) {
+		if (editor == null && isVirtualUri(this._uri)) {
 			if (this._triggerChangeDebounced == null) {
 				this._triggerChangeDebounced = debounce(() => this.triggerChange(), 1500);
 			}

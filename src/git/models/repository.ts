@@ -14,6 +14,7 @@ import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
 import { Container } from '../../container';
+import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
@@ -27,22 +28,23 @@ import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
-import { GitProviderDescriptor } from '../gitProvider';
+import type { GitProviderDescriptor } from '../gitProvider';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
-import { SearchPattern } from '../search';
+import type { SearchPattern } from '../search';
 import { BranchSortOptions, GitBranch } from './branch';
-import { GitCommit } from './commit';
-import { GitContributor } from './contributor';
-import { GitDiffShortStat } from './diff';
-import { GitLog } from './log';
-import { GitMergeStatus } from './merge';
-import { GitRebaseStatus } from './rebase';
+import type { GitCommit } from './commit';
+import type { GitContributor } from './contributor';
+import type { GitDiffShortStat } from './diff';
+import type { GitLog } from './log';
+import type { GitMergeStatus } from './merge';
+import type { GitRebaseStatus } from './rebase';
 import { GitBranchReference, GitReference, GitTagReference } from './reference';
-import { GitRemote } from './remote';
-import { GitStash } from './stash';
-import { GitStatus } from './status';
-import { GitTag, TagSortOptions } from './tag';
+import type { GitRemote } from './remote';
+import type { GitStash } from './stash';
+import type { GitStatus } from './status';
+import type { GitTag, TagSortOptions } from './tag';
+import type { GitWorktree } from './worktree';
 
 const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
@@ -72,6 +74,7 @@ export const enum RepositoryChange {
 	 */
 	Status = 'status',
 	Tags = 'tags',
+	Worktrees = 'worktrees',
 }
 
 export const enum RepositoryChangeComparisonMode {
@@ -145,7 +148,7 @@ export class Repository implements Disposable {
 		}
 
 		if (short) {
-			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'MMM D, YYYY');
+			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'short');
 		}
 
 		let format =
@@ -209,17 +212,14 @@ export class Repository implements Disposable {
 	) {
 		folder = workspace.getWorkspaceFolder(uri) ?? folder;
 		if (folder != null) {
-			this.name = folder.name;
-
 			if (root) {
-				this.formattedName = this.name;
+				this.name = folder.name;
 			} else {
-				const relativePath = container.git.getRelativePath(folder.uri, uri);
-				this.formattedName = relativePath ? `${this.name} (${relativePath})` : this.name;
+				const relativePath = container.git.getRelativePath(uri, folder.uri);
+				this.name = relativePath ? relativePath : folder.name;
 			}
 		} else {
 			this.name = basename(uri.path);
-			this.formattedName = this.name;
 
 			// TODO@eamodio should we create a fake workspace folder?
 			// folder = {
@@ -228,6 +228,7 @@ export class Repository implements Disposable {
 			// 	index: container.git.repositoryCount,
 			// };
 		}
+		this.formattedName = this.name;
 		this.index = folder?.index ?? container.git.repositoryCount;
 
 		this.id = asRepoComparisonKey(uri);
@@ -247,6 +248,7 @@ export class Repository implements Disposable {
 **/.git/refs/**,\
 **/.git/rebase-merge/**,\
 **/.git/sequencer/**,\
+**/.git/worktrees/**,\
 **/.gitignore\
 }',
 			),
@@ -306,7 +308,7 @@ export class Repository implements Disposable {
 
 		const match =
 			uri != null
-				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags))/.exec(
+				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags)|worktrees)/.exec(
 						uri.path,
 				  )
 				: undefined;
@@ -368,6 +370,10 @@ export class Repository implements Disposable {
 				case 'refs/tags':
 					this.fireChange(RepositoryChange.Tags);
 					return;
+
+				case 'worktrees':
+					this.fireChange(RepositoryChange.Worktrees);
+					return;
 			}
 		}
 
@@ -384,6 +390,16 @@ export class Repository implements Disposable {
 		if (changed) {
 			this.fireChange(RepositoryChange.Closed);
 		}
+	}
+
+	@log()
+	access(feature?: PlusFeatures): Promise<FeatureAccess> {
+		return this.container.git.access(feature, this.uri);
+	}
+
+	@log()
+	supports(feature: Features): Promise<boolean> {
+		return this.container.git.supports(this.uri, feature);
 	}
 
 	@log()
@@ -601,6 +617,25 @@ export class Repository implements Disposable {
 
 	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }) {
 		return this.container.git.getTags(this.path, options);
+	}
+
+	createWorktree(
+		uri: Uri,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void> {
+		return this.container.git.createWorktree(this.path, uri.fsPath, options);
+	}
+
+	getWorktrees(): Promise<GitWorktree[]> {
+		return this.container.git.getWorktrees(this.path);
+	}
+
+	async getWorktreesDefaultUri(): Promise<Uri | undefined> {
+		return this.container.git.getWorktreesDefaultUri(this.path);
+	}
+
+	deleteWorktree(uri: Uri, options?: { force?: boolean }): Promise<void> {
+		return this.container.git.deleteWorktree(this.path, uri.fsPath, options);
 	}
 
 	async hasRemotes(): Promise<boolean> {

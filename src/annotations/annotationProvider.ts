@@ -92,6 +92,25 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return false;
 	}
 
+	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>) {
+		if (this.editor == null || !this.decorations?.length) return;
+
+		const decorations = [];
+
+		for (const d of this.decorations) {
+			const type = replaceDecorationTypes.get(d.decorationType);
+			// If the type is null then we've removed that type, so remove the decorations that reference it
+			if (type === null) continue;
+
+			if (type != null) {
+				d.decorationType = type;
+			}
+			decorations.push(d);
+		}
+
+		this.setDecorations(this.decorations);
+	}
+
 	async restore(editor: TextEditor) {
 		// If the editor isn't disposed then we don't need to do anything
 		// Explicitly check for `false`

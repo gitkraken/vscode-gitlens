@@ -28,6 +28,7 @@ import {
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
+	GitWorktree,
 } from '../git/models';
 import { WorkspaceStorageKeys } from '../storage';
 import { executeCommand } from '../system/command';
@@ -48,6 +49,8 @@ import {
 	StashesNode,
 	StashNode,
 	TagsNode,
+	WorktreeNode,
+	WorktreesNode,
 } from './nodes';
 import { ViewBase } from './viewBase';
 
@@ -217,6 +220,16 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			),
 
 			commands.registerCommand(
+				this.getQualifiedCommand('setShowWorktreesOn'),
+				() => this.toggleSection('showWorktrees', true),
+				this,
+			),
+			commands.registerCommand(
+				this.getQualifiedCommand('setShowWorktreesOff'),
+				() => this.toggleSection('showWorktrees', false),
+				this,
+			),
+			commands.registerCommand(
 				this.getQualifiedCommand('setShowUpstreamStatusOn'),
 				() => this.toggleSection('showUpstreamStatus', true),
 				this,
@@ -239,7 +252,8 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 						| ReflogNode
 						| RemotesNode
 						| StashesNode
-						| TagsNode,
+						| TagsNode
+						| WorktreesNode,
 				) => this.toggleSectionByNode(node, false),
 				this,
 			),
@@ -251,6 +265,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -474,6 +489,25 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 				if (n instanceof RepositoriesNode) return true;
 
 				if (n instanceof RepositoryNode || n instanceof TagsNode || n instanceof BranchOrTagFolderNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(worktree.repoPath);
+
+		return this.findNode(WorktreeNode.getId(worktree.repoPath, worktree.uri), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for worktree nodes in the same repo within WorktreesNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof WorktreesNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -770,6 +804,64 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return node;
 	}
 
+	@gate(() => '')
+	revealWorktree(
+		worktree: GitWorktree,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing worktree '${worktree.name}' in the side bar...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findWorktree(worktree, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
+	}
+
+	@gate(() => '')
+	async revealWorktrees(
+		repoPath: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const repoNodeId = RepositoryNode.getId(repoPath);
+
+		const node = await this.findNode(WorktreesNode.getId(repoPath), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for worktrees nodes in the same repo
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
@@ -825,6 +917,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			| 'showRemotes'
 			| 'showStashes'
 			| 'showTags'
+			| 'showWorktrees'
 			| 'showUpstreamStatus',
 		enabled: boolean,
 	) {
@@ -841,7 +934,8 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			| ReflogNode
 			| RemotesNode
 			| StashesNode
-			| TagsNode,
+			| TagsNode
+			| WorktreesNode,
 		enabled: boolean,
 	) {
 		if (node instanceof BranchesNode) {
@@ -878,6 +972,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 		if (node instanceof TagsNode) {
 			return configuration.updateEffective(`views.${this.configKey}.showTags` as const, enabled);
+		}
+
+		if (node instanceof WorktreesNode) {
+			return configuration.updateEffective(`views.${this.configKey}.showWorktrees` as const, enabled);
 		}
 
 		return Promise.resolve();

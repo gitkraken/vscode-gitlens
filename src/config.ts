@@ -1,12 +1,5 @@
 import { DateTimeFormat } from './system/date';
 
-export const enum OutputLevel {
-	Silent = 'silent',
-	Errors = 'errors',
-	Verbose = 'verbose',
-	Debug = 'debug',
-}
-
 export interface Config {
 	autolinks: AutolinkReference[] | null;
 	blame: {
@@ -42,17 +35,13 @@ export interface Config {
 	};
 	debug: boolean;
 	defaultDateFormat: DateTimeFormat | string | null;
+	defaultDateLocale: string | null;
 	defaultDateShortFormat: DateTimeFormat | string | null;
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
 	defaultTimeFormat: DateTimeFormat | string | null;
 	detectNestedRepositories: boolean;
-	experimental: {
-		virtualRepositories: {
-			enabled: boolean;
-		};
-	};
 	fileAnnotations: {
 		command: string | null;
 	};
@@ -124,6 +113,13 @@ export interface Config {
 			[key: string]: any;
 		}
 	> | null;
+	plusFeatures: {
+		enabled: boolean;
+	};
+	proxy: {
+		url: string | null;
+		strictSSL: boolean;
+	} | null;
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
@@ -155,6 +151,16 @@ export interface Config {
 		enabled: boolean;
 	};
 	views: ViewsConfig;
+	virtualRepositories: {
+		enabled: boolean;
+	};
+	visualHistory: {
+		queryLimit: number;
+	};
+	worktrees: {
+		defaultLocation: string | null;
+		promptForLocation: boolean;
+	};
 	advanced: AdvancedConfig;
 }
 
@@ -274,6 +280,13 @@ export const enum KeyMap {
 	None = 'none',
 }
 
+export const enum OutputLevel {
+	Silent = 'silent',
+	Errors = 'errors',
+	Verbose = 'verbose',
+	Debug = 'debug',
+}
+
 export const enum StatusBarCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
@@ -351,7 +364,7 @@ export interface AdvancedConfig {
 	quickPick: {
 		closeOnFocusOut: boolean;
 	};
-	repositorySearchDepth: number;
+	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
 }
 
@@ -518,6 +531,7 @@ interface ViewsConfigs {
 	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
+	worktrees: WorktreesViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
@@ -532,6 +546,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'tags',
 	'contributors',
 	'searchAndCompare',
+	'worktrees',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
@@ -624,6 +639,7 @@ export interface RepositoriesViewConfig {
 	showStashes: boolean;
 	showTags: boolean;
 	showUpstreamStatus: boolean;
+	showWorktrees: boolean;
 }
 
 export interface SearchAndCompareViewConfig {
@@ -647,6 +663,18 @@ export interface TagsViewConfig {
 	};
 	files: ViewsFilesConfig;
 	reveal: boolean;
+}
+
+export interface WorktreesViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
+	reveal: boolean;
+	showBranchComparison: false | ViewShowBranchComparison.Branch;
 }
 
 export interface ViewsFilesConfig {

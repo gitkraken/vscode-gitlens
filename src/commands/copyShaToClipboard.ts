@@ -31,7 +31,11 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			args.sha = this.container.config.advanced.abbreviateShaOnCopy
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
-			return this.execute(context.editor, context.node.commit.file?.uri, args);
+			return this.execute(
+				context.editor,
+				context.node.commit.file?.uri ?? context.node.commit.getRepository()?.uri,
+				args,
+			);
 		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };
 			args.sha = context.node.branch.sha;
@@ -50,30 +54,32 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			// If we don't have an editor then get the sha of the last commit to the branch
-			if (uri == null) {
-				const repoPath = this.container.git.getBestRepository(editor)?.path;
-				if (!repoPath) return;
+			if (!args.sha) {
+				// If we don't have an editor then get the sha of the last commit to the branch
+				if (uri == null) {
+					const repoPath = this.container.git.getBestRepository(editor)?.path;
+					if (!repoPath) return;
 
-				const log = await this.container.git.getLog(repoPath, { limit: 1 });
-				if (log == null) return;
+					const log = await this.container.git.getLog(repoPath, { limit: 1 });
+					if (log == null) return;
 
-				args.sha = first(log.commits.values()).sha;
-			} else if (args.sha == null) {
-				const blameline = editor?.selection.active.line ?? 0;
-				if (blameline < 0) return;
+					args.sha = first(log.commits.values()).sha;
+				} else if (args.sha == null) {
+					const blameline = editor?.selection.active.line ?? 0;
+					if (blameline < 0) return;
 
-				try {
-					const gitUri = await GitUri.fromUri(uri);
-					const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
-					if (blame == null) return;
+					try {
+						const gitUri = await GitUri.fromUri(uri);
+						const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
+						if (blame == null) return;
 
-					args.sha = blame.commit.sha;
-				} catch (ex) {
-					Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-					void Messages.showGenericErrorMessage('Unable to copy commit SHA');
+						args.sha = blame.commit.sha;
+					} catch (ex) {
+						Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
+						void Messages.showGenericErrorMessage('Unable to copy commit SHA');
 
-					return;
+						return;
+					}
 				}
 			}
 

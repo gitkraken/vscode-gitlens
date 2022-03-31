@@ -6,6 +6,7 @@ import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
 const emptyStr = '';
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
 const correlationContext = new Map<number, LogCorrelationContext>();
 let correlationCounter = 0;
@@ -19,7 +20,7 @@ export function getCorrelationId() {
 }
 
 export function getNextCorrelationId() {
-	if (correlationCounter === Number.MAX_SAFE_INTEGER) {
+	if (correlationCounter === maxSmallIntegerV8) {
 		correlationCounter = 0;
 	}
 	return ++correlationCounter;

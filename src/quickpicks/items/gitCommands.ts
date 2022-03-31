@@ -11,7 +11,9 @@ import {
 	GitReference,
 	GitRemoteType,
 	GitRevision,
+	GitStatus,
 	GitTag,
+	GitWorktree,
 	Repository,
 } from '../../git/models';
 import { fromNow } from '../../system/date';
@@ -52,7 +54,7 @@ export namespace BranchQuickPickItem {
 	): Promise<BranchQuickPickItem> {
 		let description = '';
 		if (options?.type === true) {
-			if (options?.current === true && branch.current) {
+			if (options.current === true && branch.current) {
 				description = 'current branch';
 			} else {
 				description = 'branch';
@@ -106,8 +108,8 @@ export namespace BranchQuickPickItem {
 		if (options?.ref) {
 			if (branch.sha) {
 				description = description
-					? `${description}${pad('$(git-commit)', 2, 2)}${GitRevision.shorten(branch.sha)}`
-					: `${pad('$(git-commit)', 0, 2)}${GitRevision.shorten(branch.sha)}`;
+					? `${description} $(git-commit)${GlyphChars.Space}${GitRevision.shorten(branch.sha)}`
+					: `$(git-commit)${GlyphChars.Space}${GitRevision.shorten(branch.sha)}`;
 			}
 
 			if (branch.date !== undefined) {
@@ -120,9 +122,9 @@ export namespace BranchQuickPickItem {
 		const checked =
 			options?.checked || (options?.checked == null && options?.current === 'checkmark' && branch.current);
 		const item: BranchQuickPickItem = {
-			label: `${pad('$(git-branch)', 0, 2)}${branch.starred ? '$(star-full) ' : ''}${branch.name}${
-				checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
-			}`,
+			label: `$(git-branch)${GlyphChars.Space}${branch.starred ? `$(star-full)${GlyphChars.Space}` : ''}${
+				branch.name
+			}${checked ? pad('$(check)', 2) : ''}`,
 			description: description,
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -148,14 +150,14 @@ export namespace CommitQuickPickItem {
 	export function create<T extends GitCommit = GitCommit>(
 		commit: T,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean } = {},
+		options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 	) {
 		if (GitCommit.isStash(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
 
-			if (options.compact) {
+			if (options?.compact) {
 				const item: CommitQuickPickItem<T> = {
-					label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
+					label: `${options.icon ? `$(archive)${GlyphChars.Space}` : ''}${number}${commit.summary}`,
 					description: `${commit.formattedDate}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 						compact: true,
 					})}`,
@@ -169,15 +171,15 @@ export namespace CommitQuickPickItem {
 			}
 
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? pad('$(archive)', 0, 2) : ''}${number}${commit.summary}`,
+				label: `${options?.icon ? `$(archive)${GlyphChars.Space}` : ''}${number}${commit.summary}`,
 				description: '',
 				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${pad(
 					GlyphChars.Dot,
 					2,
 					2,
 				)}${commit.formatStats({ compact: true })}`,
-				alwaysShow: options.alwaysShow,
-				buttons: options.buttons,
+				alwaysShow: options?.alwaysShow,
+				buttons: options?.buttons,
 				picked: picked,
 				item: commit,
 			};
@@ -185,10 +187,10 @@ export namespace CommitQuickPickItem {
 			return item;
 		}
 
-		if (options.compact) {
+		if (options?.compact) {
 			const item: CommitQuickPickItem<T> = {
-				label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
-				description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 2)}${
+				label: `${options.icon ? `$(git-commit)${GlyphChars.Space}` : ''}${commit.summary}`,
+				description: `${commit.author.name}, ${commit.formattedDate}${pad('$(git-commit)', 2, 1)}${
 					commit.shortSha
 				}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
@@ -200,17 +202,17 @@ export namespace CommitQuickPickItem {
 		}
 
 		const item: CommitQuickPickItem<T> = {
-			label: `${options.icon ? pad('$(git-commit)', 0, 2) : ''}${commit.summary}`,
+			label: `${options?.icon ? `$(git-commit)${GlyphChars.Space}` : ''}${commit.summary}`,
 			description: '',
 			detail: `${GlyphChars.Space.repeat(2)}${commit.author.name}, ${commit.formattedDate}${pad(
 				'$(git-commit)',
 				2,
-				2,
+				1,
 			)}${commit.shortSha}${pad(GlyphChars.Dot, 2, 2)}${commit.formatStats({
 				compact: true,
 			})}`,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked,
 			item: commit,
 		};
@@ -224,13 +226,13 @@ export namespace ContributorQuickPickItem {
 	export function create(
 		contributor: GitContributor,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; buttons?: QuickInputButton[] } = {},
+		options?: { alwaysShow?: boolean; buttons?: QuickInputButton[] },
 	): ContributorQuickPickItem {
 		const item: ContributorQuickPickItem = {
 			label: contributor.label,
 			description: contributor.email,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked,
 			item: contributor,
 		};
@@ -249,14 +251,14 @@ export namespace RefQuickPickItem {
 		ref: string | GitReference,
 		repoPath: string,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; buttons?: QuickInputButton[]; icon?: boolean; ref?: boolean } = {},
+		options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; icon?: boolean; ref?: boolean },
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
-				label: `${options.icon ? pad('$(file-directory)', 0, 2) : ''}Working Tree`,
+				label: `${options?.icon ? `$(file-directory)${GlyphChars.Space}` : ''}Working Tree`,
 				description: '',
-				alwaysShow: options.alwaysShow,
-				buttons: options.buttons,
+				alwaysShow: options?.alwaysShow,
+				buttons: options?.buttons,
 				picked: picked,
 				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'Working Tree' }),
 				current: false,
@@ -267,10 +269,10 @@ export namespace RefQuickPickItem {
 
 		if (ref === 'HEAD') {
 			return {
-				label: `${options.icon ? pad('$(git-branch)', 0, 2) : ''}HEAD`,
+				label: `${options?.icon ? `$(git-branch)${GlyphChars.Space}` : ''}HEAD`,
 				description: '',
-				alwaysShow: options.alwaysShow,
-				buttons: options.buttons,
+				alwaysShow: options?.alwaysShow,
+				buttons: options?.buttons,
 				picked: picked,
 				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'HEAD' }),
 				current: false,
@@ -291,8 +293,8 @@ export namespace RefQuickPickItem {
 			return {
 				label: `Range ${gitRef.name}`,
 				description: '',
-				alwaysShow: options.alwaysShow,
-				buttons: options.buttons,
+				alwaysShow: options?.alwaysShow,
+				buttons: options?.buttons,
 				picked: picked,
 				item: gitRef,
 				current: false,
@@ -303,9 +305,9 @@ export namespace RefQuickPickItem {
 
 		const item: RefQuickPickItem = {
 			label: `Commit ${gitRef.name}`,
-			description: options.ref ? `$(git-commit) ${ref}` : '',
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			description: options?.ref ? `$(git-commit)${GlyphChars.Space}${ref}` : '',
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked,
 			item: gitRef,
 			current: false,
@@ -325,25 +327,25 @@ export namespace RepositoryQuickPickItem {
 	export async function create(
 		repository: Repository,
 		picked?: boolean,
-		options: {
+		options?: {
 			alwaysShow?: boolean;
 			branch?: boolean;
 			buttons?: QuickInputButton[];
 			fetched?: boolean;
 			status?: boolean;
-		} = {},
+		},
 	) {
 		let repoStatus;
-		if (options.branch || options.status) {
+		if (options?.branch || options?.status) {
 			repoStatus = await repository.getStatus();
 		}
 
 		let description = '';
-		if (options.branch && repoStatus != null) {
+		if (options?.branch && repoStatus != null) {
 			description = repoStatus.branch;
 		}
 
-		if (options.status && repoStatus != null) {
+		if (options?.status && repoStatus != null) {
 			let workingStatus = '';
 			if (repoStatus.files.length !== 0) {
 				workingStatus = repoStatus.getFormattedDiffStatus({
@@ -362,7 +364,7 @@ export namespace RepositoryQuickPickItem {
 			}
 		}
 
-		if (options.fetched) {
+		if (options?.fetched) {
 			const lastFetched = await repository.getLastFetched();
 			if (lastFetched !== 0) {
 				const fetched = `Last fetched ${fromNow(new Date(lastFetched))}`;
@@ -373,8 +375,8 @@ export namespace RepositoryQuickPickItem {
 		const item: RepositoryQuickPickItem = {
 			label: repository.formattedName,
 			description: description,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked,
 			item: repository,
 			repoPath: repository.path,
@@ -394,45 +396,106 @@ export namespace TagQuickPickItem {
 	export function create(
 		tag: GitTag,
 		picked?: boolean,
-		options: {
+		options?: {
 			alwaysShow?: boolean;
 			buttons?: QuickInputButton[];
 			checked?: boolean;
 			message?: boolean;
 			ref?: boolean;
 			type?: boolean;
-		} = {},
+		},
 	) {
 		let description = '';
-		if (options.type) {
+		if (options?.type) {
 			description = 'tag';
 		}
 
-		if (options.ref) {
-			description = `${description}${pad('$(git-commit)', description ? 2 : 0, 2)}${GitRevision.shorten(
+		if (options?.ref) {
+			description = `${description}${pad('$(git-commit)', description ? 2 : 0, 1)}${GitRevision.shorten(
 				tag.sha,
 			)}`;
 
 			description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${tag.formattedDate}`;
 		}
 
-		if (options.message) {
+		if (options?.message) {
 			const message = emojify(tag.message);
 			description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${message}` : message;
 		}
 
 		const item: TagQuickPickItem = {
-			label: `${pad('$(tag)', 0, 2)}${tag.name}${
-				options.checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
-			}`,
+			label: `$(tag)${GlyphChars.Space}${tag.name}${options?.checked ? pad('$(check)', 2) : ''}`,
 			description: description,
-			alwaysShow: options.alwaysShow,
-			buttons: options.buttons,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
 			picked: picked,
 			item: tag,
 			current: false,
 			ref: tag.name,
 			remote: false,
+		};
+
+		return item;
+	}
+}
+
+export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
+	readonly opened: boolean;
+	readonly hasChanges: boolean | undefined;
+}
+
+export namespace WorktreeQuickPickItem {
+	export function create(
+		worktree: GitWorktree,
+		picked?: boolean,
+		options?: {
+			alwaysShow?: boolean;
+			buttons?: QuickInputButton[];
+			checked?: boolean;
+			message?: boolean;
+			path?: boolean;
+			type?: boolean;
+			status?: GitStatus;
+		},
+	) {
+		let description = '';
+		if (options?.type) {
+			description = 'worktree';
+		}
+
+		if (options?.status != null) {
+			description += options.status.hasChanges
+				? pad(`Uncommited changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
+				: pad('No changes', description ? 2 : 0, 0);
+		}
+
+		let icon;
+		let label;
+		switch (worktree.type) {
+			case 'bare':
+				label = '(bare)';
+				icon = '$(folder)';
+				break;
+			case 'branch':
+				label = worktree.branch!;
+				icon = '$(git-branch)';
+				break;
+			case 'detached':
+				label = GitRevision.shorten(worktree.sha);
+				icon = '$(git-commit)';
+				break;
+		}
+
+		const item: WorktreeQuickPickItem = {
+			label: `${icon}${GlyphChars.Space}${label}${options?.checked ? pad('$(check)', 2) : ''}`,
+			description: description,
+			detail: options?.path ? `In $(folder) ${worktree.friendlyPath}` : undefined,
+			alwaysShow: options?.alwaysShow,
+			buttons: options?.buttons,
+			picked: picked,
+			item: worktree,
+			opened: worktree.opened,
+			hasChanges: options?.status?.hasChanges,
 		};
 
 		return item;

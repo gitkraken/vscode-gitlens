@@ -107,6 +107,8 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			return children;
 		}
 
+		this.view.title = 'Contributors';
+
 		return this.children;
 	}
 
@@ -204,6 +206,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&

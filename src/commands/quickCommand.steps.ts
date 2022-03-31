@@ -2,7 +2,8 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
-import { PagedResult } from '../git/gitProvider';
+import type { PlusFeatures } from '../features';
+import type { PagedResult } from '../git/gitProvider';
 import {
 	BranchSortOptions,
 	GitBranch,
@@ -19,6 +20,7 @@ import {
 	GitStatus,
 	GitTag,
 	GitTagReference,
+	GitWorktree,
 	Repository,
 	TagSortOptions,
 } from '../git/models';
@@ -58,17 +60,20 @@ import {
 	RefQuickPickItem,
 	RepositoryQuickPickItem,
 	TagQuickPickItem,
+	WorktreeQuickPickItem,
 } from '../quickpicks/items/gitCommands';
 import { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
 import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { pad, pluralize, truncate } from '../system/string';
-import { ViewsWithRepositoryFolders } from '../views/viewBase';
+import { OpenWorkspaceLocation } from '../system/utils';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import { GitActions } from './gitCommands.actions';
 import {
 	AsyncStepResultGenerator,
@@ -138,6 +143,39 @@ export async function getTags(
 		picked: options?.picked,
 		sort: options?.sort != null ? { tags: options.sort } : true,
 	}) as Promise<TagQuickPickItem[]>;
+}
+
+export async function getWorktrees(
+	repoOrWorktrees: Repository | GitWorktree[],
+	{
+		buttons,
+		filter,
+		includeStatus,
+		picked,
+	}: {
+		buttons?: QuickInputButton[];
+		filter?: (t: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+	},
+): Promise<WorktreeQuickPickItem[]> {
+	const worktrees = repoOrWorktrees instanceof Repository ? await repoOrWorktrees.getWorktrees() : repoOrWorktrees;
+	return Promise.all<WorktreeQuickPickItem>([
+		...worktrees
+			.filter(w => filter == null || filter(w))
+			.map(async w =>
+				WorktreeQuickPickItem.create(
+					w,
+					picked != null &&
+						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					{
+						buttons: buttons,
+						path: true,
+						status: includeStatus ? await w.getStatus() : undefined,
+					},
+				),
+			),
+	]);
 }
 
 export async function getBranchesAndOrTags(
@@ -1394,6 +1432,127 @@ export async function* pickTagsStep<
 	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
+export async function* pickWorktreeStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string; worktrees?: GitWorktree[] },
+>(
+	state: State,
+	context: Context,
+	{
+		filter,
+		includeStatus,
+		picked,
+		placeholder,
+		titleContext,
+	}: {
+		filter?: (b: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+		placeholder: string;
+		titleContext?: string;
+	},
+): AsyncStepResultGenerator<GitWorktree> {
+	const worktrees = await getWorktrees(context.worktrees ?? state.repo, {
+		buttons: [QuickCommandButtons.OpenInNewWindow, QuickCommandButtons.RevealInSideBar],
+		filter: filter,
+		includeStatus: includeStatus,
+		picked: picked,
+	});
+
+	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
+		matchOnDetail: true,
+		items:
+			worktrees.length === 0
+				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				: worktrees,
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			switch (button) {
+				case QuickCommandButtons.OpenInNewWindow:
+					void GitActions.Worktree.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Worktree.reveal(item, { select: true, focus: false, expand: true });
+					break;
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: async quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			await GitActions.Worktree.reveal(quickpick.activeItems[0].item, {
+				select: true,
+				focus: false,
+				expand: true,
+			});
+		},
+	});
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+}
+
+export async function* pickWorktreesStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string; worktrees?: GitWorktree[] },
+>(
+	state: State,
+	context: Context,
+	{
+		filter,
+		includeStatus,
+		picked,
+		placeholder,
+		titleContext,
+	}: {
+		filter?: (b: GitWorktree) => boolean;
+		includeStatus?: boolean;
+		picked?: string | string[];
+		placeholder: string;
+		titleContext?: string;
+	},
+): AsyncStepResultGenerator<GitWorktree[]> {
+	const worktrees = await getWorktrees(context.worktrees ?? state.repo, {
+		buttons: [QuickCommandButtons.OpenInNewWindow, QuickCommandButtons.RevealInSideBar],
+		filter: filter,
+		includeStatus: includeStatus,
+		picked: picked,
+	});
+
+	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+		multiselect: worktrees.length !== 0,
+		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
+		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
+		matchOnDetail: true,
+		items:
+			worktrees.length === 0
+				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				: worktrees,
+		onDidClickItemButton: (quickpick, button, { item }) => {
+			switch (button) {
+				case QuickCommandButtons.OpenInNewWindow:
+					void GitActions.Worktree.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					void GitActions.Worktree.reveal(item, { select: true, focus: false, expand: true });
+					break;
+			}
+		},
+		keys: ['right', 'alt+right', 'ctrl+right'],
+		onDidPressKey: async quickpick => {
+			if (quickpick.activeItems.length === 0) return;
+
+			await GitActions.Worktree.reveal(quickpick.activeItems[0].item, {
+				select: true,
+				focus: false,
+				expand: true,
+			});
+		},
+	});
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+}
+
 export async function* showCommitOrStashStep<
 	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
 	Context extends { repos: Repository[]; title: string },
@@ -2069,4 +2228,48 @@ function getShowRepositoryStatusStepItems<
 	}
 
 	return items;
+}
+
+export async function* ensureAccessStep<
+	State extends PartialStepState & { repo: Repository },
+	Context extends { repos: Repository[]; title: string },
+>(state: State, context: Context, feature: PlusFeatures): AsyncStepResultGenerator<void> {
+	const access = await Container.instance.git.access(feature, state.repo.path);
+	if (access.allowed) return undefined;
+
+	const directives: DirectiveQuickPickItem[] = [];
+	let placeholder: string;
+	if (access.subscription.current.account?.verified === false) {
+		directives.push(DirectiveQuickPickItem.create(Directive.RequiresVerification, true));
+		placeholder = 'You must verify your account email address before you can continue';
+	} else {
+		if (access.subscription.required == null) return undefined;
+
+		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
+			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
+			placeholder = 'GitLens+ features require an upgraded account';
+		} else {
+			if (
+				access.subscription.current.account == null &&
+				!isSubscriptionPreviewTrialExpired(access.subscription.current)
+			) {
+				directives.push(
+					DirectiveQuickPickItem.create(Directive.StartPreviewTrial, true),
+					DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription),
+				);
+			} else {
+				directives.push(DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription));
+			}
+			placeholder = 'GitLens+ features require a free account';
+		}
+	}
+
+	const step = QuickCommand.createPickStep<DirectiveQuickPickItem>({
+		title: appendReposToTitle(context.title, state, context),
+		placeholder: placeholder,
+		items: [...directives, DirectiveQuickPickItem.create(Directive.Cancel)],
+	});
+
+	const selection: StepSelection<typeof step> = yield step;
+	return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
 }

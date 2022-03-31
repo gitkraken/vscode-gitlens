@@ -1,8 +1,8 @@
 {
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
-	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
-	"version": "11.7.0",
+	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
+	"version": "12.0.5",
 	"engines": {
 		"vscode": "^1.64.0"
 	},
@@ -14,11 +14,11 @@
 	},
 	"homepage": "https://gitlens.amod.io/",
 	"bugs": {
-		"url": "https://github.com/eamodio/vscode-gitlens/issues"
+		"url": "https://github.com/gitkraken/vscode-gitlens/issues"
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/eamodio/vscode-gitlens.git"
+		"url": "https://github.com/gitkraken/vscode-gitlens.git"
 	},
 	"main": "./dist/gitlens.js",
 	"browser": "./dist/browser/gitlens.js",
@@ -48,8 +48,10 @@
 		"multi-root ready"
 	],
 	"activationEvents": [
+		"onAuthenticationRequest:gitlens-gitkraken",
 		"onCustomEditor:gitlens.rebase",
 		"onFileSystem:gitlens",
+		"onView:gitlens.views.home",
 		"onView:gitlens.views.repositories",
 		"onView:gitlens.views.commits",
 		"onView:gitlens.views.fileHistory",
@@ -60,6 +62,16 @@
 		"onView:gitlens.views.tags",
 		"onView:gitlens.views.contributors",
 		"onView:gitlens.views.searchAndCompare",
+		"onView:gitlens.views.worktrees",
+		"onWebviewPanel:gitlens.welcome",
+		"onWebviewPanel:gitlens.settings",
+		"onCommand:gitlens.plus.learn",
+		"onCommand:gitlens.plus.loginOrSignUp",
+		"onCommand:gitlens.plus.logout",
+		"onCommand:gitlens.plus.startPreviewTrial",
+		"onCommand:gitlens.plus.manage",
+		"onCommand:gitlens.plus.purchase",
+		"onCommand:gitlens.getStarted",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#branches-view",
@@ -72,19 +84,21 @@
 		"onCommand:gitlens.showSettingsPage#search-compare-view",
 		"onCommand:gitlens.showSettingsPage#stashes-view",
 		"onCommand:gitlens.showSettingsPage#tags-view",
+		"onCommand:gitlens.showSettingsPage#worktrees-view",
 		"onCommand:gitlens.showWelcomePage",
 		"onCommand:gitlens.showBranchesView",
 		"onCommand:gitlens.showCommitsView",
 		"onCommand:gitlens.showContributorsView",
 		"onCommand:gitlens.showFileHistoryView",
+		"onCommand:gitlens.showHomeView",
 		"onCommand:gitlens.showLineHistoryView",
 		"onCommand:gitlens.showRemotesView",
 		"onCommand:gitlens.showRepositoriesView",
 		"onCommand:gitlens.showSearchAndCompareView",
 		"onCommand:gitlens.showStashesView",
 		"onCommand:gitlens.showTagsView",
-		"onCommand:gitlens.showWelcomeView",
-		"onCommand:gitlens.closeWelcomeView",
+		"onCommand:gitlens.showTimelineView",
+		"onCommand:gitlens.showWorktreesView",
 		"onCommand:gitlens.compareWith",
 		"onCommand:gitlens.compareHeadWith",
 		"onCommand:gitlens.compareWorkingWith",
@@ -225,7 +239,7 @@
 					"gitlens.currentLine.format": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}",
-						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
@@ -242,7 +256,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 50
 					}
@@ -436,7 +450,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates in the Git CodeLens. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how to format absolute dates in the Git CodeLens. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 73
 					},
@@ -468,7 +482,7 @@
 					"gitlens.statusBar.format": {
 						"type": "string",
 						"default": "${author}, ${agoOrDate}${' via 'pullRequest}",
-						"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
@@ -536,7 +550,7 @@
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
-						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
 					},
@@ -553,7 +567,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 80
 					}
@@ -682,7 +696,7 @@
 						"type": "string",
 						"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}\n\n${commands}",
 						"editPresentation": "multilineText",
-						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 60
 					},
@@ -732,42 +746,42 @@
 					"gitlens.views.formats.commits.label": {
 						"type": "string",
 						"default": "${❰ tips ❱➤  }${message}",
-						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.views.formats.commits.description": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}",
-						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.views.formats.files.label": {
 						"type": "string",
 						"default": "${working  }${file}",
-						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 32
 					},
 					"gitlens.views.formats.files.description": {
 						"type": "string",
 						"default": "${directory}${  ←  originalPath}",
-						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 33
 					},
 					"gitlens.views.formats.stashes.label": {
 						"type": "string",
 						"default": "${message}",
-						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 34
 					},
 					"gitlens.views.formats.stashes.description": {
 						"type": "string",
 						"default": "${agoOrDate}",
-						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 35
 					},
@@ -1008,12 +1022,19 @@
 						"scope": "window",
 						"order": 35
 					},
+					"gitlens.views.repositories.showWorktrees": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the worktrees for each repository in the _Repositories_ view",
+						"scope": "window",
+						"order": 36
+					},
 					"gitlens.views.repositories.showIncomingActivity": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to show the experimental incoming activity for each repository in the _Repositories_ view",
 						"scope": "window",
-						"order": 36
+						"order": 37
 					},
 					"gitlens.views.repositories.autoRefresh": {
 						"type": "boolean",
@@ -1216,14 +1237,14 @@
 					"gitlens.views.branches.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.views.branches.pullRequests.showForBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 21
 					},
@@ -1323,14 +1344,14 @@
 					"gitlens.views.remotes.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to query for pull requests associated with each branch and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.views.remotes.pullRequests.showForBranches": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with each branch in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 11
 					},
@@ -1535,9 +1556,114 @@
 				}
 			},
 			{
+				"id": "worktrees-view",
+				"title": "Worktrees View",
+				"order": 29,
+				"properties": {
+					"gitlens.worktrees.promptForLocation": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to prompt for a path when creating new worktrees",
+						"scope": "resource",
+						"order": 10
+					},
+					"gitlens.worktrees.defaultLocation": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies the default path in which new worktrees will be created",
+						"scope": "resource",
+						"order": 11
+					},
+					"gitlens.views.worktrees.showBranchComparison": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"enum": [
+							false,
+							"branch"
+						],
+						"enumDescriptions": [
+							"Hides the branch comparison",
+							"Compares the worktree branch with a user-selected reference"
+						],
+						"default": "working",
+						"markdownDescription": "Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag. etc) in the _Worktrees_ view",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.views.worktrees.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with the worktree branch and commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.worktrees.pullRequests.showForBranches": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the worktree branch in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.worktrees.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Worktrees_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.worktrees.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.worktrees.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Worktrees_ view will display files",
+						"scope": "window",
+						"order": 40
+					},
+					"gitlens.views.worktrees.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 41
+					},
+					"gitlens.views.worktrees.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Worktrees_ view. Only applies when `#gitlens.views.worktrees.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 42
+					},
+					"gitlens.views.worktrees.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Worktrees_ view",
+						"scope": "window",
+						"order": 50
+					},
+					"gitlens.views.worktrees.reveal": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to reveal worktrees in the _Worktrees_ view, otherwise they revealed in the _Repositories_ view",
+						"scope": "window",
+						"order": 60
+					}
+				}
+			},
+			{
 				"id": "contributors-view",
 				"title": "Contributors View",
-				"order": 29,
+				"order": 30,
 				"properties": {
 					"gitlens.views.contributors.showAllBranches": {
 						"type": "boolean",
@@ -1640,7 +1766,7 @@
 			{
 				"id": "search-compare-view",
 				"title": "Search & Compare View",
-				"order": 29,
+				"order": 31,
 				"properties": {
 					"gitlens.views.searchAndCompare.pullRequests.enabled": {
 						"type": "boolean",
@@ -1719,7 +1845,7 @@
 					"gitlens.blame.format": {
 						"type": "string",
 						"default": "${message|50?} ${agoOrDate|14-}",
-						"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
 						"scope": "window",
 						"order": 20
 					},
@@ -1806,7 +1932,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 80
 					}
@@ -2180,7 +2306,7 @@
 									"properties": {
 										"repository": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a respository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
+											"markdownDescription": "Specifies the format of a repository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
 										},
 										"branches": {
 											"type": "string",
@@ -2269,6 +2395,19 @@
 				}
 			},
 			{
+				"id": "visual-history",
+				"title": "Visual File History",
+				"order": 113,
+				"properties": {
+					"gitlens.visualHistory.queryLimit": {
+						"type": "number",
+						"default": 20,
+						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the Visual File History, because of rate limits. Only applies to virtual workspaces.",
+						"scope": "window"
+					}
+				}
+			},
+			{
 				"id": "date-times",
 				"title": "Date & Times",
 				"order": 120,
@@ -2294,9 +2433,19 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.defaultDateLocale": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies the locale, a [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags), to use for date formatting, defaults to the VS Code locale. Use `system` to follow the current system locale, or choose a specific locale, e.g `en-US` — US English, `en-GB` — British English, `de-DE` — German, 'ja-JP = Japanese, etc.",
+						"scope": "window",
+						"order": 21
 					},
 					"gitlens.defaultDateShortFormat": {
 						"type": [
@@ -2304,9 +2453,9 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
-						"order": 21
+						"order": 22
 					},
 					"gitlens.defaultTimeFormat": {
 						"type": [
@@ -2314,7 +2463,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how times will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+						"markdownDescription": "Specifies how times will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 30
 					},
@@ -2883,8 +3032,8 @@
 					},
 					"gitlens.advanced.repositorySearchDepth": {
 						"type": "number",
-						"default": 1,
-						"markdownDescription": "Specifies how many folders deep to search for repositories",
+						"default": null,
+						"markdownDescription": "Specifies how many folders deep to search for repositories. Defaults to `#git.repositoryScanMaxDepth#`",
 						"scope": "resource",
 						"order": 10
 					},
@@ -3112,23 +3261,57 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.proxy": {
+						"type": [
+							"object",
+							"null"
+						],
+						"default": null,
+						"items": {
+							"type": "object",
+							"required": [
+								"url",
+								"strictSSL"
+							],
+							"properties": {
+								"url": {
+									"type": [
+										"string",
+										"null"
+									],
+									"default": null,
+									"description": "Specifies the url of the proxy server to use"
+								},
+								"strictSSL": {
+									"type": "boolean",
+									"description": "Specifies whether the proxy server certificate should be verified against the list of supplied CAs",
+									"default": true
+								}
+							},
+							"additionalProperties": false
+						},
+						"uniqueItems": true,
+						"description": "Specifies the proxy configuration to use. If not specified, the proxy configuration will be determined based on VS Code or OS settings",
+						"scope": "window",
+						"order": 55
+					},
+					"gitlens.plusFeatures.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable GitLens+ features",
+						"scope": "window",
+						"order": 60
+					},
+					"gitlens.virtualRepositories.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable virtual repositories support",
+						"scope": "window",
+						"order": 70
+					},
 					"gitlens.insiders": {
 						"deprecationMessage": "Deprecated. Use the Insiders edition of GitLens instead",
 						"markdownDeprecationMessage": "Deprecated. Use the [Insiders edition](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens-insiders) of GitLens instead"
-					}
-				}
-			},
-			{
-				"id": "experimental",
-				"title": "Experimental",
-				"order": 9999,
-				"properties": {
-					"gitlens.experimental.virtualRepositories.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable the experimental virtual repositories support",
-						"scope": "window",
-						"order": 0
 					}
 				}
 			}
@@ -3310,7 +3493,7 @@
 				}
 			},
 			{
-				"id": "gitlens.unpushlishedChangesIconColor",
+				"id": "gitlens.unpublishedChangesIconColor",
 				"description": "Specifies the icon color of unpublished changes in the GitLens views",
 				"defaults": {
 					"dark": "#35b15e",
@@ -3452,9 +3635,68 @@
 					"dark": "#c74e39",
 					"highContrast": "#c74e39"
 				}
+			},
+			{
+				"id": "gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor",
+				"description": "Specifies the decoration foreground color for worktrees that have uncommitted changes",
+				"defaults": {
+					"light": "#895503",
+					"dark": "#E2C08D",
+					"highContrast": "#E2C08D"
+				}
 			}
 		],
 		"commands": [
+			{
+				"command": "gitlens.plus.learn",
+				"title": "Learn about GitLens+ Features",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.loginOrSignUp",
+				"title": "Sign In to GitLens+...",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.logout",
+				"title": "Sign out of GitLens+",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.startPreviewTrial",
+				"title": "Try GitLens+ Features Now",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.manage",
+				"title": "Manage Your GitLens+ Account...",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.purchase",
+				"title": "Upgrade Your GitLens+ Account...",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.hide",
+				"title": "Hide GitLens+ Features",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.restore",
+				"title": "Restore GitLens+ Features",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.reset",
+				"title": "Reset",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.getStarted",
+				"title": "Get Started",
+				"category": "GitLens"
+			},
 			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
@@ -3528,6 +3770,27 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage#worktrees-view",
+				"title": "Open View Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showTimelinePage",
+				"title": "Open Visual File History of Active File",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-history.svg",
+					"light": "images/light/icon-history.svg"
+				}
+			},
+			{
+				"command": "gitlens.refreshTimelinePage",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.showWelcomePage",
 				"title": "Welcome (Quick Setup)",
 				"category": "GitLens"
@@ -3550,6 +3813,11 @@
 			{
 				"command": "gitlens.showFileHistoryView",
 				"title": "Show File History View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showHomeView",
+				"title": "Show Home View",
 				"category": "GitLens"
 			},
 			{
@@ -3583,15 +3851,14 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showWelcomeView",
-				"title": "Show Welcome View",
+				"command": "gitlens.showTimelineView",
+				"title": "Show Visual File History View",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.closeWelcomeView",
-				"title": "Close",
-				"category": "GitLens",
-				"icon": "$(close)"
+				"command": "gitlens.showWorktreesView",
+				"title": "Show Worktrees View",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.compareWith",
@@ -3882,6 +4149,11 @@
 			{
 				"command": "gitlens.gitCommands.tag",
 				"title": "Git Tag...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.gitCommands.worktree",
+				"title": "Git Worktree...",
 				"category": "GitLens"
 			},
 			{
@@ -4685,6 +4957,35 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.views.createWorktree",
+				"title": "Create Worktree...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.views.deleteWorktree",
+				"title": "Delete Worktree...",
+				"category": "GitLens",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.views.openWorktree",
+				"title": "Open Worktree",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
+				"command": "gitlens.views.openWorktreeInNewWindow",
+				"title": "Open Worktree in New Window",
+				"category": "GitLens",
+				"icon": "$(empty-window)"
+			},
+			{
+				"command": "gitlens.views.revealWorktreeInExplorer",
+				"title": "Reveal Worktree in File Explorer",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -5133,6 +5434,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.home.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.lineHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
@@ -5380,6 +5687,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.repositories.setShowWorktreesOn",
+				"title": "Show Worktrees",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.repositories.setShowWorktreesOff",
+				"title": "Hide Worktrees",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.repositories.setShowUpstreamStatusOn",
 				"title": "Show Current Branch Status",
 				"category": "GitLens"
@@ -5588,6 +5905,80 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.timeline.openInTab",
+				"title": "Open in Editor Area",
+				"category": "GitLens",
+				"icon": "$(link-external)"
+			},
+			{
+				"command": "gitlens.views.timeline.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.worktrees.copy",
+				"title": "Copy",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
+				"title": "Toggle Files View: Tree",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.worktrees.setFilesLayoutToList",
+				"title": "Toggle Files View: Auto",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-view-auto.svg",
+					"light": "images/light/icon-view-auto.svg"
+				}
+			},
+			{
+				"command": "gitlens.views.worktrees.setFilesLayoutToTree",
+				"title": "Toggle Files View: List",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+				"title": "Show Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+				"title": "Hide Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+				"title": "Show Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+				"title": "Hide Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.enableDebugLogging",
 				"title": "Enable Debug Logging",
 				"category": "GitLens"
@@ -5600,6 +5991,34 @@
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "gitlens.plus.loginOrSignUp",
+					"when": "!gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.logout",
+					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.startPreviewTrial",
+					"when": "!gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.manage",
+					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.hide",
+					"when": "config.gitlens.plusFeatures.enabled"
+				},
+				{
+					"command": "gitlens.plus.restore",
+					"when": "!config.gitlens.plusFeatures.enabled"
+				},
+				{
+					"command": "gitlens.plus.reset",
+					"when": "gitlens:debugging"
+				},
 				{
 					"command": "gitlens.showSettingsPage#views",
 					"when": "false"
@@ -5645,6 +6064,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.showSettingsPage#worktrees-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showTimelinePage",
+					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
+				},
+				{
+					"command": "gitlens.refreshTimelinePage",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showBranchesView",
 					"when": "gitlens:enabled"
 				},
@@ -5658,6 +6089,10 @@
 				},
 				{
 					"command": "gitlens.showFileHistoryView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showHomeView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -5685,12 +6120,12 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.showWelcomeView",
+					"command": "gitlens.showTimelineView",
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.closeWelcomeView",
-					"when": "false"
+					"command": "gitlens.showWorktreesView",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.compareWith",
@@ -5814,7 +6249,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/"
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.toggleFileChangesOnly",
@@ -5862,6 +6297,10 @@
 				},
 				{
 					"command": "gitlens.gitCommands.tag",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.worktree",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
@@ -6369,6 +6808,26 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.createWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.deleteWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openWorktreeInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.revealWorktreeInExplorer",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.createBranch",
 					"when": "false"
 				},
@@ -6685,6 +7144,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.home.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.lineHistory.changeBase",
 					"when": "false"
 				},
@@ -6865,6 +7328,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.repositories.setShowWorktreesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowWorktreesOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.repositories.setShowUpstreamStatusOn",
 					"when": "false"
 				},
@@ -7002,6 +7473,58 @@
 				},
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.timeline.openInTab",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.timeline.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
 					"when": "false"
 				},
 				{
@@ -7188,7 +7711,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100",
 					"alt": "gitlens.toggleFileBlame"
 				},
@@ -7206,6 +7729,11 @@
 					"command": "gitlens.clearFileAnnotations",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.refreshTimelinePage",
+					"when": "gitlens:timelinePage:focused",
+					"group": "navigation@-99"
 				}
 			],
 			"editor/title/context": [
@@ -7288,14 +7816,19 @@
 			],
 			"extension/context": [
 				{
-					"command": "gitlens.showWelcomePage",
+					"command": "gitlens.getStarted",
 					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage",
+					"command": "gitlens.showWelcomePage",
 					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@2"
+				},
+				{
+					"command": "gitlens.showSettingsPage",
+					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
+					"group": "9_gitlens@3"
 				}
 			],
 			"git.commit": [
@@ -7392,11 +7925,6 @@
 				}
 			],
 			"view/title": [
-				{
-					"command": "gitlens.closeWelcomeView",
-					"when": "view == gitlens.views.welcome",
-					"group": "navigation@1"
-				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.branches/",
@@ -7678,6 +8206,11 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.home.refresh",
+					"when": "view =~ /^gitlens\\.views\\.home/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.showLineHistoryView",
 					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.fileHistory/",
 					"group": "8_gitlens_toggles@0"
@@ -7953,13 +8486,78 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.timeline.openInTab",
+					"when": "view =~ /^gitlens\\.views\\.timeline/",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.timeline.refresh",
+					"when": "view =~ /^gitlens\\.views\\.timeline/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.createWorktree",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.worktrees.refresh",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.files.layout == tree",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.files.layout == auto",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.files.layout == list",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && !config.gitlens.views.worktrees.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.avatars",
+					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && !config.gitlens.views.worktrees.showBranchComparison",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.showBranchComparison",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOn",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && !config.gitlens.views.worktrees.pullRequests.enabled && !config.gitlens.views.worktrees.pullRequests.showForBranches",
+					"group": "5_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/ && config.gitlens.views.worktrees.pullRequests.enabled && config.gitlens.views.worktrees.pullRequests.showForBranches",
+					"group": "5_gitlens@2"
+				},
+				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
-					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{
@@ -8010,6 +8608,11 @@
 				{
 					"command": "gitlens.showSettingsPage#tags-view",
 					"when": "view =~ /^gitlens\\.views\\.tags/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#worktrees-view",
+					"when": "view =~ /^gitlens\\.views\\.worktrees/",
 					"group": "9_gitlens@1"
 				}
 			],
@@ -8189,9 +8792,14 @@
 					"group": "1_gitlens_actions_@8"
 				},
 				{
+					"command": "gitlens.views.createWorktree",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions_@9"
+				},
+				{
 					"command": "gitlens.views.createPullRequest",
 					"when": "gitlens:hasRemotes && gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
-					"group": "1_gitlens_actions_@9"
+					"group": "1_gitlens_actions_@10"
 				},
 				{
 					"command": "gitlens.openBranchOnRemote",
@@ -9136,6 +9744,58 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
+					"command": "gitlens.views.createWorktree",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:worktrees\\b/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.createWorktree",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:worktrees\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.openWorktree",
+					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/",
+					"group": "inline@1",
+					"alt": "gitlens.views.openWorktreeInNewWindow"
+				},
+				{
+					"command": "gitlens.views.openWorktree",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+active\\b)/ && workspaceFolderCount != 1",
+					"group": "inline@1",
+					"alt": "gitlens.views.openWorktreeInNewWindow"
+				},
+				{
+					"command": "gitlens.views.openWorktree",
+					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.views.openWorktree",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+active\\b)/ && workspaceFolderCount != 1",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.views.openWorktreeInNewWindow",
+					"when": "viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
+					"command": "gitlens.views.openWorktreeInNewWindow",
+					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+active\\b)/ && workspaceFolderCount != 1",
+					"group": "2_gitlens_quickopen@2"
+				},
+				{
+					"command": "gitlens.views.revealWorktreeInExplorer",
+					"when": "viewItem =~ /gitlens:worktree\\b/",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.deleteWorktree",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+(active|main)\\b)/",
+					"group": "6_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.views.stageDirectory",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/",
 					"group": "inline@1"
@@ -9157,7 +9817,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag)\\b)/",
+					"when": "viewItem =~ /gitlens:(?=(autolinked:issue|branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag|worktree)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
@@ -9387,7 +10047,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens@3"
 				}
 			],
@@ -9578,14 +10238,24 @@
 					"group": "2_gitlens@6"
 				},
 				{
+					"command": "gitlens.views.repositories.setShowWorktreesOn",
+					"when": "!config.gitlens.views.repositories.showWorktrees",
+					"group": "2_gitlens@7"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowWorktreesOff",
+					"when": "config.gitlens.views.repositories.showWorktrees",
+					"group": "2_gitlens@7"
+				},
+				{
 					"command": "gitlens.views.repositories.setShowContributorsOn",
 					"when": "!config.gitlens.views.repositories.showContributors",
-					"group": "2_gitlens@7"
+					"group": "2_gitlens@8"
 				},
 				{
 					"command": "gitlens.views.repositories.setShowContributorsOff",
 					"when": "config.gitlens.views.repositories.showContributors",
-					"group": "2_gitlens@7"
+					"group": "2_gitlens@8"
 				}
 			],
 			"gitlens/view/searchAndCompare/new": [
@@ -9964,6 +10634,12 @@
 				"key": "ctrl+c",
 				"mac": "cmd+c",
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.tags/"
+			},
+			{
+				"command": "gitlens.views.worktrees.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.worktrees/"
 			}
 		],
 		"customEditors": [
@@ -9996,21 +10672,16 @@
 					"title": "GitLens",
 					"icon": "images/gitlens-activitybar.svg"
 				}
+			],
+			"panel": [
+				{
+					"id": "gitlensPanel",
+					"title": "GitLens",
+					"icon": "images/views/history.svg"
+				}
 			]
 		},
 		"viewsWelcome": [
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "GitLens 11 is powerful, feature rich, and highly customizable to meet your needs. You can use the GitLens Welcome experience to get setup quickly.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")\n\nFor more options, run [GitLens: Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") from the Command Palette to open the interactive GitLens settings editor."
-			},
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "[GitLens views](command:gitlens.showSettingsPage%23views) are shown on the Source Control side bar, by default. Run [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") from the Command Palette to switch to an alternate side bar layout, or drag & drop them."
-			},
-			{
-				"view": "gitlens.views.welcome",
-				"contents": "[Close](command:gitlens.closeWelcomeView \"Closes the Welcome view\")"
-			},
 			{
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
@@ -10025,16 +10696,62 @@
 				"view": "gitlens.views.searchAndCompare",
 				"contents": "Compare a <branch, tag, or ref> with another <branch, tag, or ref>\n\n[Compare References...](command:gitlens.views.searchAndCompare.selectForCompare)",
 				"when": "!gitlens:hasVirtualFolders"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
+				"when": "gitlens:plus:allowed"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Please verify your email\n\nTo use Worktrees, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
+				"when": "gitlens:plus:state == -1"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Try worktrees now, without an account, for 3 days on public and private repos, or [sign in](command:gitlens.plus.loginOrSignUp \"Sign in to GitLens+\") for use on public repos.\n\n[Try worktrees now](command:gitlens.plus.startPreviewTrial)",
+				"when": "gitlens:plus:state == 0"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "Sign in to use worktrees and other GitLens+ features on public repos and get a free 7-day trial for both public and private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
+				"when": "gitlens:plus:state == 2"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "[Upgrade your account](command:gitlens.plus.purchase)",
+				"when": "gitlens:plus:state == 4"
+			},
+			{
+				"view": "gitlens.views.worktrees",
+				"contents": "✨ Worktrees are a [GitLens+ feature](command:gitlens.plus.learn) which can be used on public repos with a [free account](command:gitlens.plus.loginOrSignUp) and private repos with a [paid account](command:gitlens.plus.purchase).\n\n🛈 All other GitLens features can always be used on any repo, without an account.",
+				"when": "gitlens:plus:state > -1"
 			}
 		],
 		"views": {
 			"gitlens": [
 				{
-					"id": "gitlens.views.welcome",
-					"name": "Welcome",
-					"when": "gitlens:views:welcome:visible != false",
+					"type": "webview",
+					"id": "gitlens.views.home",
+					"name": "Home",
+					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg",
+					"visibility": "visible"
+				}
+			],
+			"gitlensPanel": [
+				{
+					"type": "webview",
+					"id": "gitlens.views.timeline",
+					"name": "Visual File History",
+					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg",
 					"visibility": "visible"
 				}
 			],
@@ -10104,6 +10821,14 @@
 					"visibility": "collapsed"
 				},
 				{
+					"id": "gitlens.views.worktrees",
+					"name": "Worktrees",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && config.gitlens.plusFeatures.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/worktrees.svg",
+					"visibility": "collapsed"
+				},
+				{
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
@@ -10125,16 +10850,178 @@
 			{
 				"id": "gitlens.welcome",
 				"title": "Get Started with GitLens",
-				"description": "Discover and customize GitLens' most valuable features.",
+				"description": "Discover and personalize features that supercharge your Git experience",
 				"steps": [
 					{
-						"id": "gitlens.welcome.currentLineBlame",
-						"title": "Current Line Blame",
-						"description": "The Current Line Blame view shows the blame information for the current line.",
+						"id": "gitlens.welcome.experience",
+						"title": "Get setup quickly",
+						"description": "Use the Quick Setup to easily configure frequently used GitLens features.\n\n[Open Quick Setup](command:gitlens.showWelcomePage?%22quick-setup%22 \"Opens the GitLens Quick Setup\")",
 						"media": {
-							"image": "images/docs/current-line-blame.png",
-							"altText": "Current Line Blame"
+							"markdown": "walkthroughs/getting-started/1-setup.md"
 						}
+					},
+					{
+						"id": "gitlens.welcome.settings",
+						"title": "Easily customize every aspect of GitLens",
+						"description": "A rich, interactive settings editor enables seemingly endless customization possibilities.\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\")",
+						"media": {
+							"markdown": "walkthroughs/getting-started/2-customize.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.currentLineBlame",
+						"title": "See who made what changes at a glance",
+						"description": "Current line and status bar blame provide historical context about line changes.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/3-current-line-blame.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitCodeLens",
+						"title": "View Git authorship via CodeLens",
+						"description": "CodeLens adds contextual authorship information and links at the top of each file and at the beginning of each block of code.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/4-git-codelens.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.revisionHistory",
+						"title": "Easily navigate revision history",
+						"description": "",
+						"media": {
+							"markdown": "walkthroughs/getting-started/5-revision-history.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.fileAnnotations",
+						"title": "See more context with file annotations",
+						"description": "Whole file annotations place visual indicators in the gutter and scroll bar that provide additional context about changes.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/6-file-annotations.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitSideBarViews",
+						"title": "Explore repositories from the side bar",
+						"description": "Rich views expose even more Git functionality in your side bar.\n\n[Set Views Layout](command:gitlens.setViewsLayout)",
+						"media": {
+							"markdown": "walkthroughs/getting-started/7-git-side-bar-views.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.hostingServiceIntegrations",
+						"title": "Integrate with Git hosting services",
+						"description": "Quickly gain insights from pull requests and issues without leaving your editor.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/8-hosting-service-integrations.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.gitCommandPalette",
+						"title": "Work faster with Git Command Palette",
+						"description": "Now you don't have to remember all those Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)",
+						"media": {
+							"markdown": "walkthroughs/getting-started/9-git-command-palette.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.interactiveRebaseEditor",
+						"title": "Visualize interactive rebase operations",
+						"description": "A user-friendly interactive rebase editor to easily configure an interactive rebase session",
+						"media": {
+							"markdown": "walkthroughs/getting-started/10-interactive-rebase-editor.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.terminal",
+						"title": "Jump to git details from the terminal",
+						"description": "Using ctrl/cmd+click on autolinks in the integrated terminal will quickly jump to more details for commits, branches, tags, and more.",
+						"media": {
+							"markdown": "walkthroughs/getting-started/11-terminal.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.plus",
+						"title": "Introducing GitLens+",
+						"description": "Check out the all-new, completely optional, GitLens+ features.\n\n[Learn about GitLens+ features](command:gitlens.plus.learn?false \"Open the GitLens+ features walkthrough\")",
+						"media": {
+							"markdown": "walkthroughs/getting-started/12-plus.md"
+						}
+					}
+				]
+			},
+			{
+				"id": "gitlens.plus",
+				"title": "Introducing GitLens+",
+				"description": "Get even more out of GitLens in VS Code!",
+				"steps": [
+					{
+						"id": "gitlens.plus.intro.tryNow",
+						"title": "Introducing GitLens+",
+						"description": "Try GitLens+ features now, without an account, for 3 days.\n\n[Try GitLens+ features now](command:gitlens.plus.startPreviewTrial)",
+						"media": {
+							"markdown": "walkthroughs/plus/1-intro.md"
+						},
+						"when": "gitlens:plus:state == 0"
+					},
+					{
+						"id": "gitlens.plus.intro.signIn",
+						"title": "Introducing GitLens+",
+						"description": "Sign in for use on public repos and get an additional 7 day trial for private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/plus/1-intro.md"
+						},
+						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 2"
+					},
+					{
+						"id": "gitlens.plus.intro",
+						"title": "Introducing GitLens+",
+						"media": {
+							"markdown": "walkthroughs/plus/1-intro.md"
+						},
+						"when": "gitlens:plus:state > 2"
+					},
+					{
+						"id": "gitlens.plus.visualFileHistory",
+						"title": "Visualize file history",
+						"description": "A more visual way to analyze and explore changes made to a file.\n\n[Open Visual File History view](command:gitlens.showTimelineView)",
+						"media": {
+							"markdown": "walkthroughs/plus/3-visual-file-history.md"
+						}
+					},
+					{
+						"id": "gitlens.plus.worktrees",
+						"title": "Worktrees",
+						"description": "Create worktrees to have multiple branches checked-out at once on the same repository.\n\n[Open Worktrees view](command:gitlens.showWorktreesView)",
+						"media": {
+							"markdown": "walkthroughs/plus/2-worktrees.md"
+						}
+					},
+					{
+						"id": "gitlens.plus.comingSoon",
+						"title": "More coming soon",
+						"description": "Stay tuned!",
+						"media": {
+							"markdown": "walkthroughs/plus/4-coming-soon.md"
+						}
+					},
+					{
+						"id": "gitlens.plus.tryNow",
+						"title": "Try GitLens+ now",
+						"description": "Try GitLens+ features now, without an account, for 3 days.\n\n[Try GitLens+ features now](command:gitlens.plus.startPreviewTrial)",
+						"media": {
+							"markdown": "walkthroughs/plus/5-try-now.md"
+						},
+						"when": "gitlens:plus:state == 0"
+					},
+					{
+						"id": "gitlens.plus.signIn",
+						"title": "Get access to GitLens+ features on public repos",
+						"description": "Sign in for use on public repos and get an additional 7 day trial for private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/plus/5-try-now.md"
+						},
+						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 2"
 					}
 				]
 			}
@@ -10176,16 +11063,20 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@octokit/core": "3.5.1",
-		"@vscode/codicons": "0.0.27",
+		"@octokit/core": "3.6.0",
+		"@vscode/codicons": "0.0.29",
+		"@vscode/webview-ui-toolkit": "0.9.3",
 		"ansi-regex": "6.0.1",
+		"billboard.js": "3.3.2",
 		"chroma-js": "2.3.0",
+		"https-proxy-agent": "5.0.0",
 		"iconv-lite": "0.6.3",
 		"lodash-es": "4.17.21",
 		"md5.js": "1.3.5",
 		"node-fetch": "2.6.7",
 		"path-browserify": "1.0.1",
-		"sortablejs": "1.14.0"
+		"sortablejs": "1.14.0",
+		"uuid": "8.3.2"
 	},
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
@@ -10195,23 +11086,24 @@
 		"@types/mocha": "9.1.0",
 		"@types/node": "14.17.4",
 		"@types/sortablejs": "1.10.7",
+		"@types/uuid": "8.3.4",
 		"@types/vscode": "1.64.0",
-		"@typescript-eslint/eslint-plugin": "5.11.0",
-		"@typescript-eslint/parser": "5.11.0",
-		"@vscode/test-electron": "2.1.2",
-		"@vscode/test-web": "0.0.22",
+		"@typescript-eslint/eslint-plugin": "5.17.0",
+		"@typescript-eslint/parser": "5.17.0",
+		"@vscode/test-electron": "2.1.3",
+		"@vscode/test-web": "0.0.24",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"concurrently": "7.0.0",
 		"copy-webpack-plugin": "10.2.4",
 		"csp-html-webpack-plugin": "5.1.0",
-		"css-loader": "6.6.0",
-		"esbuild": "0.14.21",
+		"css-loader": "6.7.1",
+		"esbuild": "0.14.29",
 		"esbuild-loader": "2.18.0",
-		"eslint": "8.9.0",
+		"eslint": "8.12.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "8.3.0",
-		"eslint-import-resolver-typescript": "2.5.0",
+		"eslint-config-prettier": "8.5.0",
+		"eslint-import-resolver-typescript": "2.7.0",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.25.4",
 		"fork-ts-checker-webpack-plugin": "6.5.0",
@@ -10221,19 +11113,19 @@
 		"image-minimizer-webpack-plugin": "3.2.1",
 		"imagemin": "8.0.1",
 		"imagemin-webp": "7.0.0",
-		"json5": "2.2.0",
+		"json5": "2.2.1",
 		"license-checker-rseidelsohn": "3.1.0",
-		"mini-css-extract-plugin": "2.5.3",
-		"mocha": "9.2.0",
-		"prettier": "2.5.1",
-		"sass": "1.49.7",
-		"sass-loader": "12.4.0",
+		"mini-css-extract-plugin": "2.6.0",
+		"mocha": "9.2.2",
+		"prettier": "2.6.1",
+		"sass": "1.49.10",
+		"sass-loader": "12.6.0",
 		"terser-webpack-plugin": "5.3.1",
-		"ts-loader": "9.2.6",
-		"tsc-alias": "1.6.0",
-		"typescript": "4.6.1-rc",
-		"vsce": "2.6.7",
-		"webpack": "5.68.0",
+		"ts-loader": "9.2.8",
+		"tsc-alias": "1.6.5",
+		"typescript": "4.6.3",
+		"vsce": "2.7.0",
+		"webpack": "5.70.0",
 		"webpack-bundle-analyzer": "4.5.0",
 		"webpack-cli": "4.9.2",
 		"webpack-node-externals": "3.0.0"

@@ -82,6 +82,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			return child.getChildren();
 		}
 
+		this.view.title = 'Tags';
+
 		return this.children;
 	}
 
@@ -166,6 +168,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&

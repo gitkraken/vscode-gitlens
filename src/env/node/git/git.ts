@@ -27,6 +27,10 @@ export const GitErrors = {
 	noMergeBase: /no merge base/i,
 	notAValidObjectName: /Not a valid object name/i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
+	uncommittedChanges: /contains modified or untracked files/i,
+	alreadyExists: /already exists/i,
+	alreadyCheckedOut: /already checked out/i,
+	mainWorkingTree: /is a main working tree/i,
 };
 
 const GitWarnings = {
@@ -111,7 +115,7 @@ export class Git {
 		if (promise === undefined) {
 			waiting = false;
 
-			// Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
+			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
 			args.splice(
 				0,
@@ -168,7 +172,7 @@ export class Git {
 			if (exception != null) {
 				Logger.error(
 					'',
-					`[GIT  ] [${runOpts.cwd}] git ${(exception.message || exception.toString() || '')
+					`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
 						.trim()
 						.replace(/fatal: /g, '')
 						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
@@ -380,21 +384,17 @@ export class Git {
 		}
 	}
 
-	checkout(
-		repoPath: string,
-		ref: string,
-		{ createBranch, fileName }: { createBranch?: string; fileName?: string } = {},
-	) {
+	checkout(repoPath: string, ref: string, { createBranch, path }: { createBranch?: string; path?: string } = {}) {
 		const params = ['checkout'];
 		if (createBranch) {
 			params.push('-b', createBranch, ref, '--');
 		} else {
 			params.push(ref, '--');
 
-			if (fileName) {
-				[fileName, repoPath] = splitPath(fileName, repoPath, true);
+			if (path) {
+				[path, repoPath] = splitPath(path, repoPath, true);
 
-				params.push(fileName);
+				params.push(path);
 			}
 		}
 
@@ -1162,7 +1162,6 @@ export class Git {
 				'rev-parse',
 				'--abbrev-ref',
 				'--symbolic-full-name',
-				'--end-of-options',
 				'@',
 				'@{u}',
 				'--',
@@ -1271,11 +1270,15 @@ export class Git {
 	}
 
 	async rev_parse__verify(repoPath: string, ref: string, fileName?: string): Promise<string | undefined> {
+		const params = ['rev-parse', '--verify'];
+
+		if (await this.isAtLeastVersion('2.30')) {
+			params.push('--end-of-options');
+		}
+
 		const data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-parse',
-			'--verify',
-			'--end-of-options',
+			...params,
 			fileName ? `${ref}:./${fileName}` : `${ref}^{commit}`,
 		);
 		return data.length === 0 ? undefined : data.trim();
@@ -1490,6 +1493,47 @@ export class Git {
 
 	tag(repoPath: string) {
 		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
+	}
+
+	worktree__add(
+		repoPath: string,
+		path: string,
+		{
+			commitish,
+			createBranch,
+			detach,
+			force,
+		}: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean } = {},
+	) {
+		const params = ['worktree', 'add'];
+		if (force) {
+			params.push('--force');
+		}
+		if (createBranch) {
+			params.push('-b', createBranch);
+		}
+		if (detach) {
+			params.push('--detach');
+		}
+		params.push(path);
+		if (commitish) {
+			params.push(commitish);
+		}
+		return this.git<string>({ cwd: repoPath }, ...params);
+	}
+
+	worktree__list(repoPath: string) {
+		return this.git<string>({ cwd: repoPath }, 'worktree', 'list', '--porcelain');
+	}
+
+	worktree__remove(repoPath: string, worktree: string, { force }: { force?: boolean } = {}) {
+		const params = ['worktree', 'remove'];
+		if (force) {
+			params.push('--force');
+		}
+		params.push(worktree);
+
+		return this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, ...params);
 	}
 
 	async readDotGitFile(

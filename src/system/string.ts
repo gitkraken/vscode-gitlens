@@ -144,7 +144,7 @@ const tokenRegex = /\$\{('.*?[^\\]'|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?('.*?[^\\]'|
 const tokenSanitizeRegex = /\$\{(?:'.*?[^\\]'|\W*)?(\w*?)(?:'.*?[^\\]'|[\W\d]*)\}/g;
 const tokenGroupCharacter = "'";
 const tokenGroupCharacterEscapedRegex = /(\\')/g;
-const tokenGroupRegex = /^'?(.*?)'?$/;
+const tokenGroupRegex = /^'?(.*?)'?$/s;
 
 export interface TokenOptions {
 	collapseWhitespace: boolean;

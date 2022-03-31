@@ -264,12 +264,12 @@ export namespace GitReference {
 			switch (ref.refType) {
 				case 'branch':
 					result = `${options.label ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
-						options.icon ? `$(git-branch)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
+						options.icon ? `$(git-branch)${GlyphChars.Space}${refName}` : refName
 					}`;
 					break;
 				case 'tag':
 					result = `${options.label ? 'tag ' : ''}${
-						options.icon ? `$(tag)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
+						options.icon ? `$(tag)${GlyphChars.Space}${refName}` : refName
 					}`;
 					break;
 				default: {
@@ -285,7 +285,7 @@ export namespace GitReference {
 
 						result = `${options.label ? 'stash ' : ''}${
 							options.icon
-								? `$(archive)${GlyphChars.Space}${message ?? ref.name}${GlyphChars.Space}`
+								? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
 								: `${message ?? ref.number ?? ref.name}`
 						}`;
 					} else if (GitRevision.isRange(ref.ref)) {
@@ -312,7 +312,7 @@ export namespace GitReference {
 
 						result = `${options.label ? `${prefix}commit ` : ''}${
 							options.icon
-								? `$(git-commit)${GlyphChars.Space}${refName}${message ?? ''}${GlyphChars.Space}`
+								? `$(git-commit)${GlyphChars.Space}${refName}${message ?? ''}`
 								: `${refName}${message ?? ''}`
 						}`;
 					}

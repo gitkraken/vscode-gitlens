@@ -131,8 +131,6 @@ export class BranchNode
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const children = [];
-
 			let prPromise;
 			if (
 				this.view.config.pullRequests.enabled &&
@@ -167,6 +165,8 @@ export class BranchNode
 				],
 			);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+
+			const children = [];
 
 			let prInsertIndex = 0;
 
@@ -267,9 +267,9 @@ export class BranchNode
 
 			if (log.hasMore) {
 				children.push(
-					new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
-						this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
-					),
+					new LoadMoreNode(this.view, this, children[children.length - 1], {
+						getCount: () => this.view.container.git.getCommitCount(this.branch.repoPath, this.branch.name),
+					}),
 				);
 			}
 
@@ -388,7 +388,7 @@ export class BranchNode
 				if (this.branch.state.ahead || this.branch.state.behind) {
 					if (this.branch.state.ahead) {
 						contextValue += '+ahead';
-						color = new ThemeColor(Colors.UnpushlishedChangesIconColor);
+						color = new ThemeColor(Colors.UnpublishedChangesIconColor);
 						iconSuffix = '-green';
 					}
 					if (this.branch.state.behind) {

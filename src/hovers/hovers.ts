@@ -230,7 +230,7 @@ export namespace Hovers {
 			options?.pullRequests?.pr ??
 				getPullRequestForCommit(commit.ref, remotes, {
 					pullRequests:
-						options?.pullRequests?.enabled ||
+						options?.pullRequests?.enabled !== false &&
 						CommitFormatter.has(
 							format,
 							'pullRequest',

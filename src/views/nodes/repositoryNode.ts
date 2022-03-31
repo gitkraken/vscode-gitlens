@@ -1,5 +1,6 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
+import { Features } from '../../features';
 import { GitUri } from '../../git/gitUri';
 import {
 	GitBranch,
@@ -31,6 +32,7 @@ import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
 import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	static key = ':repository';
@@ -151,12 +153,16 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showStashes) {
+			if (this.view.config.showStashes && (await this.repo.supports(Features.Stashes))) {
 				children.push(new StashesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showTags) {
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showWorktrees && (await this.repo.supports(Features.Worktrees))) {
+				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showContributors) {

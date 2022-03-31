@@ -41,6 +41,7 @@ import { Logger } from '../logger';
 import { asCommand, executeCoreCommand } from '../system/command';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
+import { isVirtualUri } from '../system/utils';
 
 export class GitRecentChangeCodeLens extends CodeLens {
 	constructor(
@@ -106,6 +107,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	}
 
 	async provideCodeLenses(document: TextDocument, token: CancellationToken): Promise<CodeLens[]> {
+		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
+		if (document.isDirty && isVirtualUri(document.uri)) return [];
+
 		const trackedDocument = await this.container.tracker.getOrAdd(document);
 		if (!trackedDocument.isBlameable) return [];
 
@@ -165,10 +169,16 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 			if (blame == null || blame?.lines.length === 0) return lenses;
 		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
-			symbols = await executeCoreCommand<[Uri], SymbolInformation[]>(
-				CoreCommands.ExecuteDocumentSymbolProvider,
-				document.uri,
-			);
+			let tracked;
+			[tracked, symbols] = await Promise.all([
+				this.container.git.isTracked(gitUri),
+				executeCoreCommand<[Uri], SymbolInformation[]>(
+					CoreCommands.ExecuteDocumentSymbolProvider,
+					document.uri,
+				),
+			]);
+
+			if (!tracked) return lenses;
 		}
 
 		if (token.isCancellationRequested) return lenses;

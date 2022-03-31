@@ -1,5 +1,5 @@
 import { readdir, realpath } from 'fs';
-import { hostname, userInfo } from 'os';
+import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import {
 	Disposable,
@@ -15,6 +15,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
+import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
 import type {
@@ -25,18 +26,27 @@ import type {
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { StashApplyError, StashApplyErrorReason } from '../../../git/errors';
+import { Features } from '../../../features';
+import {
+	StashApplyError,
+	StashApplyErrorReason,
+	WorktreeCreateError,
+	WorktreeCreateErrorReason,
+	WorktreeDeleteError,
+	WorktreeDeleteErrorReason,
+} from '../../../git/errors';
 import {
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
-	NextComparisionUrisResult,
+	NextComparisonUrisResult,
 	PagedResult,
-	PreviousComparisionUrisResult,
-	PreviousLineComparisionUrisResult,
+	PreviousComparisonUrisResult,
+	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
@@ -70,6 +80,7 @@ import {
 	GitTag,
 	GitTreeEntry,
 	GitUser,
+	GitWorktree,
 	isUserMatch,
 	Repository,
 	RepositoryChange,
@@ -88,10 +99,11 @@ import {
 	GitStatusParser,
 	GitTagParser,
 	GitTreeParser,
+	GitWorktreeParser,
 	LogType,
 } from '../../../git/parsers';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
+import { RemoteProvider, RemoteResourceType, RichRemoteProvider } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';
 import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
@@ -105,12 +117,13 @@ import {
 	getBestPath,
 	isAbsolute,
 	isFolderGlob,
+	joinPaths,
 	maybeUri,
 	normalizePath,
 	relative,
 	splitPath,
 } from '../../../system/path';
-import { any, PromiseOrValue, wait } from '../../../system/promise';
+import { any, fastestSettled, PromiseOrValue, wait } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
@@ -324,10 +337,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 					CoreGitConfiguration.AutoRepositoryDetection,
+					uri,
 				) ?? true;
-			if (autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors') return [];
 
-			const repositories = await this.repositorySearch(workspace.getWorkspaceFolder(uri)!);
+			const repositories = await this.repositorySearch(
+				workspace.getWorkspaceFolder(uri)!,
+				autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined,
+			);
+
 			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
 				for (const repository of repositories) {
 					void this.openScmRepository(repository.uri);
@@ -362,7 +379,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		suspended?: boolean,
 		closed?: boolean,
 	): Repository {
-		void this.openScmRepository(uri);
+		if (!closed) {
+			void this.openScmRepository(uri);
+		}
+
 		return new Repository(
 			this.container,
 			this.onRepositoryChanged.bind(this),
@@ -383,6 +403,71 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		};
 	}
 
+	private _supportedFeatures = new Map<Features, boolean>();
+	async supports(feature: Features): Promise<boolean> {
+		let supported = this._supportedFeatures.get(feature);
+		if (supported != null) return supported;
+
+		switch (feature) {
+			case Features.Worktrees:
+				supported = await this.git.isAtLeastVersion('2.17.0');
+				this._supportedFeatures.set(feature, supported);
+				return supported;
+			default:
+				return true;
+		}
+	}
+
+	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+		const remotes = await this.getRemotes(repoPath);
+		if (remotes.length === 0) return RepositoryVisibility.Local;
+
+		const origin = remotes.find(r => r.name === 'origin');
+		if (origin != null) {
+			return this.getRemoteVisibility(origin);
+		}
+
+		const upstream = remotes.find(r => r.name === 'upstream');
+		if (upstream != null) {
+			return this.getRemoteVisibility(upstream);
+		}
+
+		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
+			if (result.status !== 'fulfilled') continue;
+
+			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
+		}
+
+		return RepositoryVisibility.Private;
+	}
+
+	private async getRemoteVisibility(
+		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+	): Promise<RepositoryVisibility> {
+		switch (remote.provider?.id) {
+			case 'github':
+			case 'gitlab':
+			case 'bitbucket':
+			case 'azure-devops':
+			case 'gitea':
+			case 'gerrit': {
+				const url = remote.provider.url({ type: RemoteResourceType.Repo });
+				if (url == null) return RepositoryVisibility.Private;
+
+				// Check if the url returns a 200 status code
+				try {
+					const response = await fetch(url, { method: 'HEAD', agent: getProxyAgent() });
+					if (response.status === 200) {
+						return RepositoryVisibility.Public;
+					}
+				} catch {}
+				return RepositoryVisibility.Private;
+			}
+			default:
+				return RepositoryVisibility.Private;
+		}
+	}
+
 	@log<LocalGitProvider['repositorySearch']>({
 		args: false,
 		singleLine: true,
@@ -392,9 +477,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : ''
 			}`,
 	})
-	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
+	private async repositorySearch(folder: WorkspaceFolder, depth?: number): Promise<Repository[]> {
 		const cc = Logger.getCorrelationContext();
-		const depth = configuration.get('advanced.repositorySearchDepth', folder.uri);
+		depth =
+			depth ??
+			configuration.get('advanced.repositorySearchDepth', folder.uri) ??
+			configuration.getAny<number>(CoreGitConfiguration.RepositoryScanMaxDepth, folder.uri, 1);
 
 		Logger.log(cc, `searching (depth=${depth})...`);
 
@@ -728,7 +816,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { fileName?: string },
+		options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {
 		const cc = Logger.getCorrelationContext();
 
@@ -957,7 +1045,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		const paths = await this.isTracked(uri);
+		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
@@ -1037,7 +1125,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
-		const paths = await this.isTracked(uri);
+		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
@@ -2421,7 +2509,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		key: string,
 		cc: LogCorrelationContext | undefined,
 	): Promise<GitLog | undefined> {
-		const paths = await this.isTracked(path, repoPath, ref);
+		const paths = await this.isTrackedPrivate(path, repoPath, ref);
 		if (paths == null) {
 			Logger.log(cc, `Skipping blame; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
@@ -2679,7 +2767,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<NextComparisionUrisResult | undefined> {
+	): Promise<NextComparisonUrisResult | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
 		if (!ref) return undefined;
 
@@ -2783,7 +2871,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 		firstParent: boolean = false,
-	): Promise<PreviousComparisionUrisResult | undefined> {
+	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		const relativePath = this.getRelativePath(uri, repoPath);
@@ -2860,7 +2948,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<PreviousLineComparisionUrisResult | undefined> {
+	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
 		let relativePath = this.getRelativePath(uri, repoPath);
@@ -3296,11 +3384,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.supportedSchemes.has(uri.scheme);
 	}
 
-	private async isTracked(uri: GitUri): Promise<[string, string] | undefined>;
-	private async isTracked(path: string, repoPath?: string, ref?: string): Promise<[string, string] | undefined>;
-	@log<LocalGitProvider['isTracked']>({ exit: tracked => `returned ${Boolean(tracked)}` })
-	private async isTracked(
-		pathOrUri: string | GitUri,
+	async isTracked(uri: Uri): Promise<boolean> {
+		return (await this.isTrackedPrivate(uri)) != null;
+	}
+
+	private async isTrackedPrivate(uri: Uri | GitUri): Promise<[string, string] | undefined>;
+	private async isTrackedPrivate(
+		path: string,
+		repoPath?: string,
+		ref?: string,
+	): Promise<[string, string] | undefined>;
+	@log<LocalGitProvider['isTrackedPrivate']>({ exit: tracked => `returned ${Boolean(tracked)}` })
+	private async isTrackedPrivate(
+		pathOrUri: string | Uri | GitUri,
 		repoPath?: string,
 		ref?: string,
 	): Promise<[string, string] | undefined> {
@@ -3317,9 +3413,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} else {
 			if (!this.isTrackable(pathOrUri)) return undefined;
 
-			// Always use the ref of the GitUri
-			ref = pathOrUri.sha;
-			if (ref === GitRevision.deletedOrMissing) return undefined;
+			if (pathOrUri instanceof GitUri) {
+				// Always use the ref of the GitUri
+				ref = pathOrUri.sha;
+				if (ref === GitRevision.deletedOrMissing) return undefined;
+			}
 
 			repository = this.container.git.getRepository(pathOrUri);
 			repoPath = repoPath || repository?.path;
@@ -3583,11 +3681,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (ex instanceof Error) {
 				const msg: string = ex.message ?? '';
 				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					throw new StashApplyError(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
-						StashApplyErrorReason.WorkingChanges,
-						ex,
-					);
+					throw new StashApplyError(StashApplyErrorReason.WorkingChanges, ex);
 				}
 
 				if (
@@ -3601,14 +3695,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return;
 				}
 
-				throw new StashApplyError(
-					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
-					undefined,
-					ex,
-				);
+				throw new StashApplyError(`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`, ex);
 			}
 
-			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, undefined, ex);
+			throw new StashApplyError(`Unable to apply stash \u2014 ${String(ex)}`, ex);
 		}
 	}
 
@@ -3650,6 +3740,84 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			pathspecs: pathspecs,
 			stdin: stdin,
 		});
+	}
+
+	@log()
+	async createWorktree(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	) {
+		try {
+			await this.git.worktree__add(repoPath, path, options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			const msg = String(ex);
+
+			if (GitErrors.alreadyCheckedOut.test(msg)) {
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyCheckedOut, ex);
+			}
+
+			if (GitErrors.alreadyExists.test(msg)) {
+				throw new WorktreeCreateError(WorktreeCreateErrorReason.AlreadyExists, ex);
+			}
+
+			throw new WorktreeCreateError(undefined, ex);
+		}
+	}
+
+	@gate()
+	@log()
+	async getWorktrees(repoPath: string): Promise<GitWorktree[]> {
+		await this.ensureGitVersion(
+			'2.7.6',
+			'Displaying worktrees',
+			' Please install a more recent version of Git and try again.',
+		);
+
+		const data = await this.git.worktree__list(repoPath);
+		return GitWorktreeParser.parse(data, repoPath);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	@log()
+	async getWorktreesDefaultUri(repoPath: string): Promise<Uri | undefined> {
+		let location = configuration.get('worktrees.defaultLocation');
+		if (location == null) return undefined;
+
+		if (location.startsWith('~')) {
+			location = joinPaths(homedir(), location.slice(1));
+		}
+
+		return this.getAbsoluteUri(location, repoPath); //isAbsolute(location) ? GitUri.file(location) : ;
+	}
+
+	@log()
+	async deleteWorktree(repoPath: string, path: string, options?: { force?: boolean }) {
+		await this.ensureGitVersion(
+			'2.17.0',
+			'Deleting worktrees',
+			' Please install a more recent version of Git and try again.',
+		);
+
+		try {
+			await this.git.worktree__remove(repoPath, path, options);
+		} catch (ex) {
+			Logger.error(ex);
+
+			const msg = String(ex);
+
+			if (GitErrors.mainWorkingTree.test(msg)) {
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.MainWorkingTree, ex);
+			}
+
+			if (GitErrors.uncommittedChanges.test(msg)) {
+				throw new WorktreeDeleteError(WorktreeDeleteErrorReason.HasChanges, ex);
+			}
+
+			throw new WorktreeDeleteError(undefined, ex);
+		}
 	}
 
 	private _scmGitApi: Promise<BuiltInGitApi | undefined> | undefined;

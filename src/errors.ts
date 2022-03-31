@@ -1,4 +1,43 @@
 import { Uri } from 'vscode';
+import { isSubscriptionPaidPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
+
+export class AccessDeniedError extends Error {
+	public readonly subscription: Subscription;
+	public readonly required: RequiredSubscriptionPlans | undefined;
+
+	constructor(subscription: Subscription, required: RequiredSubscriptionPlans | undefined) {
+		let message;
+		if (subscription.account?.verified === false) {
+			message = 'Email verification required';
+		} else if (required != null && isSubscriptionPaidPlan(required)) {
+			message = 'Paid subscription required';
+		} else {
+			message = 'Subscription required';
+		}
+
+		super(message);
+
+		this.subscription = subscription;
+		this.required = required;
+		Error.captureStackTrace?.(this, AccessDeniedError);
+	}
+}
+
+export class AccountValidationError extends Error {
+	readonly original?: Error;
+	readonly statusCode?: number;
+	readonly statusText?: string;
+
+	constructor(message: string, original?: Error, statusCode?: number, statusText?: string) {
+		message += `; status=${statusCode}: ${statusText}`;
+		super(message);
+
+		this.original = original;
+		this.statusCode = statusCode;
+		this.statusText = statusText;
+		Error.captureStackTrace?.(this, AccountValidationError);
+	}
+}
 
 export const enum AuthenticationErrorReason {
 	UserDidNotConsent = 1,
@@ -17,7 +56,7 @@ export class AuthenticationError extends Error {
 		let message;
 		let reason: AuthenticationErrorReason | undefined;
 		if (messageOrReason == null) {
-			message = `Unable to get required authentication session for '${id}`;
+			message = `Unable to get required authentication session for '${id}'`;
 		} else if (typeof messageOrReason === 'string') {
 			message = messageOrReason;
 			reason = undefined;
@@ -25,13 +64,13 @@ export class AuthenticationError extends Error {
 			reason = messageOrReason;
 			switch (reason) {
 				case AuthenticationErrorReason.UserDidNotConsent:
-					message = `'${id} authentication is required for this operation`;
+					message = `'${id}' authentication is required for this operation`;
 					break;
 				case AuthenticationErrorReason.Unauthorized:
-					message = `The provided '${id}' credentials are either invalid or expired`;
+					message = `Your '${id}' credentials are either invalid or expired`;
 					break;
 				case AuthenticationErrorReason.Forbidden:
-					message = `The provided '${id}' credentials do not have the required access`;
+					message = `Your '${id}' credentials do not have the required access`;
 					break;
 			}
 		}
@@ -137,5 +176,17 @@ export class ProviderRequestNotFoundError extends Error {
 		super(original.message);
 
 		Error.captureStackTrace?.(this, ProviderRequestNotFoundError);
+	}
+}
+
+export class ProviderRequestRateLimitError extends Error {
+	constructor(
+		public readonly original: Error,
+		public readonly token: string,
+		public readonly resetAt: number | undefined,
+	) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, ProviderRequestRateLimitError);
 	}
 }

@@ -8,22 +8,19 @@ export function initializeAndWatchThemeColors() {
 
 		const bodyStyle = body.style;
 
-		const font = computedStyle.getPropertyValue('--vscode-font-family').trim();
-		if (font) {
-			bodyStyle.setProperty('--font-family', font);
-			bodyStyle.setProperty('--font-size', computedStyle.getPropertyValue('--vscode-font-size').trim());
-			bodyStyle.setProperty('--font-weight', computedStyle.getPropertyValue('--vscode-font-weight').trim());
-		} else {
-			bodyStyle.setProperty(
-				'--font-family',
-				computedStyle.getPropertyValue('--vscode-editor-font-family').trim(),
-			);
-			bodyStyle.setProperty('--font-size', computedStyle.getPropertyValue('--vscode-editor-font-size').trim());
-			bodyStyle.setProperty(
-				'--font-weight',
-				computedStyle.getPropertyValue('--vscode-editor-font-weight').trim(),
-			);
-		}
+		bodyStyle.setProperty('--font-family', computedStyle.getPropertyValue('--vscode-font-family').trim());
+		bodyStyle.setProperty('--font-size', computedStyle.getPropertyValue('--vscode-font-size').trim());
+		bodyStyle.setProperty('--font-weight', computedStyle.getPropertyValue('--vscode-font-weight').trim());
+
+		bodyStyle.setProperty(
+			'--editor-font-family',
+			computedStyle.getPropertyValue('--vscode-editor-font-family').trim(),
+		);
+		bodyStyle.setProperty('--editor-font-size', computedStyle.getPropertyValue('--vscode-editor-font-size').trim());
+		bodyStyle.setProperty(
+			'--editor-font-weight',
+			computedStyle.getPropertyValue('--vscode-editor-font-weight').trim(),
+		);
 
 		let color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
 		bodyStyle.setProperty('--color-background', color);
@@ -55,15 +52,15 @@ export function initializeAndWatchThemeColors() {
 		color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
 		bodyStyle.setProperty('--color-button-foreground', color);
 
-		color = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
-		if (!color) {
-			color = computedStyle.getPropertyValue('--vscode-foreground').trim();
+		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
+		if (!foregroundColor) {
+			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
 		}
-		bodyStyle.setProperty('--color-foreground', color);
-		bodyStyle.setProperty('--color-foreground--85', opacity(color, 85));
-		bodyStyle.setProperty('--color-foreground--75', opacity(color, 75));
-		bodyStyle.setProperty('--color-foreground--65', opacity(color, 65));
-		bodyStyle.setProperty('--color-foreground--50', opacity(color, 50));
+		bodyStyle.setProperty('--color-foreground', foregroundColor);
+		bodyStyle.setProperty('--color-foreground--85', opacity(foregroundColor, 85));
+		bodyStyle.setProperty('--color-foreground--75', opacity(foregroundColor, 75));
+		bodyStyle.setProperty('--color-foreground--65', opacity(foregroundColor, 65));
+		bodyStyle.setProperty('--color-foreground--50', opacity(foregroundColor, 50));
 
 		color = computedStyle.getPropertyValue('--vscode-focusBorder').trim();
 		bodyStyle.setProperty('--color-focus-border', color);
@@ -72,6 +69,25 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-link-foreground', color);
 		bodyStyle.setProperty('--color-link-foreground--darken-20', darken(color, 20));
 		bodyStyle.setProperty('--color-link-foreground--lighten-20', lighten(color, 20));
+
+		color = computedStyle.getPropertyValue('--vscode-sideBar-foreground').trim();
+		bodyStyle.setProperty('--color-view-foreground', color || foregroundColor);
+
+		bodyStyle.setProperty(
+			'--color-view-header-foreground',
+			computedStyle.getPropertyValue('--vscode-sideBarSectionHeader-foreground').trim() ||
+				color ||
+				foregroundColor,
+		);
+
+		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-background').trim();
+		bodyStyle.setProperty('--color-hover-background', color);
+		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-border').trim();
+		bodyStyle.setProperty('--color-hover-border', color);
+		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-foreground').trim();
+		bodyStyle.setProperty('--color-hover-foreground', color);
+		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-statusBarBackground').trim();
+		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
 	};
 
 	const observer = new MutationObserver(onColorThemeChanged);
