@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Fixed
 
+- Fixes [#1928](https://github.com/gitkraken/vscode-gitlens/issues/1928) - Unable to get absolute uri between ex.txt and z:; Base path 'z:' must be an absolute path &mdash; thanks to [PR #1929](https://github.com/gitkraken/vscode-gitlens/pull/1929) by Ross Smith II ([@rasa](https://github.com/rasa))
 - Fixes [#1932](https://github.com/gitkraken/vscode-gitlens/issues/1932) - Pull request autolink doesn't work for Bitbucket Server 7 &mdash; thanks to [PR #1933](https://github.com/gitkraken/vscode-gitlens/pull/1933) by Sam Martin ([@smartinio](https://github.com/smartinio))
 - Fixes [#1938](https://github.com/gitkraken/vscode-gitlens/issues/1938) - Git CodeLens causes line jumping on new virtual files
 - Fixes [#1925](https://github.com/gitkraken/vscode-gitlens/issues/1925) - Branches from remotes outside the repo aren't showing associated pull requests (for connected remotes)
