@@ -282,6 +282,11 @@ export class SubscriptionService implements Disposable {
 		if (this._session != null) {
 			void this.container.subscriptionAuthentication.removeSession(this._session.id);
 			this._session = undefined;
+		} else {
+			// Even if we don't have a session, make sure to remove any other matching sessions
+			void this.container.subscriptionAuthentication.removeSessionsByScopes(
+				SubscriptionService.authenticationScopes,
+			);
 		}
 
 		if (reset && this.container.debugging) {

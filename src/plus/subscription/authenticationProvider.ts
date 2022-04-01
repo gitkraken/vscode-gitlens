@@ -138,6 +138,42 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		}
 	}
 
+	@debug()
+	public async removeSessionsByScopes(scopes?: string[]) {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			scopes = scopes?.sort();
+			const scopesKey = getScopesKey(scopes);
+
+			const removed: AuthenticationSession[] = [];
+
+			let index = 0;
+
+			const sessions = await this._sessionsPromise;
+
+			for (const session of sessions) {
+				if (getScopesKey(session.scopes) !== scopesKey) {
+					index++;
+					continue;
+				}
+
+				sessions.splice(index, 1);
+				removed.push(session);
+			}
+
+			if (removed.length === 0) return;
+
+			await this.storeSessions(sessions);
+
+			this._onDidChangeSessions.fire({ added: [], removed: removed, changed: [] });
+		} catch (ex) {
+			Logger.error(ex, cc);
+			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
+			throw ex;
+		}
+	}
+
 	private _migrated: boolean | undefined;
 	async tryMigrateSession(): Promise<AuthenticationSession | undefined> {
 		if (this._migrated == null) {
