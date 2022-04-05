@@ -675,6 +675,9 @@ Additionally, these integrations provide commands to copy the URL of or open fil
 - Adds an _Add Co-authors_ command (`gitlens.addAuthors`) to add a co-author to the commit message input box
 
 - Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit SHA of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
+
+- Adds a _Copy Relative Path_ command (`gitlens.copyRelativePathToClipboard`) to copy the relative path, of the active file in the editor, to the clipboard
+
 - Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a _Copy Current Branch_ command (`gitlens.copyCurrentBranch`) to copy the name of the current branch to the clipboard

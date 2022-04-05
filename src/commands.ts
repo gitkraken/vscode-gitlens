@@ -6,6 +6,7 @@ export * from './commands/copyCurrentBranch';
 export * from './commands/copyDeepLink';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
+export * from './commands/copyRelativePathToClipboard';
 export * from './commands/createPullRequestOnRemote';
 export * from './commands/openDirectoryCompare';
 export * from './commands/diffLineWithPrevious';
