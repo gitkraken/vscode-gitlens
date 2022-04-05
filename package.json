@@ -169,6 +169,7 @@
 		"onCommand:gitlens.copyCurrentBranch",
 		"onCommand:gitlens.copyMessageToClipboard",
 		"onCommand:gitlens.copyShaToClipboard",
+		"onCommand:gitlens.copyRelativePathToClipboard",
 		"onCommand:gitlens.closeUnchangedFiles",
 		"onCommand:gitlens.openChangedFiles",
 		"onCommand:gitlens.openBranchesOnRemote",
@@ -5133,6 +5134,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.copyRelativePathToClipboard",
+				"title": "Copy Relative Path",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.closeUnchangedFiles",
 				"title": "Close Unchanged Files",
 				"category": "GitLens"
@@ -7880,6 +7887,10 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
+					"command": "gitlens.copyRelativePathToClipboard",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.closeUnchangedFiles",
 					"when": "gitlens:enabled"
 				},
@@ -9354,9 +9365,14 @@
 					"group": "2_gitlens@1"
 				},
 				{
-					"command": "gitlens.copyMessageToClipboard",
+					"command": "gitlens.copyRelativePathToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.copyMessageToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "2_gitlens@3"
 				}
 			],
 			"editor/title": [
