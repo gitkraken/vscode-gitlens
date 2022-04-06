@@ -628,6 +628,7 @@ Additionally, these integrations provide commands to copy the url of or open fil
 - _Open Commit on Remote_ command (`gitlens.openCommitOnRemote`) &mdash; opens a commit on the remote provider
 - _Copy Remote Commit Url_ command (`gitlens.copyRemoteCommitUrl`) &mdash; copies the url of a commit on the remote provider
 - _Open Branch on Remote_ command (`gitlens.openBranchOnRemote`) &mdash; opens the branch on the remote provider
+- _Open Current Branch on Remote_ command (`gitlens.openCurrentBranchOnRemote`) &mdash; opens the current branch on the remote provider
 - _Copy Remote Branch Url_ command (`gitlens.copyRemoteBranchUrl`) &mdash; copies the url of a branch on the remote provider
 - _Open Branches on Remote_ command (`gitlens.openBranchesOnRemote`) &mdash; opens the branches on the remote provider
 - _Copy Remote Branches Url_ command (`gitlens.copyRemoteBranchesUrl`) &mdash; copies the url of the branches on the remote provider

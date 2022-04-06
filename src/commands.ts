@@ -22,6 +22,7 @@ export * from './commands/logging';
 export * from './commands/openAssociatedPullRequestOnRemote';
 export * from './commands/openBranchesOnRemote';
 export * from './commands/openBranchOnRemote';
+export * from './commands/openCurrentBranchOnRemote';
 export * from './commands/openChangedFiles';
 export * from './commands/openCommitOnRemote';
 export * from './commands/openComparisonOnRemote';
