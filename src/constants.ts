@@ -105,6 +105,7 @@ export const enum Commands {
 	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
 	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',
 	OpenBranchOnRemote = 'gitlens.openBranchOnRemote',
+	OpenCurrentBranchOnRemote = 'gitlens.openCurrentBranchOnRemote',
 	OpenChangedFiles = 'gitlens.openChangedFiles',
 	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
 	OpenComparisonOnRemote = 'gitlens.openComparisonOnRemote',

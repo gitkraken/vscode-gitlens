@@ -166,6 +166,7 @@
 		"onCommand:gitlens.openBranchesOnRemote",
 		"onCommand:gitlens.copyRemoteBranchesUrl",
 		"onCommand:gitlens.openBranchOnRemote",
+		"onCommand:gitlens.openCurrentBranchOnRemote",
 		"onCommand:gitlens.copyRemoteBranchUrl",
 		"onCommand:gitlens.openCommitOnRemote",
 		"onCommand:gitlens.copyRemoteCommitUrl",
@@ -4405,6 +4406,12 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.openCurrentBranchOnRemote",
+				"title": "Open Current Branch on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
 				"command": "gitlens.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch Url",
 				"category": "GitLens",
@@ -6507,6 +6514,10 @@
 				},
 				{
 					"command": "gitlens.openBranchOnRemote",
+					"when": "gitlens:hasRemotes"
+				},
+				{
+					"command": "gitlens.openCurrentBranchOnRemote",
 					"when": "gitlens:hasRemotes"
 				},
 				{
