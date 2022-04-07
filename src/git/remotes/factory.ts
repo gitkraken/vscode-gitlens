@@ -8,6 +8,7 @@ import { GerritRemote } from './gerrit';
 import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
+import { GoogleSourceRemote } from './google-source';
 import { RemoteProvider } from './provider';
 
 // export { RemoteProvider, RichRemoteProvider };
@@ -60,8 +61,13 @@ const builtInProviders: RemoteProviders = [
 	},
 	{
 		custom: false,
-		matcher: /\bgooglesource\.com$/i,
+		matcher: /\bgerrithub\.io$/i,
 		creator: (domain: string, path: string) => new GerritRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bgooglesource\.com$/i,
+		creator: (domain: string, path: string) => new GoogleSourceRemote(domain, path),
 	},
 ];
 
@@ -143,6 +149,9 @@ export class RemoteProviderFactory {
 					new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
 			case CustomRemoteType.Gerrit:
 				return (domain: string, path: string) => new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
+			case CustomRemoteType.GoogleSource:
+				return (domain: string, path: string) =>
+					new GoogleSourceRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.Gitea:
 				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitHub:
