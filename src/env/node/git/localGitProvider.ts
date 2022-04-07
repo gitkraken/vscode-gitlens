@@ -450,7 +450,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			case 'bitbucket':
 			case 'azure-devops':
 			case 'gitea':
-			case 'gerrit': {
+			case 'gerrit':
+			case 'google-source': {
 				const url = remote.provider.url({ type: RemoteResourceType.Repo });
 				if (url == null) return RepositoryVisibility.Private;
 

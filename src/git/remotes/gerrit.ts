@@ -9,7 +9,26 @@ const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;
 
 export class GerritRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+		trimPath: boolean = true,
+	) {
+		/*
+		 * Git remote URLs differs when cloned by HTTPS with or without authentication.
+		 * An anonymous clone looks like:
+		 * 	 $ git clone "https://review.gerrithub.io/jenkinsci/gerrit-code-review-plugin"
+		 * An authenticated clone looks like:
+		 * 	 $ git clone "https://felipecrs@review.gerrithub.io/a/jenkinsci/gerrit-code-review-plugin"
+		 *   Where username may be omitted, but the "a/" prefix is always present.
+		 */
+		if (trimPath && protocol !== 'ssh') {
+			path = path.replace(/^a\//, '');
+		}
+
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -40,13 +59,12 @@ export class GerritRemote extends RemoteProvider {
 		return this.formatName('Gerrit');
 	}
 
-	private get reviewDomain(): string {
-		const [subdomain, secondLevelDomain, topLevelDomain] = this.domain.split('.');
-		return [`${subdomain}-review`, secondLevelDomain, topLevelDomain].join('.');
+	protected override get baseUrl(): string {
+		return `${this.protocol}://${this.domain}/plugins/gitiles/${this.path}`;
 	}
 
-	private get baseReviewUrl(): string {
-		return `${this.protocol}://${this.reviewDomain}`;
+	protected get baseReviewUrl(): string {
+		return `${this.protocol}://${this.domain}`;
 	}
 
 	async getLocalInfoFromRemoteUri(

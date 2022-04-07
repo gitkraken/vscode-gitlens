@@ -234,6 +234,7 @@ export const enum CustomRemoteType {
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',
 	Gerrit = 'Gerrit',
+	GoogleSource = 'GoogleSource',
 	Gitea = 'Gitea',
 	GitHub = 'GitHub',
 	GitLab = 'GitLab',
