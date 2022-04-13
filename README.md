@@ -29,45 +29,45 @@
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
-GitLens is **powerful**, **feature rich**, and [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your needs. Do you find CodeLens intrusive or the current line blame annotation distracting &mdash; no problem, quickly turn them off or change how they behave via the interactive [_GitLens Settings_ editor](#configuration 'Jump to Configuration'). For advanced customizations, refer to the [GitLens docs](#gitlens-settings- 'Jump to GitLens settings') and edit your [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
+GitLens is **powerful**, **feature rich**, and [highly customizable](#gitlens-settings 'Jump to the GitLens settings docs') to meet your needs. Do you find CodeLens intrusive or the current line blame annotation distracting &mdash; no problem, quickly turn them off or change how they behave via the interactive [_GitLens Settings_ editor](#configuration 'Jump to Configuration'). For advanced customizations, refer to the [GitLens docs](#gitlens-settings 'Jump to GitLens settings') and edit your [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
 
 Here are just some of the **features** that GitLens provides,
 
-- effortless [**revision navigation**](#revision-navigation- 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
-- an unobtrusive [**current line blame**](#current-line-blame- 'Jump to Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers- 'Jump to Hovers')
-- [**authorship CodeLens**](#git-codelens- 'Jump to Git CodeLens') showing the most recent commit and number of authors at the top of files and/or on code blocks
-- a [**status bar blame**](#status-bar-blame- 'Jump to Status Bar Blame') annotation showing the commit and author who last modified the current line
+- effortless [**revision navigation**](#revision-navigation 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
+- an unobtrusive [**current line blame**](#current-line-blame 'Jump to Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers 'Jump to Hovers')
+- [**authorship CodeLens**](#git-codelens 'Jump to Git CodeLens') showing the most recent commit and number of authors at the top of files and/or on code blocks
+- a [**status bar blame**](#status-bar-blame 'Jump to Status Bar Blame') annotation showing the commit and author who last modified the current line
 - on-demand **file annotations** in the editor gutter, including
-  - [**blame**](#gutter-blame- 'Jump to Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
-  - [**changes**](#gutter-changes- 'Jump to Gutter Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
-  - [**heatmap**](#gutter-heatmap- 'Jump to Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
+  - [**blame**](#gutter-blame 'Jump to Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
+  - [**changes**](#gutter-changes 'Jump to Gutter Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
+  - [**heatmap**](#gutter-heatmap 'Jump to Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - many rich **Side Bar views**
-  - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
-  - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
-  - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
-  - a [**_Line History_ view**](#line-history-view- 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of the current file
-  - a [**_Branches_ view**](#branches-view- 'Jump to the Branches view') to visualize, explore, and manage Git branches
-  - a [**_Remotes_ view**](#remotes-view- 'Jump to the Remotes view') to visualize, explore, and manage Git remotes and remote branches
-  - a [**_Stashes_ view**](#stashes-view- 'Jump to the Stashes view') to visualize, explore, and manage Git stashes
-  - a [**_Tags_ view**](#tags-view- 'Jump to the Tags view') to visualize, explore, and manage Git tags
-  - a [**_Contributors_ view**](#contributors-view- 'Jump to the Contributors view') to visualize, navigate, and explore contributors
-  - a [**_Search & Compare_ view**](#search--compare-view- 'Jump to the Search & Compare view') to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
-- a [**Git Command Palette**](#git-command-palette- 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands, as well as quick access to
-  - [commits](#quick-commit-access- 'Jump to Quick Commit Access') &mdash; history and search
-  - [stashes](#quick-stash-access- 'Jump to Quick Stash Access')
-  - [status](#quick-status-access- 'Jump to Quick Status Access') &mdash; current branch and working tree status
-- a user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to easily configure an interactive rebase session
-- [**terminal links**](#terminal-links- 'Jump to Terminal Links') &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
-- rich [**remote provider integrations**](#remote-provider-integrations- 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Gitea, Gerrit, GoogleSource, Bitbucket, Azure DevOps
+  - a [**_Commits_ view**](#commits-view 'Jump to the Commits view') to visualize, explore, and manage Git commits
+  - a [**_Repositories_ view**](#repositories-view 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
+  - a [**_File History_ view**](#file-history-view 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
+  - a [**_Line History_ view**](#line-history-view 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of the current file
+  - a [**_Branches_ view**](#branches-view 'Jump to the Branches view') to visualize, explore, and manage Git branches
+  - a [**_Remotes_ view**](#remotes-view 'Jump to the Remotes view') to visualize, explore, and manage Git remotes and remote branches
+  - a [**_Stashes_ view**](#stashes-view 'Jump to the Stashes view') to visualize, explore, and manage Git stashes
+  - a [**_Tags_ view**](#tags-view 'Jump to the Tags view') to visualize, explore, and manage Git tags
+  - a [**_Contributors_ view**](#contributors-view 'Jump to the Contributors view') to visualize, navigate, and explore contributors
+  - a [**_Search & Compare_ view**](#search--compare-view 'Jump to the Search & Compare view') to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+- a [**Git Command Palette**](#git-command-palette 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands, as well as quick access to
+  - [commits](#quick-commit-access 'Jump to Quick Commit Access') &mdash; history and search
+  - [stashes](#quick-stash-access 'Jump to Quick Stash Access')
+  - [status](#quick-status-access 'Jump to Quick Status Access') &mdash; current branch and working tree status
+- a user-friendly [**interactive rebase editor**](#interactive-rebase-editor 'Jump to the Interactive Rebase Editor') to easily configure an interactive rebase session
+- [**terminal links**](#terminal-links 'Jump to Terminal Links') &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
+- rich [**remote provider integrations**](#remote-provider-integrations 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Gitea, Gerrit, GoogleSource, Bitbucket, Azure DevOps
   - issue and pull request auto-linking
   - rich hover information provided for linked issues and pull requests (GitHub only)
   - associates pull requests with branches and commits (GitHub only)
-- many [**powerful commands**](#powerful-commands- 'Jump to Powerful Commands') for navigating and comparing revisions and more
-- customizable [**menus & toolbars**](#menus--toolbars- 'Jump to Menus & Toolbars') for control over where menu and toolbar items are shown
-- user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
+- many [**powerful commands**](#powerful-commands 'Jump to Powerful Commands') for navigating and comparing revisions and more
+- customizable [**menus & toolbars**](#menus--toolbars 'Jump to Menus & Toolbars') for control over where menu and toolbar items are shown
+- user-defined [**modes**](#modes 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
-# Introducing GitLens+ [#](#introducing-gitlens+-features- 'GitLens+ features')
+# Introducing GitLens+ [#](#introducing-gitlens+-features 'GitLens+ features')
 
 GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [ GitLens+ features](https://gitkraken.com/gitlens/plus-features).
 
@@ -77,7 +77,7 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
 
-## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
+## Visual File History view [#](#visual-file-history-view 'Visual File History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-hover.png" alt="Visual File History view" />
@@ -89,7 +89,7 @@ Authors who have contributed changes to the file are on the left y-axis to creat
 
 Additionally, each commit's additions and deletions are visualized as color-coded, stacked, vertical bars, whose height represents the number of affected lines (right y-axis). Added lines are shown in green, while deleted lines are red.
 
-## Worktrees view [#](#worktrees-view- 'Worktrees view')
+## Worktrees view [#](#worktrees-view 'Worktrees view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-view.png" alt="Worktrees view" />
@@ -99,7 +99,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
 
 # Features
 
-## Revision Navigation [#](#revision-navigation- 'Revision Navigation')
+## Revision Navigation [#](#revision-navigation 'Revision Navigation')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/revision-navigation.gif" alt="Revision Navigation" />
@@ -113,32 +113,32 @@ Worktrees allow you to easily work on different branches of a repository simulta
 - Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithRevisionFrom`) to compare the current file or revision with another revision of the same file on the selected reference
 - Adds an _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file or revision with another revision of the same file
 
-## Current Line Blame [#](#current-line-blame- 'Current Line Blame')
+## Current Line Blame [#](#current-line-blame 'Current Line Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/current-line-blame.png" alt="Current Line Blame" />
 </p>
 
-- Adds an unobtrusive, [customizable](#current-line-blame-settings- 'Jump to the Current Line Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
-  - Contains the author, date, and message of the current line's most recent commit (by [default](#current-line-blame-settings- 'Jump to the Current Line Blame settings'))
+- Adds an unobtrusive, [customizable](#current-line-blame-settings 'Jump to the Current Line Blame settings'), and [themable](#themable-colors 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
+  - Contains the author, date, and message of the current line's most recent commit (by [default](#current-line-blame-settings 'Jump to the Current Line Blame settings'))
   - Adds a _Toggle Line Blame_ command (`gitlens.toggleLineBlame`) to toggle the blame annotation on and off
 
-## Git CodeLens [#](#git-codelens- 'Git CodeLens')
+## Git CodeLens [#](#git-codelens 'Git CodeLens')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/code-lens.png" alt="Git CodeLens" />
 </p>
 
-- Adds Git authorship **CodeLens** to the top of the file and on code blocks ([optional](#git-codelens-settings- 'Jump to the Git CodeLens settings'), on by default)
+- Adds Git authorship **CodeLens** to the top of the file and on code blocks ([optional](#git-codelens-settings 'Jump to the Git CodeLens settings'), on by default)
 
   - **Recent Change** &mdash; author and date of the most recent commit for the file or code block
-    - Click the CodeLens to show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#git-codelens-settings- 'Jump to the Git CodeLens settings'))
+    - Click the CodeLens to show a **commit file details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#git-codelens-settings 'Jump to the Git CodeLens settings'))
   - **Authors** &mdash; number of authors of the file or code block and the most prominent author (if there is more than one)
 
-    - Click the CodeLens to toggle the file Git blame annotations on and off of the whole file (by [default](#git-codelens-settings- 'Jump to the Git CodeLens settings'))
+    - Click the CodeLens to toggle the file Git blame annotations on and off of the whole file (by [default](#git-codelens-settings 'Jump to the Git CodeLens settings'))
     - Will be hidden if the author of the most recent commit is also the only author of the file or block, to avoid duplicate information and reduce visual noise
 
-  - Provides [customizable](#git-codelens-settings- 'Jump to the Git CodeLens settings') click behavior for each CodeLens &mdash; choose between one of the following
+  - Provides [customizable](#git-codelens-settings 'Jump to the Git CodeLens settings') click behavior for each CodeLens &mdash; choose between one of the following
     - Toggle file blame annotations on and off
     - Compare the commit with the previous commit
     - Show a quick pick menu with details and commands for the commit
@@ -148,18 +148,18 @@ Worktrees allow you to easily work on different branches of a repository simulta
 
 - Adds a _Toggle Git CodeLens_ command (`gitlens.toggleCodeLens`) with a shortcut of `shift+alt+b` to toggle the CodeLens on and off
 
-## Status Bar Blame [#](#status-bar-blame- 'Status Bar Blame')
+## Status Bar Blame [#](#status-bar-blame 'Status Bar Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/status-bar.png" alt="Status Bar Blame" />
 </p>
 
-- Adds a [customizable](#status-bar-settings- 'Jump to the Status Bar Blame settings') **Git blame annotation** showing the commit and author who last modified the current line to the **status bar** ([optional](#status-bar-settings- 'Jump to the Status Bar Blame settings'), on by default)
+- Adds a [customizable](#status-bar-settings 'Jump to the Status Bar Blame settings') **Git blame annotation** showing the commit and author who last modified the current line to the **status bar** ([optional](#status-bar-settings 'Jump to the Status Bar Blame settings'), on by default)
 
-  - Contains the commit author and date (by [default](#status-bar-settings- 'Jump to the Status Bar Blame settings'))
-  - Click the status bar item to show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#status-bar-settings- 'Jump to the Status Bar Blame settings'))
+  - Contains the commit author and date (by [default](#status-bar-settings 'Jump to the Status Bar Blame settings'))
+  - Click the status bar item to show a **commit details quick pick menu** with commands for comparing, navigating and exploring commits, and more (by [default](#status-bar-settings 'Jump to the Status Bar Blame settings'))
 
-  - Provides [customizable](#status-bar-settings- 'Jump to the Status Bar Blame settings') click behavior &mdash; choose between one of the following
+  - Provides [customizable](#status-bar-settings 'Jump to the Status Bar Blame settings') click behavior &mdash; choose between one of the following
     - Toggle file blame annotations on and off
     - Toggle CodeLens on and off
     - Compare the line commit with the previous commit
@@ -169,7 +169,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
     - Show a quick pick menu with the commit history of the file
     - Show a quick pick menu with the commit history of the current branch
 
-## Hovers [#](#hovers- 'Hovers')
+## Hovers [#](#hovers 'Hovers')
 
 ### Current Line Hovers
 
@@ -177,7 +177,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
 </p>
 
-- Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible over the current line
+- Adds [customizable](#hover-settings 'Jump to the Hover settings') Git blame hovers accessible over the current line
 
 ### Details Hover
 
@@ -185,7 +185,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
     <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
   </p>
 
-- Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
+- Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, Gerrit, GoogleSource, Gitea, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
   - Click the commit SHA to execute the _Show Commit_ command
@@ -196,7 +196,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
 </p>
 
-- Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
+- Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
   - Click the current and previous commit SHAs to execute the _Show Commit_ command
 
@@ -206,7 +206,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
 </p>
 
-- Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible when annotating
+- Adds [customizable](#hover-settings 'Jump to the Hover settings') Git blame hovers accessible when annotating
 
 ### Details Hover
 
@@ -214,7 +214,7 @@ Worktrees allow you to easily work on different branches of a repository simulta
     <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
   </p>
 
-- Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
+- Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, Gerrit, GoogleSource, Gitea, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
   - Click the commit SHA to execute the _Show Commit_ command
@@ -225,46 +225,46 @@ Worktrees allow you to easily work on different branches of a repository simulta
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
 </p>
 
-- Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
+- Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
   - Click the current and previous commit SHAs to execute the _Show Commit_ command
 
-## Gutter Blame [#](#gutter-blame- 'Gutter Blame')
+## Gutter Blame [#](#gutter-blame 'Gutter Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-blame.png" alt="Gutter Blame">
 </p>
 
-- Adds on-demand, [customizable](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter blame annotations** to show the commit and author who last modified each line of a file
-  - Contains the commit message and date, by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')
-  - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')) of the gutter to provide an easy, at-a-glance way to tell how recently lines were changed ([optional](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), on by default)
-    - See the [gutter heatmap](#gutter-Heatmap- 'Jump to Gutter Heatmap') section below for more details
+- Adds on-demand, [customizable](#gutter-blame-settings 'Jump to the Gutter Blame settings'), and [themable](#themable-colors 'Jump to Themable Colors'), **gutter blame annotations** to show the commit and author who last modified each line of a file
+  - Contains the commit message and date, by [default](#gutter-blame-settings 'Jump to the Gutter Blame settings')
+  - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings 'Jump to the Gutter Blame settings')) of the gutter to provide an easy, at-a-glance way to tell how recently lines were changed ([optional](#gutter-blame-settings 'Jump to the Gutter Blame settings'), on by default)
+    - See the [gutter heatmap](#gutter-Heatmap 'Jump to Gutter Heatmap') section below for more details
   - Adds a _Toggle File Blame_ command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
-## Gutter Changes [#](#gutter-changes- 'Gutter Changes')
+## Gutter Changes [#](#gutter-changes 'Gutter Changes')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-changes.png" alt="Gutter Changes" />
 </p>
 
-- Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
+- Adds an on-demand, [customizable](#gutter-changes-settings 'Jump to the Gutter Changes settings') and [themable](#themable-colors 'Jump to Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
   - Adds _Toggle File Changes_ command (`gitlens.toggleFileChanges`) to toggle the changes annotations on and off
   - Press `Escape` to turn off the annotations
 
-## Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
+## Gutter Heatmap [#](#gutter-heatmap 'Gutter Heatmap')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gutter-heatmap.png" alt="Gutter Heatmap" />
 </p>
 
 - Adds an on-demand **heatmap** to the edge of the gutter to show how recently lines were changed
-  - The indicator's [customizable](#gutter-heatmap-settings- 'Jump to the Gutter Heatmap settings') color will either be hot or cold based on the age of the most recent change (cold after 90 days by [default](#gutter-heatmap-settings- 'Jump to the Gutter Heatmap settings'))
+  - The indicator's [customizable](#gutter-heatmap-settings 'Jump to the Gutter Heatmap settings') color will either be hot or cold based on the age of the most recent change (cold after 90 days by [default](#gutter-heatmap-settings 'Jump to the Gutter Heatmap settings'))
   - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`) to toggle the heatmap on and off
   - Press `Escape` to turn off the annotations
 
-## Side Bar Views [#](#side-bar-views- 'Side Bar Views')
+## Side Bar Views [#](#side-bar-views 'Side Bar Views')
 
 GitLens adds many side bar views to provide additional rich functionality. The default layout (location) of these views can be quickly customized via the _GitLens: Set Views Layout_ (`gitlens.setViewsLayout`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
 
@@ -276,19 +276,19 @@ GitLens adds many side bar views to provide additional rich functionality. The d
   <img src="images/docs/views-layout-gitlens.png" alt="Views Layout: GitLens" />
 </p>
 
-### Commits View [#](#commits-view- 'Commits view')
+### Commits View [#](#commits-view 'Commits view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commits-view.png" alt="Commits view" />
 </p>
 
-A [customizable](#commits-view-settings- 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits.
+A [customizable](#commits-view-settings 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits.
 
 The _Commits_ view lists all of the commits on the current branch, and additionally provides:
 
 - a toggle to switch between showing all commits or just your own commits
 - a toggle to change the file layout: list, tree, auto
-- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#commits-view-settings- 'Jump to the Commits view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
+- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#commits-view-settings 'Jump to the Commits view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the behind commits
   - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
@@ -307,13 +307,13 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 
 ---
 
-### Repositories View [#](#repositories-view- 'Repositories view')
+### Repositories View [#](#repositories-view 'Repositories view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
-A hidden by default, [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories.
+A hidden by default, [customizable](#repositories-view-settings 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories.
 
 The Repositories view lists opened Git repositories, and additionally provides:
 
@@ -324,37 +324,37 @@ The Repositories view lists opened Git repositories, and additionally provides:
   - _Green dot_ &mdash; has changes unpushed (ahead)
   - _Red dot_ &mdash; has changes unpulled (behind)
   - _Yellow dot_ &mdash; both unpushed and unpulled changes
-- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
+- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
   - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
-- **# files changed** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') lists all of the files changed in the working tree
-- the current branch status &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the upstream status of the current branch
+- **# files changed** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') lists all of the files changed in the working tree
+- the current branch status &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the upstream status of the current branch
   - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the unpulled commits and all of the files changed in them, when the current branch has commits that are waiting to be pulled from the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the unpublished commits and all of the files changed in them, when the current branch has commits that waiting to be pushed to the upstream remote
   - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
   - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
-- any associated pull request &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows any opened or merged pull request associated with the current branch
-- **Commits** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the current branch commits, similar to the [Commits view](#commits-view- 'Commits view')
-- **Branches** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the local branches, similar to the [Branches view](#branches-view- 'Branches view')
-- **Remotes** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the remotes and remote branches, similar to the [Remotes view](#remotes-view- 'Remotes view')
-- **Stashes** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the stashes, similar to the [Stashes view](#stashes-view- 'Stashes view')
-- **Tags** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the tags, similar to the [Tags view](#tags-view- 'Tags view')
-- **Contributors** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the contributors, similar to the [Contributors view](#contributors-view- 'Contributors view')
-- **Incoming Activity** (experimental) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows any incoming activity, which lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
+- any associated pull request &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows any opened or merged pull request associated with the current branch
+- **Commits** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the current branch commits, similar to the [Commits view](#commits-view 'Commits view')
+- **Branches** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the local branches, similar to the [Branches view](#branches-view 'Branches view')
+- **Remotes** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the remotes and remote branches, similar to the [Remotes view](#remotes-view 'Remotes view')
+- **Stashes** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the stashes, similar to the [Stashes view](#stashes-view 'Stashes view')
+- **Tags** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the tags, similar to the [Tags view](#tags-view 'Tags view')
+- **Contributors** &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the contributors, similar to the [Contributors view](#contributors-view 'Contributors view')
+- **Incoming Activity** (experimental) &mdash; [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows any incoming activity, which lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
 
 ---
 
-### File History View [#](#file-history-view- 'File History view')
+### File History View [#](#file-history-view 'File History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png" alt="File History view" />
 </p>
 
-A [customizable](#file-history-view-settings- 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file.
+A [customizable](#file-history-view-settings 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file.
 
 The file history view lists all of the commits that changed the current file on the current branch, and additionally provides:
 
@@ -369,13 +369,13 @@ The file history view lists all of the commits that changed the current file on 
 
 ---
 
-### Line History View [#](#line-history-view- 'Line History view')
+### Line History View [#](#line-history-view 'Line History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/line-history-view.png" alt="Line History view" />
 </p>
 
-A hidden by default, [customizable](#line-history-view-settings- 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file.
+A hidden by default, [customizable](#line-history-view-settings 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file.
 
 The line history view lists all of the commits that changed the selected lines of the current file on the current branch, and additionally provides:
 
@@ -386,13 +386,13 @@ The line history view lists all of the commits that changed the selected lines o
 
 ---
 
-### Branches view [#](#branches-view- 'Branches View')
+### Branches view [#](#branches-view 'Branches View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/branches-view.png" alt="Branches view" />
 </p>
 
-A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches.
+A [customizable](#branches-view-settings 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches.
 
 The _Branches_ view lists all of the local branches, and additionally provides:
 
@@ -410,7 +410,7 @@ The _Branches_ view lists all of the local branches, and additionally provides:
   - `▼▲` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
   - `▲+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
   - `!` + dark red colorization &mdash; indicates that the branch has a missing upstream (e.g. the upstream branch was deleted)
-- a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings- 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
+- a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the behind commits
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
@@ -424,13 +424,13 @@ The _Branches_ view lists all of the local branches, and additionally provides:
 
 ---
 
-### Remotes view [#](#remotes-view- 'Remotes View')
+### Remotes view [#](#remotes-view 'Remotes View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/remotes-view.png" alt="Remotes view" />
 </p>
 
-A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches.
+A [customizable](#remotes-view-settings 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches.
 
 The _Remotes_ view lists all of the remotes and their remote branches, and additionally provides:
 
@@ -440,13 +440,13 @@ The _Remotes_ view lists all of the remotes and their remote branches, and addit
 
 ---
 
-### Stashes View [#](#stashes-view- 'Stashes View')
+### Stashes View [#](#stashes-view 'Stashes View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/stashes-view.png" alt="Stashes view" />
 </p>
 
-A [customizable](#stashes-view-settings- 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes.
+A [customizable](#stashes-view-settings 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes.
 
 The _Stashes_ view lists all of the stashes, and additionally provides:
 
@@ -454,13 +454,13 @@ The _Stashes_ view lists all of the stashes, and additionally provides:
 
 ---
 
-### Tags View [#](#tags-view- 'Tags View')
+### Tags View [#](#tags-view 'Tags View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/tags-view.png" alt="Tags view" />
 </p>
 
-A [customizable](#tags-view-settings- 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags.
+A [customizable](#tags-view-settings 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags.
 
 The _Tags_ view lists all of the tags, and additionally provides:
 
@@ -469,13 +469,13 @@ The _Tags_ view lists all of the tags, and additionally provides:
 
 ---
 
-### Contributors View [#](#contributors-view- 'Contributors View')
+### Contributors View [#](#contributors-view 'Contributors View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
 </p>
 
-A hidden by default, [customizable](#contributors-view-settings- 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors.
+A hidden by default, [customizable](#contributors-view-settings 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors.
 
 The _Contributors_ view lists all of the contributors, and additionally provides:
 
@@ -483,13 +483,13 @@ The _Contributors_ view lists all of the contributors, and additionally provides
 
 ---
 
-### Search & Compare View [#](#search--compare-view- 'Search & Compare View')
+### Search & Compare View [#](#search--compare-view 'Search & Compare View')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A hidden by default, [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more.
+A hidden by default, [customizable](#search--compare-view-settings 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more.
 
 The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides:
 
@@ -518,17 +518,17 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
     - _Compare with Selected_ command (`gitlens.views.compareWithSelected`)
     - _Compare Ancestry with Working Tree_ command (`gitlens.views.compareAncestryWithWorking`)
 
-## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
+## Git Command Palette [#](#git-command-palette 'Git Command Palette')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/git-command-palette.png" alt="Git Command Palette" />
 </p>
 
-- Adds a [customizable](#git-command-palette-settings- 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands, as well as quick access to commit history and search, stashes, and more
+- Adds a [customizable](#git-command-palette-settings 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands, as well as quick access to commit history and search, stashes, and more
 
   - Quickly navigate and execute Git commands through easy-to-use menus where each command can require an explicit confirmation step before executing
 
-### Quick Commit Access [#](#quick-commit-access- 'Quick Commit Access')
+### Quick Commit Access [#](#quick-commit-access 'Quick Commit Access')
 
 - Adds a _Show Branch History_ command (`gitlens.showQuickBranchHistory`) to show a quick pick menu to explore the commit history of the selected branch
 - Adds a _Show Current Branch History_ command (`gitlens.showQuickRepoHistory`) to show a quick pick menu to explore the commit history of the current branch
@@ -566,7 +566,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
 </p>
 
-### Quick Stash Access [#](#quick-stash-access- 'Quick Stash Access')
+### Quick Stash Access [#](#quick-stash-access 'Quick Stash Access')
 
 - Adds a _Show Stashes_ command (`gitlens.showQuickStashList`) to show a quick pick menu to explore your stashes
 
@@ -577,7 +577,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
 </p>
 
-### Quick Status Access [#](#quick-status-access- 'Quick Status Access')
+### Quick Status Access [#](#quick-status-access 'Quick Status Access')
 
 - Adds a _Show Repository Status_ command (`gitlens.showQuickRepoStatus`) to show a quick pick menu to for visualizing the current repository status
 
@@ -585,7 +585,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
 </p>
 
-## Interactive Rebase Editor [#](#interactive-rebase-editor- 'Interactive Rebase Editor')
+## Interactive Rebase Editor [#](#interactive-rebase-editor 'Interactive Rebase Editor')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/rebase.gif" alt="Interactive Rebase Editor" />
@@ -603,18 +603,18 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 
   > To use the Insiders edition of VS Code, replace `code` in the above with `code-insiders`
 
-## Terminal Links [#](#terminal-links- 'Terminal Links')
+## Terminal Links [#](#terminal-links 'Terminal Links')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/terminal-links.gif" alt="Terminal Links" />
 </p>
 
-- [Optionally](##terminal-links-settings- 'Jump to the Terminal Links settings') adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
-- [Optionally](##terminal-links-settings- 'Jump to the Terminal Links settings') adds autolinks for commits in the integrated terminal to quickly explore the commit and take action upon it
+- [Optionally](##terminal-links-settings 'Jump to the Terminal Links settings') adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
+- [Optionally](##terminal-links-settings 'Jump to the Terminal Links settings') adds autolinks for commits in the integrated terminal to quickly explore the commit and take action upon it
 
-## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
+## Remote Provider Integrations [#](#remote-provider-integrations 'Remote Provider Integrations')
 
-GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Gitea, Gerrit, GoogleSource, Bitbucket, Bitbucket Server, and Azure DevOps. You can also define [custom remote providers](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') or [remote providers with custom domains](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') as well.
+GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Gitea, Gerrit, GoogleSource, Bitbucket, Bitbucket Server, and Azure DevOps. You can also define [custom remote providers](#remote-provider-integration-settings 'Jump to the Remote Provider Integration settings') or [remote providers with custom domains](#remote-provider-integration-settings 'Jump to the Remote Provider Integration settings') as well.
 
 Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, associate pull requests with branches and commits, and provide avatars.
 
@@ -638,7 +638,7 @@ Additionally, these integrations provide commands to copy the url of or open fil
 - _Open Repository on Remote_ command (`gitlens.openRepoOnRemote`) &mdash; opens the repository on the remote provider
 - _Copy Remote Repository Url_ command (`gitlens.copyRemoteRepositoryUrl`) &mdash; copies the url of the repository on the remote provider
 
-## Powerful Commands [#](#powerful-commands- 'Powerful Commands')
+## Powerful Commands [#](#powerful-commands 'Powerful Commands')
 
 - Adds an _Add Co-authors_ command (`gitlens.addAuthors`) to add a co-author to the commit message input box
 
@@ -669,13 +669,13 @@ Additionally, these integrations provide commands to copy the url of or open fil
 - Adds an _Enable Debug Logging_ command (`gitlens.enableDebugLogging`) to enable debug logging to the GitLens output channel
 - Adds a _Disable Debug Logging_ command (`gitlens.disableDebugLogging`) to disable debug logging to the GitLens output channel
 
-## Menus & Toolbars [#](#menus--toolbars- 'Menus & Toolbars')
+## Menus & Toolbars [#](#menus--toolbars 'Menus & Toolbars')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/menus.png" alt="Menus &amp; Toolbars" />
 </p>
 
-GitLens provides [customizable](#menu--toolbar-settings-) menu and toolbar contributions to put you in control over where GitLens' commands are shown. The easiest way to configure these settings is via the GitLens [**interactive settings editor**](#configuration- 'Jump to Configuration').
+GitLens provides [customizable](#menu--toolbar-settings-) menu and toolbar contributions to put you in control over where GitLens' commands are shown. The easiest way to configure these settings is via the GitLens [**interactive settings editor**](#configuration 'Jump to Configuration').
 
 For example, if you uncheck the _Add to the editor group toolbar_ you will see the following items removed from the toolbar:
 
@@ -685,18 +685,18 @@ For example, if you uncheck the _Add to the editor group toolbar_ you will see t
 
 You can also expand each group to control each area more granularly.
 
-## Modes [#](#modes- 'Modes')
+## Modes [#](#modes 'Modes')
 
-GitLens supports [user-defined](#modes-settings- 'Jump to the Modes settings') modes for quickly toggling between sets of settings.
+GitLens supports [user-defined](#modes-settings 'Jump to the Modes settings') modes for quickly toggling between sets of settings.
 
 - Adds _Switch Mode_ command (`gitlens.switchMode`) to quickly switch the active mode
 - Adds a _Zen_ mode which for a zen-like experience, disables many visual features
   - Adds _Toggle Zen Mode_ command (`gitlens.toggleZenMode`) to toggle Zen mode
 - Adds a _Review_ mode which for reviewing code, enables many visual features
   - Adds _Toggle Review Mode_ command (`gitlens.toggleReviewMode`) to toggle Review mode
-- Adds the active mode to the **status bar** ([optional](#modes-settings- 'Jump to the Modes settings'), on by default)
+- Adds the active mode to the **status bar** ([optional](#modes-settings 'Jump to the Modes settings'), on by default)
 
-# Configuration [#](#configuration- 'Configuration')
+# Configuration [#](#configuration 'Configuration')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/settings.png" alt="GitLens Interactive Settings" />
@@ -704,13 +704,13 @@ GitLens supports [user-defined](#modes-settings- 'Jump to the Modes settings') m
 
 GitLens provides a rich **interactive settings editor**, an easy-to-use interface, to configure many of GitLens' powerful features. It can be accessed via the _GitLens: Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
 
-For more advanced customizations, refer to the [settings documentation](#gitlens-settings- 'Jump to the GitLens settings docs') below.
+For more advanced customizations, refer to the [settings documentation](#gitlens-settings 'Jump to the GitLens settings docs') below.
 
-# GitLens Settings [#](#gitlens-settings- 'GitLens Settings')
+# GitLens Settings [#](#gitlens-settings 'GitLens Settings')
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features.
 
-## Current Line Blame Settings [#](#current-line-blame-settings- 'Current Line Blame Settings')
+## Current Line Blame Settings [#](#current-line-blame-settings 'Current Line Blame Settings')
 
 | Name                                       | Description                                                                                                                                                                                                                                                                                                     |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -720,7 +720,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.currentLine.pullRequests.enabled` | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)                                                                                                     |
 | `gitlens.currentLine.scrollable`           | Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `gitlens.hovers.currentLine.over` to `line` to enable the hovers to show anywhere over the line. |
 
-## Git CodeLens Settings [#](#git-codelens-settings- 'Git CodeLens Settings')
+## Git CodeLens Settings [#](#git-codelens-settings 'Git CodeLens Settings')
 
 | Name                                        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -733,7 +733,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.codeLens.scopes`                   | Specifies where Git CodeLens will be shown in the document<br /><br />`document` - adds CodeLens at the top of the document<br />`containers` - adds CodeLens at the start of container-like symbols (modules, classes, interfaces, etc)<br />`blocks` - adds CodeLens at the start of block-like symbols (functions, methods, etc) lines                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `gitlens.codeLens.symbolScopes`             | Specifies a set of document symbols where Git CodeLens will or will not be shown in the document. Prefix with `!` to avoid providing a Git CodeLens for the symbol. Must be a member of [`SymbolKind`](https://code.visualstudio.com/docs/extensionAPI/vscode-api#_a-namesymbolkindaspan-classcodeitem-id660symbolkindspan)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-## Status Bar Settings [#](#status-bar-settings- 'Status Bar Settings')
+## Status Bar Settings [#](#status-bar-settings 'Status Bar Settings')
 
 | Name                                     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -746,7 +746,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.statusBar.reduceFlicker`        | Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar "flashing"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `gitlens.statusBar.tooltipFormat`        | Specifies the format (in markdown) of hover shown over the blame information in the status bar. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
-## Hover Settings [#](#hover-settings- 'Hover Settings')
+## Hover Settings [#](#hover-settings 'Hover Settings')
 
 | Name                                   | Description                                                                                                                                                                                                              |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -767,7 +767,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.hovers.autolinks.enhanced`    | Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)                                         |
 | `gitlens.hovers.pullRequests.enabled`  | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the hovers. Requires a connection to a supported remote service (e.g. GitHub)                                     |
 
-## View Settings [#](#view-settings- 'View Settings')
+## View Settings [#](#view-settings 'View Settings')
 
 | Name                                        | Description                                                                                                                                                                           |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -781,9 +781,9 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.views.pageItemLimit`               | Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit                                                                           |
 | `gitlens.views.showRelativeDateMarkers`     | Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views                      |
 
-## Commits View Settings [#](#commits-view-settings- 'Commits View Settings')
+## Commits View Settings [#](#commits-view-settings 'Commits View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                 | Description                                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -797,9 +797,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.commits.reveal`                       | Specifies whether to reveal commits in the _Commits_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                                                          |
 | `gitlens.views.commits.showBranchComparison`         | Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view<br /><br />`false` - hides the branch comparison<br />`branch` - compares the current branch with a user-selected reference<br />`working` - compares the working tree with a user-selected reference |
 
-## Repositories View Settings [#](#repositories-view-settings- 'Repositories View Settings')
+## Repositories View Settings [#](#repositories-view-settings 'Repositories View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                       | Description                                                                                                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -823,25 +823,25 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.repositories.showTags`                      | Specifies whether to show the tags for each repository in the _Repositories_ view                                                                                                                                                                                                                                                              |
 | `gitlens.views.repositories.showUpstreamStatus`            | Specifies whether to show the upstream status of the current branch for each repository in the _Repositories_ view                                                                                                                                                                                                                             |
 
-## File History View Settings [#](#file-history-view-settings- 'File History View Settings')
+## File History View Settings [#](#file-history-view-settings 'File History View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                | Description                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------ |
 | `gitlens.views.fileHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _File History_ view |
 
-## Line History View Settings [#](#line-history-view-settings- 'Line History View Settings')
+## Line History View Settings [#](#line-history-view-settings 'Line History View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                | Description                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------ |
 | `gitlens.views.lineHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _Line History_ view |
 
-## Branches View Settings [#](#branches-view-settings- 'Branches View Settings')
+## Branches View Settings [#](#branches-view-settings 'Branches View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                  | Description                                                                                                                                                                                                                                                                                                                           |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -856,9 +856,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.branches.reveal`                       | Specifies whether to reveal branches in the _Branches_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                               |
 | `gitlens.views.branches.showBranchComparison`         | Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) in the _Branches_ view<br /><br />`false` - hides the branch comparison<br />`branch` - compares the current branch with a user-selected reference                                                                             |
 
-## Remotes View Settings [#](#remotes-view-settings- 'Remotes View Settings')
+## Remotes View Settings [#](#remotes-view-settings 'Remotes View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                 | Description                                                                                                                                                                                                                                                                                                                          |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -873,9 +873,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.remotes.reveal`                       | Specifies whether to reveal remotes in the _Remotes_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                                |
 | `gitlens.views.remotes.showBranchComparison`         | Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) in the _Remotes_ view<br /><br />`false` - hides the branch comparison<br />`branch` - compares the current branch with a user-selected reference                                                                             |
 
-## Stashes View Settings [#](#stashes-view-settings- 'Stashes View Settings')
+## Stashes View Settings [#](#stashes-view-settings 'Stashes View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                    | Description                                                                                                                                                                                                                                                                                                                          |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -884,9 +884,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.stashes.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Stashes_ view<br />Only applies when `gitlens.views.commits.files.layout` is set to `auto`                                                                                                           |
 | `gitlens.views.stashes.reveal`          | Specifies whether to reveal stashes in the _Stashes_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                                |
 
-## Tags View Settings [#](#tags-view-settings- 'Tags View Settings')
+## Tags View Settings [#](#tags-view-settings 'Tags View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                 | Description                                                                                                                                                                                                                                                                                                                       |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -897,9 +897,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.tags.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view<br />Only applies when `gitlens.views.commits.files.layout` is set to `auto`                                                                                                           |
 | `gitlens.views.tags.reveal`          | Specifies whether to reveal tags in the _Tags_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                                   |
 
-## Worktrees View Settings [#](#worktrees-view-settings- 'Worktrees View Settings')
+## Worktrees View Settings [#](#worktrees-view-settings 'Worktrees View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                   | Description                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -913,9 +913,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.worktrees.reveal`                       | Specifies whether to reveal worktrees in the _Worktrees_ view, otherwise they will be revealed in the _Repositories_ view                                                                                                                                                                                                              |
 | `gitlens.views.worktrees.showBranchComparison`         | Specifies whether to show a comparison of the worktree branch with a user-selected reference (branch, tag. etc) in the _Worktrees_ view<br /><br />`false` - hides the branch comparison<br />`branch` - compares the current branch with a user-selected reference                                                                    |
 
-## Contributors View Settings [#](#contributors-view-settings- 'Contributors View Settings')
+## Contributors View Settings [#](#contributors-view-settings 'Contributors View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                                     | Description                                                                                                                                                                                                                                                                                                                               |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -928,9 +928,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.contributors.showAllBranches`             | Specifies whether to show commits from all branches in the _Contributors_ view                                                                                                                                                                                                                                                            |
 | `gitlens.views.contributors.showStatistics`              | Specifies whether to show contributor statistics in the _Contributors_ view. This can take a while to compute depending on the repository size                                                                                                                                                                                            |
 
-## Search & Compare View Settings [#](#search-&-compare-view-settings- 'Search & Compare View Settings')
+## Search & Compare View Settings [#](#search-&-compare-view-settings 'Search & Compare View Settings')
 
-See also [View Settings](#view-settings- 'Jump to the View settings')
+See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                    | Description                                                                                                                                                                                                                                                                                                                           |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -943,7 +943,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.search.files.compact`    | Specifies whether to compact (flatten) unnecessary file nesting in the _Search Commits_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
 | `gitlens.views.search.files.layout`     | Specifies how the _Search Commits_ view will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.compare.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
 
-## Gutter Blame Settings [#](#gutter-blame-settings- 'Gutter Blame Settings')
+## Gutter Blame Settings [#](#gutter-blame-settings 'Gutter Blame Settings')
 
 | Name                                | Description                                                                                                                                                                                                                                                                  |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -959,14 +959,14 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.blame.separateLines`       | Specifies whether gutter blame annotations will have line separators                                                                                                                                                                                                         |
 | `gitlens.blame.toggleMode`          | Specifies how the gutter blame annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                                                     |
 
-## Gutter Changes Settings [#](#gutter-changes-settings- 'Gutter Changes Settings')
+## Gutter Changes Settings [#](#gutter-changes-settings 'Gutter Changes Settings')
 
 | Name                         | Description                                                                                                                                                                                         |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.changes.locations`  | Specifies where the indicators of the gutter changes annotations will be shown<br /><br />`gutter` - adds a gutter indicator<br />`overview` - adds a decoration to the overview ruler (scroll bar) |
 | `gitlens.changes.toggleMode` | Specifies how the gutter changes annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                          |
 
-## Gutter Heatmap Settings [#](#gutter-heatmap-settings- 'Gutter Heatmap Settings')
+## Gutter Heatmap Settings [#](#gutter-heatmap-settings 'Gutter Heatmap Settings')
 
 | Name                           | Description                                                                                                                                                                                                     |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -976,7 +976,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.heatmap.locations`    | Specifies where the indicators of the gutter heatmap annotations will be shown<br /><br />`gutter` - adds a gutter indicator<br />`overview` - adds a decoration to the overview ruler (scroll bar)             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                      |
 
-## Git Command Palette Settings [#](#git-command-palette-settings- 'Git Command Palette Settings')
+## Git Command Palette Settings [#](#git-command-palette-settings 'Git Command Palette Settings')
 
 | Name                                              | Description                                                                                                                                                   |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -988,20 +988,20 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu/command)`                                  |
 | `gitlens.gitCommands.sortBy`                      | Specifies how Git commands are sorted in the _Git Command Palette_<br /><br />`name` - sorts commands by name<br />`usage` - sorts commands by last used date |
 
-## Terminal Links Settings [#](#terminal-links-settings- 'Terminal Links Settings')
+## Terminal Links Settings [#](#terminal-links-settings 'Terminal Links Settings')
 
 | Name                            | Description                                                                                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.terminalLinks.enabled` | Specifies whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more |
 
-## Remote Provider Integration Settings [#](#remote-provider-integration-settings- 'Remote Provider Integration Settings')
+## Remote Provider Integration Settings [#](#remote-provider-integration-settings 'Remote Provider Integration Settings')
 
 | Name                           | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.integrations.enabled` | Specifies whether to enable rich integrations with any supported remote services                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `gitlens.remotes`              | Specifies custom remote services to be matched with Git remotes to detect custom domains for built-in remote services or provide support for custom remote services<br /><br />Supported Types (e.g. `"type": "GitHub"`):<ul><li>"GitHub"</li><li>"GitLab"</li><li>"Gerrit"</li><li>"GoogleSource"</li><li>"Gitea"</li><li>"AzureDevOps"</li><li>"Bitbucket"</li><li>"BitbucketServer"</li><li>"Custom"</li></ul>Example:<br />`"gitlens.remotes": [{ "domain": "git.corporate-url.com", "type": "GitHub" }]`<br /><br />Example:<br />`"gitlens.remotes": [{ "regex": "ssh:\/\/(my\.company\.com):1234\/git\/(.+)", "type": "GitHub" }]`<br /><br />Example:<br />`"gitlens.remotes": [{`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"domain": "git.corporate-url.com",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"type": "Custom",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"name": "My Company",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"protocol": "https",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"urls": {`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"repository": "https://git.corporate-url.com/${repo}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"branches": "https://git.corporate-url.com/${repo}/branches",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"branch": "https://git.corporate-url.com/${repo}/commits/${branch}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"commit": "https://git.corporate-url.com/${repo}/commit/${id}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"file": "https://git.corporate-url.com/${repo}?path=${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileInBranch": "https://git.corporate-url.com/${repo}/blob/${branch}/${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileInCommit": "https://git.corporate-url.com/${repo}/blob/${id}/${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileLine": "#L${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileRange": "#L${start}-L${end}"`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`}`<br />&nbsp;&nbsp;&nbsp;&nbsp;`}]`<br /><br />Example:<br />`"gitlens.remotes": [{`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"regex": "ssh:\\/\\/(my\\.company\\.com):1234\\/git\\/(.+)",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"type": "Custom",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"name": "My Company",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"protocol": "https",`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"urls": {`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"repository": "https://my.company.com/projects/${repoBase}/repos/${repoPath}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"branches": "https://my.company.com/projects/${repoBase}/repos/${repoPath}/branches",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"branch": "https://my.company.com/projects/${repoBase}/repos/${repoPath}/commits/${branch}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"commit": "https://my.company.com/projects/${repoBase}/repos/${repoPath}/commit/${id}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"file": "https://my.company.com/projects/${repoBase}/repos/${repoPath}?path=${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileInBranch": "https://my.company.com/projects/${repoBase}/repos/${repoPath}/blob/${branch}/${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileInCommit": "https://my.company.com/projects/${repoBase}/repos/${repoPath}/blob/${id}/${file}${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileLine": "#L${line}",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"fileRange": "#L${start}-L${end}"`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`}`<br />&nbsp;&nbsp;&nbsp;&nbsp;`}]` |
 
-## Date & Time Settings [#](#date--time-settings- 'Date & Time Settings')
+## Date & Time Settings [#](#date--time-settings 'Date & Time Settings')
 
 | Name                             | Description                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1012,20 +1012,20 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.defaultDateStyle`       | Specifies how dates will be displayed by default                                                                                                                                                                                                                                                                                                                                 |
 | `gitlens.defaultTimeFormat`      | Specifies how times will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats                                                                                                                                                                                                                                 |
 
-## Menu & Toolbar Settings [#](#menu--toolbar-settings- 'Menu & Toolbar Settings')
+## Menu & Toolbar Settings [#](#menu--toolbar-settings 'Menu & Toolbar Settings')
 
 | Name                              | Description                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.menus`                   | Specifies which commands will be added to which menus                                                                                                                                                                                                                                                                                                                        |
 | `gitlens.fileAnnotations.command` | Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations<br />`null` (default) - shows a menu to choose which file annotations to toggle<br />`blame` - toggles gutter blame annotations<br />`heatmap` - toggles gutter heatmap annotations<br />`changes` - toggles gutter changes annotations |
 
-## Keyboard Shortcut Settings [#](#keyboard-shortcut-settings- 'Keyboard Shortcut Settings')
+## Keyboard Shortcut Settings [#](#keyboard-shortcut-settings 'Keyboard Shortcut Settings')
 
 | Name             | Description                                                                                                                                                                                                                                                                                                                                |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `gitlens.keymap` | Specifies the keymap to use for GitLens shortcut keys<br /><br />`alternate` - adds an alternate set of shortcut keys that start with `Alt` (&#x2325; on macOS)<br />`chorded` - adds a chorded set of shortcut keys that start with `Ctrl+Shift+G` (<code>&#x2325;&#x2318;G</code> on macOS)<br />`none` - no shortcut keys will be added |
 
-## Modes Settings [#](#modes-settings- 'Modes Settings')
+## Modes Settings [#](#modes-settings 'Modes Settings')
 
 | Name                               | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1034,13 +1034,13 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.mode.statusBar.alignment` | Specifies the active GitLens mode alignment in the status bar<br /><br />`left` - aligns to the left<br />`right` - aligns to the right                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `gitlens.modes`                    | Specifies the user-defined GitLens modes<br /><br />Example &mdash; adds heatmap annotations to the _Reviewing_ mode<br />`"gitlens.modes": { "review": { "annotations": "heatmap" } }`<br /><br />Example &mdash; adds a new _Annotating_ mode with blame annotations<br />`"gitlens.modes": {`<br />&nbsp;&nbsp;&nbsp;&nbsp;`"annotate": {`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"name": "Annotating",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"statusBarItemName": "Annotating",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"description": "for root cause analysis",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"annotations": "blame",`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"codeLens": false,`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"currentLine": false,`<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"hovers": true`<br />&nbsp;&nbsp;&nbsp;&nbsp;`}`<br />`}` |
 
-## Autolink Settings [#](#autolink-settings- 'Autolink Settings')
+## Autolink Settings [#](#autolink-settings 'Autolink Settings')
 
 | Name                | Description                                                                                                                                                                                                                                                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `gitlens.autolinks` | Specifies autolinks to external resources in commit messages. Use `<num>` as the variable for the reference number<br /><br />Example to autolink Jira issues: (e.g. `JIRA-123 ⟶ https://jira.company.com/issue?query=123`)<br />`"gitlens.autolinks": [{ "prefix": "JIRA-", "url": "https://jira.company.com/issue?query=<num>" }]` |
 
-## Misc Settings [#](#misc-settings- 'Misc Settings')
+## Misc Settings [#](#misc-settings 'Misc Settings')
 
 | Name                                                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1073,7 +1073,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.strings.codeLens.unsavedChanges.recentChangeOnly`       | Specifies the string to be shown in place of the _recent change_ CodeLens when there are unsaved changes                                                                                                                                                                                                                                                                                                                                                  |
 | `gitlens.strings.codeLens.unsavedChanges.authorsOnly`            | Specifies the string to be shown in place of the _authors_ CodeLens when there are unsaved changes                                                                                                                                                                                                                                                                                                                                                        |
 
-## Themable Colors [#](#themable-colors- 'Themable Colors')
+## Themable Colors [#](#themable-colors 'Themable Colors')
 
 GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomizations`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
 
