@@ -912,51 +912,57 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let repoPath: string | undefined;
 		try {
+			let isSymLink = undefined;
+
 			if (!isDirectory) {
 				const stats = await workspace.fs.stat(uri);
 				uri = stats?.type === FileType.Directory ? uri : Uri.file(dirname(uri.fsPath));
+
+				isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
 			if (!repoPath) return undefined;
 
-			if (isWindows) {
-				// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
-				// So try to normalize it back to the mapped drive path, if possible
+			const repoUri = Uri.file(repoPath);
 
-				const repoUri = Uri.file(repoPath);
+			// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
+			// So try to normalize it back to the mapped drive path, if possible
+			if (isWindows && repoUri.authority.length !== 0 && uri.authority.length === 0) {
+				const match = driveLetterRegex.exec(uri.path);
+				if (match != null) {
+					const [, letter] = match;
 
-				if (repoUri.authority.length !== 0 && uri.authority.length === 0) {
-					const match = driveLetterRegex.exec(uri.path);
-					if (match != null) {
-						const [, letter] = match;
-
-						try {
-							const networkPath = await new Promise<string | undefined>(resolve =>
-								realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
-									resolve(err != null ? undefined : resolvedPath),
+					try {
+						const networkPath = await new Promise<string | undefined>(resolve =>
+							realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
+								resolve(err != null ? undefined : resolvedPath),
+							),
+						);
+						if (networkPath != null) {
+							repoPath = normalizePath(
+								repoUri.fsPath.replace(
+									networkPath,
+									`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
 								),
 							);
-							if (networkPath != null) {
-								repoPath = normalizePath(
-									repoUri.fsPath.replace(
-										networkPath,
-										`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
-									),
-								);
-								return Uri.file(repoPath);
-							}
-						} catch {}
-					}
-
-					return Uri.file(normalizePath(uri.fsPath));
+							return Uri.file(repoPath);
+						}
+					} catch {}
 				}
 
-				return repoUri;
+				return Uri.file(normalizePath(uri.fsPath));
 			}
 
-			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
+			// Check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
+			if (isSymLink == null) {
+				const stats = await workspace.fs.stat(uri);
+				isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
+			}
+
+			if (!isSymLink) return repoUri;
+
 			repoPath = await new Promise<string | undefined>(resolve => {
 				realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
 					if (err != null) {
