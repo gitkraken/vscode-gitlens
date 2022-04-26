@@ -9,6 +9,8 @@ jobs:
     check:
         name: Check for updates
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         outputs:
             status: ${{ steps.earlyexit.outputs.status }}
         steps:
