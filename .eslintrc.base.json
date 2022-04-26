@@ -32,6 +32,7 @@
 		"new-parens": "error",
 		"no-console": "off",
 		"no-constant-condition": ["warn", { "checkLoops": false }],
+		"no-constant-binary-expression": "error",
 		"no-caller": "error",
 		"no-debugger": "off",
 		"no-dupe-class-members": "off",
