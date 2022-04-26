@@ -10,7 +10,7 @@ jobs:
         name: Check for updates
         runs-on: ubuntu-latest
         permissions:
-            contents: read
+            contents: write
         outputs:
             status: ${{ steps.earlyexit.outputs.status }}
         steps:
