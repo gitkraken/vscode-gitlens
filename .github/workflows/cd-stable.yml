@@ -9,9 +9,10 @@ jobs:
     build:
         name: Publish Stable
         runs-on: ubuntu-latest
-        #        permissions:
-        #            deployments: write
-        #            packages: write
+        permissions:
+            contents: read
+            # deployments: write
+            # packages: write
         steps:
             - name: Checkout code
               uses: actions/checkout@v3
