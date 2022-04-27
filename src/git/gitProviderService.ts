@@ -564,10 +564,11 @@ export class GitProviderService implements Disposable {
 			this: GitProviderService,
 			repoPath: string | Uri,
 			plan: FreeSubscriptionPlans,
+			force: boolean = false,
 		): Promise<FeatureAccess> {
 			const { path: cacheKey } = this.getProvider(repoPath);
 
-			let access = this._accessCache.get(cacheKey);
+			let access = force ? undefined : this._accessCache.get(cacheKey);
 			if (access == null) {
 				access = this.visibility(repoPath).then(visibility => {
 					if (visibility !== RepositoryVisibility.Private) {
@@ -628,7 +629,8 @@ export class GitProviderService implements Disposable {
 				: { allowed: false, subscription: { current: subscription, required: requiredPlan } };
 		}
 
-		return getRepoAccess.call(this, repoPath, plan);
+		// Pass force = true to bypass the cache and avoid a promise loop (where we used the cached promise we just created to try to resolve itself 🤦)
+		return getRepoAccess.call(this, repoPath, plan, true);
 	}
 
 	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
