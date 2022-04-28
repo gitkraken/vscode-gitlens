@@ -8,8 +8,9 @@ import {
 	Range,
 	Uri,
 } from 'vscode';
+import { git } from '@env/providers';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, RemotesConfig } from '../../config';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
@@ -28,6 +29,7 @@ import {
 	RemoteProviderReference,
 	Repository,
 } from '../models';
+import { GitRemoteUrl } from '../parsers';
 
 export const enum RemoteResourceType {
 	Branch = 'branch',
@@ -113,15 +115,26 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 export abstract class RemoteProvider implements RemoteProviderReference {
 	readonly type: 'simple' | 'rich' = 'simple';
 	protected readonly _name: string | undefined;
+	public readonly domain: string;
+	public readonly path: string;
+	public readonly port: number | undefined;
+	public readonly protocol: string;
 
-	constructor(
-		public readonly domain: string,
-		public readonly path: string,
-		public readonly protocol: string = 'https',
-		name?: string,
-		public readonly custom: boolean = false,
-	) {
-		this._name = name;
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, public readonly custom: boolean = false) {
+		this.domain = gitRemoteUrl.domain;
+		this.path = gitRemoteUrl.path;
+
+		if (remoteConfig?.protocol !== undefined) {
+			this.protocol = remoteConfig.protocol;
+		} else if (['http', 'https'].includes(gitRemoteUrl.protocol)) {
+			this.protocol = gitRemoteUrl.protocol;
+			this.port = gitRemoteUrl.port;
+		} else {
+			this.protocol = 'https';
+			this.port = undefined;
+		}
+
+		this._name = remoteConfig?.name;
 	}
 
 	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
@@ -196,7 +209,8 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	}
 
 	protected get baseUrl(): string {
-		return `${this.protocol}://${this.domain}/${this.path}`;
+		const port = this.port === undefined ? '' : `:${this.port}`;
+		return `${this.protocol}://${this.domain}${port}/${this.path}`;
 	}
 
 	protected formatName(name: string) {
@@ -278,8 +292,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	private invalidClientExceptionCount = 0;
 
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
-		super(domain, path, protocol, name, custom);
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom?: boolean) {
+		super(gitRemoteUrl, remoteConfig, custom);
 
 		Container.instance.context.subscriptions.push(
 			// TODO@eamodio revisit how connections are linked or not

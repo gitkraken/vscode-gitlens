@@ -1,16 +1,17 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, RemotesConfig } from '../../config';
 import { GitRevision } from '../models';
 import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
 import { RemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 export class GiteaRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom: boolean = false) {
+		super(gitRemoteUrl, remoteConfig, custom);
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;

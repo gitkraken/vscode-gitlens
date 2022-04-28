@@ -1,15 +1,16 @@
 import { Range, Uri } from 'vscode';
-import { RemotesUrlsConfig } from '../../configuration';
+import { RemotesConfig, RemotesUrlsConfig } from '../../configuration';
 import { interpolate } from '../../system/string';
 import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
 import { RemoteProvider } from './provider';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;
 
-	constructor(domain: string, path: string, urls: RemotesUrlsConfig, protocol?: string, name?: string) {
-		super(domain, path, protocol, name, true);
-		this.urls = urls;
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig) {
+		super(gitRemoteUrl, remoteConfig, true);
+		this.urls = remoteConfig!.urls!;
 	}
 
 	get id() {

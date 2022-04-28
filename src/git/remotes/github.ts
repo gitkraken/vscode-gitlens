@@ -1,6 +1,6 @@
 import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, RemotesConfig } from '../../config';
 import { Container } from '../../container';
 import {
 	Account,
@@ -11,6 +11,7 @@ import {
 	PullRequestState,
 	Repository,
 } from '../models';
+import { GitRemoteUrl } from '../parsers';
 import { RichRemoteProvider } from './provider';
 
 const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;
@@ -24,8 +25,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		return authProvider;
 	}
 
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom: boolean = false) {
+		super(gitRemoteUrl, remoteConfig, custom);
 	}
 
 	get apiBaseUrl() {

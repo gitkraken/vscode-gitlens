@@ -11070,6 +11070,7 @@
 		"ansi-regex": "6.0.1",
 		"billboard.js": "3.3.2",
 		"chroma-js": "2.3.0",
+		"git-url-parse": "11.6.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lodash-es": "4.17.21",
@@ -11082,6 +11083,7 @@
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
 		"@types/chroma-js": "2.1.3",
+		"@types/git-url-parse": "9.0.1",
 		"@types/glob": "7.2.0",
 		"@types/lodash-es": "4.17.6",
 		"@types/mocha": "9.1.0",
