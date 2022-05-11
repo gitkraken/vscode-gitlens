@@ -1979,7 +1979,7 @@
 							]
 						},
 						"minItems": 1,
-						"maxItems": 2,
+						"maxItems": 3,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies where the indicators of the file changes annotations will be shown",
 						"scope": "window",
@@ -2028,7 +2028,7 @@
 							]
 						},
 						"minItems": 1,
-						"maxItems": 2,
+						"maxItems": 3,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies where the indicators of the file heatmap annotations will be shown",
 						"scope": "window",
