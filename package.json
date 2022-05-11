@@ -1909,7 +1909,7 @@
 							"enumDescriptions": [
 								"Adds a gutter indicator",
 								"Adds a full-line highlight background color",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
@@ -1962,17 +1962,20 @@
 						"type": "array",
 						"default": [
 							"gutter",
+							"line",
 							"overview"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
 								"gutter",
+								"line",
 								"overview"
 							],
 							"enumDescriptions": [
 								"Adds a gutter indicator",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds a full-line highlight background color",
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
@@ -2008,17 +2011,20 @@
 						"type": "array",
 						"default": [
 							"gutter",
+							"line",
 							"overview"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
 								"gutter",
+								"line",
 								"overview"
 							],
 							"enumDescriptions": [
 								"Adds a gutter indicator",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds a full-line highlight background color",
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
@@ -2027,6 +2033,13 @@
 						"markdownDescription": "Specifies where the indicators of the gutter heatmap annotations will be shown",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.heatmap.fadeLines": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies the whether to fade out older lines",
+						"scope": "window",
+						"order": 21
 					},
 					"gitlens.heatmap.ageThreshold": {
 						"type": "number",
@@ -3441,7 +3454,7 @@
 			},
 			{
 				"id": "gitlens.lineHighlightOverviewRulerColor",
-				"description": "Specifies the overview ruler color of the associated line highlights in blame annotations",
+				"description": "Specifies the scroll bar color of the associated line highlights in blame annotations",
 				"defaults": {
 					"dark": "#00BCF299",
 					"light": "#00BCF299",

@@ -23,6 +23,7 @@ export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
 	colors: { hot: string[]; cold: string[] };
 	computeRelativeAge(date: Date): number;
+	computeOpacity(date: Date): number;
 }
 
 interface RenderOptions
@@ -110,15 +111,19 @@ export class Annotations {
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
-		const { locations } = Container.instance.config.heatmap;
+		const { fadeLines, locations } = Container.instance.config.heatmap;
 		const gutter = locations.includes(HeatmapLocations.Gutter);
-		const overview = locations.includes(HeatmapLocations.Overview);
+		const line = locations.includes(HeatmapLocations.Line);
+		const scrollbar = locations.includes(HeatmapLocations.Scrollbar);
 
 		const key = `${r},${g},${b},${a}`;
 		let colorDecoration = map.get(key);
 		if (colorDecoration == null) {
 			colorDecoration = {
 				decorationType: window.createTextEditorDecorationType({
+					backgroundColor: line ? `rgba(${r},${g},${b},${a * 0.08})` : undefined,
+					opacity: fadeLines ? `${heatmap.computeOpacity(date).toFixed(2)} !important` : undefined,
+					isWholeLine: line || fadeLines ? true : undefined,
 					gutterIconPath: gutter
 						? Uri.parse(
 								`data:image/svg+xml,${encodeURIComponent(
@@ -127,8 +132,8 @@ export class Annotations {
 						  )
 						: undefined,
 					gutterIconSize: gutter ? 'contain' : undefined,
-					overviewRulerLane: overview ? OverviewRulerLane.Center : undefined,
-					overviewRulerColor: overview ? `rgba(${r},${g},${b},${a})` : undefined,
+					overviewRulerLane: scrollbar ? OverviewRulerLane.Center : undefined,
+					overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.5})` : undefined,
 				}),
 				rangesOrOptions: [range],
 			};
