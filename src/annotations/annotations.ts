@@ -121,19 +121,19 @@ export class Annotations {
 		if (colorDecoration == null) {
 			colorDecoration = {
 				decorationType: window.createTextEditorDecorationType({
-					backgroundColor: line ? `rgba(${r},${g},${b},${a * 0.08})` : undefined,
+					backgroundColor: line ? `rgba(${r},${g},${b},${a * 0.15})` : undefined,
 					opacity: fadeLines ? `${heatmap.computeOpacity(date).toFixed(2)} !important` : undefined,
 					isWholeLine: line || fadeLines ? true : undefined,
 					gutterIconPath: gutter
 						? Uri.parse(
 								`data:image/svg+xml,${encodeURIComponent(
-									`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
+									`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='15' y='0' width='3' height='18'/></svg>`,
 								)}`,
 						  )
 						: undefined,
 					gutterIconSize: gutter ? 'contain' : undefined,
 					overviewRulerLane: scrollbar ? OverviewRulerLane.Center : undefined,
-					overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.5})` : undefined,
+					overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.7})` : undefined,
 				}),
 				rangesOrOptions: [range],
 			};

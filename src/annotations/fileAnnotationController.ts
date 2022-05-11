@@ -571,7 +571,7 @@ export class FileAnnotationController implements Disposable {
 
 		Decorations.changesLineAddedAnnotation = window.createTextEditorDecorationType({
 			backgroundColor: locations.includes(ChangesLocations.Line)
-				? `rgba(${addedColor.join(',')},0.2)`
+				? `rgba(${addedColor.join(',')},0.4)`
 				: undefined,
 			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
 			gutterIconPath: locations.includes(ChangesLocations.Gutter)
@@ -579,7 +579,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${addedColor.join(
 								',',
-							)})' x='13' y='0' width='3' height='18'/></svg>`,
+							)})' x='15' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,
@@ -592,7 +592,7 @@ export class FileAnnotationController implements Disposable {
 
 		Decorations.changesLineChangedAnnotation = window.createTextEditorDecorationType({
 			backgroundColor: locations.includes(ChangesLocations.Line)
-				? `rgba(${changedColor.join(',')},0.2)`
+				? `rgba(${changedColor.join(',')},0.4)`
 				: undefined,
 			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
 			gutterIconPath: locations.includes(ChangesLocations.Gutter)
@@ -600,7 +600,7 @@ export class FileAnnotationController implements Disposable {
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${changedColor.join(
 								',',
-							)})' x='13' y='0' width='3' height='18'/></svg>`,
+							)})' x='15' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,
