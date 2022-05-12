@@ -98,24 +98,33 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			lookupTable = getRelativeAgeLookupTable(dates);
 		}
 
+		const getLookupTable = (date: Date) =>
+			Array.isArray(lookupTable)
+				? lookupTable
+				: date.getTime() < coldThresholdTimestamp
+				? lookupTable.cold
+				: lookupTable.hot;
+
+		const computeRelativeAge = (date: Date, lookup: number[]) => {
+			const time = date.getTime();
+			let index = 0;
+			for (let i = 0; i < lookup.length; i++) {
+				index = i;
+				if (time >= lookup[i]) break;
+			}
+
+			return index;
+		};
+
 		return {
 			coldThresholdTimestamp: coldThresholdTimestamp,
 			colors: await getHeatmapColors(),
-			computeRelativeAge: (date: Date) => {
-				const lookup = Array.isArray(lookupTable)
-					? lookupTable
-					: date.getTime() < coldThresholdTimestamp
-					? lookupTable.cold
-					: lookupTable.hot;
+			computeRelativeAge: (date: Date) => computeRelativeAge(date, getLookupTable(date)),
+			computeOpacity: (date: Date) => {
+				const lookup = getLookupTable(date);
+				const age = computeRelativeAge(date, lookup);
 
-				const time = date.getTime();
-				let index = 0;
-				for (let i = 0; i < lookup.length; i++) {
-					index = i;
-					if (time >= lookup[i]) break;
-				}
-
-				return index;
+				return Math.max(0.2, Math.round((1 - age / lookup.length) * 100) / 100);
 			},
 		};
 	}
