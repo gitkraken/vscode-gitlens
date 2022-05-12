@@ -71,7 +71,7 @@ export class GitCommit implements GitRevisionReference {
 		// Add an ellipsis to the summary if there is or might be more message
 		if (message != null) {
 			this._message = message;
-			if (this.summary !== message) {
+			if (summary !== message) {
 				this._summary = `${summary} ${GlyphChars.Ellipsis}`;
 			} else {
 				this._summary = summary;
