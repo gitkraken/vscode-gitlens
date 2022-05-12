@@ -137,6 +137,8 @@ import {
 import { Git, GitErrors, maxGitCliLength } from './git';
 import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists, RunError } from './shell';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -309,7 +311,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (cc != null) {
 			cc.exitDetails = ` ${GlyphChars.Dot} Git found (${getDurationMilliseconds(start)} ms): ${
 				location.version
-			} @ ${location.path === 'git' ? 'PATH' : location.path}`;
+				} @ ${location.path === 'git' ? 'PATH' : location.path}`;
 		} else {
 			Logger.log(
 				cc,
@@ -906,6 +908,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.git.fetch(repoPath, opts);
 	}
 
+	isSymLink(fspath: string): boolean {
+		const parts = fspath.split(path.sep);
+		let fullpath = parts.shift() + path.sep;
+		return (parts.some((part: string) => {
+			fullpath = path.join(fullpath, part);
+			return (fs.lstatSync(fullpath).isSymbolicLink());
+		}));
+	}
+
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
@@ -919,7 +930,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const stats = await workspace.fs.stat(uri);
 				uri = stats?.type === FileType.Directory ? uri : Uri.file(dirname(uri.fsPath));
 
-				isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
+				if (isWindows) {
+					isSymLink = this.isSymLink(uri.fsPath);
+				}
+				else {
+					isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
+				}
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
@@ -1582,24 +1598,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						},
 						options?.stats
 							? {
-									additionalArgs: ['--shortstat', '--use-mailmap'],
-									parseEntry: (fields, entry) => {
-										const line = fields.next().value;
-										const match = GitLogParser.shortstatRegex.exec(line);
-										if (match?.groups != null) {
-											const { files, additions, deletions } = match.groups;
-											entry.stats = {
-												files: Number(files || 0),
-												additions: Number(additions || 0),
-												deletions: Number(deletions || 0),
-											};
-										}
-										return entry;
-									},
-									prefix: '%x00',
-									fieldSuffix: '%x00',
-									skip: 1,
-							  }
+								additionalArgs: ['--shortstat', '--use-mailmap'],
+								parseEntry: (fields, entry) => {
+									const line = fields.next().value;
+									const match = GitLogParser.shortstatRegex.exec(line);
+									if (match?.groups != null) {
+										const { files, additions, deletions } = match.groups;
+										entry.stats = {
+											files: Number(files || 0),
+											additions: Number(additions || 0),
+											deletions: Number(deletions || 0),
+										};
+									}
+									return entry;
+								},
+								prefix: '%x00',
+								fieldSuffix: '%x00',
+								skip: 1,
+							}
 							: undefined,
 					);
 
@@ -2677,10 +2693,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					incoming:
 						possibleSourceBranches?.length === 1
 							? GitReference.create(possibleSourceBranches[0], repoPath, {
-									refType: 'branch',
-									name: possibleSourceBranches[0],
-									remote: false,
-							  })
+								refType: 'branch',
+								name: possibleSourceBranches[0],
+								remote: false,
+							})
 							: undefined,
 				};
 			}
@@ -2736,10 +2752,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					current:
 						possibleSourceBranch != null
 							? GitReference.create(possibleSourceBranch, repoPath, {
-									refType: 'branch',
-									name: possibleSourceBranch,
-									remote: false,
-							  })
+								refType: 'branch',
+								name: possibleSourceBranch,
+								remote: false,
+							})
 							: undefined,
 
 					incoming: GitReference.create(branch, repoPath, {
