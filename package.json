@@ -780,7 +780,7 @@
 					},
 					"gitlens.views.formats.stashes.description": {
 						"type": "string",
-						"default": "${agoOrDate}",
+						"default": "${stashOnRef, }${agoOrDate}",
 						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 35

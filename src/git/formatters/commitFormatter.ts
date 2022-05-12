@@ -77,6 +77,9 @@ export interface CommitFormatOptions extends FormatOptions {
 		pullRequestDate?: TokenOptions;
 		pullRequestState?: TokenOptions;
 		sha?: TokenOptions;
+		stashName?: TokenOptions;
+		stashNumber?: TokenOptions;
+		stashOnRef?: TokenOptions;
 		tips?: TokenOptions;
 	};
 }
@@ -588,6 +591,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get sha(): string {
 		return this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.sha);
+	}
+
+	get stashName(): string {
+		return this._padOrTruncate(this._item.stashName ?? '', this._options.tokenOptions.stashName);
+	}
+
+	get stashNumber(): string {
+		return this._padOrTruncate(this._item.number ?? '', this._options.tokenOptions.stashNumber);
+	}
+
+	get stashOnRef(): string {
+		return this._padOrTruncate(this._item.stashOnRef ?? '', this._options.tokenOptions.stashOnRef);
 	}
 
 	get tips(): string {

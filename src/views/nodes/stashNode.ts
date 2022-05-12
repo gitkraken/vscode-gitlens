@@ -66,10 +66,14 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			dateFormat: this.view.container.config.defaultDateFormat,
 		});
 		item.contextValue = ContextValues.Stash;
-		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
-			// messageAutolinks: true,
-		});
+		item.tooltip = CommitFormatter.fromTemplate(
+			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
+			this.commit,
+			{
+				dateFormat: this.view.container.config.defaultDateFormat,
+				// messageAutolinks: true,
+			},
+		);
 
 		return item;
 	}

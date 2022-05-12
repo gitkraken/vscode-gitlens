@@ -61,12 +61,15 @@ import {
 	GitBranch,
 	GitBranchReference,
 	GitCommit,
+	GitCommitIdentity,
 	GitContributor,
 	GitDiff,
 	GitDiffFilter,
 	GitDiffHunkLine,
 	GitDiffShortStat,
 	GitFile,
+	GitFileChange,
+	GitFileStatus,
 	GitLog,
 	GitMergeStatus,
 	GitRebaseStatus,
@@ -75,6 +78,7 @@ import {
 	GitRemote,
 	GitRevision,
 	GitStash,
+	GitStashCommit,
 	GitStatus,
 	GitStatusFile,
 	GitTag,
@@ -95,7 +99,6 @@ import {
 	GitLogParser,
 	GitReflogParser,
 	GitRemoteParser,
-	GitStashParser,
 	GitStatusParser,
 	GitTagParser,
 	GitTreeParser,
@@ -150,6 +153,8 @@ const doubleQuoteRegex = /"/g;
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
+const stashSummaryRegex =
+	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\000-\037\177 ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
 const reflogCommands = ['merge', 'pull'];
 
@@ -3226,10 +3231,71 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let stash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
 		if (stash === undefined) {
+			const parser = GitLogParser.createWithFiles<{
+				sha: string;
+				date: string;
+				committedDate: string;
+				stashName: string;
+				summary: string;
+			}>({
+				sha: '%H',
+				date: '%at',
+				committedDate: '%ct',
+				stashName: '%gd',
+				summary: '%B',
+			});
 			const data = await this.git.stash__list(repoPath, {
+				args: parser.arguments,
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 			});
-			stash = GitStashParser.parse(this.container, data, repoPath);
+
+			const commits = new Map<string, GitStashCommit>();
+
+			const stashes = parser.parse(data);
+			for (const s of stashes) {
+				let onRef;
+				let summary;
+				let message;
+				const match = stashSummaryRegex.exec(s.summary);
+				if (match?.groups != null) {
+					onRef = match.groups.onref;
+					if (match.groups.wip) {
+						message = `WIP: ${match.groups.summary.trim()}`;
+						summary = `WIP on ${onRef}`;
+					} else {
+						message = match.groups.summary.trim();
+						summary = message.split('\n', 1)[0] ?? '';
+					}
+				} else {
+					message = s.summary.trim();
+					summary = message.split('\n', 1)[0] ?? '';
+				}
+
+				commits.set(
+					s.sha,
+					new GitCommit(
+						this.container,
+						repoPath,
+						s.sha,
+						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
+						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
+						summary,
+						[],
+						message,
+						s.files?.map(
+							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),
+						) ?? [],
+						undefined,
+						[],
+						s.stashName,
+						onRef,
+					) as GitStashCommit,
+				);
+			}
+
+			stash = { repoPath: repoPath, commits: commits };
+
+			// sw.stop();
 
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);

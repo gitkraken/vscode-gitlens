@@ -3,7 +3,7 @@ import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
 import { GitDiffFilter, GitRevision, GitUser } from '../../../git/models';
-import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from '../../../git/parsers';
+import { GitBranchParser, GitLogParser, GitReflogParser, GitTagParser } from '../../../git/parsers';
 import { Logger } from '../../../logger';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
@@ -1386,18 +1386,18 @@ export class Git {
 
 	stash__list(
 		repoPath: string,
-		{
-			format = GitStashParser.defaultFormat,
-			similarityThreshold,
-		}: { format?: string; similarityThreshold?: number | null } = {},
+		{ args, similarityThreshold }: { args?: string[]; similarityThreshold?: number | null },
 	) {
+		if (args == null) {
+			args = ['--name-status'];
+		}
+
 		return this.git<string>(
 			{ cwd: repoPath },
 			'stash',
 			'list',
-			'--name-status',
+			...args,
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-			`--format=${format}`,
 		);
 	}
 
