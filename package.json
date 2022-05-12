@@ -10739,7 +10739,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
+					"when": "config.gitlens.plusFeatures.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "visible"
