@@ -1,22 +1,16 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, RemotesConfig } from '../../config';
 import { GitRevision } from '../models';
 import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
 import { RemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;
 
 export class GerritRemote extends RemoteProvider {
-	constructor(
-		domain: string,
-		path: string,
-		protocol?: string,
-		name?: string,
-		custom: boolean = false,
-		trimPath: boolean = true,
-	) {
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom: boolean = false, trimPath: boolean = true) {
 		/*
 		 * Git remote URLs differs when cloned by HTTPS with or without authentication.
 		 * An anonymous clone looks like:
@@ -25,11 +19,11 @@ export class GerritRemote extends RemoteProvider {
 		 * 	 $ git clone "https://felipecrs@review.gerrithub.io/a/jenkinsci/gerrit-code-review-plugin"
 		 *   Where username may be omitted, but the "a/" prefix is always present.
 		 */
-		if (trimPath && protocol !== 'ssh') {
-			path = path.replace(/^a\//, '');
+		if (trimPath && ['http', 'https'].includes(gitRemoteUrl.protocol)) {
+			gitRemoteUrl.path = gitRemoteUrl.path.replace(/^a\//, '');
 		}
 
-		super(domain, path, protocol, name, custom);
+		super(gitRemoteUrl, remoteConfig, custom);
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;

@@ -1,7 +1,8 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, RemotesConfig } from '../../config';
 import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
 import { RemoteProvider } from './provider';
 
 const gitRegex = /\/_git\/?/i;
@@ -14,22 +15,22 @@ const fileRegex = /path=([^&]+)/i;
 const rangeRegex = /line=(\d+)(?:&lineEnd=(\d+))?/;
 
 export class AzureDevOpsRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, legacy: boolean = false) {
-		if (sshDomainRegex.test(domain)) {
-			path = path.replace(sshPathRegex, '');
-			domain = domain.replace(sshDomainRegex, '');
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, legacy: boolean = false) {
+		if (sshDomainRegex.test(gitRemoteUrl.domain)) {
+			gitRemoteUrl.path = gitRemoteUrl.path.replace(sshPathRegex, '');
+			gitRemoteUrl.domain = gitRemoteUrl.domain.replace(sshDomainRegex, '');
 
 			// Add in /_git/ into ssh urls
-			const match = orgAndProjectRegex.exec(path);
+			const match = orgAndProjectRegex.exec(gitRemoteUrl.path);
 			if (match != null) {
 				const [, org, project, rest] = match;
 
 				// Handle legacy vsts urls
 				if (legacy) {
-					domain = `${org}.${domain}`;
-					path = `${project}/_git/${rest}`;
+					gitRemoteUrl.domain = `${org}.${gitRemoteUrl.domain}`;
+					gitRemoteUrl.path = `${project}/_git/${rest}`;
 				} else {
-					path = `${org}/${project}/_git/${rest}`;
+					gitRemoteUrl.path = `${org}/${project}/_git/${rest}`;
 				}
 			}
 		}
@@ -37,8 +38,8 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		// Azure DevOps allows projects and repository names with spaces. In that situation,
 		// the `path` will be previously encoded during git clone
 		// revert that encoding to avoid double-encoding by gitlens during copy remote and open remote
-		path = decodeURIComponent(path);
-		super(domain, path, protocol, name);
+		gitRemoteUrl.path = decodeURIComponent(gitRemoteUrl.path);
+		super(gitRemoteUrl, remoteConfig);
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;

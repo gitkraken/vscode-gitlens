@@ -2154,7 +2154,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const uri = Uri.parse(repoPath, true);
 		const [, owner, repo] = uri.path.split('/', 3);
 
-		const url = `https://github.com/${owner}/${repo}.git`;
+		const protocol = 'https';
+		const url = `${protocol}://github.com/${owner}/${repo}.git`;
 		const domain = 'github.com';
 		const path = `${owner}/${repo}`;
 
@@ -2163,10 +2164,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				repoPath,
 				`${domain}/${path}`,
 				'origin',
-				'https',
+				protocol,
 				domain,
 				path,
-				RemoteProviderFactory.factory(providers)(url, domain, path),
+				RemoteProviderFactory.factory(providers)({
+					url: url,
+					protocol: protocol,
+					domain: domain,
+					path: path,
+				}),
 				[
 					{ type: GitRemoteType.Fetch, url: url },
 					{ type: GitRemoteType.Push, url: url },
