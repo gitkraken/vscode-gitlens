@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Fixed
 
+- Fixes [#2000](https://github.com/gitkraken/vscode-gitlens/issues/1936) - File Changes annotations fail to display in certain cases
 - Fixes [#1936](https://github.com/gitkraken/vscode-gitlens/issues/1936) - Broken repositories view
 - Fixes [#1882](https://github.com/gitkraken/vscode-gitlens/issues/1882) - Blame annotations not showing anymore after update
 - Fixes [#1787](https://github.com/gitkraken/vscode-gitlens/issues/1787) - Remove '-review' from Gerrit Remote reviewDomain() &mdash; thanks to [PR #1954](https://github.com/gitkraken/vscode-gitlens/pull/1954) by Felipe Santos ([@felipecrs](https://github.com/felipecrs))
