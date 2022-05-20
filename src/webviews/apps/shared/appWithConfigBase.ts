@@ -58,7 +58,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				(e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
 			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
-			DOM.on('.popup', 'mousedown', (e, target: HTMLElement) => this.onPopupMouseDown(target, e)),
+			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
 		);
 
 		return disposables;
@@ -220,15 +220,6 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		this._changes[element.name] = ensureIfBooleanOrNull(value);
 
 		this.applyChanges();
-	}
-
-	protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
-		e.preventDefault();
-
-		const el = e.target as HTMLElement;
-		if (el?.matches('[data-token]')) {
-			this.onTokenMouseDown(el, e);
-		}
 	}
 
 	protected onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
