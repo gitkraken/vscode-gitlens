@@ -17,6 +17,10 @@
 			"query": "state:open repo:${owner}/${repository} label:triage sort:updated-desc"
 		},
 		{
+			"label": "Current",
+			"query": "state:open repo:${owner}/${repository} milestone:\"June 2022\" sort:updated-desc"
+		},
+		{
 			"label": "Soon™",
 			"query": "state:open repo:${owner}/${repository} milestone:Soon™ sort:updated-desc"
 		},
@@ -27,10 +31,6 @@
 		{
 			"label": "Pending Release",
 			"query": "state:closed repo:${owner}/${repository} label:pending-release sort:updated-desc"
-		},
-		{
-			"label": "Soonish™",
-			"query": "state:open repo:${owner}/${repository} milestone:Soonish™ sort:updated-desc"
 		},
 		{
 			"label": "All",
