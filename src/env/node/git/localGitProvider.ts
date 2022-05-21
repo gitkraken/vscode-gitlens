@@ -116,6 +116,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { filterMap as filterMapIterable, find, first, last, some } from '../../../system/iterable';
 import {
+	commonBaseIndex,
 	dirname,
 	getBestPath,
 	isAbsolute,
@@ -498,6 +499,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (uri != null) {
 			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
 			repositories.push(this.openRepository(folder, uri, true));
+
+			// Add a closed (hidden) repository for the canonical version
+			const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
+			if (canonicalUri != null) {
+				repositories.push(this.openRepository(folder, canonicalUri, true, undefined, true));
+			}
 		}
 
 		if (depth <= 0) return repositories;
@@ -555,6 +562,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.log(cc, `found repository in '${rp.fsPath}'`);
 			repositories.push(this.openRepository(folder, rp, false));
+
+			// Add a closed (hidden) repository for the canonical version
+			const canonicalUri = this.toCanonicalMap.get(getBestPath(rp));
+			if (canonicalUri != null) {
+				repositories.push(this.openRepository(folder, canonicalUri, true, undefined, true));
+			}
 		}
 
 		return repositories;
@@ -911,6 +924,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.git.fetch(repoPath, opts);
 	}
 
+	private readonly toCanonicalMap = new Map<string, Uri>();
+	private readonly fromCanonicalMap = new Map<string, Uri>();
+
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
@@ -918,13 +934,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let repoPath: string | undefined;
 		try {
-			let isSymLink = undefined;
-
 			if (!isDirectory) {
 				const stats = await workspace.fs.stat(uri);
 				uri = stats?.type === FileType.Directory ? uri : Uri.file(dirname(uri.fsPath));
-
-				isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
@@ -962,36 +974,46 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
-			if (isSymLink == null) {
-				const stats = await workspace.fs.stat(uri);
-				isSymLink = ((stats?.type ?? 0) & FileType.SymbolicLink) === FileType.SymbolicLink;
-			}
+			const canonicalUri = this.toCanonicalMap.get(repoPath);
+			if (canonicalUri == null) {
+				let symlink;
+				[repoPath, symlink] = await new Promise<[string, string | undefined]>(resolve => {
+					realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
+						if (err != null) {
+							Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
+							resolve([repoPath!, undefined]);
+							return;
+						}
 
-			if (!isSymLink) return repoUri;
+						if (equalsIgnoreCase(uri.fsPath, resolvedPath)) {
+							Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
+							resolve([repoPath!, undefined]);
+							return;
+						}
 
-			repoPath = await new Promise<string | undefined>(resolve => {
-				realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
-					if (err != null) {
-						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
-						resolve(repoPath);
-						return;
-					}
+						let linkPath = normalizePath(resolvedPath);
+						const index = commonBaseIndex(`${repoPath}/`, `${linkPath}/`, '/');
+						const uriPath = normalizePath(uri.fsPath);
+						if (index < linkPath.length - 1) {
+							linkPath = uriPath.substring(0, uriPath.length - (linkPath.length - index));
+						} else {
+							linkPath = uriPath;
+						}
 
-					if (equalsIgnoreCase(uri.fsPath, resolvedPath)) {
-						Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
-						resolve(repoPath);
-						return;
-					}
-
-					const linkPath = normalizePath(resolvedPath);
-					repoPath = repoPath!.replace(linkPath, uri.fsPath);
-					Logger.debug(
-						cc,
-						`Symlink detected; repoPath=${repoPath}, path=${uri.fsPath}, resolvedPath=${resolvedPath}`,
-					);
-					resolve(repoPath);
+						Logger.debug(
+							cc,
+							`Symlink detected; repoPath=${repoPath}, path=${uri.fsPath}, resolvedPath=${resolvedPath}`,
+						);
+						resolve([repoPath!, linkPath]);
+					});
 				});
-			});
+
+				// If we found a symlink, keep track of the mappings
+				if (symlink != null) {
+					this.toCanonicalMap.set(repoPath, Uri.file(symlink));
+					this.fromCanonicalMap.set(symlink, Uri.file(repoPath));
+				}
+			}
 
 			return repoPath ? Uri.file(repoPath) : undefined;
 		} catch (ex) {
@@ -3912,7 +3934,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private getScmGitUri(path: string, repoPath: string): Uri {
-		const uri = this.getAbsoluteUri(path, repoPath);
+		// If the repoPath is a canonical path, then we need to remap it to the real path, because the vscode.git extension always uses the real path
+		const realUri = this.fromCanonicalMap.get(repoPath);
+		const uri = this.getAbsoluteUri(path, realUri ?? repoPath);
+
 		return Uri.from({
 			scheme: Schemes.Git,
 			path: uri.path,
