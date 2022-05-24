@@ -4,6 +4,7 @@ import {
 	Disposable,
 	Event,
 	EventEmitter,
+	FileType,
 	ProgressLocation,
 	Range,
 	TextDocument,
@@ -38,7 +39,7 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map, some } from '../system/iterable';
-import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
+import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import {
@@ -1824,14 +1825,26 @@ export class GitProviderService implements Disposable {
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const folderPath = dirname(getBestPath(uri));
-		const repository = this.getRepository(uri);
+		const path = getBestPath(uri);
+		let repository: Repository | undefined;
+		repository = this.getRepository(uri);
+
+		let isDirectory: boolean | undefined;
 
 		detectNested = detectNested ?? configuration.get('detectNestedRepositories');
 		if (!detectNested) {
 			if (repository != null) return repository;
-		} else if (this._visitedPaths.has(folderPath)) {
+		} else if (this._visitedPaths.has(path)) {
 			return repository;
+		} else {
+			const stats = await workspace.fs.stat(uri);
+			// If the uri isn't a directory, go up one level
+			if ((stats.type & FileType.Directory) !== FileType.Directory) {
+				uri = Uri.joinPath(uri, '..');
+				if (this._visitedPaths.has(getBestPath(uri))) return repository;
+			}
+
+			isDirectory = true;
 		}
 
 		const key = asRepoComparisonKey(uri);
@@ -1839,17 +1852,20 @@ export class GitProviderService implements Disposable {
 		if (promise == null) {
 			async function findRepository(this: GitProviderService): Promise<Repository | undefined> {
 				const { provider } = this.getProvider(uri);
-				const repoUri = await provider.findRepositoryUri(uri);
+				const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-				this._visitedPaths.set(folderPath);
+				this._visitedPaths.set(path);
 
 				if (repoUri == null) return undefined;
 
-				let repository = this._repositories.get(repoUri);
-				if (repository != null) return repository;
+				let root: Repository | undefined;
+				if (this._repositories.count !== 0) {
+					repository = this._repositories.get(repoUri);
+					if (repository != null) return repository;
 
-				// If this new repo is inside one of our known roots and we we don't already know about, add it
-				const root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
+					// If this new repo is inside one of our known roots and we we don't already know about, add it
+					root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
+				}
 
 				const autoRepositoryDetection =
 					configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
