@@ -45,7 +45,7 @@ export class VslsGitProvider extends LocalGitProvider {
 			const repositories = await guest?.getRepositoriesForUri(uri);
 			if (repositories == null || repositories.length === 0) return [];
 
-			return repositories.map(r =>
+			return repositories.flatMap(r =>
 				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, undefined, r.closed),
 			);
 		} catch (ex) {
