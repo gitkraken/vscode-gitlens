@@ -968,9 +968,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let repoPath: string | undefined;
 		try {
-			if (!isDirectory) {
+			if (isDirectory == null) {
 				const stats = await workspace.fs.stat(uri);
-				uri = stats?.type === FileType.Directory ? uri : Uri.file(dirname(uri.fsPath));
+				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+			}
+
+			// If the uri isn't a directory, go up one level
+			if (!isDirectory) {
+				uri = Uri.joinPath(uri, '..');
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);

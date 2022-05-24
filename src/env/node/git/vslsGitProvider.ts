@@ -77,11 +77,14 @@ export class VslsGitProvider extends LocalGitProvider {
 
 		let repoPath: string | undefined;
 		try {
+			if (isDirectory == null) {
+				const stats = await workspace.fs.stat(uri);
+				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+			}
+
+			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {
-				try {
-					const stats = await workspace.fs.stat(uri);
-					uri = stats?.type === FileType.Directory ? uri : uri.with({ path: dirname(uri.fsPath) });
-				} catch {}
+				uri = Uri.joinPath(uri, '..');
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
