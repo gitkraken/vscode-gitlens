@@ -125,7 +125,6 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug<GitLineTracker['updateState']>({
 		args: { 0: selections => selections?.map(s => s.active).join(','), 1: e => e.document.uri.toString(true) },
 		exit: updated => `returned ${updated}`,
-		singleLine: true,
 	})
 	private async updateState(selections: LineSelection[], editor: TextEditor): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
