@@ -2300,7 +2300,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			path: this.getRelativePath(uri, repoPath),
 			commitSha: ref,
 			size: stats.size,
-			type: stats.type === FileType.Directory ? 'tree' : 'blob',
+			type: (stats.type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 		};
 	}
 
@@ -2332,7 +2332,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				path: this.getRelativePath(path, uri),
 				commitSha: ref,
 				size: 0, // stats?.size,
-				type: type === FileType.Directory ? 'tree' : 'blob',
+				type: (type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 			});
 		}
 
