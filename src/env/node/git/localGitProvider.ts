@@ -384,21 +384,52 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
-	): Repository {
+	): Repository[] {
 		if (!closed) {
 			void this.openScmRepository(uri);
 		}
 
-		return new Repository(
-			this.container,
-			this.onRepositoryChanged.bind(this),
-			this.descriptor,
-			folder,
-			uri,
-			root,
-			suspended ?? !window.state.focused,
-			closed,
-		);
+		// Add a closed (hidden) repository for the canonical version
+		const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
+		if (canonicalUri != null) {
+			return [
+				new Repository(
+					this.container,
+					this.onRepositoryChanged.bind(this),
+					this.descriptor,
+					folder,
+					uri,
+					root,
+					suspended ?? !window.state.focused,
+					closed,
+					// canonicalUri,
+				),
+				new Repository(
+					this.container,
+					this.onRepositoryChanged.bind(this),
+					this.descriptor,
+					folder,
+					canonicalUri,
+					root,
+					suspended ?? !window.state.focused,
+					true,
+					// uri,
+				),
+			];
+		}
+
+		return [
+			new Repository(
+				this.container,
+				this.onRepositoryChanged.bind(this),
+				this.descriptor,
+				folder,
+				uri,
+				root,
+				suspended ?? !window.state.focused,
+				closed,
+			),
+		];
 	}
 
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
@@ -495,16 +526,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const repositories: Repository[] = [];
 
+		let rootPath;
+		let canonicalRootPath;
+
 		const uri = await this.findRepositoryUri(folder.uri, true);
 		if (uri != null) {
-			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
-			repositories.push(this.openRepository(folder, uri, true));
+			rootPath = normalizePath(uri.fsPath);
 
-			// Add a closed (hidden) repository for the canonical version
 			const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
 			if (canonicalUri != null) {
-				repositories.push(this.openRepository(folder, canonicalUri, true, undefined, true));
+				canonicalRootPath = normalizePath(canonicalUri.fsPath);
 			}
+
+			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
+			repositories.push(...this.openRepository(folder, uri, true));
 		}
 
 		if (depth <= 0) return repositories;
@@ -542,32 +577,31 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return repositories;
 		}
 
-		const rootPath = uri != null ? normalizePath(uri.fsPath) : undefined;
 		for (let p of repoPaths) {
 			p = dirname(p);
 			const normalized = normalizePath(p);
 
 			// If we are the same as the root, skip it
-			if (isLinux) {
-				if (normalized === rootPath) continue;
-			} else if (equalsIgnoreCase(normalized, rootPath)) {
+			if (
+				(isLinux &&
+					(normalized === rootPath || (canonicalRootPath != null && normalized === canonicalRootPath))) ||
+				equalsIgnoreCase(normalized, rootPath) ||
+				(canonicalRootPath != null && equalsIgnoreCase(normalized, canonicalRootPath))
+			) {
 				continue;
 			}
 
 			Logger.log(cc, `searching in '${p}'...`);
-			Logger.debug(cc, `normalizedRepoPath=${normalized}, rootPath=${rootPath}`);
+			Logger.debug(
+				cc,
+				`normalizedRepoPath=${normalized}, rootPath=${rootPath}, canonicalRootPath=${canonicalRootPath}`,
+			);
 
 			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
 			Logger.log(cc, `found repository in '${rp.fsPath}'`);
-			repositories.push(this.openRepository(folder, rp, false));
-
-			// Add a closed (hidden) repository for the canonical version
-			const canonicalUri = this.toCanonicalMap.get(getBestPath(rp));
-			if (canonicalUri != null) {
-				repositories.push(this.openRepository(folder, canonicalUri, true, undefined, true));
-			}
+			repositories.push(...this.openRepository(folder, rp, false));
 		}
 
 		return repositories;

@@ -1859,15 +1859,18 @@ export class GitProviderService implements Disposable {
 				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
 
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
-				repository = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
-				this._repositories.add(repository);
+				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+				for (const repository of repositories) {
+					this._repositories.add(repository);
+				}
 
 				this._pendingRepositories.delete(key);
 
 				this.updateContext();
 				// Send a notification that the repositories changed
-				queueMicrotask(() => this.fireRepositoriesChanged([repository!]));
+				queueMicrotask(() => this.fireRepositoriesChanged(repositories));
 
+				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
 				return repository;
 			}
 

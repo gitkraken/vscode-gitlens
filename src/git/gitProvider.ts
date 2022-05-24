@@ -112,7 +112,7 @@ export interface GitProvider extends Disposable {
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
-	): Repository;
+	): Repository[];
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
 	supports(feature: Features): Promise<boolean>;
