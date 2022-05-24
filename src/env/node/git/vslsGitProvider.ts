@@ -5,7 +5,7 @@ import { GitCommandOptions } from '../../../git/commandOptions';
 import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
 import { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
-import { addVslsPrefixIfNeeded, dirname } from '../../../system/path';
+import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
