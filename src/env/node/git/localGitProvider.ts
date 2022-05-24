@@ -346,8 +346,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					uri,
 				) ?? true;
 
+			const folder = workspace.getWorkspaceFolder(uri);
+			if (folder == null) return [];
+
 			const repositories = await this.repositorySearch(
-				workspace.getWorkspaceFolder(uri)!,
+				folder,
 				autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined,
 			);
 
