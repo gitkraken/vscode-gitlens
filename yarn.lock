@@ -75,17 +75,17 @@
     methods "^1.1.2"
     path-to-regexp "^6.1.0"
 
-"@microsoft/fast-element@^1.10.1", "@microsoft/fast-element@^1.6.2", "@microsoft/fast-element@^1.9.0":
-  version "1.10.1"
-  resolved "https://registry.yarnpkg.com/@microsoft/fast-element/-/fast-element-1.10.1.tgz#2ca442a4a8d15f3fd796795a370e3a1bc9bd2738"
-  integrity sha512-cq+vBBa8JCuAhsFEwHM9386YolYu9pNb1sBodp69RqWuaU56ElC60dC3aQWuOKqAMNoQqtCHPh0RQTvVBegSyw==
+"@microsoft/fast-element@^1.10.2", "@microsoft/fast-element@^1.6.2", "@microsoft/fast-element@^1.9.0":
+  version "1.10.2"
+  resolved "https://registry.yarnpkg.com/@microsoft/fast-element/-/fast-element-1.10.2.tgz#34a2faa8a97608e1b7c8024b9aed3deddd5c6ad8"
+  integrity sha512-Nh80AEx/caDe4jhFYNT75sTG4k6MWy1N6XfgyhmejAX0ylivYy0M78WI2JgQOqi2ZRozCiNcpAPLVhYyAVN9sA==
 
 "@microsoft/fast-foundation@^2.38.0", "@microsoft/fast-foundation@^2.41.1":
-  version "2.46.5"
-  resolved "https://registry.yarnpkg.com/@microsoft/fast-foundation/-/fast-foundation-2.46.5.tgz#5b44cebd4e3949096a949ea38a212c521149a08c"
-  integrity sha512-6ZRpJfuUFIgc/18Dc0Z4aIbVBwqHjP8PTlkz8odxS9cs0jDtNMf4kyy77y7lKwPA70Ki87fu+uQXLI36R1HHCQ==
+  version "2.46.6"
+  resolved "https://registry.yarnpkg.com/@microsoft/fast-foundation/-/fast-foundation-2.46.6.tgz#9547b506b0dc48cd237da3215b91803f94139623"
+  integrity sha512-et/OhwKY6RpyeeskA6pCj3HwbSrzpsD5V8xEjA6iJ5pbSqQBAfk8cRTgySddPE5TwgDQQBK38iiz/SQ60kqNFQ==
   dependencies:
-    "@microsoft/fast-element" "^1.10.1"
+    "@microsoft/fast-element" "^1.10.2"
     "@microsoft/fast-web-utilities" "^5.4.1"
     tabbable "^5.2.0"
     tslib "^1.13.0"
@@ -1996,9 +1996,9 @@ ee-first@1.1.1:
   integrity sha1-WQxhFWsK4vTwJVcyoViyZrxWsh0=
 
 electron-to-chromium@^1.4.118:
-  version "1.4.137"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.137.tgz#186180a45617283f1c012284458510cd99d6787f"
-  integrity sha512-0Rcpald12O11BUogJagX3HsCN3FE83DSqWjgXoHo5a72KUKMSfI39XBgJpgNNxS9fuGzytaFjE06kZkiVFy2qA==
+  version "1.4.138"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.138.tgz#3ec41ca589aaf505dfe2034fde913329af801730"
+  integrity sha512-IOyp2Seq3w4QLln+yZWcMF3VXhhduz4bwg9gfI+CnP5TkzwNXQ8FCZuwwPsnes73AfWdf5J2n2OXdUwDUspDPQ==
 
 emoji-regex@^8.0.0:
   version "8.0.0"
@@ -4230,9 +4230,9 @@ no-case@^3.0.4:
     tslib "^2.0.3"
 
 node-abi@^3.3.0:
-  version "3.15.0"
-  resolved "https://registry.yarnpkg.com/node-abi/-/node-abi-3.15.0.tgz#cd9ac8c58328129b49998cc6fa16aa5506152716"
-  integrity sha512-Ic6z/j6I9RLm4ov7npo1I48UQr2BEyFCqh6p7S1dhEx9jPO0GPGq/e2Rb7x7DroQrmiVMz/Bw1vJm9sPAl2nxA==
+  version "3.21.0"
+  resolved "https://registry.yarnpkg.com/node-abi/-/node-abi-3.21.0.tgz#cd3c6bfca94fb08b3ae6f2bb1e09da628c97540c"
+  integrity sha512-0ChvtQmmNYzXju0fjG0Vfg72q2D8FxUhluvV9uqivtXsKblSekJE2juxfg+9HoSgqPMqCmVEC/GHHtGzi4xYTg==
   dependencies:
     semver "^7.3.5"
 
@@ -4249,9 +4249,9 @@ node-fetch@2.6.7, node-fetch@^2.6.7:
     whatwg-url "^5.0.0"
 
 node-releases@^2.0.3:
-  version "2.0.4"
-  resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.4.tgz#f38252370c43854dc48aa431c766c6c398f40476"
-  integrity sha512-gbMzqQtTtDz/00jQzZ21PQzdI9PyLYqUSvD0p3naOhX4odFji0ZxYdnVwPTxmSwkmxhcFImpozceidSG+AgoPQ==
+  version "2.0.5"
+  resolved "https://registry.yarnpkg.com/node-releases/-/node-releases-2.0.5.tgz#280ed5bc3eba0d96ce44897d8aee478bfb3d9666"
+  integrity sha512-U9h1NLROZTq9uE1SNffn6WuPDg8icmi3ns4rEl/oTfIle4iLjTliCzgTsbaIFMq/Xn078/lfY/BL0GWZ+psK4Q==
 
 nopt@^5.0.0:
   version "5.0.0"
@@ -5895,10 +5895,10 @@ typed-rest-client@^1.8.4:
     tunnel "0.0.6"
     underscore "^1.12.1"
 
-typescript@4.7.1-rc:
-  version "4.7.1-rc"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.7.1-rc.tgz#23a0517d36c56de887b4457f29e2d265647bbd7c"
-  integrity sha512-EQd2NVelDe6ZVc2sO1CSpuSs+RHzY8c2n/kTNQAHw4um/eAXY+ZY4IKoUpNK0wO6C5hN+XcUXR7yqT8VbwwNIQ==
+typescript@4.7.2:
+  version "4.7.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.7.2.tgz#1f9aa2ceb9af87cca227813b4310fff0b51593c4"
+  integrity sha512-Mamb1iX2FDUpcTRzltPxgWMKy3fhg0TN378ylbktPGPK/99KbDtMQ4W1hwgsbPAsG3a0xKa1vmw4VKZQbkvz5A==
 
 uc.micro@^1.0.1, uc.micro@^1.0.5:
   version "1.0.6"
