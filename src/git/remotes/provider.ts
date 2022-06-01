@@ -231,7 +231,13 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	private async openUrl(url?: string): Promise<boolean | undefined> {
 		if (url == null) return undefined;
 
-		return env.openExternal(Uri.parse(url));
+		const uri = Uri.parse(url);
+		// Pass a string to openExternal to avoid double encoding issues: https://github.com/microsoft/vscode/issues/85930
+		if (uri.path.includes('#')) {
+			// .d.ts currently says it only supports a Uri, but it actually accepts a string too
+			return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(uri.toString());
+		}
+		return env.openExternal(uri);
 	}
 
 	protected encodeUrl(url: string): string;
