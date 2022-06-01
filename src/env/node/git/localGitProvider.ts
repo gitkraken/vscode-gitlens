@@ -313,13 +313,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}, 1000);
 
 		if (cc != null) {
-			cc.exitDetails = ` ${GlyphChars.Dot} Git found (${getDurationMilliseconds(start)} ms): ${
-				location.version
-			} @ ${location.path === 'git' ? 'PATH' : location.path}`;
+			cc.exitDetails = ` ${GlyphChars.Dot} Git (${location.version}) found in ${
+				location.path === 'git' ? 'PATH' : location.path
+			}`;
 		} else {
 			Logger.log(
 				cc,
-				`Git found: ${location.version} @ ${location.path === 'git' ? 'PATH' : location.path} ${
+				`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path} ${
 					GlyphChars.Dot
 				} ${getDurationMilliseconds(start)} ms`,
 			);
