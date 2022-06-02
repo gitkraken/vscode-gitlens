@@ -105,15 +105,15 @@ export class GitLabRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return this.encodeUrl(`${this.baseUrl}/branches`);
+		return this.encodeUrl(`${this.baseUrl}/-/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return this.encodeUrl(`${this.baseUrl}/tree/${branch}`);
+		return this.encodeUrl(`${this.baseUrl}/-/tree/${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
+		return this.encodeUrl(`${this.baseUrl}/-/commit/${sha}`);
 	}
 
 	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
@@ -132,8 +132,8 @@ export class GitLabRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.encodeUrl(`${this.baseUrl}/blob/${sha}/${fileName}`)}${line}`;
-		if (branch) return `${this.encodeUrl(`${this.baseUrl}/blob/${branch}/${fileName}`)}${line}`;
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 }
