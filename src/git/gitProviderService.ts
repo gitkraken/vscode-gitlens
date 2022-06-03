@@ -1831,7 +1831,7 @@ export class GitProviderService implements Disposable {
 
 		let isDirectory: boolean | undefined;
 
-		detectNested = detectNested ?? configuration.get('detectNestedRepositories');
+		detectNested = detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
 		} else if (this._visitedPaths.has(path)) {

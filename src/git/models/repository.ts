@@ -286,7 +286,9 @@ export class Repository implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'remotes', this.folder?.uri)) {
-			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder?.uri));
+			this._providers = RemoteProviderFactory.loadProviders(
+				configuration.get('remotes', this.folder?.uri ?? null),
+			);
 
 			if (e != null) {
 				this.resetCaches('remotes');
@@ -573,7 +575,7 @@ export class Repository implements Disposable {
 	async getRemotes(options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean }): Promise<GitRemote[]> {
 		if (this._remotes == null) {
 			if (this._providers == null) {
-				const remotesCfg = configuration.get('remotes', this.folder?.uri);
+				const remotesCfg = configuration.get('remotes', this.folder?.uri ?? null);
 				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
 			}
 

@@ -343,7 +343,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const autoRepositoryDetection =
 				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 					CoreGitConfiguration.AutoRepositoryDetection,
-					uri,
 				) ?? true;
 
 			const folder = workspace.getWorkspaceFolder(uri);
