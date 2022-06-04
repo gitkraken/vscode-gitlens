@@ -20,7 +20,7 @@ const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
 
 export class GitHubRemote extends RichRemoteProvider {
-	protected get authProvider() {
+	protected get authProvider(): { id: string; scopes: string[] } {
 		return authProvider;
 	}
 

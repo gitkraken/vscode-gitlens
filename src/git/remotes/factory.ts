@@ -7,6 +7,7 @@ import { CustomRemote } from './custom';
 import { GerritRemote } from './gerrit';
 import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
+import { GithubEnterpriseRemote } from './github-enterprise';
 import { GitLabRemote } from './gitlab';
 import { GoogleSourceRemote } from './google-source';
 import { RemoteProvider } from './provider';
@@ -156,6 +157,9 @@ export class RemoteProviderFactory {
 				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitHub:
 				return (domain: string, path: string) => new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
+			case CustomRemoteType.GitHubEnterprise:
+				return (domain: string, path: string) =>
+					new GithubEnterpriseRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitLab:
 				return (domain: string, path: string) => new GitLabRemote(domain, path, cfg.protocol, cfg.name, true);
 			default:

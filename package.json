@@ -2283,6 +2283,7 @@
 										"GoogleSource",
 										"Gitea",
 										"GitHub",
+										"GitHubEnterprise",
 										"GitLab"
 									],
 									"description": "Specifies the type of the custom remote service"

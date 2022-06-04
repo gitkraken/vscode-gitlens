@@ -485,6 +485,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<RepositoryVisibility> {
 		switch (remote.provider?.id) {
 			case 'github':
+			case 'github-enterprise':
 			case 'gitlab':
 			case 'bitbucket':
 			case 'azure-devops':

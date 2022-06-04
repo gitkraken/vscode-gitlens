@@ -239,6 +239,7 @@ export const enum CustomRemoteType {
 	GoogleSource = 'GoogleSource',
 	Gitea = 'Gitea',
 	GitHub = 'GitHub',
+	GitHubEnterprise = 'GitHubEnterprise',
 	GitLab = 'GitLab',
 }
 
