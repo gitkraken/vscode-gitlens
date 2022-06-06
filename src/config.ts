@@ -485,6 +485,7 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
+			ignoreCertErrors?: boolean;
 	  }
 	| {
 			domain: null;
@@ -493,6 +494,7 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
+			ignoreCertErrors?: boolean;
 	  };
 
 export interface RemotesUrlsConfig {

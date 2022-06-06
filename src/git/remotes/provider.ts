@@ -585,12 +585,20 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			return undefined;
 		}
 
-		let session;
+		let session: AuthenticationSession | undefined | null;
 		try {
-			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-				createIfNone: createIfNeeded,
-				silent: !createIfNeeded,
-			});
+			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+				session = await container.integrationAuthentication.getSession(
+					this.authProvider.id,
+					{ domain: this.domain, scopes: this.authProvider.scopes },
+					{ createIfNeeded: createIfNeeded },
+				);
+			} else {
+				session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+					createIfNone: createIfNeeded,
+					silent: !createIfNeeded,
+				});
+			}
 		} catch (ex) {
 			await container.storage.deleteWorkspace(this.connectedKey);
 

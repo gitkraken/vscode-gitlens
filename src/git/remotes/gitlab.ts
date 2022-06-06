@@ -1,17 +1,49 @@
-import { Range, Uri } from 'vscode';
+import { AuthenticationSession, Range, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference, AutolinkType } from '../../config';
-import { GitRevision, Repository } from '../models';
-import { RemoteProvider } from './provider';
+import { Container } from '../../container';
+import {
+	IntegrationAuthenticationProvider,
+	IntegrationAuthenticationSessionDescriptor,
+} from '../../plus/integrationAuthentication';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
+import { log } from '../../system/decorators/log';
+import { equalsIgnoreCase } from '../../system/string';
+import {
+	type Account,
+	type DefaultBranch,
+	GitRevision,
+	type IssueOrPullRequest,
+	type PullRequest,
+	type PullRequestState,
+	type Repository,
+} from '../models';
+import { RichRemoteProvider } from './provider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const autolinkFullMergeRequestsRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)!(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
-export class GitLabRemote extends RemoteProvider {
+const authProvider = Object.freeze({ id: 'gitlab', scopes: ['read_api', 'read_user', 'read_repository'] });
+
+export class GitLabRemote extends RichRemoteProvider {
+	private static authenticationProvider: GitLabAuthenticationProvider | undefined;
+
+	protected get authProvider() {
+		return authProvider;
+	}
+
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
 		super(domain, path, protocol, name, custom);
+
+		if (GitLabRemote.authenticationProvider == null) {
+			GitLabRemote.authenticationProvider = new GitLabAuthenticationProvider(Container.instance);
+		}
+	}
+
+	get apiBaseUrl() {
+		return this.custom ? `${this.protocol}://${this.domain}/api` : `https://${this.domain}/api`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -111,6 +143,88 @@ export class GitLabRemote extends RemoteProvider {
 		return this.formatName('GitLab');
 	}
 
+	@log()
+	override async connect(): Promise<boolean> {
+		if (!equalsIgnoreCase(this.domain, 'gitlab.com')) {
+			const container = Container.instance;
+			const title =
+				'Connecting to a GitLab Self-Managed instance for rich integration features requires a paid GitLens+ account.';
+
+			while (true) {
+				const subscription = await container.subscription.getSubscription();
+				if (subscription.account?.verified === false) {
+					const resend = { title: 'Resend verification email' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nYou must verify your GitLens+ account email address before you can continue.`,
+						{ modal: true },
+						resend,
+						cancel,
+					);
+
+					if (result === resend) {
+						if (await container.subscription.resendVerification()) {
+							continue;
+						}
+					}
+
+					return false;
+				}
+
+				const plan = subscription.plan.effective.id;
+				if (isSubscriptionPaidPlan(plan)) break;
+
+				if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+					const startTrial = { title: 'Try GitLens+' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to try GitLens+ free for 3 days?`,
+						{ modal: true },
+						startTrial,
+						cancel,
+					);
+
+					if (result !== startTrial) return false;
+
+					void container.subscription.startPreviewTrial();
+					break;
+				} else if (subscription.account == null) {
+					const signIn = { title: 'Sign in to GitLens+' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to sign in to GitLens+?`,
+						{ modal: true },
+						signIn,
+						cancel,
+					);
+
+					if (result === signIn) {
+						if (await container.subscription.loginOrSignUp()) {
+							continue;
+						}
+					}
+				} else {
+					const upgrade = { title: 'Upgrade your account' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to upgrade your account?`,
+						{ modal: true },
+						upgrade,
+						cancel,
+					);
+
+					if (result === upgrade) {
+						void container.subscription.purchase();
+					}
+				}
+
+				return false;
+			}
+		}
+
+		return super.connect();
+	}
+
 	async getLocalInfoFromRemoteUri(
 		repository: Repository,
 		uri: Uri,
@@ -207,5 +321,116 @@ export class GitLabRemote extends RemoteProvider {
 		if (sha) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${sha}/${fileName}`)}${line}`;
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
+	}
+
+	protected async getProviderAccountForCommit(
+		{ accessToken }: AuthenticationSession,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderAccountForEmail(
+		{ accessToken }: AuthenticationSession,
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderDefaultBranch({
+		accessToken,
+	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderIssueOrPullRequest(
+		{ accessToken }: AuthenticationSession,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderPullRequestForBranch(
+		{ accessToken }: AuthenticationSession,
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+		},
+	): Promise<PullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		const { include, ...opts } = options ?? {};
+
+		const GitLabMergeRequest = (await import(/* webpackChunkName: "gitlabl" */ '../../plus/gitlab/models'))
+			.GitLabMergeRequest;
+		return (await Container.instance.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
+			...opts,
+			include: include?.map(s => GitLabMergeRequest.toState(s)),
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async getProviderPullRequestForCommit(
+		{ accessToken }: AuthenticationSession,
+		ref: string,
+	): Promise<PullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.instance.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+}
+
+class GitLabAuthenticationProvider implements IntegrationAuthenticationProvider {
+	constructor(container: Container) {
+		container.context.subscriptions.push(container.integrationAuthentication.registerProvider('gitlab', this));
+	}
+
+	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
+		return descriptor?.domain ?? '';
+	}
+
+	async createSession(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+	): Promise<AuthenticationSession | undefined> {
+		const token = await window.showInputBox({
+			ignoreFocusOut: true,
+			title: `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`,
+			password: true,
+			placeHolder: `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`,
+			prompt: 'Paste your GitLab Personal Access Token',
+		});
+
+		if (!token) return undefined;
+
+		return {
+			id: this.getSessionId(descriptor),
+			accessToken: token,
+			scopes: [],
+			account: {
+				id: '',
+				label: '',
+			},
+		};
 	}
 }
