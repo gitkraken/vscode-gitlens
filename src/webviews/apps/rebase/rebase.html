@@ -9,6 +9,21 @@
 			<header>
 				<h2>GitLens Interactive Rebase</h2>
 				<h4 id="subhead"></h4>
+				<div class="toggle">
+					<input
+						class="toggle__input sr-only"
+						tabindex="1"
+						data-action="reorder"
+						id="ordering"
+						name="ordering"
+						type="checkbox"
+					/>
+					<span aria-hidden="true" class="toggle__indicator"></span>
+					<label class="toggle__label" for="ordering" aria-label="Change order to oldest first"
+						>Oldest first</label
+					>
+					<!-- should have an <div aria-live="polite" /> to notify order change -->
+				</div>
 			</header>
 			<ul id="entries" class="entries"></ul>
 			<div class="shortcuts">

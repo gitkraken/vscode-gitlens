@@ -121,6 +121,9 @@ export interface Config {
 		url: string | null;
 		strictSSL: boolean;
 	} | null;
+	rebaseEditor: {
+		ordering: 'asc' | 'desc';
+	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;

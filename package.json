@@ -2065,6 +2065,28 @@
 				}
 			},
 			{
+				"id": "rebase-editor",
+				"title": "Interactive Rebase Editor",
+				"order": 105,
+				"properties": {
+					"gitlens.rebaseEditor.ordering": {
+						"type": "string",
+						"default": "desc",
+						"enum": [
+							"asc",
+							"desc"
+						],
+						"enumDescriptions": [
+							"Shows oldest commit first",
+							"Shows newest commit first"
+						],
+						"markdownDescription": "Specifies how Git commits are displayed in the _Interactive Rebase Editor_",
+						"scope": "window",
+						"order": 10
+					}
+				}
+			},
+			{
 				"id": "git-command-palette",
 				"title": "Git Command Palette",
 				"order": 110,
