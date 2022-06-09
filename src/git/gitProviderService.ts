@@ -4,6 +4,7 @@ import {
 	Disposable,
 	Event,
 	EventEmitter,
+	FileType,
 	ProgressLocation,
 	Range,
 	TextDocument,
@@ -38,7 +39,7 @@ import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map, some } from '../system/iterable';
-import { dirname, getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
+import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import {
@@ -564,10 +565,11 @@ export class GitProviderService implements Disposable {
 			this: GitProviderService,
 			repoPath: string | Uri,
 			plan: FreeSubscriptionPlans,
+			force: boolean = false,
 		): Promise<FeatureAccess> {
 			const { path: cacheKey } = this.getProvider(repoPath);
 
-			let access = this._accessCache.get(cacheKey);
+			let access = force ? undefined : this._accessCache.get(cacheKey);
 			if (access == null) {
 				access = this.visibility(repoPath).then(visibility => {
 					if (visibility !== RepositoryVisibility.Private) {
@@ -628,7 +630,8 @@ export class GitProviderService implements Disposable {
 				: { allowed: false, subscription: { current: subscription, required: requiredPlan } };
 		}
 
-		return getRepoAccess.call(this, repoPath, plan);
+		// Pass force = true to bypass the cache and avoid a promise loop (where we used the cached promise we just created to try to resolve itself 🤦)
+		return getRepoAccess.call(this, repoPath, plan, true);
 	}
 
 	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
@@ -1822,14 +1825,26 @@ export class GitProviderService implements Disposable {
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const folderPath = dirname(getBestPath(uri));
-		const repository = this.getRepository(uri);
+		const path = getBestPath(uri);
+		let repository: Repository | undefined;
+		repository = this.getRepository(uri);
 
-		detectNested = detectNested ?? configuration.get('detectNestedRepositories');
+		let isDirectory: boolean | undefined;
+
+		detectNested = detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
-		} else if (this._visitedPaths.has(folderPath)) {
+		} else if (this._visitedPaths.has(path)) {
 			return repository;
+		} else {
+			const stats = await workspace.fs.stat(uri);
+			// If the uri isn't a directory, go up one level
+			if ((stats.type & FileType.Directory) !== FileType.Directory) {
+				uri = Uri.joinPath(uri, '..');
+				if (this._visitedPaths.has(getBestPath(uri))) return repository;
+			}
+
+			isDirectory = true;
 		}
 
 		const key = asRepoComparisonKey(uri);
@@ -1837,17 +1852,20 @@ export class GitProviderService implements Disposable {
 		if (promise == null) {
 			async function findRepository(this: GitProviderService): Promise<Repository | undefined> {
 				const { provider } = this.getProvider(uri);
-				const repoUri = await provider.findRepositoryUri(uri);
+				const repoUri = await provider.findRepositoryUri(uri, isDirectory);
 
-				this._visitedPaths.set(folderPath);
+				this._visitedPaths.set(path);
 
 				if (repoUri == null) return undefined;
 
-				let repository = this._repositories.get(repoUri);
-				if (repository != null) return repository;
+				let root: Repository | undefined;
+				if (this._repositories.count !== 0) {
+					repository = this._repositories.get(repoUri);
+					if (repository != null) return repository;
 
-				// If this new repo is inside one of our known roots and we we don't already know about, add it
-				const root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
+					// If this new repo is inside one of our known roots and we we don't already know about, add it
+					root = this._repositories.getClosest(provider.getAbsoluteUri(uri, repoUri));
+				}
 
 				const autoRepositoryDetection =
 					configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
@@ -1857,15 +1875,18 @@ export class GitProviderService implements Disposable {
 				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
 
 				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
-				repository = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
-				this._repositories.add(repository);
+				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+				for (const repository of repositories) {
+					this._repositories.add(repository);
+				}
 
 				this._pendingRepositories.delete(key);
 
 				this.updateContext();
 				// Send a notification that the repositories changed
-				queueMicrotask(() => this.fireRepositoriesChanged([repository!]));
+				queueMicrotask(() => this.fireRepositoriesChanged(repositories));
 
+				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
 				return repository;
 			}
 

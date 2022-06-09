@@ -49,6 +49,7 @@ export class GitCommit implements GitRevisionReference {
 	readonly stashName: string | undefined;
 	// TODO@eamodio rename to stashNumber
 	readonly number: string | undefined;
+	readonly stashOnRef: string | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -63,15 +64,24 @@ export class GitCommit implements GitRevisionReference {
 		stats?: GitCommitStats,
 		lines?: GitCommitLine | GitCommitLine[] | undefined,
 		stashName?: string | undefined,
+		stashOnRef?: string | undefined,
 	) {
 		this.ref = this.sha;
-		this.refType = stashName ? 'stash' : 'revision';
 		this.shortSha = this.sha.substring(0, this.container.CommitShaFormatting.length);
+
+		if (stashName) {
+			this.refType = 'stash';
+			this.stashName = stashName || undefined;
+			this.stashOnRef = stashOnRef || undefined;
+			this.number = stashNumberRegex.exec(stashName)?.[1];
+		} else {
+			this.refType = 'revision';
+		}
 
 		// Add an ellipsis to the summary if there is or might be more message
 		if (message != null) {
 			this._message = message;
-			if (this.summary !== message) {
+			if (summary !== message) {
 				this._summary = `${summary} ${GlyphChars.Ellipsis}`;
 			} else {
 				this._summary = summary;
@@ -114,11 +124,6 @@ export class GitCommit implements GitRevisionReference {
 			}
 		} else {
 			this.lines = [];
-		}
-
-		if (stashName) {
-			this.stashName = stashName || undefined;
-			this.number = stashNumberRegex.exec(stashName)?.[1];
 		}
 	}
 

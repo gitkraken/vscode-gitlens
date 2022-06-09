@@ -169,7 +169,7 @@ export class GitLogParser {
 			const fields = getLines(data, options?.separator ?? '\0');
 			if (options?.skip) {
 				for (let i = 0; i < options.skip; i++) {
-					field = fields.next();
+					fields.next();
 				}
 			}
 
@@ -213,9 +213,9 @@ export class GitLogParser {
 		return { arguments: args, parse: parse };
 	}
 
-	static createWithFiles<T extends Record<string, string>>(fieldMapping: T): ParserWithFiles<T> {
-		let format = '%x00%x00';
-		const keys: (keyof T)[] = [];
+	static createWithFiles<T extends Record<string, unknown>>(fieldMapping: ExtractAll<T, string>): ParserWithFiles<T> {
+		let format = '%x00';
+		const keys: (keyof ExtractAll<T, string>)[] = [];
 		for (const key in fieldMapping) {
 			keys.push(key);
 			format += `%x00${fieldMapping[key]}`;
@@ -224,23 +224,20 @@ export class GitLogParser {
 		const args = ['-z', `--format=${format}`, '--name-status'];
 
 		function* parse(data: string): Generator<ParsedEntryWithFiles<T>> {
-			const records = getLines(data, '\0\0\0\0');
+			const records = getLines(data, '\0\0\0');
 
 			let entry: ParsedEntryWithFiles<T>;
 			let files: ParsedEntryFile[];
 			let fields: IterableIterator<string>;
 
-			let first = true;
-			for (let record of records) {
-				if (first) {
-					first = false;
-					// Fix the first record (since it only has 3 nulls)
-					record = record.slice(3);
-				}
-
+			for (const record of records) {
 				entry = {} as any;
 				files = [];
 				fields = getLines(record, '\0');
+
+				// Skip the 2 starting NULs
+				fields.next();
+				fields.next();
 
 				let fieldCount = 0;
 				let field;
@@ -259,6 +256,8 @@ export class GitLogParser {
 							field = fields.next();
 							file.originalPath = field.value;
 						}
+
+						files.push(file);
 					}
 				}
 

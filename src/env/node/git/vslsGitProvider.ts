@@ -5,7 +5,7 @@ import { GitCommandOptions } from '../../../git/commandOptions';
 import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
 import { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
-import { addVslsPrefixIfNeeded, dirname } from '../../../system/path';
+import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -45,7 +45,7 @@ export class VslsGitProvider extends LocalGitProvider {
 			const repositories = await guest?.getRepositoriesForUri(uri);
 			if (repositories == null || repositories.length === 0) return [];
 
-			return repositories.map(r =>
+			return repositories.flatMap(r =>
 				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, undefined, r.closed),
 			);
 		} catch (ex) {
@@ -77,11 +77,14 @@ export class VslsGitProvider extends LocalGitProvider {
 
 		let repoPath: string | undefined;
 		try {
+			if (isDirectory == null) {
+				const stats = await workspace.fs.stat(uri);
+				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+			}
+
+			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {
-				try {
-					const stats = await workspace.fs.stat(uri);
-					uri = stats?.type === FileType.Directory ? uri : uri.with({ path: dirname(uri.fsPath) });
-				} catch {}
+				uri = Uri.joinPath(uri, '..');
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);

@@ -157,7 +157,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
 			if (workspaceUri == null) return [];
 
-			return [this.openRepository(undefined, workspaceUri, true)];
+			return this.openRepository(undefined, workspaceUri, true);
 		} catch {
 			return [];
 		}
@@ -173,17 +173,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
-	): Repository {
-		return new Repository(
-			this.container,
-			this.onRepositoryChanged.bind(this),
-			this.descriptor,
-			folder,
-			uri,
-			root,
-			suspended ?? !window.state.focused,
-			closed,
-		);
+	): Repository[] {
+		return [
+			new Repository(
+				this.container,
+				this.onRepositoryChanged.bind(this),
+				this.descriptor,
+				folder,
+				uri,
+				root,
+				suspended ?? !window.state.focused,
+				closed,
+			),
+		];
 	}
 
 	// private _supportedFeatures = new Map<Features, boolean>();
@@ -2298,7 +2300,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			path: this.getRelativePath(uri, repoPath),
 			commitSha: ref,
 			size: stats.size,
-			type: stats.type === FileType.Directory ? 'tree' : 'blob',
+			type: (stats.type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 		};
 	}
 
@@ -2330,7 +2332,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				path: this.getRelativePath(path, uri),
 				commitSha: ref,
 				size: 0, // stats?.size,
-				type: type === FileType.Directory ? 'tree' : 'blob',
+				type: (type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
 			});
 		}
 

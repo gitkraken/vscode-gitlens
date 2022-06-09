@@ -60,6 +60,7 @@ export interface Config {
 		ageThreshold: number;
 		coldColor: string;
 		hotColor: string;
+		fadeLines: boolean;
 		locations: HeatmapLocations[];
 		toggleMode: AnnotationsToggleMode;
 	};
@@ -120,6 +121,9 @@ export interface Config {
 		url: string | null;
 		strictSSL: boolean;
 	} | null;
+	rebaseEditor: {
+		ordering: 'asc' | 'desc';
+	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
@@ -180,7 +184,7 @@ export interface AutolinkReference {
 export const enum BlameHighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
-	Overview = 'overview',
+	Scrollbar = 'overview',
 }
 
 export const enum BranchSorting {
@@ -192,7 +196,8 @@ export const enum BranchSorting {
 
 export const enum ChangesLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
 export const enum CodeLensCommand {
@@ -272,7 +277,8 @@ export const enum GravatarDefaultStyle {
 
 export const enum HeatmapLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
 export const enum KeyMap {

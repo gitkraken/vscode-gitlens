@@ -57,8 +57,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			let folder = false;
 			try {
-				const stat = await workspace.fs.stat(this.uri);
-				if (stat.type === FileType.Directory) {
+				const stats = await workspace.fs.stat(this.uri);
+				if ((stats.type & FileType.Directory) === FileType.Directory) {
 					folder = true;
 				}
 			} catch {}

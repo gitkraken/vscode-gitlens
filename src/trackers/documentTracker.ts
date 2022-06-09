@@ -22,9 +22,10 @@ import { setContext } from '../context';
 import { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce, Deferrable } from '../system/function';
-import { filter, map } from '../system/iterable';
+import { filter, join, map } from '../system/iterable';
 import { getBestPath } from '../system/path';
 import { isActiveDocument, isTextEditor } from '../system/utils';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
@@ -386,12 +387,19 @@ export class DocumentTracker<T> implements Disposable {
 		this._dirtyStateChangedDebounced(e);
 	}
 
+	@debug<DocumentTracker<T>['reset']>({
+		args: {
+			1: c => (c != null ? join(c, ',') : ''),
+			2: r => (r != null ? join(r, ',') : ''),
+		},
+	})
 	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
 		void Promise.allSettled(
 			map(
 				filter(this._documentMap, ([key]) => typeof key === 'string'),
 				async ([, promise]) => {
 					const doc = await promise;
+
 					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
 						void this.remove(doc.document, doc);
 						return;

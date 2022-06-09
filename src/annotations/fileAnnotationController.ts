@@ -546,54 +546,67 @@ export class FileAnnotationController implements Disposable {
 
 		const { locations } = this.container.config.changes;
 
-		let addedColor;
-		let changedColor;
-		let deletedColor;
+		type RGB = [number, number, number];
+		let addedColor: RGB;
+		let changedColor: RGB;
+		let deletedColor: RGB;
 
 		switch (window.activeColorTheme.kind) {
 			case ColorThemeKind.Light:
-				addedColor = '#48985D';
-				changedColor = '#2090D3';
-				deletedColor = '#E51400';
+				addedColor = /* #48985D */ [72, 152, 93];
+				changedColor = /* #2090D3 */ [32, 144, 211];
+				deletedColor = /* #E51400 */ [229, 20, 0];
 				break;
 			case ColorThemeKind.HighContrast:
-				addedColor = '#487E02';
-				changedColor = '#1B81A8';
-				deletedColor = '#F14C4C';
+				addedColor = /* #487E02 */ [72, 126, 2];
+				changedColor = /* #1B81A8 */ [27, 129, 168];
+				deletedColor = /* #F14C4C */ [241, 76, 76];
 				break;
 			default:
-				addedColor = '#487E02';
-				changedColor = '#1B81A8';
-				deletedColor = '#F14C4C';
+				addedColor = /* #487E02 */ [72, 126, 2];
+				changedColor = /* #1B81A8 */ [27, 129, 168];
+				deletedColor = /* #F14C4C */ [241, 76, 76];
 				break;
 		}
 
 		Decorations.changesLineAddedAnnotation = window.createTextEditorDecorationType({
+			backgroundColor: locations.includes(ChangesLocations.Line)
+				? `rgba(${addedColor.join(',')},0.4)`
+				: undefined,
+			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
 			gutterIconPath: locations.includes(ChangesLocations.Gutter)
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
-							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${addedColor}' x='13' y='0' width='3' height='18'/></svg>`,
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${addedColor.join(
+								',',
+							)})' x='15' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
 				? new ThemeColor('editorOverviewRuler.addedForeground')
 				: undefined,
 		});
 
 		Decorations.changesLineChangedAnnotation = window.createTextEditorDecorationType({
+			backgroundColor: locations.includes(ChangesLocations.Line)
+				? `rgba(${changedColor.join(',')},0.4)`
+				: undefined,
+			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
 			gutterIconPath: locations.includes(ChangesLocations.Gutter)
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
-							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${changedColor}' x='13' y='0' width='3' height='18'/></svg>`,
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${changedColor.join(
+								',',
+							)})' x='15' y='0' width='3' height='18'/></svg>`,
 						)}`,
 				  )
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
 				? new ThemeColor('editorOverviewRuler.modifiedForeground')
 				: undefined,
 		});
@@ -602,13 +615,15 @@ export class FileAnnotationController implements Disposable {
 			gutterIconPath: locations.includes(ChangesLocations.Gutter)
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
-							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><polygon fill='${deletedColor}' points='13,10 13,18 17,14'/></svg>`,
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><polygon fill='rgb(${deletedColor.join(
+								',',
+							)})' points='13,10 13,18 17,14'/></svg>`,
 						)}`,
 				  )
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Overview)
+			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
 				? new ThemeColor('editorOverviewRuler.deletedForeground')
 				: undefined,
 		});
@@ -641,7 +656,7 @@ export class FileAnnotationController implements Disposable {
 				backgroundColor: locations.includes(BlameHighlightLocations.Line)
 					? new ThemeColor(Colors.LineHighlightBackgroundColor)
 					: undefined,
-				overviewRulerColor: locations.includes(BlameHighlightLocations.Overview)
+				overviewRulerColor: locations.includes(BlameHighlightLocations.Scrollbar)
 					? new ThemeColor(Colors.LineHighlightOverviewRulerColor)
 					: undefined,
 			});

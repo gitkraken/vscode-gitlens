@@ -36,6 +36,8 @@ import {
 	MoveEntryCommandType,
 	RebaseEntry,
 	RebaseEntryAction,
+	ReorderCommandType,
+	ReorderParams,
 	StartCommandType,
 	State,
 	SwitchCommandType,
@@ -98,6 +100,7 @@ interface RebaseEditorContext {
 
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
 	private readonly _disposable: Disposable;
+	private ascending = false;
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -108,6 +111,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				},
 			}),
 		);
+		this.ascending = configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
 	dispose() {
@@ -245,7 +249,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		const branch = await this.container.git.getBranch(context.repoPath);
-		const state = await parseRebaseTodo(this.container, context.document.getText(), context.repoPath, branch?.name);
+		const state = await parseRebaseTodo(
+			this.container,
+			context.document.getText(),
+			context.repoPath,
+			branch?.name,
+			this.ascending,
+		);
 		return state;
 	}
 
@@ -286,6 +296,12 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 			case SwitchCommandType.method:
 				onIpc(SwitchCommandType, e, () => this.switch(context));
+				break;
+
+			case ReorderCommandType.method:
+				onIpc(ReorderCommandType, e, params => {
+					this.reorder(params, context);
+				});
 				break;
 
 			case ChangeEntryCommandType.method:
@@ -469,6 +485,12 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		});
 	}
 
+	private reorder(params: ReorderParams, context: RebaseEditorContext) {
+		this.ascending = params.ascending ?? false;
+		void configuration.updateEffective('rebaseEditor.ordering', this.ascending ? 'asc' : 'desc');
+		void this.getStateAndNotify(context);
+	}
+
 	private async getHtml(context: RebaseEditorContext): Promise<string> {
 		const webRootUri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
 		const uri = Uri.joinPath(webRootUri, 'rebase.html');
@@ -516,6 +538,7 @@ async function parseRebaseTodo(
 	contents: string | { entries: RebaseEntry[]; onto: string },
 	repoPath: string,
 	branch: string | undefined,
+	ascending: boolean,
 ): Promise<Omit<State, 'rebasing'>> {
 	let onto: string;
 	let entries;
@@ -598,6 +621,7 @@ async function parseRebaseTodo(
 		commands: {
 			commit: ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, repoPath),
 		},
+		ascending: ascending,
 	};
 }
 

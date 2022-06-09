@@ -181,14 +181,12 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 					const sha = context!.sha;
 					for (let i = hunk.current.position.start - 1; i < hunk.current.position.end; i++) {
-						if (blame.lines[i].sha === sha) {
+						if (blame.lines[i]?.sha === sha) {
 							skip = false;
 						}
 					}
 
-					if (skip) {
-						continue;
-					}
+					if (skip) continue;
 				}
 
 				// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop

@@ -780,7 +780,7 @@
 					},
 					"gitlens.views.formats.stashes.description": {
 						"type": "string",
-						"default": "${agoOrDate}",
+						"default": "${stashOnRef, }${agoOrDate}",
 						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
 						"order": 35
@@ -1823,8 +1823,8 @@
 				}
 			},
 			{
-				"id": "gutter-blame",
-				"title": "Gutter Blame",
+				"id": "file-blame",
+				"title": "File Blame",
 				"order": 100,
 				"properties": {
 					"gitlens.blame.toggleMode": {
@@ -1838,21 +1838,21 @@
 							"Toggles each file individually",
 							"Toggles the window, i.e. all files at once"
 						],
-						"markdownDescription": "Specifies how the gutter blame annotations will be toggled",
+						"markdownDescription": "Specifies how the file blame annotations will be toggled",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.blame.format": {
 						"type": "string",
 						"default": "${message|50?} ${agoOrDate|14-}",
-						"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the file blame annotations. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.blame.heatmap.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide a heatmap indicator in the gutter blame annotations",
+						"markdownDescription": "Specifies whether to provide a heatmap indicator in the file blame annotations",
 						"scope": "window",
 						"order": 30
 					},
@@ -1864,24 +1864,24 @@
 							"right"
 						],
 						"enumDescriptions": [
-							"Adds a heatmap indicator on the left edge of the gutter blame annotations",
-							"Adds a heatmap indicator on the right edge of the gutter blame annotations"
+							"Adds a heatmap indicator on the left edge of the file blame annotations",
+							"Adds a heatmap indicator on the right edge of the file blame annotations"
 						],
-						"markdownDescription": "Specifies where the heatmap indicators will be shown in the gutter blame annotations",
+						"markdownDescription": "Specifies where the heatmap indicators will be shown in the file blame annotations",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.blame.avatars": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images in the gutter blame annotations",
+						"markdownDescription": "Specifies whether to show avatar images in the file blame annotations",
 						"scope": "window",
 						"order": 40
 					},
 					"gitlens.blame.compact": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to compact (deduplicate) matching adjacent gutter blame annotations",
+						"markdownDescription": "Specifies whether to compact (deduplicate) matching adjacent file blame annotations",
 						"scope": "window",
 						"order": 50
 					},
@@ -1907,9 +1907,9 @@
 								"overview"
 							],
 							"enumDescriptions": [
-								"Adds a gutter indicator",
+								"Adds an indicator to the gutter",
 								"Adds a full-line highlight background color",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
@@ -1922,7 +1922,7 @@
 					"gitlens.blame.separateLines": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether gutter blame annotations will be separated by a small gap",
+						"markdownDescription": "Specifies whether file blame annotations will be separated by a small gap",
 						"scope": "window",
 						"order": 70
 					},
@@ -1932,15 +1932,15 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in file blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 80
 					}
 				}
 			},
 			{
-				"id": "gutter-changes",
-				"title": "Gutter Changes",
+				"id": "file-changes",
+				"title": "File Changes",
 				"order": 101,
 				"properties": {
 					"gitlens.changes.toggleMode": {
@@ -1954,7 +1954,7 @@
 							"Toggles each file individually",
 							"Toggles the window, i.e. all files at once"
 						],
-						"markdownDescription": "Specifies how the gutter changes annotations will be toggled",
+						"markdownDescription": "Specifies how the file changes annotations will be toggled",
 						"scope": "window",
 						"order": 10
 					},
@@ -1962,31 +1962,34 @@
 						"type": "array",
 						"default": [
 							"gutter",
+							"line",
 							"overview"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
 								"gutter",
+								"line",
 								"overview"
 							],
 							"enumDescriptions": [
-								"Adds a gutter indicator",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds an indicator to the gutter",
+								"Adds a full-line highlight background color",
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
-						"maxItems": 2,
+						"maxItems": 3,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies where the indicators of the gutter changes annotations will be shown",
+						"markdownDescription": "Specifies where the indicators of the file changes annotations will be shown",
 						"scope": "window",
 						"order": 20
 					}
 				}
 			},
 			{
-				"id": "gutter-heatmap",
-				"title": "Gutter Heatmap",
+				"id": "file-heatmap",
+				"title": "File Heatmap",
 				"order": 102,
 				"properties": {
 					"gitlens.heatmap.toggleMode": {
@@ -2000,7 +2003,7 @@
 							"Toggles each file individually",
 							"Toggles the window, i.e. all files at once"
 						],
-						"markdownDescription": "Specifies how the gutter heatmap annotations will be toggled",
+						"markdownDescription": "Specifies how the file heatmap annotations will be toggled",
 						"scope": "window",
 						"order": 10
 					},
@@ -2008,46 +2011,78 @@
 						"type": "array",
 						"default": [
 							"gutter",
+							"line",
 							"overview"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
 								"gutter",
+								"line",
 								"overview"
 							],
 							"enumDescriptions": [
-								"Adds a gutter indicator",
-								"Adds a decoration to the overview ruler (scroll bar)"
+								"Adds an indicator to the gutter",
+								"Adds a full-line highlight background color",
+								"Adds an indicator to the scroll bar"
 							]
 						},
 						"minItems": 1,
-						"maxItems": 2,
+						"maxItems": 3,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies where the indicators of the gutter heatmap annotations will be shown",
+						"markdownDescription": "Specifies where the indicators of the file heatmap annotations will be shown",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.heatmap.fadeLines": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies the whether to fade out older lines",
+						"scope": "window",
+						"order": 21
 					},
 					"gitlens.heatmap.ageThreshold": {
 						"type": "number",
 						"default": 90,
-						"markdownDescription": "Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `#gitlens.heatmap.coldColor#` instead of `#gitlens.heatmap.hotColor#`)",
+						"markdownDescription": "Specifies the age of the most recent change (in days) after which the file heatmap annotations will be cold rather than hot (i.e. will use `#gitlens.heatmap.coldColor#` instead of `#gitlens.heatmap.hotColor#`)",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.heatmap.coldColor": {
 						"type": "string",
 						"default": "#0a60f6",
-						"markdownDescription": "Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `#gitlens.heatmap.ageThreshold#` value",
+						"markdownDescription": "Specifies the base color of the file heatmap annotations when the most recent change is older (cold) than the `#gitlens.heatmap.ageThreshold#` value",
 						"scope": "window",
 						"order": 40
 					},
 					"gitlens.heatmap.hotColor": {
 						"type": "string",
 						"default": "#f66a0a",
-						"markdownDescription": "Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `#gitlens.heatmap.ageThreshold#` value",
+						"markdownDescription": "Specifies the base color of the file heatmap annotations when the most recent change is newer (hot) than the `#gitlens.heatmap.ageThreshold#` value",
 						"scope": "window",
 						"order": 50
+					}
+				}
+			},
+			{
+				"id": "rebase-editor",
+				"title": "Interactive Rebase Editor",
+				"order": 105,
+				"properties": {
+					"gitlens.rebaseEditor.ordering": {
+						"type": "string",
+						"default": "desc",
+						"enum": [
+							"asc",
+							"desc"
+						],
+						"enumDescriptions": [
+							"Shows oldest commit first",
+							"Shows newest commit first"
+						],
+						"markdownDescription": "Specifies how Git commits are displayed in the _Interactive Rebase Editor_",
+						"scope": "window",
+						"order": 10
 					}
 				}
 			},
@@ -2893,9 +2928,9 @@
 										"heatmap"
 									],
 									"enumDescriptions": [
-										"Shows the gutter blame annotations",
-										"Shows the gutter changes annotations",
-										"Shows the gutter heatmap annotations"
+										"Shows the file blame annotations",
+										"Shows the file changes annotations",
+										"Shows the file heatmap annotations"
 									],
 									"description": "Specifies which (if any) file annotations will be shown when this user-defined mode is active"
 								},
@@ -3254,9 +3289,9 @@
 						],
 						"enumDescriptions": [
 							"Shows a menu to choose which file annotations to toggle",
-							"Toggles gutter blame annotations",
-							"Toggles gutter heatmap annotations",
-							"Toggles gutter changes annotations"
+							"Toggles file blame annotations",
+							"Toggles file heatmap annotations",
+							"Toggles file changes annotations"
 						],
 						"markdownDescription": "Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations",
 						"scope": "window",
@@ -3387,7 +3422,7 @@
 		"colors": [
 			{
 				"id": "gitlens.gutterBackgroundColor",
-				"description": "Specifies the background color of the gutter blame annotations",
+				"description": "Specifies the background color of the file blame annotations",
 				"defaults": {
 					"dark": "#FFFFFF13",
 					"light": "#0000000C",
@@ -3396,7 +3431,7 @@
 			},
 			{
 				"id": "gitlens.gutterForegroundColor",
-				"description": "Specifies the foreground color of the gutter blame annotations",
+				"description": "Specifies the foreground color of the file blame annotations",
 				"defaults": {
 					"dark": "#BEBEBE",
 					"light": "#747474",
@@ -3405,7 +3440,7 @@
 			},
 			{
 				"id": "gitlens.gutterUncommittedForegroundColor",
-				"description": "Specifies the foreground color of an uncommitted line in the gutter blame annotations",
+				"description": "Specifies the foreground color of an uncommitted line in the file blame annotations",
 				"defaults": {
 					"dark": "#00BCF299",
 					"light": "#00BCF299",
@@ -3441,7 +3476,7 @@
 			},
 			{
 				"id": "gitlens.lineHighlightOverviewRulerColor",
-				"description": "Specifies the overview ruler color of the associated line highlights in blame annotations",
+				"description": "Specifies the scroll bar color of the associated line highlights in blame annotations",
 				"defaults": {
 					"dark": "#00BCF299",
 					"light": "#00BCF299",
@@ -11065,18 +11100,18 @@
 	},
 	"dependencies": {
 		"@octokit/core": "3.6.0",
-		"@vscode/codicons": "0.0.29",
+		"@vscode/codicons": "0.0.30",
 		"@vscode/webview-ui-toolkit": "1.0.0",
 		"ansi-regex": "6.0.1",
-		"billboard.js": "3.3.2",
-		"chroma-js": "2.3.0",
-		"https-proxy-agent": "5.0.0",
+		"billboard.js": "3.4.1",
+		"chroma-js": "2.4.2",
+		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lodash-es": "4.17.21",
 		"md5.js": "1.3.5",
 		"node-fetch": "2.6.7",
 		"path-browserify": "1.0.1",
-		"sortablejs": "1.14.0",
+		"sortablejs": "1.15.0",
 		"uuid": "8.3.2"
 	},
 	"devDependencies": {
@@ -11084,31 +11119,31 @@
 		"@types/chroma-js": "2.1.3",
 		"@types/glob": "7.2.0",
 		"@types/lodash-es": "4.17.6",
-		"@types/mocha": "9.1.0",
+		"@types/mocha": "9.1.1",
 		"@types/node": "14.17.4",
-		"@types/sortablejs": "1.10.7",
+		"@types/sortablejs": "1.13.0",
 		"@types/uuid": "8.3.4",
 		"@types/vscode": "1.64.0",
-		"@typescript-eslint/eslint-plugin": "5.19.0",
-		"@typescript-eslint/parser": "5.19.0",
+		"@typescript-eslint/eslint-plugin": "5.27.1",
+		"@typescript-eslint/parser": "5.27.1",
 		"@vscode/test-electron": "2.1.3",
 		"@vscode/test-web": "0.0.24",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
-		"concurrently": "7.1.0",
-		"copy-webpack-plugin": "10.2.4",
+		"concurrently": "7.2.1",
+		"copy-webpack-plugin": "11.0.0",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.7.1",
-		"esbuild": "0.14.36",
-		"esbuild-loader": "2.18.0",
-		"eslint": "8.13.0",
+		"esbuild": "0.14.42",
+		"esbuild-loader": "2.19.0",
+		"eslint": "8.17.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.5.0",
 		"eslint-import-resolver-typescript": "2.7.1",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.26.0",
-		"fork-ts-checker-webpack-plugin": "6.5.0",
-		"glob": "8.0.1",
+		"fork-ts-checker-webpack-plugin": "6.5.2",
+		"glob": "8.0.3",
 		"html-loader": "3.1.0",
 		"html-webpack-plugin": "5.5.0",
 		"image-minimizer-webpack-plugin": "3.2.1",
@@ -11117,16 +11152,16 @@
 		"json5": "2.2.1",
 		"license-checker-rseidelsohn": "3.1.0",
 		"mini-css-extract-plugin": "2.6.0",
-		"mocha": "9.2.2",
+		"mocha": "10.0.0",
 		"prettier": "2.6.2",
-		"sass": "1.50.0",
-		"sass-loader": "12.6.0",
-		"terser-webpack-plugin": "5.3.1",
-		"ts-loader": "9.2.8",
-		"tsc-alias": "1.6.6",
-		"typescript": "4.7.0-beta",
-		"vsce": "2.7.0",
-		"webpack": "5.72.0",
+		"sass": "1.52.2",
+		"sass-loader": "13.0.0",
+		"terser-webpack-plugin": "5.3.3",
+		"ts-loader": "9.3.0",
+		"tsc-alias": "1.6.9",
+		"typescript": "4.7.3",
+		"vsce": "2.9.1",
+		"webpack": "5.73.0",
 		"webpack-bundle-analyzer": "4.5.0",
 		"webpack-cli": "4.9.2",
 		"webpack-node-externals": "3.0.0"

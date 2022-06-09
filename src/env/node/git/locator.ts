@@ -26,10 +26,6 @@ export interface GitLocation {
 	version: string;
 }
 
-function parseVersion(raw: string): string {
-	return raw?.replace(/^git version /, '');
-}
-
 async function findSpecificGit(path: string): Promise<GitLocation> {
 	const sw = new Stopwatch(`findSpecificGit(${path})`, { logLevel: LogLevel.Debug });
 
@@ -37,7 +33,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 	try {
 		version = await run<string>(path, ['--version'], 'utf8');
 	} catch (ex) {
-		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 		throw ex;
@@ -51,7 +47,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		try {
 			version = await run<string>(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
-			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 			throw ex;
@@ -60,11 +56,16 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		path = foundPath;
 	}
 
-	sw.stop({ message: ` ${GlyphChars.Dot} Found git @ ${path}` });
+	const parsed = version
+		.trim()
+		.replace(/^git version /, '')
+		.trim();
+
+	sw.stop({ message: ` ${GlyphChars.Dot} Found ${parsed} in ${path}; ${version}` });
 
 	return {
 		path: path,
-		version: parseVersion(version.trim()),
+		version: parsed,
 	};
 }
 
