@@ -10,6 +10,7 @@ import {
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
+import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
@@ -574,12 +575,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	@gate()
 	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._session != null) return this._session;
+		if (!configuration.get('integrations.enabled')) return undefined;
 
-		if (!Container.instance.config.integrations.enabled) return undefined;
+		const { instance: container } = Container;
 
 		if (createIfNeeded) {
-			await Container.instance.storage.deleteWorkspace(this.connectedKey);
-		} else if (Container.instance.storage.getWorkspace<boolean>(this.connectedKey) === false) {
+			await container.storage.deleteWorkspace(this.connectedKey);
+		} else if (container.storage.getWorkspace<boolean>(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -590,7 +592,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				silent: !createIfNeeded,
 			});
 		} catch (ex) {
-			await Container.instance.storage.deleteWorkspace(this.connectedKey);
+			await container.storage.deleteWorkspace(this.connectedKey);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -600,14 +602,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await Container.instance.storage.deleteWorkspace(this.connectedKey);
+			await container.storage.deleteWorkspace(this.connectedKey);
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Container.instance.storage.storeWorkspace(this.connectedKey, true);
+			await container.storage.storeWorkspace(this.connectedKey, true);
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
