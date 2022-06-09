@@ -1,19 +1,19 @@
 import { AuthenticationSession, Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import {
-	Account,
-	DefaultBranch,
+	type Account,
+	type DefaultBranch,
 	GitRevision,
-	IssueOrPullRequest,
-	PullRequest,
-	PullRequestState,
-	Repository,
+	type IssueOrPullRequest,
+	type PullRequest,
+	type PullRequestState,
+	type Repository,
 } from '../models';
 import { RichRemoteProvider } from './provider';
 
-const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;
+const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
@@ -50,7 +50,7 @@ export class GitHubRemote extends RichRemoteProvider {
 				{
 					linkify: (text: string) =>
 						text.replace(
-							issueEnricher3rdPartyRegex,
+							autolinkFullIssuesRegex,
 							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
 						),
 				},
@@ -217,6 +217,7 @@ export class GitHubRemote extends RichRemoteProvider {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
+
 	protected async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
@@ -238,7 +239,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/github'))
+		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
 			.GitHubPullRequest;
 		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,

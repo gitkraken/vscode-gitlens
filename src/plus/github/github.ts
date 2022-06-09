@@ -16,21 +16,26 @@ import {
 	ProviderRequestRateLimitError,
 } from '../../errors';
 import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
-import {
-	type DefaultBranch,
-	GitFileIndexStatus,
-	GitRevision,
-	type GitUser,
-	type IssueOrPullRequest,
-	type IssueOrPullRequestType,
-	PullRequest,
-	PullRequestState,
-} from '../../git/models';
+import { type DefaultBranch, GitRevision, type GitUser, type IssueOrPullRequest, PullRequest } from '../../git/models';
 import type { Account } from '../../git/models/author';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
+import {
+	GitHubBlame,
+	GitHubBlameRange,
+	GitHubBranch,
+	GitHubCommit,
+	GitHubCommitRef,
+	GitHubContributor,
+	GitHubIssueOrPullRequest,
+	GitHubPagedResult,
+	GitHubPageInfo,
+	GitHubPullRequest,
+	GitHubPullRequestState,
+	GitHubTag,
+} from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -44,8 +49,6 @@ export class GitHubApi implements Disposable {
 	private _disposable: Disposable | undefined;
 
 	constructor(_container: Container) {
-		if (isWeb) return;
-
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'proxy')) {
@@ -147,8 +150,9 @@ export class GitHubApi implements Disposable {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -215,8 +219,9 @@ export class GitHubApi implements Disposable {
 				avatarUrl: author.avatarUrl,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -267,8 +272,9 @@ export class GitHubApi implements Disposable {
 				name: defaultBranch,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -337,8 +343,9 @@ export class GitHubApi implements Disposable {
 				url: issue.url,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -437,8 +444,9 @@ export class GitHubApi implements Disposable {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -530,8 +538,9 @@ export class GitHubApi implements Disposable {
 
 			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -606,8 +615,9 @@ export class GitHubApi implements Disposable {
 
 			return { ranges: ranges, viewer: rsp.viewer?.name };
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, emptyBlameResult);
+			if (ex instanceof ProviderRequestNotFoundError) return emptyBlameResult;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -684,8 +694,9 @@ export class GitHubApi implements Disposable {
 				values: refs.nodes,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, emptyPagedResult);
+			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -730,8 +741,9 @@ export class GitHubApi implements Disposable {
 				files: result.files,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 
 		// const results = await this.getCommits(token, owner, repo, ref, { limit: 1 });
@@ -822,8 +834,9 @@ export class GitHubApi implements Disposable {
 
 			return branches;
 		} catch (ex) {
-			debugger;
-			return this.handleException<string[]>(ex, cc, []);
+			if (ex instanceof ProviderRequestNotFoundError) return [];
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -869,8 +882,9 @@ export class GitHubApi implements Disposable {
 			const count = rsp?.repository?.ref?.target.history.totalCount;
 			return count;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -938,8 +952,9 @@ export class GitHubApi implements Disposable {
 
 			return branches;
 		} catch (ex) {
-			debugger;
-			return this.handleException<string[]>(ex, cc, []);
+			if (ex instanceof ProviderRequestNotFoundError) return [];
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1076,8 +1091,9 @@ export class GitHubApi implements Disposable {
 				viewer: rsp?.viewer.name,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, emptyPagedResult);
+			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1136,8 +1152,9 @@ export class GitHubApi implements Disposable {
 			const commit = rsp.repository?.object;
 			return commit != null ? { values: [commit], viewer: rsp.viewer.name } : emptyPagedResult;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, emptyPagedResult);
+			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1224,8 +1241,9 @@ export class GitHubApi implements Disposable {
 				values: history.nodes,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1302,8 +1320,9 @@ export class GitHubApi implements Disposable {
 			const date = rsp?.repository?.object?.committer.date;
 			return date;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1325,8 +1344,9 @@ export class GitHubApi implements Disposable {
 
 			return rsp.data;
 		} catch (ex) {
-			debugger;
-			return this.handleException<GitHubContributor[]>(ex, cc, []);
+			if (ex instanceof ProviderRequestNotFoundError) return [];
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1363,8 +1383,9 @@ export class GitHubApi implements Disposable {
 
 			return rsp.repository?.defaultBranchRef?.name ?? undefined;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1404,8 +1425,9 @@ export class GitHubApi implements Disposable {
 				id: rsp.viewer?.id,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1444,8 +1466,9 @@ export class GitHubApi implements Disposable {
 
 			return rsp.repository.visibility === 'PUBLIC' ? RepositoryVisibility.Public : RepositoryVisibility.Private;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1527,8 +1550,9 @@ export class GitHubApi implements Disposable {
 				values: refs.nodes,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, emptyPagedResult);
+			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1606,8 +1630,9 @@ export class GitHubApi implements Disposable {
 			});
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1684,8 +1709,9 @@ export class GitHubApi implements Disposable {
 				values: commits,
 			};
 		} catch (ex) {
-			debugger;
-			return this.handleException(ex, cc, undefined);
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, cc);
 		}
 	}
 
@@ -1846,16 +1872,14 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleException<T>(ex: unknown | Error, cc: LogCorrelationContext | undefined, defaultValue: T): T {
-		if (ex instanceof ProviderRequestNotFoundError) return defaultValue;
-
+	private handleException(ex: Error, cc: LogCorrelationContext | undefined): Error {
 		Logger.error(ex, cc);
 		debugger;
 
 		if (ex instanceof AuthenticationError) {
 			void this.showAuthenticationErrorMessage(ex);
 		}
-		throw ex;
+		return ex;
 	}
 
 	private async showAuthenticationErrorMessage(ex: AuthenticationError) {
@@ -1875,155 +1899,4 @@ export class GitHubApi implements Disposable {
 			void window.showErrorMessage(ex.message);
 		}
 	}
-}
-
-export interface GitHubBlame {
-	ranges: GitHubBlameRange[];
-	viewer?: string;
-}
-
-export interface GitHubBlameRange {
-	startingLine: number;
-	endingLine: number;
-	commit: GitHubCommit;
-}
-
-export interface GitHubBranch {
-	name: string;
-	target: {
-		oid: string;
-		commitUrl: string;
-		authoredDate: string;
-		committedDate: string;
-	};
-}
-
-export interface GitHubCommit {
-	oid: string;
-	parents: { nodes: { oid: string }[] };
-	message: string;
-	additions?: number | undefined;
-	changedFiles?: number | undefined;
-	deletions?: number | undefined;
-	author: { avatarUrl: string | undefined; date: string; email: string | undefined; name: string };
-	committer: { date: string; email: string | undefined; name: string };
-
-	files?: Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files'];
-}
-
-export interface GitHubCommitRef {
-	oid: string;
-}
-
-export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
-
-interface GitHubIssueOrPullRequest {
-	type: IssueOrPullRequestType;
-	number: number;
-	createdAt: string;
-	closed: boolean;
-	closedAt: string | null;
-	title: string;
-	url: string;
-}
-
-export interface GitHubPagedResult<T> {
-	pageInfo: GitHubPageInfo;
-	totalCount: number;
-	values: T[];
-}
-
-interface GitHubPageInfo {
-	startCursor?: string | null;
-	endCursor?: string | null;
-	hasNextPage: boolean;
-	hasPreviousPage: boolean;
-}
-
-type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
-
-interface GitHubPullRequest {
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	permalink: string;
-	number: number;
-	title: string;
-	state: GitHubPullRequestState;
-	updatedAt: string;
-	closedAt: string | null;
-	mergedAt: string | null;
-	repository: {
-		isFork: boolean;
-		owner: {
-			login: string;
-		};
-	};
-}
-
-export namespace GitHubPullRequest {
-	export function from(pr: GitHubPullRequest, provider: RichRemoteProvider): PullRequest {
-		return new PullRequest(
-			provider,
-			{
-				name: pr.author.login,
-				avatarUrl: pr.author.avatarUrl,
-				url: pr.author.url,
-			},
-			String(pr.number),
-			pr.title,
-			pr.permalink,
-			fromState(pr.state),
-			new Date(pr.updatedAt),
-			pr.closedAt == null ? undefined : new Date(pr.closedAt),
-			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
-		);
-	}
-
-	export function fromState(state: GitHubPullRequestState): PullRequestState {
-		return state === 'MERGED'
-			? PullRequestState.Merged
-			: state === 'CLOSED'
-			? PullRequestState.Closed
-			: PullRequestState.Open;
-	}
-
-	export function toState(state: PullRequestState): GitHubPullRequestState {
-		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
-	}
-}
-
-export interface GitHubTag {
-	name: string;
-	target: {
-		oid: string;
-		commitUrl: string;
-		authoredDate: string;
-		committedDate: string;
-		message?: string | null;
-		tagger?: {
-			date: string;
-		} | null;
-	};
-}
-
-export function fromCommitFileStatus(
-	status: NonNullable<Endpoints['GET /repos/{owner}/{repo}/commits/{ref}']['response']['data']['files']>[0]['status'],
-): GitFileIndexStatus | undefined {
-	switch (status) {
-		case 'added':
-			return GitFileIndexStatus.Added;
-		case 'changed':
-		case 'modified':
-			return GitFileIndexStatus.Modified;
-		case 'removed':
-			return GitFileIndexStatus.Deleted;
-		case 'renamed':
-			return GitFileIndexStatus.Renamed;
-		case 'copied':
-			return GitFileIndexStatus.Copied;
-	}
-	return undefined;
 }

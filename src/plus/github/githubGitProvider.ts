@@ -88,7 +88,8 @@ import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../../trackers/trackedDocument';
 import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
-import { fromCommitFileStatus, GitHubApi } from './github';
+import type { GitHubApi } from './github';
+import { fromCommitFileStatus } from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
