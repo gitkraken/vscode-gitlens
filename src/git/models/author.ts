@@ -4,5 +4,5 @@ export interface Account {
 	provider: RemoteProviderReference;
 	name: string | undefined;
 	email: string | undefined;
-	avatarUrl: string;
+	avatarUrl: string | undefined;
 }

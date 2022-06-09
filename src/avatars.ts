@@ -194,7 +194,7 @@ async function getAvatarUriFromRemoteProvider(
 				account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
 			}
 		}
-		if (account == null) {
+		if (account?.avatarUrl == null) {
 			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
 			avatar.uri = undefined;
 			avatar.timestamp = maxSmallIntegerV8;
