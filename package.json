@@ -74,6 +74,7 @@
 		"onCommand:gitlens.getStarted",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
+		"onCommand:gitlens.showSettingsPage#autolinks",
 		"onCommand:gitlens.showSettingsPage#branches-view",
 		"onCommand:gitlens.showSettingsPage#commits-view",
 		"onCommand:gitlens.showSettingsPage#contributors-view",
@@ -3742,6 +3743,12 @@
 			{
 				"command": "gitlens.showSettingsPage#views",
 				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#autolinks",
+				"title": "Configure Autolinks",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},

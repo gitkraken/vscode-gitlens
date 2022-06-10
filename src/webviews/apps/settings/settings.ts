@@ -1,5 +1,6 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
+import { AutolinkReference } from 'src/config';
 import { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
@@ -62,6 +63,17 @@ export class SettingsApp extends AppWithConfig<State> {
 					label.title = `Setting name: "gitlens.${el.name}"`;
 				}
 			}
+		}
+	}
+
+	protected override beforeUpdateState() {
+		const focusId = document.activeElement?.id;
+		this.renderAutolinks();
+		if (focusId?.startsWith('autolinks.')) {
+			console.log(focusId, document.getElementById(focusId));
+			queueMicrotask(() => {
+				document.getElementById(focusId)?.focus();
+			});
 		}
 	}
 
@@ -167,6 +179,15 @@ export class SettingsApp extends AppWithConfig<State> {
 				document.querySelector('[data-action="collapse"]')!.classList.remove('hidden');
 				document.querySelector('[data-action="expand"]')!.classList.add('hidden');
 				break;
+
+			case 'show':
+				if (element.dataset.actionTarget) {
+					for (const el of document.querySelectorAll(`[data-show="${element.dataset.actionTarget}"]`)) {
+						el.classList.remove('hidden');
+						(el.querySelector('input,select,textarea,button') as HTMLElement)?.focus();
+					}
+				}
+				break;
 		}
 
 		e.preventDefault();
@@ -207,6 +228,83 @@ export class SettingsApp extends AppWithConfig<State> {
 		if (el != null) {
 			el.classList.toggle('active', active);
 		}
+	}
+
+	private renderAutolinks() {
+		const $root = document.querySelector('[data-component="autolinks"]');
+		if ($root == null) return;
+
+		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false) => `
+			<div class="setting${ isNew ? ' hidden" data-show="autolink' : ''}">
+				<div class="setting__group">
+					<div class="setting__input setting__input--short setting__input--with-actions">
+						<label for="autolinks.${index}.prefix">Prefix</label>
+						<input
+							id="autolinks.${index}.prefix"
+							name="autolinks.${index}.prefix"
+							data-setting
+							data-setting-type="arrayObject"
+							${ autolink?.prefix ? `value="${encodeURIComponent(autolink.prefix)}"` : ''}
+						>
+						<div class="setting__input-actions">
+							<div class="toggle-button">
+								<input
+									id="autolinks.${index}.ignoreCase"
+									name="autolinks.${index}.ignoreCase"
+									type="checkbox"
+									class="toggle-button__control"
+									data-setting
+									data-setting-type="arrayObject"
+									${ autolink?.ignoreCase ? 'checked' : ''}
+								>
+								<label class="toggle-button__label" for="autolinks.${index}.ignoreCase" aria-label="Case-sensitive">Aa</label>
+							</div>
+							<div class="toggle-button">
+								<input
+									id="autolinks.${index}.alphanumeric"
+									name="autolinks.${index}.alphanumeric"
+									type="checkbox"
+									class="toggle-button__control"
+									data-setting
+									data-setting-type="arrayObject"
+									${ autolink?.alphanumeric ? 'checked' : ''}
+								>
+								<label class="toggle-button__label" for="autolinks.${index}.alphanumeric" aria-label="Alphanumeric">a1</label>
+							</div>
+						</div>
+					</div>
+					<div class="setting__input">
+						<label for="autolinks.${index}.url">URL</label>
+						<input
+							id="autolinks.${index}.url"
+							name="autolinks.${index}.url"
+							type="text"
+							data-setting
+							data-setting-type="arrayObject"
+							${ autolink?.url ? `value="${encodeURIComponent(autolink.url)}"` : ''}
+						>
+						${ isNew ? '' : `
+							<button
+								id="autolinks.${index}.delete"
+								name="autolinks.${index}.delete"
+								class="button button--compact button--flat-subtle"
+								type="button"
+								data-setting-type="arrayObject"
+								data-setting-clear
+							>delete</button>
+						`}
+					</div>
+				</div>
+			</div>
+		`;
+
+		const fragment: string[] = [];
+		if (this.state.config.autolinks != null) {
+			this.state.config.autolinks.forEach((autolink, i) => fragment.push(autolinkTemplate(i, autolink)));
+		}
+		fragment.push(autolinkTemplate(this.state.config.autolinks?.length ?? 0, undefined, true));
+
+		$root.innerHTML = fragment.join('');
 	}
 }
 

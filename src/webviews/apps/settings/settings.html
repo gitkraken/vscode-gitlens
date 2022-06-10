@@ -78,6 +78,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
@@ -273,6 +274,15 @@
 						</li>
 
 						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#autolinks"
+								title="Jump to Autolinks"
+								>Autolinks</a
+							>
+						</li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"

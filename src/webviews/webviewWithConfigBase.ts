@@ -55,7 +55,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		void this.notifyDidChangeConfiguration();
 	}
 
-	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
+	protected onConfigurationChanged(_e: ConfigurationChangeEvent) {
 		void this.notifyDidChangeConfiguration();
 	}
 
