@@ -162,7 +162,7 @@ export class LineAnnotationController implements Disposable {
 	) {
 		if (lines.length === 0) return undefined;
 
-		const remote = await this.container.git.getRichRemoteProvider(repoPath);
+		const remote = await this.container.git.getBestRemoteWithRichProvider(repoPath);
 		if (remote?.provider == null) return undefined;
 
 		const refs = new Set<string>();

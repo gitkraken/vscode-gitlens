@@ -341,7 +341,7 @@ export class StatusBarController implements Disposable {
 		commit: GitCommit,
 		{ timeout }: { timeout?: number } = {},
 	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
-		const remote = await this.container.git.getRichRemoteProvider(commit.repoPath);
+		const remote = await this.container.git.getBestRemoteWithRichProvider(commit.repoPath);
 		if (remote?.provider == null) return undefined;
 
 		const { provider } = remote;

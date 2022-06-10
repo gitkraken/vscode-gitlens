@@ -131,7 +131,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	private async getTooltip() {
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath, { sort: true });
-		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();

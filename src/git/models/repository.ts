@@ -588,7 +588,7 @@ export class Repository implements Disposable {
 	}
 
 	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		return this.container.git.getRichRemoteProvider(await this.getRemotes(), {
+		return this.container.git.getBestRemoteWithRichProvider(await this.getRemotes(), {
 			includeDisconnected: !connectedOnly,
 		});
 	}

@@ -1,11 +1,11 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { GitLog } from '../../git/models';
+import type { GitLog } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
@@ -73,7 +73,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 		const [getBranchAndTagTips, provider] = await Promise.all([
 			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
-			this.view.container.git.getRichRemoteProvider(this.repoPath),
+			this.view.container.git.getBestRemoteWithProvider(this.repoPath),
 		]);
 
 		const children = [];

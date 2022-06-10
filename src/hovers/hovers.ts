@@ -297,7 +297,7 @@ export namespace Hovers {
 			return undefined;
 		}
 
-		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
+		const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
@@ -372,7 +372,9 @@ export namespace Hovers {
 			return undefined;
 		}
 
-		const remote = await Container.instance.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
+		const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes, {
+			includeDisconnected: true,
+		});
 		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 

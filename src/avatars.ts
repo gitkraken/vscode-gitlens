@@ -190,7 +190,7 @@ async function getAvatarUriFromRemoteProvider(
 			// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 			// } else {
 			if (typeof repoPathOrCommit !== 'string') {
-				const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
+				const remote = await Container.instance.git.getBestRemoteWithRichProvider(repoPathOrCommit.repoPath);
 				account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
 			}
 		}

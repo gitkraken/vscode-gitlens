@@ -166,7 +166,9 @@ export class GitProviderService implements Disposable {
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
-	private readonly _richRemotesCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
+	private readonly _bestRemotesCache: Map<RepoComparisonKey, GitRemote<RemoteProvider | RichRemoteProvider> | null> &
+		Map<`rich|${RepoComparisonKey}`, GitRemote<RichRemoteProvider> | null> &
+		Map<`rich+connected|${RepoComparisonKey}`, GitRemote<RichRemoteProvider> | null> = new Map();
 	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
@@ -358,7 +360,7 @@ export class GitProviderService implements Disposable {
 						RepositoryChangeComparisonMode.Any,
 					)
 				) {
-					this._richRemotesCache.clear();
+					this._bestRemotesCache.clear();
 				}
 
 				if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
@@ -968,7 +970,7 @@ export class GitProviderService implements Disposable {
 		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void {
 		if (affects.length === 0 || affects.includes('providers')) {
-			this._richRemotesCache.clear();
+			this._bestRemotesCache.clear();
 		}
 
 		const repoAffects = affects.filter((c): c is 'branches' | 'remotes' => c === 'branches' || c === 'remotes');
@@ -1661,60 +1663,53 @@ export class GitProviderService implements Disposable {
 		return provider.getIncomingActivity(path, options);
 	}
 
-	async getRichRemoteProvider(
+	async getBestRemoteWithProvider(
 		repoPath: string | Uri | undefined,
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	async getRichRemoteProvider(
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined>;
+	async getBestRemoteWithProvider(
 		remotes: GitRemote[],
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	@gate<GitProviderService['getRichRemoteProvider']>(
-		(remotesOrRepoPath, options) =>
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined>;
+	@gate<GitProviderService['getBestRemoteWithProvider']>(
+		remotesOrRepoPath =>
 			`${
 				remotesOrRepoPath == null || typeof remotesOrRepoPath === 'string'
 					? remotesOrRepoPath
 					: remotesOrRepoPath instanceof Uri
 					? remotesOrRepoPath.toString()
-					: `${remotesOrRepoPath[0]?.repoPath}|${remotesOrRepoPath?.map(r => r.id).join(',') ?? ''}`
-			}|${options?.includeDisconnected ?? false}`,
+					: `${remotesOrRepoPath.length}:${remotesOrRepoPath[0]?.repoPath ?? ''}`
+			}`,
 	)
-	@log<GitProviderService['getRichRemoteProvider']>({
+	@log<GitProviderService['getBestRemoteWithProvider']>({
 		args: {
 			0: remotesOrRepoPath =>
 				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
 		},
 	})
-	async getRichRemoteProvider(
+	async getBestRemoteWithProvider(
 		remotesOrRepoPath: GitRemote[] | string | Uri | undefined,
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined> {
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
 		let remotes;
+		let repoPath;
 		if (Array.isArray(remotesOrRepoPath)) {
 			if (remotesOrRepoPath.length === 0) return undefined;
 
 			remotes = remotesOrRepoPath;
-			remotesOrRepoPath = remotesOrRepoPath[0].repoPath;
+			repoPath = remotesOrRepoPath[0].repoPath;
+		} else {
+			repoPath = remotesOrRepoPath;
 		}
 
-		if (typeof remotesOrRepoPath === 'string') {
-			remotesOrRepoPath = this.getAbsoluteUri(remotesOrRepoPath);
+		if (typeof repoPath === 'string') {
+			repoPath = this.getAbsoluteUri(repoPath);
 		}
 
-		const cacheKey = asRepoComparisonKey(remotesOrRepoPath);
+		const cacheKey = asRepoComparisonKey(repoPath);
+		let remote = this._bestRemotesCache.get(cacheKey);
+		if (remote !== undefined) return remote ?? undefined;
 
-		let richRemote = this._richRemotesCache.get(cacheKey);
-		if (richRemote != null) return richRemote;
-		if (richRemote === null && !options?.includeDisconnected) return undefined;
-
-		if (options?.includeDisconnected) {
-			richRemote = this._richRemotesCache.get(`disconnected|${cacheKey}`);
-			if (richRemote !== undefined) return richRemote ?? undefined;
-		}
-
-		remotes = (remotes ?? (await this.getRemotesWithProviders(remotesOrRepoPath))).filter(
+		remotes = (remotes ?? (await this.getRemotesWithProviders(repoPath))).filter(
 			(
 				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
 			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
@@ -1722,7 +1717,6 @@ export class GitProviderService implements Disposable {
 
 		if (remotes.length === 0) return undefined;
 
-		let remote;
 		if (remotes.length === 1) {
 			remote = remotes[0];
 		} else {
@@ -1757,18 +1751,85 @@ export class GitProviderService implements Disposable {
 			remote = bestRemote ?? null;
 		}
 
+		this._bestRemotesCache.set(cacheKey, remote);
+
+		return remote ?? undefined;
+	}
+
+	async getBestRemoteWithRichProvider(
+		repoPath: string | Uri | undefined,
+		options?: { includeDisconnected?: boolean },
+	): Promise<GitRemote<RichRemoteProvider> | undefined>;
+	async getBestRemoteWithRichProvider(
+		remotes: GitRemote[],
+		options?: { includeDisconnected?: boolean },
+	): Promise<GitRemote<RichRemoteProvider> | undefined>;
+	@gate<GitProviderService['getBestRemoteWithRichProvider']>(
+		(remotesOrRepoPath, options) =>
+			`${
+				remotesOrRepoPath == null || typeof remotesOrRepoPath === 'string'
+					? remotesOrRepoPath
+					: remotesOrRepoPath instanceof Uri
+					? remotesOrRepoPath.toString()
+					: `${remotesOrRepoPath.length}:${remotesOrRepoPath[0]?.repoPath ?? ''}`
+			}|${options?.includeDisconnected ?? false}`,
+	)
+	@log<GitProviderService['getBestRemoteWithRichProvider']>({
+		args: {
+			0: remotesOrRepoPath =>
+				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
+		},
+	})
+	async getBestRemoteWithRichProvider(
+		remotesOrRepoPath: GitRemote[] | string | Uri | undefined,
+		options?: { includeDisconnected?: boolean },
+	): Promise<GitRemote<RichRemoteProvider> | undefined> {
+		if (remotesOrRepoPath == null) return undefined;
+
+		let remotes;
+		let repoPath;
+		if (Array.isArray(remotesOrRepoPath)) {
+			if (remotesOrRepoPath.length === 0) return undefined;
+
+			remotes = remotesOrRepoPath;
+			repoPath = remotesOrRepoPath[0].repoPath;
+		} else {
+			repoPath = remotesOrRepoPath;
+		}
+
+		if (typeof repoPath === 'string') {
+			repoPath = this.getAbsoluteUri(repoPath);
+		}
+
+		const cacheKey = asRepoComparisonKey(repoPath);
+
+		let richRemote = this._bestRemotesCache.get(`rich+connected|${cacheKey}`);
+		if (richRemote != null) return richRemote;
+		if (richRemote === null && !options?.includeDisconnected) return undefined;
+
+		if (options?.includeDisconnected) {
+			richRemote = this._bestRemotesCache.get(`rich|${cacheKey}`);
+			if (richRemote !== undefined) return richRemote ?? undefined;
+		}
+
+		const remote = await (remotes != null
+			? this.getBestRemoteWithProvider(remotes)
+			: this.getBestRemoteWithProvider(repoPath));
+
 		if (!remote?.hasRichProvider()) {
-			this._richRemotesCache.set(cacheKey, null);
+			this._bestRemotesCache.set(`rich|${cacheKey}`, null);
+			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, null);
 			return undefined;
 		}
 
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
 		if (connected) {
-			this._richRemotesCache.set(cacheKey, remote);
+			this._bestRemotesCache.set(`rich|${cacheKey}`, remote);
+			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, remote);
 		} else {
-			this._richRemotesCache.set(cacheKey, null);
-			this._richRemotesCache.set(`disconnected|${cacheKey}`, remote);
+			this._bestRemotesCache.set(`rich|${cacheKey}`, remote);
+			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, null);
 
 			if (!options?.includeDisconnected) return undefined;
 		}
