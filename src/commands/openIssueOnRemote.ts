@@ -21,7 +21,7 @@ export class OpenIssueOnRemoteCommand extends Command {
 			args = {
 				...args,
 				issue: { url: context.node.issue.url },
-				clipboard: context.command === Commands.CopyRemotePullRequestUrl,
+				clipboard: context.command === Commands.CopyRemoteIssueUrl,
 			};
 		}
 
