@@ -182,9 +182,16 @@ export class SettingsApp extends AppWithConfig<State> {
 
 			case 'show':
 				if (element.dataset.actionTarget) {
-					for (const el of document.querySelectorAll(`[data-show="${element.dataset.actionTarget}"]`)) {
+					for (const el of document.querySelectorAll(`[data-region="${element.dataset.actionTarget}"]`)) {
 						el.classList.remove('hidden');
 						(el.querySelector('input,select,textarea,button') as HTMLElement)?.focus();
+					}
+				}
+				break;
+			case 'hide':
+				if (element.dataset.actionTarget) {
+					for (const el of document.querySelectorAll(`[data-region="${element.dataset.actionTarget}"]`)) {
+						el.classList.add('hidden');
 					}
 				}
 				break;
@@ -235,13 +242,14 @@ export class SettingsApp extends AppWithConfig<State> {
 		if ($root == null) return;
 
 		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false) => `
-			<div class="setting${ isNew ? ' hidden" data-show="autolink' : ''}">
+			<div class="setting${ isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">
 						<label for="autolinks.${index}.prefix">Prefix</label>
 						<input
 							id="autolinks.${index}.prefix"
 							name="autolinks.${index}.prefix"
+							placeholder="TICKET-"
 							data-setting
 							data-setting-type="arrayObject"
 							${ autolink?.prefix ? `value="${encodeURIComponent(autolink.prefix)}"` : ''}
@@ -257,7 +265,7 @@ export class SettingsApp extends AppWithConfig<State> {
 									data-setting-type="arrayObject"
 									${ autolink?.ignoreCase ? 'checked' : ''}
 								>
-								<label class="toggle-button__label" for="autolinks.${index}.ignoreCase" aria-label="Case-sensitive">Aa</label>
+								<label class="toggle-button__label" for="autolinks.${index}.ignoreCase" title="Case-sensitive" aria-label="Case-sensitive">Aa</label>
 							</div>
 							<div class="toggle-button">
 								<input
@@ -269,21 +277,32 @@ export class SettingsApp extends AppWithConfig<State> {
 									data-setting-type="arrayObject"
 									${ autolink?.alphanumeric ? 'checked' : ''}
 								>
-								<label class="toggle-button__label" for="autolinks.${index}.alphanumeric" aria-label="Alphanumeric">a1</label>
+								<label class="toggle-button__label" for="autolinks.${index}.alphanumeric" title="Alphanumeric" aria-label="Alphanumeric">a1</label>
 							</div>
 						</div>
 					</div>
-					<div class="setting__input">
+					<div class="setting__input setting__input--long setting__input--centered">
 						<label for="autolinks.${index}.url">URL</label>
 						<input
 							id="autolinks.${index}.url"
 							name="autolinks.${index}.url"
 							type="text"
+							placeholder="https://example.com/TICKET?q=&lt;num&gt;"
 							data-setting
 							data-setting-type="arrayObject"
 							${ autolink?.url ? `value="${encodeURIComponent(autolink.url)}"` : ''}
 						>
-						${ isNew ? '' : `
+						${ isNew ? `
+							<button
+								class="button button--compact button--flat-subtle"
+								type="button"
+								data-action="hide"
+								data-action-target="autolink"
+								disabled
+								title="Delete"
+								aria-label="Delete"
+							><i class="codicon codicon-close"></i></button>
+						` : `
 							<button
 								id="autolinks.${index}.delete"
 								name="autolinks.${index}.delete"
@@ -291,10 +310,19 @@ export class SettingsApp extends AppWithConfig<State> {
 								type="button"
 								data-setting-type="arrayObject"
 								data-setting-clear
-							>delete</button>
+								title="Delete"
+								aria-label="Delete"
+							><i class="codicon codicon-close"></i></button>
 						`}
 					</div>
 				</div>
+				${ isNew ? `
+					<span class="setting__hint">
+						<span style="line-height: 2rem">
+							<i class="icon icon--sm icon__info"></i> Matches prefixes that are followed by a reference value within commit messages.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The URL must contain a <code>&lt;num&gt;</code> for the reference value to be included in the link.
+						</span>
+					</span>
+				`: ''}
 			</div>
 		`;
 
