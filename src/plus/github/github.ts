@@ -1805,7 +1805,7 @@ export class GitHubApi implements Disposable {
 			case 401: // Unauthorized
 				throw new AuthenticationError('github', AuthenticationErrorReason.Unauthorized, ex);
 			case 403: // Forbidden
-				if (ex.message.includes('rate limit exceeded')) {
+				if (ex.message.includes('rate limit')) {
 					let resetAt: number | undefined;
 
 					const reset = ex.response?.headers?.['x-ratelimit-reset'];
