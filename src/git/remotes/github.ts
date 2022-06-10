@@ -1,5 +1,5 @@
 import { AuthenticationSession, Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import {
@@ -39,20 +39,46 @@ export class GitHubRemote extends RichRemoteProvider {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`,
+					title: `Open Issue or Pull Request #<num> on ${this.name}`,
+
+					description: `Issue or Pull Request #<num> on ${this.name}`,
 				},
 				{
 					prefix: 'gh-',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`,
+					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 					ignoreCase: true,
+
+					description: `Issue or Pull Request #<num> on ${this.name}`,
 				},
 				{
 					linkify: (text: string) =>
 						text.replace(
 							autolinkFullIssuesRegex,
-							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
+							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue or Pull Request #$<num> from $<repo> on ${this.name}")`,
 						),
+					parse: (text: string, autolinks: Map<string, Autolink>) => {
+						let repo: string;
+						let num: string;
+
+						let match;
+						do {
+							match = autolinkFullIssuesRegex.exec(text);
+							if (match?.groups == null) break;
+
+							({ repo, num } = match.groups);
+
+							autolinks.set(num, {
+								provider: this,
+								id: num,
+								prefix: `${repo}#`,
+								url: `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
+								title: `Open Issue or Pull Request #<num> from ${repo} on ${this.name}`,
+
+								description: `Issue or Pull Request #${num} from ${repo} on ${this.name}`,
+							});
+						} while (true);
+					},
 				},
 			];
 		}

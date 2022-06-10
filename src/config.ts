@@ -1,4 +1,4 @@
-import { DateTimeFormat } from './system/date';
+import type { DateTimeFormat } from './system/date';
 
 export interface Config {
 	autolinks: AutolinkReference[] | null;
@@ -173,12 +173,20 @@ export const enum AnnotationsToggleMode {
 	Window = 'window',
 }
 
+export const enum AutolinkType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest',
+}
+
 export interface AutolinkReference {
 	prefix: string;
 	url: string;
 	title?: string;
 	alphanumeric?: boolean;
 	ignoreCase?: boolean;
+
+	type?: AutolinkType;
+	description?: string;
 }
 
 export const enum BlameHighlightLocations {

@@ -172,7 +172,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							let pr: PullRequest | undefined;
 							if (includePullRequest) {
 								pr = new PullRequest(
-									{ id: 'github', name: 'GitHub', domain: 'github.com' },
+									{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 									{
 										name: 'Eric Amodio',
 										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',

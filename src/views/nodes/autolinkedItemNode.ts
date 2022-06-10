@@ -1,5 +1,6 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Autolink } from '../../annotations/autolinks';
+import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import { GitFile, IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
 import { fromNow } from '../../system/date';
@@ -41,14 +42,12 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 		if (!isIssueOrPullRequest(this.item)) {
 			const { provider } = this.item;
 
-			const item = new TreeItem(
-				`${provider?.name ? `${provider.name} ` : ''}${this.item.prefix}${this.item.id}`,
-				TreeItemCollapsibleState.None,
-			);
+			const item = new TreeItem(`${this.item.prefix}${this.item.id}`, TreeItemCollapsibleState.None);
+			item.description = provider?.name ?? 'Custom';
 			item.iconPath = new ThemeIcon(
 				this.item.type == null
 					? 'link'
-					: this.item.type === IssueOrPullRequestType.PullRequest
+					: this.item.type === AutolinkType.PullRequest
 					? 'git-pull-request'
 					: 'issues',
 			);
@@ -56,14 +55,14 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 			item.tooltip = new MarkdownString(
 				`${
 					this.item.description
-						? `Autolink: ${this.item.description}`
+						? `Autolinked ${this.item.description}`
 						: `${
 								this.item.type == null
-									? 'Autolink'
-									: this.item.type === IssueOrPullRequestType.PullRequest
+									? 'Autolinked'
+									: this.item.type === AutolinkType.PullRequest
 									? 'Autolinked Pull Request'
 									: 'Autolinked Issue'
-						  }: **${this.item.prefix}${this.item.id}**`
+						  } ${this.item.prefix}${this.item.id}`
 				} \\\n[${this.item.url}](${this.item.url}${this.item.title != null ? ` "${this.item.title}"` : ''})`,
 			);
 			return item;

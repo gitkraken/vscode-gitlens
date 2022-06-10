@@ -200,7 +200,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),

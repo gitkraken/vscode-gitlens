@@ -1,10 +1,11 @@
 import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models';
-import { Repository } from '../models/repository';
+import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
+import { AutolinkReference, AutolinkType } from '../../config';
+import { GitRevision, Repository } from '../models';
 import { RemoteProvider } from './provider';
 
+const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
+const autolinkFullMergeRequestsRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)!(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
@@ -21,6 +22,77 @@ export class GitLabRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${this.baseUrl}/-/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Issue #<num> on ${this.name}`,
+				},
+				{
+					prefix: '!',
+					url: `${this.baseUrl}/-/merge_requests/<num>`,
+					title: `Open Merge Request !<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `Merge Request !<num> on ${this.name}`,
+				},
+				{
+					linkify: (text: string) =>
+						text.replace(
+							autolinkFullIssuesRegex,
+							`[$&](${this.protocol}://${this.domain}/$<repo>/-/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
+						),
+					parse: (text: string, autolinks: Map<string, Autolink>) => {
+						let repo: string;
+						let num: string;
+
+						let match;
+						do {
+							match = autolinkFullIssuesRegex.exec(text);
+							if (match?.groups == null) break;
+
+							({ repo, num } = match.groups);
+
+							autolinks.set(num, {
+								provider: this,
+								id: num,
+								prefix: `${repo}#`,
+								url: `${this.protocol}://${this.domain}/${repo}/-/issues/${num}`,
+								title: `Open Issue #<num> from ${repo} on ${this.name}`,
+
+								type: AutolinkType.Issue,
+								description: `Issue #${num} from ${repo} on ${this.name}`,
+							});
+						} while (true);
+					},
+				},
+				{
+					linkify: (text: string) =>
+						text.replace(
+							autolinkFullMergeRequestsRegex,
+							`[$&](${this.protocol}://${this.domain}/$<repo>/-/merge_requests/$<num> "Open Merge Request !$<num> from $<repo> on ${this.name}")`,
+						),
+					parse: (text: string, autolinks: Map<string, Autolink>) => {
+						let repo: string;
+						let num: string;
+
+						let match;
+						do {
+							match = autolinkFullMergeRequestsRegex.exec(text);
+							if (match?.groups == null) break;
+
+							({ repo, num } = match.groups);
+
+							autolinks.set(num, {
+								provider: this,
+								id: num,
+								prefix: `${repo}!`,
+								url: `${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
+								title: `Open Merge Request !<num> from ${repo} on ${this.name}`,
+
+								type: AutolinkType.PullRequest,
+								description: `Merge Request !${num} from ${repo} on ${this.name}`,
+							});
+						} while (true);
+					},
 				},
 			];
 		}

@@ -1,6 +1,6 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, AutolinkType } from '../../config';
 import { GitRevision } from '../models';
 import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
@@ -21,11 +21,17 @@ export class BitbucketRemote extends RemoteProvider {
 					prefix: 'issue #',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Issue #<num> on ${this.name}`,
 				},
 				{
 					prefix: 'pull request #',
 					url: `${this.baseUrl}/pull-requests/<num>`,
-					title: `Open PR #<num> on ${this.name}`,
+					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `Pull Request #<num> on ${this.name}`,
 				},
 			];
 		}

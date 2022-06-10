@@ -308,7 +308,7 @@ export namespace Hovers {
 		const timeout = 250;
 
 		try {
-			const autolinks = await Container.instance.autolinks.getIssueOrPullRequestLinks(message, remote, {
+			const autolinks = await Container.instance.autolinks.getLinkedIssuesAndPullRequests(message, remote, {
 				timeout: timeout,
 			});
 

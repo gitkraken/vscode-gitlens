@@ -33,6 +33,7 @@ export const enum ContextValues {
 	ActiveLineHistory = 'gitlens:history:active:line',
 	AutolinkedItems = 'gitlens:autolinked:items',
 	AutolinkedIssue = 'gitlens:autolinked:issue',
+	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',

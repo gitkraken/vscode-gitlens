@@ -1,6 +1,6 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, AutolinkType } from '../../config';
 import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
 
@@ -51,12 +51,18 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${workUrl}/_workitems/edit/<num>`,
 					title: `Open Work Item #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Work Item #<num> on ${this.name}`,
 				},
 				{
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
 					prefix: 'Merged PR ',
 					url: `${this.baseUrl}/pullrequest/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `Pull Request #<num> on ${this.name}`,
 				},
 			];
 		}

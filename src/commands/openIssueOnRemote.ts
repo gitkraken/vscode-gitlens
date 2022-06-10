@@ -13,15 +13,21 @@ export interface OpenIssueOnRemoteCommandArgs {
 @command()
 export class OpenIssueOnRemoteCommand extends Command {
 	constructor(private readonly container: Container) {
-		super([Commands.OpenIssueOnRemote, Commands.CopyRemoteIssueUrl]);
+		super([
+			Commands.OpenIssueOnRemote,
+			Commands.CopyRemoteIssueUrl,
+			Commands.OpenAutolinkUrl,
+			Commands.CopyAutolinkUrl,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args: OpenIssueOnRemoteCommandArgs) {
 		if (context.type === 'viewItem' && context.node instanceof AutolinkedItemNode) {
 			args = {
 				...args,
-				issue: { url: context.node.issue.url },
-				clipboard: context.command === Commands.CopyRemoteIssueUrl,
+				issue: { url: context.node.item.url },
+				clipboard:
+					context.command === Commands.CopyRemoteIssueUrl || context.command === Commands.CopyAutolinkUrl,
 			};
 		}
 
