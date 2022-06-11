@@ -20,7 +20,7 @@ const textDecoder = new TextDecoder('utf8');
 
 // This is a root sha of all git repo's if using sha1
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-const invalidBranchRegex = /\$|;|&|<|>|\|/;
+
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
 	noFastForward: /\(non-fast-forward\)/i,
@@ -367,8 +367,6 @@ export class Git {
 	async check_ref_format(ref: string, repoPath?: string, options: { branch?: boolean } = { branch: true }) {
 		const params = ['check-ref-format'];
 		if (options.branch) {
-			if (invalidBranchRegex.test(ref))
-				return false;
 			params.push('--branch');
 		} else {
 			params.push('--normalize');
