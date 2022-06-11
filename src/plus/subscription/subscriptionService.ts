@@ -324,15 +324,15 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async resendVerification(): Promise<void> {
-		if (this._subscription.account?.verified) return;
+	async resendVerification(): Promise<boolean> {
+		if (this._subscription.account?.verified) return true;
 
 		const cc = Logger.getCorrelationContext();
 
 		void this.showHomeView(true);
 
 		const session = await this.ensureSession(false);
-		if (session == null) return;
+		if (session == null) return false;
 
 		try {
 			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'resend-email').toString(), {
@@ -352,7 +352,7 @@ export class SubscriptionService implements Disposable {
 
 				void window.showErrorMessage(`Unable to resend verification email; Status: ${rsp.statusText}`, 'OK');
 
-				return;
+				return false;
 			}
 
 			const confirm = { title: 'Recheck' };
@@ -362,8 +362,10 @@ export class SubscriptionService implements Disposable {
 				confirm,
 				cancel,
 			);
+
 			if (result === confirm) {
 				await this.validate();
+				return true;
 			}
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -371,6 +373,8 @@ export class SubscriptionService implements Disposable {
 
 			void window.showErrorMessage('Unable to resend verification email', 'OK');
 		}
+
+		return false;
 	}
 
 	@log()

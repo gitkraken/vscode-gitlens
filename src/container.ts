@@ -29,6 +29,7 @@ import { GitProviderService } from './git/gitProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
+import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
 import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
@@ -201,6 +202,8 @@ export class Container {
 
 		context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
 		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
+
+		context.subscriptions.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
 
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -375,6 +378,24 @@ export class Container {
 		}
 	}
 
+	private _gitlab: Promise<import('./plus/gitlab/gitlab').GitLabApi | undefined> | undefined;
+	get gitlab() {
+		if (this._gitlab == null) {
+			this._gitlab = this._loadGitLabApi();
+		}
+
+		return this._gitlab;
+	}
+
+	private async _loadGitLabApi() {
+		try {
+			return new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi();
+		} catch (ex) {
+			Logger.error(ex);
+			return undefined;
+		}
+	}
+
 	private _homeView: HomeWebviewView | undefined;
 	get homeView() {
 		if (this._homeView == null) {
@@ -387,6 +408,11 @@ export class Container {
 	@memoize()
 	get insiders() {
 		return this._context.extension.id.endsWith('-insiders');
+	}
+
+	private _integrationAuthentication: IntegrationAuthenticationService;
+	get integrationAuthentication() {
+		return this._integrationAuthentication;
 	}
 
 	private _keyboard: Keyboard;

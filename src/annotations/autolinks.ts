@@ -1,8 +1,8 @@
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { AutolinkReference, configuration } from '../configuration';
+import { AutolinkReference, AutolinkType, configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitRemote, IssueOrPullRequest } from '../git/models';
+import type { Container } from '../container';
+import { type GitRemote, IssueOrPullRequest, type RemoteProviderReference } from '../git/models';
 import { Logger } from '../logger';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
@@ -11,7 +11,20 @@ import { every, join, map } from '../system/iterable';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
+const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
+
 const numRegex = /<num>/g;
+
+export interface Autolink {
+	provider?: RemoteProviderReference;
+	id: string;
+	prefix: string;
+	title?: string;
+	url: string;
+
+	type?: AutolinkType;
+	description?: string;
+}
 
 export interface CacheableAutolinkReference extends AutolinkReference {
 	linkify?: ((text: string, markdown: boolean, footnotes?: Map<number, string>) => string) | null;
@@ -21,14 +34,15 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 
 export interface DynamicAutolinkReference {
 	linkify: (text: string, markdown: boolean, footnotes?: Map<number, string>) => string;
+	parse: (text: string, autolinks: Map<string, Autolink>) => void;
 }
 
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
-	return (ref as AutolinkReference).prefix === undefined && (ref as AutolinkReference).url === undefined;
+	return !('prefix' in ref) && !('url' in ref);
 }
 
 function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is CacheableAutolinkReference {
-	return (ref as AutolinkReference).prefix !== undefined && (ref as AutolinkReference).url !== undefined;
+	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
 }
 
 export class Autolinks implements Disposable {
@@ -51,28 +65,30 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	@debug<Autolinks['getIssueOrPullRequestLinks']>({
+	@debug<Autolinks['getAutolinks']>({
 		args: {
 			0: '<message>',
 			1: false,
-			2: options => options?.timeout,
 		},
 	})
-	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
-		if (!remote.hasRichProvider()) return undefined;
+	getAutolinks(message: string, remote?: GitRemote): Map<string, Autolink> {
+		const provider = remote?.provider;
+		// If a remote is provided but there is no provider return an empty set
+		if (remote != null && remote.provider == null) return emptyAutolinkMap;
 
-		const { provider } = remote;
-		const connected = provider.maybeConnected ?? (await provider.isConnected());
-		if (!connected) return undefined;
-
-		const ids = new Set<string>();
+		const autolinks = new Map<string, Autolink>();
 
 		let match;
 		let num;
-		for (const ref of provider.autolinks) {
-			if (!isCacheable(ref)) continue;
+		for (const ref of provider?.autolinks ?? this._references) {
+			if (!isCacheable(ref)) {
+				if (isDynamic(ref)) {
+					ref.parse(message, autolinks);
+				}
+				continue;
+			}
 
-			if (ref.messageRegex === undefined) {
+			if (ref.messageRegex == null) {
 				ref.messageRegex = new RegExp(
 					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
@@ -85,14 +101,53 @@ export class Autolinks implements Disposable {
 
 				[, , num] = match;
 
-				ids.add(num);
+				autolinks.set(num, {
+					provider: provider,
+					id: num,
+					prefix: ref.prefix,
+					url: ref.url?.replace(numRegex, num),
+					title: ref.title?.replace(numRegex, num),
+
+					type: ref.type,
+					description: ref.description?.replace(numRegex, num),
+				});
 			} while (true);
 		}
 
-		if (ids.size === 0) return undefined;
+		return autolinks;
+	}
 
-		const issuesOrPullRequests = await raceAll(ids.values(), id => provider.getIssueOrPullRequest(id), timeout);
-		if (issuesOrPullRequests.size === 0 || every(issuesOrPullRequests.values(), pr => pr === undefined)) {
+	@debug<Autolinks['getLinkedIssuesAndPullRequests']>({
+		args: {
+			0: '<message>',
+			1: false,
+			2: options => `autolinks=${options?.autolinks != null}, timeout=${options?.timeout}`,
+		},
+	})
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options?: { autolinks?: Map<string, Autolink>; timeout?: number },
+	) {
+		if (!remote.hasRichProvider()) return undefined;
+
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (!connected) return undefined;
+
+		let autolinks = options?.autolinks;
+		if (autolinks == null) {
+			autolinks = this.getAutolinks(message, remote);
+		}
+
+		if (autolinks.size === 0) return undefined;
+
+		const issuesOrPullRequests = await raceAll(
+			autolinks.keys(),
+			id => provider.getIssueOrPullRequest(id),
+			options?.timeout,
+		);
+		if (issuesOrPullRequests.size === 0 || every(issuesOrPullRequests.values(), pr => pr == null)) {
 			return undefined;
 		}
 
@@ -124,7 +179,7 @@ export class Autolinks implements Disposable {
 
 		if (remotes != null && remotes.length !== 0) {
 			for (const r of remotes) {
-				if (r.provider === undefined) continue;
+				if (r.provider == null) continue;
 
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
@@ -146,7 +201,7 @@ export class Autolinks implements Disposable {
 		if (isDynamic(ref)) return true;
 
 		try {
-			if (ref.messageMarkdownRegex === undefined) {
+			if (ref.messageMarkdownRegex == null) {
 				ref.messageMarkdownRegex = new RegExp(
 					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
 						ref.alphanumeric ? '\\w' : '0-9'

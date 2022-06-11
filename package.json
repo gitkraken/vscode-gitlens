@@ -180,6 +180,8 @@
 		"onCommand:gitlens.openBlamePriorToChange",
 		"onCommand:gitlens.openFileRevision",
 		"onCommand:gitlens.openFileRevisionFrom",
+		"onCommand:gitlens.openAutolinkUrl",
+		"onCommand:gitlens.copyAutolinkUrl",
 		"onCommand:gitlens.openIssueOnRemote",
 		"onCommand:gitlens.copyRemoteIssueUrl",
 		"onCommand:gitlens.openPullRequestOnRemote",
@@ -2326,6 +2328,11 @@
 									"type": "string",
 									"default": "https",
 									"description": "Specifies an optional url protocol for the custom remote service"
+								},
+								"ignoreCertErrors": {
+									"type": "boolean",
+									"default": false,
+									"description": "When connecting to the remote API, true will ignore any invalid certificate errors"
 								},
 								"urls": {
 									"type": "object",
@@ -4487,6 +4494,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openAutolinkUrl",
+				"title": "Open Autolink Url",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyAutolinkUrl",
+				"title": "Copy Autolink Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.openIssueOnRemote",
 				"title": "Open Issue on Remote",
 				"category": "GitLens",
@@ -4495,6 +4514,18 @@
 			{
 				"command": "gitlens.copyRemoteIssueUrl",
 				"title": "Copy Issue Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.openAutolink",
+				"title": "Open Autolink Url",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyAutolinkUrl",
+				"title": "Copy Autolink Url",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -6496,6 +6527,14 @@
 				},
 				{
 					"command": "gitlens.copyRemoteComparisonUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openAutolinkUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyAutolinkUrl",
 					"when": "false"
 				},
 				{
@@ -9196,6 +9235,16 @@
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
+					"command": "gitlens.showSettingsPage#autolinks",
+					"when": "viewItem =~ /gitlens:autolinked:items\\b/",
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.showSettingsPage#autolinks",
+					"when": "viewItem =~ /gitlens:autolinked:items\\b/",
+					"group": "1_gitlens_actions@99"
+				},
+				{
 					"command": "gitlens.openIssueOnRemote",
 					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
 					"group": "inline@99",
@@ -9206,6 +9255,28 @@
 					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
 					"group": "1_gitlens_actions@99",
 					"alt": "gitlens.copyRemoteIssueUrl"
+				},
+				{
+					"command": "gitlens.copyRemoteIssueUrl",
+					"when": "viewItem =~ /gitlens:autolinked:issue\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
+					"command": "gitlens.openAutolinkUrl",
+					"when": "viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "inline@99",
+					"alt": "gitlens.copyAutolinkUrl"
+				},
+				{
+					"command": "gitlens.openAutolinkUrl",
+					"when": "viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "1_gitlens_actions@99",
+					"alt": "gitlens.copyAutolinkUrl"
+				},
+				{
+					"command": "gitlens.copyAutolinkUrl",
+					"when": "viewItem =~ /gitlens:autolinked:item\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.views.openPullRequest",
@@ -9228,6 +9299,11 @@
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
 					"group": "1_gitlens_actions@99",
 					"alt": "gitlens.copyRemotePullRequestUrl"
+				},
+				{
+					"command": "gitlens.copyRemotePullRequestUrl",
+					"when": "viewItem =~ /gitlens:pullrequest\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.views.addRemote",

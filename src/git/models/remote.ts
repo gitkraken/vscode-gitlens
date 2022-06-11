@@ -82,16 +82,8 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return RichRemoteProvider.is(this.provider);
 	}
 
-	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.instance.storage.storeWorkspace(
-			WorkspaceStorageKeys.DefaultRemote,
-			state ? this.id : undefined,
-		));
-
-		// TODO@eamodio this is UGLY
-		if (updateViews) {
-			void (await Container.instance.remotesView.refresh());
-			void (await Container.instance.repositoriesView.refresh());
-		}
+	async setAsDefault(value: boolean = true) {
+		const repository = Container.instance.git.getRepository(this.repoPath);
+		await repository?.setRemoteAsDefault(this, value);
 	}
 }

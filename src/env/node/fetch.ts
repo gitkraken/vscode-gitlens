@@ -6,14 +6,13 @@ import { configuration } from '../../configuration';
 export { fetch };
 export type { BodyInit, RequestInit, Response } from 'node-fetch';
 
-export function getProxyAgent(): HttpsProxyAgent | undefined {
-	let strictSSL: boolean | undefined;
+export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined {
 	let proxyUrl: string | undefined;
 
 	const proxy = configuration.get('proxy');
 	if (proxy != null) {
 		proxyUrl = proxy.url ?? undefined;
-		strictSSL = proxy.strictSSL;
+		strictSSL = strictSSL ?? proxy.strictSSL;
 	} else {
 		const proxySupport = configuration.getAny<'off' | 'on' | 'override' | 'fallback'>(
 			'http.proxySupport',
@@ -22,7 +21,7 @@ export function getProxyAgent(): HttpsProxyAgent | undefined {
 		);
 		if (proxySupport === 'off') return undefined;
 
-		strictSSL = configuration.getAny<boolean>('http.proxyStrictSSL', undefined, true);
+		strictSSL = strictSSL ?? configuration.getAny<boolean>('http.proxyStrictSSL', undefined, true);
 		proxyUrl = configuration.getAny<string>('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
 	}
 

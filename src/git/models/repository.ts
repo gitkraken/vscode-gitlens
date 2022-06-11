@@ -588,7 +588,7 @@ export class Repository implements Disposable {
 	}
 
 	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		return this.container.git.getRichRemoteProvider(await this.getRemotes(), {
+		return this.container.git.getBestRemoteWithRichProvider(await this.getRemotes(), {
 			includeDisconnected: !connectedOnly,
 		});
 	}
@@ -847,6 +847,15 @@ export class Repository implements Disposable {
 		return this.container.git.getLogForSearch(this.path, search, options);
 	}
 
+	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
+		void (await this.container.storage.storeWorkspace(
+			WorkspaceStorageKeys.DefaultRemote,
+			value ? remote.id : undefined,
+		));
+
+		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
+	}
+
 	get starred() {
 		const starred = this.container.storage.getWorkspace<Starred>(WorkspaceStorageKeys.StarredRepositories);
 		return starred != null && starred[this.id] === true;
@@ -1063,9 +1072,7 @@ export class Repository implements Disposable {
 	}
 
 	private runTerminalCommand(command: string, ...args: string[]) {
-		const parsedArgs = args.map(arg =>
-			arg.startsWith('#') || arg.includes("'") || arg.includes('(') || arg.includes(')') ? `"${arg}"` : arg,
-		);
+		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&]/.test(arg) ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);

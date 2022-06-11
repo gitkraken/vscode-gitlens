@@ -2,7 +2,20 @@ import { Disposable, Event, EventEmitter, ExtensionContext, SecretStorageChangeE
 import type { ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
 
+export interface StorageChangeEvent {
+	/**
+	 * The key of the stored value that has changed.
+	 */
+	readonly key: string;
+	readonly workspace: boolean;
+}
+
 export class Storage implements Disposable {
+	private _onDidChange = new EventEmitter<StorageChangeEvent>();
+	get onDidChange(): Event<StorageChangeEvent> {
+		return this._onDidChange.event;
+	}
+
 	private _onDidChangeSecrets = new EventEmitter<SecretStorageChangeEvent>();
 	get onDidChangeSecrets(): Event<SecretStorageChangeEvent> {
 		return this._onDidChangeSecrets.event;
@@ -24,11 +37,13 @@ export class Storage implements Disposable {
 	}
 
 	async delete(key: StorageKeys | SyncedStorageKeys): Promise<void> {
-		return this.context.globalState.update(key, undefined);
+		await this.context.globalState.update(key, undefined);
+		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
 	async store<T>(key: StorageKeys | SyncedStorageKeys, value: T): Promise<void> {
-		return this.context.globalState.update(key, value);
+		await this.context.globalState.update(key, value);
+		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
 	async getSecret(key: SecretKeys): Promise<string | undefined> {
@@ -55,14 +70,16 @@ export class Storage implements Disposable {
 	async deleteWorkspace(
 		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
 	): Promise<void> {
-		return this.context.workspaceState.update(key, undefined);
+		await this.context.workspaceState.update(key, undefined);
+		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
 	async storeWorkspace<T>(
 		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
 		value: T,
 	): Promise<void> {
-		return this.context.workspaceState.update(key, value);
+		await this.context.workspaceState.update(key, value);
+		this._onDidChange.fire({ key: key, workspace: true });
 	}
 }
 

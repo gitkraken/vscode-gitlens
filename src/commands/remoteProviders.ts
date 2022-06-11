@@ -75,7 +75,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getRichRemoteProvider(repoPath, { includeDisconnected: true });
+			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: true });
 			if (remote == null) return false;
 		} else {
 			repoPath = args.repoPath;
@@ -166,7 +166,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getRichRemoteProvider(repoPath, { includeDisconnected: false });
+			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: false });
 			if (remote == null) return undefined;
 		} else {
 			repoPath = args.repoPath;

@@ -189,7 +189,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 	private async getTooltip() {
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
-		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
@@ -200,7 +200,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 		if (remote?.provider != null) {
 			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),

@@ -1,19 +1,19 @@
 import { AuthenticationSession, Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import {
-	Account,
-	DefaultBranch,
+	type Account,
+	type DefaultBranch,
 	GitRevision,
-	IssueOrPullRequest,
-	PullRequest,
-	PullRequestState,
-	Repository,
+	type IssueOrPullRequest,
+	type PullRequest,
+	type PullRequestState,
+	type Repository,
 } from '../models';
 import { RichRemoteProvider } from './provider';
 
-const issueEnricher3rdPartyRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)\\#(?<num>[0-9]+)\b(?!]\()/g;
+const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
@@ -39,20 +39,46 @@ export class GitHubRemote extends RichRemoteProvider {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`,
+					title: `Open Issue or Pull Request #<num> on ${this.name}`,
+
+					description: `Issue or Pull Request #<num> on ${this.name}`,
 				},
 				{
 					prefix: 'gh-',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`,
+					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 					ignoreCase: true,
+
+					description: `Issue or Pull Request #<num> on ${this.name}`,
 				},
 				{
 					linkify: (text: string) =>
 						text.replace(
-							issueEnricher3rdPartyRegex,
-							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
+							autolinkFullIssuesRegex,
+							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue or Pull Request #$<num> from $<repo> on ${this.name}")`,
 						),
+					parse: (text: string, autolinks: Map<string, Autolink>) => {
+						let repo: string;
+						let num: string;
+
+						let match;
+						do {
+							match = autolinkFullIssuesRegex.exec(text);
+							if (match?.groups == null) break;
+
+							({ repo, num } = match.groups);
+
+							autolinks.set(num, {
+								provider: this,
+								id: num,
+								prefix: `${repo}#`,
+								url: `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
+								title: `Open Issue or Pull Request #<num> from ${repo} on ${this.name}`,
+
+								description: `Issue or Pull Request #${num} from ${repo} on ${this.name}`,
+							});
+						} while (true);
+					},
 				},
 			];
 		}
@@ -217,6 +243,7 @@ export class GitHubRemote extends RichRemoteProvider {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
+
 	protected async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
@@ -238,7 +265,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/github'))
+		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
 			.GitHubPullRequest;
 		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,

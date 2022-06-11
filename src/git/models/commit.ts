@@ -392,7 +392,7 @@ export class GitCommit implements GitRevisionReference {
 	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
 		if (this._pullRequest == null) {
 			async function getCore(this: GitCommit): Promise<PullRequest | undefined> {
-				const remote = await this.container.git.getRichRemoteProvider(this.repoPath);
+				const remote = await this.container.git.getBestRemoteWithRichProvider(this.repoPath);
 				if (remote?.provider == null) return undefined;
 
 				return this.container.git.getPullRequestForCommit(this.ref, remote, options);

@@ -504,6 +504,10 @@ section {
 	line-height: normal;
 	margin: 0.5em 0;
 
+	&--centered {
+		align-items: center;
+	}
+
 	input,
 	select {
 		flex-grow: 1;
@@ -523,6 +527,17 @@ section {
 		margin: {
 			top: 0;
 			bottom: 0;
+		}
+		padding: {
+			top: 6px;
+			bottom: 6px;
+		}
+
+		.codicon {
+			line-height: 1;
+			vertical-align: text-bottom;
+			margin: -2px 0 -1px;
+			pointer-events: none;
 		}
 	}
 
@@ -575,6 +590,14 @@ section {
 		min-width: 100px;
 		width: 100px;
 		flex: none;
+	}
+}
+
+.setting__input--long {
+	input[type='text'],
+	input:not([type]) {
+		min-width: 320px;
+		max-width: 320px;
 	}
 }
 
@@ -789,6 +812,7 @@ section {
 	}
 }
 
+@import '../shared/codicons';
 @import '../shared/utils';
 @import '../shared/popup';
 // @import '../shared/snow';

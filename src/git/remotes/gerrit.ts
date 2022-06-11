@@ -41,6 +41,8 @@ export class GerritRemote extends RemoteProvider {
 					url: `${this.baseReviewUrl}/q/<num>`,
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
+
+					description: `Change #<num> on ${this.name}`,
 				},
 			];
 		}

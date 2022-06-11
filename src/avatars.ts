@@ -190,11 +190,11 @@ async function getAvatarUriFromRemoteProvider(
 			// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
 			// } else {
 			if (typeof repoPathOrCommit !== 'string') {
-				const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
+				const remote = await Container.instance.git.getBestRemoteWithRichProvider(repoPathOrCommit.repoPath);
 				account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
 			}
 		}
-		if (account == null) {
+		if (account?.avatarUrl == null) {
 			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
 			avatar.uri = undefined;
 			avatar.timestamp = maxSmallIntegerV8;

@@ -12,6 +12,6 @@ declare type _RequestInit = RequestInit;
 declare type _Response = Response;
 export type { _BodyInit as BodyInit, _RequestInit as RequestInit, _Response as Response };
 
-export function getProxyAgent(): undefined {
+export function getProxyAgent(_strictSSL?: boolean): undefined {
 	return undefined;
 }

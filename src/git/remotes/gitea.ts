@@ -1,6 +1,6 @@
 import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import { AutolinkReference, AutolinkType } from '../../config';
 import { GitRevision } from '../models';
 import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
@@ -21,6 +21,9 @@ export class GiteaRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Issue #<num> on ${this.name}`,
 				},
 			];
 		}
