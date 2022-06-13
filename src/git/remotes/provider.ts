@@ -14,6 +14,7 @@ import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
+import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -303,6 +304,10 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		);
 	}
 
+	protected get authDescriptor(): IntegrationAuthenticationSessionDescriptor {
+		return { domain: this.domain, scopes: this.authProvider.scopes };
+	}
+
 	abstract get apiBaseUrl(): string;
 	protected abstract get authProvider(): { id: string; scopes: string[] };
 
@@ -590,7 +595,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
 				session = await container.integrationAuthentication.getSession(
 					this.authProvider.id,
-					{ domain: this.domain, scopes: this.authProvider.scopes },
+					this.authDescriptor,
 					{ createIfNeeded: createIfNeeded },
 				);
 			} else {

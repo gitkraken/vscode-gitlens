@@ -225,6 +225,30 @@ export class GitLabRemote extends RichRemoteProvider {
 		return super.connect();
 	}
 
+	@log()
+	override disconnect(silent: boolean = false): void {
+		super.disconnect(silent);
+
+		if (silent) return;
+
+		async function promptToClearAuthentication(this: GitLabRemote) {
+			const clear = { title: 'Clear Authentication' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`Rich integration with GitLab as been disconnected.\n\nDo you also want to clear your saved authentication?`,
+				{ modal: true },
+				clear,
+				cancel,
+			);
+
+			if (result === clear) {
+				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authDescriptor);
+			}
+		}
+
+		void promptToClearAuthentication.call(this);
+	}
+
 	async getLocalInfoFromRemoteUri(
 		repository: Repository,
 		uri: Uri,
