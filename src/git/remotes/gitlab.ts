@@ -381,7 +381,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitLabMergeRequest = (await import(/* webpackChunkName: "gitlabl" */ '../../plus/gitlab/models'))
+		const GitLabMergeRequest = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
 			.GitLabMergeRequest;
 		return (await Container.instance.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
