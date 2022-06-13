@@ -350,6 +350,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 	}
 
+	@gate()
 	@log()
 	async disconnect(silent: boolean = false): Promise<void> {
 		const connected = this._session != null;
