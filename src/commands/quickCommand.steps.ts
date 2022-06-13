@@ -2241,7 +2241,7 @@ export async function* ensureAccessStep<
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
 		directives.push(DirectiveQuickPickItem.create(Directive.RequiresVerification, true));
-		placeholder = 'You must verify your account email address before you can continue';
+		placeholder = 'You must verify your GitLens+ account email address before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 

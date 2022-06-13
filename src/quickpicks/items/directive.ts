@@ -51,7 +51,7 @@ export namespace DirectiveQuickPickItem {
 					break;
 				case Directive.RequiresVerification:
 					label = 'Resend Verification Email';
-					detail = 'You must verify your account email address before you can continue';
+					detail = 'You must verify your GitLens+ account email address before you can continue';
 					break;
 				case Directive.RequiresFreeSubscription:
 					label = 'Sign in to GitLens+';

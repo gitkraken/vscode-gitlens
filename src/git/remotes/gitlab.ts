@@ -153,7 +153,7 @@ export class GitLabRemote extends RichRemoteProvider {
 			while (true) {
 				const subscription = await container.subscription.getSubscription();
 				if (subscription.account?.verified === false) {
-					const resend = { title: 'Resend verification email' };
+					const resend = { title: 'Resend Verification' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showWarningMessage(
 						`${title}\n\nYou must verify your GitLens+ account email address before you can continue.`,
@@ -189,7 +189,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					void container.subscription.startPreviewTrial();
 					break;
 				} else if (subscription.account == null) {
-					const signIn = { title: 'Sign in to GitLens+' };
+					const signIn = { title: 'Sign In to GitLens+' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showWarningMessage(
 						`${title}\n\nDo you want to sign in to GitLens+?`,
@@ -204,7 +204,7 @@ export class GitLabRemote extends RichRemoteProvider {
 						}
 					}
 				} else {
-					const upgrade = { title: 'Upgrade your account' };
+					const upgrade = { title: 'Upgrade Account' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showWarningMessage(
 						`${title}\n\nDo you want to upgrade your account?`,
