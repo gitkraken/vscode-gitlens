@@ -169,9 +169,16 @@ export namespace GitActions {
 		) {
 			// Open the working file to ensure undo will work
 			void (await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
+
+			let ref = ref1.ref;
+			// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+			if (typeof file !== 'string' && file.status === '?') {
+				ref = `${ref}^3`;
+			}
+
 			void (await Container.instance.git.applyChangesToWorkingFile(
-				GitUri.fromFile(file, ref1.repoPath, ref1.ref),
-				ref1.ref,
+				GitUri.fromFile(file, ref1.repoPath, ref),
+				ref,
 				ref2?.ref,
 			));
 		}
@@ -502,7 +509,10 @@ export namespace GitActions {
 				options = refOrOptions as TextDocumentShowOptions;
 			} else {
 				const ref = refOrOptions as GitRevisionReference;
+
 				uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
+				// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
+				if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
 			}
 
 			options = { preserveFocus: true, preview: false, ...options };
@@ -663,7 +673,8 @@ export namespace GitActions {
 				ref = revision.ref;
 			} else {
 				path = file.path;
-				ref = file.status === 'D' ? `${revision.ref}^` : revision.ref;
+				ref =
+					file.status === `?` ? `${revision.ref}^3` : file.status === 'D' ? `${revision.ref}^` : revision.ref;
 			}
 
 			void (await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));

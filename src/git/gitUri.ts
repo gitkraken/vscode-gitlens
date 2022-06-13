@@ -230,7 +230,14 @@ export class GitUri extends (Uri as any as UriEx) {
 			typeof file === 'string' ? file : (original && file.originalPath) || file.path,
 			repoPath,
 		);
-		return !ref ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
+
+		return !ref
+			? new GitUri(uri, repoPath)
+			: new GitUri(uri, {
+					repoPath: repoPath,
+					// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+					sha: typeof file !== 'string' && file.status === '?' ? `${ref}^3` : ref,
+			  });
 	}
 
 	static fromRepoPath(repoPath: string, ref?: string) {

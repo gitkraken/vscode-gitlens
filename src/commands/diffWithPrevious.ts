@@ -56,7 +56,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
-						sha: args.commit.sha || '',
+						// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+						sha: args.commit.file.status === '?' ? `${args.commit.sha}^3` : args.commit.sha || '',
 						uri: args.commit.file.uri,
 					},
 					line: args.line,
