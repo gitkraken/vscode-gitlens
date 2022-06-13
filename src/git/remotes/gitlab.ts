@@ -1,4 +1,4 @@
-import { AuthenticationSession, Disposable, Range, Uri, window } from 'vscode';
+import { AuthenticationSession, Disposable, env, QuickInputButton, Range, ThemeIcon, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference, AutolinkType } from '../../config';
 import { Container } from '../../container';
@@ -219,30 +219,6 @@ export class GitLabRemote extends RichRemoteProvider {
 		return super.connect();
 	}
 
-	// @log()
-	// override disconnect(silent: boolean = false): void {
-	// 	super.disconnect(silent);
-
-	// 	if (!silent) {
-	// 		async function promptToClearAuthentication(this: GitLabRemote) {
-	// 			const clear = { title: 'Clear Authentication' };
-	// 			const cancel = { title: 'Cancel', isCloseAffordance: true };
-	// 			const result = await window.showWarningMessage(
-	// 				`Rich integration with GitLab as been disconnected.\n\nDo you also want to clear your saved authentication?`,
-	// 				{ modal: true },
-	// 				clear,
-	// 				cancel,
-	// 			);
-
-	// 			if (result === clear) {
-	// 				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authDescriptor);
-	// 			}
-	// 		}
-
-	// 		void promptToClearAuthentication.call(this);
-	// 	}
-	// }
-
 	async getLocalInfoFromRemoteUri(
 		repository: Repository,
 		uri: Uri,
@@ -437,13 +413,54 @@ export class GitLabAuthenticationProvider implements Disposable, IntegrationAuth
 	async createSession(
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
 	): Promise<AuthenticationSession | undefined> {
-		const token = await window.showInputBox({
-			ignoreFocusOut: true,
-			title: `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`,
-			password: true,
-			placeHolder: `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`,
-			prompt: 'Paste your GitLab Personal Access Token',
-		});
+		const input = window.createInputBox();
+		input.ignoreFocusOut = true;
+
+		const disposables: Disposable[] = [];
+
+		let token;
+		try {
+			const infoButton: QuickInputButton = {
+				iconPath: new ThemeIcon(`link-external`),
+				tooltip: 'Open Access Tokens page on GitLab',
+			};
+
+			token = await new Promise<string | undefined>(resolve => {
+				disposables.push(
+					input.onDidHide(() => resolve(undefined)),
+					input.onDidChangeValue(() => (input.validationMessage = undefined)),
+					input.onDidAccept(() => {
+						const value = input.value.trim();
+						if (!value) {
+							input.validationMessage = 'A personal access token is required';
+							return;
+						}
+
+						resolve(value);
+					}),
+					input.onDidTriggerButton(e => {
+						if (e === infoButton) {
+							void env.openExternal(
+								Uri.parse(
+									`https://${descriptor?.domain ?? 'gitlab.com'}/-/profile/personal_access_tokens`,
+								),
+							);
+						}
+					}),
+				);
+
+				input.password = true;
+				input.title = `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
+				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
+				input.prompt = 'Paste your GitLab Personal Access Token';
+				input.buttons = [infoButton];
+
+				input.show();
+			});
+		} finally {
+			input.dispose();
+			disposables.forEach(d => d.dispose());
+		}
 
 		if (!token) return undefined;
 
