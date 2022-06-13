@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Added
 
-- Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitLab and GitLab self-managed instances
+- Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitLab and GitLab self-managed instances &mdash; closes [#1236]((https://github.com/gitkraken/vscode-gitlens/issues/1236)
   - Adds associated pull request to line annotations and hovers
     ![Pull requests on line annotation and hovers](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png)
   - Adds associated pull request to status bar blame
@@ -4211,6 +4211,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[Unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.7...HEAD
+[12.0.6]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.6...gitkraken:v12.0.7
+[12.0.6]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.5...gitkraken:v12.0.6
 [12.0.5]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.4...gitkraken:v12.0.5
 [12.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.3...gitkraken:v12.0.4
 [12.0.3]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.2...gitkraken:v12.0.3
