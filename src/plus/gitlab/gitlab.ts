@@ -2,7 +2,7 @@ import type { HttpsProxyAgent } from 'https-proxy-agent';
 import { Disposable, Event, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, RequestInit, Response } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { configuration } from '../../configuration';
+import { configuration, CustomRemoteType } from '../../configuration';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -38,17 +38,16 @@ export class GitLabApi implements Disposable {
 	constructor() {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'proxy')) {
-					this._proxyAgent = null;
+				if (configuration.changed(e, 'proxy') || configuration.changed(e, 'remotes')) {
 					this._projectIds.clear();
-				} else if (configuration.changed(e, 'outputLevel')) {
-					this._projectIds.clear();
+					this._proxyAgents.clear();
+					this._ignoreSSLErrors.clear();
 				}
 			}),
 			configuration.onDidChangeAny(e => {
 				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
-					this._proxyAgent = null;
 					this._projectIds.clear();
+					this._proxyAgents.clear();
 				}
 			}),
 		);
@@ -58,18 +57,34 @@ export class GitLabApi implements Disposable {
 		this._disposable?.dispose();
 	}
 
-	private _proxyAgent: HttpsProxyAgent | null | undefined = null;
-	private get proxyAgent(): HttpsProxyAgent | undefined {
+	private _proxyAgents = new Map<string, HttpsProxyAgent | null | undefined>();
+	private getProxyAgent(provider: RichRemoteProvider): HttpsProxyAgent | undefined {
 		if (isWeb) return undefined;
 
-		if (this._proxyAgent === null) {
-			// TODO@eamodio figure out how to best handle this -- we can't really just find the first GitLab remote here
-			// const config = configuration.get('remotes')?.find(remote => remote.type === CustomRemoteType.GitLab);
-			// this._agent = getProxyAgent(config?.ignoreCertErrors);
-
-			this._proxyAgent = getProxyAgent();
+		let proxyAgent = this._proxyAgents.get(provider.id);
+		if (proxyAgent === undefined) {
+			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
+			proxyAgent = getProxyAgent(ignoreSSLErrors === true || ignoreSSLErrors === 'force' ? false : undefined);
+			this._proxyAgents.set(provider.id, proxyAgent ?? null);
 		}
-		return this._proxyAgent;
+
+		return proxyAgent ?? undefined;
+	}
+
+	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
+	private getIgnoreSSLErrors(provider: RichRemoteProvider): boolean | 'force' {
+		if (isWeb) return false;
+
+		let ignoreSSLErrors = this._ignoreSSLErrors.get(provider.id);
+		if (ignoreSSLErrors === undefined) {
+			const cfg = configuration
+				.get('remotes')
+				?.find(remote => remote.type === CustomRemoteType.GitLab && remote.domain === provider.domain);
+			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
+			this._ignoreSSLErrors.set(provider.id, ignoreSSLErrors);
+		}
+
+		return ignoreSSLErrors;
 	}
 
 	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -91,6 +106,7 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const commit = await this.request<GitLabCommit>(
+				provider,
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}/repository/commits/${ref}?stats=false`,
@@ -199,7 +215,7 @@ export class GitLabApi implements Disposable {
 		}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, options?.baseUrl, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
 				fullPath: `${owner}/${repo}`,
 			});
 
@@ -278,7 +294,7 @@ export class GitLabApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, options?.baseUrl, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
 				fullPath: `${owner}/${repo}`,
 				iid: String(number),
 			});
@@ -408,7 +424,7 @@ export class GitLabApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, options?.baseUrl, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
 				fullPath: `${owner}/${repo}`,
 				branches: [branch],
 				state: options?.include,
@@ -479,6 +495,8 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const mrs = await this.request<GitLabMergeRequestREST[]>(
+				provider,
+
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}/repository/commits/${ref}/merge_requests`,
@@ -507,7 +525,7 @@ export class GitLabApi implements Disposable {
 	}
 
 	private async findUser(
-		_provider: RichRemoteProvider,
+		provider: RichRemoteProvider,
 		token: string,
 		search: string,
 		options?: {
@@ -549,7 +567,7 @@ $search: String!
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(token, options?.baseUrl, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
 				search: search,
 			});
 
@@ -601,7 +619,7 @@ $search: String!
 	}
 
 	private async getProjectIdCore(
-		_provider: RichRemoteProvider,
+		provider: RichRemoteProvider,
 		token: string,
 		group: string,
 		repo: string,
@@ -621,7 +639,7 @@ $search: String!
 		id
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(token, baseUrl, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, baseUrl, query, {
 				fullPath: `${group}/${repo}`,
 			});
 
@@ -646,6 +664,7 @@ $search: String!
 	}
 
 	private async graphql<T>(
+		provider: RichRemoteProvider,
 		token: string,
 		baseUrl: string | undefined,
 		query: string,
@@ -657,11 +676,21 @@ $search: String!
 				Logger.logLevel === LogLevel.Debug || Logger.isDebugging
 					? new Stopwatch(`[GITLAB] POST ${baseUrl}`, { log: false })
 					: undefined;
+
+			const agent = this.getProxyAgent(provider);
+			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
+			let previousRejectUnauthorized;
+
 			try {
+				if (ignoreSSLErrors === 'force') {
+					previousRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+					process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+				}
+
 				rsp = await fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 					method: 'POST',
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: this.proxyAgent as any,
+					agent: agent as any,
 					body: JSON.stringify({ query: query, variables: variables }),
 				});
 
@@ -674,6 +703,10 @@ $search: String!
 
 				throw new ProviderFetchError('GitLab', rsp);
 			} finally {
+				if (ignoreSSLErrors === 'force') {
+					process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousRejectUnauthorized;
+				}
+
 				const match = /(^[^({\n]+)/.exec(query);
 				const message = ` ${match?.[1].trim() ?? query}`;
 
@@ -691,6 +724,7 @@ $search: String!
 	}
 
 	private async request<T>(
+		provider: RichRemoteProvider,
 		token: string,
 		baseUrl: string | undefined,
 		route: string,
@@ -704,10 +738,20 @@ $search: String!
 				Logger.logLevel === LogLevel.Debug || Logger.isDebugging
 					? new Stopwatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: false })
 					: undefined;
+
+			const agent = this.getProxyAgent(provider);
+			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
+			let previousRejectUnauthorized;
+
 			try {
+				if (ignoreSSLErrors === 'force') {
+					previousRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+					process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+				}
+
 				rsp = await fetch(url, {
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: this.proxyAgent as any,
+					agent: agent as any,
 					...options,
 				});
 
@@ -718,6 +762,10 @@ $search: String!
 
 				throw new ProviderFetchError('GitLab', rsp);
 			} finally {
+				if (ignoreSSLErrors === 'force') {
+					process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousRejectUnauthorized;
+				}
+
 				stopwatch?.stop();
 			}
 		} catch (ex) {

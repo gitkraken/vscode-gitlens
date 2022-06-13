@@ -19,10 +19,13 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 			undefined,
 			'override',
 		);
-		if (proxySupport === 'off') return undefined;
 
-		strictSSL = strictSSL ?? configuration.getAny<boolean>('http.proxyStrictSSL', undefined, true);
-		proxyUrl = configuration.getAny<string>('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+		if (proxySupport === 'off') {
+			strictSSL = strictSSL ?? true;
+		} else {
+			strictSSL = strictSSL ?? configuration.getAny<boolean>('http.proxyStrictSSL', undefined, true);
+			proxyUrl = configuration.getAny<string>('http.proxy') || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+		}
 	}
 
 	if (proxyUrl) {
@@ -32,7 +35,7 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 		});
 	}
 
-	if (!strictSSL) {
+	if (strictSSL === false) {
 		return new HttpsProxyAgent({
 			rejectUnauthorized: false,
 		});

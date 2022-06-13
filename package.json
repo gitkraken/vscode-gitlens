@@ -2329,10 +2329,10 @@
 									"default": "https",
 									"description": "Specifies an optional url protocol for the custom remote service"
 								},
-								"ignoreCertErrors": {
+								"ignoreSSLErrors": {
 									"type": "boolean",
 									"default": false,
-									"description": "When connecting to the remote API, true will ignore any invalid certificate errors"
+									"description": "Specifies whether to ignore invalid SSL certificate errors when connecting to the remote service"
 								},
 								"urls": {
 									"type": "object",
