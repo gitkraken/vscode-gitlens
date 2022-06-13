@@ -1,4 +1,3 @@
-import { v4 as uuid } from 'uuid';
 import {
 	authentication,
 	AuthenticationProvider,
@@ -9,6 +8,7 @@ import {
 	extensions,
 	window,
 } from 'vscode';
+import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
 import { StorageKeys } from '../../storage';

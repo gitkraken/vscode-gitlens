@@ -1,4 +1,3 @@
-import { v4 as uuid } from 'uuid';
 import {
 	CancellationToken,
 	CancellationTokenSource,
@@ -11,6 +10,7 @@ import {
 	UriHandler,
 	window,
 } from 'vscode';
+import { uuid } from '@env/crypto';
 import { fetch, getProxyAgent, Response } from '@env/fetch';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
