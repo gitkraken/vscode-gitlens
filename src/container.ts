@@ -26,6 +26,7 @@ import {
 import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
+import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
@@ -204,6 +205,7 @@ export class Container {
 		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
 		context.subscriptions.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
+		context.subscriptions.push(new GitLabAuthenticationProvider(this));
 
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -389,7 +391,9 @@ export class Container {
 
 	private async _loadGitLabApi() {
 		try {
-			return new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi();
+			const gitlab = new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi(this);
+			this.context.subscriptions.push(gitlab);
+			return gitlab;
 		} catch (ex) {
 			Logger.error(ex);
 			return undefined;

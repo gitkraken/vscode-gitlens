@@ -1,4 +1,4 @@
-import { AuthenticationSession, Range, Uri, window } from 'vscode';
+import { AuthenticationSession, Disposable, Range, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference, AutolinkType } from '../../config';
 import { Container } from '../../container';
@@ -28,18 +28,12 @@ const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 const authProvider = Object.freeze({ id: 'gitlab', scopes: ['read_api', 'read_user', 'read_repository'] });
 
 export class GitLabRemote extends RichRemoteProvider {
-	private static authenticationProvider: GitLabAuthenticationProvider | undefined;
-
 	protected get authProvider() {
 		return authProvider;
 	}
 
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
 		super(domain, path, protocol, name, custom);
-
-		if (GitLabRemote.authenticationProvider == null) {
-			GitLabRemote.authenticationProvider = new GitLabAuthenticationProvider(Container.instance);
-		}
 	}
 
 	get apiBaseUrl() {
@@ -225,29 +219,29 @@ export class GitLabRemote extends RichRemoteProvider {
 		return super.connect();
 	}
 
-	@log()
-	override disconnect(silent: boolean = false): void {
-		super.disconnect(silent);
+	// @log()
+	// override disconnect(silent: boolean = false): void {
+	// 	super.disconnect(silent);
 
-		if (silent) return;
+	// 	if (!silent) {
+	// 		async function promptToClearAuthentication(this: GitLabRemote) {
+	// 			const clear = { title: 'Clear Authentication' };
+	// 			const cancel = { title: 'Cancel', isCloseAffordance: true };
+	// 			const result = await window.showWarningMessage(
+	// 				`Rich integration with GitLab as been disconnected.\n\nDo you also want to clear your saved authentication?`,
+	// 				{ modal: true },
+	// 				clear,
+	// 				cancel,
+	// 			);
 
-		async function promptToClearAuthentication(this: GitLabRemote) {
-			const clear = { title: 'Clear Authentication' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-			const result = await window.showWarningMessage(
-				`Rich integration with GitLab as been disconnected.\n\nDo you also want to clear your saved authentication?`,
-				{ modal: true },
-				clear,
-				cancel,
-			);
+	// 			if (result === clear) {
+	// 				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authDescriptor);
+	// 			}
+	// 		}
 
-			if (result === clear) {
-				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authDescriptor);
-			}
-		}
-
-		void promptToClearAuthentication.call(this);
-	}
+	// 		void promptToClearAuthentication.call(this);
+	// 	}
+	// }
 
 	async getLocalInfoFromRemoteUri(
 		repository: Repository,
@@ -425,9 +419,15 @@ export class GitLabRemote extends RichRemoteProvider {
 	}
 }
 
-class GitLabAuthenticationProvider implements IntegrationAuthenticationProvider {
+export class GitLabAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
+	private readonly _disposable: Disposable;
+
 	constructor(container: Container) {
-		container.context.subscriptions.push(container.integrationAuthentication.registerProvider('gitlab', this));
+		this._disposable = container.integrationAuthentication.registerProvider('gitlab', this);
+	}
+
+	dispose() {
+		this._disposable.dispose();
 	}
 
 	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {

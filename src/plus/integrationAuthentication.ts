@@ -67,14 +67,18 @@ export class IntegrationAuthenticationService implements Disposable {
 	async getSession(
 		providerId: string,
 		descriptor?: IntegrationAuthenticationSessionDescriptor,
-		options?: { createIfNeeded?: boolean },
+		options?: { createIfNeeded?: boolean; forceNewSession?: boolean },
 	): Promise<AuthenticationSession | undefined> {
 		const provider = this.providers.get(providerId);
 		if (provider == null) throw new Error(`Provider with id ${providerId} not registered`);
 
-		let storedSession: StoredSession | undefined;
-
 		const key = this.getSecretKey(providerId, provider.getSessionId(descriptor));
+
+		if (options?.forceNewSession) {
+			await this.container.storage.deleteSecret(key);
+		}
+
+		let storedSession: StoredSession | undefined;
 		try {
 			const sessionJSON = await this.container.storage.getSecret(key);
 			if (sessionJSON) {

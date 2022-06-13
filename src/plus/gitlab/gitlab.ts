@@ -1,8 +1,9 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import { Disposable, Event, EventEmitter, Uri, window } from 'vscode';
+import { Disposable, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, RequestInit, Response } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration, CustomRemoteType } from '../../configuration';
+import type { Container } from '../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -27,15 +28,10 @@ import {
 } from './models';
 
 export class GitLabApi implements Disposable {
-	private readonly _onDidReauthenticate = new EventEmitter<void>();
-	get onDidReauthenticate(): Event<void> {
-		return this._onDidReauthenticate.event;
-	}
-
 	private _disposable: Disposable | undefined;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
 
-	constructor() {
+	constructor(_container: Container) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'proxy') || configuration.changed(e, 'remotes')) {
@@ -147,7 +143,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -178,7 +174,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -229,7 +225,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -332,7 +328,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -472,7 +468,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -520,7 +516,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -595,7 +591,7 @@ $search: String!
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			this.handleException(ex, cc);
+			this.handleException(ex, provider, cc);
 			return [];
 		}
 	}
@@ -658,7 +654,7 @@ $search: String!
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			this.handleException(ex, cc);
+			this.handleException(ex, provider, cc);
 			return undefined;
 		}
 	}
@@ -830,17 +826,17 @@ $search: String!
 		}
 	}
 
-	private handleException(ex: Error, cc: LogCorrelationContext | undefined): Error {
+	private handleException(ex: Error, provider: RichRemoteProvider, cc: LogCorrelationContext | undefined): Error {
 		Logger.error(ex, cc);
 		debugger;
 
 		if (ex instanceof AuthenticationError) {
-			void this.showAuthenticationErrorMessage(ex);
+			void this.showAuthenticationErrorMessage(ex, provider);
 		}
 		return ex;
 	}
 
-	private async showAuthenticationErrorMessage(ex: AuthenticationError) {
+	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: RichRemoteProvider) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
 			const confirm = 'Reauthenticate';
 			const result = await window.showErrorMessage(
@@ -851,7 +847,7 @@ $search: String!
 			);
 
 			if (result === confirm) {
-				this._onDidReauthenticate.fire();
+				await provider.reauthenticate();
 			}
 		} else {
 			void window.showErrorMessage(ex.message);

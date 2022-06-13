@@ -5,8 +5,10 @@ import {
 	env,
 	Event,
 	EventEmitter,
+	MessageItem,
 	Range,
 	Uri,
+	window,
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
@@ -295,7 +297,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				if (e.key !== this.key) return;
 
 				if (e.reason === 'disconnected') {
-					this.disconnect(true);
+					void this.disconnect(true);
 				} else if (e.reason === 'connected') {
 					void this.ensureSession(false);
 				}
@@ -304,12 +306,11 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		);
 	}
 
-	protected get authDescriptor(): IntegrationAuthenticationSessionDescriptor {
-		return { domain: this.domain, scopes: this.authProvider.scopes };
-	}
-
 	abstract get apiBaseUrl(): string;
 	protected abstract get authProvider(): { id: string; scopes: string[] };
+	protected get authProviderDescriptor(): IntegrationAuthenticationSessionDescriptor {
+		return { domain: this.domain, scopes: this.authProvider.scopes };
+	}
 
 	private get key() {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
@@ -350,21 +351,60 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	}
 
 	@log()
-	disconnect(silent: boolean = false): void {
+	async disconnect(silent: boolean = false): Promise<void> {
 		const connected = this._session != null;
+
+		const container = Container.instance;
+
+		if (connected && !silent) {
+			const disable = { title: 'Disable' };
+			const signout = { title: 'Disable & Sign Out' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+
+			let result: MessageItem | undefined;
+			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+				result = await window.showWarningMessage(
+					`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
+					{ modal: true },
+					disable,
+					signout,
+					cancel,
+				);
+			} else {
+				result = await window.showWarningMessage(
+					`Are you sure you want to disable the rich integration with ${this.name}?`,
+					{ modal: true },
+					disable,
+					cancel,
+				);
+			}
+
+			if (result == null || result === cancel) return;
+			if (result === signout) {
+				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
+			}
+		}
 
 		this.invalidClientExceptionCount = 0;
 		this._prsByCommit.clear();
 		this._session = null;
 
 		if (connected) {
-			void Container.instance.storage.storeWorkspace(this.connectedKey, false);
+			void container.storage.storeWorkspace(this.connectedKey, false);
 
 			this._onDidChange.fire();
 			if (!silent) {
 				fireAuthenticationChanged(this.key, 'disconnected');
 			}
 		}
+	}
+
+	@log()
+	async reauthenticate(): Promise<void> {
+		if (this._session === undefined) return;
+
+		this._session = undefined;
+		void (await this.ensureSession(true, true));
 	}
 
 	@gate()
@@ -578,7 +618,10 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	): Promise<PullRequest | undefined>;
 
 	@gate()
-	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
+	private async ensureSession(
+		createIfNeeded: boolean,
+		forceNewSession: boolean = false,
+	): Promise<AuthenticationSession | undefined> {
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
@@ -595,13 +638,14 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
 				session = await container.integrationAuthentication.getSession(
 					this.authProvider.id,
-					this.authDescriptor,
-					{ createIfNeeded: createIfNeeded },
+					this.authProviderDescriptor,
+					{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
 				);
 			} else {
 				session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
 					createIfNone: createIfNeeded,
 					silent: !createIfNeeded,
+					forceNewSession: forceNewSession,
 				});
 			}
 		} catch (ex) {
@@ -638,7 +682,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		this.invalidClientExceptionCount++;
 
 		if (this.invalidClientExceptionCount >= 5) {
-			this.disconnect();
+			void this.disconnect();
 		}
 	}
 }
