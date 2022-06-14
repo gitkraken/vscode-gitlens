@@ -250,7 +250,7 @@ export class SettingsApp extends AppWithConfig<State> {
 		`;
 
 		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
-			<div class="setting${ isNew ? ' hidden" data-region="autolink' : ''}">
+			<div class="setting${isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">
 						<label for="autolinks.${index}.prefix">Prefix</label>
@@ -260,7 +260,7 @@ export class SettingsApp extends AppWithConfig<State> {
 							placeholder="TICKET-"
 							data-setting
 							data-setting-type="arrayObject"
-							${ autolink?.prefix ? `value="${encodeURIComponent(autolink.prefix)}"` : ''}
+							${autolink?.prefix ? `value="${encodeURIComponent(autolink.prefix)}"` : ''}
 						>
 						<div class="setting__input-actions">
 							<div class="toggle-button">
@@ -271,7 +271,7 @@ export class SettingsApp extends AppWithConfig<State> {
 									class="toggle-button__control"
 									data-setting
 									data-setting-type="arrayObject"
-									${ autolink?.ignoreCase ? 'checked' : ''}
+									${autolink?.ignoreCase ? 'checked' : ''}
 								>
 								<label class="toggle-button__label" for="autolinks.${index}.ignoreCase" title="Case-sensitive" aria-label="Case-sensitive">Aa</label>
 							</div>
@@ -283,7 +283,7 @@ export class SettingsApp extends AppWithConfig<State> {
 									class="toggle-button__control"
 									data-setting
 									data-setting-type="arrayObject"
-									${ autolink?.alphanumeric ? 'checked' : ''}
+									${autolink?.alphanumeric ? 'checked' : ''}
 								>
 								<label class="toggle-button__label" for="autolinks.${index}.alphanumeric" title="Alphanumeric" aria-label="Alphanumeric">a1</label>
 							</div>
@@ -298,9 +298,11 @@ export class SettingsApp extends AppWithConfig<State> {
 							placeholder="https://example.com/TICKET?q=&lt;num&gt;"
 							data-setting
 							data-setting-type="arrayObject"
-							${ autolink?.url ? `value="${encodeURIComponent(autolink.url)}"` : ''}
+							${autolink?.url ? `value="${encodeURIComponent(autolink.url)}"` : ''}
 						>
-						${ isNew ? `
+						${
+							isNew
+								? `
 							<button
 								class="button button--compact button--flat-subtle"
 								type="button"
@@ -310,7 +312,8 @@ export class SettingsApp extends AppWithConfig<State> {
 								title="Delete"
 								aria-label="Delete"
 							><i class="codicon codicon-close"></i></button>
-						` : `
+						`
+								: `
 							<button
 								id="autolinks.${index}.delete"
 								name="autolinks.${index}.delete"
@@ -321,10 +324,11 @@ export class SettingsApp extends AppWithConfig<State> {
 								title="Delete"
 								aria-label="Delete"
 							><i class="codicon codicon-close"></i></button>
-						`}
+						`
+						}
 					</div>
 				</div>
-				${ renderHelp && isNew ? helpTemplate() : ''}
+				${renderHelp && isNew ? helpTemplate() : ''}
 			</div>
 		`;
 
@@ -337,7 +341,7 @@ export class SettingsApp extends AppWithConfig<State> {
 		fragment.push(autolinkTemplate(this.state.config.autolinks?.length ?? 0, undefined, true, !autolinks));
 
 		if (autolinks) {
-			fragment.push( helpTemplate());
+			fragment.push(helpTemplate());
 		}
 
 		$root.innerHTML = fragment.join('');

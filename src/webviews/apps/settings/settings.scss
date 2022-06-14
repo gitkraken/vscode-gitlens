@@ -730,13 +730,13 @@ section {
 		// background-color: var(--color-button-secondary-background);
 
 		&:hover {
-			border-color:var(--color-background--lighten-30);
+			border-color: var(--color-background--lighten-30);
 		}
 	}
 
 	&__control:checked + .toggle-button__label {
 		background-color: var(--color-background--lighten-30);
-		border-color:var(--color-background--lighten-30);
+		border-color: var(--color-background--lighten-30);
 	}
 
 	&__control:focus + .toggle-button__label {

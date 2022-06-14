@@ -57,10 +57,8 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				'input',
 				(e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
-			DOM.on(
-				'button[data-setting-clear]',
-				'click',
-				(e, target: HTMLButtonElement) => this.onButtonClicked(target),
+			DOM.on('button[data-setting-clear]', 'click', (e, target: HTMLButtonElement) =>
+				this.onButtonClicked(target),
 			),
 			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
 			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
@@ -138,19 +136,22 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				setting[index] = settingItem;
 			}
 
-			set(setting[index], objectProps.join('.'), element.type === 'number' && value != null ? Number(value) : value);
+			set(
+				setting[index],
+				objectProps.join('.'),
+				element.type === 'number' && value != null ? Number(value) : value,
+			);
 
 			this._changes[settingName] = setting;
 		} else {
 			this._changes[element.name] = element.type === 'number' && value != null ? Number(value) : value;
 		}
 
-
 		// this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
 		this.applyChanges();
 	}
 
-	protected onButtonClicked(element:HTMLButtonElement) {
+	protected onButtonClicked(element: HTMLButtonElement) {
 		if (element.dataset.settingType === 'arrayObject') {
 			const props = element.name.split('.');
 			const settingName = props[0];
