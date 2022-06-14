@@ -241,7 +241,15 @@ export class SettingsApp extends AppWithConfig<State> {
 		const $root = document.querySelector('[data-component="autolinks"]');
 		if ($root == null) return;
 
-		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false) => `
+		const helpTemplate = () => `
+			<div class="setting__hint">
+				<span style="line-height: 2rem">
+					<i class="icon icon--sm icon__info"></i> Matches prefixes that are followed by a reference value within commit messages.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The URL must contain a <code>&lt;num&gt;</code> for the reference value to be included in the link.
+				</span>
+			</div>
+		`;
+
+		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
 			<div class="setting${ isNew ? ' hidden" data-region="autolink' : ''}">
 				<div class="setting__group">
 					<div class="setting__input setting__input--short setting__input--with-actions">
@@ -316,21 +324,21 @@ export class SettingsApp extends AppWithConfig<State> {
 						`}
 					</div>
 				</div>
-				${ isNew ? `
-					<span class="setting__hint">
-						<span style="line-height: 2rem">
-							<i class="icon icon--sm icon__info"></i> Matches prefixes that are followed by a reference value within commit messages.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The URL must contain a <code>&lt;num&gt;</code> for the reference value to be included in the link.
-						</span>
-					</span>
-				`: ''}
+				${ renderHelp && isNew ? helpTemplate() : ''}
 			</div>
 		`;
 
 		const fragment: string[] = [];
-		if (this.state.config.autolinks != null) {
-			this.state.config.autolinks.forEach((autolink, i) => fragment.push(autolinkTemplate(i, autolink)));
+		const autolinks = (this.state.config.autolinks?.length || 0) > 0;
+		if (autolinks) {
+			this.state.config.autolinks?.forEach((autolink, i) => fragment.push(autolinkTemplate(i, autolink)));
 		}
-		fragment.push(autolinkTemplate(this.state.config.autolinks?.length ?? 0, undefined, true));
+
+		fragment.push(autolinkTemplate(this.state.config.autolinks?.length ?? 0, undefined, true, !autolinks));
+
+		if (autolinks) {
+			fragment.push( helpTemplate());
+		}
 
 		$root.innerHTML = fragment.join('');
 	}

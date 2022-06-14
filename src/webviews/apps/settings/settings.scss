@@ -209,6 +209,10 @@ header {
 	width: 600px;
 }
 
+.image__preview--fit {
+	width: max-content;
+}
+
 .image__preview--overlay {
 	left: 0;
 	position: absolute;
