@@ -13,7 +13,7 @@
 
 <p align="center">
   <br />
-  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img width="600px" src="./src/webviews/apps/media/gitlens-tutorial-banner.png" alt="Watch the GitLens Getting Started video" /></a>
+  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img width="600px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/src/webviews/apps/media/gitlens-tutorial-banner.png" alt="Watch the GitLens Getting Started video" /></a>
   <br/>
 </p>
 
