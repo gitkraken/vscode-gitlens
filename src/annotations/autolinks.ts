@@ -63,7 +63,21 @@ export class Autolinks implements Disposable {
 		if (configuration.changed(e, 'autolinks')) {
 			const autolinks = configuration.get('autolinks');
 			// Since VS Code's configuration objects are live we need to copy them to avoid writing back to the configuration
-			this._references = autolinks != null ? autolinks.map(a => ({ ...a })) : [];
+			this._references =
+				autolinks
+					?.filter(a => a.prefix && a.url)
+					/**
+					 * Only allow properties defined by {@link AutolinkReference}
+					 */
+					?.map(a => ({
+						prefix: a.prefix,
+						url: a.url,
+						title: a.title,
+						alphanumeric: a.alphanumeric,
+						ignoreCase: a.ignoreCase,
+						type: a.type,
+						description: a.description,
+					})) ?? [];
 		}
 	}
 
