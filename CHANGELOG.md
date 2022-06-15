@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## Added
+
+- Adds getting started tutorial video to the Welcome, Get Started walkthrough, GitLens Home view, and README
+
 ## Fixed
 
 - Fixes [#2037](https://github.com/gitkraken/vscode-gitlens/issues/2037) - Autolinks can end up getting saved with invalid (cached) properties

@@ -10983,6 +10983,14 @@
 				"description": "Discover and personalize features that supercharge your Git experience",
 				"steps": [
 					{
+						"id": "gitlens.welcome.tutorial",
+						"title": "Watch Tutorial",
+						"description": "Sit back and watch the Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")",
+						"media": {
+							"markdown": "walkthroughs/getting-started/0-tutorial.md"
+						}
+					},
+					{
 						"id": "gitlens.welcome.experience",
 						"title": "Get setup quickly",
 						"description": "Use the Quick Setup to easily configure frequently used GitLens features.\n\n[Open Quick Setup](command:gitlens.showWelcomePage?%22quick-setup%22 \"Opens the GitLens Quick Setup\")",

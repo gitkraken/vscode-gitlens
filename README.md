@@ -13,7 +13,7 @@
 
 <p align="center">
   <br />
-  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12"><img width="600px" src="./src/webviews/apps/media/gitlens-12-card.png" alt="Open What's New in GitLens 12" /></a>
+  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img width="600px" src="./src/webviews/apps/media/gitlens-tutorial-banner.png" alt="Watch the GitLens Getting Started video" /></a>
   <br/>
 </p>
 
