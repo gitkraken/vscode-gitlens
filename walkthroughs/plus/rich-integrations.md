@@ -1,4 +1,4 @@
-## Rich Integrations for Self-Hosted Providers
+## Rich Self-Hosted Git Integrations
 
 GitLens+ users with a paid plan can access rich integrations for self-hosted providers.
 
@@ -12,4 +12,4 @@ GitLab Self-Managed users can see GitLab avatars for commit authors, richer deta
 
 ### GitHub Enterprise
 
-A rich integration for GitHub Enterprise is coming soon.
+A rich integration with GitHub Enterprise is coming soon.

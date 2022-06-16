@@ -10,4 +10,4 @@
   <br/>New Worktrees
 </p>
 
-Even more features are coming soon, like a visual commit graph and integrations for GitHub Enterprise and GitLab repositories.
+Even more features are coming soon, like a visual commit graph and rich integrations with hosting services like GitHub Enterprise.

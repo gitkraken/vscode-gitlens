@@ -19,4 +19,4 @@ No, the introduction of GitLens+ has no impact on existing GitLens features, so 
 
 ## More GitLens+ features coming soon
 
-Additional features like a visual commit graph, and integrations for GitHub Enterprise and GitLab are coming soon.
+Additional features like a visual commit graph and rich integrations with hosting services like GitHub Enterprise are coming soon.
