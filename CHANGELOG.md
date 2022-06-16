@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds associated pull requests to branches and commits in GitLens views
   - Adds rich autolinks for GitLab issues and merge requests, including titles, status, and authors
   - Adds rich support to _Autolinked Issues and Pull Requests_ within comparisons to list autolinked GitLab issues and merge requests in commit messages
+  - Additional thanks to Kevin Paxton ([kpaxton](https://github.com/kpaxton)) for help and contributions on this feature
 - Adds editor line highlighting and code fading (dimming) to the _File Heatmap_ annotations to make it easier to tell recent vs old lines of code
   - Adds a `line` option to `gitlens.heatmap.locations` setting to specify whether to add a line highlight to the _File Heatmap_ annotations
   - Adds a `gitlens.heatmap.fadeLines` setting to specify whether to fade out older lines when showing the _File Heatmap_ annotations
