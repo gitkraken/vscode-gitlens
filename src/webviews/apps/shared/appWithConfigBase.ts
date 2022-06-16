@@ -129,20 +129,30 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 			const index = parseInt(props[1], 10);
 			const objectProps = props.slice(2);
 
-			const setting: Record<string, any>[] = this.getSettingValue(settingName) ?? [];
+			let setting: Record<string, any>[] | undefined = this.getSettingValue(settingName);
+			if (value == null && (setting === undefined || setting?.length === 0)) {
+				if (setting !== undefined) {
+					this._changes[settingName] = undefined;
+				}
+			} else {
+				setting = setting ?? [];
 
-			const settingItem = setting[index] ?? Object.create(null);
-			if (setting[index] === undefined) {
-				setting[index] = settingItem;
+				let settingItem = setting[index];
+				if (value != null || (value == null && settingItem !== undefined)) {
+					if (settingItem === undefined) {
+						settingItem = Object.create(null);
+						setting[index] = settingItem;
+					}
+
+					set(
+						settingItem,
+						objectProps.join('.'),
+						element.type === 'number' && value != null ? Number(value) : value,
+					);
+
+					this._changes[settingName] = setting;
+				}
 			}
-
-			set(
-				setting[index],
-				objectProps.join('.'),
-				element.type === 'number' && value != null ? Number(value) : value,
-			);
-
-			this._changes[settingName] = setting;
 		} else {
 			this._changes[element.name] = element.type === 'number' && value != null ? Number(value) : value;
 		}

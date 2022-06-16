@@ -308,7 +308,6 @@ export class SettingsApp extends AppWithConfig<State> {
 								type="button"
 								data-action="hide"
 								data-action-target="autolink"
-								disabled
 								title="Delete"
 								aria-label="Delete"
 							><i class="codicon codicon-close"></i></button>
