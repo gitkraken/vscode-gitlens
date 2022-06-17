@@ -165,9 +165,9 @@ Once the commit is completed, run `git push --follow-tags` to push the version c
 
 ### GitHub Actions and Deployment
 
-After the version commit and new tags are pushed to GitHub, the [Publish Stable workflow](.github/workflows/cd-stable.yml) will be triggered, which will automatically package the extension and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens). The [release notes](https://github.com/gitkraken/vscode-gitlens/releases/latest) _should_ be generated during the action, but if not, this will can be done manually using the notes from the [Change Log](CHANGELOG.md).
+After the version commit and new tags are pushed to GitHub, the [Publish Stable workflow](.github/workflows/cd-stable.yml) will be triggered, which will automatically package the extension and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens). The [release notes](https://github.com/gitkraken/vscode-gitlens/releases/latest) _should_ be generated during the action, but if not, this can be done manually using the notes from the [Change Log](CHANGELOG.md).
 
-If the action fails, the VSIX will need to build built locally with `yarn package` and uploaded manually in the marketplace.
+If the action fails, the VSIX will need to be built locally with `yarn package` and uploaded manually in the marketplace.
 
 ### Insiders release
 
