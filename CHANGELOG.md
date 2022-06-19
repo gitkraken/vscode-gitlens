@@ -41,7 +41,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new and improved Autolink support
   - Adds an _Autolinks_ section in the _GitLens Settings Editor_ to visually add and update autolink entries &mdash; closes [#1315](https://github.com/gitkraken/vscode-gitlens/issues/1315)
   - Adds improved support to _Autolinked Issues and Pull Requests_ within comparisons to list autolinked issues in commit messages
-    - You can now see all autolinks found in the commits in the comparison regardless of whether its a provider-based autolink or a custom (user-provided) autolink
+    - You can now see all autolinks found in the commits in the comparison regardless of whether it's a provider-based autolink or a custom (user-provided) autolink
 - Adds _Open Current Branch on Remote_ to the Command Palette &mdash; closes [#1718](https://github.com/gitkraken/vscode-gitlens/issues/1718)
 
 ## Changed
@@ -70,7 +70,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#1979](https://github.com/gitkraken/vscode-gitlens/issues/1979) - GitLens stopped working in v12.0.0 and later
 - Fixes [#1882](https://github.com/gitkraken/vscode-gitlens/issues/1882) - Blame annotations not showing anymore after update
-- Fixes [#1776](https://github.com/gitkraken/vscode-gitlens/issues/1776) - Cant follow symlinks
+- Fixes [#1776](https://github.com/gitkraken/vscode-gitlens/issues/1776) - Can't follow symlinks
 - Fixes [#2000](https://github.com/gitkraken/vscode-gitlens/issues/2000) - File Changes annotations fail to display in certain cases
 - Fixes [#1936](https://github.com/gitkraken/vscode-gitlens/issues/1936) - Broken repositories view
 - Fixes an issue where commit messages in views incorrectly had ellipsis at the end
@@ -535,7 +535,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Refines the _Repositories_ view to better align its features with all the new views
   - Adds menu toggles, and the settings below to allow for far greater customization of the sections in the _Repositories_ view
-  - Adds a `gitlens.views.repositories.branches.showBranchComparison` setting to specify whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under under each branch in the _Repositories_ view
+  - Adds a `gitlens.views.repositories.branches.showBranchComparison` setting to specify whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under each branch in the _Repositories_ view
   - Adds a `gitlens.views.repositories.showBranches` setting to specify whether to show the branches for each repository
   - Adds a `gitlens.views.repositories.showCommits` setting to specify whether to show the commits on the current branch for each repository
   - Adds a `gitlens.views.repositories.showContributors` setting to specify whether to show the contributors for each repository
@@ -555,7 +555,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.heatmap.locations` setting to specify where the indicators of the gutter heatmap annotations will be shown
 - Adds a `gitlens.fileAnnotations.command` setting to specify whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations &mdash; closes [#1165](https://github.com/gitkraken/vscode-gitlens/issues/1165) thanks to [PR #1171](https://github.com/gitkraken/vscode-gitlens/pull/1171) by Raaj Patil ([@arrpee](https://github.com/arrpee))
   - Adds this new option to the _Menus & Toolbars_ section of the GitLens Interactive Settings
-- Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to to unpublished files in the _File History_ and _Line History_ views
+- Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to unpublished files in the _File History_ and _Line History_ views
 - Adds a _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/gitkraken/vscode-gitlens/issues/1044)
 - Adds an _Open File on Remote From..._ command (`gitlens.openFileOnRemoteFrom`) to open a file or revision on a specific branch or tag on the remote provider &mdash; closes [#1071](https://github.com/gitkraken/vscode-gitlens/issues/1071)
 - Adds a _Copy Remote File Url From..._ command (`gitlens.copyRemoteFileUrlFrom`) to copy the url of a file or revision on a specific branch or tag the remote provider &mdash; closes [#1071](https://github.com/gitkraken/vscode-gitlens/issues/1071)
@@ -925,7 +925,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with switch branch command error handling
 - Fixes issues with stash command error handling
 - Fixes file history issues with copied and deleted files
-- Fixes intermittent issues with _Reveal Commit in Repopsitories View_
+- Fixes intermittent issues with _Reveal Commit in Repositories View_
 - Fixes [#910](https://github.com/gitkraken/vscode-gitlens/issues/910) - "Show Commit in Search Commits View" doesn't work
 - Fixes issues with hovers not showing on first editor
 - Fixes autolinking with remote providers
@@ -1033,7 +1033,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for GitHub Pull Request uri schemes (`pr://`) &mdash; closes [#678](https://github.com/gitkraken/vscode-gitlens/issues/678)
 - Adds new actions options to the status bar blame
   - Adds a `gitlens.showCommitsInView` option to show the commit in the _Search Commits_ view
-  - Adds a `gitlens.revealCommitInView` option to to reveal the commit in the _Repositories_ view
+  - Adds a `gitlens.revealCommitInView` option to reveal the commit in the _Repositories_ view
 - Adds a new _Rename Branch..._ command to branches in the _Repositories_ view
 
 ### Changed
@@ -1181,7 +1181,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#847](https://github.com/gitkraken/vscode-gitlens/issues/847) - Refresh button on Compare With Branch view is not working
 - Fixes [#842](https://github.com/gitkraken/vscode-gitlens/issues/842) - List of changed files in comparison to working tree only shows changed files in comparison to HEAD
 - Fixes [#828](https://github.com/gitkraken/vscode-gitlens/issues/828) - Version comparison to show welcome message is not future proof &mdash; thanks to [PR #829](https://github.com/gitkraken/vscode-gitlens/pull/829) by Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar))
-- Fixes [#821](https://github.com/gitkraken/vscode-gitlens/issues/821) - Wrong comparison order in the Compare view when using Compare [HEAD|Working Tree] With comands
+- Fixes [#821](https://github.com/gitkraken/vscode-gitlens/issues/821) - Wrong comparison order in the Compare view when using Compare [HEAD|Working Tree] With commands
 - Fixes [#794](https://github.com/gitkraken/vscode-gitlens/issues/794) - Can't get back to settings page easily
 - Fixes [#738](https://github.com/gitkraken/vscode-gitlens/issues/738) - Disable showWhatsNewAfterUpgrades notification
 - Fixes [#723](https://github.com/gitkraken/vscode-gitlens/issues/723) (partially) - Top right tool loading/placement enhancement
@@ -1743,7 +1743,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#565](https://github.com/gitkraken/vscode-gitlens/issues/565) &mdash; Regression: Submodules don't work properly (missing repo in view, file and inline blame, etc)
-- Fixes [#528](https://github.com/gitkraken/vscode-gitlens/issues/528) &mdash; Remotes not showing, being filtred on domain and file, but not complete path
+- Fixes [#528](https://github.com/gitkraken/vscode-gitlens/issues/528) &mdash; Remotes not showing, being filtered on domain and file, but not complete path
 - Fixes an issue where _Close Repository_ command didn't work
 - Fixes issues with external files (files not in one of the workspace folders) showing up as a new repository when over a Live Share session
 
@@ -1788,7 +1788,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an _Expand_ command to some GitLens view nodes to expand them &mdash; closes [#275](https://github.com/gitkraken/vscode-gitlens/issues/275)
 - Adds a _Fetch Repositories_ (`gitlens.fetchRepositories`) command to fetch **all** of the open repositories
 - Adds a _Pull Repositories_ (`gitlens.pullRepositories`) command to pull **all** of the open repositories
-- Adds a _Push Repositories_ (`gitlens.pushRepositories`) command to push **all** of the open repositories (becareful with this one)
+- Adds a _Push Repositories_ (`gitlens.pushRepositories`) command to push **all** of the open repositories (be careful with this one)
 - Adds a _Show Line History View_ (`gitlens.showLineHistoryView`) command to open the _Line History_ view
 - Adds a _Show Commit in View_ (`gitlens.showCommitInView`) command to open a commit in the _Search Commits_ view
 - Adds a _Show File History in View_ (`gitlens.showFileHistoryInView`) command to open a file's revision (commit) history in the _File History_ view
@@ -2119,7 +2119,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds an indicator to the _GitLens_ explorer's branch history to mark the the tips of all branches
+- Adds an indicator to the _GitLens_ explorer's branch history to mark the tips of all branches
 - Adds `gitlens.advanced.blame.customArguments` setting to specify additional arguments to pass to the `git blame` command &mdash; closes [#337](https://github.com/gitkraken/vscode-gitlens/issues/337)
 
 ### Changed
@@ -2683,7 +2683,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#207](https://github.com/gitkraken/vscode-gitlens/issues/207) - Applying and deleting stashes suddenly stopped working
 - Fixes [#205](https://github.com/gitkraken/vscode-gitlens/issues/205) - Toggle Line Blame Annotations disappeared after last update
 - Fixes [#203](https://github.com/gitkraken/vscode-gitlens/issues/203) - Open Changed Files is broken
-- Fixes [#176](https://github.com/gitkraken/vscode-gitlens/issues/176) - Line annotations some times mess with white space
+- Fixes [#176](https://github.com/gitkraken/vscode-gitlens/issues/176) - Line annotations sometimes mess with white space
 
 ## [6.1.1] - 2017-11-17
 
@@ -2927,7 +2927,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds new **Changed Files** node to the **Repository Status** node of the _GitLens_ explorer's **Repository View** &mdash; closes [#139](https://github.com/gitkraken/vscode-gitlens/issues/139)
-  - Provides a at-a-glance view of all "working" changes
+  - Provides an at-a-glance view of all "working" changes
   - Expands to a file-based view of all changed files in the working tree (enabled via `"gitlens.insiders": true`) and/or all files in all commits ahead of the upstream
 - Adds optional (on by default) working tree status information to the **Repository Status** node in the _GitLens_ explorer
 - Adds `auto` value to `gitlens.gitExplorer.view` setting - closes [#150](https://github.com/gitkraken/vscode-gitlens/issues/150)
@@ -3564,8 +3564,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Show Branch History_ command (`gitlens.showQuickBranchHistory`) to show the history of the selected branch
 - Adds _Show Last Opened Quick Pick_ command (`gitlens.showLastQuickPick`) to re-open the previously opened quick pick menu - helps to get back to previous context
 - Adds `alt+-` shortcut for the _Show Last Opened Quick Pick_ command (`gitlens.showLastQuickPick`)
-- Adds upstream status information (if available) to the repository status pick pick
-- Adds file status rollup information to the repository status pick pick
+- Adds upstream status information (if available) to the repository status quick pick
+- Adds file status rollup information to the repository status quick pick
 - Adds file status rollup information to the commit details quick pick menu
 - Adds _Compare with..._ (`gitlens.diffWithBranch`) command to compare working file to another branch (via branch quick pick menu)
 - Adds branch quick pick menu to _Directory Compare_ (`gitlens.diffDirectory`) command
