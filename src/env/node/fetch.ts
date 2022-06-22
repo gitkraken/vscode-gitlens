@@ -1,10 +1,12 @@
 import * as url from 'url';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import fetch from 'node-fetch';
+import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
 import { configuration } from '../../configuration';
 
 export { fetch };
 export type { BodyInit, RequestInit, Response } from 'node-fetch';
+
+export type FetchLike = (url: RequestInfo, init?: RequestInit | undefined) => Promise<Response>;
 
 export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined {
 	let proxyUrl: string | undefined;
@@ -42,4 +44,15 @@ export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined 
 	}
 
 	return undefined;
+}
+
+export async function insecureFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
+	const previousRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+	try {
+		return await fetch(url, init);
+	} finally {
+		process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousRejectUnauthorized;
+	}
 }
