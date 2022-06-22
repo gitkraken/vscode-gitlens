@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## Fixed
+
+- Fixes [#2048](https://github.com/gitkraken/vscode-gitlens/issues/2048) - Gitlens not loading in vscode.dev
+
 ## [12.1.1] - 2022-06-16
 
 ## Added

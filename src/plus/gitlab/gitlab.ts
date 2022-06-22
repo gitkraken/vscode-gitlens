@@ -1,6 +1,7 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import { Disposable, Uri, window } from 'vscode';
-import { fetch, getProxyAgent, RequestInit, Response } from '@env/fetch';
+import { fetch, getProxyAgent, insecureFetch } from '@env/fetch';
+import type { FetchLike, RequestInit, Response } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration, CustomRemoteType } from '../../configuration';
 import type { Container } from '../../container';
@@ -675,15 +676,10 @@ $search: String!
 
 			const agent = this.getProxyAgent(provider);
 			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
-			let previousRejectUnauthorized;
+			const fetchMethod: FetchLike = ignoreSSLErrors === 'force' ? insecureFetch : fetch;
 
 			try {
-				if (ignoreSSLErrors === 'force') {
-					previousRejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-					process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-				}
-
-				rsp = await fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
+				rsp = await fetchMethod(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 					method: 'POST',
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
 					agent: agent as any,
@@ -699,10 +695,6 @@ $search: String!
 
 				throw new ProviderFetchError('GitLab', rsp);
 			} finally {
-				if (ignoreSSLErrors === 'force') {
-					process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousRejectUnauthorized;
-				}
-
 				const match = /(^[^({\n]+)/.exec(query);
 				const message = ` ${match?.[1].trim() ?? query}`;
 
