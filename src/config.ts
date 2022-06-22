@@ -166,6 +166,7 @@ export interface Config {
 		promptForLocation: boolean;
 	};
 	advanced: AdvancedConfig;
+	graph: GraphConfig;
 }
 
 export const enum AnnotationsToggleMode {
@@ -369,6 +370,23 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
+}
+
+export interface GraphColumnConfig {
+	width: number;
+}
+
+export interface GraphConfig {
+	defaultLimit: number;
+	pageLimit: number;
+	columns: {
+		ref: GraphColumnConfig;
+		graph: GraphColumnConfig;
+		message: GraphColumnConfig;
+		author: GraphColumnConfig;
+		date: GraphColumnConfig;
+		sha: GraphColumnConfig;
+	};
 }
 
 export interface CodeLensConfig {
