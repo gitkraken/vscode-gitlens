@@ -9,7 +9,6 @@ import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
 import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
-// import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 import type { RevisionUriData } from './gitProvider';
 import { GitFile, GitRevision } from './models';
