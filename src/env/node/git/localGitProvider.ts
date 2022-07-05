@@ -738,7 +738,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				pathOrUri = Uri.file(pathOrUri);
 			}
 		}
-
+		if(!pathOrUri) {
+			return normalizePath(relative(base.fsPath, '')) // TODO check if the path is correct in this case
+		}
 		const relativePath = relative(base.fsPath, pathOrUri.fsPath);
 		return normalizePath(relativePath);
 	}
