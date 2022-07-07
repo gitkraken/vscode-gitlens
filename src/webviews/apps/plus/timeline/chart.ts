@@ -6,7 +6,6 @@ import { bar, bb, bubble, Chart, ChartOptions, ChartTypes, DataItem, zoom } from
 import { Commit, State } from '../../../../plus/webviews/timeline/protocol';
 import { formatDate, fromNow } from '../../shared/date';
 import { Emitter, Event } from '../../shared/events';
-import { throttle } from '../../shared/utils';
 
 export interface DataPointClickEvent {
 	data: {
@@ -37,13 +36,17 @@ export class TimelineChart {
 	constructor(selector: string) {
 		this._selector = selector;
 
-		const fn = throttle(() => {
+		let idleRequest: number | undefined;
+
+		const fn = () => {
+			idleRequest = undefined;
+
 			const dimensions = this._chartDimensions;
 			this._chart?.resize({
 				width: dimensions.width,
 				height: dimensions.height - 10,
 			});
-		}, 100);
+		};
 
 		this._resizeObserver = new ResizeObserver(entries => {
 			const size = entries[0].borderBoxSize[0];
@@ -60,7 +63,11 @@ export class TimelineChart {
 			}
 
 			this._chartDimensions = dimensions;
-			fn();
+			if (idleRequest != null) {
+				cancelIdleCallback(idleRequest);
+				idleRequest = undefined;
+			}
+			idleRequest = requestIdleCallback(fn, { timeout: 1000 });
 		});
 
 		this.$container = document.querySelector(selector)!.parentElement!;
