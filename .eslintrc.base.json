@@ -51,6 +51,7 @@
 		"no-lonely-if": "error",
 		"no-loop-func": "error",
 		"no-multi-spaces": "error",
+		"no-restricted-globals": ["error", "process"],
 		"no-restricted-imports": [
 			"error",
 			{
@@ -75,6 +76,7 @@
 					"net",
 					"os",
 					"path",
+					"process",
 					"punycode",
 					"querystring",
 					"readline",

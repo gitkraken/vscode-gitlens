@@ -1,4 +1,5 @@
 import { join as joinPaths } from 'path';
+import * as process from 'process';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
 import { any } from '../../../system/promise';

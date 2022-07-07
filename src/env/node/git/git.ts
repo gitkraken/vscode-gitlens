@@ -1,3 +1,4 @@
+import * as process from 'process';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';

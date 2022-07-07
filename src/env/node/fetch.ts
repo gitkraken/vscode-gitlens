@@ -1,3 +1,4 @@
+import * as process from 'process';
 import * as url from 'url';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import fetch, { RequestInfo, RequestInit, Response } from 'node-fetch';
