@@ -1,6 +1,7 @@
 import { ExecException, execFile } from 'child_process';
 import { exists, existsSync, Stats, statSync } from 'fs';
 import { join as joinPaths } from 'path';
+import * as process from 'process';
 import { decode } from 'iconv-lite';
 import { Logger } from '../../../logger';
 

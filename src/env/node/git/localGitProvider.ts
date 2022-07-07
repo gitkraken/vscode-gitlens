@@ -1,6 +1,7 @@
 import { readdir, realpath } from 'fs';
 import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
+import { env as process_env } from 'process';
 import {
 	Disposable,
 	env,
@@ -1753,7 +1754,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				} while (true);
 			} else {
 				user.name =
-					process.env.GIT_AUTHOR_NAME || process.env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
+					process_env.GIT_AUTHOR_NAME || process_env.GIT_COMMITTER_NAME || userInfo()?.username || undefined;
 				if (!user.name) {
 					// If we found no user data, mark it so we won't bother trying again
 					this._repoInfoCache.set(repoPath, { ...repo, user: null });
@@ -1761,9 +1762,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				user.email =
-					process.env.GIT_AUTHOR_EMAIL ||
-					process.env.GIT_COMMITTER_EMAIL ||
-					process.env.EMAIL ||
+					process_env.GIT_AUTHOR_EMAIL ||
+					process_env.GIT_COMMITTER_EMAIL ||
+					process_env.EMAIL ||
 					`${user.name}@${hostname()}`;
 			}
 
