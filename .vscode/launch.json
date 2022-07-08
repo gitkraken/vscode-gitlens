@@ -4,7 +4,7 @@
 	"configurations": [
 		{
 			"name": "Run",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
@@ -27,7 +27,7 @@
 		},
 		{
 			"name": "Run (sandboxed)",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
@@ -50,7 +50,7 @@
 		},
 		{
 			"name": "Run Tests",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"args": [
 				"--disable-extensions",
@@ -68,7 +68,7 @@
 		},
 		{
 			"name": "Watch & Run",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
@@ -92,7 +92,7 @@
 		},
 		{
 			"name": "Watch & Run (web)",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": [
@@ -120,7 +120,7 @@
 		},
 		{
 			"name": "Watch & Run (sandboxed)",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
@@ -144,7 +144,7 @@
 		},
 		{
 			"name": "Watch & Run Tests",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"args": [
 				"--disable-extensions",
