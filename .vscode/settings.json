@@ -10,6 +10,7 @@
 		"**/.vscode-test": true,
 		"**/.vscode-test-web": true
 	},
+	"files.insertFinalNewline": true,
 	"files.trimTrailingWhitespace": true,
 	"githubIssues.queries": [
 		{
