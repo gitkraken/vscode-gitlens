@@ -18,7 +18,7 @@ const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError } = require('webpack');
+const { WebpackError, webpack, optimize } = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
@@ -80,6 +80,10 @@ function getExtensionConfig(target, mode, env) {
 			},
 		}),
 	];
+
+	if (target === 'webworker') {
+		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
+	}
 
 	if (env.analyzeDeps) {
 		plugins.push(
