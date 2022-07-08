@@ -11208,7 +11208,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@octokit/core": "3.6.0",
+		"@octokit/core": "4.0.4",
 		"@vscode/codicons": "0.0.31",
 		"@vscode/webview-ui-toolkit": "1.0.0",
 		"ansi-regex": "6.0.1",
@@ -11247,7 +11247,7 @@
 		"eslint": "8.19.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.5.0",
-		"eslint-import-resolver-typescript": "3.2.4",
+		"eslint-import-resolver-typescript": "3.2.5",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.26.0",
 		"fork-ts-checker-webpack-plugin": "6.5.2",
