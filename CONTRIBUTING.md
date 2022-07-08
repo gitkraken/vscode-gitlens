@@ -100,11 +100,35 @@ yarn run package
 
 ### Debugging
 
-#### Using VS Code
+#### Using VS Code (desktop)
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
 3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+
+#### Using VS Code (desktop webworker)
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+
+#### Using VS Code for the Web (locally)
+
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-a-browser-using-vscodetestweb
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Run the `build` or `watch` task from the command palette
+4. Run the `Run (local web)` task from the command palette
+
+#### Using VS Code for the Web (vscode.dev)
+
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Run the `build` or `watch` task from the command palette
+4. Run the `Run (vscode.dev)` task from the command palette
 
 ### Change Log
 
