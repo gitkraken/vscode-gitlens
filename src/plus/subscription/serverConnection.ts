@@ -55,14 +55,14 @@ export class ServerConnection implements Disposable {
 	@memoize()
 	private get baseAccountUri(): Uri {
 		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingaccount.gitkraken.com');
+			return Uri.parse('https://stagingapp.gitkraken.com');
 		}
 
 		if (this.container.env === 'dev') {
-			return Uri.parse('https://devaccount.gitkraken.com');
+			return Uri.parse('https://devapp.gitkraken.com');
 		}
 
-		return Uri.parse('https://account.gitkraken.com');
+		return Uri.parse('https://app.gitkraken.com');
 	}
 
 	abort(): Promise<void> {

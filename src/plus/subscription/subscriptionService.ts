@@ -135,14 +135,14 @@ export class SubscriptionService implements Disposable {
 	private get baseAccountUri(): Uri {
 		const { env } = this.container;
 		if (env === 'staging') {
-			return Uri.parse('https://stagingaccount.gitkraken.com');
+			return Uri.parse('https://stagingapp.gitkraken.com');
 		}
 
 		if (env === 'dev') {
-			return Uri.parse('https://devaccount.gitkraken.com');
+			return Uri.parse('https://devapp.gitkraken.com');
 		}
 
-		return Uri.parse('https://account.gitkraken.com');
+		return Uri.parse('https://app.gitkraken.com');
 	}
 
 	@memoize()
