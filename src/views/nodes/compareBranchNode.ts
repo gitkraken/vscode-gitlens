@@ -328,9 +328,15 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		}
 
 		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
+		const shortstat = await this.view.container.git.getChangedFilesCount(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				`${pluralize('file', files.length, { zero: 'No' })} changed` +
+				` with ${pluralize('addition', shortstat?.additions ?? 0)} and ${pluralize(
+					'deletion',
+					shortstat?.deletions ?? 0,
+				)}`,
 			files: files,
 		};
 	}

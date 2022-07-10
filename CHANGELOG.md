@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new stash behaviors to use the Source Control (commit message) input box &mdash; closes [#2081](https://github.com/gitkraken/vscode-gitlens/issues/2081)
   - When a stash is applied or popped and the Source Control input is empty, we will now update the Source Control input to the stash message
   - When stashing changes and the Source Control input is not empty, we will now default the stash message input to the Source Control input value
+- Adds stats (additions & deletions) to files nodes in comparisons &mdash; closes [#2078](https://github.com/gitkraken/vscode-gitlens/issues/2078)
 
 ### Changed
 
