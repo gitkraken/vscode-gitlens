@@ -11242,7 +11242,7 @@
 		"copy-webpack-plugin": "11.0.0",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.7.1",
-		"esbuild": "0.14.48",
+		"esbuild": "0.14.49",
 		"esbuild-loader": "2.19.0",
 		"eslint": "8.19.0",
 		"eslint-cli": "1.1.1",

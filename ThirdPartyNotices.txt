@@ -3,7 +3,7 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @octokit/core version 3.6.0 (https://github.com/octokit/core.js)
+1. @octokit/core version 4.0.4 (https://github.com/octokit/core.js)
 2. @vscode/codicons version 0.0.31 (https://github.com/microsoft/vscode-codicons)
 3. @vscode/webview-ui-toolkit version 1.0.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 4. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
