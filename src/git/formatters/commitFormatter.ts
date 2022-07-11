@@ -500,6 +500,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = emojify(message);
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
+		if (this._options.markdown) {
+			message = message.replace(/</, '&lt;').replace(/>/, '&gt;');
+		}
+
 		if (this._options.messageAutolinks) {
 			message = Container.instance.autolinks.linkify(
 				this._options.markdown ? escapeMarkdown(message, { quoted: true }) : message,
