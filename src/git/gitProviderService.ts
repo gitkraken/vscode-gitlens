@@ -2305,7 +2305,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+	getScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getScmRepository(path);
+	}
+
+	@log()
+	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getOrOpenScmRepository(path);
 	}

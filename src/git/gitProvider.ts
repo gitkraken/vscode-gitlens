@@ -119,6 +119,7 @@ export interface GitProvider extends Disposable {
 	visibility(repoPath: string): Promise<RepositoryVisibility>;
 
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
+	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 
 	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;

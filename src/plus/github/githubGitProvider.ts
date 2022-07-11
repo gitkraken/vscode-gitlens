@@ -237,6 +237,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [];
 	}
 
+	async getScmRepository(_repoPath: string): Promise<ScmRepository | undefined> {
+		return undefined;
+	}
+
 	async getOrOpenScmRepository(_repoPath: string): Promise<ScmRepository | undefined> {
 		return undefined;
 	}

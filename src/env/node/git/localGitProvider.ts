@@ -4004,6 +4004,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+		const cc = Logger.getCorrelationContext();
+		try {
+			const gitApi = await this.getScmGitApi();
+			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			return undefined;
+		}
+	}
+
+	@log()
 	async getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
 		const cc = Logger.getCorrelationContext();
 		try {

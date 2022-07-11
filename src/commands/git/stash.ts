@@ -301,6 +301,13 @@ export class StashGitCommand extends QuickCommand<State> {
 					state.subcommand === 'pop' ? `stash@{${state.reference.number}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
 				));
+
+				if (state.reference.message) {
+					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
+					if (scmRepository != null && !scmRepository.inputBox.value) {
+						scmRepository.inputBox.value = state.reference.message;
+					}
+				}
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
@@ -467,6 +474,11 @@ export class StashGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
+				if (state.message == null) {
+					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
+					state.message = scmRepository?.inputBox.value;
+				}
+
 				const result = yield* this.pushCommandInputMessageStep(state, context);
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
