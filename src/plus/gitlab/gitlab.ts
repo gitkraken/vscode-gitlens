@@ -682,7 +682,7 @@ $search: String!
 				rsp = await fetchMethod(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 					method: 'POST',
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: agent as any,
+					agent: agent,
 					body: JSON.stringify({ query: query, variables: variables }),
 				});
 
@@ -734,7 +734,7 @@ $search: String!
 			try {
 				rsp = await fetchMethod(url, {
 					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: agent as any,
+					agent: agent,
 					...options,
 				});
 
