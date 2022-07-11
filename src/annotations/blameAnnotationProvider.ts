@@ -98,9 +98,11 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			lookupTable = getRelativeAgeLookupTable(dates);
 		}
 
-		const getLookupTable = (date: Date) =>
+		const getLookupTable = (date: Date, unified?: boolean) =>
 			Array.isArray(lookupTable)
 				? lookupTable
+				: unified
+				? lookupTable.hot.concat(lookupTable.cold)
 				: date.getTime() < coldThresholdTimestamp
 				? lookupTable.cold
 				: lookupTable.hot;
@@ -121,7 +123,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			colors: await getHeatmapColors(),
 			computeRelativeAge: (date: Date) => computeRelativeAge(date, getLookupTable(date)),
 			computeOpacity: (date: Date) => {
-				const lookup = getLookupTable(date);
+				const lookup = getLookupTable(date, true);
 				const age = computeRelativeAge(date, lookup);
 
 				return Math.max(0.2, Math.round((1 - age / lookup.length) * 100) / 100);
