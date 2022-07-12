@@ -11,6 +11,7 @@ export interface GraphWrapperProps extends State {
 	subscriber: (callback: CommitListCallback) => () => void;
 	onSelectRepository?: (repository: Repository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
+	onMoreCommits?: (limit?: number) => void;
 }
 
 // TODO: this needs to be replaced with a function from the Graph repo
@@ -23,19 +24,23 @@ export function GraphWrapper({
 	repositories = [],
 	selectedRepository,
 	config,
+	log,
 	onSelectRepository,
 	onColumnChange,
+	onMoreCommits,
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(getGraphModel(commits));
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState(selectedRepository);
 	const [settings, setSettings] = useState(config);
+	const [logState, setLogState] = useState(log);
 
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits));
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(state.selectedRepository);
 		setSettings(state.config);
+		setLogState(state.log);
 	}
 
 	useEffect(() => {
@@ -71,6 +76,13 @@ export function GraphWrapper({
 						graphList.map((item, index) => <li key={`commits-${index}`}>{JSON.stringify(item)}</li>)
 					) : (
 						<li>No commits</li>
+					)}
+					{logState?.hasMore && (
+						<li>
+							<button type="button" onClick={() => onMoreCommits?.()}>
+								Show more items
+							</button>
+						</li>
 					)}
 				</ul>
 			) : (

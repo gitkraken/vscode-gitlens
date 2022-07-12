@@ -5,6 +5,14 @@ export interface State {
 	selectedRepository?: string;
 	commits?: GitCommit[];
 	config?: GraphConfig;
+	log?: GitLog;
+}
+
+export interface GitLog {
+	count: number;
+	limit?: number;
+	hasMore: boolean;
+	cursor?: string;
 }
 
 export type Repository = Record<string, any>;
@@ -36,6 +44,11 @@ export interface ColumnChangeParams {
 	config: GraphColumnConfig;
 }
 export const ColumnChangeCommandType = new IpcCommandType<ColumnChangeParams>('graph/column');
+
+export interface MoreCommitsParams {
+	limit?: number;
+}
+export const MoreCommitsCommandType = new IpcCommandType<MoreCommitsParams>('graph/moreCommits');
 
 export interface DidChangeParams {
 	state: State;

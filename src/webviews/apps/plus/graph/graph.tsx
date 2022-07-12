@@ -6,6 +6,7 @@ import {
 	CommitListCallback,
 	DidChangeNotificationType,
 	GraphColumnConfig,
+	MoreCommitsCommandType,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import { onIpc } from '../../../../webviews/protocol';
@@ -24,12 +25,15 @@ export class GraphApp extends App<State> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
+		console.log('GraphApp onBind log', this.state.log);
+
 		const $root = document.getElementById('root');
 		if ($root != null) {
 			render(
 				<GraphWrapper
 					subscriber={(callback: CommitListCallback) => this.registerEvents(callback)}
 					onColumnChange={(...params) => this.onColumnChanged(...params)}
+					onMoreCommits={(...params) => this.onMoreCommits(...params)}
 					{...this.state}
 				/>,
 				$root,
@@ -65,6 +69,12 @@ export class GraphApp extends App<State> {
 		this.sendCommand(ColumnChangeCommandType, {
 			name: name,
 			config: settings,
+		});
+	}
+
+	private onMoreCommits(limit?: number) {
+		this.sendCommand(MoreCommitsCommandType, {
+			limit: limit,
 		});
 	}
 

@@ -2,6 +2,7 @@ import { ViewColumn, window } from 'vscode';
 import { configuration, GraphConfig } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
+import type { GitLog } from '../../../git/models/log';
 import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
@@ -9,6 +10,7 @@ import type { GitCommit, Repository, State } from './protocol';
 
 export class GraphWebview extends WebviewWithConfigBase<State> {
 	private selectedRepository?: string;
+	private currentLog?: GitLog;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.graph', 'graph.html', 'images/gitlens-icon.png', 'Graph', Commands.ShowGraphPage);
@@ -23,22 +25,32 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		return this.container.git.openRepositories;
 	}
 
-	private async getCommits(repo?: string | Repository): Promise<GitCommit[]> {
-		if (repo === undefined) {
-			return [];
-		}
-
+	private async getLog(repo: string | Repository): Promise<GitLog | undefined> {
 		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
 		if (repository === undefined) {
-			return [];
+			return undefined;
 		}
 
-		const log = await this.container.git.getLog(repository.uri);
+		const { defaultLimit, pageLimit } = this.getConfig();
+		return this.container.git.getLog(repository.uri, {
+			limit: pageLimit ?? defaultLimit,
+		});
+	}
+
+	private async getCommits(repo?: string | Repository): Promise<{ log: GitLog; commits: GitCommit[] } | undefined> {
+		if (repo === undefined) {
+			return undefined;
+		}
+
+		const log = await this.getLog(repo);
 		if (log?.commits === undefined) {
-			return [];
+			return undefined;
 		}
 
-		return Array.from(log.commits.values());
+		return {
+			log: log,
+			commits: Array.from(log.commits.values()),
+		};
 	}
 
 	private async pickRepository(repositories: Repository[]): Promise<Repository | undefined> {
@@ -78,13 +90,24 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			this.selectedRepository = idealRepo?.path;
 		}
 
-		const commits = await this.getCommits(this.selectedRepository);
+		const commitsAndLog = await this.getCommits(this.selectedRepository);
+
+		const log = commitsAndLog?.log;
 
 		return {
 			repositories: formatRepositories(repositories),
 			selectedRepository: this.selectedRepository,
-			commits: formatCommits(commits),
+			commits: formatCommits(commitsAndLog?.commits ?? []),
 			config: this.getConfig(),
+			log:
+				log != null
+					? {
+							count: log.count,
+							limit: log.limit,
+							hasMore: log.hasMore,
+							cursor: log.cursor,
+					  }
+					: undefined,
 		};
 	}
 
