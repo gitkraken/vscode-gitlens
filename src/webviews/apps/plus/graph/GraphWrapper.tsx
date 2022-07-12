@@ -34,6 +34,7 @@ export function GraphWrapper({
 	const [currentRepository, setCurrentRepository] = useState(selectedRepository);
 	const [settings, setSettings] = useState(config);
 	const [logState, setLogState] = useState(log);
+	const [isLoading, setIsLoading] = useState(false);
 
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits));
@@ -41,6 +42,7 @@ export function GraphWrapper({
 		setCurrentRepository(state.selectedRepository);
 		setSettings(state.config);
 		setLogState(state.log);
+		setIsLoading(false);
 	}
 
 	useEffect(() => {
@@ -54,6 +56,11 @@ export function GraphWrapper({
 		if (onSelectRepository !== undefined) {
 			onSelectRepository(item);
 		}
+	};
+
+	const handleMoreCommits = () => {
+		setIsLoading(true);
+		onMoreCommits?.();
 	};
 
 	return (
@@ -77,12 +84,16 @@ export function GraphWrapper({
 					) : (
 						<li>No commits</li>
 					)}
-					{logState?.hasMore && (
-						<li>
-							<button type="button" onClick={() => onMoreCommits?.()}>
-								Show more items
-							</button>
-						</li>
+					{isLoading ? (
+						<li>Loading...</li>
+					) : (
+						logState?.hasMore && (
+							<li>
+								<button type="button" onClick={handleMoreCommits}>
+									Show more items
+								</button>
+							</li>
+						)
 					)}
 				</ul>
 			) : (
