@@ -22,17 +22,14 @@ export interface GraphColumnConfig {
 	width: number;
 }
 
+export interface GraphColumnConfigDictionary {
+	[key: string]: GraphColumnConfig;
+}
+
 export interface GraphConfig {
 	defaultLimit: number;
 	pageLimit: number;
-	columns: {
-		ref: GraphColumnConfig;
-		graph: GraphColumnConfig;
-		message: GraphColumnConfig;
-		author: GraphColumnConfig;
-		date: GraphColumnConfig;
-		sha: GraphColumnConfig;
-	};
+	columns?: GraphColumnConfigDictionary;
 }
 
 export interface CommitListCallback {
@@ -49,6 +46,11 @@ export interface MoreCommitsParams {
 	limit?: number;
 }
 export const MoreCommitsCommandType = new IpcCommandType<MoreCommitsParams>('graph/moreCommits');
+
+export interface SelectRepositoryParams {
+	path: string;
+}
+export const SelectRepositoryCommandType = new IpcCommandType<SelectRepositoryParams>('graph/selectRepository');
 
 export interface DidChangeParams {
 	state: State;
