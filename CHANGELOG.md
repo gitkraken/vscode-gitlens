@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - When a stash is applied or popped and the Source Control input is empty, we will now update the Source Control input to the stash message
   - When stashing changes and the Source Control input is not empty, we will now default the stash message input to the Source Control input value
 
+### Changed
+
+- Uses VSCode as `core.editor` in rebase &mdash; closes [#2084](https://github.com/gitkraken/vscode-gitlens/issues/2084)
+
 ### Fixed
 
 - Fixes [#2082](https://github.com/gitkraken/vscode-gitlens/issues/2082) - GitLens Home view unreadable in certain themes
