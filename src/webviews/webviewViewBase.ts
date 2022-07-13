@@ -209,7 +209,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		const webRoot = webview.asWebviewUri(webRootUri).toString();
 
 		const html = content
-			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+			.replace(/#{(head|body|endOfBody|placement)}/i, (_substring, token) => {
 				switch (token) {
 					case 'head':
 						return head ?? '';
@@ -221,6 +221,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 									bootstrap,
 							  )};</script>${endOfBody ?? ''}`
 							: endOfBody ?? '';
+					case 'placement':
+						return 'view';
 					default:
 						return '';
 				}

@@ -204,7 +204,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		const webRoot = webview.asWebviewUri(webRootUri).toString();
 
 		const html = content
-			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+			.replace(/#{(head|body|endOfBody|placement)}/i, (_substring, token) => {
 				switch (token) {
 					case 'head':
 						return head ?? '';
@@ -216,11 +216,13 @@ export abstract class WebviewBase<State> implements Disposable {
 									bootstrap,
 							  )};</script>${endOfBody ?? ''}`
 							: endOfBody ?? '';
+					case 'placement':
+						return 'editor';
 					default:
 						return '';
 				}
 			})
-			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (substring, token) => {
+			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (_substring, token) => {
 				switch (token) {
 					case 'cspSource':
 						return cspSource;

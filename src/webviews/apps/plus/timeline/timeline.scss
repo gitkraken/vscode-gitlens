@@ -8,7 +8,7 @@ html {
 }
 
 body {
-	background-color: var(--color-background);
+	background-color: var(--color-view-background);
 	color: var(--color-view-foreground);
 	font-family: var(--font-family);
 	height: 100%;
@@ -20,6 +20,10 @@ body {
 
 	min-width: 400px;
 	overflow-x: scroll;
+}
+
+body[data-placement="editor"] {
+	background-color: var(--color-background);
 }
 
 .container {

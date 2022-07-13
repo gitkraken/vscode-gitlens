@@ -22,7 +22,9 @@ export function initializeAndWatchThemeColors() {
 			computedStyle.getPropertyValue('--vscode-editor-font-weight').trim(),
 		);
 
-		let color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+		const backgroundColor = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+
+		let color = backgroundColor;
 		bodyStyle.setProperty('--color-background', color);
 		bodyStyle.setProperty('--color-background--lighten-05', lighten(color, 5));
 		bodyStyle.setProperty('--color-background--darken-05', darken(color, 5));
@@ -69,6 +71,9 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-link-foreground', color);
 		bodyStyle.setProperty('--color-link-foreground--darken-20', darken(color, 20));
 		bodyStyle.setProperty('--color-link-foreground--lighten-20', lighten(color, 20));
+
+		color = computedStyle.getPropertyValue('--vscode-sideBar-background').trim();
+		bodyStyle.setProperty('--color-view-background', color || backgroundColor);
 
 		color = computedStyle.getPropertyValue('--vscode-sideBar-foreground').trim();
 		bodyStyle.setProperty('--color-view-foreground', color || foregroundColor);
