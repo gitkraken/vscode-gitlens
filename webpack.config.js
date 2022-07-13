@@ -412,6 +412,10 @@ function getWebviewsConfig(mode, env) {
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
+			fallback: {
+				"crypto": require.resolve('crypto-browserify'),
+				"stream": require.resolve('stream-browserify')
+			}
 		},
 		plugins: plugins,
 		infrastructureLogging: {

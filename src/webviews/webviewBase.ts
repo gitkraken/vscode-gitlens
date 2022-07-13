@@ -41,6 +41,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected isReady: boolean = false;
 	private _disposablePanel: Disposable | undefined;
 	private _panel: WebviewPanel | undefined;
+	private cspNonce: string = '';
 
 	constructor(
 		protected readonly container: Container,
@@ -50,6 +51,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		title: string,
 		showCommand: Commands,
 	) {
+		this.cspNonce = getNonce();
 		this._title = title;
 		this.disposables.push(commands.registerCommand(showCommand, this.onShowCommand, this));
 	}
@@ -112,6 +114,10 @@ export abstract class WebviewBase<State> implements Disposable {
 
 			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, false);
 		}
+	}
+
+	getCSPNonce(): string | undefined {
+		return this.cspNonce;
 	}
 
 	protected onInitializing?(): Disposable[] | undefined;
@@ -198,7 +204,6 @@ export abstract class WebviewBase<State> implements Disposable {
 		]);
 
 		const cspSource = webview.cspSource;
-		const cspNonce = getNonce();
 
 		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
 		const webRoot = webview.asWebviewUri(webRootUri).toString();
@@ -225,7 +230,7 @@ export abstract class WebviewBase<State> implements Disposable {
 					case 'cspSource':
 						return cspSource;
 					case 'cspNonce':
-						return cspNonce;
+						return this.cspNonce;
 					case 'root':
 						return root;
 					case 'webroot':

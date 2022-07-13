@@ -6,6 +6,7 @@ export interface State {
 	commits?: GitCommit[];
 	config?: GraphConfig;
 	log?: GitLog;
+	nonce?: string;
 }
 
 export interface GitLog {
