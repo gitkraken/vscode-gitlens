@@ -4,25 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [12.1.2] - 2022-07-12
 
-## Fixed
+### Fixed
 
 - Fixes [#2048](https://github.com/gitkraken/vscode-gitlens/issues/2048) - Gitlens not loading in vscode.dev
 
 ## [12.1.1] - 2022-06-16
 
-## Added
+### Added
 
 - Adds getting started tutorial video to the Welcome, Get Started walkthrough, GitLens Home view, and README
 
-## Fixed
+### Fixed
 
 - Fixes [#2037](https://github.com/gitkraken/vscode-gitlens/issues/2037) - Autolinks can end up getting saved with invalid (cached) properties
 
 ## [12.1.0] - 2022-06-14
 
-## Added
+### Added
 
 - Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitLab and GitLab self-managed instances &mdash; closes [#1236](https://github.com/gitkraken/vscode-gitlens/issues/1236)
   - Adds associated pull request to line annotations and hovers
@@ -48,7 +48,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - You can now see all autolinks found in the commits in the comparison regardless of whether its a provider-based autolink or a custom (user-provided) autolink
 - Adds _Open Current Branch on Remote_ to the Command Palette &mdash; closes [#1718](https://github.com/gitkraken/vscode-gitlens/issues/1718)
 
-## Changed
+### Changed
 
 - Improves how stashes are shown in the _Stashes_ view by separating the associated branch from the stash message &mdash; closes [#1523](https://github.com/gitkraken/vscode-gitlens/issues/1523)
 - Changes previous Gerrit remote support to Google Source remote support &mdash; thanks to [PR #1954](https://github.com/gitkraken/vscode-gitlens/pull/1954) by Felipe Santos ([@felipecrs](https://github.com/felipecrs))
@@ -56,7 +56,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames "Gutter Changes" annotations to "File Changes"
 - Renames "Gutter Heatmap" annotations to "File Heatmap"
 
-## Fixed
+### Fixed
 
 - Fixes [#2033](https://github.com/gitkraken/vscode-gitlens/issues/2033) - Diffing, applying, and restoring untracked files in a stash doesn't work
 - Fixes [#2028](https://github.com/gitkraken/vscode-gitlens/issues/2028) - Branch names with special characters '<' also causes errors on the command line &mdash; thanks to [PR #2030](https://github.com/gitkraken/vscode-gitlens/pull/2030) by mcy-kylin ([@mcy-kylin](https://github.com/mcy-kylin))
@@ -70,7 +70,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [12.0.7] - 2022-05-25
 
-## Fixed
+### Fixed
 
 - Fixes [#1979](https://github.com/gitkraken/vscode-gitlens/issues/1979) - GitLens stopped working in v12.0.0 and later
 - Fixes [#1882](https://github.com/gitkraken/vscode-gitlens/issues/1882) - Blame annotations not showing anymore after update
@@ -82,7 +82,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [12.0.6] - 2022-04-12
 
-## Fixed
+### Fixed
 
 - Fixes [#1928](https://github.com/gitkraken/vscode-gitlens/issues/1928) - Unable to get absolute uri between ex.txt and z:; Base path 'z:' must be an absolute path &mdash; thanks to [PR #1929](https://github.com/gitkraken/vscode-gitlens/pull/1929) by Ross Smith II ([@rasa](https://github.com/rasa))
 - Fixes [#1932](https://github.com/gitkraken/vscode-gitlens/issues/1932) - Pull request autolink doesn't work for Bitbucket Server 7 &mdash; thanks to [PR #1933](https://github.com/gitkraken/vscode-gitlens/pull/1933) by Sam Martin ([@smartinio](https://github.com/smartinio))
