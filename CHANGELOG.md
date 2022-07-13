@@ -25,8 +25,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2082](https://github.com/gitkraken/vscode-gitlens/issues/2082) - GitLens Home view unreadable in certain themes
 - Fixes [#2070](https://github.com/gitkraken/vscode-gitlens/issues/2070) - Quoted HTML / JSX syntax is not escaped correctly
 - Fixes [#2069](https://github.com/gitkraken/vscode-gitlens/issues/2069) - Heatmap - incorrect behavior of gitlens.heatmap.fadeLines with gitlens.heatmap.ageThreshold
-- Fixes [#2048](https://github.com/gitkraken/vscode-gitlens/issues/2048) - Gitlens not loading in vscode.dev
 - Fixes an issue where the _Stashes_ view empty state isn't displayed properly when there are no stashes
+
+## [12.1.2] - 2022-07-12
+
+### Fixed
+
+- Fixes [#2048](https://github.com/gitkraken/vscode-gitlens/issues/2048) - Gitlens not loading in vscode.dev
 
 ## [12.1.1] - 2022-06-16
 
