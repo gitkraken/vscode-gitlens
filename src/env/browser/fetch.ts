@@ -17,5 +17,9 @@ export function getProxyAgent(_strictSSL?: boolean): HttpsProxyAgent | undefined
 	return undefined;
 }
 
-declare type FetchLike = (url: RequestInfo, init?: RequestInit | undefined) => Promise<Response>;
-export type { FetchLike };
+export async function wrapForForcedInsecureSSL<T>(
+	_ignoreSSLErrors: boolean | 'force',
+	fetchFn: () => Promise<T> | Thenable<T>,
+): Promise<T> {
+	return fetchFn();
+}

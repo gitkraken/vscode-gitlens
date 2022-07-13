@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitHub Enterprise &mdash; closes [#1210](https://github.com/gitkraken/vscode-gitlens/issues/1210)
+  - Adds associated pull request to line annotations and hovers
+    ![Pull requests on line annotation and hovers](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png)
+  - Adds associated pull request to status bar blame
+    ![Pull requests on status bar](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/status-bar.png)
+  - Adds associated pull requests to branches and commits in GitLens views
+  - Adds rich autolinks for GitHub issues and merge requests, including titles, status, and authors
+  - Adds rich support to _Autolinked Issues and Pull Requests_ within comparisons to list autolinked GitHub issues and merge requests in commit messages
 - Adds new stash behaviors to use the Source Control (commit message) input box &mdash; closes [#2081](https://github.com/gitkraken/vscode-gitlens/issues/2081)
   - When a stash is applied or popped and the Source Control input is empty, we will now update the Source Control input to the stash message
   - When stashing changes and the Source Control input is not empty, we will now default the stash message input to the Source Control input value

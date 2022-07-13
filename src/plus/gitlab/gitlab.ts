@@ -1,9 +1,9 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import { Disposable, Uri, window } from 'vscode';
-import { fetch, getProxyAgent, insecureFetch } from '@env/fetch';
-import type { FetchLike, RequestInit, Response } from '@env/fetch';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
+import type { RequestInit, Response } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { configuration, CustomRemoteType } from '../../configuration';
+import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -38,7 +38,6 @@ export class GitLabApi implements Disposable {
 				if (configuration.changed(e, 'proxy') || configuration.changed(e, 'remotes')) {
 					this._projectIds.clear();
 					this._proxyAgents.clear();
-					this._ignoreSSLErrors.clear();
 				}
 			}),
 			configuration.onDidChangeAny(e => {
@@ -60,28 +59,12 @@ export class GitLabApi implements Disposable {
 
 		let proxyAgent = this._proxyAgents.get(provider.id);
 		if (proxyAgent === undefined) {
-			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
+			const ignoreSSLErrors = provider.getIgnoreSSLErrors();
 			proxyAgent = getProxyAgent(ignoreSSLErrors === true || ignoreSSLErrors === 'force' ? false : undefined);
 			this._proxyAgents.set(provider.id, proxyAgent ?? null);
 		}
 
 		return proxyAgent ?? undefined;
-	}
-
-	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
-	private getIgnoreSSLErrors(provider: RichRemoteProvider): boolean | 'force' {
-		if (isWeb) return false;
-
-		let ignoreSSLErrors = this._ignoreSSLErrors.get(provider.id);
-		if (ignoreSSLErrors === undefined) {
-			const cfg = configuration
-				.get('remotes')
-				?.find(remote => remote.type === CustomRemoteType.GitLab && remote.domain === provider.domain);
-			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
-			this._ignoreSSLErrors.set(provider.id, ignoreSSLErrors);
-		}
-
-		return ignoreSSLErrors;
 	}
 
 	@debug<GitLabApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
@@ -675,16 +658,16 @@ $search: String!
 					: undefined;
 
 			const agent = this.getProxyAgent(provider);
-			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
-			const fetchMethod: FetchLike = ignoreSSLErrors === 'force' ? insecureFetch : fetch;
 
 			try {
-				rsp = await fetchMethod(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
-					method: 'POST',
-					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: agent,
-					body: JSON.stringify({ query: query, variables: variables }),
-				});
+				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
+						method: 'POST',
+						headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+						agent: agent,
+						body: JSON.stringify({ query: query, variables: variables }),
+					}),
+				);
 
 				if (rsp.ok) {
 					const data: T | { errors: { message: string }[] } = await rsp.json();
@@ -728,15 +711,15 @@ $search: String!
 					: undefined;
 
 			const agent = this.getProxyAgent(provider);
-			const ignoreSSLErrors = this.getIgnoreSSLErrors(provider);
-			const fetchMethod: FetchLike = ignoreSSLErrors === 'force' ? insecureFetch : fetch;
 
 			try {
-				rsp = await fetchMethod(url, {
-					headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-					agent: agent,
-					...options,
-				});
+				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					fetch(url, {
+						headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+						agent: agent,
+						...options,
+					}),
+				);
 
 				if (rsp.ok) {
 					const data: T = await rsp.json();

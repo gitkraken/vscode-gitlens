@@ -10,6 +10,8 @@ import {
 	Uri,
 	window,
 } from 'vscode';
+import { wrapForForcedInsecureSSL } from '@env/fetch';
+import { isWeb } from '@env/platform';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { configuration } from '../../configuration';
@@ -292,6 +294,11 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 
 		Container.instance.context.subscriptions.push(
+			configuration.onDidChange(e => {
+				if (configuration.changed(e, 'remotes')) {
+					this._ignoreSSLErrors.clear();
+				}
+			}),
 			// TODO@eamodio revisit how connections are linked or not
 			Authentication.onDidChange(e => {
 				if (e.key !== this.key) return;
@@ -534,6 +541,22 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 	}
 
+	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
+	getIgnoreSSLErrors(): boolean | 'force' {
+		if (isWeb) return false;
+
+		let ignoreSSLErrors = this._ignoreSSLErrors.get(this.id);
+		if (ignoreSSLErrors === undefined) {
+			const cfg = configuration
+				.get('remotes')
+				?.find(remote => remote.type.toLowerCase() === this.id && remote.domain === this.domain);
+			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
+			this._ignoreSSLErrors.set(this.id, ignoreSSLErrors);
+		}
+
+		return ignoreSSLErrors;
+	}
+
 	protected abstract getProviderIssueOrPullRequest(
 		session: AuthenticationSession,
 		id: string,
@@ -643,11 +666,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 					{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
 				);
 			} else {
-				session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-					createIfNone: createIfNeeded,
-					silent: !createIfNeeded,
-					forceNewSession: forceNewSession,
-				});
+				session = await wrapForForcedInsecureSSL(this.getIgnoreSSLErrors(), () =>
+					authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+						createIfNone: forceNewSession ? undefined : createIfNeeded,
+						silent: !createIfNeeded && !forceNewSession ? true : undefined,
+						forceNewSession: forceNewSession ? true : undefined,
+					}),
+				);
 			}
 		} catch (ex) {
 			await container.storage.deleteWorkspace(this.connectedKey);

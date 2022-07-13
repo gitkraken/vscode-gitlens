@@ -4,7 +4,7 @@ import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import { Disposable, Event, EventEmitter, window } from 'vscode';
-import { fetch, getProxyAgent } from '@env/fetch';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
@@ -133,7 +133,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -152,7 +152,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -202,7 +202,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -221,7 +221,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -258,7 +258,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -274,7 +274,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -322,7 +322,7 @@ export class GitHubApi implements Disposable {
 		}
 	}`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -345,7 +345,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -418,7 +418,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -446,7 +446,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -514,7 +514,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(provider, token, query, {
 				...options,
 				owner: owner,
 				repo: repo,
@@ -540,7 +540,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, provider, cc);
 		}
 	}
 
@@ -602,7 +602,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -617,7 +617,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyBlameResult;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -674,7 +674,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				branchQuery: options?.query,
@@ -696,7 +696,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -710,7 +710,7 @@ export class GitHubApi implements Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		try {
-			const rsp = await this.request(token, 'GET /repos/{owner}/{repo}/commits/{ref}', {
+			const rsp = await this.request(undefined, token, 'GET /repos/{owner}/{repo}/commits/{ref}', {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -743,7 +743,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 
 		// const results = await this.getCommits(token, owner, repo, ref, { limit: 1 });
@@ -811,7 +811,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				since: date.toISOString(),
@@ -836,7 +836,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -873,7 +873,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -884,7 +884,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -930,7 +930,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: `refs/heads/${branch}`,
@@ -954,7 +954,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1064,7 +1064,7 @@ export class GitHubApi implements Disposable {
 				}
 			}
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -1093,7 +1093,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1142,7 +1142,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -1154,7 +1154,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1220,7 +1220,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -1243,7 +1243,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1312,7 +1312,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				sha: sha,
@@ -1322,7 +1322,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1333,7 +1333,7 @@ export class GitHubApi implements Disposable {
 		// TODO@eamodio implement pagination
 
 		try {
-			const rsp = await this.request(token, 'GET /repos/{owner}/{repo}/contributors', {
+			const rsp = await this.request(undefined, token, 'GET /repos/{owner}/{repo}/contributors', {
 				owner: owner,
 				repo: repo,
 				per_page: 100,
@@ -1346,7 +1346,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1375,7 +1375,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 			});
@@ -1385,7 +1385,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1412,7 +1412,7 @@ export class GitHubApi implements Disposable {
 	repository(owner: $owner, name: $repo) { viewerPermission }
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 			});
@@ -1427,7 +1427,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1458,7 +1458,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 			});
@@ -1468,7 +1468,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1530,7 +1530,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				tagQuery: options?.query,
@@ -1552,7 +1552,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1584,7 +1584,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-				const rsp = await this.graphql<QueryResult>(token, query, {
+				const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 					owner: owner,
 					repo: repo,
 					ref: ref,
@@ -1622,7 +1622,7 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(token, query, {
+			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
 				owner: owner,
 				repo: repo,
 				ref: ref,
@@ -1632,7 +1632,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1667,7 +1667,7 @@ export class GitHubApi implements Disposable {
 		}
 
 		try {
-			const rsp = await this.request(token, 'GET /search/commits', {
+			const rsp = await this.request(undefined, token, 'GET /search/commits', {
 				q: query,
 				sort: options?.sort,
 				order: options?.order,
@@ -1711,7 +1711,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, cc);
+			throw this.handleException(ex, undefined, cc);
 		}
 	}
 
@@ -1765,9 +1765,16 @@ export class GitHubApi implements Disposable {
 		return octokit;
 	}
 
-	private async graphql<T>(token: string, query: string, variables: { [key: string]: any }): Promise<T | undefined> {
+	private async graphql<T>(
+		provider: RichRemoteProvider | undefined,
+		token: string,
+		query: string,
+		variables: { [key: string]: any },
+	): Promise<T | undefined> {
 		try {
-			return await this.octokit(token).graphql<T>(query, variables);
+			return await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+				this.octokit(token).graphql<T>(query, variables),
+			);
 		} catch (ex) {
 			if (ex instanceof GraphqlResponseError) {
 				switch (ex.errors?.[0]?.type) {
@@ -1804,12 +1811,15 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async request<R extends string>(
+		provider: RichRemoteProvider | undefined,
 		token: string,
 		route: keyof Endpoints | R,
 		options?: R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters,
 	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<unknown>> {
 		try {
-			return (await this.octokit(token).request<R>(route, options)) as any;
+			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+				this.octokit(token).request<R>(route, options),
+			)) as any;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
 				this.handleRequestError(ex, token);
@@ -1872,17 +1882,21 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleException(ex: Error, cc: LogCorrelationContext | undefined): Error {
+	private handleException(
+		ex: Error,
+		provider: RichRemoteProvider | undefined,
+		cc: LogCorrelationContext | undefined,
+	): Error {
 		Logger.error(ex, cc);
 		debugger;
 
 		if (ex instanceof AuthenticationError) {
-			void this.showAuthenticationErrorMessage(ex);
+			void this.showAuthenticationErrorMessage(ex, provider);
 		}
 		return ex;
 	}
 
-	private async showAuthenticationErrorMessage(ex: AuthenticationError) {
+	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: RichRemoteProvider | undefined) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
 			const confirm = 'Reauthenticate';
 			const result = await window.showErrorMessage(
@@ -1893,6 +1907,8 @@ export class GitHubApi implements Disposable {
 			);
 
 			if (result === confirm) {
+				await provider?.reauthenticate();
+
 				this._onDidReauthenticate.fire();
 			}
 		} else {

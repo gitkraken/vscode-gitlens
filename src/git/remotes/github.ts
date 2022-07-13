@@ -1,7 +1,11 @@
-import { AuthenticationSession, Range, Uri } from 'vscode';
+import { AuthenticationSession, Range, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
+import { log } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { equalsIgnoreCase } from '../../system/string';
 import {
 	type Account,
 	type DefaultBranch,
@@ -18,10 +22,12 @@ const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
+const enterpriseAuthProvider = Object.freeze({ id: 'github-enterprise', scopes: ['repo', 'read:user', 'user:email'] });
 
 export class GitHubRemote extends RichRemoteProvider {
+	@memoize()
 	protected get authProvider() {
-		return authProvider;
+		return equalsIgnoreCase(this.domain, 'github.com') ? authProvider : enterpriseAuthProvider;
 	}
 
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
@@ -95,6 +101,88 @@ export class GitHubRemote extends RichRemoteProvider {
 
 	get name() {
 		return this.formatName('GitHub');
+	}
+
+	@log()
+	override async connect(): Promise<boolean> {
+		if (!equalsIgnoreCase(this.domain, 'github.com')) {
+			const container = Container.instance;
+			const title =
+				'Connecting to a GitHub Enterprise instance for rich integration features requires a paid GitLens+ account.';
+
+			while (true) {
+				const subscription = await container.subscription.getSubscription();
+				if (subscription.account?.verified === false) {
+					const resend = { title: 'Resend Verification' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nYou must verify your GitLens+ account email address before you can continue.`,
+						{ modal: true },
+						resend,
+						cancel,
+					);
+
+					if (result === resend) {
+						if (await container.subscription.resendVerification()) {
+							continue;
+						}
+					}
+
+					return false;
+				}
+
+				const plan = subscription.plan.effective.id;
+				if (isSubscriptionPaidPlan(plan)) break;
+
+				if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+					const startTrial = { title: 'Try GitLens+' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to try GitLens+ free for 3 days?`,
+						{ modal: true },
+						startTrial,
+						cancel,
+					);
+
+					if (result !== startTrial) return false;
+
+					void container.subscription.startPreviewTrial();
+					break;
+				} else if (subscription.account == null) {
+					const signIn = { title: 'Sign In to GitLens+' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to sign in to GitLens+?`,
+						{ modal: true },
+						signIn,
+						cancel,
+					);
+
+					if (result === signIn) {
+						if (await container.subscription.loginOrSignUp()) {
+							continue;
+						}
+					}
+				} else {
+					const upgrade = { title: 'Upgrade Account' };
+					const cancel = { title: 'Cancel', isCloseAffordance: true };
+					const result = await window.showWarningMessage(
+						`${title}\n\nDo you want to upgrade your account?`,
+						{ modal: true },
+						upgrade,
+						cancel,
+					);
+
+					if (result === upgrade) {
+						void container.subscription.purchase();
+					}
+				}
+
+				return false;
+			}
+		}
+
+		return super.connect();
 	}
 
 	async getLocalInfoFromRemoteUri(

@@ -142,7 +142,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		if (!equalsIgnoreCase(this.domain, 'gitlab.com')) {
 			const container = Container.instance;
 			const title =
-				'Connecting to a GitLab Self-Managed instance for rich integration features requires a paid GitLens+ account.';
+				'Connecting to a GitLab self-managed instance for rich integration features requires a paid GitLens+ account.';
 
 			while (true) {
 				const subscription = await container.subscription.getSubscription();
