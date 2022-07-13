@@ -379,14 +379,6 @@ export interface GraphColumnConfig {
 export interface GraphConfig {
 	defaultLimit: number;
 	pageLimit: number;
-	columns: {
-		ref: GraphColumnConfig;
-		graph: GraphColumnConfig;
-		message: GraphColumnConfig;
-		author: GraphColumnConfig;
-		date: GraphColumnConfig;
-		sha: GraphColumnConfig;
-	};
 }
 
 export interface CodeLensConfig {
