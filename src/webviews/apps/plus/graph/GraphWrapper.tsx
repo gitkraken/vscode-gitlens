@@ -1,3 +1,4 @@
+import { GraphRow } from '@axosoft/gitkraken-components/lib/components/graph/GraphContainer';
 import React, { useEffect, useState } from 'react';
 import {
 	CommitListCallback,
@@ -6,11 +7,13 @@ import {
 	Repository,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
+import { GKGraph } from './GKGraph';
 
 export interface GraphWrapperProps extends State {
 	subscriber: (callback: CommitListCallback) => () => void;
 	onSelectRepository?: (repository: Repository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
+	nonce?: string;
 	onMoreCommits?: (limit?: number) => void;
 }
 
@@ -28,6 +31,7 @@ export function GraphWrapper({
 	onSelectRepository,
 	onColumnChange,
 	onMoreCommits,
+	nonce
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(getGraphModel(commits));
 	const [reposList, setReposList] = useState(repositories);
@@ -78,24 +82,15 @@ export function GraphWrapper({
 				)}
 			</ul>
 			{currentRepository !== undefined ? (
-				<ul>
-					{graphList.length ? (
-						graphList.map((item, index) => <li key={`commits-${index}`}>{JSON.stringify(item)}</li>)
+					isLoading ? (
+						<div>Loading...</div>
 					) : (
-						<li>No commits</li>
-					)}
-					{isLoading ? (
-						<li>Loading...</li>
-					) : (
-						logState?.hasMore && (
-							<li>
-								<button type="button" onClick={handleMoreCommits}>
-									Show more items
-								</button>
-							</li>
-						)
-					)}
-				</ul>
+                    <GKGraph
+                    graphRows={Object.values(graphList) as GraphRow[]}
+                    repo={currentRepository}
+                    nonce={nonce}
+                    />
+                    )
 			) : (
 				<p>No repository is selected</p>
 			)}

@@ -31,7 +31,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		this.disposables.push({ dispose: () => this.repoDisposable?.dispose() });
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
+	override async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(column);
 	}
@@ -113,20 +113,72 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			return undefined;
 		}
 
-		if (this.currentLog === undefined) {
-			const log = await this.getLog(this.selectedRepository);
-			if (log?.commits === undefined) {
-				return undefined;
+		const [currentUser, log, /*remotes,*/ tags, branches] = await Promise.all([
+			this.container.git.getCurrentUser(repo as string),
+			this.getLog(this.selectedRepository as string),
+			// this.container.git.getRemotes(repo as string),
+			this.container.git.getTags(repo as string),
+			this.container.git.getBranches(repo as string),
+		]);
+
+        if (log == null || log?.commits === undefined) {
+			return undefined;
+        }
+
+        this.currentLog = log;
+
+		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
+
+		const commitList: any[] = [];
+
+		for (const commit of log.commits.values()) {
+			const commitBranch = branches.values.find(b => b.sha === commit.sha);
+			let branchInfo = {} as any;
+			if (commitBranch != null) {
+				branchInfo = {
+					remotes: [
+					{
+						name: commitBranch.name,
+						url: commitBranch.id
+					}
+					]
+				};
+				if (commitBranch.current) {
+					branchInfo.heads = [
+						{
+							name: commitBranch.name,
+							isCurrentHead: true
+						}
+					];
+				}
 			}
-			this.currentLog = log;
+			const commitTag = tags.values.find(t => t.sha === commit.sha);
+			let tagInfo = {} as any;
+			if (commitTag != null) {
+				tagInfo = { tags: [
+						{
+							name: commitTag.name,
+						}
+					]
+				};
+			}
+			commitList.push({
+				sha: commit.sha,
+				parents: commit.parents,
+				author: commit.author.name === 'You' ? name : commit.author.name,
+				date: commit.date.getTime(),
+				message: commit.message ?? commit.summary,
+				email: commit.author.email,
+				type: 'commit-node',
+				... branchInfo,
+				... tagInfo,
+			});
 		}
 
-		if (this.currentLog?.commits === undefined) {
-			return undefined;
-		}
+		commitList.sort((a, b) => b.date - a.date);
 
 		return {
-			log: this.currentLog,
+			log: log,
 			commits: Array.from(this.currentLog.commits.values()),
 		};
 	}
@@ -203,6 +255,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 							cursor: log.cursor,
 					  }
 					: undefined,
+			nonce: super.getCSPNonce()
 		};
 	}
 
@@ -212,11 +265,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 }
 
 function formatCommits(commits: GitCommit[]): GitCommit[] {
-	return commits.map(({ sha, author, message }) => ({
-		sha: sha,
-		author: author,
-		message: message,
-	}));
+	return commits;
+	// return commits.map(({ sha, author, message }) => ({
+	// 	sha: sha,
+	// 	author: author,
+	// 	message: message,
+	// }));
 }
 
 function formatRepositories(repositories: Repository[]): RepositoryData[] {
