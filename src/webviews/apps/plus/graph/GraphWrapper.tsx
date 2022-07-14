@@ -1,4 +1,10 @@
-import GraphContainer, { CssVariables, GraphRow } from '@axosoft/gitkraken-components/lib/components/graph/GraphContainer';
+import GraphContainer, {
+	CssVariables,
+	GraphRow,
+	Head,
+	Remote,
+	Tag
+} from '@axosoft/gitkraken-components/lib/components/graph/GraphContainer';
 import React, { useEffect, useState } from 'react';
 import {
 	CommitListCallback,
@@ -34,50 +40,44 @@ export const getCssVariables = (): CssVariables => {
 
 const getGraphModel = (
 	gitCommits: GitCommit[] = [],
-	gitRemotes: GitRemote[] = [], // TODO: add remotes to our graphRows array
+	gitRemotes: GitRemote[] = [],
 	gitTags: GitTag[] = [],
 	gitBranches: GitBranch[] = []
 ): GraphRow[] => {
     const graphRows: GraphRow[] = [];
 
+	// console.log('gitCommits -> ', gitCommits);
 	// console.log('gitRemotes -> ', gitRemotes);
 	// console.log('gitTags -> ', gitTags);
 	// console.log('gitBranches -> ', gitBranches);
 
-	// Copied from original pushed code of Miggy E.
 	// TODO: review if that code is correct and see if we need to add more data
 	for (const gitCommit of gitCommits) {
-		const commitBranch = gitBranches.find(b => b.sha === gitCommit.sha);
-		let branchInfo = {} as any;
-		if (commitBranch != null) {
-			branchInfo = {
-				remotes: [
-					{
-						name: commitBranch.name,
-						url: commitBranch.id
-					}
-				]
+		const graphRemotes: Remote[] = gitBranches.filter(
+			(branch: GitBranch) => branch.sha === gitCommit.sha
+		).map((branch: GitBranch) => {
+			return {
+				name: branch.name,
+				url: branch.id
+				// avatarUrl: // TODO:
 			};
-			if (commitBranch.current) {
-				branchInfo.heads = [
-					{
-						name: commitBranch.name,
-						isCurrentHead: true
-					}
-				];
-			}
-		}
-		const commitTag = gitTags.find(t => t.sha === gitCommit.sha);
-		let tagInfo = {} as any;
-		if (commitTag != null) {
-			tagInfo = {
-				tags: [
-					{
-						name: commitTag.name,
-					}
-				]
+		});
+
+		const graphHeads: Head[] = gitBranches.filter(
+			(branch: GitBranch) => branch.sha === gitCommit.sha && branch.current
+		).map((branch: GitBranch) => {
+			return {
+				name: branch.name,
+				isCurrentHead: branch.current
 			};
-		}
+		});
+
+		const graphTags: Tag[] = gitTags.filter(
+			(tag: GitTag) => tag.sha === gitCommit.sha
+		).map((tag: GitTag) => ({
+			name: tag.name
+			// annotated: tag.refType === 'annotatedTag' // TODO: review that. I have copied same logic of GK but I think this is not correct.
+		}));
 
 		graphRows.push({
 			sha: gitCommit.sha,
@@ -86,9 +86,10 @@ const getGraphModel = (
 			email: gitCommit.author.email,
 			date: new Date(gitCommit.committer.date).getTime(),
 			message: gitCommit.message,
-			type: 'commit-node',
-			...branchInfo,
-			...tagInfo
+			type: 'commit-node', // TODO: review logic for stash, wip, etc
+			heads: graphHeads,
+			remotes: graphRemotes,
+			tags: graphTags
 		});
 	}
 
