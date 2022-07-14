@@ -239,7 +239,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -279,7 +279,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -326,7 +326,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -605,7 +605,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} files?`,
+					`Are you sure you want to open all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -651,7 +651,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} file revisions?`,
+					`Are you sure you want to open all ${files.length} file revisions?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
