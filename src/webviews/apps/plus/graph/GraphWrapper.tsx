@@ -162,20 +162,18 @@ export function GraphWrapper({
 			{currentRepository !== undefined ? (
 				<>
 					<h2>Repository: {currentRepository}</h2>
-					<ul>
-						{graphList.length ? (
-							<GraphContainer
-								cssVariables={getCssVariables()}
-								graphRows={graphList}
-								hasMoreCommits={logState?.hasMore}
-								isLoadingRows={isLoading}
-								nonce={nonce}
-								onShowMoreCommitsClicked={handleMoreCommits}
-							/>
-						) : (
-							<li>No commits</li>
-						)}
-					</ul>
+					{graphList.length ? (
+						<GraphContainer
+							cssVariables={getCssVariables()}
+							graphRows={graphList}
+							hasMoreCommits={logState?.hasMore}
+							isLoadingRows={isLoading}
+							nonce={nonce}
+							onShowMoreCommitsClicked={handleMoreCommits}
+						/>
+					) : (
+						<li>No commits</li>
+					)}
 				</>
 			) : (
 				<p>No repository is selected</p>
