@@ -134,17 +134,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		};
 	}
 
-	private async getRemotes(repo?: string | Repository): Promise<GitRemote[]> {
-		if (repo === undefined) {
-			return [];
+	private async getRemotes(): Promise<GitRemote[] | undefined> {
+		if (this.selectedRepository === undefined) {
+			return undefined;
 		}
 
-		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
-		if (repository === undefined) {
-			return [];
-		}
-
-		const remotes = await this.container.git.getRemotes(repository.uri);
+		const remotes = await this.container.git.getRemotes(this.selectedRepository.uri);
 		if (remotes === undefined) {
 			return [];
 		}
@@ -152,17 +147,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		return Array.from(remotes.values());
 	}
 
-	private async getTags(repo?: string | Repository): Promise<GitTag[]> {
-		if (repo === undefined) {
-			return [];
+	private async getTags(): Promise<GitTag[] | undefined> {
+		if (this.selectedRepository === undefined) {
+			return undefined;
 		}
 
-		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
-		if (repository === undefined) {
-			return [];
-		}
-
-		const tags = await this.container.git.getTags(repository.uri);
+		const tags = await this.container.git.getTags(this.selectedRepository.uri);
 		if (tags === undefined) {
 			return [];
 		}
@@ -170,17 +160,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		return Array.from(tags.values);
 	}
 
-	private async getBranches(repo?: string | Repository): Promise<GitBranch[]> {
-		if (repo === undefined) {
-			return [];
+	private async getBranches(): Promise<GitBranch[] | undefined> {
+		if (this.selectedRepository === undefined) {
+			return undefined;
 		}
 
-		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
-		if (repository === undefined) {
-			return [];
-		}
-
-		const branches = await this.container.git.getBranches(repository.uri);
+		const branches = await this.container.git.getBranches(this.selectedRepository.uri);
 		if (branches === undefined) {
 			return [];
 		}
@@ -244,9 +229,9 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 		const [commitsAndLog, remotes, tags, branches] = await Promise.all([
 			this.getCommits(),
-			this.getRemotes(this.selectedRepository),
-			this.getTags(this.selectedRepository),
-			this.getBranches(this.selectedRepository)
+			this.getRemotes(),
+			this.getTags(),
+			this.getBranches()
 		]);
 
 		const log = commitsAndLog?.log;
