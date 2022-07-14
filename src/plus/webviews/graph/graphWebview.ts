@@ -149,7 +149,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 		const tags = await this.container.git.getTags(this.selectedRepository.uri);
 		if (tags === undefined) {
-			return [];
+			return undefined;
 		}
 
 		return Array.from(tags.values);
@@ -162,7 +162,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 		const branches = await this.container.git.getBranches(this.selectedRepository.uri);
 		if (branches === undefined) {
-			return [];
+			return undefined;
 		}
 
 		return Array.from(branches.values);
