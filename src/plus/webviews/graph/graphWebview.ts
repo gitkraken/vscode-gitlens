@@ -139,12 +139,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			return undefined;
 		}
 
-		const remotes = await this.container.git.getRemotes(this.selectedRepository.uri);
-		if (remotes === undefined) {
-			return [];
-		}
-
-		return Array.from(remotes.values());
+		return this.selectedRepository.getRemotes();
 	}
 
 	private async getTags(): Promise<GitTag[] | undefined> {
