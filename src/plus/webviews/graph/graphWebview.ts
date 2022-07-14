@@ -11,7 +11,10 @@ import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import {
 	ColumnChangeCommandType,
 	DidChangeNotificationType,
+	GitBranch,
 	GitCommit,
+	GitRemote,
+	GitTag,
 	GraphColumnConfig,
 	GraphColumnConfigDictionary,
 	GraphConfig as GraphConfigWithColumns,
@@ -113,74 +116,76 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			return undefined;
 		}
 
-		const [currentUser, log, /*remotes,*/ tags, branches] = await Promise.all([
-			this.container.git.getCurrentUser(repo as string),
-			this.getLog(this.selectedRepository as string),
-			// this.container.git.getRemotes(repo as string),
-			this.container.git.getTags(repo as string),
-			this.container.git.getBranches(repo as string),
-		]);
-
-        if (log == null || log?.commits === undefined) {
-			return undefined;
-        }
-
-        this.currentLog = log;
-
-		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
-
-		const commitList: any[] = [];
-
-		for (const commit of log.commits.values()) {
-			const commitBranch = branches.values.find(b => b.sha === commit.sha);
-			let branchInfo = {} as any;
-			if (commitBranch != null) {
-				branchInfo = {
-					remotes: [
-					{
-						name: commitBranch.name,
-						url: commitBranch.id
-					}
-					]
-				};
-				if (commitBranch.current) {
-					branchInfo.heads = [
-						{
-							name: commitBranch.name,
-							isCurrentHead: true
-						}
-					];
-				}
+		if (this.currentLog === undefined) {
+			const log = await this.getLog(this.selectedRepository);
+			if (log?.commits === undefined) {
+				return undefined;
 			}
-			const commitTag = tags.values.find(t => t.sha === commit.sha);
-			let tagInfo = {} as any;
-			if (commitTag != null) {
-				tagInfo = { tags: [
-						{
-							name: commitTag.name,
-						}
-					]
-				};
-			}
-			commitList.push({
-				sha: commit.sha,
-				parents: commit.parents,
-				author: commit.author.name === 'You' ? name : commit.author.name,
-				date: commit.date.getTime(),
-				message: commit.message ?? commit.summary,
-				email: commit.author.email,
-				type: 'commit-node',
-				... branchInfo,
-				... tagInfo,
-			});
+			this.currentLog = log;
 		}
 
-		commitList.sort((a, b) => b.date - a.date);
+		if (this.currentLog?.commits === undefined) {
+			return undefined;
+		}
 
 		return {
-			log: log,
+			log: this.currentLog,
 			commits: Array.from(this.currentLog.commits.values()),
 		};
+	}
+
+	private async getRemotes(repo?: string | Repository): Promise<GitRemote[]> {
+		if (repo === undefined) {
+			return [];
+		}
+
+		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
+		if (repository === undefined) {
+			return [];
+		}
+
+		const remotes = await this.container.git.getRemotes(repository.uri);
+		if (remotes === undefined) {
+			return [];
+		}
+
+		return Array.from(remotes.values());
+	}
+
+	private async getTags(repo?: string | Repository): Promise<GitTag[]> {
+		if (repo === undefined) {
+			return [];
+		}
+
+		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
+		if (repository === undefined) {
+			return [];
+		}
+
+		const tags = await this.container.git.getTags(repository.uri);
+		if (tags === undefined) {
+			return [];
+		}
+
+		return Array.from(tags.values);
+	}
+
+	private async getBranches(repo?: string | Repository): Promise<GitBranch[]> {
+		if (repo === undefined) {
+			return [];
+		}
+
+		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
+		if (repository === undefined) {
+			return [];
+		}
+
+		const branches = await this.container.git.getBranches(repository.uri);
+		if (branches === undefined) {
+			return [];
+		}
+
+		return Array.from(branches.values);
 	}
 
 	private async pickRepository(repositories: Repository[]): Promise<Repository | undefined> {
@@ -237,7 +242,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			}
 		}
 
-		const commitsAndLog = await this.getCommits();
+		const [commitsAndLog, remotes, tags, branches] = await Promise.all([
+			this.getCommits(),
+			this.getRemotes(this.selectedRepository),
+			this.getTags(this.selectedRepository),
+			this.getBranches(this.selectedRepository)
+		]);
 
 		const log = commitsAndLog?.log;
 
@@ -245,6 +255,9 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			repositories: formatRepositories(repositories),
 			selectedRepository: this.selectedRepository?.path,
 			commits: formatCommits(commitsAndLog?.commits ?? []),
+			remotes: remotes, // TODO: add a format function
+			branches: branches, // TODO: add a format function
+			tags: tags, // TODO: add a format function
 			config: this.getConfig(),
 			log:
 				log != null
@@ -265,12 +278,13 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 }
 
 function formatCommits(commits: GitCommit[]): GitCommit[] {
-	return commits;
-	// return commits.map(({ sha, author, message }) => ({
-	// 	sha: sha,
-	// 	author: author,
-	// 	message: message,
-	// }));
+	return commits.map(({ sha, author, message, parents, committer }) => ({
+		sha: sha,
+		author: author,
+		message: message,
+		parents: parents,
+		committer: committer
+	}));
 }
 
 function formatRepositories(repositories: Repository[]): RepositoryData[] {
