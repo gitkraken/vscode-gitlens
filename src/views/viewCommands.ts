@@ -1001,7 +1001,7 @@ export class ViewCommands {
 
 		// if (files.length > 20) {
 		// 	const result = await window.showWarningMessage(
-		// 		`Are your sure you want to open all ${files.length} files?`,
+		// 		`Are you sure you want to open all ${files.length} files?`,
 		// 		{ title: 'Yes' },
 		// 		{ title: 'No', isCloseAffordance: true },
 		// 	);
