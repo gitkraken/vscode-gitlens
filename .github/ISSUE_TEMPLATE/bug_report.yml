@@ -2,29 +2,6 @@ name: Bug report
 description: Create a report to help GitLens improve
 labels: ['potential-bug', 'triage']
 body:
-    - type: textarea
-      attributes:
-          label: Current Behavior
-          description: A concise description of what you're experiencing.
-      validations:
-          required: false
-    - type: textarea
-      attributes:
-          label: Expected Behavior
-          description: A concise description of what you expected to happen.
-      validations:
-          required: false
-    - type: textarea
-      attributes:
-          label: Steps To Reproduce
-          description: Steps to reproduce the behavior.
-          placeholder: |
-              1. In this environment...
-              2. With this config...
-              3. Run '...'
-              4. See error...
-      validations:
-          required: false
     - type: input
       id: gitlens
       attributes:
@@ -49,18 +26,6 @@ body:
               OS: Windows_NT x64 10.0.22622
       validations:
           required: true
-    - type: dropdown
-      id: vscode-edition
-      attributes:
-          label: VS Code Edition
-          description: What edition of VS Code are you using?
-          multiple: false
-          options:
-              - Desktop
-              - Web (vscode.dev)
-              - Web (github.dev)
-      validations:
-          required: true
     - type: input
       id: git
       attributes:
@@ -69,17 +34,38 @@ body:
           placeholder: 'git version 2.37.0.windows.1'
       validations:
           required: true
-    - type: markdown
+    - type: textarea
       attributes:
-          value: |
-              > For intermittent issues, please enable debug logging by running the _GitLens: Enable Debug Logging_ command from the Command Palette (<kbd>F1</kbd> or <kbd>ctrl/cmd</kbd>+<kbd>shift</kbd>+<kbd>p</kbd>).
-              > This will enable logging to the _GitLens_ & _GitLens (Git)_ channels in the _Output_ pane.
-              >
-              > Once enabled, please reproduce the issue, and attach the logs from the _GitLens_ channel, and if its Git related please also attach the logs from the _GitLens (Git)_ channel.
+          label: Current Behavior
+          description: A concise description of what you're experiencing.
+      validations:
+          required: false
+    - type: textarea
+      attributes:
+          label: Expected Behavior
+          description: A concise description of what you expected to happen.
+      validations:
+          required: false
+    - type: textarea
+      attributes:
+          label: Steps To Reproduce
+          description: Steps to reproduce the behavior.
+          placeholder: |
+              1. In this environment...
+              2. With this config...
+              3. Run '...'
+              4. See error...
+      validations:
+          required: false
     - type: textarea
       attributes:
           label: Logs, Screenshots, Screen Captures, etc
           description: |
               Logs? Links? References? Anything that will give us more context about the issue you are encountering!
+          placeholder: |
+              For intermittent issues, please enable debug logging by running the _GitLens: Enable Debug Logging_ command from the Command Palette (<kbd>F1</kbd> or <kbd>ctrl/cmd</kbd>+<kbd>shift</kbd>+<kbd>p</kbd>).
+              This will enable logging to the _GitLens_ & _GitLens (Git)_ channels in the _Output_ pane.
+
+              Once enabled, please reproduce the issue, and attach the logs from the _GitLens_ channel, and if its Git related please also attach the logs from the _GitLens (Git)_ channel.
       validations:
           required: false
