@@ -503,21 +503,16 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const root = context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString();
 		const webRoot = context.panel.webview.asWebviewUri(webRootUri).toString();
 
-		const html = content
-			.replace(/#{(head|body|endOfBody|placement)}/i, (_substring, token) => {
+		const html = content.replace(
+			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/i,
+			(_substring, token) => {
 				switch (token) {
 					case 'endOfBody':
-						return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
+						return `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
 							bootstrap,
 						)};</script>`;
 					case 'placement':
 						return 'editor';
-					default:
-						return '';
-				}
-			})
-			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (_substring, token) => {
-				switch (token) {
 					case 'cspSource':
 						return cspSource;
 					case 'cspNonce':
@@ -529,7 +524,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 					default:
 						return '';
 				}
-			});
+			},
+		);
 
 		return html;
 	}

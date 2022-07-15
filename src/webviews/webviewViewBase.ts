@@ -208,27 +208,24 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
 		const webRoot = webview.asWebviewUri(webRootUri).toString();
 
-		const html = content
-			.replace(/#{(head|body|endOfBody|placement)}/i, (_substring, token) => {
+		const html = content.replace(
+			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
+			(_substring, token) => {
 				switch (token) {
 					case 'head':
 						return head ?? '';
 					case 'body':
 						return body ?? '';
 					case 'endOfBody':
-						return bootstrap != null
-							? `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
-									bootstrap,
-							  )};</script>${endOfBody ?? ''}`
-							: endOfBody ?? '';
+						return `${
+							bootstrap != null
+								? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
+										bootstrap,
+								  )};</script>`
+								: ''
+						}${endOfBody ?? ''}`;
 					case 'placement':
 						return 'view';
-					default:
-						return '';
-				}
-			})
-			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (_substring, token) => {
-				switch (token) {
 					case 'cspSource':
 						return cspSource;
 					case 'cspNonce':
@@ -240,7 +237,8 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 					default:
 						return '';
 				}
-			});
+			},
+		);
 
 		return html;
 	}
