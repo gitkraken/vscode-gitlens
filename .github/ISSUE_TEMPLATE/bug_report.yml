@@ -36,27 +36,15 @@ body:
           required: true
     - type: textarea
       attributes:
-          label: Current Behavior
-          description: A concise description of what you're experiencing.
-      validations:
-          required: false
-    - type: textarea
-      attributes:
-          label: Expected Behavior
-          description: A concise description of what you expected to happen.
-      validations:
-          required: false
-    - type: textarea
-      attributes:
-          label: Steps To Reproduce
-          description: Steps to reproduce the behavior.
+          label: Description
+          description: Please provide a concise description of what you're experiencing, what you expected to happen, and any steps to reproduce the behavior.
           placeholder: |
               1. In this environment...
               2. With this config...
               3. Run '...'
               4. See error...
       validations:
-          required: false
+          required: true
     - type: textarea
       attributes:
           label: Logs, Screenshots, Screen Captures, etc
