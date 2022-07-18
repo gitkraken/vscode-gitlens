@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
@@ -13,6 +14,7 @@ import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
 	static key = ':reflog-record';
 	static getId(
@@ -45,7 +47,9 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log === undefined) {
+			return [new MessageNode(this.view, this, localize('noCommitsFound', 'No commits could be found.'))];
+		}
 
 		const children: (CommitNode | LoadMoreNode)[] = [
 			...map(log.commits.values(), c => new CommitNode(this.view, this, c)),

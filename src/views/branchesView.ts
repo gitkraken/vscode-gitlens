@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { BranchesViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands } from '../constants';
@@ -21,6 +22,8 @@ import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, BranchesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -50,7 +53,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = localize('noBranchesFound', 'No branches could be found.');
 
 				return [];
 			}
@@ -68,8 +71,8 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 
 			const branches = await child.repo.getBranches({ filter: b => !b.remote });
 			if (branches.values.length === 0) {
-				this.view.message = 'No branches could be found.';
-				this.view.title = 'Branches';
+				this.view.message = localize('noBranchesFound', 'No branches could be found.');
+				this.view.title = localize('branches', 'Branches');
 
 				void child.ensureSubscription();
 
@@ -77,18 +80,18 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Branches (${branches.values.length})`;
+			this.view.title = localize('branchesCount', 'Branches ({0})', branches.values.length);
 
 			return child.getChildren();
 		}
 
-		this.view.title = 'Branches';
+		this.view.title = localize('branches', 'Branches');
 
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Branches', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('branches', 'Branches'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -97,7 +100,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.branches', 'Branches', 'branchesView');
+		super(container, 'gitlens.views.branches', localize('branches', 'Branches'), 'branchesView');
 	}
 
 	override get canReveal(): boolean {
@@ -259,7 +262,11 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingBranchInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(branch, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -285,7 +292,11 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingCommitInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(commit, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

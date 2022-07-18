@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -5,7 +6,6 @@ import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -25,6 +25,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -54,8 +55,8 @@ type MergeStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo',
 
 export class MergeGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: MergeGitCommandArgs) {
-		super(container, 'merge', 'merge', 'Merge', {
-			description: 'integrates changes from a specified branch into the current branch',
+		super(container, 'merge', localize('label', 'merge'), localize('title', 'Merge'), {
+			description: localize('description', 'integrates changes from a specified branch into the current branch'),
 		});
 
 		let counter = 0;
@@ -139,7 +140,16 @@ export class MergeGitCommand extends QuickCommand<State> {
 				});
 
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state as MergeStepState, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to merge`,
+					placeholder: context =>
+						context.showTags
+							? localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchOrTagToMerge',
+									'Choose a branch or tag to merge',
+							  )
+							: localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchToMerge',
+									'Choose a branch to merge',
+							  ),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
@@ -180,12 +190,20 @@ export class MergeGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found on ${GitReference.toString(context.selectedBranchOrTag, {
-									icon: false,
-							  })}`
-							: `Choose a commit to merge into ${GitReference.toString(context.destination, {
-									icon: false,
-							  })}`,
+							? localize(
+									'pickCommitStep.placeholder.noCommitsFoundOnBranchOrTag',
+									'No commits found on {0}',
+									GitReference.toString(context.selectedBranchOrTag, {
+										icon: false,
+									}),
+							  )
+							: localize(
+									'pickCommitStep.placeholder.chooseCommitToMergeIntoBranch',
+									'Choose a commit to merge into {0}',
+									GitReference.toString(context.destination, {
+										icon: false,
+									}),
+							  ),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResult.Break) continue;
@@ -212,13 +230,18 @@ export class MergeGitCommand extends QuickCommand<State> {
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context),
+				appendReposToTitle(localize('comfirm', 'Confirm {0}', context.title), state, context),
 				[],
 				DirectiveQuickPickItem.create(Directive.Cancel, true, {
-					label: `Cancel ${this.title}`,
-					detail: `${GitReference.toString(context.destination, {
-						capitalize: true,
-					})} is up to date with ${GitReference.toString(state.reference)}`,
+					label: localize('quickPick.cancel.label', 'Cancel {0}', this.title),
+					detail: localize(
+						'quickPick.cancle.detail',
+						'{0} is up to date with {1}',
+						GitReference.toString(context.destination, {
+							capitalize: true,
+						}),
+						GitReference.toString(state.reference),
+					),
 				}),
 			);
 			const selection: StepSelection<typeof step> = yield step;
@@ -227,44 +250,101 @@ export class MergeGitCommand extends QuickCommand<State> {
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will merge ${pluralize('commit', count)} from ${GitReference.toString(
-						state.reference,
-					)} into ${GitReference.toString(context.destination)}`,
+					detail:
+						count === 1
+							? localize(
+									'quickPick.merge.detail.willMergeOneCommitFromRefIntoBranch',
+									'Will merge 1 commit from {0} into {1}',
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  )
+							: localize(
+									'quickPick.merge.detail.willMergeCommitsFromRefIntoBranch',
+									'Will merge {0} commits from {1} into {2}',
+									count,
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  ),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--ff-only'], {
-					label: `Fast-forward ${this.title}`,
+					label: localize('quickPick.fastForward.label', 'Fast-forward {0}', this.title),
 					description: '--ff-only',
-					detail: `Will fast-forward merge ${pluralize('commit', count)} from ${GitReference.toString(
-						state.reference,
-					)} into ${GitReference.toString(context.destination)}`,
+					detail:
+						count === 1
+							? localize(
+									'quickPick.fastForward.detail.willFastForwardMergeOneCommitFromRefIntoBranch',
+									'Will fast-forward merge 1 commit from {0} into {1}',
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  )
+							: localize(
+									'quickPick.fastForward.detail.willFastForwardMergeCommitsFromRefIntoBranch',
+									'Will fast-forward merge {0} commits from {1} into {2}',
+									count,
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  ),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--squash'], {
-					label: `Squash ${this.title}`,
+					label: localize('quickPick.squash.label', 'Squash {0}', this.title),
 					description: '--squash',
-					detail: `Will squash ${pluralize('commit', count)} from ${GitReference.toString(
-						state.reference,
-					)} into one when merging into ${GitReference.toString(context.destination)}`,
+					detail:
+						count === 1
+							? localize(
+									'quickPick.squash.detail.willSquashOneCommitFromRefWhenMergingIntoBranch',
+									'Will squash 1 commit from {0} into one when merging into {1}',
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  )
+							: localize(
+									'quickPick.squash.detail.willSquashCommitsFromRefWhenMergingIntoBranch',
+									'Will squash {0} commits from {1} into one when merging into {2}',
+									count,
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  ),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff'], {
-					label: `${this.title} without Fast-Forwarding`,
+					label: localize('quickPick.noff.label', '{0} without Fast-Forwarding', this.title),
 					description: '--no-ff',
-					detail: `Will create a merge commit when merging ${pluralize(
-						'commit',
-						count,
-					)} from ${GitReference.toString(state.reference)} into ${GitReference.toString(
-						context.destination,
-					)}`,
+					detail:
+						count === 1
+							? localize(
+									'quickPick.noff.detail.willCreateMergeCommitWhenMergingOneCommitFromRefToBranch',
+									'Will create a merge commit when merging 1 commit from {0} to {1}',
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  )
+							: localize(
+									'quickPick.noff.detail.willCreateMergeCommitWhenMergingCommitsFromRefToBranch',
+									'Will create a merge commit when merging {0} commits from {1} to {2}',
+									count,
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  ),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff', '--no-commit'], {
-					label: `${this.title} without Fast-Forwarding or Committing`,
+					label: localize('quickPick.noffOrCommit', '{0} without Fast-Forwarding or Committing', this.title),
 					description: '--no-ff --no-commit',
-					detail: `Will merge ${pluralize('commit', count)} from ${GitReference.toString(
-						state.reference,
-					)} into ${GitReference.toString(context.destination)} without Committing`,
+					detail:
+						count === 1
+							? localize(
+									'quickPick.noffOrCommit.detail.willMergeOneCommitFromRefIntoBranchWithoutCommitting',
+									'Will merge 1 commit from {0} into {1} without Committing',
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  )
+							: localize(
+									'quickPick.noffOrCommit.detail.willMergeCommitsFromRefIntoBranchWithoutCommitting',
+									'Will merge {0} commits from {1} into {2} without Committing',
+									count,
+									GitReference.toString(state.reference),
+									GitReference.toString(context.destination),
+							  ),
 				}),
 			],
 		);

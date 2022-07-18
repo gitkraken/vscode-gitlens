@@ -1,5 +1,6 @@
 import type { Disposable, QuickPick } from 'vscode';
 import { CancellationTokenSource, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
@@ -12,6 +13,7 @@ import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { BranchQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 import { RefQuickPickItem } from './items/gitCommands';
 
+const localize = nls.loadMessageBundle();
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
 export const enum ReferencesQuickPickIncludes {
@@ -48,7 +50,10 @@ export namespace ReferencePicker {
 		quickpick.title = title;
 		quickpick.placeholder =
 			options.allowEnteringRefs != null
-				? `${placeHolder}${GlyphChars.Space.repeat(3)}(or enter a reference using #)`
+				? `${placeHolder}${GlyphChars.Space.repeat(3)}(${localize(
+						'placeholder.orEnterReferenceUsingHashChar',
+						'or enter a reference using #',
+				  )})`
 				: placeHolder;
 		quickpick.matchOnDescription = true;
 

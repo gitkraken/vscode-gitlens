@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -9,6 +10,8 @@ import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenRevisionFileCommandArgs {
 	revisionUri?: Uri;
@@ -60,7 +63,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenRevisionFileCommand');
-			void showGenericErrorMessage('Unable to open file revision');
+			void showGenericErrorMessage(localize('unableToOpenFileRevision', 'Unable to open file revision'));
 		}
 	}
 }

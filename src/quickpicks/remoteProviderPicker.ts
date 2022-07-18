@@ -1,5 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { OpenOnRemoteCommandArgs } from '../commands';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -13,9 +14,15 @@ import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
+const localize = nls.loadMessageBundle();
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
-		super({ label: 'See how to configure a custom remote provider...' });
+		super({
+			label: localize(
+				'configureCustomRemoteProviderCommandQuickPickItem.label',
+				'See how to configure a custom remote provider...',
+			),
+		});
 	}
 
 	override async execute(): Promise<void> {
@@ -102,9 +109,20 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: true,
 		};
 		super(
-			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
-				resource,
-			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
+			`$(copy) ${
+				providers?.length
+					? localize(
+							'copyRemoteResourceCommandQuickPickItem.label.copyProviderUrl',
+							'Copy {0} {1} Url',
+							providers[0].name,
+							getNameFromRemoteResource(resource),
+					  )
+					: localize(
+							'copyRemoteResourceCommandQuickPickItem.label.copyRemoteUrl',
+							'Copy Remote {0} Url',
+							getNameFromRemoteResource(resource),
+					  )
+			}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
 			Commands.OpenOnRemote,
 			[commandArgs],
 		);
@@ -112,7 +130,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 
 	override async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		void window.showInformationMessage('Url copied to the clipboard');
+		void window.showInformationMessage(localize('urlCopiedToClipboard', 'Url copied to the clipboard'));
 	}
 }
 
@@ -125,10 +143,28 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: false,
 		};
 		super(
-			`$(link-external) Open ${getNameFromRemoteResource(resource)} on ${
+			`$(link-external) ${
 				providers?.length === 1
-					? providers[0].name
-					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
+					? localize(
+							'openRemoteResourceCommandQuickPickItem.label.openResourceOnProvider',
+							'Open {0} on {1}',
+							getNameFromRemoteResource(resource),
+							providers[0].name,
+					  )
+					: `${
+							providers?.length
+								? localize(
+										'openRemoteResourceCommandQuickPickItem.label.openResourceOnProvider',
+										'Open {0} on {1}',
+										getNameFromRemoteResource(resource),
+										providers[0].name,
+								  )
+								: localize(
+										'openRemoteResourceCommandQuickPickItem.label.openResourceOnRemote',
+										'Open {0} on Remote',
+										getNameFromRemoteResource(resource),
+								  )
+					  }${GlyphChars.Ellipsis}`
 			}`,
 			Commands.OpenOnRemote,
 			[commandArgs],
@@ -139,7 +175,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 namespace QuickCommandButtons {
 	export const SetRemoteAsDefault: QuickInputButton = {
 		iconPath: new ThemeIcon('settings-gear'),
-		tooltip: 'Set as Default Remote',
+		tooltip: localize('setRemoteAsDefault.tooltip', 'Set as Default Remote'),
 	};
 }
 
@@ -156,7 +192,10 @@ export namespace RemoteProviderPicker {
 		let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
 		if (remotes.length === 0) {
 			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-			placeHolder = 'No auto-detected or configured remote providers found';
+			placeHolder = localize(
+				'placeholder.noAutoDetectedOrConfiguredRemoteProvidersFound',
+				'No auto-detected or configured remote providers found',
+			);
 		} else {
 			if (autoPick === 'default' && remotes.length > 1) {
 				// If there is a default just execute it directly

@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewBranchesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
@@ -13,6 +14,7 @@ import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 	static key = ':branches';
 	static getId(repoPath: string): string {
@@ -45,7 +47,9 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 				filter: b => !b.remote,
 				sort: { current: false },
 			});
-			if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+			if (branches.values.length === 0) {
+				return [new MessageNode(this.view, this, localize('noBranchesFound', 'No branches could be found.'))];
+			}
 
 			// TODO@eamodio handle paging
 			const branchNodes = branches.values.map(
@@ -87,7 +91,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(localize('branches', 'Branches'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Branches;
 		if (await this.repo.hasRemotes()) {

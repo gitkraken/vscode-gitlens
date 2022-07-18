@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { emojify } from '../../emojis';
@@ -20,6 +21,7 @@ import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
 	static getId(repoPath: string, name: string): string {
@@ -48,7 +50,9 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log == null) {
+			return [new MessageNode(this.view, this, localize('noCommitsFound', 'No commits could be found.'))];
+		}
 
 		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(
 			this.uri.repoPath,

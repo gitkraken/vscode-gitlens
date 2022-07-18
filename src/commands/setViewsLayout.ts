@@ -1,9 +1,12 @@
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { viewsConfigKeys } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { command, executeCommand, executeCoreCommand } from '../system/command';
 import { Command } from './base';
+
+const localize = nls.loadMessageBundle();
 
 enum ViewsLayout {
 	GitLens = 'gitlens',
@@ -26,20 +29,26 @@ export class SetViewsLayoutCommand extends Command {
 			const pick = await window.showQuickPick(
 				[
 					{
-						label: 'Source Control Layout',
-						description: '(default)',
-						detail: 'Shows all the views together on the Source Control side bar',
+						label: localize('sourceControlLayout', 'Source Control Layout'),
+						description: `(${localize('default', 'default')})`,
+						detail: localize(
+							'showsAllViewsOnSourceControlSideBar',
+							'Shows all the views together on the Source Control side bar',
+						),
 						layout: ViewsLayout.SourceControl,
 					},
 					{
-						label: 'GitLens Layout',
+						label: localize('gitlensLayout', 'GitLens Layout'),
 						description: '',
-						detail: 'Shows all the views together on the GitLens side bar',
+						detail: localize(
+							'showsAllViewsOnGitlensSideBar',
+							'Shows all the views together on the GitLens side bar',
+						),
 						layout: ViewsLayout.GitLens,
 					},
 				],
 				{
-					placeHolder: 'Choose a GitLens views layout',
+					placeHolder: localize('chooseGitlensViewsLayout', 'Choose a GitLens views layout'),
 				},
 			);
 			if (pick == null) return;

@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { TagsViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -18,6 +19,8 @@ import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -38,7 +41,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No tags could be found.';
+				this.view.message = localize('noTagsFound', 'No tags could be found.');
 
 				return [];
 			}
@@ -56,8 +59,8 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 
 			const tags = await child.repo.getTags();
 			if (tags.values.length === 0) {
-				this.view.message = 'No tags could be found.';
-				this.view.title = 'Tags';
+				this.view.message = localize('noTagsFound', 'No tags could be found.');
+				this.view.title = localize('tags', 'Tags');
 
 				void child.ensureSubscription();
 
@@ -65,7 +68,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Tags (${tags.values.length})`;
+			this.view.title = localize('tagsNumber', 'Tags ({0})', tags.values.length);
 
 			return child.getChildren();
 		}
@@ -76,7 +79,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Tags', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('tags', 'Tags'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -85,7 +88,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.tags', 'Tags', 'tagsView');
+		super(container, 'gitlens.views.tags', localize('tags', 'Tags'), 'tagsView');
 	}
 
 	override get canReveal(): boolean {
@@ -210,7 +213,11 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingTagInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(tag, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

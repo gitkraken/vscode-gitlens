@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { RepositoriesViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -40,11 +41,13 @@ import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
+const localize = nls.loadMessageBundle();
+
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.repositories', 'Repositories', 'repositoriesView');
+		super(container, 'gitlens.views.repositories', localize('repositories', 'Repositories'), 'repositoriesView');
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();
@@ -508,10 +511,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: localize(
+					'revealingBranchInRepositoriesView',
+					'Revealing {0} in the Repositories view...',
+					GitReference.toString(branch, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -569,10 +576,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: localize(
+					'revealingCommitInRepositoriesView',
+					'Revealing {0} in the Repositories view...',
+					GitReference.toString(commit, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -598,7 +609,11 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing contributor '${contributor.name} in the Repositories view...`,
+				title: localize(
+					'revealingContributorInRepositoriesView',
+					"Revealing contributor '{0}' in the Repositories view...",
+					contributor.name,
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -624,7 +639,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote '${remote.name}' in the side bar...`,
+				title: localize('revealingRemoteInSideBar', "Revealing remote '{0}' in the side bar...", remote.name),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -673,10 +688,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: localize(
+					'revealingStasgInRepositoriesView',
+					'Revealing {0} in the Repositories view...',
+					GitReference.toString(stash, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -734,10 +753,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, {
-					icon: false,
-					quoted: true,
-				})} in the Repositories view...`,
+				title: localize(
+					'revealingStasgInRepositoriesTag',
+					'Revealing {0} in the Repositories view...',
+					GitReference.toString(tag, {
+						icon: false,
+						quoted: true,
+					}),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -795,7 +818,11 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing worktree '${worktree.name}' in the side bar...`,
+				title: localize(
+					'revealingWorktreeInSideBar',
+					"Revealing worktree '{0}' in the side bar...",
+					worktree.name,
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

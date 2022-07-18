@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
@@ -7,6 +8,8 @@ import { GitCommit, GitCommitIdentity } from '../models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
 import { GitRevision } from '../models/reference';
 import type { GitUser } from '../models/user';
+
+const localize = nls.loadMessageBundle();
 
 interface BlameEntry {
 	sha: string;
@@ -72,7 +75,7 @@ export class GitBlameParser {
 			switch (key) {
 				case 'author':
 					if (entry.sha === GitRevision.uncommitted) {
-						entry.author = 'You';
+						entry.author = localize('you', 'You');
 					} else {
 						entry.author = line.slice(key.length + 1).trim();
 					}
@@ -107,7 +110,7 @@ export class GitBlameParser {
 
 				case 'committer':
 					if (GitRevision.isUncommitted(entry.sha)) {
-						entry.committer = 'You';
+						entry.committer = localize('you', 'You');
 					} else {
 						entry.committer = line.slice(key.length + 1).trim();
 					}
@@ -205,7 +208,7 @@ export class GitBlameParser {
 					// Match on email if configured
 					(currentUser.email == null || currentUser.email === entry.authorEmail)
 				) {
-					entry.author = 'You';
+					entry.author = localize('you', 'You');
 				}
 
 				let author = authors.get(entry.author);

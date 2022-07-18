@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
 import { Commands, CoreCommands } from '../../constants';
@@ -15,7 +16,7 @@ import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
 import { joinPaths, normalizePath } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
-import { pluralize, sortCompare } from '../../system/string';
+import { sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { CommitFileNode } from './commitFileNode';
@@ -24,6 +25,7 @@ import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	static key = ':rebase';
 	static getId(repoPath: string, name: string, root: boolean): string {
@@ -81,29 +83,71 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
-			`${this.status?.hasConflicts ? 'Resolve conflicts to continue rebasing' : 'Rebasing'} ${
-				this.rebaseStatus.incoming != null
-					? `${GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false })}`
-					: ''
+			`${
+				this.status?.hasConflicts
+					? this.rebaseStatus.incoming != null
+						? localize(
+								'resolveConflictsToContinueRebasingBranch',
+								'Resolve conflicts to continue rebasing {0}',
+								GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false }),
+						  )
+						: localize('resolveConflictsToContinueRebasing', 'Resolve conflicts to continue rebasing')
+					: this.rebaseStatus.incoming != null
+					? localize(
+							'rebasingBranch',
+							'Rebasing {0}',
+							GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false }),
+					  )
+					: localize('rebasing', 'Rebasing')
 			} (${this.rebaseStatus.steps.current.number}/${this.rebaseStatus.steps.total})`,
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Rebase;
-		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
+		item.description = this.status?.hasConflicts
+			? this.status.conflicts.length === 1
+				? localize('oneConflict', '1 conflict')
+				: localize('conflicts', '{0} conflicts', this.status.conflicts.length)
+			: undefined;
 		item.iconPath = this.status?.hasConflicts
 			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
 			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
 
 		const markdown = new MarkdownString(
-			`${`Rebasing ${
-				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
-			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${
-				this.rebaseStatus.steps.current.number
-			} of ${this.rebaseStatus.steps.total}\\\nPaused at ${GitReference.toString(
-				this.rebaseStatus.steps.current.commit,
-				{ icon: true },
-			)}${this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''}`,
+			`${
+				this.rebaseStatus.incoming != null
+					? localize(
+							'rebasingBranchOntoBranch',
+							'Rebasing {0} onto {1}',
+							GitReference.toString(this.rebaseStatus.incoming),
+							GitReference.toString(this.rebaseStatus.current),
+					  )
+					: localize(
+							'rebasingOntoBranch',
+							'Rebasing onto {0}',
+							GitReference.toString(this.rebaseStatus.current),
+					  )
+			}
+			\n\n${localize(
+				'stepNumberOfTotal',
+				'Step {0} of {1}',
+				this.rebaseStatus.steps.current.number,
+				this.rebaseStatus.steps.total,
+			)}
+			\\\n${localize(
+				'pausedAtCommit',
+				'Paused at {0}',
+				GitReference.toString(this.rebaseStatus.steps.current.commit, { icon: true }),
+			)}
+			${
+				this.status?.hasConflicts
+					? `\n\n${
+							this.status.conflicts.length === 1
+								? localize('oneConflictedFile', '1 conflicted file')
+								: localize('conflictedFiles', '{0} conflicted files', this.status.conflicts.length)
+					  }`
+					: ''
+			}`,
 			true,
 		);
 		markdown.supportHtml = true;
@@ -159,7 +203,10 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(`Paused at commit ${this.commit.shortSha}`, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			localize('pausedAtCommitSha', 'Paused at commit {0}', this.commit.shortSha),
+			TreeItemCollapsibleState.Collapsed,
+		);
 
 		// item.contextValue = ContextValues.RebaseCommit;
 
@@ -182,7 +229,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			},
 		};
 		return {
-			title: 'Open Changes with Previous Revision',
+			title: localize('openChangesWithPreviousRevision', 'Open Changes with Previous Revision'),
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
@@ -225,7 +272,11 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`Rebase paused at \${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			localize(
+				'rebasePausedAt',
+				'Rebase paused at {0}',
+				`\${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			),
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,

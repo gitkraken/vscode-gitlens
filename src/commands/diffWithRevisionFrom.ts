@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -11,6 +12,8 @@ import { basename } from '../system/path';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
@@ -30,7 +33,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void showNoRepositoryWarningMessage('Unable to open file compare');
+			void showNoRepositoryWarningMessage(localize('unableToOpenFileCompare', 'Unable to open file compare'));
 
 			return;
 		}
@@ -45,13 +48,17 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `${localize('openChangesWithStash', 'Open Changes with Stash')}${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
 				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-				'Choose a stash to compare with',
+				localize('chooseStashToCompareWith', 'Choose a stash to compare with'),
 				{
-					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
+					empty: localize(
+						'noStashesWithFileNameFound',
+						"No stashes with '{0}' found",
+						gitUri.getFormattedFileName(),
+					),
 					// Stashes should always come with files, so this should be fine (but protect it just in case)
 					filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true,
 				},
@@ -61,11 +68,15 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			ref = pick.ref;
 			sha = ref;
 		} else {
-			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `${localize('openChangesWithBranchOrTag', 'Open Changes with Branch or Tag')}${pad(
+				GlyphChars.Dot,
+				2,
+				2,
+			)}`;
 			const pick = await ReferencePicker.show(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
-				'Choose a branch or tag to compare with',
+				localize('chooseBranchOrTagToCompareWith', 'Choose a branch or tag to compare with'),
 				{
 					allowEnteringRefs: true,
 					// checkmarks: false,

@@ -1,5 +1,6 @@
 import type { QuickPickItem, Uri } from 'vscode';
 import { QuickInputButtons, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ContextKeys, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
@@ -35,6 +36,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -85,11 +87,11 @@ type PopStepState<T extends PopState = PopState> = StashStepState<ExcludeSome<T,
 type PushStepState<T extends PushState = PushState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
-	['apply', 'Apply'],
-	['drop', 'Drop'],
-	['list', 'List'],
-	['pop', 'Pop'],
-	['push', 'Push'],
+	['apply', localize('subcommand.apply.title', 'Apply')],
+	['drop', localize('subcommand.drop.title', 'Drop')],
+	['list', localize('subcommand.list.title', 'List')],
+	['pop', localize('subcommand.pop.title', 'Pop')],
+	['push', localize('subcommand.push.title', 'Push')],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -105,8 +107,8 @@ export class StashGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
 	constructor(container: Container, args?: StashGitCommandArgs) {
-		super(container, 'stash', 'stash', 'Stash', {
-			description: 'shelves (stashes) local changes to be reapplied later',
+		super(container, 'stash', localize('label', 'stash'), localize('title', 'Stash'), {
+			description: localize('description', 'shelves (stashes) local changes to be reapplied later'),
 		});
 
 		let counter = 0;
@@ -234,37 +236,44 @@ export class StashGitCommand extends QuickCommand<State> {
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
-			placeholder: `Choose a ${this.label} command`,
+			placeholder: localize('pickSubcommandStep.placeholder', 'Choose a {0} command', this.label),
 			items: [
 				{
-					label: 'apply',
-					description: 'integrates changes from the specified stash into the current branch',
+					label: localize('subcommand.apply.label', 'apply'),
+					description: localize(
+						'subcommand.apply.description',
+						'integrates changes from the specified stash into the current branch',
+					),
 					picked: state.subcommand === 'apply',
 					item: 'apply',
 				},
 				{
-					label: 'drop',
-					description: 'deletes the specified stash',
+					label: localize('subcommand.drop.label', 'drop'),
+					description: localize('subcommand.drop.description', 'deletes the specified stash'),
 					picked: state.subcommand === 'drop',
 					item: 'drop',
 				},
 				{
-					label: 'list',
-					description: 'lists the saved stashes',
+					label: localize('subcommand.list.label', 'list'),
+					description: localize('subcommand.list.description', 'lists the saved stashes'),
 					picked: state.subcommand === 'list',
 					item: 'list',
 				},
 				{
-					label: 'pop',
-					description:
+					label: localize('subcommand.pop.label', 'pop'),
+					description: localize(
+						'subcommand.pop.description',
 						'integrates changes from the specified stash into the current branch and deletes the stash',
+					),
 					picked: state.subcommand === 'pop',
 					item: 'pop',
 				},
 				{
-					label: 'push',
-					description:
+					label: localize('subcommand.push.label', 'push'),
+					description: localize(
+						'subcommand.push.description',
 						'saves your local changes to a new stash and discards them from the working tree and index',
+					),
 					picked: state.subcommand === 'push',
 					item: 'push',
 				},
@@ -282,8 +291,15 @@ export class StashGitCommand extends QuickCommand<State> {
 					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
 						stash == null
-							? `No stashes found in ${state.repo.formattedName}`
-							: 'Choose a stash to apply to your working tree',
+							? localize(
+									'applyOrPop.pickStashStep.placeholder.noStashesFoundInRepo',
+									'No stashes found in {0}',
+									state.repo.formattedName,
+							  )
+							: localize(
+									'applyOrPop.pickStashStep.placeholder.chooseStashToApplyYourWorkingTree',
+									'Choose a stash to apply to your working tree',
+							  ),
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -319,7 +335,10 @@ export class StashGitCommand extends QuickCommand<State> {
 
 				if (StashApplyError.is(ex, StashApplyErrorReason.WorkingChanges)) {
 					void window.showWarningMessage(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						localize(
+							'unableToApplyStashWarning.message',
+							'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						),
 					);
 				} else {
 					void showGenericErrorMessage(ex.message);
@@ -333,18 +352,22 @@ export class StashGitCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<'apply' | 'pop'> {
 		const step = this.createConfirmStep<QuickPickItem & { item: 'apply' | 'pop' }>(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				{
 					label: context.title,
 					detail:
 						state.subcommand === 'pop'
-							? `Will delete ${GitReference.toString(
-									state.reference,
-							  )} and apply the changes to the working tree`
-							: `Will apply the changes from ${GitReference.toString(
-									state.reference,
-							  )} to the working tree`,
+							? localize(
+									'applyOrPopCommandConfirmStep.detail.pop',
+									'Will delete {0} and apply the changes to the working tree',
+									GitReference.toString(state.reference),
+							  )
+							: localize(
+									'applyOrPopCommandConfirmStep.detail',
+									'Will apply the changes from {0} to the working tree',
+									GitReference.toString(state.reference),
+							  ),
 					item: state.subcommand,
 				},
 				// Alternate confirmation (if pop then apply, and vice versa)
@@ -352,18 +375,22 @@ export class StashGitCommand extends QuickCommand<State> {
 					label: getTitle(this.title, state.subcommand === 'pop' ? 'apply' : 'pop'),
 					detail:
 						state.subcommand === 'pop'
-							? `Will apply the changes from ${GitReference.toString(
-									state.reference,
-							  )} to the working tree`
-							: `Will delete ${GitReference.toString(
-									state.reference,
-							  )} and apply the changes to the working tree`,
+							? localize(
+									'applyOrPopCommandConfirmStep.detail',
+									'Will apply the changes from {0} to the working tree',
+									GitReference.toString(state.reference),
+							  )
+							: localize(
+									'applyOrPopCommandConfirmStep.detail.pop',
+									'Will delete {0} and apply the changes to the working tree',
+									GitReference.toString(state.reference),
+							  ),
 					item: state.subcommand === 'pop' ? 'apply' : 'pop',
 				},
 			],
 			undefined,
 			{
-				placeholder: `Confirm ${context.title}`,
+				placeholder: localize('confirm', 'Confirm {0}', context.title),
 				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.ShowDetailsView) {
@@ -390,7 +417,16 @@ export class StashGitCommand extends QuickCommand<State> {
 				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
 					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to delete',
+						stash == null
+							? localize(
+									'drop.pickStashStep.placeholder.noStashesFoundInRepo',
+									'No stashes found in {0}',
+									state.repo.formattedName,
+							  )
+							: localize(
+									'drop.pickStashStep.placeholder.chooseStashToDelete',
+									'Choose a stash to delete',
+							  ),
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -409,7 +445,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				void showGenericErrorMessage('Unable to delete stash');
+				void showGenericErrorMessage(localize('dropGenericError.message', 'Unable to delete stash'));
 
 				return;
 			}
@@ -418,16 +454,20 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	private *dropCommandConfirmStep(state: DropStepState, context: Context): StepResultGenerator<void> {
 		const step = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.reference)}`,
+					detail: localize(
+						'dropCommandConfirmStep.detail',
+						'Will delete {0}',
+						GitReference.toString(state.reference),
+					),
 				},
 			],
 			undefined,
 			{
-				placeholder: `Confirm ${context.title}`,
+				placeholder: localize('confirm', 'Confirm {0}', context.title),
 				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.ShowDetailsView) {
@@ -449,14 +489,20 @@ export class StashGitCommand extends QuickCommand<State> {
 	}
 
 	private async *listCommandSteps(state: ListStepState, context: Context): StepGenerator {
-		context.title = 'Stashes';
+		context.title = localize('listCommandSteps.title', 'Stashes');
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.reference == null) {
 				const result: StepResult<GitStashCommit> = yield* pickStashStep(state, context, {
 					stash: await this.container.git.getStash(state.repo.path),
 					placeholder: (context, stash) =>
-						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash',
+						stash == null
+							? localize(
+									'list.pickStashStep.placeholder.noStashesFoundInRepo',
+									'No stashes found in {0}',
+									state.repo.formattedName,
+							  )
+							: localize('list.pickStashStep.placeholder.chooseStash', 'Choose a stash'),
 					picked: state.reference?.ref,
 				});
 				// Always break on the first step (so we will go back)
@@ -520,12 +566,14 @@ export class StashGitCommand extends QuickCommand<State> {
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';
 				if (msg.includes('newer version of Git')) {
-					void window.showErrorMessage(`Unable to stash changes. ${msg}`);
+					void window.showErrorMessage(
+						`${localize('unableToStashError.message', 'Unable to stash changes')}. ${msg}`,
+					);
 
 					return;
 				}
 
-				void showGenericErrorMessage('Unable to stash changes');
+				void showGenericErrorMessage(localize('stashGenericError.message', 'Unable to stash changes'));
 
 				return;
 			}
@@ -545,13 +593,13 @@ export class StashGitCommand extends QuickCommand<State> {
 					? `${pad(GlyphChars.Dot, 2, 2)}${
 							state.uris.length === 1
 								? formatPath(state.uris[0], { fileOnly: true })
-								: `${state.uris.length} files`
+								: localize('pushCommandInputMessageStep.files', '{0} files', state.uris.length)
 					  }`
 					: undefined,
 			),
-			placeholder: 'Please provide a stash message',
+			placeholder: localize('pushCommandInputMessageStep.placeholder', 'Please provide a stash message'),
 			value: state.message,
-			prompt: 'Enter stash message',
+			prompt: localize('pushCommandInputMessageStep.prompt', 'Enter stash message'),
 		});
 
 		const value: StepSelection<typeof step> = yield step;
@@ -567,44 +615,79 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	private *pushCommandConfirmStep(state: PushStepState, context: Context): StepResultGenerator<PushFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<PushFlags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			state.uris == null || state.uris.length === 0
 				? [
 						FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 							label: context.title,
-							detail: 'Will stash uncommitted changes',
+							detail: localize(
+								'pushCommandConfirmStep.quickPick.stash.detail.willStashUncommittedChanges',
+								'Will stash uncommitted changes',
+							),
 						}),
 						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--include-untracked'], {
-							label: `${context.title} & Include Untracked`,
+							label: localize(
+								'pushCommandConfirmStep.quickPick.includeUntracked.label',
+								'{0} & Include Untracked',
+								context.title,
+							),
 							description: '--include-untracked',
-							detail: 'Will stash uncommitted changes, including untracked files',
+							detail: localize(
+								'pushCommandConfirmStep.quickPick.includeUntracked.detail',
+								'Will stash uncommitted changes, including untracked files',
+							),
 						}),
 						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
-							label: `${context.title} & Keep Staged`,
+							label: localize(
+								'pushCommandConfirmStep.quickPick.keepStaged.label',
+								'{0} & Keep Staged',
+								context.title,
+							),
 							description: '--keep-index',
-							detail: 'Will stash uncommitted changes, but will keep staged files intact',
+							detail: localize(
+								'pushCommandConfirmStep.quickPick.keepStaged.detail.willStashUncommittedChanges',
+								'Will stash uncommitted changes, but will keep staged files intact',
+							),
 						}),
 				  ]
 				: [
 						FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 							label: context.title,
-							detail: `Will stash changes from ${
+							detail:
 								state.uris.length === 1
-									? formatPath(state.uris[0], { fileOnly: true })
-									: `${state.uris.length} files`
-							}`,
+									? localize(
+											'pushCommandConfirmStep.quickPick.stash.detail.willStashUncommittedChangesFromFile',
+											'Will stash uncommitted changes from {0}',
+											formatPath(state.uris[0], { fileOnly: true }),
+									  )
+									: localize(
+											'pushCommandConfirmStep.quickPick.stash.detail.willStashUncommittedChangesFromFiles',
+											'Will stash uncommitted changes from {0} files',
+											state.uris.length,
+									  ),
 						}),
 						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
-							label: `${context.title} & Keep Staged`,
-							detail: `Will stash changes from ${
+							label: localize(
+								'pushCommandConfirmStep.quickPick.keepStaged.label',
+								'{0} & Keep Staged',
+								context.title,
+							),
+							detail:
 								state.uris.length === 1
-									? formatPath(state.uris[0], { fileOnly: true })
-									: `${state.uris.length} files`
-							}, but will keep staged files intact`,
+									? localize(
+											'pushCommandConfirmStep.quickPick.keepStaged.detail.willStashChangesFromFile',
+											'Will stash changes from {0}, but will keep staged files intact',
+											formatPath(state.uris[0], { fileOnly: true }),
+									  )
+									: localize(
+											'pushCommandConfirmStep.quickPick.keepStaged.detail.willStashChangesFromFiles',
+											'Will stash changes from {0} files, but will keep staged files intact',
+											state.uris.length,
+									  ),
 						}),
 				  ],
 			undefined,
-			{ placeholder: `Confirm ${context.title}` },
+			{ placeholder: localize('confirm', 'Confirm {0}', context.title) },
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;

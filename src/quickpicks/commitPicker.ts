@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
@@ -13,6 +14,7 @@ import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { Directive, DirectiveQuickPickItem } from './items/directive';
 import { CommitQuickPickItem } from './items/gitCommands';
 
+const localize = nls.loadMessageBundle();
 export namespace CommitPicker {
 	export async function show(
 		log: GitLog | undefined | Promise<GitLog | undefined>,
@@ -41,7 +43,7 @@ export namespace CommitPicker {
 			log = await log;
 
 			if (log == null) {
-				quickpick.placeholder = 'Unable to show commit history';
+				quickpick.placeholder = localize('commitPicker.placeholder', 'Unable to show commit history');
 			}
 		}
 
@@ -229,7 +231,11 @@ export namespace StashPicker {
 		}
 
 		if (stash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
-			quickpick.placeholder = stash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
+			quickpick.placeholder =
+				stash == null
+					? localize('stashPicker.placeholder.noStashesFound', 'No stashes found')
+					: options?.empty ??
+					  localize('stashPicker.placeholder.noMatchingStashesFound', 'No matching stashes found');
 			quickpick.items = [DirectiveQuickPickItem.create(Directive.Cancel)];
 		}
 

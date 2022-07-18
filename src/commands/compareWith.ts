@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
@@ -7,6 +8,8 @@ import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -55,16 +58,16 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			let title;
 			switch (args.ref1) {
 				case null:
-					title = 'Compare';
+					title = localize('compare', 'Compare');
 					break;
 				case '':
-					title = 'Compare Working Tree with';
+					title = localize('compareWorkingTreeWith', 'Compare Working Tree with');
 					break;
 				case 'HEAD':
-					title = 'Compare HEAD with';
+					title = localize('compareHeadWith', 'Compare HEAD with');
 					break;
 				default:
-					title = `Compare ${args.ref1} with`;
+					title = localize('compareWith', 'Compare {0} with', args.ref1);
 					break;
 			}
 
@@ -78,7 +81,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');
-			void showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage(localize('unableToOpenComparison', 'Unable to open comparison'));
 		}
 	}
 }

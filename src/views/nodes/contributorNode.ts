@@ -1,4 +1,5 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { getPresenceDataUri } from '../../avatars';
 import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
@@ -8,7 +9,6 @@ import type { GitLog } from '../../git/models/log';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { pluralize } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ContributorsView } from '../contributorsView';
 import type { RepositoriesView } from '../repositoriesView';
@@ -19,6 +19,7 @@ import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
 	static getId(
@@ -59,7 +60,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log == null) {
+			return [new MessageNode(this.view, this, localize('noCommitsCouldBeFound', 'No commits could be found.'))];
+		}
 
 		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
@@ -82,7 +85,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const presence = this._options?.presence?.get(this.contributor.email!);
 
 		const item = new TreeItem(
-			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
+			this.contributor.current
+				? localize('contributor.you', '{0} (you)', this.contributor.label)
+				: this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
@@ -93,10 +98,11 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
-			'commit',
-			this.contributor.count,
-		)}`;
+		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${
+			this.contributor.count === 1
+				? localize('commit', '{0} commit', this.contributor.count)
+				: localize('commits', '{0} commits', this.contributor.count)
+		}`;
 
 		let avatarUri;
 		let avatarMarkdown;
@@ -108,9 +114,23 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
-					presence.status === 'dnd' ? 'in ' : ''
-				}${presence.statusText.toLocaleLowerCase()}`;
+				const title = this.contributor.count
+					? presence.status === 'dnd'
+						? localize('youAreInStatus', 'You are in {0}', presence.statusText.toLocaleLowerCase())
+						: localize('youAreStatus', 'You are {0}', presence.statusText.toLocaleLowerCase())
+					: presence.status === 'dnd'
+					? localize(
+							'contributorIsInStatus',
+							'{0} is in {1}',
+							this.contributor.label,
+							presence.statusText.toLocaleLowerCase(),
+					  )
+					: localize(
+							'contributorIsStatus',
+							'{0} is {1}',
+							this.contributor.label,
+							presence.statusText.toLocaleLowerCase(),
+					  );
 
 				avatarMarkdown = `![${title}](${avatarUri.toString(
 					true,
@@ -128,30 +148,72 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${pluralize('file', this.contributor.stats.files, {
-						format: numberFormatter.format,
-				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
-						format: numberFormatter.format,
-				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
-						format: numberFormatter.format,
-				  })}`
+				? `\\\n${
+						this.contributor.stats.files === 1
+							? localize(
+									'fileChanged',
+									'{0} file changed',
+									numberFormatter.format(this.contributor.stats.files),
+							  )
+							: localize(
+									'filesChanged',
+									'{0} files changed',
+									numberFormatter.format(this.contributor.stats.files),
+							  )
+				  }
+					, ${
+						this.contributor.stats.additions === 1
+							? localize(
+									'addition',
+									'{0} addition',
+									numberFormatter.format(this.contributor.stats.additions),
+							  )
+							: localize(
+									'additions',
+									'{0} additions',
+									numberFormatter.format(this.contributor.stats.additions),
+							  )
+					}
+					, ${
+						this.contributor.stats.deletions === 1
+							? localize(
+									'deletion',
+									'{0} deletion',
+									numberFormatter.format(this.contributor.stats.deletions),
+							  )
+							: localize(
+									'deletions',
+									'{0} deletions',
+									numberFormatter.format(this.contributor.stats.deletions),
+							  )
+					}`
 				: '';
 
 		const link = this.contributor.email
-			? `__[${this.contributor.name}](mailto:${this.contributor.email} "Email ${this.contributor.label} (${this.contributor.email})")__`
+			? `__[${this.contributor.name}](mailto:${this.contributor.email} "${localize(
+					'emailContributor',
+					'Email {0} ({1})',
+					this.contributor.label,
+					this.contributor.email,
+			  )}")__`
 			: `__${this.contributor.label}__`;
 
 		const lastCommitted =
 			this.contributor.date != null
-				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
+				? `${localize(
+						'lastCommit',
+						'Last commit {0} ({1})',
+						this.contributor.formatDateFromNow(),
+						this.contributor.formatDate(),
+				  )}\\\n`
 				: '';
 
 		const markdown = new MarkdownString(
-			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
-				'commit',
-				this.contributor.count,
-				{ format: numberFormatter.format },
-			)}${stats}`,
+			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${
+				this.contributor.count === 1
+					? localize('commit', '{0} commit', numberFormatter.format(this.contributor.count))
+					: localize('commits', '{0} commits', numberFormatter.format(this.contributor.count))
+			}${stats}`,
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;

@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithCommandArgs } from '../../commands';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Commands } from '../../constants';
@@ -8,12 +9,13 @@ import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import { GitFile } from '../../git/models/file';
 import { joinPaths, relativeDir } from '../../system/path';
-import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import type { FileNode } from './folderNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewFileNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
 	public readonly commits: GitCommit[];
@@ -84,13 +86,21 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 			if (this._hasStagedChanges) {
 				item.contextValue += '+staged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
+					`\${file}\n\${directory}/\n\n${localize(
+						'statusInIndex',
+						'{0} in Index (staged)',
+						`\${status}\${ (originalPath)}`,
+					)}`,
 					this.file,
 				);
 			} else {
 				item.contextValue += '+unstaged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
-					`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Working Tree`,
+					`\${file}\n\${directory}/\n\n${localize(
+						'statusInWorkingTree',
+						'{0} in Working Tree',
+						`\${status}\${ (originalPath)}`,
+					)}`,
 					this.file,
 				);
 			}
@@ -126,7 +136,12 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 			}
 
 			item.tooltip = StatusFileFormatter.fromTemplate(
-				`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in ${this.getChangedIn()}`,
+				`\${file}\n\${directory}/\n\n${localize(
+					'statusIn',
+					'{0} in {1}',
+					`\${status}\${ (originalPath)}`,
+					this.getChangedIn(),
+				)}`,
 				this.file,
 			);
 
@@ -210,12 +225,12 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 
 		if (this._hasUnstagedChanges) {
 			commits++;
-			changedIn.push('Working Tree');
+			changedIn.push(localize('workingTree', 'Working Tree'));
 		}
 
 		if (this._hasStagedChanges) {
 			commits++;
-			changedIn.push('Index (staged)');
+			changedIn.push(localize('index', 'Index (staged)'));
 		}
 
 		if (this.commits.length > commits) {
@@ -223,13 +238,15 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 		}
 
 		if (commits > 0) {
-			changedIn.push(pluralize('commit', commits));
+			changedIn.push(
+				commits === 1 ? localize('oneCommit', '1 commit') : localize('commits', '{0} commits', commits),
+			);
 		}
 
 		if (changedIn.length > 2) {
-			changedIn[changedIn.length - 1] = `and ${changedIn[changedIn.length - 1]}`;
+			changedIn[changedIn.length - 1] = `${localize('and', 'and')} ${changedIn[changedIn.length - 1]}`;
 		}
-		return changedIn.join(changedIn.length > 2 ? ', ' : ' and ');
+		return changedIn.join(changedIn.length > 2 ? ', ' : ` ${localize('and', 'and')} `);
 	}
 
 	override getCommand(): Command | undefined {
@@ -244,7 +261,7 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 				},
 			};
 			return {
-				title: 'Open Changes with Previous Revision',
+				title: localize('openChangesWithPreviousRevision', 'Open Changes with Previous Revision'),
 				command: Commands.DiffWithPrevious,
 				arguments: [undefined, commandArgs],
 			};
@@ -269,7 +286,7 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 			},
 		};
 		return {
-			title: 'Open Changes',
+			title: localize('openChanges', 'Open Changes'),
 			command: Commands.DiffWith,
 			arguments: [commandArgs],
 		};

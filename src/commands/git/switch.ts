@@ -1,4 +1,5 @@
 import { ProgressLocation, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { BranchSorting } from '../../config';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
@@ -23,6 +24,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -50,8 +52,8 @@ export interface SwitchGitCommandArgs {
 
 export class SwitchGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: SwitchGitCommandArgs) {
-		super(container, 'switch', 'switch', 'Switch', {
-			description: 'aka checkout, switches the current branch to a specified branch',
+		super(container, 'switch', localize('label', 'switch'), localize('title', 'Switch'), {
+			description: localize('description', 'aka checkout, switches the current branch to a specified branch'),
 		});
 
 		let counter = 0;
@@ -74,9 +76,20 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Switching ${
-					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-				} to ${state.reference.name}`,
+				title:
+					state.repos.length === 1
+						? localize(
+								'title.switchingRepoToRef',
+								'Switching {0} to {1}',
+								state.repos[0].formattedName,
+								state.reference.name,
+						  )
+						: localize(
+								'title.switchingNumberOfReposToRef',
+								'Switching {0} repositories to {1}',
+								state.repos.length,
+								state.reference.name,
+						  ),
 			},
 			() =>
 				Promise.all(
@@ -139,7 +152,16 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 			if (state.counter < 2 || state.reference == null) {
 				const result = yield* pickBranchOrTagStepMultiRepo(state as SwitchStepState, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to switch to`,
+					placeholder: context =>
+						context.showTags
+							? localize(
+									'pickBranchOrTagStepMultiRepo.placeholder.chooseBranchToSwitchTo',
+									'Choose a branch to switch to',
+							  )
+							: localize(
+									'pickBranchOrTagStepMultiRepo.placeholder.chooseBranchOrTagToSwitchTo',
+									'Choose a branch or tag to switch to',
+							  ),
 				});
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it
@@ -154,7 +176,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			}
 
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
-				context.title = `Create Branch and ${this.title}`;
+				context.title = localize('createBranch.title', 'Create Branch and {0}', this.title);
 
 				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
@@ -163,10 +185,17 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 				if (branches.length === 0) {
 					const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
-						placeholder: 'Please provide a name for the new branch',
-						titleContext: ` based on ${GitReference.toString(state.reference, {
-							icon: false,
-						})}`,
+						placeholder: localize(
+							'inputBranchNameStep.placeholder',
+							'Please provider a name for the new branch',
+						),
+						titleContext: ` ${localize(
+							'inputBranchNameStep.titleContext',
+							'based on {0}',
+							GitReference.toString(state.reference, {
+								icon: false,
+							}),
+						)}`,
 						value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
 					});
 					if (result === StepResult.Break) continue;
@@ -203,11 +232,14 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		if (context.switchToLocalFrom != null && state.repos.length === 1) {
 			additionalConfirmations = [
 				{
-					label: `${context.title} and Fast-Forward`,
+					label: localize('andFastForward', '{0} and Fast-Forward', context.title),
 					description: '',
-					detail: `Will switch to and fast-forward local ${GitReference.toString(
-						state.reference,
-					)} in $(repo) ${state.repos[0].formattedName}`,
+					detail: localize(
+						'willSwitchToAndFastForwardLocalRefInRepo',
+						'Will switch to and fast-forward local {0} in {1}',
+						GitReference.toString(state.reference),
+						`$(repo) ${state.repos[0].formattedName}`,
+					),
 					item: 'switch+fast-forward',
 				},
 			];
@@ -218,30 +250,60 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<QuickPickItemOfT<ConfirmationChoice>> = this.createConfirmStep<
 			QuickPickItemOfT<ConfirmationChoice>
 		>(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				{
 					label: context.title,
 					description: state.createBranch ? '-b' : '',
-					detail: `Will ${
-						state.createBranch
-							? `create and switch to a new branch named ${
-									state.createBranch
-							  } from ${GitReference.toString(state.reference)}`
-							: `switch to ${context.switchToLocalFrom != null ? 'local ' : ''}${GitReference.toString(
-									state.reference,
-							  )}`
-					} in ${
-						state.repos.length === 1
-							? `$(repo) ${state.repos[0].formattedName}`
-							: `${state.repos.length} repositories`
-					}`,
+					detail: state.createBranch
+						? state.repos.length === 1
+							? localize(
+									'confirmStep.detail.willCreateAndSwitchToNewBranchNamedFromRefRepo',
+									'Will create and switch to a new branch named {0} from {1} in {2}',
+									state.createBranch,
+									GitReference.toString(state.reference),
+									`$(repo) ${state.repos[0].formattedName}`,
+							  )
+							: localize(
+									'confirmStep.detail.willCreateAndSwitchToNewBranchNamedFromRefInNumberOfRepos',
+									'Will create and switch to a new branch named {0} from {1} in {2} repositories',
+									state.createBranch,
+									GitReference.toString(state.reference),
+									state.repos.length,
+							  )
+						: state.repos.length === 1
+						? context.switchToLocalFrom != null
+							? localize(
+									'confirmStep.detail.willSwitchToLocalRefInRepo',
+									'Will switch to local {0} in {1}',
+									GitReference.toString(state.reference),
+									`$(repo) ${state.repos[0].formattedName}`,
+							  )
+							: localize(
+									'confirmStep.detail.willSwitchToRefInRepo',
+									'Will switch to {0} in {1}',
+									GitReference.toString(state.reference),
+									`$(repo) ${state.repos[0].formattedName}`,
+							  )
+						: context.switchToLocalFrom != null
+						? localize(
+								'confirmStep.detail.willSwitchToLocalRefInNumberOfRepos',
+								'Will switch to local {0} in {1} repositories',
+								GitReference.toString(state.reference),
+								state.repos.length,
+						  )
+						: localize(
+								'confirmStep.detail.willSwitchToRefInNumberOfRepos',
+								'Will switch to {0} in {1} repositories',
+								GitReference.toString(state.reference),
+								state.repos.length,
+						  ),
 					item: 'switch',
 				},
 				...additionalConfirmations,
 			],
 			undefined,
-			{ placeholder: `Confirm ${context.title}` },
+			{ placeholder: localize('confirm', 'Confirm {0}', context.title) },
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;

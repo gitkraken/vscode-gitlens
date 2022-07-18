@@ -1,4 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { LineHistoryViewConfig } from '../configuration';
 import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -9,13 +10,14 @@ import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-const pinnedSuffix = ' (pinned)';
+const localize = nls.loadMessageBundle();
+const pinnedSuffix = ` ${localize('pinnedSuffix', '(pinned)')}`;
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.lineHistory', 'Line History', 'lineHistoryView');
+		super(container, 'gitlens.views.lineHistory', localize('lineHistory', 'Line History'), 'lineHistoryView');
 
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}

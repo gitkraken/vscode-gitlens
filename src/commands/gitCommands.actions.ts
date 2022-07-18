@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { env, Range, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type {
 	BrowseRepoAtRevisionCommandArgs,
 	DiffWithCommandArgs,
@@ -37,6 +38,8 @@ import type { OpenWorkspaceLocation } from '../system/utils';
 import { findOrOpenEditor, findOrOpenEditors, openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type { ResetGitCommandArgs } from './git/reset';
+
+const localize = nls.loadMessageBundle();
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
@@ -251,11 +254,15 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are you sure you want to open the changes for all ${files.length} files?`,
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					localize(
+						'areYouSureYouWantToOpenChangesForAllFiles',
+						'Are you sure you want to open the changes for all {0} files?',
+						files.length,
+					),
+					{ title: localize('yes', 'Yes') },
+					{ title: localize('no', 'No'), isCloseAffordance: true },
 				);
-				if (result == null || result.title === 'No') return;
+				if (result == null || result.title === localize('no', 'No')) return;
 			}
 
 			options = { preserveFocus: true, preview: false, ...options };
@@ -291,11 +298,15 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are you sure you want to open the changes for all ${files.length} files?`,
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					localize(
+						'areYouSureYouWantToOpenChangesForAllFiles',
+						'Are you sure you want to open the changes for all {0} files?',
+						files.length,
+					),
+					{ title: localize('yes', 'Yes') },
+					{ title: localize('no', 'No'), isCloseAffordance: true },
 				);
-				if (result == null || result.title === 'No') return;
+				if (result == null || result.title === localize('no', 'No')) return;
 			}
 
 			for (const file of files) {
@@ -338,11 +349,15 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are you sure you want to open the changes for all ${files.length} files?`,
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					localize(
+						'areYouSureYouWantToOpenChangesForAllFiles',
+						'Are you sure you want to open the changes for all {0} files?',
+						files.length,
+					),
+					{ title: localize('yes', 'Yes') },
+					{ title: localize('no', 'No'), isCloseAffordance: true },
 				);
-				if (result == null || result.title === 'No') return;
+				if (result == null || result.title === localize('no', 'No')) return;
 			}
 
 			options = { preserveFocus: true, preview: false, ...options };
@@ -647,11 +662,15 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are you sure you want to open all ${files.length} files?`,
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					localize(
+						'areYouSureYouWantToOpenAllFiles',
+						'Are you sure you want to open all {0} files?',
+						files.length,
+					),
+					{ title: localize('yes', 'Yes') },
+					{ title: localize('no', 'No'), isCloseAffordance: true },
 				);
-				if (result == null || result.title === 'No') return;
+				if (result == null || result.title === localize('no', 'No')) return;
 			}
 
 			const uris: Uri[] = (
@@ -693,11 +712,15 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are you sure you want to open all ${files.length} file revisions?`,
-					{ title: 'Yes' },
-					{ title: 'No', isCloseAffordance: true },
+					localize(
+						'areYouSureYouWantToOpenAllFileRevisions',
+						'Are your sure you want to open all {0} file revisions?',
+						files.length,
+					),
+					{ title: localize('yes', 'Yes') },
+					{ title: localize('no', 'No'), isCloseAffordance: true },
 				);
-				if (result == null || result.title === 'No') return;
+				if (result == null || result.title === localize('no', 'No')) return;
 			}
 
 			findOrOpenEditors(
@@ -819,23 +842,26 @@ export namespace GitActions {
 				repo = Container.instance.git.highlander;
 
 				if (repo == null) {
-					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
+					const pick = await RepositoryPicker.show(
+						undefined,
+						localize('chooseRepositoryToAddRemoteTo', 'Choose a repository to add a remote to'),
+					);
 					repo = pick?.item;
 					if (repo == null) return undefined;
 				}
 			}
 
 			const name = await window.showInputBox({
-				prompt: 'Please provide a name for the remote',
-				placeHolder: 'Remote name',
+				prompt: localize('provideNameForRemote', 'Please provide a name for the remote'),
+				placeHolder: localize('remoteName', 'Remote name'),
 				value: undefined,
 				ignoreFocusOut: true,
 			});
 			if (name == null || name.length === 0) return undefined;
 
 			const url = await window.showInputBox({
-				prompt: 'Please provide the repository url for the remote',
-				placeHolder: 'Remote repository url',
+				prompt: localize('provideRepositoryUrlForRemote', 'Please provide the repository url for the remote'),
+				placeHolder: localize('remoteRepositoryUrl', 'Remote repository url'),
 				value: undefined,
 				ignoreFocusOut: true,
 			});

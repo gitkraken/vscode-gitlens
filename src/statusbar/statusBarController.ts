@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
@@ -17,6 +18,7 @@ import { PromiseCancelledError } from '../system/promise';
 import { isTextEditor } from '../system/utils';
 import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 
+const localize = nls.loadMessageBundle();
 export class StatusBarController implements Disposable {
 	private _pullRequestCancellation: CancellationTokenSource | undefined;
 	private _tooltipCancellation: CancellationTokenSource | undefined;
@@ -70,15 +72,22 @@ export class StatusBarController implements Disposable {
 						alignment,
 						alignment === StatusBarAlignment.Right ? 999 : 1,
 					);
-				this._statusBarMode.name = 'GitLens Modes';
+				this._statusBarMode.name = localize('statusBar.mode.name', 'GitLens Modes');
 				this._statusBarMode.command = Commands.SwitchMode;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = new MarkdownString(
-					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Modes`,
+					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\n${localize(
+						'statusBar.mode.tooltip',
+						'Click to Switch GitLens Modes',
+					)}`,
 					true,
 				);
 				this._statusBarMode.accessibilityInformation = {
-					label: `GitLens Mode: ${mode.statusBarItemName}\nClick to Switch GitLens Modes`,
+					label: `${localize(
+						'statusBar.mode.accessibilityInfo.gitlensMode',
+						'GitLens Mode: {0}',
+						mode.statusBarItemName,
+					)}\n${localize('statusBar.mode.accessibilityInfo', 'Click to Switch GitLens Modes')}`,
 				};
 				this._statusBarMode.show();
 			} else {
@@ -109,7 +118,7 @@ export class StatusBarController implements Disposable {
 					alignment,
 					alignment === StatusBarAlignment.Right ? 1000 : 0,
 				);
-			this._statusBarBlame.name = 'GitLens Current Line Blame';
+			this._statusBarBlame.name = localize('statusBar.blame.name', 'GitLens Current Line Blame');
 			this._statusBarBlame.command = configuration.get('statusBar.command');
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
@@ -226,54 +235,57 @@ export class StatusBarController implements Disposable {
 		let tooltip: string;
 		switch (cfg.command) {
 			case StatusBarCommand.CopyRemoteCommitUrl:
-				tooltip = 'Click to Copy Remote Commit Url';
+				tooltip = localize('command.copyRemoteCommitUrl.tooltip', 'Click to Copy Remote Commit Url');
 				break;
 			case StatusBarCommand.CopyRemoteFileUrl:
 				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
-				tooltip = 'Click to Copy Remote File Revision Url';
+				tooltip = localize('command.copyRemoteFileUrl.tooltip', 'Click to Copy Remote File Revision Url');
 				break;
 			case StatusBarCommand.DiffWithPrevious:
 				this._statusBarBlame.command = Commands.DiffLineWithPrevious;
-				tooltip = 'Click to Open Line Changes with Previous Revision';
+				tooltip = localize(
+					'command.diffWithPrevious.tooltip',
+					'Click to Open Line Changes with Previous Revision',
+				);
 				break;
 			case StatusBarCommand.DiffWithWorking:
 				this._statusBarBlame.command = Commands.DiffLineWithWorking;
-				tooltip = 'Click to Open Line Changes with Working File';
+				tooltip = localize('command.diffWithWorking.tooltip', 'Click to Open Line Changes with Working File');
 				break;
 			case StatusBarCommand.OpenCommitOnRemote:
-				tooltip = 'Click to Open Commit on Remote';
+				tooltip = localize('command.openCommitOnRemote.tooltip', 'Click to Open Commit on Remote');
 				break;
 			case StatusBarCommand.OpenFileOnRemote:
-				tooltip = 'Click to Open Revision on Remote';
+				tooltip = localize('command.openFileOnRemote.tooltip', 'Click to Open Revision on Remote');
 				break;
 			case StatusBarCommand.RevealCommitInView:
-				tooltip = 'Click to Reveal Commit in the Side Bar';
+				tooltip = localize('command.revealCommitInView.tooltip', 'Click to Reveal Commit in the Side Bar');
 				break;
 			case StatusBarCommand.ShowCommitsInView:
-				tooltip = 'Click to Search for Commit';
+				tooltip = localize('command.showCommitsInView.tooltip', 'Click to Search for Commit');
 				break;
 			case StatusBarCommand.ShowQuickCommitDetails:
-				tooltip = 'Click to Show Commit';
+				tooltip = localize('command.showQuickCommitDetails.tooltip', 'Click to Show Commit');
 				break;
 			case StatusBarCommand.ShowQuickCommitFileDetails:
-				tooltip = 'Click to Show Commit (file)';
+				tooltip = localize('command.showQuickCommitFileDetails.tooltip', 'Click to Show Commit (file)');
 				break;
 			case StatusBarCommand.ShowQuickCurrentBranchHistory:
-				tooltip = 'Click to Show Branch History';
+				tooltip = localize('command.showQuickCurrentBranchHistory.tooltip', 'Click to Show Branch History');
 				break;
 			case StatusBarCommand.ShowQuickFileHistory:
-				tooltip = 'Click to Show File History';
+				tooltip = localize('command.showQuickFileHistory.tooltip', 'Click to Show File History');
 				break;
 			case StatusBarCommand.ToggleCodeLens:
-				tooltip = 'Click to Toggle Git CodeLens';
+				tooltip = localize('command.toggleCodeLens.tooltip', 'Click to Toggle Git CodeLens');
 				break;
 			case StatusBarCommand.ToggleFileBlame:
-				tooltip = 'Click to Toggle File Blame';
+				tooltip = localize('command.toggleFileBlame.tooltip', 'Click to Toggle File Blame');
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
 				if (commit.file != null) {
 					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
+						title: localize('command.toggleFileChanges.title', 'Toggle File Changes'),
 						command: Commands.ToggleFileChanges,
 						arguments: [
 							commit.file.uri,
@@ -284,13 +296,13 @@ export class StatusBarController implements Disposable {
 						],
 					});
 				}
-				tooltip = 'Click to Toggle File Changes';
+				tooltip = localize('command.toggleFileChanges.tooltip', 'Click to Toggle File Changes');
 				break;
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
 				if (commit.file != null) {
 					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
+						title: localize('command.toggleFileChangesOnly.title', 'Toggle File Changes'),
 						command: Commands.ToggleFileChanges,
 						arguments: [
 							commit.file.uri,
@@ -301,11 +313,11 @@ export class StatusBarController implements Disposable {
 						],
 					});
 				}
-				tooltip = 'Click to Toggle File Changes';
+				tooltip = localize('command.toggleFileChangesOnly.tooltip', 'Click to Toggle File Changes');
 				break;
 			}
 			case StatusBarCommand.ToggleFileHeatmap:
-				tooltip = 'Click to Toggle File Heatmap';
+				tooltip = localize('command.toggleFileHeatmap.tooltip', 'Click to Toggle File Heatmap');
 				break;
 		}
 

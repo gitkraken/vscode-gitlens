@@ -1,5 +1,6 @@
 import type { Disposable, TextDocumentShowOptions } from 'vscode';
 import { env, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type {
 	DiffWithCommandArgs,
@@ -64,6 +65,8 @@ import {
 } from './nodes/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
+
+const localize = nls.loadMessageBundle();
 
 interface CompareSelectedInfo {
 	ref: string;
@@ -780,10 +783,14 @@ export class ViewCommands {
 
 		if (commit?.hash !== node.ref.ref) {
 			void window.showWarningMessage(
-				`Commit ${GitReference.toString(node.ref, {
-					capitalize: true,
-					icon: false,
-				})} cannot be undone, because it is no longer the most recent commit.`,
+				localize(
+					'commitCannotBeUndoneBecauseItIsNoLongerMostRecent',
+					'Commit {0} cannot be undone, because it is no longer the most recent commit.',
+					GitReference.toString(node.ref, {
+						capitalize: true,
+						icon: false,
+					}),
+				),
 			);
 
 			return;
@@ -868,7 +875,12 @@ export class ViewCommands {
 
 		return this.container.searchAndCompareView.compare(
 			node.repoPath,
-			{ ref: commonAncestor, label: `ancestry with ${node.ref.ref} (${GitRevision.shorten(commonAncestor)})` },
+			{
+				ref: commonAncestor,
+				label: `${localize('ancestryWithRef', 'ancestry with {0}', node.ref.ref)} (${GitRevision.shorten(
+					commonAncestor,
+				)})`,
+			},
 			'',
 		);
 	}

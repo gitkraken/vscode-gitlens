@@ -92,6 +92,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `${workspaceFolder}` &mdash; the path of the folder opened in VS Code containing the specified repository
   - `${workspaceFolderBasename}` &mdash; the name of the folder opened in VS Code containing the specified repository without any slashes (/)
 - Adds owner avatars to remotes in the _Remotes_ view for GitHub remotes
+- Adds internalization (i18n); closes [#577](https://github.com/gitkraken/vscode-gitlens/issues/577) thanks to [PR #1937](https://github.com/gitkraken/vscode-gitlens/pull/1937) by Aleksei Airapetov ([@airaketa](https://github.com/airaketa))
 
 ### Changed
 

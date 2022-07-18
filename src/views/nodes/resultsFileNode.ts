@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -13,6 +14,7 @@ import type { FileNode } from './folderNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	constructor(
 		view: View,
@@ -128,7 +130,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 			},
 		};
 		return {
-			title: 'Open Changes',
+			title: localize('openChanges', 'Open Changes'),
 			command: Commands.DiffWith,
 			arguments: [commandArgs],
 		};

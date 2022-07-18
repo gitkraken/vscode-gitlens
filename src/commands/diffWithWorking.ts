@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -9,6 +10,8 @@ import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffWithWorkingCommandArgs {
 	inDiffRightEditor?: boolean;
@@ -52,7 +55,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				void showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage(localize('unableToOpenCompare', 'Unable to open compare'));
 
 				return;
 			}
@@ -60,12 +63,17 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If the sha is missing, just let the user know the file matches
 		if (gitUri.sha == null) {
-			void window.showInformationMessage('File matches the working tree');
+			void window.showInformationMessage(localize('fileMatchesWorkingTree', 'File matches the working tree'));
 
 			return;
 		}
 		if (gitUri.sha === GitRevision.deletedOrMissing) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage(
+				localize(
+					'unableToOpenCompareFileDeletedFromWorkingTree',
+					'Unable to open compare. File has been deleted from the working tree',
+				),
+			);
 
 			return;
 		}
@@ -96,7 +104,12 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		const workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage(
+				localize(
+					'unableToOpenCompareFileDeletedFromWorkingTree',
+					'Unable to open compare. File has been deleted from the working tree',
+				),
+			);
 
 			return;
 		}

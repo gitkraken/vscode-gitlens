@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { StashesViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -18,6 +19,8 @@ import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -38,7 +41,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No stashes could be found.';
+				this.view.message = localize('noStashesFound', 'No stashes could be found.');
 
 				return [];
 			}
@@ -56,8 +59,8 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 
 			const stash = await child.repo.getStash();
 			if (stash == null || stash.commits.size === 0) {
-				this.view.message = 'No stashes could be found.';
-				this.view.title = 'Stashes';
+				this.view.message = localize('noStashesFound', 'No stashes could be found.');
+				this.view.title = localize('stashes', 'Stashes');
 
 				void child.ensureSubscription();
 
@@ -65,7 +68,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Stashes (${stash.commits.size})`;
+			this.view.title = localize('stashesNumber', 'Stashes ({0})', stash.commits.size);
 
 			return child.getChildren();
 		}
@@ -76,7 +79,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('stashes', 'Stashes'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -85,7 +88,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.stashes', 'Stashes', 'stashesView');
+		super(container, 'gitlens.views.stashes', localize('stashes', 'Stashes'), 'stashesView');
 	}
 
 	override get canReveal(): boolean {
@@ -196,7 +199,11 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingStashInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(stash, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

@@ -1,6 +1,8 @@
 import type { QuickPickItem } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Subscription } from '../../subscription';
 
+const localize = nls.loadMessageBundle();
 export enum Directive {
 	Back,
 	Cancel,
@@ -34,32 +36,44 @@ export namespace DirectiveQuickPickItem {
 		if (label == null) {
 			switch (directive) {
 				case Directive.Back:
-					label = 'Back';
+					label = localize('directive.back.label', 'Back');
 					break;
 				case Directive.Cancel:
-					label = 'Cancel';
+					label = localize('directive.cancel.label', 'Cancel');
 					break;
 				case Directive.LoadMore:
-					label = 'Load more';
+					label = localize('directive.loadMore.label', 'Load more');
 					break;
 				case Directive.Noop:
-					label = 'Try again';
+					label = localize('directive.noop.label', 'Try again');
 					break;
 				case Directive.StartPreviewTrial:
-					label = 'Start a GitLens Pro Trial';
-					detail = 'Try GitLens+ features on private repos, free for 3 days, without an account';
+					label = localize('directive.startPreviewTrial.label', 'Start a GitLens Pro Trial');
+					detail = localize(
+						'directive.startPreviewTrial.detail',
+						'Try GitLens+ features on private repos, free for 3 days, without an account',
+					);
 					break;
 				case Directive.ExtendTrial:
-					label = 'Extend Your GitLens Pro Trial';
-					detail = 'To continue to use GitLens+ features on private repos, free for an additional 7-days';
+					label = localize('directive.extendTrial.label', 'Extend Your GitLens Pro Trial');
+					detail = localize(
+						'directive.extendTrial.detail',
+						'To continue to use GitLens+ features on private repos, free for an additional 7-days',
+					);
 					break;
 				case Directive.RequiresVerification:
-					label = 'Resend Verification Email';
-					detail = 'You must verify your email address before you can continue';
+					label = localize('directive.requiresVerification.label', 'Resend Verification Email');
+					detail = localize(
+						'directive.requiresVerification.detail',
+						'You must verify your email address before you can continue',
+					);
 					break;
 				case Directive.RequiresPaidSubscription:
-					label = 'Upgrade to Pro';
-					detail = 'To use GitLens+ features on private repos';
+					label = localize('directive.requiresPaidSubscription.label', 'Upgrade to Pro');
+					detail = localize(
+						'directive.requiresPaidSubscription.detail',
+						'To use GitLens+ features on private repos',
+					);
 					break;
 			}
 		}

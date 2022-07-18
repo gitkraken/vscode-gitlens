@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import type { Container } from '../../container';
 import { GitCommit } from '../../git/models/commit';
@@ -12,6 +13,7 @@ import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
 import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -46,8 +48,8 @@ export interface LogGitCommandArgs {
 
 export class LogGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: LogGitCommandArgs) {
-		super(container, 'log', 'history', 'Commits', {
-			description: 'aka log, shows commit history',
+		super(container, 'log', localize('label', 'history'), localize('title', 'Commits'), {
+			description: localize('description', 'aka log, shows commit history'),
 		});
 
 		let counter = 0;
@@ -122,7 +124,10 @@ export class LogGitCommand extends QuickCommand<State> {
 
 			if (state.counter < 2 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
-					placeholder: 'Choose a branch or tag to show its commit history',
+					placeholder: localize(
+						'pickBranchOrTagStep.placeholder.chooseBranchOrTagToShowHistory',
+						'Choose a branch or tag to show its commit history',
+					),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					ranges: true,
@@ -174,10 +179,14 @@ export class LogGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found in ${GitReference.toString(context.selectedBranchOrTag, {
-									icon: false,
-							  })}`
-							: 'Choose a commit',
+							? localize(
+									'pickCommitStep.placeholder.noCommitsFoundInBranchOrTag',
+									'No commits found in {0}',
+									GitReference.toString(context.selectedBranchOrTag, {
+										icon: false,
+									}),
+							  )
+							: localize('pickCommitStep.placeholder.chooseCommit', 'Choose a commit'),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResult.Break) continue;

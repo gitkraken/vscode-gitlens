@@ -1,5 +1,6 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { QuickInputButtons, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import { Container } from '../container';
@@ -32,6 +33,8 @@ import { PickCommandStep } from './gitCommands.utils';
 import type { CustomStep, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickInputStep, isQuickPickStep, QuickCommand, StepResult } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
+
+const localize = nls.loadMessageBundle();
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
@@ -198,7 +201,7 @@ export class GitCommandsCommand extends Command {
 					disposables.push(quickpick.onDidHide(() => resolve(step)));
 
 					quickpick.title = command.title;
-					quickpick.placeholder = 'Loading...';
+					quickpick.placeholder = localize('loading', 'Loading...');
 					quickpick.busy = true;
 					quickpick.enabled = false;
 

@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -7,7 +8,7 @@ import { GitRevision } from '../../git/models/reference';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
-import { pluralize, sortCompare } from '../../system/string';
+import { sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
@@ -16,6 +17,7 @@ import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	static key = ':status-branch:files';
 	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
@@ -117,7 +119,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		);
 		const files = stats?.changedFiles ?? 0;
 
-		const label = `${pluralize('file', files)} changed`;
+		const label =
+			files === 1
+				? localize('oneFileChanged', '1 file changed')
+				: localize('filesChanged', '{0} files changed', files);
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.BranchStatusFiles;

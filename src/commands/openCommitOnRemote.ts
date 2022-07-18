@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -17,6 +18,8 @@ import {
 	isCommandContextViewNodeHasCommit,
 } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -85,7 +88,9 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
+					void showFileNotUnderSourceControlWarningMessage(
+						localize('unableToOpenCommitOnRemote', 'Unable to open commit on remote provider'),
+					);
 
 					return;
 				}
@@ -107,7 +112,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open commit on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenCommitOnRemote',
+					'Unable to open commit on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

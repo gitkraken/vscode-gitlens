@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
 import { GitContributor } from '../../git/models/contributor';
@@ -13,6 +14,7 @@ import { ContributorNode } from './contributorNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {
 	static key = ':contributors';
 	static getId(repoPath: string): string {
@@ -54,7 +56,15 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 			const stats = configuration.get('views.contributors.showStatistics');
 
 			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
-			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			if (contributors.length === 0) {
+				return [
+					new MessageNode(
+						this.view,
+						this,
+						localize('noContributorsCouldBeFound', 'No contributors could be found.'),
+					),
+				];
+			}
 
 			GitContributor.sort(contributors);
 			const presenceMap = await this.maybeGetPresenceMap(contributors);
@@ -70,7 +80,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 	getTreeItem(): TreeItem {
 		this.splatted = false;
 
-		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(localize('contributors', 'Contributors'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;
 		item.iconPath = new ThemeIcon('organization');

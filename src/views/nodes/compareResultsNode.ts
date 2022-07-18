@@ -1,11 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GitUri } from '../../git/gitUri';
 import { GitRevision } from '../../git/models/reference';
 import type { StoredNamedRef } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
-import { md5, pluralize } from '../../system/string';
+import { md5 } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
@@ -14,6 +15,7 @@ import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 let instanceId = 0;
 
 export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
@@ -90,7 +92,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.view,
 					this,
 					this.repoPath,
-					'Behind',
+					localize('behind', 'Behind'),
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
@@ -103,7 +105,10 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					},
 					{
 						id: 'behind',
-						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description:
+							(aheadBehindCounts?.behind ?? 0) === 1
+								? localize('oneCommit', '1 commit')
+								: localize('commits', '{0} commits', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -111,7 +116,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.view,
 					this,
 					this.repoPath,
-					'Ahead',
+					localize('ahead', 'Ahead'),
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(ahead.ref1, ahead.ref2, '..')),
 						comparison: ahead,
@@ -124,7 +129,10 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					},
 					{
 						id: 'ahead',
-						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description:
+							(aheadBehindCounts?.behind ?? 0) === 1
+								? localize('oneCommit', '1 commit')
+								: localize('commits', '{0} commits', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -153,12 +161,18 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		const item = new TreeItem(
-			`Comparing ${
-				this._ref.label ?? GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
-			} with ${
+			localize(
+				'comparingRefWithRef',
+				'Comparing {0} with {1}',
+				this._ref.label ??
+					GitRevision.shorten(this._ref.ref, {
+						strings: { working: localize('workingTree', 'Working Tree') },
+					}),
 				this._compareWith.label ??
-				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
-			}`,
+					GitRevision.shorten(this._compareWith.ref, {
+						strings: { working: localize('withWorkingTree', 'Working Tree') },
+					}),
+			),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
@@ -296,8 +310,14 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			}
 		}
 
+		const filesCount = files?.length ?? 0;
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				filesCount === 0
+					? localize('noFilesChanged', 'No files changed')
+					: filesCount === 1
+					? localize('oneFileChanged', '1 file changed')
+					: localize('filesChanged', '{0} files changed', filesCount),
 			files: files,
 			stats: stats,
 		};
@@ -343,8 +363,14 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		]);
 
 		const files = getSettledValue(filesResult) ?? [];
+		const filesCount = files?.length ?? 0;
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				filesCount === 0
+					? localize('noFilesChanged', 'No files changed')
+					: filesCount === 1
+					? localize('oneFileChanged', '1 file changed')
+					: localize('filesChanged', '{0} files changed', filesCount),
 			files: files,
 			stats: getSettledValue(statsResult),
 		};

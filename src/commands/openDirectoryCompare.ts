@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -10,6 +11,8 @@ import { command } from '../system/command';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -60,15 +63,19 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 
 		try {
 			const repoPath = (
-				await RepositoryPicker.getBestRepositoryOrShow(uri, editor, 'Directory Compare Working Tree With')
+				await RepositoryPicker.getBestRepositoryOrShow(
+					uri,
+					editor,
+					localize('directoryCompareWorkingTreeWith', 'Directory Compare Working Tree With'),
+				)
 			)?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {
 				const pick = await ReferencePicker.show(
 					repoPath,
-					'Directory Compare Working Tree with',
-					'Choose a branch or tag to compare with',
+					localize('directoryCompareWorkingTreeWith', 'Directory Compare Working Tree with'),
+					localize('chooseBranchOrTagToCompareWith', 'Choose a branch or tag to compare with'),
 					{
 						allowEnteringRefs: true,
 						// checkmarks: false,
@@ -83,7 +90,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
-			void showGenericErrorMessage('Unable to open directory compare');
+			void showGenericErrorMessage(localize('unableToOpenDirectoryCompare', 'Unable to open directory compare'));
 		}
 	}
 }

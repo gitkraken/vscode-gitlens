@@ -1,13 +1,15 @@
+import * as nls from 'vscode-nls';
 import type { GitCommit } from '../../git/models/commit';
 import { MessageNode } from './common';
 import type { ViewNode } from './viewNode';
 import { ContextValues } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 const markers: [number, string][] = [
-	[0, 'Less than a week ago'],
-	[7, 'Over a week ago'],
-	[25, 'Over a month ago'],
-	[77, 'Over 3 months ago'],
+	[0, localize('lessThanWeekAgo', 'Less than a week ago')],
+	[7, localize('overWeekAgo', 'Over a week ago')],
+	[25, localize('overMonthAgo', 'Over a month ago')],
+	[77, localize('overThreeMonthsAgo', 'Over 3 months ago')],
 ];
 
 export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(

@@ -1,11 +1,14 @@
 import type { Command, ThemeIcon, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export class MessageNode extends ViewNode {
 	constructor(
@@ -189,7 +192,7 @@ export abstract class PagerNode extends ViewNode {
 
 	override getCommand(): Command | undefined {
 		return {
-			title: 'Load more',
+			title: localize('pagerNode.loadMore', 'Load more'),
 			command: 'gitlens.views.loadMoreChildren',
 			arguments: [this],
 		};
@@ -213,8 +216,12 @@ export class LoadMoreNode extends PagerNode {
 			parent,
 			options?.message ??
 				(options?.pageSize === 0
-					? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-					: 'Load more'),
+					? localize(
+							'loadMoreNode.loadAll',
+							'Load all {0} this may take a while',
+							`${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space}`,
+					  )
+					: localize('loadMoreNode.loadMore', 'Load more')),
 			previousNode,
 			options,
 		);

@@ -1,4 +1,5 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -22,6 +23,7 @@ import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> implements PageableViewNode {
 	static key = ':history:file';
 	static getId(repoPath: string, uri: string): string {
@@ -129,7 +131,15 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 			}
 		}
 
-		if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
+		if (children.length === 0) {
+			return [
+				new MessageNode(
+					this.view,
+					this,
+					localize('noFileHistoryCouldBeFound', 'No file history could be found.'),
+				),
+			];
+		}
 		return children;
 	}
 
@@ -145,7 +155,9 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		}`;
 
 		this.view.description = `${label}${
-			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
+			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor
+				? ` ${localize('pinned', '(pinned)')}`
+				: ''
 		}`;
 
 		return item;

@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import { CoreGitConfiguration, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
@@ -9,7 +10,7 @@ import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/direct
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
-import { pad, pluralize } from '../../system/string';
+import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -28,6 +29,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -52,8 +54,8 @@ type PushStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos',
 
 export class PushGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: PushGitCommandArgs) {
-		super(container, 'push', 'push', 'Push', {
-			description: 'pushes changes from the current branch to a remote',
+		super(container, 'push', localize('label', 'push'), localize('title', 'Push'), {
+			description: localize('description', 'pushes changes from the current branch to a remote'),
 		});
 
 		let counter = 0;
@@ -162,19 +164,49 @@ export class PushGitCommand extends QuickCommand<State> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {
-			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will push ${state.repos.length} repositories`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
-					label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-					description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-					detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-						state.repos.length
-					} repositories`,
-				}),
-			]);
+			step = this.createConfirmStep(
+				appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
+				[
+					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+						label: this.title,
+						detail:
+							state.repos.length === 1
+								? localize('quickPick.push.detail.willPushOneRepository', 'Will push 1 repository')
+								: localize(
+										'quickPick.push.detail.willPushRepositories',
+										'Will push {0} repositories',
+										state.repos.length,
+								  ),
+					}),
+					FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+						label: useForceWithLease
+							? localize('quickPick.force.label.withLease', 'Force {0} (with lease)', this.title)
+							: localize('quickPick.force.label', 'Force {0}', this.title),
+						description: `--force${useForceWithLease ? '-with-lease' : ''}`,
+						detail: useForceWithLease
+							? state.repos.length === 1
+								? localize(
+										'quickPick.force.detail.WillForcePushWithLeaseOneRepository',
+										'Will force push (with lease) 1 repository',
+								  )
+								: localize(
+										'quickPick.force.detail.WillForcePushWithLeaseRepositories',
+										'Will force push (with lease) {0} repositories',
+										state.repos.length,
+								  )
+							: state.repos.length === 1
+							? localize(
+									'quickPick.force.detail.WillForcePushOneRepository',
+									'Will force push 1 repository',
+							  )
+							: localize(
+									'quickPick.force.detail.WillForcePushRepositories',
+									'Will force push {0} repositories',
+									state.repos.length,
+							  ),
+					}),
+				],
+			);
 		} else {
 			const [repo] = state.repos;
 
@@ -183,11 +215,11 @@ export class PushGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference)) {
 				if (state.reference.remote) {
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 						[],
 						DirectiveQuickPickItem.create(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: 'Cannot push remote branch',
+							label: localize('cancel', 'Cancel {0}', this.title),
+							detail: localize('quickPick.cannotPushRemote.detail', 'Cannot push remote branch'),
 						}),
 					);
 				} else {
@@ -200,8 +232,18 @@ export class PushGitCommand extends QuickCommand<State> {
 									state.flags,
 									['--set-upstream', remote.name, branch.name],
 									{
-										label: `Publish ${branch.name} to ${remote.name}`,
-										detail: `Will publish ${GitReference.toString(branch)} to ${remote.name}`,
+										label: localize(
+											'quickPick.publish.label.publishBranchToRemote',
+											'Publish {0} to {1}',
+											branch.name,
+											remote.name,
+										),
+										detail: localize(
+											'quickPick.publish.detail',
+											'Will publish {0} to {1}',
+											GitReference.toString(branch),
+											remote.name,
+										),
 									},
 								),
 							);
@@ -209,70 +251,164 @@ export class PushGitCommand extends QuickCommand<State> {
 
 						if (items.length) {
 							step = this.createConfirmStep(
-								appendReposToTitle('Confirm Publish', state, context),
+								appendReposToTitle(localize('confirmPublish', 'Confirm Publish'), state, context),
 								items,
 								undefined,
-								{ placeholder: 'Confirm Publish' },
+								{ placeholder: localize('confirmPublish', 'Confirm Publish') },
 							);
 						} else {
 							step = this.createConfirmStep(
-								appendReposToTitle('Confirm Publish', state, context),
+								appendReposToTitle(localize('confirmPublish', 'Confirm Publish'), state, context),
 								[],
 								DirectiveQuickPickItem.create(Directive.Cancel, true, {
-									label: 'Cancel Publish',
-									detail: 'Cannot publish; No remotes found',
+									label: localize('cancelPublish', 'Cancel Publish'),
+									detail: localize('cannotPublishNoRemotesFound', 'Cannot publish; No remotes found'),
 								}),
-								{ placeholder: 'Confirm Publish' },
+								{ placeholder: localize('confirmPublish', 'Confirm Publish') },
 							);
 						}
 					} else if (branch != null && branch?.state.behind > 0) {
 						const currentBranch = await repo.getBranch();
 
 						step = this.createConfirmStep(
-							appendReposToTitle(`Confirm ${context.title}`, state, context),
+							appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 							branch.id === currentBranch?.id
 								? [
 										FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
-											label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
+											label: useForceWithLease
+												? localize(
+														'quickPick.force.label.withLease',
+														'Force {0} (with lease)',
+														this.title,
+												  )
+												: localize('quickPick.force.label', 'Force {0}', this.title),
 											description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-											detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-												branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''
-											}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
-												branch != null && branch.state.behind > 0
-													? `, overwriting ${pluralize('commit', branch.state.behind)}${
-															branch?.getRemoteName()
-																? ` on ${branch.getRemoteName()}`
-																: ''
-													  }`
-													: ''
-											}`,
+											detail: `${
+												useForceWithLease
+													? branch?.state.ahead === 1
+														? branch?.getRemoteName()
+															? localize(
+																	'quickPick.force.detail.willForcePushWithLeaseOneCommitToRemote',
+																	'Will force push (with lease) 1 commit to {0}',
+																	branch?.getRemoteName(),
+															  )
+															: localize(
+																	'quickPick.force.detail.willForcePushWithLeaseOneCommit',
+																	'Will force push (with lease) 1 commit',
+															  )
+														: branch?.getRemoteName()
+														? localize(
+																'quickPick.force.detail.willForcePushWithLeaseCommitsToRemote',
+																'Will force push (with lease) {0} commits to {1}',
+																branch.state.ahead,
+																branch.getRemoteName(),
+														  )
+														: localize(
+																'quickPick.force.detail.willForcePushWithLeaseCommits',
+																'Will force push (with lease) {0} commits',
+																branch.state.ahead,
+														  )
+													: branch?.state.ahead === 1
+													? branch?.getRemoteName()
+														? localize(
+																'quickPick.force.detail.willForcePushOneCommitToRemote',
+																'Will force push 1 commit to {0}',
+																branch.getRemoteName(),
+														  )
+														: localize(
+																'quickPick.force.detail.willForcePushOneCommit',
+																'Will force push 1 commit',
+														  )
+													: branch?.getRemoteName()
+													? localize(
+															'quickPick.force.detail.willForcePushCommitsToRemote',
+															'Will force push {0} commits to {1}',
+															branch.state.ahead,
+															branch.getRemoteName(),
+													  )
+													: localize(
+															'quickPick.force.detail.willForcePushCommits',
+															'Will force push {0} commits',
+															branch.state.ahead,
+													  )
+											}
+												${
+													branch != null && branch.state.behind > 0
+														? `, ${
+																branch?.state.behind === 1
+																	? branch?.getRemoteName()
+																		? localize(
+																				'quickPick.force.detail.overwritingOneCommitOnRemote',
+																				'overwiring 1 commit on {0}',
+																				branch.getRemoteName(),
+																		  )
+																		: localize(
+																				'quickPick.force.detail.overwritingOneCommit',
+																				'overwiring 1 commit',
+																		  )
+																	: branch?.getRemoteName()
+																	? localize(
+																			'quickPick.force.detail.overwritingCommitsOnRemote',
+																			'overwiring {0} commits on {1}',
+																			branch.state.behind,
+																			branch.getRemoteName(),
+																	  )
+																	: localize(
+																			'quickPick.force.detail.overwritingCommits',
+																			'overwiring {0} commits',
+																			branch.state.behind,
+																	  )
+														  }`
+														: ''
+												}`,
 										}),
 								  ]
 								: [],
 							DirectiveQuickPickItem.create(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `Cannot push; ${GitReference.toString(
-									branch,
-								)} is behind ${branch.getRemoteName()} by ${pluralize('commit', branch.state.behind)}`,
+								label: localize('cancel', 'Cancel {0}', this.title),
+								detail:
+									branch.state.behind === 1
+										? localize(
+												'cannotPushBranchIsBehindByOneCommit',
+												'Cannot push; {0} is behind by 1 commit',
+												GitReference.toString(branch),
+										  )
+										: localize(
+												'cannotPushBranchIsBehindByCommits',
+												'Cannot push; {0} is behind by {1} commits',
+												GitReference.toString(branch),
+												branch.state.behind,
+										  ),
 							}),
 						);
 					} else if (branch != null && branch?.state.ahead > 0) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 							FlagsQuickPickItem.create<Flags>(state.flags, [branch.getRemoteName()!], {
 								label: this.title,
-								detail: `Will push ${pluralize(
-									'commit',
-									branch.state.ahead,
-								)} from ${GitReference.toString(branch)} to ${branch.getRemoteName()}`,
+								detail:
+									branch.state.ahead === 1
+										? localize(
+												'quickPick.push.detail.willPushOneCommitFromBranchToRemote',
+												'Will push 1 commit from {0} to {1}',
+												GitReference.toString(branch),
+												branch.getRemoteName(),
+										  )
+										: localize(
+												'quickPick.push.detail.willPushCommitsFromBranchToRemote',
+												'Will push {0} commits from {1} to {2}',
+												branch.state.ahead,
+												GitReference.toString(branch),
+												branch.getRemoteName(),
+										  ),
 							}),
 						]);
 					} else {
 						step = this.createConfirmStep(
-							appendReposToTitle(`Confirm ${context.title}`, state, context),
+							appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 							[],
 							DirectiveQuickPickItem.create(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: 'No commits found to push',
+								label: localize('cancel', 'Cancel {0}', this.title),
+								detail: localize('noCommitsFoundToPush', 'No commits found to push'),
 							}),
 						);
 					}
@@ -298,8 +434,18 @@ export class PushGitCommand extends QuickCommand<State> {
 									state.flags,
 									['--set-upstream', remote.name, status.branch],
 									{
-										label: `Publish ${branch.name} to ${remote.name}`,
-										detail: `Will publish ${GitReference.toString(branch)} to ${remote.name}`,
+										label: localize(
+											'quickPick.publish.label',
+											'Publish {0} to {1}',
+											branch.name,
+											remote.name,
+										),
+										detail: localize(
+											'quickPick.publish.detail',
+											'Will publish {0} to {1}',
+											GitReference.toString(branch),
+											remote.name,
+										),
 									},
 								),
 							);
@@ -308,30 +454,32 @@ export class PushGitCommand extends QuickCommand<State> {
 
 					if (items.length) {
 						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Publish', state, context),
+							appendReposToTitle(localize('confirmPublish', 'Confirm Publish'), state, context),
 							items,
 							undefined,
-							{ placeholder: 'Confirm Publish' },
+							{ placeholder: localize('confirmPublish', 'Confirm Publish') },
 						);
 					} else if (status.upstream == null) {
 						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Publish', state, context),
+							appendReposToTitle(localize('confirmPublish', 'Confirm Publish'), state, context),
 							[],
 							DirectiveQuickPickItem.create(Directive.Cancel, true, {
-								label: 'Cancel Publish',
-								detail: 'Cannot publish; No remotes found',
+								label: localize('cancelPublish', 'Cancel Publish'),
+								detail: localize('cannotPublishNoRemotesFound', 'Cannot publish; No remotes found'),
 							}),
-							{ placeholder: 'Confirm Publish' },
+							{ placeholder: localize('confirmPublish', 'Confirm Publish') },
 						);
 					} else {
 						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Push', state, context),
+							appendReposToTitle(localize('confirmPush', 'Confirm Push'), state, context),
 							[],
 							DirectiveQuickPickItem.create(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `Cannot push; No commits ahead of ${getRemoteNameFromBranchName(
-									status.upstream,
-								)}`,
+								label: localize('cancel', 'Cancel {0}', this.title),
+								detail: localize(
+									'cannotPushNoCommitsAheadOfRemote',
+									'Cannot push; No commits ahead of {0}',
+									getRemoteNameFromBranchName(status.upstream),
+								),
 							}),
 						);
 					}
@@ -340,44 +488,108 @@ export class PushGitCommand extends QuickCommand<State> {
 
 					const lastFetched = await repo.getLastFetched();
 					if (lastFetched !== 0) {
-						lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+						lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}${localize(
+							'lastFetchedTime',
+							'Last fetched {0}',
+							fromNow(new Date(lastFetched)),
+						)}`;
 					}
 
 					let pushDetails;
 					if (state.reference != null) {
 						pushDetails = `${
 							status?.state.ahead
-								? ` commits up to and including ${GitReference.toString(state.reference, {
-										label: false,
-								  })}`
+								? ` ${localize(
+										'pushDetails.commitsUpToAndIncludingRef',
+										'commits up to and including {0}',
+										GitReference.toString(state.reference, { label: false }),
+								  )}`
 								: ''
-						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream)}` : ''}`;
-					} else {
-						pushDetails = `${status?.state.ahead ? ` ${pluralize('commit', status.state.ahead)}` : ''}${
-							status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream)}` : ''
+						}${
+							status?.upstream
+								? ` ${localize(
+										'pushDetails.toRemote',
+										'to {0}',
+										getRemoteNameFromBranchName(status.upstream),
+								  )}`
+								: ''
 						}`;
+					} else {
+						pushDetails = status?.state.ahead
+							? status.state.ahead === 1
+								? status?.upstream
+									? localize(
+											'pushDetails.oneCommitToRemote',
+											'1 commit to {0}',
+											getRemoteNameFromBranchName(status.upstream),
+									  )
+									: localize('pushDetails.oneCommitToRemote', '1 commit')
+								: status?.upstream
+								? localize(
+										'pushDetails.commitsToRemote',
+										'{0} commits to {1}',
+										status.state.ahead,
+										getRemoteNameFromBranchName(status.upstream),
+								  )
+								: localize('pushDetails.commitsToRemote', '{0} commits', status.state.ahead)
+							: '';
 					}
 
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+						appendReposToTitle(
+							localize('confirm', 'Confirm {0}', context.title),
+							state,
+							context,
+							lastFetchedOn,
+						),
 						[
 							...(status?.state.behind
 								? []
 								: [
 										FlagsQuickPickItem.create<Flags>(state.flags, [], {
 											label: this.title,
-											detail: `Will push${pushDetails}`,
+											detail: `${localize(
+												'quickpick.push.detail.willPush',
+												'Will push',
+											)}${pushDetails}`,
 										}),
 								  ]),
 							FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
 								label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
 								description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-								detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}${
+								detail: `${
+									useForceWithLease
+										? localize(
+												'quickpick.push.detail.willForcePushWithLease',
+												'Will force push (with lease)',
+										  )
+										: localize('quickpick.push.detail.willForcePush', 'Will force push')
+								}${pushDetails}${
 									status != null && status.state.behind > 0
-										? `, overwriting ${pluralize('commit', status.state.behind)}${
-												status?.upstream
-													? ` on ${getRemoteNameFromBranchName(status.upstream)}`
-													: ''
+										? `, ${
+												status.state.behind === 1
+													? status?.upstream
+														? localize(
+																'quickPick.force.detail.overwritingOneCommitOnRemote',
+																'overwiring 1 commit on {0}',
+																getRemoteNameFromBranchName(status.upstream),
+														  )
+														: localize(
+																'quickPick.force.detail.overwritingOneCommit',
+																'overwiring 1 commit',
+														  )
+													: status?.upstream
+													? localize(
+															'quickPick.force.detail.overwritingCommitsOnRemote',
+															'overwiring {0} commits on {1}',
+															status.state.behind,
+															getRemoteNameFromBranchName(status.upstream),
+													  )
+													: localize(
+															'quickPick.force.detail.overwritingCommits',
+															'overwiring {0} commits',
+															status.state.behind,
+													  )
 										  }`
 										: ''
 								}`,
@@ -385,10 +597,34 @@ export class PushGitCommand extends QuickCommand<State> {
 						],
 						status?.state.behind
 							? DirectiveQuickPickItem.create(Directive.Cancel, true, {
-									label: `Cancel ${this.title}`,
-									detail: `Cannot push; ${GitReference.toString(branch)} is behind${
-										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream)}` : ''
-									} by ${pluralize('commit', status.state.behind)}`,
+									label: localize('cancel', 'Cancel {0}', this.title),
+									detail: status?.upstream
+										? status?.state.behind === 1
+											? localize(
+													'quickPick.cannotPushBranchIsBehindRemoteByOneCommit',
+													'Cannot push; {0} is behind {1} by 1 commit',
+													GitReference.toString(branch),
+													getRemoteNameFromBranchName(status.upstream),
+											  )
+											: localize(
+													'quickPick.cannotPushBranchIsBehindRemoteByCommits',
+													'Cannot push; {0} is behind {1} by {2} commits',
+													GitReference.toString(branch),
+													getRemoteNameFromBranchName(status.upstream),
+													status.state.behind,
+											  )
+										: status?.state.behind === 1
+										? localize(
+												'quickPick.cannotPushBranchIsBehindByOneCommit',
+												'Cannot push; {0} is behind by 1 commit',
+												GitReference.toString(branch),
+										  )
+										: localize(
+												'quickPick.cannotPushBranchIsBehindByCommits',
+												'Cannot push; {0} is behind by {1} commits',
+												GitReference.toString(branch),
+												status.state.behind,
+										  ),
 							  })
 							: undefined,
 					);
@@ -397,9 +633,11 @@ export class PushGitCommand extends QuickCommand<State> {
 					step.onDidClickButton = async (quickpick, button) => {
 						if (button !== QuickCommandButtons.Fetch || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
-							GlyphChars.Ellipsis
-						}`;
+						quickpick.title = `${localize('confirm', 'Confirm {0}', context.title)}${pad(
+							GlyphChars.Dot,
+							2,
+							2,
+						)}${localize('fetching', 'Fetching')}${GlyphChars.Ellipsis}`;
 
 						quickpick.busy = true;
 						quickpick.enabled = false;

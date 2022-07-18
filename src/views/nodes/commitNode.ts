@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
 import { Colors, Commands, ContextKeys } from '../../constants';
@@ -26,6 +27,8 @@ import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -197,7 +200,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			},
 		};
 		return {
-			title: 'Open Changes with Previous Revision',
+			title: localize('openCHangesWithPreviousRevision', 'Open Changes with Previous Revision'),
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};

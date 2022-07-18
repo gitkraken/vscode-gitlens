@@ -10,6 +10,7 @@ import type {
 	WorkspaceFolder,
 } from 'vscode';
 import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
 import { CharCode, ContextKeys, Schemes } from '../../constants';
@@ -93,6 +94,8 @@ import { getRemoteHubApi } from '../remotehub';
 import type { GraphItemContext, GraphItemRefContext } from '../webviews/graph/graphWebview';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
+
+const localize = nls.loadMessageBundle();
 
 const doubleQuoteRegex = /"/g;
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
@@ -273,9 +276,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			} else {
 				debugger;
 				void window.showErrorMessage(
-					`Unable to get absolute uri between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-					} and ${base}; Base path '${base}' must be a uri`,
+					`${localize(
+						'unableToGetAbsoluteUriBetweenUriAndBase',
+						'Unable to get absolute uri between {0} and {1}',
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+						base,
+					)}; ${localize('basePathMustBeUri', "Base path '{0}' must be a uri", base)}`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
 			}
@@ -303,9 +309,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			} else {
 				debugger;
 				void window.showErrorMessage(
-					`Unable to get relative path between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
-					} and ${base}; Base path '${base}' must be a uri`,
+					`${localize(
+						'unableToGetRelativePathBetweenUriAndBase',
+						'Unable to get relative path between {0} and {1}',
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true),
+						base,
+					)}; ${localize('basePathMustBeUri', "Base path '{0}' must be a uri", base)}`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
 			}
@@ -508,8 +517,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				const c = range.commit;
 
 				const { viewer = session.account.label } = blame;
-				const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
-				const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
+				const authorName = viewer != null && c.author.name === viewer ? localize('you', 'You') : c.author.name;
+				const committerName =
+					viewer != null && c.committer.name === viewer ? localize('you', 'You') : c.committer.name;
 
 				let author = authors.get(authorName);
 				if (author == null) {
@@ -646,8 +656,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const c = range.commit;
 
 			const { viewer = session.account.label } = blame;
-			const authorName = viewer != null && c.author.name === viewer ? 'You' : c.author.name;
-			const committerName = viewer != null && c.committer.name === viewer ? 'You' : c.committer.name;
+			const authorName = viewer != null && c.author.name === viewer ? localize('you', 'You') : c.author.name;
+			const committerName =
+				viewer != null && c.committer.name === viewer ? localize('you', 'You') : c.committer.name;
 
 			const commit = new GitCommit(
 				this.container,
@@ -885,8 +896,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+			const authorName =
+				viewer != null && commit.author.name === viewer ? localize('you', 'You') : commit.author.name;
+			const committerName =
+				viewer != null && commit.committer.name === viewer ? localize('you', 'You') : commit.committer.name;
 
 			return new GitCommit(
 				this.container,
@@ -1019,8 +1032,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (commit == null) return undefined;
 
 			const { viewer = session.account.label } = commit;
-			const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-			const committerName = viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+			const authorName =
+				viewer != null && commit.author.name === viewer ? localize('you', 'You') : commit.author.name;
+			const committerName =
+				viewer != null && commit.committer.name === viewer ? localize('you', 'You') : commit.committer.name;
 
 			const files = commit.files?.map(
 				f =>
@@ -1502,9 +1517,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const { viewer = session.account.label } = result;
 			for (const commit of result.values) {
-				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const authorName =
+					viewer != null && commit.author.name === viewer ? localize('you', 'You') : commit.author.name;
 				const committerName =
-					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+					viewer != null && commit.committer.name === viewer ? localize('you', 'You') : commit.committer.name;
 
 				let c = commits.get(commit.oid);
 				if (c == null) {
@@ -1877,9 +1893,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const { viewer = session.account.label } = result;
 			for (const commit of result.values) {
-				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const authorName =
+					viewer != null && commit.author.name === viewer ? localize('you', 'You') : commit.author.name;
 				const committerName =
-					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+					viewer != null && commit.committer.name === viewer ? localize('you', 'You') : commit.committer.name;
 
 				let c = commits.get(commit.oid);
 				if (c == null) {

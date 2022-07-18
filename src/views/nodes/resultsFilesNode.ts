@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitDiffShortStat } from '../../git/models/diff';
@@ -9,18 +10,19 @@ import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
-import { pluralize, sortCompare } from '../../system/string';
+import { sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
+
 export enum FilesQueryFilter {
 	Left = 0,
 	Right = 1,
 }
-
 export interface FilesQueryResults {
 	label: string;
 	files: GitFile[] | undefined;
@@ -120,19 +122,24 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			const results = await cancellable(this.getFilesQueryResults(), 100);
 			label = results.label;
 			if (filter == null && results.stats != null) {
-				description = `${pluralize('addition', results.stats.additions)} (+), ${pluralize(
-					'deletion',
-					results.stats.deletions,
-				)} (-)${results.stats.approximated ? ' *approximated' : ''}`;
+				description = `${
+					results.stats.additions === 1
+						? localize('oneAdttion', '1 addition')
+						: localize('manyAdditions', '{0} additions', results.stats.additions)
+				} (+), ${
+					results.stats.deletions === 1
+						? localize('oneDeletion', '1 deletion')
+						: localize('manyDeletions', '{0} deletions', results.stats.deletions)
+				} (-)${results.stats.approximated ? ` *${localize('approximated', 'approximated')}` : ''}`;
 				tooltip = `${label}, ${description}`;
 			}
 
 			if (filter != null) {
-				description = 'Filtered';
+				description = localize('filtered', 'Filtered');
 				tooltip = `${label} &mdash; ${description}`;
 				files = results.filtered?.get(filter);
 				if (files == null) {
-					label = 'files changed';
+					label = localize('filesChanged', 'files changed');
 					icon = new ThemeIcon('ellipsis');
 					// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 					// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -157,7 +164,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 				void ex.promise.then(() => queueMicrotask(() => this.triggerChange(false)));
 			}
 
-			label = 'files changed';
+			label = localize('filesChanged', 'files changed');
 			icon = new ThemeIcon('ellipsis');
 			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
 			// https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
@@ -165,7 +172,9 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		}
 
 		const item = new TreeItem(
-			`${filter != null && files != null ? `Showing ${files.length} of ` : ''}${label}`,
+			filter != null && files != null
+				? localize('showingFilesOfTotal', 'Showing {0} of {1}', files.length, label)
+				: label,
 			state,
 		);
 		item.description = description;

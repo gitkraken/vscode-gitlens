@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type { GitBranchReference } from '../../git/models/reference';
@@ -18,6 +19,7 @@ import type {
 } from '../quickCommand';
 import { appendReposToTitle, pickRepositoriesStep, QuickCommand, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -42,7 +44,9 @@ type FetchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos'
 
 export class FetchGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: FetchGitCommandArgs) {
-		super(container, 'fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
+		super(container, 'fetch', localize('label', 'fetch'), localize('title', 'Fetch'), {
+			description: localize('description', 'fetches changes from one or more remotes'),
+		});
 
 		let counter = 0;
 		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
@@ -133,7 +137,11 @@ export class FetchGitCommand extends QuickCommand<State> {
 		if (state.repos.length === 1) {
 			const lastFetched = await state.repos[0].getLastFetched();
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}${localize(
+					'lastFetchedTime',
+					'Last fetched {0}',
+					fromNow(new Date(lastFetched)),
+				)}`;
 			}
 		}
 
@@ -141,11 +149,15 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 		if (state.repos.length === 1 && GitReference.isBranch(state.reference)) {
 			step = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+				appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context, lastFetchedOn),
 				[
 					FlagsQuickPickItem.create<Flags>(state.flags, [], {
 						label: this.title,
-						detail: `Will fetch ${GitReference.toString(state.reference)}`,
+						detail: localize(
+							'quickPick.fetch.detail.willFetchRef',
+							'Will fetch {0}',
+							GitReference.toString(state.reference),
+						),
 					}),
 				],
 			);
@@ -153,29 +165,33 @@ export class FetchGitCommand extends QuickCommand<State> {
 			const reposToFetch =
 				state.repos.length === 1
 					? `$(repo) ${state.repos[0].formattedName}`
-					: `${state.repos.length} repositories`;
+					: localize('repositories', '{0} repositories');
 
 			step = QuickCommand.createConfirmStep(
-				appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
+				appendReposToTitle(localize('confirm', 'Confirm {0}', this.title), state, context, lastFetchedOn),
 				[
 					FlagsQuickPickItem.create<Flags>(state.flags, [], {
 						label: this.title,
-						detail: `Will fetch ${reposToFetch}`,
+						detail: localize('quickPick.fetch.detail.willFetchRepos', 'Will fetch {0}', reposToFetch),
 					}),
 					FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
 						label: `${this.title} & Prune`,
 						description: '--prune',
-						detail: `Will fetch and prune ${reposToFetch}`,
+						detail: localize('quickPick.prune.detail', 'Will fetch and prune {0}', reposToFetch),
 					}),
 					FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
 						label: `${this.title} All`,
 						description: '--all',
-						detail: `Will fetch all remotes of ${reposToFetch}`,
+						detail: localize('quickPick.all.detail', 'Will fetch all remotes of {0}', reposToFetch),
 					}),
 					FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
 						label: `${this.title} All & Prune`,
 						description: '--all --prune',
-						detail: `Will fetch and prune all remotes of ${reposToFetch}`,
+						detail: localize(
+							'quickPick.allPrune.detail',
+							'Will fetch and prune all remotes of {0}',
+							reposToFetch,
+						),
 					}),
 				],
 				context,

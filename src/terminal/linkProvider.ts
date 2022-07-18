@@ -1,5 +1,6 @@
 import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type {
 	GitCommandsCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,
@@ -12,6 +13,7 @@ import type { GitBranch } from '../git/models/branch';
 import { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 
+const localize = nls.loadMessageBundle();
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;
 // Since negative lookbehind isn't supported in all browsers, leave out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
@@ -61,7 +63,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<GitCommandsCommandArgs> = {
 					startIndex: match.index + git.length,
 					length: command.length,
-					tooltip: 'Open in Git Command Palette',
+					tooltip: localize('openInGitCommandPalette', 'Open in Git Command Palette'),
 					command: {
 						command: Commands.GitCommands,
 						args: {
@@ -81,7 +83,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: 'Show HEAD',
+					tooltip: localize('showHead', 'Show HEAD'),
 					command: {
 						command: Commands.ShowQuickBranchHistory,
 						args: {
@@ -105,7 +107,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: 'Show Branch',
+					tooltip: localize('showBranch', 'Show Branch'),
 					command: {
 						command: Commands.ShowQuickBranchHistory,
 						args: { repoPath: repoPath, branch: branch.name },
@@ -126,7 +128,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: 'Show Tag',
+					tooltip: localize('showTag', 'Show Tag'),
 					command: {
 						command: Commands.ShowQuickBranchHistory,
 						args: { repoPath: repoPath, tag: tag.name },
@@ -142,7 +144,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 					const link: GitTerminalLink<GitCommandsCommandArgs> = {
 						startIndex: match.index,
 						length: ref.length,
-						tooltip: 'Show Commits',
+						tooltip: localize('showCommits', 'Show Commits'),
 						command: {
 							command: Commands.GitCommands,
 							args: {
@@ -164,7 +166,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				const link: GitTerminalLink<ShowQuickCommitCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: 'Show Commit',
+					tooltip: localize('showCommit', 'Show Commit'),
 					command: {
 						command: Commands.ShowQuickCommit,
 						args: {

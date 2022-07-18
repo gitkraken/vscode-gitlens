@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Commands, CoreCommands, GlyphChars } from '../../constants';
@@ -14,6 +15,7 @@ import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
@@ -34,7 +36,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			this.status.type === 'rebase' ? this.status.steps.current.commit.ref : this.status.HEAD.ref,
 		);
 
-		const item = new TreeItem('Incoming changes', TreeItemCollapsibleState.None);
+		const item = new TreeItem(localize('incomingChanges', 'Incoming changes'), TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictIncomingChanges;
 		item.description = `${GitReference.toString(this.status.incoming, { expand: false, icon: false })}${
 			this.status.type === 'rebase'
@@ -47,9 +49,12 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Incoming changes to $(file)${GlyphChars.Space}${this.file.path}${
-				this.status.incoming != null
-					? ` from ${GitReference.toString(this.status.incoming)}${
+			this.status.incoming != null
+				? localize(
+						'incomingChangesToFileFromRef',
+						'Incoming changes to {0} from {1}',
+						`$(file)${GlyphChars.Space}${this.file.path}`,
+						`${GitReference.toString(this.status.incoming)}${
 							commit != null
 								? `\n\n${await CommitFormatter.fromTemplateAsync(
 										`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
@@ -68,9 +73,13 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										label: false,
 								  })}`
 								: `\n\n${GitReference.toString(this.status.HEAD, { capitalize: true, label: false })}`
-					  }`
-					: ''
-			}`,
+						}`,
+				  )
+				: localize(
+						'incomingChangesToFile',
+						'Incoming changes to {0}',
+						`$(file)${GlyphChars.Space}${this.file.path}`,
+				  ),
 			true,
 		);
 		markdown.supportHtml = true;
@@ -85,7 +94,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 	override getCommand(): Command | undefined {
 		if (this.status.mergeBase == null) {
 			return {
-				title: 'Open Revision',
+				title: localize('openRevision', 'Open Revision'),
 				command: CoreCommands.Open,
 				arguments: [
 					this.view.container.git.getRevisionUri(this.status.HEAD.ref, this.file.path, this.status.repoPath),
@@ -97,7 +106,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
-				title: `${this.file.path} (merge-base)`,
+				title: `${this.file.path} ${localize('mergeBase', '(merge-base)')}`,
 			},
 			rhs: {
 				sha: this.status.HEAD.ref,
@@ -105,7 +114,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				title: `${this.file.path} (${
 					this.status.incoming != null
 						? GitReference.toString(this.status.incoming, { expand: false, icon: false })
-						: 'incoming'
+						: localize('incoming', 'incoming')
 				})`,
 			},
 			repoPath: this.status.repoPath,
@@ -116,7 +125,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 			},
 		};
 		return {
-			title: 'Open Changes',
+			title: localize('openChanges', 'Open Changes'),
 			command: Commands.DiffWith,
 			arguments: [commandArgs],
 		};

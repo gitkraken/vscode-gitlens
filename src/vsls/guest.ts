@@ -1,5 +1,6 @@
 import type { CancellationToken, Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import type { Container } from '../container';
 import type { GitCommandOptions } from '../git/commandOptions';
@@ -9,6 +10,7 @@ import { VslsHostService } from './host';
 import type { RepositoryProxy, RequestType } from './protocol';
 import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
 
+const localize = nls.loadMessageBundle();
 export class VslsGuestService implements Disposable {
 	@log()
 	static async connect(api: LiveShare, container: Container) {
@@ -50,7 +52,10 @@ export class VslsGuestService implements Disposable {
 
 		void this.container.git.setEnabledContext(false);
 		void window.showWarningMessage(
-			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
+			localize(
+				'gitlensFeaturesWillBeUnavailableUnableToConnectToHostService',
+				'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
+			),
 		);
 	}
 

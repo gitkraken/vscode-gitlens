@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import { ContextKeys, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
@@ -9,7 +10,6 @@ import type { SearchOperators, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
-import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
@@ -24,6 +24,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -47,25 +48,25 @@ export interface SearchGitCommandArgs {
 }
 
 const searchOperatorToTitleMap = new Map<SearchOperators, string>([
-	['', 'Search by Message'],
-	['=:', 'Search by Message'],
-	['message:', 'Search by Message'],
-	['@:', 'Search by Author'],
-	['author:', 'Search by Author'],
-	['#:', 'Search by Commit SHA'],
-	['commit:', 'Search by Commit SHA'],
-	['?:', 'Search by File'],
-	['file:', 'Search by File'],
-	['~:', 'Search by Changes'],
-	['change:', 'Search by Changes'],
+	['', localize('pickSearchOperatorStep.title.searchByMessage', 'Search by Message')],
+	['=:', localize('pickSearchOperatorStep.title.searchByMessage', 'Search by Message')],
+	['message:', localize('pickSearchOperatorStep.title.searchByMessage', 'Search by Message')],
+	['@:', localize('pickSearchOperatorStep.title.searchByAuthor', 'Search by Author')],
+	['author:', localize('pickSearchOperatorStep.title.searchByAuthor', 'Search by Author')],
+	['#:', localize('pickSearchOperatorStep.title.searchByComitSha', 'Search by Commit SHA')],
+	['commit:', localize('pickSearchOperatorStep.title.searchByComitSha', 'Search by Commit SHA')],
+	['?:', localize('pickSearchOperatorStep.title.searchByFile', 'Search by File')],
+	['file:', localize('pickSearchOperatorStep.title.searchByFile', 'Search by File')],
+	['~:', localize('pickSearchOperatorStep.title.searchByChanges', 'Search by Changes')],
+	['change:', localize('pickSearchOperatorStep.title.searchByChanges', 'Search by Changes')],
 ]);
 
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class SearchGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: SearchGitCommandArgs) {
-		super(container, 'search', 'search', 'Commit Search', {
-			description: 'aka grep, searches for commits',
+		super(container, 'search', localize('label', 'search'), localize('title', 'Commit Search'), {
+			description: localize('description', 'aka grep, searches for commits'),
 		});
 
 		let counter = 0;
@@ -178,7 +179,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					state.repo.path,
 					search,
 					{
-						label: { label: `for ${state.query}` },
+						label: { label: localize('label.forQuery', 'for {0}', state.query) },
 					},
 					context.resultsPromise,
 					state.showResultsInSideBar instanceof SearchResultsNode ? state.showResultsInSideBar : undefined,
@@ -195,19 +196,36 @@ export class SearchGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No results for ${state.query}`
-							: `${pluralize('result', log.count, {
-									format: c => (log.hasMore ? `${c}+` : undefined),
-							  })} for ${state.query}`,
+							? localize(
+									'pickCommitStep.placeholder.noResultsForPattern',
+									'No results for {0}',
+									state.query,
+							  )
+							: log.count === 1
+							? localize(
+									'pickCommitStep.placeholder.resultForPattern',
+									'{0} result for {1}',
+									log.hasMore ? `${log.count}+` : log.count,
+									state.query,
+							  )
+							: localize(
+									'pickCommitStep.placeholder.resultsForPattern',
+									'{0} results for {1}',
+									log.hasMore ? `${log.count}+` : log.count,
+									state.query,
+							  ),
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
-						'$(link-external)  Show Results in Side Bar',
+						`$(link-external) ${localize(
+							'pickCommitStep.quickPick.showInSideBar.label',
+							'Show Results in Side Bar',
+						)}`,
 						() =>
 							void this.container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.query}` },
+									label: { label: localize('label.forQuery', 'for {0}', state.query) },
 									reveal: {
 										select: true,
 										focus: false,
@@ -224,7 +242,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.query}` },
+									label: { label: localize('label.forQuery', 'for {0}', state.query) },
 									reveal: {
 										select: true,
 										focus: false,
@@ -277,31 +295,40 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const items: QuickPickItemOfT<SearchOperators>[] = [
 			{
 				label: searchOperatorToTitleMap.get('')!,
-				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
+				description: `${localize(
+					'pickSearchOperatorStep.description.patternOrMessage',
+					'pattern or message: pattern or =: pattern',
+				)} ${GlyphChars.Dash} ${localize(
+					'pickSearchOperatorStep.description.useQuotesToSearchForPhrases',
+					'use quotes to search for phrases',
+				)}`,
 				item: 'message:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('author:')!,
-				description: 'author: pattern or @: pattern',
+				description: localize('pickSearchOperatorStep.description.author', 'author: pattern or @: pattern'),
 				item: 'author:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('commit:')!,
-				description: 'commit: sha or #: sha',
+				description: localize('pickSearchOperatorStep.description.commit', 'commit: sha or #: sha'),
 				item: 'commit:' as const,
 			},
 			context.hasVirtualFolders
 				? undefined
 				: {
 						label: searchOperatorToTitleMap.get('file:')!,
-						description: 'file: glob or ?: glob',
+						description: localize('pickSearchOperatorStep.description.file', 'file: glob or ?: glob'),
 						item: 'file:' as const,
 				  },
 			context.hasVirtualFolders
 				? undefined
 				: {
 						label: searchOperatorToTitleMap.get('change:')!,
-						description: 'change: pattern or ~: pattern',
+						description: localize(
+							'pickSearchOperatorStep.description.change',
+							'change: pattern or ~: pattern',
+						),
 						item: 'change:' as const,
 				  },
 		].filter(<T>(i?: T): i is T => i != null);
@@ -312,7 +339,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
-			placeholder: 'e.g. "Updates dependencies" author:eamodio',
+			placeholder: localize('pickStep.quickPick.placeholder', 'e.g. "Updates dependencies" author:eamodio'),
 			matchOnDescription: true,
 			matchOnDetail: true,
 			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
@@ -361,7 +388,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 				quickpick.title = appendReposToTitle(
 					operations.size === 0 || operations.size > 1
 						? context.title
-						: `Commit ${searchOperatorToTitleMap.get(operations.keys().next().value)!}`,
+						: localize(
+								'quickPick.title.commitTitle',
+								'Commit {0}',
+								searchOperatorToTitleMap.get(operations.keys().next().value),
+						  ),
 					state,
 					context,
 				);
@@ -375,7 +406,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 					quickpick.items = [
 						{
-							label: 'Search for',
+							label: localize('quickPick.label.searchFor', 'Search for'),
 							description: quickpick.value,
 							item: quickpick.value as SearchOperators,
 						},

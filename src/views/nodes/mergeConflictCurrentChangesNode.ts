@@ -1,5 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Commands, CoreCommands, GlyphChars } from '../../constants';
@@ -13,6 +14,8 @@ import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
@@ -31,7 +34,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 	async getTreeItem(): Promise<TreeItem> {
 		const commit = await this.view.container.git.getCommit(this.status.repoPath, 'HEAD');
 
-		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
+		const item = new TreeItem(localize('currentChanges', 'Current changes'), TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
 		item.description = `${GitReference.toString(this.status.current, { expand: false, icon: false })}${
 			commit != null ? ` (${GitReference.toString(commit, { expand: false, icon: false })})` : ' (HEAD)'
@@ -42,9 +45,13 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${GitReference.toString(
-				this.status.current,
-			)}${
+			`${localize(
+				'currentChangesToFileOnRef',
+				'Current changes to {0} on {1}',
+				`$(file)${GlyphChars.Space}${this.file.path}`,
+				GitReference.toString(this.status.current),
+			)}
+			${
 				commit != null
 					? `\n\n${await CommitFormatter.fromTemplateAsync(
 							`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
@@ -73,7 +80,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 	override getCommand(): Command | undefined {
 		if (this.status.mergeBase == null) {
 			return {
-				title: 'Open Revision',
+				title: localize('openRevision', 'Open Revision'),
 				command: CoreCommands.Open,
 				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath)],
 			};
@@ -83,7 +90,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
-				title: `${this.file.path} (merge-base)`,
+				title: `${this.file.path} ${localize('mergeBase', '(merge-base)')}`,
 			},
 			rhs: {
 				sha: 'HEAD',
@@ -101,7 +108,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			},
 		};
 		return {
-			title: 'Open Changes',
+			title: localize('openChanges', 'Open Changes'),
 			command: Commands.DiffWith,
 			arguments: [commandArgs],
 		};

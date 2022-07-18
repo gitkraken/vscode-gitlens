@@ -1,5 +1,6 @@
 import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import { configuration } from '../configuration';
@@ -14,6 +15,8 @@ import { filterMap } from '../system/array';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
+
+const localize = nls.loadMessageBundle();
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -85,12 +88,16 @@ export class ExternalDiffCommand extends Command {
 
 		if (context.command === Commands.ExternalDiffAll) {
 			if (args.files == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changes (difftool)');
+				const repository = await RepositoryPicker.getRepositoryOrShow(
+					localize('openAllChanges', 'Open All Changes (difftool)'),
+				);
 				if (repository == null) return undefined;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
-					return window.showInformationMessage("The repository doesn't have any changes");
+					return window.showInformationMessage(
+						localize('repositoryDoesNotHaveAnyChanges', "The repository doesn't have any changes"),
+					);
 				}
 
 				args.files = [];
@@ -132,7 +139,9 @@ export class ExternalDiffCommand extends Command {
 				const uri = editor.document.uri;
 				const status = await this.container.git.getStatusForFile(repoPath, uri);
 				if (status == null) {
-					void window.showInformationMessage("The current file doesn't have any changes");
+					void window.showInformationMessage(
+						localize('currentFileDoesNotHaveAnyChanges', "The current file doesn't have any changes"),
+					);
 
 					return;
 				}
@@ -153,9 +162,12 @@ export class ExternalDiffCommand extends Command {
 			const tool =
 				configuration.get('advanced.externalDiffTool') || (await this.container.git.getDiffTool(repoPath));
 			if (!tool) {
-				const viewDocs = 'View Git Docs';
+				const viewDocs = localize('viewGitDocs', 'View Git Docs');
 				const result = await window.showWarningMessage(
-					'Unable to open changes because no Git diff tool is configured',
+					localize(
+						'unableToOpenChangesNoDiffTool',
+						'Unable to open changes because no Git diff tool is configured',
+					),
 					viewDocs,
 				);
 				if (result === viewDocs) {
@@ -177,7 +189,9 @@ export class ExternalDiffCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			void showGenericErrorMessage('Unable to open changes in diff tool');
+			void showGenericErrorMessage(
+				localize('unableToOpenChangesInDiffTool', 'Unable to open changes in diff tool'),
+			);
 		}
 	}
 }

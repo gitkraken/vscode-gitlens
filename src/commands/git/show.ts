@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitCommit, GitStashCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
@@ -18,6 +19,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -64,8 +66,8 @@ function assertsStateStepFileName(state: CommitStepState): asserts state is File
 
 export class ShowGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: ShowGitCommandArgs) {
-		super(container, 'show', 'show', 'Show', {
-			description: 'shows information about a git reference',
+		super(container, 'show', localize('label', 'show'), localize('title', 'Show'), {
+			description: localize('description', 'shows information about a git reference'),
 		});
 
 		let counter = 0;
@@ -156,7 +158,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 							limit: undefined,
 							hasMore: false,
 						},
-						placeholder: 'Enter a reference or commit SHA',
+						placeholder: localize('pickCommitStep.placeholder', 'Enter a reference or commit SHA'),
 						picked: state.reference?.ref,
 					});
 					if (result === StepResult.Break) {

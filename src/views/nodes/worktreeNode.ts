@@ -1,4 +1,5 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ContextKeys, GlyphChars } from '../../constants';
 import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
@@ -25,6 +26,8 @@ import { PullRequestNode } from './pullRequestNode';
 import { RepositoryNode } from './repositoryNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -130,7 +133,8 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 						: undefined,
 				]);
 			const log = getSettledValue(logResult);
-			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+			if (log == null)
+				return [new MessageNode(this.view, this, localize('noCommitsFound', 'No commits could be found.'))];
 
 			const children = [];
 
@@ -201,9 +205,11 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			this.worktree.main || this.worktree.opened
 				? `${pad(GlyphChars.Dash, 2, 2)} ${
 						this.worktree.main
-							? `_Main${this.worktree.opened ? ', Active_' : '_'}`
+							? `_${localize('worktreeIndicatorMain', 'Main')}${
+									this.worktree.opened ? `, ${localize('worktreeIndicatorActive', 'Active')}_` : '_'
+							  }`
 							: this.worktree.opened
-							? '_Active_'
+							? `_${localize('worktreeIndicatorActive', 'Active')}_`
 							: ''
 				  } `
 				: '';
@@ -212,9 +218,11 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			case 'bare':
 				icon = new ThemeIcon('folder');
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Bare Worktree${indicators}\\\n\`${
-						this.worktree.friendlyPath
-					}\``,
+					`${this.worktree.main ? '$(pass) ' : ''}${localize(
+						'bareWorktreeIndicators',
+						'Bare worktree {0}',
+						indicators,
+					)}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 				break;
 			case 'branch': {
@@ -222,9 +230,12 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 				this._branch = branch;
 
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Worktree for Branch $(git-branch) ${
-						branch?.getNameWithoutRemote() ?? this.worktree.branch
-					}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
+					`${this.worktree.main ? '$(pass) ' : ''}${localize(
+						'worktreeForBranchIndicators',
+						'Worktree for Branch {0} {1}',
+						`$(git-branch) ${branch?.getNameWithoutRemote() ?? this.worktree.branch}`,
+						indicators,
+					)}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 				icon = new ThemeIcon('git-branch');
 
@@ -232,16 +243,15 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 					hasChanges = status.hasChanges;
 					tooltip.appendMarkdown(
 						`\n\n${status.getFormattedDiffStatus({
-							prefix: 'Has Uncommitted Changes\\\n',
-							empty: 'No Uncommitted Changes',
+							prefix: `${localize('hasUncommitedChanges', 'Has Uncommitted Changes')}\\\n`,
+							empty: localize('noUncommitedChanges', 'No Uncommitted Changes'),
 							expand: true,
 						})}`,
 					);
 				}
 
 				if (branch != null) {
-					tooltip.appendMarkdown(`\n\nBranch $(git-branch) ${branch.getNameWithoutRemote()}`);
-
+					tooltip.appendMarkdown('\n\n');
 					if (!branch.remote) {
 						if (branch.upstream != null) {
 							let arrows = GlyphChars.Dash;
@@ -281,27 +291,72 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 							})}${branch.upstream.name}`;
 
 							tooltip.appendMarkdown(
-								` is ${branch.getTrackingStatus({
+								branch.getTrackingStatus({
 									empty: branch.upstream.missing
-										? `missing upstream $(git-branch) ${branch.upstream.name}`
-										: `up to date with $(git-branch)  ${branch.upstream.name}${
-												remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-										  }`,
+										? localize(
+												'branchIsMissingUpstream',
+												'Branch {0} is missing upstream {1}',
+												`$(git-branch) ${branch.getNameWithoutRemote()}`,
+												`$(git-branch) ${branch.upstream.name}`,
+										  )
+										: remote?.provider?.name
+										? localize(
+												'branchIsUpToDateWithUpstreamOnProvider',
+												'Branch {0} is up to date with {1} on {2}',
+												`$(git-branch) ${branch.getNameWithoutRemote()}`,
+												`$(git-branch) ${branch.upstream.name}`,
+												remote.provider.name,
+										  )
+										: localize(
+												'branchIsUpToDateWithUpstream',
+												'Branch {0} is up to date with {1}',
+												`$(git-branch) ${branch.getNameWithoutRemote()}`,
+												`$(git-branch) ${branch.upstream.name}`,
+										  ),
 									expand: true,
 									icons: true,
 									separator: ', ',
-									suffix: ` $(git-branch) ${branch.upstream.name}${
-										remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+									prefix: localize(
+										'currentBranchIs',
+										'Current branch {0} is',
+										`$(git-branch) ${branch.upstream.name}`,
+									),
+									suffix: ` ${
+										remote?.provider?.name
+											? localize(
+													'upstreamOnProvider',
+													'{0} on {1}',
+													`$(git-branch) ${branch.upstream.name}`,
+													remote.provider.name,
+											  )
+											: `$(git-branch) ${branch.upstream.name}`
 									}`,
-								})}`,
+								}),
 							);
 						} else {
 							const providerName = GitRemote.getHighlanderProviderName(
 								await this.view.container.git.getRemotesWithProviders(branch.repoPath),
 							);
 
-							tooltip.appendMarkdown(` hasn't been published to ${providerName ?? 'a remote'}`);
+							tooltip.appendMarkdown(
+								providerName
+									? localize(
+											'branchHasntBeenPublishedToProvider',
+											"Branch {0} hasn't been published to {1}",
+											`$(git-branch) ${branch.getNameWithoutRemote()}`,
+											providerName,
+									  )
+									: localize(
+											'branchHasntBeenPublishedToRemote',
+											"Branch {0} hasn't been published to a remote",
+											`$(git-branch) ${branch.getNameWithoutRemote()}`,
+									  ),
+							);
 						}
+					} else {
+						tooltip.appendMarkdown(
+							localize('branch', 'Branch {0}', `$(git-branch) ${branch.getNameWithoutRemote()}`),
+						);
 					}
 				}
 
@@ -310,8 +365,10 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			case 'detached': {
 				icon = new ThemeIcon('git-commit');
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${GitRevision.shorten(
-						this.worktree.sha,
+					`${this.worktree.main ? '$(pass) ' : ''}${localize(
+						'detachedWorktreeAtCommit',
+						'Detached Worktree at {0}',
+						`$(git-commit) ${GitRevision.shorten(this.worktree.sha)}`,
 					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 
@@ -320,8 +377,8 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 					hasChanges = status.hasChanges;
 					tooltip.appendMarkdown(
 						`\n\n${status.getFormattedDiffStatus({
-							prefix: 'Has Uncommitted Changes',
-							empty: 'No Uncommitted Changes',
+							prefix: localize('hasUncommitedChanges', 'Has Uncommitted Changes'),
+							empty: localize('noUncommitedChanges', 'No Uncommitted Changes'),
 							expand: true,
 						})}`,
 					);

@@ -1,12 +1,12 @@
 import type { QuickPickItem } from 'vscode';
 import { QuickInputButtons } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitTagReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -26,6 +26,8 @@ import {
 	QuickCommand,
 	StepResult,
 } from '../quickCommand';
+
+const localize = nls.loadMessageBundle();
 
 interface Context {
 	repos: Repository[];
@@ -57,11 +59,12 @@ type CreateStepState<T extends CreateState = CreateState> = TagStepState<Exclude
 type DeleteStepState<T extends DeleteState = DeleteState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
-	['create', 'Create'],
-	['delete', 'Delete'],
+	['create', localize('subcommand.create.title', 'Create Tag')],
+	['delete', localize('subcommand.delete.title.plural', 'Delete Tags')],
 ]);
-function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
+
+function getTitle(placeholder: string, subcommand: State['subcommand'] | undefined) {
+	return subcommand == null ? placeholder : subcommandToTitleMap.get(subcommand) ?? placeholder;
 }
 
 export interface TagGitCommandArgs {
@@ -74,8 +77,8 @@ export class TagGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
 	constructor(container: Container, args?: TagGitCommandArgs) {
-		super(container, 'tag', 'tag', 'Tag', {
-			description: 'create, or delete tags',
+		super(container, 'tag', localize('label', 'tag'), localize('title', 'Tag'), {
+			description: localize('description', 'create, or delete tags'),
 		});
 
 		let counter = 0;
@@ -172,7 +175,10 @@ export class TagGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			context.title = getTitle(state.subcommand === 'delete' ? 'Tags' : this.title, state.subcommand);
+			context.title = getTitle(
+				state.subcommand === 'delete' ? localize('title.placeholder.tags', 'Tags') : this.title,
+				state.subcommand,
+			);
 
 			switch (state.subcommand) {
 				case 'create': {
@@ -201,17 +207,17 @@ export class TagGitCommand extends QuickCommand<State> {
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
-			placeholder: `Choose a ${this.label} command`,
+			placeholder: localize('pickSubcommandStep.placeholder', 'Choose a {0} command', this.label),
 			items: [
 				{
-					label: 'create',
-					description: 'creates a new tag',
+					label: localize('pickSubcommandStep.create.label', 'create'),
+					description: localize('pickSubcommandStep.create.description', 'creates a new tag'),
 					picked: state.subcommand === 'create',
 					item: 'create',
 				},
 				{
-					label: 'delete',
-					description: 'deletes the specified tags',
+					label: localize('pickSubcommandStep.delete.label', 'delete'),
+					description: localize('pickSubcommandStep.delete.label', 'deletes the specified tags'),
 					picked: state.subcommand === 'delete',
 					item: 'delete',
 				},
@@ -231,9 +237,17 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
-						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
+						context.showTags
+							? localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchOrTagToCreateTagFrom',
+									'Choose a branch or tag to create the new tag from',
+							  )
+							: localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchToCreateTagFrom',
+									'Choose a branch to create the new tag from',
+							  ),
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
-					titleContext: ' from',
+					titleContext: ` ${localize('pickBranchOrTagStep.from', 'from')}`,
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -244,8 +258,15 @@ export class TagGitCommand extends QuickCommand<State> {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputTagNameStep(state, context, {
-					placeholder: 'Please provide a name for the new tag',
-					titleContext: ` at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+					placeholder: localize(
+						'inputTagNameStep.placeholder.provideNameForNewTag',
+						'Please provide a name for the new tag',
+					),
+					titleContext: ` ${localize(
+						'inputTagNameStep.atRef',
+						'at {0}',
+						GitReference.toString(state.reference, { capitalize: true, icon: false }),
+					)}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;
@@ -287,13 +308,21 @@ export class TagGitCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<string> {
 		const step = QuickCommand.createInputStep({
 			title: appendReposToTitle(
-				`${context.title} at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+				localize(
+					'createCommandInputMessageStep.title.createOrDeleteTagAtRef',
+					'{0} at {1}',
+					context.title,
+					GitReference.toString(state.reference, { capitalize: true, icon: false }),
+				),
 				state,
 				context,
 			),
-			placeholder: 'Please provide an optional message to annotate the tag',
+			placeholder: localize(
+				'createCommandInputMessageStep.placeholder',
+				'Please provide an optional message to annotate the tag',
+			),
 			value: state.message,
-			prompt: 'Enter optional message',
+			prompt: localize('createCommandInputMessageStep.prompt', 'Enter optional message'),
 		});
 
 		const value: StepSelection<typeof step> = yield step;
@@ -313,22 +342,30 @@ export class TagGitCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<CreateFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
 					label: context.title,
 					description: state.message.length !== 0 ? '-m' : '',
-					detail: `Will create a new tag named ${state.name} at ${GitReference.toString(state.reference)}`,
+					detail: localize(
+						'createCommandConfirmStep.detail',
+						'Will create a new tag named {0} at {1}',
+						state.name,
+						GitReference.toString(state.reference),
+					),
 				}),
 				FlagsQuickPickItem.create<CreateFlags>(
 					state.flags,
 					state.message.length !== 0 ? ['--force', '-m'] : ['--force'],
 					{
-						label: `Force ${context.title}`,
+						label: localize('createCommandConfirmStep.force.label', 'Force {0}', context.title),
 						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
-						detail: `Will forcibly create a new tag named ${state.name} at ${GitReference.toString(
-							state.reference,
-						)}`,
+						detail: localize(
+							'createCommandConfirmStep.force.detail',
+							'Will forcibly create a new tag named {0} at {1}',
+							state.name,
+							GitReference.toString(state.reference),
+						),
 					},
 				),
 			],
@@ -345,11 +382,11 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 || state.references == null || state.references.length === 0) {
-				context.title = getTitle('Tags', state.subcommand);
+				context.title = localize('subcommand.delete.title.plural', 'Delete Tags');
 
 				const result = yield* pickTagsStep(state, context, {
 					picked: state.references?.map(r => r.ref),
-					placeholder: 'Choose tags to delete',
+					placeholder: localize('pickTagsStep.placeholder', 'Choose tags to delete'),
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -357,7 +394,10 @@ export class TagGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			context.title = getTitle(pluralize('Tag', state.references.length, { only: true }), state.subcommand);
+			context.title =
+				state.references.length === 1
+					? localize('subcommand.delete.title', 'Delete Tag')
+					: localize('subcommand.delete.title.plural', 'Delete Tags');
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
@@ -372,11 +412,15 @@ export class TagGitCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<void> {
 		const step: QuickPickStep<QuickPickItem> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.references)}`,
+					detail: localize(
+						'deleteCommandConfirmStep.detail',
+						'Will delete {0}',
+						GitReference.toString(state.references),
+					),
 				},
 			],
 			context,

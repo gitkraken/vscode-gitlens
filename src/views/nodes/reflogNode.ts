@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { GitUri } from '../../git/gitUri';
 import type { GitReflog } from '../../git/models/reflog';
 import type { Repository } from '../../git/models/repository';
@@ -11,6 +12,7 @@ import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
 	static key = ':reflog';
 	static getId(repoPath: string): string {
@@ -33,7 +35,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 
 			const reflog = await this.getReflog();
 			if (reflog === undefined || reflog.records.length === 0) {
-				return [new MessageNode(this.view, this, 'No activity could be found.')];
+				return [new MessageNode(this.view, this, localize('noActivityFound', 'No activity could be found.'))];
 			}
 
 			children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
@@ -48,10 +50,13 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Incoming Activity', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			localize('incomingActivity', 'Incoming Activity'),
+			TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Reflog;
-		item.description = 'experimental';
+		item.description = localize('experimental', 'experimental');
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg'),
 			light: this.view.container.context.asAbsolutePath('images/light/icon-activity.svg'),

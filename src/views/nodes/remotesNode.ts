@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
@@ -10,6 +11,7 @@ import { RemoteNode } from './remoteNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remotes';
 	static getId(repoPath: string): string {
@@ -34,7 +36,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		if (this._children == null) {
 			const remotes = await this.repo.getRemotes({ sort: true });
 			if (remotes.length === 0) {
-				return [new MessageNode(this.view, this, 'No remotes could be found')];
+				return [new MessageNode(this.view, this, localize('noRemotesFound', 'No remotes could be found'))];
 			}
 
 			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
@@ -44,7 +46,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(localize('remotes', 'Remotes'), TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Remotes;
 		item.iconPath = new ThemeIcon('cloud');

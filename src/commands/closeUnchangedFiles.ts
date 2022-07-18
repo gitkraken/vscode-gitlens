@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
 import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { UriComparer } from '../comparers';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -8,6 +9,8 @@ import { showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { Command } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
@@ -24,12 +27,16 @@ export class CloseUnchangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Close All Unchanged Files');
+				const repository = await RepositoryPicker.getRepositoryOrShow(
+					localize('closeAllUnchangedFiles', 'Close All Unchanged Files'),
+				);
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
-					void window.showWarningMessage('Unable to close unchanged files');
+					void window.showWarningMessage(
+						localize('unableToCloseUnchangedFiles', 'Unable to close unchanged files'),
+					);
 
 					return;
 				}
@@ -60,7 +67,9 @@ export class CloseUnchangedFilesCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CloseUnchangedFilesCommand');
-			void showGenericErrorMessage('Unable to close all unchanged files');
+			void showGenericErrorMessage(
+				localize('UnableToCloseAllUnchangedFiles', 'Unable to close all unchanged files'),
+			);
 		}
 	}
 }

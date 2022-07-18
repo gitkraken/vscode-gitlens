@@ -1,5 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
@@ -18,6 +19,7 @@ import { FileHistoryNode } from './fileHistoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
 	private _child: FileHistoryNode | undefined;
@@ -46,7 +48,11 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (!this.hasUri) {
 				this.view.description = undefined;
 
-				this.view.message = 'There are no editors open that can provide file history information.';
+				this.view.message = localize(
+					'noEditorsProvidingFileHistoryOpen',
+					'There are no editors open that can provide file history information.',
+				);
+
 				return [];
 			}
 
@@ -67,7 +73,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				}
 			} catch {}
 
-			this.view.title = folder ? 'Folder History' : 'File History';
+			this.view.title = folder
+				? localize('folderHistory', 'Folder History')
+				: localize('fileHistory', 'File History');
 
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
@@ -88,7 +96,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	getTreeItem(): TreeItem {
 		this.splatted = false;
 
-		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('fileHistory', 'File History'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 
 		return item;
@@ -107,8 +115,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	async changeBase() {
 		const pick = await ReferencePicker.show(
 			this.uri.repoPath!,
-			'Change File History Base',
-			'Choose a reference to set as the new base',
+			localize('changeFileHistoryBase', 'Change File History Base'),
+			localize('chooseRefererenceToSetAsNewBase', 'Choose a reference to set as the new base'),
 			{
 				allowEnteringRefs: true,
 				picked: this._base,
