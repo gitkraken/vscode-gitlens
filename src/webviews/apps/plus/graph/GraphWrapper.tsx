@@ -112,6 +112,17 @@ const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings 
 	return columnsSettings;
 };
 
+const debounceFrame = (func: Function) => {
+  let timer: number;
+  return function (...args: any[]) {
+    if (timer) cancelAnimationFrame(timer);
+
+    timer = requestAnimationFrame(() => {
+      func(...args);
+    });
+  };
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -143,17 +154,17 @@ export function GraphWrapper({
   });
 
   useEffect(() => {
-    function handleResize() {
+    const handleResizeDebounced = debounceFrame(() => {
       setDimensions({
         height: window.innerHeight - graphHeightOffset,
         width: window.innerWidth - graphWidthOffset
       });
-    }
+    });
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResizeDebounced);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', handleResizeDebounced);
     };
   });
 
