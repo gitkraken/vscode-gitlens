@@ -62,6 +62,7 @@ export const enum Commands {
 	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
 	CopyAutolinkUrl = 'gitlens.copyAutolinkUrl',
 	CopyCurrentBranch = 'gitlens.copyCurrentBranch',
+	GetCurrentBranch = 'gitlens.getCurrentBranch',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
 	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',

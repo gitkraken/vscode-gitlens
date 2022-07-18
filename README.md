@@ -647,6 +647,7 @@ Additionally, these integrations provide commands to copy the url of or open fil
 - Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a _Copy Current Branch_ command (`gitlens.copyCurrentBranch`) to copy the name of the current branch to the clipboard
+- Adds a _Get Current Branch_ command (`gitlens.getCurrentBranch`) to return the name of the current branch to be used in e.g. Tasks
 
 - Adds a _Switch to Another Branch_ (`gitlens.views.switchToAnotherBranch`) command &mdash; to quickly switch the current branch
 
