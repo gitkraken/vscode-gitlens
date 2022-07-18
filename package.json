@@ -4,7 +4,7 @@
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
 	"version": "12.1.1",
 	"engines": {
-		"vscode": "^1.64.0"
+		"vscode": "^1.69.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",
 	"publisher": "eamodio",
@@ -11231,7 +11231,7 @@
 		"@types/node": "16.11.43",
 		"@types/sortablejs": "1.13.0",
 		"@types/uuid": "8.3.4",
-		"@types/vscode": "1.64.0",
+		"@types/vscode": "1.69.0",
 		"@typescript-eslint/eslint-plugin": "5.30.6",
 		"@typescript-eslint/parser": "5.30.6",
 		"@vscode/test-electron": "2.1.5",
