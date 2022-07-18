@@ -504,7 +504,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const webRoot = context.panel.webview.asWebviewUri(webRootUri).toString();
 
 		const html = content.replace(
-			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/i,
+			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
 			(_substring, token) => {
 				switch (token) {
 					case 'endOfBody':
