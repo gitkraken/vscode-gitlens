@@ -79,6 +79,11 @@ export abstract class WebviewBase<State> implements Disposable {
 	}
 
 	async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
+		// Only try to open beside if there is an active tab
+		if (column === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
+			column = ViewColumn.Active;
+		}
+
 		if (this._panel == null) {
 			this._panel = window.createWebviewPanel(
 				this.id,

@@ -130,6 +130,11 @@ export async function openWalkthrough(
 	stepId?: string,
 	openToSide: boolean = true,
 ): Promise<void> {
+	// Only open to side if there is an active tab
+	if (openToSide && window.tabGroups.activeTabGroup.activeTab == null) {
+		openToSide = false;
+	}
+
 	// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
 	void (await executeCoreCommand(
 		CoreCommands.OpenWalkthrough,
