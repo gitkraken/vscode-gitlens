@@ -1,6 +1,9 @@
 import GraphContainer, {
 	CssVariables,
+	GraphColumnSetting as GKGraphColumnSetting,
+	GraphColumnsSettings as GKGraphColumnsSettings,
 	GraphRow,
+	GraphZoneType,
 	Head,
 	Remote,
 	Tag
@@ -13,6 +16,7 @@ import {
 	GitRemote,
 	GitTag,
 	GraphColumnConfig,
+	GraphConfig,
 	Repository,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
@@ -96,6 +100,18 @@ const getGraphModel = (
     return graphRows;
 };
 
+const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings => {
+	const columnsSettings: GKGraphColumnsSettings = {};
+	if (config?.columns !== undefined) {
+		for (const key of Object.keys(config.columns)) {
+			columnsSettings[key] = {
+				width: config.columns[key].width || 0
+			};
+		}
+	}
+	return columnsSettings;
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -115,6 +131,7 @@ export function GraphWrapper({
 	const [graphList, setGraphList] = useState(getGraphModel(commits, remotes, tags, branches));
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState(selectedRepository);
+	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [settings, setSettings] = useState(config);
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
@@ -123,6 +140,7 @@ export function GraphWrapper({
 		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(state.selectedRepository);
+		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setSettings(state.config);
 		setLogState(state.log);
 		setIsLoading(false);
@@ -146,6 +164,12 @@ export function GraphWrapper({
 		onMoreCommits?.();
 	};
 
+	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
+		if (onColumnChange !== undefined) {
+			onColumnChange(graphZoneType, { width: columnSettings.width });
+		}
+	};
+
 	return (
 		<>
 			<ul>
@@ -164,11 +188,13 @@ export function GraphWrapper({
 				<>
 					<h2>Repository: {currentRepository}</h2>
 					<GraphContainer
+						columnsSettings={graphColSettings}
 						cssVariables={getCssVariables()}
 						graphRows={graphList}
 						hasMoreCommits={logState?.hasMore}
 						isLoadingRows={isLoading}
 						nonce={nonce}
+						onColumnResized={handleOnColumnResized}
 						onShowMoreCommitsClicked={handleMoreCommits}
 					/>
 				</>
