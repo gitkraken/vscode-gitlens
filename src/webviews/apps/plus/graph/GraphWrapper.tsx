@@ -112,15 +112,17 @@ const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings 
 	return columnsSettings;
 };
 
-const debounceFrame = (func: Function) => {
-  let timer: number;
-  return function (...args: any[]) {
-    if (timer) cancelAnimationFrame(timer);
 
-    timer = requestAnimationFrame(() => {
-      func(...args);
-    });
-  };
+type DebouncableFn = (...args: any) => void;
+type DebouncedFn = (...args: any) => void;
+const debounceFrame = (func: DebouncableFn) : DebouncedFn => {
+	let timer: number;
+	return function (...args: any) {
+		if (timer) cancelAnimationFrame(timer);
+		timer = requestAnimationFrame(() => {
+			func(...args);
+		});
+	};
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -149,24 +151,24 @@ export function GraphWrapper({
 	const graphWidthOffset = 20;
 	const graphHeightOffset = 100;
 	const [dimensions, setDimensions] = useState({
-    	height: window.innerHeight - graphHeightOffset,
-    	width: window.innerWidth - graphWidthOffset
-  	});
+		height: window.innerHeight - graphHeightOffset,
+		width: window.innerWidth - graphWidthOffset
+	});
 
-  	useEffect(() => {
-    	const handleResizeDebounced = debounceFrame(() => {
-      		setDimensions({
-        		height: window.innerHeight - graphHeightOffset,
-        		width: window.innerWidth - graphWidthOffset
-      		});
-    	});
+	useEffect(() => {
+		const handleResizeDebounced = debounceFrame(() => {
+			setDimensions({
+				height: window.innerHeight - graphHeightOffset,
+				width: window.innerWidth - graphWidthOffset
+			});
+		});
 
-    	window.addEventListener('resize', handleResizeDebounced);
+		window.addEventListener('resize', handleResizeDebounced);
 
-    	return () => {
-      		window.removeEventListener('resize', handleResizeDebounced);
-    	};
-  	});
+		return () => {
+			window.removeEventListener('resize', handleResizeDebounced);
+		};
+	});
 
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
@@ -223,13 +225,13 @@ export function GraphWrapper({
 						columnsSettings={graphColSettings}
 						cssVariables={getCssVariables()}
 						graphRows={graphList}
-            			height={dimensions.height}
+						height={dimensions.height}
 						hasMoreCommits={logState?.hasMore}
 						isLoadingRows={isLoading}
 						nonce={nonce}
 						onColumnResized={handleOnColumnResized}
 						onShowMoreCommitsClicked={handleMoreCommits}
-            			width={dimensions.width}
+						width={dimensions.width}
 					/>
 				</>
 			) : (
