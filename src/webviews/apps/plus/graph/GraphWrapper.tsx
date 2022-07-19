@@ -146,27 +146,27 @@ export function GraphWrapper({
 	const [settings, setSettings] = useState(config);
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
-  const graphWidthOffset = 20;
-  const graphHeightOffset = 100;
-  const [dimensions, setDimensions] = useState({
-    height: window.innerHeight - graphHeightOffset,
-    width: window.innerWidth - graphWidthOffset
-  });
+	const graphWidthOffset = 20;
+	const graphHeightOffset = 100;
+	const [dimensions, setDimensions] = useState({
+    	height: window.innerHeight - graphHeightOffset,
+    	width: window.innerWidth - graphWidthOffset
+  	});
 
-  useEffect(() => {
-    const handleResizeDebounced = debounceFrame(() => {
-      setDimensions({
-        height: window.innerHeight - graphHeightOffset,
-        width: window.innerWidth - graphWidthOffset
-      });
-    });
+  	useEffect(() => {
+    	const handleResizeDebounced = debounceFrame(() => {
+      		setDimensions({
+        		height: window.innerHeight - graphHeightOffset,
+        		width: window.innerWidth - graphWidthOffset
+      		});
+    	});
 
-    window.addEventListener('resize', handleResizeDebounced);
+    	window.addEventListener('resize', handleResizeDebounced);
 
-    return () => {
-      window.removeEventListener('resize', handleResizeDebounced);
-    };
-  });
+    	return () => {
+      		window.removeEventListener('resize', handleResizeDebounced);
+    	};
+  	});
 
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
@@ -223,13 +223,13 @@ export function GraphWrapper({
 						columnsSettings={graphColSettings}
 						cssVariables={getCssVariables()}
 						graphRows={graphList}
-            height={dimensions.height}
+            			height={dimensions.height}
 						hasMoreCommits={logState?.hasMore}
 						isLoadingRows={isLoading}
 						nonce={nonce}
 						onColumnResized={handleOnColumnResized}
 						onShowMoreCommitsClicked={handleMoreCommits}
-            width={dimensions.width}
+            			width={dimensions.width}
 					/>
 				</>
 			) : (
