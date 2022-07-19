@@ -252,12 +252,17 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
 
-		const [filesResult, workingFilesResult] = await Promise.allSettled([
+		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
 			this.view.container.git.getDiffStatus(this.repoPath, comparison),
 			this.compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
+			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+			this.compareWithWorkingTree
+				? this.view.container.git.getChangedFilesCount(this.repoPath, 'HEAD')
+				: undefined,
 		]);
 
 		let files = getSettledValue(filesResult) ?? [];
+		let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
 
 		if (this.compareWithWorkingTree) {
 			const workingFiles = getSettledValue(workingFilesResult);
@@ -275,22 +280,42 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					}
 				}
 			}
+
+			const workingStats = getSettledValue(workingStatsResult);
+			if (workingStats != null) {
+				if (stats == null) {
+					stats = workingStats;
+				} else {
+					stats = {
+						additions: stats.additions + workingStats.additions,
+						deletions: stats.deletions + workingStats.deletions,
+						changedFiles: files.length,
+						approximated: true,
+					};
+				}
+			}
 		}
 
 		return {
 			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
+			stats: stats,
 		};
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const comparison = GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
 
-		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
+		const [filesResult, statsResult] = await Promise.allSettled([
+			this.view.container.git.getDiffStatus(this.repoPath, comparison),
+			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+		]);
 
+		const files = getSettledValue(filesResult) ?? [];
 		return {
 			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
+			stats: getSettledValue(statsResult),
 		};
 	}
 
@@ -327,17 +352,16 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			comparison = `${this._compareWith.ref}..${this.branch.ref}`;
 		}
 
-		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
-		const shortstat = await this.view.container.git.getChangedFilesCount(this.uri.repoPath!, comparison);
+		const [filesResult, statsResult] = await Promise.allSettled([
+			this.view.container.git.getDiffStatus(this.repoPath, comparison),
+			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+		]);
 
+		const files = getSettledValue(filesResult) ?? [];
 		return {
-			label:
-				`${pluralize('file', files.length, { zero: 'No' })} changed` +
-				` with ${pluralize('addition', shortstat?.additions ?? 0)} and ${pluralize(
-					'deletion',
-					shortstat?.deletions ?? 0,
-				)}`,
+			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
+			stats: getSettledValue(statsResult),
 		};
 	}
 
