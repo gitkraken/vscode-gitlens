@@ -159,6 +159,7 @@
 		"onCommand:gitlens.connectRemoteProvider",
 		"onCommand:gitlens.disconnectRemoteProvider",
 		"oncommand:gitlens.copyCurrentBranch",
+		"oncommand:gitlens.getCurrentBranch",
 		"onCommand:gitlens.copyMessageToClipboard",
 		"onCommand:gitlens.copyShaToClipboard",
 		"onCommand:gitlens.closeUnchangedFiles",
@@ -4366,6 +4367,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.getCurrentBranch",
+				"title": "Get Current Branch Name",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.copyMessageToClipboard",
 				"title": "Copy Message",
 				"category": "GitLens",
@@ -6486,6 +6493,10 @@
 				},
 				{
 					"command": "gitlens.copyCurrentBranch",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.getCurrentBranch",
 					"when": "gitlens:enabled"
 				},
 				{
