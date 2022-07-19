@@ -25,6 +25,7 @@ export class GraphApp extends App<State> {
 
 	constructor() {
 		super('GraphApp');
+		this.watchThemeColors();
 	}
 
 	protected override onBind() {
@@ -127,6 +128,12 @@ export class GraphApp extends App<State> {
 		if (this.callback !== undefined) {
 			this.callback(state);
 		}
+	}
+
+	private watchThemeColors() {
+		const observer = new MutationObserver(() => this.refresh(this.state));
+		observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+		return observer;
 	}
 }
 
