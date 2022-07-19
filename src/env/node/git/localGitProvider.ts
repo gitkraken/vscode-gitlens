@@ -2029,6 +2029,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: this.container.config.advanced.similarityThreshold,
 				...options,
 			});
+			if (!data) return undefined;
+
 			const files = GitDiffParser.parseNameStatus(data, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
 		} catch (ex) {

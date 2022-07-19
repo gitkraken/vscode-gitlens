@@ -557,6 +557,7 @@ export class Git {
 			'--name-status',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'--no-ext-diff',
+			'-z',
 		];
 		if (filters != null && filters.length !== 0) {
 			params.push(`--diff-filter=${filters.join('')}`);
@@ -1354,7 +1355,7 @@ export class Git {
 	}
 
 	show__name_status(repoPath: string, fileName: string, ref: string) {
-		return this.git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
+		return this.git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', '-z', ref, '--', fileName);
 	}
 
 	show_ref__tags(repoPath: string) {
