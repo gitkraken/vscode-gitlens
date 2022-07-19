@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitLog, IssueOrPullRequest, PullRequest } from '../../git/models';
+import { GitLog, IssueOrPullRequest, PullRequest } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { union } from '../../system/iterable';
@@ -11,15 +11,6 @@ import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 import { ContextValues, ViewNode } from './viewNode';
-
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	filtered?: {
-		filter: 'left' | 'right';
-		files: GitFile[];
-	};
-}
 
 let instanceId = 0;
 

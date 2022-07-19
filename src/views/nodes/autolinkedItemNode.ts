@@ -2,19 +2,10 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import { Autolink } from '../../annotations/autolinks';
 import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
+import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
 import { fromNow } from '../../system/date';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
-
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	filtered?: {
-		filter: 'left' | 'right';
-		files: GitFile[];
-	};
-}
 
 export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	constructor(
