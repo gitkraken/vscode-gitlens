@@ -1,14 +1,14 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models';
+import { GitDiffShortStat, GitFile } from '../../git/models';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
-import { sortCompare } from '../../system/string';
+import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
@@ -22,6 +22,7 @@ export enum FilesQueryFilter {
 export interface FilesQueryResults {
 	label: string;
 	files: GitFile[] | undefined;
+	stats?: (GitDiffShortStat & { approximated?: boolean }) | undefined;
 
 	filtered?: Map<FilesQueryFilter, GitFile[]>;
 }
@@ -106,15 +107,27 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let label;
+		let description;
 		let icon;
 		let files: GitFile[] | undefined;
 		let state;
+		let tooltip;
 
 		const filter = this.filter;
 		try {
 			const results = await cancellable(this.getFilesQueryResults(), 100);
 			label = results.label;
+			if (filter == null && results.stats != null) {
+				description = `${pluralize('addition', results.stats.additions)} (+), ${pluralize(
+					'deletion',
+					results.stats.deletions,
+				)} (-)${results.stats.approximated ? ' *approximated' : ''}`;
+				tooltip = `${label}, ${description}`;
+			}
+
 			if (filter != null) {
+				description = 'Filtered';
+				tooltip = `${label} &mdash; ${description}`;
 				files = results.filtered?.get(filter);
 				if (files == null) {
 					label = 'files changed';
@@ -153,12 +166,13 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 			`${filter != null && files != null ? `Showing ${files.length} of ` : ''}${label}`,
 			state,
 		);
-		item.description = filter != null ? 'Filtered' : undefined;
+		item.description = description;
 		item.id = this.id;
 		item.iconPath = icon;
 		item.contextValue = `${ContextValues.ResultsFiles}${
 			this.filterable ? '+filterable' : ''
 		}${this.getFilterContextValue()}`;
+		item.tooltip = tooltip;
 
 		return item;
 	}

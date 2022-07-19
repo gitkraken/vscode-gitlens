@@ -252,12 +252,15 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		comparison: string,
 		compareWithWorkingTree: boolean,
 	): Promise<FilesQueryResults> {
-		const [filesResult, workingFilesResult] = await Promise.allSettled([
+		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
 			this.view.container.git.getDiffStatus(this.repoPath, comparison),
 			compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
+			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+			compareWithWorkingTree ? this.view.container.git.getChangedFilesCount(this.repoPath, 'HEAD') : undefined,
 		]);
 
 		let files = getSettledValue(filesResult) ?? [];
+		let stats: FilesQueryResults['stats'] = getSettledValue(statsResult);
 
 		if (compareWithWorkingTree) {
 			const workingFiles = getSettledValue(workingFilesResult);
@@ -275,11 +278,26 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					}
 				}
 			}
+
+			const workingStats = getSettledValue(workingStatsResult);
+			if (workingStats != null) {
+				if (stats == null) {
+					stats = workingStats;
+				} else {
+					stats = {
+						additions: stats.additions + workingStats.additions,
+						deletions: stats.deletions + workingStats.deletions,
+						changedFiles: files.length,
+						approximated: true,
+					};
+				}
+			}
 		}
 
 		return {
 			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
+			stats: stats,
 		};
 	}
 
@@ -317,17 +335,16 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
 		}
 
-		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
-		const shortstat = await this.view.container.git.getChangedFilesCount(this.uri.repoPath!, comparison);
+		const [filesResult, statsResult] = await Promise.allSettled([
+			this.view.container.git.getDiffStatus(this.repoPath, comparison),
+			this.view.container.git.getChangedFilesCount(this.repoPath, comparison),
+		]);
 
+		const files = getSettledValue(filesResult) ?? [];
 		return {
-			label:
-				`${pluralize('file', files.length, { zero: 'No' })} changed` +
-				` with ${pluralize('addition', shortstat?.additions ?? 0)} and ${pluralize(
-					'deletion',
-					shortstat?.deletions ?? 0,
-				)}`,
+			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
+			stats: getSettledValue(statsResult),
 		};
 	}
 
