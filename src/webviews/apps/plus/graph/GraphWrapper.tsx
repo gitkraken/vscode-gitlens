@@ -90,7 +90,7 @@ const getGraphModel = (
 			email: gitCommit.author.email,
 			date: new Date(gitCommit.committer.date).getTime(),
 			message: gitCommit.message,
-			type: 'commit-node', // TODO: review logic for stash, wip, etc
+			type: gitCommit.type, // TODO: review logic for stash, wip, etc
 			heads: graphHeads,
 			remotes: graphRemotes,
 			tags: graphTags,
