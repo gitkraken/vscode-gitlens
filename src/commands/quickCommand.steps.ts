@@ -71,6 +71,7 @@ import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../su
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
+import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
 import { OpenWorkspaceLocation } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
@@ -214,8 +215,8 @@ export async function getBranchesAndOrTags(
 			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 
-		branches = (branchesResult.status === 'fulfilled' ? branchesResult.value?.values : undefined) ?? [];
-		tags = (tagsResult.status === 'fulfilled' ? tagsResult.value?.values : undefined) ?? [];
+		branches = getSettledValue(branchesResult)?.values ?? [];
+		tags = getSettledValue(tagsResult)?.values ?? [];
 	} else {
 		// TODO@eamodio handle paging
 		const [branchesByRepoResult, tagsByRepoResult] = await Promise.allSettled([

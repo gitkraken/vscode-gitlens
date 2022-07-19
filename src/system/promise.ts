@@ -136,6 +136,13 @@ export function defer<T>(): Deferred<T> {
 	return deferred;
 }
 
+export function getSettledValue<T>(
+	promise: PromiseSettledResult<T>,
+	defaultValue: T | undefined = undefined,
+): T | typeof defaultValue {
+	return promise.status === 'fulfilled' ? promise.value : defaultValue;
+}
+
 export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
 	return obj instanceof Promise || typeof (obj as PromiseLike<T>)?.then === 'function';
 }

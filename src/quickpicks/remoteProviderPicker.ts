@@ -6,6 +6,7 @@ import { GitBranch, GitRemote } from '../git/models';
 import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Keys } from '../keyboard';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
@@ -74,9 +75,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 				Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
 			]);
 
-			const sha =
-				(branches.status === 'fulfilled' ? branches.value.values[0]?.sha : undefined) ??
-				(tags.status === 'fulfilled' ? tags.value.values[0]?.sha : undefined);
+			const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;
 			if (sha) {
 				resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
 			}

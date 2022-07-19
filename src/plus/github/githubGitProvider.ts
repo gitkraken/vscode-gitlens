@@ -85,6 +85,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
 import { TrackedDocument } from '../../trackers/trackedDocument';
 import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
@@ -2702,9 +2703,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this.getTags(repoPath, { filter: t => t.name === ref }),
 		]);
 
-		ref =
-			(branchResults.status === 'fulfilled' ? branchResults.value.values[0]?.sha : undefined) ??
-			(tagResults.status === 'fulfilled' ? tagResults.value.values[0]?.sha : undefined);
+		ref = getSettledValue(branchResults)?.values[0]?.sha ?? getSettledValue(tagResults)?.values[0]?.sha;
 		if (ref == null) debugger;
 
 		return ref;
