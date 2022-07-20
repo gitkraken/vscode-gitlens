@@ -273,7 +273,8 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		]);
 
 		const log = commitsAndLog?.log;
-		const commits = [...(commitsAndLog?.commits ?? []), ...(stashCommits ?? [])];
+		const filteredStashCommits = filterStashCommits(stashCommits, log);
+		const commits = [...(commitsAndLog?.commits ?? []), ...(filteredStashCommits ?? [])];
 
 		return {
 			repositories: formatRepositories(repositories),
@@ -318,6 +319,21 @@ function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
 
 	// TODO: add other needed commit types for graph
 	return type;
+}
+
+function filterStashCommits(stashCommits: GitStashCommit[] | undefined, log: GitLog | undefined): GitStashCommit[] {
+	if (stashCommits === undefined || log === undefined) {
+		return [];
+	}
+
+	// Filter out stash commits whose parents are not in the log
+	return stashCommits.filter((stashCommit: GitStashCommit): boolean => {
+		if (!stashCommit.parents?.length) {
+			return true;
+		}
+		const parentCommit: GitCommitModel | undefined = log.commits.get(stashCommit.parents[0]);
+		return parentCommit !== undefined;
+	});
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
