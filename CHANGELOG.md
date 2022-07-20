@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Remembers chosen filter on files nodes in comparisons when refreshing
+- Changes display of filtered state of files nodes in comparisons
+- Improves diff stat parsing performance and reduced memory usage
+- Disallows comparisons with the working tree on the right-side (left-side still works as expected) and disables swapping
 - Uses VS Code as `core.editor` in rebase &mdash; closes [#2084](https://github.com/gitkraken/vscode-gitlens/issues/2084)
 
 ### Fixed
