@@ -178,6 +178,15 @@ export abstract class ViewBase<
 		return true;
 	}
 
+	private _nodeState: ViewNodeState | undefined;
+	get nodeState(): ViewNodeState {
+		if (this._nodeState == null) {
+			this._nodeState = new ViewNodeState();
+		}
+
+		return this._nodeState;
+	}
+
 	protected get showCollapseAll(): boolean {
 		return true;
 	}
@@ -574,5 +583,30 @@ export abstract class ViewBase<
 		}
 
 		return this._config;
+	}
+}
+
+export class ViewNodeState {
+	private _state: Map<string, Map<string, unknown>> | undefined;
+
+	deleteState(id: string, key: string): void {
+		this._state?.get(id)?.delete(key);
+	}
+
+	getState<T>(id: string, key: string): T | undefined {
+		return this._state?.get(id)?.get(key) as T | undefined;
+	}
+
+	storeState<T>(id: string, key: string, value: T): void {
+		if (this._state == null) {
+			this._state = new Map();
+		}
+
+		const state = this._state.get(id);
+		if (state != null) {
+			state.set(key, value);
+		} else {
+			this._state.set(id, new Map([[key, value]]));
+		}
 	}
 }

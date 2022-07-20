@@ -8,6 +8,7 @@ import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { BranchComparison, BranchComparisons, WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
@@ -82,7 +83,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 				new ResultsCommitsNode(
 					this.view,
 					this,
-					this.uri.repoPath!,
+					this.repoPath,
 					'Behind',
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
@@ -103,7 +104,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 				new ResultsCommitsNode(
 					this.view,
 					this,
-					this.uri.repoPath!,
+					this.repoPath,
 					'Ahead',
 					{
 						query: this.getCommitsQuery(
@@ -126,7 +127,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 				new ResultsFilesNode(
 					this.view,
 					this,
-					this.uri.repoPath!,
+					this.repoPath,
 					this._compareWith.ref || 'HEAD',
 					this.compareWithWorkingTree ? '' : this.branch.ref,
 					this.getFilesQuery.bind(this),
@@ -249,15 +250,21 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		let files = await this.view.container.git.getDiffStatus(
-			this.repoPath,
-			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...'),
-		);
+		const comparison = GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
+
+		const [filesResult, workingFilesResult] = await Promise.allSettled([
+			this.view.container.git.getDiffStatus(this.repoPath, comparison),
+			this.compareWithWorkingTree ? this.view.container.git.getDiffStatus(this.repoPath, 'HEAD') : undefined,
+		]);
+
+		let files = getSettledValue(filesResult) ?? [];
 
 		if (this.compareWithWorkingTree) {
-			const workingFiles = await this.view.container.git.getDiffStatus(this.repoPath, 'HEAD');
+			const workingFiles = getSettledValue(workingFilesResult);
 			if (workingFiles != null) {
-				if (files != null) {
+				if (files.length === 0) {
+					files = workingFiles;
+				} else {
 					for (const wf of workingFiles) {
 						const index = files.findIndex(f => f.path === wf.path);
 						if (index !== -1) {
@@ -266,32 +273,29 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 							files.push(wf);
 						}
 					}
-				} else {
-					files = workingFiles;
 				}
 			}
 		}
 
 		return {
-			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		const files = await this.view.container.git.getDiffStatus(
-			this.uri.repoPath!,
-			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
-		);
+		const comparison = GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
+
+		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
 
 		return {
-			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}
 
 	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
-		const repoPath = this.uri.repoPath!;
+		const repoPath = this.repoPath;
 		return async (limit: number | undefined) => {
 			const log = await this.view.container.git.getLog(repoPath, {
 				limit: limit,
@@ -323,10 +327,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			comparison = `${this._compareWith.ref}..${this.branch.ref}`;
 		}
 
-		const files = await this.view.container.git.getDiffStatus(this.uri.repoPath!, comparison);
+		const files = (await this.view.container.git.getDiffStatus(this.repoPath, comparison)) ?? [];
 
 		return {
-			label: `${pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
 			files: files,
 		};
 	}

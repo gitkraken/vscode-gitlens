@@ -17,6 +17,7 @@ import { isPromise } from '../system/promise';
 import {
 	CompareResultsNode,
 	ContextValues,
+	FilesQueryFilter,
 	RepositoryFolderNode,
 	ResultsFilesNode,
 	SearchResultsNode,
@@ -156,10 +157,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 					allowEnteringRefs: true,
 					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
 					// checkmarks: true,
-					include:
-						ReferencesQuickPickIncludes.BranchesAndTags |
-						ReferencesQuickPickIncludes.HEAD |
-						ReferencesQuickPickIncludes.WorkingTree,
+					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.HEAD,
 					sort: { branches: { current: true } },
 				},
 			);
@@ -324,17 +322,17 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 			commands.registerCommand(
 				this.getQualifiedCommand('setFilesFilterOnLeft'),
-				n => this.setFilesFilter(n, 'left'),
+				n => this.setFilesFilter(n, FilesQueryFilter.Left),
 				this,
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setFilesFilterOnRight'),
-				n => this.setFilesFilter(n, 'right'),
+				n => this.setFilesFilter(n, FilesQueryFilter.Right),
 				this,
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setFilesFilterOff'),
-				n => this.setFilesFilter(n, false),
+				n => this.setFilesFilter(n, undefined),
 				this,
 			),
 		];
@@ -590,7 +588,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		return node.pin();
 	}
 
-	private setFilesFilter(node: ResultsFilesNode, filter: 'left' | 'right' | false) {
+	private setFilesFilter(node: ResultsFilesNode, filter: FilesQueryFilter | undefined) {
 		if (!(node instanceof ResultsFilesNode)) return;
 
 		node.filter = filter;

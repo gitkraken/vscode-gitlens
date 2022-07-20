@@ -5880,7 +5880,8 @@
 				"command": "gitlens.views.searchAndCompare.swapComparison",
 				"title": "Swap Comparison",
 				"category": "GitLens",
-				"icon": "$(arrow-swap)"
+				"icon": "$(arrow-swap)",
+				"enablement": "viewItem =~ /gitlens:compare:results(?!:)\\b(?!.*?\\b\\+working\\b)/"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
@@ -9738,7 +9739,12 @@
 				},
 				{
 					"submenu": "gitlens/view/searchAndCompare/comparison/filter",
-					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)/",
+					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)(?!.*?\\b\\+filtered\\b)/",
+					"group": "inline@1"
+				},
+				{
+					"submenu": "gitlens/view/searchAndCompare/comparison/filtered",
+					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filterable\\b)(?=.*?\\b\\+filtered\\b)/",
 					"group": "inline@1"
 				},
 				{
@@ -9763,7 +9769,7 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.swapComparison",
-					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b(?!.*?\\b\\+working\\b)/",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -10416,6 +10422,23 @@
 					"when1": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/",
 					"group": "navigation_1@2"
 				}
+			],
+			"gitlens/view/searchAndCompare/comparison/filtered": [
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOff",
+					"when": "viewItem =~ /gitlens:results:files\\b(?=.*?\\b\\+filtered\\b)/",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnLeft",
+					"when1": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~left\\b)/",
+					"group": "navigation_1@1"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesFilterOnRight",
+					"when1": "viewItem =~ /gitlens:results:files\\b(?!.*?\\b\\+filtered~right\\b)/",
+					"group": "navigation_1@2"
+				}
 			]
 		},
 		"submenus": [
@@ -10484,6 +10507,11 @@
 				"id": "gitlens/view/searchAndCompare/comparison/filter",
 				"label": "Filter",
 				"icon": "$(filter)"
+			},
+			{
+				"id": "gitlens/view/searchAndCompare/comparison/filtered",
+				"label": "Filter",
+				"icon": "$(filter-filled)"
 			}
 		],
 		"keybindings": [
