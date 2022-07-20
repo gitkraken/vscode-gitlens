@@ -32,14 +32,39 @@ export interface GraphWrapperProps extends State {
 // Copied from original pushed code of Miggy E.
 // TODO: review that code as I'm not sure if it is the correct way to do that in Gitlens side.
 // I suppose we need to use the GitLens themes here instead.
-export const getCssVariables = (): CssVariables => {
-	const body = document.body;
-	const computedStyle = window.getComputedStyle(body);
+const getCssVariables = (): CssVariables => {
+    const body = document.body;
+    const computedStyle = window.getComputedStyle(body);
+	const isLightTheme = body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
+
 	return {
-		'--app__bg0': computedStyle.getPropertyValue('--color-background'),
-		// note that we should probably do something theme-related here, (dark theme we lighten, light theme we darken)
-		'--panel__bg0': computedStyle.getPropertyValue('--color-background--lighten-05'),
-	};
+        '--app__bg0': computedStyle.getPropertyValue('--color-background'),
+        '--panel__bg0': isLightTheme ? computedStyle.getPropertyValue('--color-background--darken-05') : computedStyle.getPropertyValue('--color-background--lighten-05'),
+		'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
+		'--text-normal': computedStyle.getPropertyValue('--color-foreground-85'),
+		'--text-secondary': computedStyle.getPropertyValue('--color-foreground-65'),
+		'--text-disabled': computedStyle.getPropertyValue('--color-foreground-50'),
+		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
+		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
+		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+		... getGraphColors(computedStyle.getPropertyValue('--color-background')),
+    };
+};
+
+const getGraphColors = (bgColor: string): CssVariables => {
+	// mixed colors for ref labels (ref label color + graph bg color)
+	// making the ref label color transparent is not an option since ref labels overlap the ref line
+	// and can potentially overlap each other, e.g., when a truncated ref is expanded.
+	const mixedGraphColors: CssVariables = {};
+	const graphColors = [
+		'#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d'
+	];
+	for (let i = 0; i < graphColors.length; i++) {
+		for (const mixInt of [15,25,45,50]) {
+			mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, graphColors[i], mixInt / 100).hex();
+		}
+	}
+	return mixedGraphColors;
 };
 
 const getGraphModel = (
