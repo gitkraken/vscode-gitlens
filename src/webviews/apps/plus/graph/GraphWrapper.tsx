@@ -7,7 +7,7 @@ import GraphContainer, {
 	Head,
 	Remote,
 	Tag
-} from '@axosoft/gitkraken-components/lib/components/graph/GraphContainer';
+} from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
 import React, { useEffect, useState } from 'react';
 import {
 	CommitListCallback,
