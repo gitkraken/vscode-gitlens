@@ -22,6 +22,7 @@ import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
+import { base64 } from '../../system/string';
 import { fromString, satisfies, Version } from '../../system/version';
 import {
 	GitHubBlame,
@@ -155,7 +156,13 @@ export class GitHubApi implements Disposable {
 					!author.avatarUrl || isGitHubDotCom(options)
 						? author.avatarUrl ?? undefined
 						: author.email && options?.baseUrl != null
-						? await this.createEnterpriseAvatarUrl(token, options.baseUrl, author.email, options.avatarSize)
+						? await this.createEnterpriseAvatarUrl(
+								provider,
+								token,
+								options.baseUrl,
+								author.email,
+								options.avatarSize,
+						  )
 						: undefined,
 			};
 		} catch (ex) {
@@ -230,7 +237,13 @@ export class GitHubApi implements Disposable {
 					!author.avatarUrl || isGitHubDotCom(options)
 						? author.avatarUrl ?? undefined
 						: author.email && options?.baseUrl != null
-						? await this.createEnterpriseAvatarUrl(token, options.baseUrl, author.email, options.avatarSize)
+						? await this.createEnterpriseAvatarUrl(
+								provider,
+								token,
+								options.baseUrl,
+								author.email,
+								options.avatarSize,
+						  )
 						: undefined,
 			};
 		} catch (ex) {
@@ -1733,13 +1746,17 @@ export class GitHubApi implements Disposable {
 	private _enterpriseVersions = new Map<string, Version | null>();
 
 	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: '<token>' } })
-	private async getEnterpriseVersion(token: string, options?: { baseUrl?: string }): Promise<Version | undefined> {
+	private async getEnterpriseVersion(
+		provider: RichRemoteProvider | undefined,
+		token: string,
+		options?: { baseUrl?: string },
+	): Promise<Version | undefined> {
 		let version = this._enterpriseVersions.get(token);
 		if (version != null) return version;
 		if (version === null) return undefined;
 
 		try {
-			const rsp = await this.request(undefined, token, 'GET /meta', options);
+			const rsp = await this.request(provider, token, 'GET /meta', options);
 			const v = (rsp?.data as any)?.installed_version as string | null | undefined;
 			version = v ? fromString(v) : null;
 		} catch (ex) {
@@ -1953,6 +1970,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async createEnterpriseAvatarUrl(
+		provider: RichRemoteProvider | undefined,
 		token: string,
 		baseUrl: string,
 		email: string,
@@ -1960,31 +1978,40 @@ export class GitHubApi implements Disposable {
 	): Promise<string | undefined> {
 		avatarSize = avatarSize ?? 16;
 
-		let avatarEndpointUrl = `https://avatars.githubusercontent.com`;
-
-		const version = await this.getEnterpriseVersion(token, { baseUrl: baseUrl });
+		const version = await this.getEnterpriseVersion(provider, token, { baseUrl: baseUrl });
 		if (satisfies(version, '>= 3.0.0')) {
-			avatarEndpointUrl = `${baseUrl}/enterprise/avatars`;
+			let url: string | undefined;
 
 			const match = /^(?:(\d+)\+)?(.+?)@users\.noreply\.(.*)$/i.exec(email);
 			if (match != null) {
-				const uri = Uri.parse(baseUrl);
 				const [, userId, login, authority] = match;
 
-				if (uri.authority === authority) {
+				if (Uri.parse(baseUrl).authority === authority) {
 					if (userId != null) {
-						return `${avatarEndpointUrl}/u/${encodeURIComponent(userId)}?s=${avatarSize}`;
-					}
-
-					if (login != null) {
-						return `${avatarEndpointUrl}/${encodeURIComponent(login)}?s=${avatarSize}`;
+						url = `${baseUrl}/enterprise/avatars/u/${encodeURIComponent(userId)}?s=${avatarSize}`;
+					} else if (login != null) {
+						url = `${baseUrl}/enterprise/avatars/${encodeURIComponent(login)}?s=${avatarSize}`;
 					}
 				}
+			}
+
+			if (url == null) {
+				url = `${baseUrl}/enterprise/avatars/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
+			}
+
+			const rsp = await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+				fetch(url!, { method: 'GET', headers: { Authorization: `Bearer ${token}` } }),
+			);
+
+			if (rsp.ok) {
+				const data = base64(new Uint8Array(await rsp.arrayBuffer()));
+				const mimeType = rsp.headers.get('content-type');
+				return `data:${mimeType};base64,${data}`;
 			}
 		}
 
 		// The /u/e endpoint automatically falls back to gravatar if not found
-		return `${avatarEndpointUrl}/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
+		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
 }
 
