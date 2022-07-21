@@ -4,9 +4,13 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import {
 	ColumnChangeCommandType,
 	CommitListCallback,
+	DidChangeCommitsNotificationType,
+	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
 	GraphColumnConfig,
 	MoreCommitsCommandType,
+	Repository,
+	SelectRepositoryCommandType,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
@@ -37,6 +41,7 @@ export class GraphApp extends App<State> {
 						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
 					)}
+					onSelectRepository={debounce((path: Repository) => this.onRepositoryChanged(path), 250)}
 					onMoreCommits={(...params) => this.onMoreCommits(...params)}
 					{...this.state}
 				/>,
@@ -64,6 +69,28 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
+			case DidChangeCommitsNotificationType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeCommitsNotificationType, msg, params => {
+					this.setState({
+						...this.state,
+						commits: params.commits,
+						log: params.log,
+					});
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeConfigNotificationType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeConfigNotificationType, msg, params => {
+					this.setState({ ...this.state, config: params.config });
+					this.refresh(this.state);
+				});
+				break;
+
 			default:
 				super.onMessageReceived?.(e);
 		}
@@ -73,6 +100,12 @@ export class GraphApp extends App<State> {
 		this.sendCommand(ColumnChangeCommandType, {
 			name: name,
 			config: settings,
+		});
+	}
+
+	private onRepositoryChanged(repo: Repository) {
+		this.sendCommand(SelectRepositoryCommandType, {
+			path: repo.path,
 		});
 	}
 
