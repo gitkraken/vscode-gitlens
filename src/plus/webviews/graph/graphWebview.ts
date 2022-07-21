@@ -63,7 +63,6 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			WorkspaceStorageKeys.GraphColumns,
 			columns,
 		);
-		void this.notifyDidChangeState();
 	}
 
 	private async moreCommits(limit?: number) {
