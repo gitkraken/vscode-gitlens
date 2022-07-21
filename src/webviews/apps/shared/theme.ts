@@ -1,7 +1,7 @@
 /*global window document MutationObserver*/
-import { darken, lighten, opacity } from './colors';
+import { darken, lighten, mix, opacity } from './colors';
 
-export function initializeAndWatchThemeColors() {
+export function initializeAndWatchThemeColors(callback?: () => void) {
 	const onColorThemeChanged = () => {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
@@ -88,9 +88,27 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-hover-foreground', color);
 		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-statusBarBackground').trim();
 		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
+
+		// graph-specific colors
+		const isLightTheme = body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
+		color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+		bodyStyle.setProperty('--graph-panel-bg', isLightTheme ? darken(color, 5) : lighten(color, 5));
+
+		const graphColors = [
+			'#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d'
+		];
+		color = computedStyle.getPropertyValue('--color-background');
+		for (let i = 0; i < graphColors.length; i++) {
+			for (const mixInt of [15,25,45,50]) {
+				bodyStyle.setProperty(`--graph-color-${i}-bg${mixInt}`, mix(color, graphColors[i], mixInt));
+			}
+		}
+
+		callback?.();
 	};
 
 	const observer = new MutationObserver(onColorThemeChanged);
+
 	observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 	onColorThemeChanged();
