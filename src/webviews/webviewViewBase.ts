@@ -42,7 +42,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
 	private _disposableView: Disposable | undefined;
-	private _view: WebviewView | undefined;
+	protected _view: WebviewView | undefined;
 
 	constructor(
 		protected readonly container: Container,

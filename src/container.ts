@@ -50,6 +50,8 @@ import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
+import { CommitDetailsWebview } from './webviews/commitDetails/commitDetailsWebview';
+import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetailsWebviewView';
 import { HomeWebviewView } from './webviews/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { SettingsWebview } from './webviews/settings/settingsWebview';
@@ -175,6 +177,8 @@ export class Container {
 		context.subscriptions.push((this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider(this)));
+		context.subscriptions.push((this._commitDetailsWebview = new CommitDetailsWebview(this)));
+		context.subscriptions.push((this._commitDetailsWebviewView = new CommitDetailsWebviewView(this)));
 
 		context.subscriptions.push(new ViewFileDecorationProvider());
 
@@ -284,6 +288,24 @@ export class Container {
 		}
 
 		return this._commitsView;
+	}
+
+	private _commitDetailsWebview: CommitDetailsWebview | undefined;
+	get commitDetailsWebview() {
+		if (this._commitDetailsWebview == null) {
+			this._context.subscriptions.push((this._commitDetailsWebview = new CommitDetailsWebview(this)));
+		}
+
+		return this._commitDetailsWebview;
+	}
+
+	private _commitDetailsWebviewView: CommitDetailsWebviewView | undefined;
+	get commitDetailsWebviewView() {
+		if (this._commitDetailsWebviewView == null) {
+			this._context.subscriptions.push((this._commitDetailsWebviewView = new CommitDetailsWebviewView(this)));
+		}
+
+		return this._commitDetailsWebviewView;
 	}
 
 	private readonly _context: ExtensionContext;

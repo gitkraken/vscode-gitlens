@@ -251,6 +251,16 @@ export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends C
 	}
 }
 
+export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
+		super(item ?? '$(files) Open in Commit Details');
+	}
+
+	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.openDetails(this.commit);
+	}
+}
+
 export class CommitOpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
 		super(item ?? '$(files) Open Files');

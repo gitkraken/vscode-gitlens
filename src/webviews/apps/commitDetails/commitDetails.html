@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<body class="preload">
+		<div class="commit-detail-panel">
+			<!-- commitDetails:header -->
+			<!-- commitDetails:choices -->
+			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
+				<p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p>
+				<p>
+					<button class="button button--full" type="button" data-action="pick-commit">Pick Commit...</button>
+				</p>
+				<!-- <p><button class="button button--full" type="button">Follow Open Files</button></p> -->
+			</div>
+			<main class="commit-details commit-detail-panel__main" id="main" tabindex="-1">
+				<div class="commit-details__commit">
+					<div class="commit-details__top">
+						<ul class="commit-details__authors" aria-label="Authors">
+							<li class="commit-details__author" data-region="author">
+								<skeleton-loader></skeleton-loader>
+							</li>
+						</ul>
+						<a
+							class="commit-details__commit-action"
+							href="#"
+							data-action="commit-show-actions"
+							aria-label="Show Commit Actions"
+							title="Show Commit Actions"
+							><code-icon icon="kebab-vertical"></code-icon
+						></a>
+					</div>
+					<div class="commit-details__message">
+						<p class="commit-details__message-text" data-region="message">
+							<skeleton-loader></skeleton-loader>
+						</p>
+					</div>
+				</div>
+
+				<webview-pane collapsable expanded data-region="rich-pane">
+					<span slot="title">Autolinks</span>
+					<div class="commit-details__rich" data-region="rich-info" aria-hidden="true">
+						<p>
+							<code-icon icon="info"></code-icon> Use autolinks to identify external references, like Jira
+							issues or Zendesk tickets, in your commit messages and convert them to clickable links.
+						</p>
+						<p>
+							<a href="#">Configure autolinks in settings</a>
+						</p>
+					</div>
+					<div class="commit-details__rich" data-region="autolinks">
+						<section
+							class="commit-details__pull-request"
+							aria-label="Pull request"
+							data-region="pull-request"
+						>
+							<skeleton-loader lines="2"></skeleton-loader>
+						</section>
+						<section class="commit-details__issue" aria-label="Issue" data-region="issue">
+							<skeleton-loader lines="2"></skeleton-loader>
+						</section>
+					</div>
+				</webview-pane>
+
+				<webview-pane class="commit-details__files" collapsable expanded>
+					<span slot="title"
+						>Files changed
+						<span class="commit-details__stats" data-region="stats"></span>
+					</span>
+					<ul class="change-list" data-region="files">
+						<li class="change-list__item commit-details__item-skeleton">
+							<skeleton-loader></skeleton-loader>
+						</li>
+						<li class="change-list__item commit-details__item-skeleton">
+							<skeleton-loader></skeleton-loader>
+						</li>
+						<li class="change-list__item commit-details__item-skeleton">
+							<skeleton-loader></skeleton-loader>
+						</li>
+					</ul>
+				</webview-pane>
+			</main>
+		</div>
+		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+			}
+		</style>
+	</body>
+</html>

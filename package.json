@@ -63,8 +63,10 @@
 		"onView:gitlens.views.contributors",
 		"onView:gitlens.views.searchAndCompare",
 		"onView:gitlens.views.worktrees",
+		"onView:gitlens.views.commitDetails",
 		"onWebviewPanel:gitlens.welcome",
 		"onWebviewPanel:gitlens.settings",
+		"onWebviewPanel:gitlens.commitDetails",
 		"onCommand:gitlens.plus.learn",
 		"onCommand:gitlens.plus.loginOrSignUp",
 		"onCommand:gitlens.plus.logout",
@@ -99,6 +101,7 @@
 		"onCommand:gitlens.showStashesView",
 		"onCommand:gitlens.showTagsView",
 		"onCommand:gitlens.showTimelineView",
+		"onCommand:gitlens.showCommitDetailsPage",
 		"onCommand:gitlens.showWorktreesView",
 		"onCommand:gitlens.compareWith",
 		"onCommand:gitlens.compareHeadWith",
@@ -3925,6 +3928,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showCommitDetailsPage",
+				"title": "Show Commit Details View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showWorktreesView",
 				"title": "Show Worktrees View",
 				"category": "GitLens"
@@ -6221,6 +6229,10 @@
 				},
 				{
 					"command": "gitlens.showTimelineView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showCommitDetailsPage",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -10934,6 +10946,15 @@
 			],
 			"scm": [
 				{
+					"type": "webview",
+					"id": "gitlens.views.commitDetails",
+					"name": "Commit Details",
+					"when": "!gitlens:disabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/commits.svg",
+					"visibility": "hidden"
+				},
+				{
 					"id": "gitlens.views.commits",
 					"name": "Commits",
 					"when": "!gitlens:disabled",
@@ -11263,6 +11284,7 @@
 		"chroma-js": "2.4.2",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
+		"lit": "^2.2.7",
 		"lodash-es": "4.17.21",
 		"md5.js": "1.3.5",
 		"node-fetch": "2.6.7",
@@ -11297,6 +11319,7 @@
 		"eslint-import-resolver-typescript": "3.4.0",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.26.0",
+		"eslint-plugin-lit": "^1.6.1",
 		"fork-ts-checker-webpack-plugin": "6.5.2",
 		"glob": "8.0.3",
 		"html-loader": "4.1.0",

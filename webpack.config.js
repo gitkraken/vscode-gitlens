@@ -266,6 +266,7 @@ function getWebviewsConfig(mode, env) {
 		getHtmlPlugin('settings', false, mode, env),
 		getHtmlPlugin('timeline', true, mode, env),
 		getHtmlPlugin('welcome', false, mode, env),
+		getHtmlPlugin('commitDetails', false, mode, env),
 		getCspHtmlPlugin(mode, env),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
@@ -309,6 +310,7 @@ function getWebviewsConfig(mode, env) {
 			settings: './settings/settings.ts',
 			timeline: './plus/timeline/timeline.ts',
 			welcome: './welcome/welcome.ts',
+			commitDetails: './commitDetails/commitDetails.ts',
 		},
 		mode: mode,
 		target: 'web',
@@ -441,7 +443,7 @@ function getCspHtmlPlugin(mode, env) {
 				mode !== 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
 					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"],
+			'style-src': ['#{cspSource}', "'unsafe-hashes'", "'unsafe-inline'"],
 			'font-src': ['#{cspSource}'],
 		},
 		{
@@ -449,11 +451,11 @@ function getCspHtmlPlugin(mode, env) {
 			hashingMethod: 'sha256',
 			hashEnabled: {
 				'script-src': true,
-				'style-src': true,
+				'style-src': false,
 			},
 			nonceEnabled: {
 				'script-src': true,
-				'style-src': true,
+				'style-src': false,
 			},
 		},
 	);

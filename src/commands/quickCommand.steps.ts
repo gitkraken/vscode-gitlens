@@ -41,6 +41,7 @@ import {
 	CommitOpenChangesCommandQuickPickItem,
 	CommitOpenChangesWithDiffToolCommandQuickPickItem,
 	CommitOpenChangesWithWorkingCommandQuickPickItem,
+	CommitOpenDetailsCommandQuickPickItem,
 	CommitOpenDirectoryCompareCommandQuickPickItem,
 	CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem,
 	CommitOpenFileCommandQuickPickItem,
@@ -1783,6 +1784,7 @@ async function getShowCommitOrStashStepItems<
 		new CommitOpenAllChangesWithWorkingCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithDiffToolCommandQuickPickItem(state.reference),
 		QuickPickSeparator.create(),
+		new CommitOpenDetailsCommandQuickPickItem(state.reference),
 		new CommitOpenFilesCommandQuickPickItem(state.reference),
 		new CommitOpenRevisionsCommandQuickPickItem(state.reference),
 	);

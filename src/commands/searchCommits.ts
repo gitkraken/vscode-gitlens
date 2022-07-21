@@ -13,6 +13,7 @@ export interface SearchCommitsCommandArgs {
 
 	prefillOnly?: boolean;
 
+	showResultsInDetails?: boolean;
 	showResultsInSideBar?: boolean;
 }
 
@@ -53,6 +54,7 @@ export class SearchCommitsCommand extends Command {
 				...args?.search,
 				showResultsInSideBar:
 					configuration.get('gitCommands.search.showResultsInSideBar') ?? args?.showResultsInSideBar,
+				showResultsInDetails: args?.showResultsInDetails ?? false,
 			},
 		}));
 	}

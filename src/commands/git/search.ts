@@ -36,6 +36,7 @@ interface Context {
 interface State extends Required<SearchPattern> {
 	repo: string | Repository;
 	showResultsInSideBar: boolean | SearchResultsNode;
+	showResultsInDetails?: boolean;
 }
 
 export interface SearchGitCommandArgs {
@@ -240,6 +241,13 @@ export class SearchGitCommand extends QuickCommand<State> {
 				}
 
 				context.commit = result;
+			}
+
+			if (state.showResultsInDetails) {
+				void this.container.commitDetailsWebviewView.show({
+					commit: context.commit,
+				});
+				break;
 			}
 
 			const result = yield* getSteps(

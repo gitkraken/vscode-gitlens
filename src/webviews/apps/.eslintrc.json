@@ -1,7 +1,10 @@
 {
-	"extends": ["../../../.eslintrc.base.json"],
+	"extends": ["../../../.eslintrc.base.json", "plugin:lit/recommended"],
 	"env": {
 		"browser": true
+	},
+	"rules": {
+		"import/extensions": ["error", "never", { "js": "always" }]
 	},
 	"parserOptions": {
 		"project": "src/webviews/apps/tsconfig.json"
