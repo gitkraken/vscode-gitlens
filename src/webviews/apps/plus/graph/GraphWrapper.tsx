@@ -8,7 +8,7 @@ import GraphContainer, {
 	Remote,
 	Tag,
 } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
 	CommitListCallback,
 	GitBranch,
@@ -190,9 +190,10 @@ export function GraphWrapper({
 		return subscriber(transformData);
 	}, []);
 
-	const handleSelectRepository = (item: GitCommit) => {
+	const handleSelectRepository = (event: ChangeEvent<HTMLSelectElement>) => {
 		if (onSelectRepository !== undefined) {
-			onSelectRepository(item);
+			const item = reposList.find(repo => repo.path === event.target.value);
+			onSelectRepository(item?.path);
 		}
 	};
 
@@ -210,19 +211,24 @@ export function GraphWrapper({
 	return (
 		<>
 			<header className="graph-app__header">
-				<ul>
-					{reposList.length ? (
-						reposList.map((item, index) => (
-							<li onClick={() => handleSelectRepository(item)} key={`repos-${index}`}>
-								{item.path === currentRepository ? '(selected)' : ''}
-								{JSON.stringify(item)}
-							</li>
-						))
-					) : (
-						<li>No repos</li>
-					)}
-				</ul>
-				{currentRepository !== undefined && <h2>Repository: {currentRepository}</h2>}
+				<h2>Repository: {reposList.length === 0 ? 'none available' : currentRepository ?? 'unselected'}</h2>
+				{reposList.length > 0 && (
+					<div>
+						<label htmlFor="repo-picker">Switch</label>{' '}
+						<select
+							name="repo-picker"
+							id="repo-picker"
+							value={currentRepository}
+							onChange={handleSelectRepository}
+						>
+							{reposList.map((item, index) => (
+								<option value={item.path} key={`repos-${index}`}>
+									{item.formattedName}
+								</option>
+							))}
+						</select>
+					</div>
+				)}
 			</header>
 			<main ref={mainRef} id="main" className="graph-app__main">
 				{currentRepository !== undefined ? (
