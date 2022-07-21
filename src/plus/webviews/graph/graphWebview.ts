@@ -28,9 +28,11 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	private selectedRepository?: Repository;
 	private currentLog?: GitLog;
 	private repoDisposable: Disposable | undefined;
+	private defaultTitle?: string;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.graph', 'graph.html', 'images/gitlens-icon.png', 'Graph', Commands.ShowGraphPage);
+		this.defaultTitle = this.title;
 		this.disposables.push({ dispose: () => this.repoDisposable?.dispose() });
 	}
 
@@ -215,18 +217,21 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		if (this.selectedRepository === undefined) {
 			const idealRepo = await this.pickRepository(repositories);
 			this.selectedRepository = idealRepo;
-			//TODO: add repository listener
 			this.repoDisposable?.dispose();
 			if (this.selectedRepository != null) {
 				this.repoDisposable = this.selectedRepository.onDidChange(this.onRepositoryChanged, this);
 			}
 		}
 
+		if (this.selectedRepository !== undefined) {
+			this.title = `${this.defaultTitle}: ${this.selectedRepository.formattedName}`;
+		}
+
 		const [commitsAndLog, remotes, tags, branches] = await Promise.all([
 			this.getCommits(),
 			this.getRemotes(),
 			this.getTags(),
-			this.getBranches()
+			this.getBranches(),
 		]);
 
 		const log = commitsAndLog?.log;
@@ -248,7 +253,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 							cursor: log.cursor,
 					  }
 					: undefined,
-			nonce: super.getCSPNonce()
+			nonce: super.getCSPNonce(),
 		};
 	}
 
@@ -263,7 +268,7 @@ function formatCommits(commits: GitCommit[]): GitCommit[] {
 		author: author,
 		message: message,
 		parents: parents,
-		committer: committer
+		committer: committer,
 	}));
 }
 
