@@ -9,6 +9,7 @@ import {
 	MoreCommitsCommandType,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
+import { debounce } from '../../../../system/function';
 import { onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
 import { GraphWrapper } from './GraphWrapper';
@@ -32,7 +33,10 @@ export class GraphApp extends App<State> {
 			render(
 				<GraphWrapper
 					subscriber={(callback: CommitListCallback) => this.registerEvents(callback)}
-					onColumnChange={(...params) => this.onColumnChanged(...params)}
+					onColumnChange={debounce(
+						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
+						250,
+					)}
 					onMoreCommits={(...params) => this.onMoreCommits(...params)}
 					{...this.state}
 				/>,
