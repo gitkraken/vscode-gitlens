@@ -44,7 +44,7 @@ export abstract class App<State = void> {
 		// this.log(`${this.appName}(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
-		initializeAndWatchThemeColors();
+		initializeAndWatchThemeColors(this.onThemeUpdated?.bind(this));
 
 		requestAnimationFrame(() => {
 			this.log(`${this.appName}.initializing`);
@@ -72,6 +72,7 @@ export abstract class App<State = void> {
 	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
 	protected onMessageReceived?(e: MessageEvent): void;
+	protected onThemeUpdated?(): void;
 
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {

@@ -25,7 +25,6 @@ export class GraphApp extends App<State> {
 
 	constructor() {
 		super('GraphApp');
-		this.watchThemeColors();
 	}
 
 	protected override onBind() {
@@ -97,6 +96,12 @@ export class GraphApp extends App<State> {
 		}
 	}
 
+	protected override onThemeUpdated() {
+		console.log('zz theme updated, updating');
+		console.log('zz this', this);
+		this.refresh(this.state);
+	}
+
 	private onColumnChanged(name: string, settings: GraphColumnConfig) {
 		this.sendCommand(ColumnChangeCommandType, {
 			name: name,
@@ -128,12 +133,6 @@ export class GraphApp extends App<State> {
 		if (this.callback !== undefined) {
 			this.callback(state);
 		}
-	}
-
-	private watchThemeColors() {
-		const observer = new MutationObserver(() => this.refresh(this.state));
-		observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-		return observer;
 	}
 }
 

@@ -35,11 +35,10 @@ export interface GraphWrapperProps extends State {
 const getCssVariables = (): CssVariables => {
     const body = document.body;
     const computedStyle = window.getComputedStyle(body);
-	const isLightTheme = body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
 
 	return {
         '--app__bg0': computedStyle.getPropertyValue('--color-background'),
-        '--panel__bg0': isLightTheme ? computedStyle.getPropertyValue('--color-background--darken-05') : computedStyle.getPropertyValue('--color-background--lighten-05'),
+        '--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
 		'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
 		'--text-normal': computedStyle.getPropertyValue('--color-foreground-85'),
 		'--text-secondary': computedStyle.getPropertyValue('--color-foreground-65'),
@@ -47,21 +46,18 @@ const getCssVariables = (): CssVariables => {
 		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-		... getGraphColors(computedStyle.getPropertyValue('--color-background')),
+		... getGraphColors(computedStyle),
     };
 };
 
-const getGraphColors = (bgColor: string): CssVariables => {
+const getGraphColors = (computedStyle: CSSStyleDeclaration): CssVariables => {
 	// mixed colors for ref labels (ref label color + graph bg color)
 	// making the ref label color transparent is not an option since ref labels overlap the ref line
 	// and can potentially overlap each other, e.g., when a truncated ref is expanded.
 	const mixedGraphColors: CssVariables = {};
-	const graphColors = [
-		'#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d'
-	];
-	for (let i = 0; i < graphColors.length; i++) {
+	for (let i = 0; i < 10; i++) {
 		for (const mixInt of [15,25,45,50]) {
-			mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, graphColors[i], mixInt / 100).hex();
+			mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = computedStyle.getPropertyValue(`--graph-color-${i}-bg${mixInt}`);
 		}
 	}
 	return mixedGraphColors;
@@ -263,7 +259,7 @@ export function GraphWrapper({
 						{mainWidth !== undefined && mainHeight !== undefined && (
 							<GraphContainer
 								columnsSettings={graphColSettings}
-								cssVariables={cssVariables()}
+								cssVariables={cssVariables}
 								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
