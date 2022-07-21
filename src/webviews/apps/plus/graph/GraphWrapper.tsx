@@ -63,6 +63,15 @@ const getGraphColors = (computedStyle: CSSStyleDeclaration): CssVariables => {
 	return mixedGraphColors;
 };
 
+const getStyleProps = ():{cssVariables: CssVariables, themeOpacityFactor: number } => {
+	const body = document.body;
+    const computedStyle = window.getComputedStyle(body);
+	return {
+		cssVariables: getCssVariables(),
+		themeOpacityFactor: computedStyle.getPropertyValue('--graph-theme') === 'dark' ? 1 : 0.5,
+	};
+};
+
 const getGraphModel = (
 	gitCommits: GraphCommit[] = [],
 	_gitRemotes: GraphRemote[] = [],
@@ -167,7 +176,7 @@ export function GraphWrapper({
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
-	const [cssVariables, setCSSVariables] = useState(getCssVariables());
+	const [styleProps, setStyleProps] = useState(getStyleProps());
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
 	const [mainWidth, setMainWidth] = useState<number>();
@@ -203,7 +212,7 @@ export function GraphWrapper({
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setLogState(state.log);
 		setIsLoading(false);
-		setCSSVariables(getCssVariables());
+		setStyleProps(getStyleProps());
 	}
 
 	useEffect(() => {
@@ -259,7 +268,7 @@ export function GraphWrapper({
 						{mainWidth !== undefined && mainHeight !== undefined && (
 							<GraphContainer
 								columnsSettings={graphColSettings}
-								cssVariables={cssVariables}
+								cssVariables={styleProps.cssVariables}
 								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
@@ -268,6 +277,7 @@ export function GraphWrapper({
 								onColumnResized={handleOnColumnResized}
 								onShowMoreCommitsClicked={handleMoreCommits}
 								width={mainWidth}
+								themeOpacityFactor={styleProps.themeOpacityFactor}
 							/>
 						)}
 					</>
