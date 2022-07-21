@@ -20,13 +20,19 @@
     }
 
     &__header {
-        padding: {
-            left: 18px;
-            right: 18px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        padding: 2rem 1rem 0.5rem;
+
+        > * {
+            margin: 0;
         }
     }
     &__main {
         flex: 1 1 auto;
-        overflow: auto;
+        overflow: none;
     }
 }
