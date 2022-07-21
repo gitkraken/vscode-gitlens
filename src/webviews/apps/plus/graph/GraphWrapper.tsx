@@ -193,7 +193,7 @@ export function GraphWrapper({
 	const handleSelectRepository = (event: ChangeEvent<HTMLSelectElement>) => {
 		if (onSelectRepository !== undefined) {
 			const item = reposList.find(repo => repo.path === event.target.value);
-			onSelectRepository(item?.path);
+			item != null && onSelectRepository(item);
 		}
 	};
 

@@ -10,6 +10,8 @@ import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import {
 	ColumnChangeCommandType,
+	DidChangeCommitsNotificationType,
+	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
 	GitBranch,
 	GitCommit,
@@ -63,7 +65,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			WorkspaceStorageKeys.GraphColumns,
 			columns,
 		);
-		void this.notifyDidChangeState();
+		void this.notifyDidChangeConfig();
 	}
 
 	private async moreCommits(limit?: number) {
@@ -75,15 +77,30 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 				this.currentLog = nextLog;
 			}
 		}
-		void this.notifyDidChangeState();
+		void this.notifyDidChangeCommits();
 	}
 
 	private changeRepository(path: string) {
 		if (this.selectedRepository?.path !== path) {
-			this.selectedRepository = this.getRepos().find(r => r.path === path);
+			this.selectedRepository = path ? this.getRepos().find(r => r.path === path) : undefined;
 			this.currentLog = undefined;
 		}
 		void this.notifyDidChangeState();
+	}
+
+	private async notifyDidChangeConfig() {
+		return this.notify(DidChangeConfigNotificationType, {
+			config: this.getConfig(),
+		});
+	}
+
+	private async notifyDidChangeCommits() {
+		const commitsAndLog = await this.getCommits();
+
+		return this.notify(DidChangeCommitsNotificationType, {
+			commits: formatCommits(commitsAndLog?.commits ?? []),
+			log: commitsAndLog?.log != null ? formatLog(commitsAndLog.log) : undefined,
+		});
 	}
 
 	private async notifyDidChangeState() {
@@ -244,15 +261,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			branches: branches, // TODO: add a format function
 			tags: tags, // TODO: add a format function
 			config: this.getConfig(),
-			log:
-				log != null
-					? {
-							count: log.count,
-							limit: log.limit,
-							hasMore: log.hasMore,
-							cursor: log.cursor,
-					  }
-					: undefined,
+			log: log != null ? formatLog(log) : undefined,
 			nonce: super.getCSPNonce(),
 		};
 	}
@@ -283,4 +292,13 @@ function formatRepositories(repositories: Repository[]): RepositoryData[] {
 		name: name,
 		path: path,
 	}));
+}
+
+function formatLog(log: GitLog) {
+	return {
+		count: log.count,
+		limit: log.limit,
+		hasMore: log.hasMore,
+		cursor: log.cursor,
+	};
 }

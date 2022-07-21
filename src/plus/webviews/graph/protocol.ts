@@ -5,9 +5,9 @@ export interface State {
 	selectedRepository?: string;
 	commits?: GitCommit[];
 	config?: GraphConfig;
-	remotes?: GitRemote[],
-	tags?: GitTag[],
-	branches?: GitBranch[]
+	remotes?: GitRemote[];
+	tags?: GitTag[];
+	branches?: GitBranch[];
 	log?: GitLog;
 	nonce?: string;
 }
@@ -43,6 +43,7 @@ export interface CommitListCallback {
 	(state: State): void;
 }
 
+// Commands
 export interface ColumnChangeParams {
 	name: string;
 	config: GraphColumnConfig;
@@ -59,7 +60,21 @@ export interface SelectRepositoryParams {
 }
 export const SelectRepositoryCommandType = new IpcCommandType<SelectRepositoryParams>('graph/selectRepository');
 
+// Notifications
 export interface DidChangeParams {
 	state: State;
 }
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange');
+
+export interface DidChangeConfigParams {
+	config: GraphConfig;
+}
+export const DidChangeConfigNotificationType = new IpcNotificationType<DidChangeConfigParams>('graph/didChangeConfig');
+
+export interface DidChangeCommitsParams {
+	commits: GitCommit[];
+	log?: GitLog;
+}
+export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
+	'graph/didChangeCommits',
+);
