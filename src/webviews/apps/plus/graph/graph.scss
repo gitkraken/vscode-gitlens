@@ -7,3 +7,26 @@
 @import '../../shared/codicons';
 @import '../../shared/utils';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/lib/css/GKGraphStyles.css';
+
+.graph-app {
+    padding: 0;
+
+    &__container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        gap: 0.5rem;
+        padding: 0 2px;
+    }
+
+    &__header {
+        padding: {
+            left: 18px;
+            right: 18px;
+        }
+    }
+    &__main {
+        flex: 1 1 auto;
+        overflow: auto;
+    }
+}
