@@ -663,7 +663,7 @@ $search: String!
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
-						headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
 						body: JSON.stringify({ query: query, variables: variables }),
 					}),
@@ -715,7 +715,7 @@ $search: String!
 			try {
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
-						headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
 						...options,
 					}),
