@@ -1,29 +1,29 @@
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
-	repositories?: Repository[];
+	repositories?: GraphRepository[];
 	selectedRepository?: string;
-	commits?: GitCommit[];
+	commits?: GraphCommit[];
 	config?: GraphConfig;
-	remotes?: GitRemote[];
-	tags?: GitTag[];
-	branches?: GitBranch[];
-	log?: GitLog;
+	remotes?: GraphRemote[];
+	tags?: GraphTag[];
+	branches?: GraphBranch[];
+	log?: GraphLog;
 	nonce?: string;
 }
 
-export interface GitLog {
+export interface GraphLog {
 	count: number;
 	limit?: number;
 	hasMore: boolean;
 	cursor?: string;
 }
 
-export type Repository = Record<string, any>;
-export type GitCommit = Record<string, any>;
-export type GitRemote = Record<string, any>;
-export type GitTag = Record<string, any>;
-export type GitBranch = Record<string, any>;
+export type GraphRepository = Record<string, any>;
+export type GraphCommit = Record<string, any>;
+export type GraphRemote = Record<string, any>;
+export type GraphTag = Record<string, any>;
+export type GraphBranch = Record<string, any>;
 
 export interface GraphColumnConfig {
 	width: number;
@@ -72,8 +72,8 @@ export interface DidChangeConfigParams {
 export const DidChangeConfigNotificationType = new IpcNotificationType<DidChangeConfigParams>('graph/didChangeConfig');
 
 export interface DidChangeCommitsParams {
-	commits: GitCommit[];
-	log?: GitLog;
+	commits: GraphCommit[];
+	log?: GraphLog;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
 	'graph/didChangeCommits',

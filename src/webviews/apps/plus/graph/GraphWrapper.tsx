@@ -11,20 +11,20 @@ import GraphContainer, {
 import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
 	CommitListCallback,
-	GitBranch,
-	GitCommit,
-	GitRemote,
-	GitTag,
+	GraphBranch,
 	GraphColumnConfig,
+	GraphCommit,
 	GraphConfig,
-	Repository,
+	GraphRemote,
+	GraphRepository,
+	GraphTag,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
 	subscriber: (callback: CommitListCallback) => () => void;
-	onSelectRepository?: (repository: Repository) => void;
+	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
 }
@@ -43,10 +43,10 @@ export const getCssVariables = (): CssVariables => {
 };
 
 const getGraphModel = (
-	gitCommits: GitCommit[] = [],
-	gitRemotes: GitRemote[] = [],
-	gitTags: GitTag[] = [],
-	gitBranches: GitBranch[] = [],
+	gitCommits: GraphCommit[] = [],
+	_gitRemotes: GraphRemote[] = [],
+	gitTags: GraphTag[] = [],
+	gitBranches: GraphBranch[] = [],
 ): GraphRow[] => {
 	const graphRows: GraphRow[] = [];
 
@@ -58,8 +58,8 @@ const getGraphModel = (
 	// TODO: review if that code is correct and see if we need to add more data
 	for (const gitCommit of gitCommits) {
 		const graphRemotes: Remote[] = gitBranches
-			.filter((branch: GitBranch) => branch.sha === gitCommit.sha)
-			.map((branch: GitBranch) => {
+			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha)
+			.map((branch: GraphBranch) => {
 				return {
 					name: branch.name,
 					url: branch.id,
@@ -68,8 +68,8 @@ const getGraphModel = (
 			});
 
 		const graphHeads: Head[] = gitBranches
-			.filter((branch: GitBranch) => branch.sha === gitCommit.sha && branch.current)
-			.map((branch: GitBranch) => {
+			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.current)
+			.map((branch: GraphBranch) => {
 				return {
 					name: branch.name,
 					isCurrentHead: branch.current,
@@ -77,8 +77,8 @@ const getGraphModel = (
 			});
 
 		const graphTags: Tag[] = gitTags
-			.filter((tag: GitTag) => tag.sha === gitCommit.sha)
-			.map((tag: GitTag) => ({
+			.filter((tag: GraphTag) => tag.sha === gitCommit.sha)
+			.map((tag: GraphTag) => ({
 				name: tag.name,
 				// annotated: tag.refType === 'annotatedTag' // TODO: review that. I have copied same logic of GK but I think this is not correct.
 			}));
