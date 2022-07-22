@@ -23,6 +23,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
+	GitCommitType,
 	GraphColumnConfig,
 	GraphColumnConfigDictionary,
 	GraphCommit,
@@ -305,16 +306,10 @@ function formatCommits(commits: (GitCommit | GitStashCommit)[]): GraphCommit[] {
 	}));
 }
 
-// TODO: Move constant to a better home
-const enum CommitType {
-	CommitNode = 'commit-node',
-	StashNode = 'stash-node',
-}
-
-function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
-	let type: CommitType = CommitType.CommitNode;
-	if (GitCommit.isStash(commit)) {
-		type = CommitType.StashNode;
+function getCommitType(commit: GitCommit | GitStashCommit): GitCommitType {
+	let type = GitCommitType.COMMIT;
+	if (GitCommitModel.isStash(commit)) {
+		type = GitCommitType.STASH;
 	}
 
 	// TODO: add other needed commit types for graph
