@@ -93,7 +93,7 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		const isLightTheme = body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
 		color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
 		bodyStyle.setProperty('--graph-panel-bg', isLightTheme ? darken(color, 5) : lighten(color, 5));
-		bodyStyle.setProperty('--graph-theme', isLightTheme ? 'light' : 'dark');
+		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
 
 		const graphColors = [
 			'#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d'

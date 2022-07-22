@@ -97,8 +97,6 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated() {
-		console.log('zz theme updated, updating');
-		console.log('zz this', this);
 		this.refresh(this.state);
 	}
 

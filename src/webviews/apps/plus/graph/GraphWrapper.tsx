@@ -68,7 +68,7 @@ const getStyleProps = ():{cssVariables: CssVariables, themeOpacityFactor: number
     const computedStyle = window.getComputedStyle(body);
 	return {
 		cssVariables: getCssVariables(),
-		themeOpacityFactor: computedStyle.getPropertyValue('--graph-theme') === 'dark' ? 1 : 0.5,
+		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
 };
 
