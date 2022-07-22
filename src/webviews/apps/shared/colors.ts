@@ -1,5 +1,3 @@
-import {mix as mixColor} from 'chroma-js';
-
 const cssColorRegex =
 	/^(?:(#?)([0-9a-f]{3}|[0-9a-f]{6})|((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\))$/i;
 

@@ -20,6 +20,7 @@ import {
 	GraphTag,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
+import { mix } from '../../shared/colors';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
@@ -32,7 +33,7 @@ export interface GraphWrapperProps extends State {
 // Copied from original pushed code of Miggy E.
 // TODO: review that code as I'm not sure if it is the correct way to do that in Gitlens side.
 // I suppose we need to use the GitLens themes here instead.
-const getCssVariables = (): CssVariables => {
+const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariables => {
     const body = document.body;
     const computedStyle = window.getComputedStyle(body);
 
@@ -46,28 +47,27 @@ const getCssVariables = (): CssVariables => {
 		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-		... getGraphColors(computedStyle),
+		... mixedColumnColors,
     };
 };
 
-const getGraphColors = (computedStyle: CSSStyleDeclaration): CssVariables => {
-	// mixed colors for ref labels (ref label color + graph bg color)
-	// making the ref label color transparent is not an option since ref labels overlap the ref line
-	// and can potentially overlap each other, e.g., when a truncated ref is expanded.
-	const mixedGraphColors: CssVariables = {};
-	for (let i = 0; i < 10; i++) {
-		for (const mixInt of [15,25,45,50]) {
-			mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = computedStyle.getPropertyValue(`--graph-color-${i}-bg${mixInt}`);
-		}
-	}
-	return mixedGraphColors;
-};
+export function getGraphColors(config: GraphConfig | undefined, computedStyle: CSSStyleDeclaration): CssVariables {
+    const bgColor = computedStyle.getPropertyValue('--color-background');
+    const columnColors = ((config?.columnColors) != null) ? config.columnColors : ['#00bcd4', '#ff9800', '#9c27b0', '#2196f3', '#009688', '#ffeb3b', '#ff5722', '#795548'];
+    const mixedGraphColors: CssVariables = {};
+    for (let i = 0; i < columnColors.length; i++) {
+        for (const mixInt of [15,25,45,50]) {
+            mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, columnColors[i], mixInt);
+        }
+    }
+    return mixedGraphColors;
+}
 
-const getStyleProps = ():{cssVariables: CssVariables, themeOpacityFactor: number } => {
+const getStyleProps = (mixedColumnColors: CssVariables | undefined):{cssVariables: CssVariables, themeOpacityFactor: number } => {
 	const body = document.body;
     const computedStyle = window.getComputedStyle(body);
 	return {
-		cssVariables: getCssVariables(),
+		cssVariables: getCssVariables(mixedColumnColors),
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
 };
@@ -169,6 +169,7 @@ export function GraphWrapper({
 	onColumnChange,
 	onMoreCommits,
 	nonce,
+	mixedColumnColors
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(getGraphModel(commits, remotes, tags, branches));
 	const [reposList, setReposList] = useState(repositories);
@@ -176,7 +177,7 @@ export function GraphWrapper({
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
-	const [styleProps, setStyleProps] = useState(getStyleProps());
+	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
 	const [mainWidth, setMainWidth] = useState<number>();
@@ -212,7 +213,7 @@ export function GraphWrapper({
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setLogState(state.log);
 		setIsLoading(false);
-		setStyleProps(getStyleProps());
+		setStyleProps(getStyleProps(state.mixedColumnColors));
 	}
 
 	useEffect(() => {

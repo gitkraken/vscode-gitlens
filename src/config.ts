@@ -391,6 +391,7 @@ export interface GraphColumnConfig {
 export interface GraphConfig {
 	defaultLimit: number;
 	pageLimit: number;
+	columnColors: string[];
 }
 
 export interface CodeLensConfig {
