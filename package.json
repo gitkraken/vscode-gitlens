@@ -3931,7 +3931,7 @@
 			},
 			{
 				"command": "gitlens.showGraphPage",
-				"title": "Show Commit Graph Page",
+				"title": "Show Commit Graph",
 				"category": "GitLens"
 			},
 			{

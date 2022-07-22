@@ -2,7 +2,16 @@ import { Disposable, ViewColumn, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import { GitLog, Repository, RepositoryChangeEvent } from '../../../git/models';
+import { emojify } from '../../../emojis';
+import {
+	GitBranch,
+	GitCommit,
+	GitLog,
+	GitRemote,
+	GitTag,
+	Repository,
+	RepositoryChangeEvent,
+} from '../../../git/models';
 import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { WorkspaceStorageKeys } from '../../../storage';
 import { IpcMessage, onIpc } from '../../../webviews/protocol';
@@ -13,15 +22,12 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
-	GitBranch,
-	GitCommit,
-	GitRemote,
-	GitTag,
 	GraphColumnConfig,
 	GraphColumnConfigDictionary,
+	GraphCommit,
 	GraphConfig as GraphConfigWithColumns,
+	GraphRepository,
 	MoreCommitsCommandType,
-	Repository as RepositoryData,
 	SelectRepositoryCommandType,
 	State,
 } from './protocol';
@@ -217,7 +223,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		};
 	}
 
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
+	private onRepositoryChanged(_e: RepositoryChangeEvent) {
 		// TODO: e.changed(RepositoryChange.Heads)
 		this.currentLog = undefined;
 		void this.notifyDidChangeState();
@@ -271,17 +277,17 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	}
 }
 
-function formatCommits(commits: GitCommit[]): GitCommit[] {
-	return commits.map(({ sha, author, message, parents, committer }) => ({
+function formatCommits(commits: GitCommit[]): GraphCommit[] {
+	return commits.map(({ sha, author, summary, message, parents, committer }) => ({
 		sha: sha,
 		author: author,
-		message: message,
+		message: emojify(message ?? summary),
 		parents: parents,
 		committer: committer,
 	}));
 }
 
-function formatRepositories(repositories: Repository[]): RepositoryData[] {
+function formatRepositories(repositories: Repository[]): GraphRepository[] {
 	if (repositories.length === 0) {
 		return repositories;
 	}

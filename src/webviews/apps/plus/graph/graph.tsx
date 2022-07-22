@@ -1,4 +1,4 @@
-/*global document window*/
+/*global document*/
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import {
@@ -8,8 +8,8 @@ import {
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
 	GraphColumnConfig,
+	GraphRepository,
 	MoreCommitsCommandType,
-	Repository,
 	SelectRepositoryCommandType,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
@@ -41,7 +41,7 @@ export class GraphApp extends App<State> {
 						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
 					)}
-					onSelectRepository={debounce((path: Repository) => this.onRepositoryChanged(path), 250)}
+					onSelectRepository={debounce((path: GraphRepository) => this.onRepositoryChanged(path), 250)}
 					onMoreCommits={(...params) => this.onMoreCommits(...params)}
 					{...this.state}
 				/>,
@@ -103,7 +103,7 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onRepositoryChanged(repo: Repository) {
+	private onRepositoryChanged(repo: GraphRepository) {
 		this.sendCommand(SelectRepositoryCommandType, {
 			path: repo.path,
 		});
