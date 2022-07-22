@@ -125,7 +125,7 @@ export function fromNow(date: Date, short?: boolean): string {
 }
 
 export function formatDate(
-	date: Date,
+	date: Date | number,
 	format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined,
 	locale?: string,
 	cache: boolean = true,
