@@ -35,7 +35,7 @@ export class GitHubRemote extends RichRemoteProvider {
 	}
 
 	get apiBaseUrl() {
-		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://${this.domain}/api/v3`;
+		return this.custom ? `${this.protocol}://${this.domain}/api/v3` : `https://api.${this.domain}`;
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
