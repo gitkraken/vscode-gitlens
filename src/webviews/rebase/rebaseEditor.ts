@@ -107,6 +107,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			window.registerCustomEditorProvider('gitlens.rebase', this, {
 				supportsMultipleEditorsPerDocument: false,
 				webviewOptions: {
+					enableFindWidget: true,
 					retainContextWhenHidden: true,
 				},
 			}),
