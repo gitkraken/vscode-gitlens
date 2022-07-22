@@ -1,6 +1,4 @@
 import GraphContainer, {
-	COMMIT_NODE_TYPE,
-	CommitType,
 	CssVariables,
 	GraphColumnSetting as GKGraphColumnSetting,
 	GraphColumnsSettings as GKGraphColumnsSettings,
@@ -8,13 +6,11 @@ import GraphContainer, {
 	GraphZoneType,
 	Head,
 	Remote,
-	STASH_NODE_TYPE,
 	Tag,
 } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
 import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
 	CommitListCallback,
-	GitCommitType,
 	GraphBranch,
 	GraphColumnConfig,
 	GraphCommit,
@@ -44,18 +40,6 @@ export const getCssVariables = (): CssVariables => {
 		// note that we should probably do something theme-related here, (dark theme we lighten, light theme we darken)
 		'--panel__bg0': computedStyle.getPropertyValue('--color-background--lighten-05'),
 	};
-};
-
-export const mapRowsCommitTypeToLibrary = (graphRows: GraphRow[]): GraphRow[] => {
-	const typeMapping: { [Key in GitCommitType] : CommitType } = {
-		[GitCommitType.COMMIT]: COMMIT_NODE_TYPE,
-		[GitCommitType.STASH]: STASH_NODE_TYPE
-	};
-
-	return graphRows.map((row) => ({
-		...row,
-		type: typeMapping[row.type as GitCommitType] ?? COMMIT_NODE_TYPE
-	}));
 };
 
 const getGraphModel = (
@@ -168,8 +152,6 @@ export function GraphWrapper({
 	const [mainHeight, setMainHeight] = useState<number>();
 	const mainRef = useRef<HTMLElement>(null);
 
-	const graphListMapped: GraphRow[] = mapRowsCommitTypeToLibrary(graphList);
-
 	useEffect(() => {
 		if (mainRef.current === null) {
 			return;
@@ -255,7 +237,7 @@ export function GraphWrapper({
 							<GraphContainer
 								columnsSettings={graphColSettings}
 								cssVariables={getCssVariables()}
-								graphRows={graphListMapped}
+								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
 								isLoadingRows={isLoading}

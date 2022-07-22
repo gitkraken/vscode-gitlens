@@ -1,3 +1,5 @@
+import { CommitType } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
+import { commitNodeType, stashNodeType } from '@gitkraken/gitkraken-components/lib/domain/commit/CommitConstants';
 import { Disposable, ViewColumn, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -23,7 +25,6 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
-	GitCommitType,
 	GraphColumnConfig,
 	GraphColumnConfigDictionary,
 	GraphCommit,
@@ -299,17 +300,17 @@ function formatCommits(commits: (GitCommit | GitStashCommit)[]): GraphCommit[] {
 	return commits.map((commit: GitCommit) => ({
 		sha: commit.sha,
 		author: commit.author,
-		message: emojify(commit.message ?? commit.summary),
+		message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
 		parents: commit.parents,
 		committer: commit.committer,
 		type: getCommitType(commit)
 	}));
 }
 
-function getCommitType(commit: GitCommit | GitStashCommit): GitCommitType {
-	let type = GitCommitType.COMMIT;
-	if (GitCommitModel.isStash(commit)) {
-		type = GitCommitType.STASH;
+function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
+	let type: CommitType = commitNodeType;
+	if (GitCommit.isStash(commit)) {
+		type = stashNodeType;
 	}
 
 	// TODO: add other needed commit types for graph
@@ -326,7 +327,7 @@ function filterStashCommits(stashCommits: GitStashCommit[] | undefined, log: Git
 		if (!stashCommit.parents?.length) {
 			return true;
 		}
-		const parentCommit: GitCommitModel | undefined = log.commits.get(stashCommit.parents[0]);
+		const parentCommit: GitCommit | undefined = log.commits.get(stashCommit.parents[0]);
 		return parentCommit !== undefined;
 	});
 }
