@@ -10,6 +10,7 @@ export interface State {
 	branches?: GraphBranch[];
 	log?: GraphLog;
 	nonce?: string;
+	mixedColumnColors?: {[variable: string]: string};
 }
 
 export interface GraphLog {
@@ -37,6 +38,7 @@ export interface GraphConfig {
 	defaultLimit: number;
 	pageLimit: number;
 	columns?: GraphColumnConfigDictionary;
+	columnColors: string[];
 }
 
 export interface CommitListCallback {

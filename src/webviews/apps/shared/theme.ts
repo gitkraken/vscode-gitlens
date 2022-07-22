@@ -1,5 +1,5 @@
 /*global window document MutationObserver*/
-import { darken, lighten, mix, opacity } from './colors';
+import { darken, lighten, opacity } from './colors';
 
 export function initializeAndWatchThemeColors(callback?: () => void) {
 	const onColorThemeChanged = () => {
@@ -99,16 +99,6 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
 		bodyStyle.setProperty('--graph-panel-bg', isLightTheme ? darken(color, 5) : lighten(color, 5));
 		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
-
-		const graphColors = [
-			'#15a0bf', '#0669f7', '#8e00c2', '#c517b6', '#d90171', '#cd0101', '#f25d2e', '#f2ca33', '#7bd938', '#2ece9d'
-		];
-		color = computedStyle.getPropertyValue('--color-background');
-		for (let i = 0; i < graphColors.length; i++) {
-			for (const mixInt of [15,25,45,50]) {
-				bodyStyle.setProperty(`--graph-color-${i}-bg${mixInt}`, mix(color, graphColors[i], mixInt));
-			}
-		}
 
 		callback?.();
 	};

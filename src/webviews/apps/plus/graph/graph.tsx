@@ -1,6 +1,8 @@
-/*global document*/
+/*global document window*/
+import { CssVariables } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
+import { GraphConfig } from 'src/config';
 import {
 	ColumnChangeCommandType,
 	CommitListCallback,
@@ -14,8 +16,9 @@ import {
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
-import { onIpc } from '../../../../webviews/protocol';
+import { DidChangeConfigurationNotificationType , onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
+import { mix } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
 
@@ -91,12 +94,37 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
+			case DidChangeConfigurationNotificationType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeConfigurationNotificationType, msg, params => {
+					this.setState({ ...this.state, mixedColumnColors: this.getGraphColors(params.config.graph) });
+					this.refresh(this.state);
+				});
+				break;
+
 			default:
 				super.onMessageReceived?.(e);
 		}
 	}
 
+	private getGraphColors(config: GraphConfig | undefined): CssVariables {
+		// this will be called on theme updated as well as on config updated since it is dependent on the column colors from config changes and the background color from the theme
+		const body = document.body;
+    	const computedStyle = window.getComputedStyle(body);
+		const bgColor = computedStyle.getPropertyValue('--color-background');
+		const columnColors = ((config?.columnColors) != null) ? config.columnColors : ['#00bcd4', '#ff9800', '#9c27b0', '#2196f3', '#009688', '#ffeb3b', '#ff5722', '#795548'];
+		const mixedGraphColors: CssVariables = {};
+		for (let i = 0; i < columnColors.length; i++) {
+			for (const mixInt of [15,25,45,50]) {
+				mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, columnColors[i], mixInt);
+			}
+		}
+		return mixedGraphColors;
+	}
+
 	protected override onThemeUpdated() {
+		this.setState({ ...this.state, mixedColumnColors: this.getGraphColors(this.state.config) });
 		this.refresh(this.state);
 	}
 
