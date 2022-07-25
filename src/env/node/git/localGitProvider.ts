@@ -3339,7 +3339,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						message = `WIP: ${matchSummary}`;
 						summary = wipSummary;
 					} else {
-						message = matchSummary;
+						message = matchSummary.length ? matchSummary : wipSummary;
 						summary = message ? message.split('\n', 1)[0] : wipSummary;
 					}
 				} else {
