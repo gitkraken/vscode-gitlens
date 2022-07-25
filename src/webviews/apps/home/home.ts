@@ -17,11 +17,7 @@ export class HomeApp extends App<State> {
 	}
 
 	protected override onInitialize() {
-		provideVSCodeDesignSystem().register({
-			register: function (container: any, context: any) {
-				vsCodeButton().register(container, context);
-			},
-		});
+		provideVSCodeDesignSystem().register(vsCodeButton());
 
 		this.$slots = [
 			document.getElementById('slot1') as HTMLDivElement,

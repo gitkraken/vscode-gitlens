@@ -22,13 +22,7 @@ export class TimelineApp extends App<State> {
 	}
 
 	protected override onInitialize() {
-		provideVSCodeDesignSystem().register({
-			register: function (container: any, context: any) {
-				vsCodeButton().register(container, context);
-				vsCodeDropdown().register(container, context);
-				vsCodeOption().register(container, context);
-			},
-		});
+		provideVSCodeDesignSystem().register(vsCodeButton(), vsCodeDropdown(), vsCodeOption());
 
 		this.updateState();
 	}
