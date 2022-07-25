@@ -51,18 +51,6 @@ const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariab
     };
 };
 
-export function getGraphColors(config: GraphConfig | undefined, computedStyle: CSSStyleDeclaration): CssVariables {
-    const bgColor = computedStyle.getPropertyValue('--color-background');
-    const columnColors = ((config?.columnColors) != null) ? config.columnColors : ['#00bcd4', '#ff9800', '#9c27b0', '#2196f3', '#009688', '#ffeb3b', '#ff5722', '#795548'];
-    const mixedGraphColors: CssVariables = {};
-    for (let i = 0; i < columnColors.length; i++) {
-        for (const mixInt of [15,25,45,50]) {
-            mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, columnColors[i], mixInt);
-        }
-    }
-    return mixedGraphColors;
-}
-
 const getStyleProps = (mixedColumnColors: CssVariables | undefined):{cssVariables: CssVariables, themeOpacityFactor: number } => {
 	const body = document.body;
     const computedStyle = window.getComputedStyle(body);
