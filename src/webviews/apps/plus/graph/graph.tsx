@@ -18,7 +18,7 @@ import {
 import { debounce } from '../../../../system/function';
 import { DidChangeConfigurationNotificationType , onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
-import { mix } from '../../shared/colors';
+import { mix, opacity } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
 
@@ -116,8 +116,13 @@ export class GraphApp extends App<State> {
 		const columnColors = ((config?.columnColors) != null) ? config.columnColors : ['#00bcd4', '#ff9800', '#9c27b0', '#2196f3', '#009688', '#ffeb3b', '#ff5722', '#795548'];
 		const mixedGraphColors: CssVariables = {};
 		for (let i = 0; i < columnColors.length; i++) {
+			mixedGraphColors[`--graph-color-${i}`] = columnColors[i];
+			mixedGraphColors[`--column-${i}-color`] = columnColors[i];
 			for (const mixInt of [15,25,45,50]) {
 				mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, columnColors[i], mixInt);
+			}
+			for (const mixInt of [10,50]) {
+				mixedGraphColors[`--graph-color-${i}-f${mixInt}`] = opacity(columnColors[i], mixInt);
 			}
 		}
 		return mixedGraphColors;
