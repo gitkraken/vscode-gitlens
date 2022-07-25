@@ -3010,7 +3010,8 @@
 					"gitlens.graph.columnColors": {
 						"type": "array",
 						"items": {
-							"type": "string"
+							"type": "string",
+							"pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$"
 						},
 						"default": ["#15a0bf", "#0669f7", "#8e00c2", "#c517b6", "#d90171", "#cd0101", "#f25d2e", "#f2ca33", "#7bd938", "#2ece9d"],
 						"markdownDescription": "Specifies the colors used for the different columns in the graph",
