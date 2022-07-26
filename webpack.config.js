@@ -137,12 +137,12 @@ function getExtensionConfig(target, mode, env) {
 								},
 						  }
 						: {
-								compress: {
-									drop_debugger: true,
-								},
 								extractComments: false,
 								parallel: true,
 								terserOptions: {
+									compress: {
+										drop_debugger: true,
+									},
 									ecma: 2020,
 									// Keep the class names otherwise @log won't provide a useful name
 									keep_classnames: true,
@@ -337,14 +337,14 @@ function getWebviewsConfig(mode, env) {
 								},
 						  }
 						: {
-								compress: {
-									drop_debugger: true,
-									drop_console: true,
-								},
 								extractComments: false,
 								parallel: true,
 								// @ts-ignore
 								terserOptions: {
+									compress: {
+										drop_debugger: true,
+										drop_console: true,
+									},
 									ecma: 2020,
 									// // Keep the class names otherwise @log won't provide a useful name
 									// keep_classnames: true,
