@@ -3347,8 +3347,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					summary = message.split('\n', 1)[0] ?? '';
 				}
 
-				const baseParentSha = s.parents.split(' ')[0];
-
 				commits.set(
 					s.sha,
 					new GitCommit(
@@ -3358,7 +3356,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
 						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
 						summary,
-						baseParentSha ? [baseParentSha] : [],
+						s.parents.split(' ') ?? [],
 						message,
 						s.files?.map(
 							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),
