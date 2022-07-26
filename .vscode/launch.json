@@ -8,9 +8,10 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
@@ -20,8 +21,10 @@
 				"group": "2_run",
 				"order": 1
 			},
+			"pauseForSourceMap": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
@@ -31,20 +34,23 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"presentation": {
 				"group": "2_run",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
@@ -64,6 +70,7 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true
 		},
 		{
@@ -72,14 +79,16 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -87,6 +96,7 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
@@ -101,13 +111,15 @@
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionDevelopmentKind=web"
 			],
-			"cwd": "${workspaceFolder}",
 			"debugWebWorkerHost": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"webRoot": "${workspaceFolder}"
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
+			"pauseForSourceMap": true,
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -115,6 +127,7 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
@@ -124,14 +137,16 @@
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
 				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -139,6 +154,7 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
@@ -159,6 +175,7 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true
 		}
 	]
