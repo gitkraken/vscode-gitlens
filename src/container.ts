@@ -78,10 +78,10 @@ export class Container {
 		},
 	});
 
-	static create(context: ExtensionContext, cfg: Config) {
+	static create(context: ExtensionContext, cfg: Config, insiders: boolean) {
 		if (Container.#instance != null) throw new Error('Container is already initialized');
 
-		Container.#instance = new Container(context, cfg);
+		Container.#instance = new Container(context, cfg, insiders);
 		return Container.#instance;
 	}
 
@@ -152,9 +152,10 @@ export class Container {
 
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
-	private constructor(context: ExtensionContext, config: Config) {
+	private constructor(context: ExtensionContext, config: Config, insiders: boolean) {
 		this._context = context;
 		this._config = this.applyMode(config);
+		this._insiders = insiders;
 
 		context.subscriptions.push((this._storage = new Storage(this._context)));
 
@@ -311,7 +312,7 @@ export class Container {
 		return this._config;
 	}
 
-	private _context: ExtensionContext;
+	private readonly _context: ExtensionContext;
 	get context() {
 		return this._context;
 	}
@@ -409,9 +410,9 @@ export class Container {
 		return this._homeView;
 	}
 
-	@memoize()
+	private readonly _insiders;
 	get insiders() {
-		return this._context.extension.id.endsWith('-insiders');
+		return this._insiders;
 	}
 
 	private _integrationAuthentication: IntegrationAuthenticationService;

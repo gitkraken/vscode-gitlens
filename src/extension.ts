@@ -17,12 +17,12 @@ import { executeCommand, executeCoreCommand, registerCommands } from './system/c
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
-import { compare } from './system/version';
+import { compare, satisfies } from './system/version';
 import { ViewNode } from './views/nodes';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
-	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
 	const gitlensVersion = context.extension.packageJSON.version;
+	const insiders = context.extension.id === 'eamodio.gitlens-insiders' || satisfies(gitlensVersion, '> 2020.0.0');
 
 	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
@@ -47,8 +47,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		},
 	});
 
-	if (insiders) {
-		// Ensure that stable isn't also installed
+	// If we are using the separate insiders extension, ensure that stable isn't also installed
+	if (context.extension.id === 'eamodio.gitlens-insiders') {
 		const stable = extensions.getExtension('eamodio.gitlens');
 		if (stable != null) {
 			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
@@ -107,7 +107,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	// await migrateSettings(context, previousVersion);
 
-	const container = Container.create(context, cfg);
+	const container = Container.create(context, cfg, insiders);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);

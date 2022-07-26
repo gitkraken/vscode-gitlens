@@ -201,4 +201,4 @@ If the action fails, the VSIX will need to be built locally with `yarn package` 
 
 ### Insiders release
 
-The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically ran every AM unless no new changes have been committed to `main`.
+The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically run every AM unless no new changes have been committed to `main`.
