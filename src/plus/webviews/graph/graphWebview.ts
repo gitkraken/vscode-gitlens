@@ -85,7 +85,6 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		if (this.currentLog?.more !== undefined) {
 			const { defaultLimit, pageLimit } = this.getConfig();
 			const nextLog = await this.currentLog.more(limit ?? pageLimit ?? defaultLimit);
-			console.log('GraphWebview moreCommits', nextLog);
 			if (nextLog !== undefined) {
 				this.currentLog = nextLog;
 			}
@@ -108,11 +107,22 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	}
 
 	private async notifyDidChangeCommits() {
-		const commitsAndLog = await this.getCommits();
+		const [commitsAndLog, stashCommits] = await Promise.all([
+			this.getCommits(),
+			this.getStashCommits()
+		]);
+
+		const log = commitsAndLog?.log;
+		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
+			commitsAndLog?.commits,
+			stashCommits,
+			log
+		);
+
 
 		return this.notify(DidChangeCommitsNotificationType, {
-			commits: formatCommits(commitsAndLog?.commits ?? []),
-			log: commitsAndLog?.log != null ? formatLog(commitsAndLog.log) : undefined,
+			commits: formatCommits(combinedCommitsWithFilteredStashes),
+			log: log != null ? formatLog(log) : undefined,
 		});
 	}
 
@@ -283,10 +293,8 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
 			commitsAndLog?.commits,
 			stashCommits,
-			commitsAndLog?.log
+			log
 		);
-
-		console.log('combined commits with filtered stashes: ', combinedCommitsWithFilteredStashes);
 
 		return {
 			repositories: formatRepositories(repositories),
