@@ -20,7 +20,6 @@ import {
 	GraphTag,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
-import { mix } from '../../shared/colors';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
