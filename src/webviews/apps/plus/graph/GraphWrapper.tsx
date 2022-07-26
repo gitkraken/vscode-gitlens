@@ -61,7 +61,7 @@ const getStyleProps = (mixedColumnColors: CssVariables | undefined):{cssVariable
 
 const getGraphModel = (
 	gitCommits: GraphCommit[] = [],
-	_gitRemotes: GraphRemote[] = [],
+	gitRemotes: GraphRemote[] = [],
 	gitTags: GraphTag[] = [],
 	gitBranches: GraphBranch[] = [],
 ): GraphRow[] => {
@@ -75,17 +75,29 @@ const getGraphModel = (
 	// TODO: review if that code is correct and see if we need to add more data
 	for (const gitCommit of gitCommits) {
 		const graphRemotes: Remote[] = gitBranches
-			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha)
+			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.remote)
 			.map((branch: GraphBranch) => {
+				const matchingRemote: GraphRemote | undefined = gitRemotes.find(
+					(remote: GraphRemote) => branch.name.startsWith(remote.name)
+				);
+
+				const matchingRemoteUrl: string | undefined =
+					matchingRemote !== undefined &&	matchingRemote.urls.length > 0
+						? matchingRemote.urls[0]
+						: undefined;
+
 				return {
-					name: branch.name,
-					url: branch.id,
-					// avatarUrl: // TODO:
+					// If a matching remote is found, remove the remote name and slash from the branch name
+					name: matchingRemote !== undefined
+						? branch.name.replace(`${matchingRemote.name}/`, '')
+						: branch.name,
+					url: matchingRemoteUrl,
+					avatarUrl: matchingRemote?.avatarUrl ?? undefined
 				};
 			});
 
 		const graphHeads: Head[] = gitBranches
-			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.current)
+			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.remote === false)
 			.map((branch: GraphBranch) => {
 				return {
 					name: branch.name,
@@ -97,7 +109,7 @@ const getGraphModel = (
 			.filter((tag: GraphTag) => tag.sha === gitCommit.sha)
 			.map((tag: GraphTag) => ({
 				name: tag.name,
-				// annotated: tag.refType === 'annotatedTag' // TODO: review that. I have copied same logic of GK but I think this is not correct.
+				annotated: Boolean(tag.message)
 			}));
 
 		graphRows.push({
