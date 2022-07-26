@@ -224,9 +224,9 @@ export abstract class WebviewBase<State> implements Disposable {
 					case 'endOfBody':
 						return `${
 							bootstrap != null
-								? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
-										bootstrap,
-								  )};</script>`
+								? `<script type="text/javascript" nonce="${this.cspNonce}">
+										window.bootstrap=${JSON.stringify(bootstrap)};
+									</script>`
 								: ''
 						}${endOfBody ?? ''}`;
 					case 'placement':
