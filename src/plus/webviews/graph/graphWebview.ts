@@ -354,6 +354,13 @@ function combineAndFilterStashCommits(
 		return parentCommit !== undefined;
 	});
 
+	// Remove the second parent, if existing, from each stash commit as it affects column processing
+	for (const stashCommit of filteredStashCommits) {
+		if (stashCommit.parents.length > 1) {
+			stashCommit.parents.splice(1, 1);
+		}
+	}
+
 	return [ ...filteredCommits, ...filteredStashCommits ];
 }
 
