@@ -4,7 +4,7 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
 
-[Learn more about GitLens+](https://gitkraken.com/gitlens/plus-features 'Learn more')
+[Learn more about GitLens+](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links 'Learn more')
 
 The first new GitLens+ features are the Visual File History and Worktrees.
 

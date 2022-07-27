@@ -7,7 +7,7 @@
 
 <p align="center">
   <br />
-  <a title="Learn more about GitLens" href="https://gitkraken.com/gitlens"><img width="476px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
+  <a title="Learn more about GitLens" href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"><img width="476px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** Git inside VS Code and unlocks **untapped knowledge** within each repository. It helps you to **visualize code authorship** at a glance via Git blame annotations and CodeLens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via rich visualizations and powerful comparison commands, and so much more.
@@ -26,7 +26,7 @@
 
 # GitLens
 
-[GitLens](hhttps://gitkraken.com/gitlens 'Learn more about GitLens') is an [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
+[GitLens](hhttps://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links 'Learn more about GitLens') is an [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
@@ -70,7 +70,7 @@ Here are just some of the **features** that GitLens provides,
 
 # Introducing GitLens+ [#](#introducing-gitlens+-features- 'GitLens+ features')
 
-GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [ GitLens+ features](https://gitkraken.com/gitlens/plus-features).
+GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links).
 
 🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
 
