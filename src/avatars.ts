@@ -2,6 +2,7 @@ import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
+import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import { StorageKeys } from './storage';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
@@ -55,8 +56,6 @@ const avatarQueue = new Map<string, Promise<Uri>>();
 const missingGravatarHash = '00000000000000000000000000000000';
 
 const presenceCache = new Map<ContactPresenceStatus, string>();
-
-const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
 const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
@@ -166,11 +165,12 @@ function getAvatarUriFromGravatar(
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
-	const match = gitHubNoReplyAddressRegex.exec(email);
-	if (match == null) return undefined;
+	const parts = getGitHubNoReplyAddressParts(email);
+	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
 
-	const [, userId, userName] = match;
-	return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size}`);
+	return Uri.parse(
+		`https://avatars.githubusercontent.com/${parts.userId ? `u/${parts.userId}` : parts.login}?size=${size}`,
+	);
 }
 
 async function getAvatarUriFromRemoteProvider(

@@ -372,3 +372,15 @@ export class GitHubRemote extends RichRemoteProvider {
 		});
 	}
 }
+
+const gitHubNoReplyAddressRegex = /^(?:(\d+)\+)?([a-zA-Z\d-]{1,39})@users\.noreply\.(.*)$/i;
+
+export function getGitHubNoReplyAddressParts(
+	email: string,
+): { userId: string; login: string; authority: string } | undefined {
+	const match = gitHubNoReplyAddressRegex.exec(email);
+	if (match == null) return undefined;
+
+	const [, userId, login, authority] = match;
+	return { userId: userId, login: login, authority: authority };
+}

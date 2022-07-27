@@ -18,6 +18,7 @@ import {
 import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
 import { type DefaultBranch, GitRevision, type GitUser, type IssueOrPullRequest, PullRequest } from '../../git/models';
 import type { Account } from '../../git/models/author';
+import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { debug } from '../../system/decorators/log';
@@ -1982,15 +1983,13 @@ export class GitHubApi implements Disposable {
 		if (satisfies(version, '>= 3.0.0')) {
 			let url: string | undefined;
 
-			const match = /^(?:(\d+)\+)?(.+?)@users\.noreply\.(.*)$/i.exec(email);
-			if (match != null) {
-				const [, userId, login, authority] = match;
-
-				if (Uri.parse(baseUrl).authority === authority) {
-					if (userId != null) {
-						url = `${baseUrl}/enterprise/avatars/u/${encodeURIComponent(userId)}?s=${avatarSize}`;
-					} else if (login != null) {
-						url = `${baseUrl}/enterprise/avatars/${encodeURIComponent(login)}?s=${avatarSize}`;
+			const parts = getGitHubNoReplyAddressParts(email);
+			if (parts != null) {
+				if (Uri.parse(baseUrl).authority === parts.authority) {
+					if (parts.userId != null) {
+						url = `${baseUrl}/enterprise/avatars/u/${encodeURIComponent(parts.userId)}?s=${avatarSize}`;
+					} else if (parts.login != null) {
+						url = `${baseUrl}/enterprise/avatars/${encodeURIComponent(parts.login)}?s=${avatarSize}`;
 					}
 				}
 			}
