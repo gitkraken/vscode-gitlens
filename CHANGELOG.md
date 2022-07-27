@@ -302,7 +302,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- GitLens joins forces with GitKraken! &mdash; [Learn more](https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code)
+- GitLens joins forces with GitKraken! &mdash; [Learn more](https://gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code)
 
 ## [11.6.0] - 2021-07-13
 

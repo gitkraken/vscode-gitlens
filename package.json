@@ -12,7 +12,7 @@
 		"name": "Eric Amodio",
 		"email": "eamodio@gmail.com"
 	},
-	"homepage": "https://gitlens.amod.io/",
+	"homepage": "https://gitkraken.com/gitlens",
 	"bugs": {
 		"url": "https://github.com/gitkraken/vscode-gitlens/issues"
 	},
@@ -26,8 +26,8 @@
 	"preview": false,
 	"badges": [
 		{
-			"url": "https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack&labelColor=555555",
-			"href": "https://vscode-slack.amod.io",
+			"url": "https://img.shields.io/badge/gitkraken--community-gitlens-blue.svg?logo=slack&labelColor=555555",
+			"href": "https://slack.gitkraken.com/",
 			"description": "Join us in the #gitlens channel"
 		}
 	],

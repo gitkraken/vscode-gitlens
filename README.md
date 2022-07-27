@@ -1,12 +1,13 @@
-[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://aka.ms/vsls-badge)](https://aka.ms/vsls-gitlens)
-[![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack&labelColor=555555)](https://vscode-slack.amod.io)
+[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/installs-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://aka.ms/vsls-badge?color=8d4eb5)](https://aka.ms/vsls-gitlens)
+[![](https://img.shields.io/badge/gitkraken--community-gitlens-8d4eb5.svg?logo=slack&labelColor=555555)](https://slack.gitkraken.com/)
 
 <p align="center">
   <br />
-  <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img width="476px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
+  <a title="Learn more about GitLens" href="https://gitkraken.com/gitlens"><img width="476px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** Git inside VS Code and unlocks **untapped knowledge** within each repository. It helps you to **visualize code authorship** at a glance via Git blame annotations and CodeLens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via rich visualizations and powerful comparison commands, and so much more.
@@ -18,14 +19,14 @@
 </p>
 
 <p align="center">
-  <a title="What's New in GitLens 12" href="https://www.gitkraken.com/blog/gitlens-12-1"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
+  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12-1"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
   <br/>
   or read the <a href="https://github.com/gitkraken/vscode-gitlens/releases/latest">release notes</a>
 </p>
 
 # GitLens
 
-[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
+[GitLens](hhttps://gitkraken.com/gitlens 'Learn more about GitLens') is an [open-source](https://github.com/gitkraken/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com).
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
