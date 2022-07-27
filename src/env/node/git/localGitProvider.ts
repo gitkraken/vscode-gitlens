@@ -2090,6 +2090,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ordering?: string | null;
 			ref?: string;
 			since?: string;
+			skip?: number;
 		},
 	): Promise<GitLog | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -2204,6 +2205,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogMoreFn(
 		log: GitLog,
 		options?: {
+			all?: boolean;
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
@@ -2237,7 +2239,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
+				...options?.all && log.count > 0
+				? { skip: log.count - 1 }
+				: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`}
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };

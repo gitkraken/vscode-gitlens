@@ -690,6 +690,7 @@ export class Git {
 			ordering,
 			similarityThreshold,
 			since,
+			skip,
 		}: {
 			all?: boolean;
 			argsOrFormat?: string | string[];
@@ -699,6 +700,7 @@ export class Git {
 			ordering?: string | null;
 			similarityThreshold?: number | null;
 			since?: string;
+			skip?: number;
 		},
 	) {
 		if (argsOrFormat == null) {
@@ -746,6 +748,10 @@ export class Git {
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
 			params.push(ref);
+		}
+
+		if (skip) {
+			params.push(`--skip=${skip}`);
 		}
 
 		return this.git<string>(
