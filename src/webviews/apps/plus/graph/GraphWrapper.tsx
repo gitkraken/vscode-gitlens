@@ -29,23 +29,17 @@ export interface GraphWrapperProps extends State {
 	onMoreCommits?: (limit?: number) => void;
 }
 
-// Copied from original pushed code of Miggy E.
-// TODO: review that code as I'm not sure if it is the correct way to do that in Gitlens side.
-// I suppose we need to use the GitLens themes here instead.
 const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariables => {
-    const body = document.body;
-    const computedStyle = window.getComputedStyle(body);
-
-	return {
-        '--app__bg0': computedStyle.getPropertyValue('--color-background'),
-        '--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
-		'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
-		'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
-		'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
-		'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
-		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
-		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
-		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+    return {
+        '--app__bg0': 'var(--color-background)',
+        '--panel__bg0': 'var(--graph-panel-bg)',
+		'--text-selected':'var(--color-foreground)',
+		'--text-normal': 'var(--color-foreground--85)',
+		'--text-secondary': 'var(--color-foreground--65)',
+		'--text-disabled': 'var(--color-foreground--50)',
+		'--text-accent': 'var(--color-link-foreground)',
+		'--text-inverse': 'var(--vscode-input-background)',
+		'--text-bright': 'var(--vscode-input-background)',
 		... mixedColumnColors,
     };
 };
@@ -55,6 +49,7 @@ const getStyleProps = (mixedColumnColors: CssVariables | undefined):{cssVariable
     const computedStyle = window.getComputedStyle(body);
 	return {
 		cssVariables: getCssVariables(mixedColumnColors),
+		// TODO: refactor graph to directly use the theme opacity factor
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
 };
