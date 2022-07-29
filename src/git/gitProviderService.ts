@@ -2166,6 +2166,7 @@ export class GitProviderService implements Disposable {
 		options?: { timeout?: number },
 	): Promise<string>;
 	async resolveReference(repoPath: string, ref: string, uri?: Uri, options?: { timeout?: number }): Promise<string>;
+	@gate()
 	@log()
 	async resolveReference(
 		repoPath: string | Uri,

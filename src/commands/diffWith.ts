@@ -93,11 +93,11 @@ export class DiffWithCommand extends Command {
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
 				await this.container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: GitRevision.isSha(args.lhs.sha) ? 100 : undefined,
+					timeout: GitRevision.isShaLike(args.lhs.sha) ? 100 : undefined,
 				}),
 				await this.container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: GitRevision.isSha(args.rhs.sha) ? 100 : undefined,
+					timeout: GitRevision.isShaLike(args.rhs.sha) ? 100 : undefined,
 				}),
 			]);
 
