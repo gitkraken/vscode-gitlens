@@ -184,9 +184,9 @@ export class GitCommit implements GitRevisionReference {
 
 	private _resolvedPreviousSha: string | undefined;
 	get unresolvedPreviousSha(): string {
-		if (this._resolvedPreviousSha != null) return this._resolvedPreviousSha;
-		if (this.file != null) return this.file.previousSha ?? `${this.sha}^`;
-		return this.parents[0] ?? `${this.sha}^`;
+		return (
+			this._resolvedPreviousSha ?? (this.file != null ? this.file.previousSha : this.parents[0]) ?? `${this.sha}^`
+		);
 	}
 
 	@gate()
@@ -466,6 +466,8 @@ export class GitCommit implements GitRevisionReference {
 						GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 						this.file.originalPath ?? this.file.path,
 					);
+
+					this._resolvedPreviousSha = sha;
 					return sha;
 				}
 
@@ -476,10 +478,12 @@ export class GitCommit implements GitRevisionReference {
 					this.repoPath,
 					GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 				);
+
+				this._resolvedPreviousSha = sha;
 				return sha;
 			}
 
-			this._previousShaPromise = getCore.call(this).then(sha => (this._resolvedPreviousSha = sha));
+			this._previousShaPromise = getCore.call(this);
 		}
 
 		return this._previousShaPromise;
