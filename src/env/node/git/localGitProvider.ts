@@ -1072,7 +1072,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return this.git.rev_list__left_right(repoPath, refs);
 	}
 
-	@gate()
+	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
 	@log()
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -1237,7 +1237,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@gate()
+	@gate<LocalGitProvider['getBlameForLine']>(
+		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
+	)
 	@log()
 	async getBlameForLine(
 		uri: GitUri,
