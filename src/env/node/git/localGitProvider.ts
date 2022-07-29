@@ -3,6 +3,7 @@ import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
 import {
+	CancellationTokenSource,
 	Disposable,
 	env,
 	Event,
@@ -128,7 +129,7 @@ import {
 	relative,
 	splitPath,
 } from '../../../system/path';
-import { any, fastestSettled, PromiseOrValue, wait } from '../../../system/promise';
+import { any, fastestSettled, PromiseOrValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
@@ -3761,18 +3762,29 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const blob = await this.git.rev_parse__verify(repoPath, ref, relativePath);
 		if (blob == null) return GitRevision.deletedOrMissing;
 
-		let promise: Promise<string | void | undefined> = this.git.log__find_object(
-			repoPath,
-			blob,
-			ref,
-			this.container.config.advanced.commitOrdering,
-			relativePath,
-		);
+		let cancellation: CancellationTokenSource | undefined;
+		let timer: ReturnType<typeof setTimeout> | undefined;
 		if (options?.timeout != null) {
-			promise = Promise.race([promise, wait(options.timeout)]);
+			cancellation = new CancellationTokenSource();
+			timer = setTimeout(() => cancellation?.cancel(), options.timeout);
 		}
 
-		return (await promise) ?? ref;
+		ref =
+			(await this.git.log__find_object(
+				repoPath,
+				blob,
+				ref,
+				this.container.config.advanced.commitOrdering,
+				relativePath,
+				cancellation?.token,
+			)) ?? ref;
+
+		cancellation?.dispose();
+		if (timer != null) {
+			clearTimeout(timer);
+		}
+
+		return ref;
 	}
 
 	@log()

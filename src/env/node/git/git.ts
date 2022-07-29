@@ -1,5 +1,5 @@
 import * as process from 'process';
-import { Uri, window, workspace } from 'vscode';
+import { CancellationToken, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
@@ -905,7 +905,14 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async log__find_object(repoPath: string, objectId: string, ref: string, ordering: string | null, file?: string) {
+	async log__find_object(
+		repoPath: string,
+		objectId: string,
+		ref: string,
+		ordering: string | null,
+		file?: string,
+		token?: CancellationToken,
+	) {
 		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
 
 		if (ordering) {
@@ -917,7 +924,12 @@ export class Git {
 		}
 
 		const data = await this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			{
+				cancellationToken: token,
+				cwd: repoPath,
+				configs: ['-c', 'log.showSignature=false'],
+				errors: GitErrorHandling.Ignore,
+			},
 			...params,
 		);
 		return data.length === 0 ? undefined : data.trim();

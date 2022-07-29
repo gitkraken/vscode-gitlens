@@ -3,6 +3,7 @@ import { exists, existsSync, Stats, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { decode } from 'iconv-lite';
+import { CancellationToken } from 'vscode';
 import { Logger } from '../../../logger';
 
 export const isWindows = process.platform === 'win32';
@@ -115,6 +116,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 }
 
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
+	cancellationToken?: CancellationToken;
 	cwd?: string;
 	readonly env?: Record<string, any>;
 	readonly encoding?: TEncoding;
@@ -171,6 +173,25 @@ export class RunError extends Error {
 	}
 }
 
+export class CancelledRunError extends RunError {
+	constructor(cmd: string, killed: boolean, code?: number | undefined, signal: NodeJS.Signals = 'SIGTERM') {
+		super(
+			{
+				name: 'CancelledRunError',
+				message: 'Cancelled',
+				cmd: cmd,
+				killed: killed,
+				code: code,
+				signal: signal,
+			},
+			'',
+			'',
+		);
+
+		Error.captureStackTrace?.(this, CancelledRunError);
+	}
+}
+
 type ExitCodeOnlyRunOptions = RunOptions & { exitCodeOnly: true };
 
 export function run(
@@ -193,8 +214,11 @@ export function run<T extends number | string | Buffer>(
 ): Promise<T> {
 	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };
 
+	let killed = false;
 	return new Promise<T>((resolve, reject) => {
 		const proc = execFile(command, args, opts, (error: ExecException | null, stdout, stderr) => {
+			if (killed) return;
+
 			if (options?.exitCodeOnly) {
 				resolve((error?.code ?? proc.exitCode) as T);
 
@@ -230,6 +254,17 @@ export function run<T extends number | string | Buffer>(
 					? (stdout as T)
 					: (decode(Buffer.from(stdout, 'binary'), encoding) as T),
 			);
+		});
+
+		options?.cancellationToken?.onCancellationRequested(() => {
+			const success = proc.kill();
+			killed = true;
+
+			if (options?.exitCodeOnly) {
+				resolve(0 as T);
+			} else {
+				reject(new CancelledRunError(command, success));
+			}
 		});
 
 		if (stdin != null) {
