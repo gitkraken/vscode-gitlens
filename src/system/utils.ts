@@ -6,6 +6,11 @@ import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
 import { extname } from './path';
 
+export function findTextDocument(uri: Uri): TextDocument | undefined {
+	const normalizedUri = uri.toString();
+	return workspace.textDocuments.find(d => d.uri.toString() === normalizedUri);
+}
+
 export function findEditor(uri: Uri): TextEditor | undefined {
 	const active = window.activeTextEditor;
 	const normalizedUri = uri.toString();

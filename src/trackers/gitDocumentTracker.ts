@@ -18,8 +18,6 @@ export class GitDocumentState {
 	private readonly diffCache = new Map<string, CachedDiff>();
 	private readonly logCache = new Map<string, CachedLog>();
 
-	constructor(public readonly key: string) {}
-
 	clearBlame(key?: string): void {
 		if (key == null) {
 			this.blameCache.clear();

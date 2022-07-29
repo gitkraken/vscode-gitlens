@@ -17,12 +17,11 @@ export interface DocumentBlameStateChangeEvent<T> {
 export class TrackedDocument<T> implements Disposable {
 	static async create<T>(
 		document: TextDocument,
-		key: string,
 		dirty: boolean,
 		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
 		container: Container,
 	) {
-		const doc = new TrackedDocument(document, key, dirty, eventDelegates, container);
+		const doc = new TrackedDocument(document, dirty, eventDelegates, container);
 		await doc.initialize();
 		return doc;
 	}
@@ -40,7 +39,6 @@ export class TrackedDocument<T> implements Disposable {
 
 	private constructor(
 		readonly document: TextDocument,
-		public readonly key: string,
 		public dirty: boolean,
 		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
 		private readonly container: Container,
@@ -126,7 +124,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		if (this.state != null) {
 			this.state = undefined;
-			Logger.log(`Reset state for '${this.key}', reason=${reason}`);
+			Logger.log(`Reset state for '${this.document.uri.toString(true)}', reason=${reason}`);
 		}
 
 		if (reason === 'repository' && isActiveDocument(this.document)) {

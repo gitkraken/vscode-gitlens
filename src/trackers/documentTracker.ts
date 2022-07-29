@@ -26,8 +26,7 @@ import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce, Deferrable } from '../system/function';
 import { filter, join, map } from '../system/iterable';
-import { getBestPath } from '../system/path';
-import { isActiveDocument, isTextEditor } from '../system/utils';
+import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -72,8 +71,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _dirtyIdleTriggerDelay: number;
 	private readonly _disposable: Disposable;
-	// TODO@eamodio: replace with a trie?
-	protected readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
+	protected readonly _documentMap = new Map<TextDocument, Promise<TrackedDocument<T>>>();
 
 	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -273,12 +271,9 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
-		const key = getUriKey(document.uri);
-
-		// Always start out false, so we will fire the event if needed
 		const doc = TrackedDocument.create<T>(
 			document,
-			key,
+			// Always start out false, so we will fire the event if needed
 			false,
 			{
 				onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
@@ -287,7 +282,6 @@ export class DocumentTracker<T> implements Disposable {
 		);
 
 		this._documentMap.set(document, doc);
-		this._documentMap.set(key, doc);
 
 		return doc;
 	}
@@ -304,22 +298,22 @@ export class DocumentTracker<T> implements Disposable {
 	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined;
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
-		let key;
-		if (GitUri.is(documentOrUri)) {
-			key = getUriKey(documentOrUri.documentUri());
-		} else if (documentOrUri instanceof Uri) {
-			key = getUriKey(documentOrUri);
-		} else {
-			key = documentOrUri;
+		if (documentOrUri instanceof Uri) {
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return undefined;
+
+			documentOrUri = document;
 		}
 
-		const doc = this._documentMap.get(key);
+		const doc = this._documentMap.get(documentOrUri);
 		return doc;
 	}
 
-	getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
-	getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
 	async getOrAdd(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
+		if (documentOrUri instanceof Uri) {
+			documentOrUri = findTextDocument(documentOrUri) ?? documentOrUri;
+		}
+
 		const doc = this.get(documentOrUri) ?? this.add(documentOrUri);
 		return doc;
 	}
@@ -328,8 +322,12 @@ export class DocumentTracker<T> implements Disposable {
 	has(uri: Uri): boolean;
 	has(documentOrUri: TextDocument | Uri): boolean {
 		if (documentOrUri instanceof Uri) {
-			return this._documentMap.has(getUriKey(documentOrUri));
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return false;
+
+			documentOrUri = document;
 		}
+
 		return this._documentMap.has(documentOrUri);
 	}
 
@@ -340,7 +338,6 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		this._documentMap.delete(document);
-		this._documentMap.delete(getUriKey(document.uri));
 
 		(tracked ?? (await promise))?.dispose();
 	}
@@ -475,7 +472,3 @@ class EmptyTextDocument implements TextDocument {
 
 class BinaryTextDocument extends EmptyTextDocument {}
 class MissingRevisionTextDocument extends EmptyTextDocument {}
-
-function getUriKey(pathOrUri: string | Uri): string {
-	return getBestPath(pathOrUri);
-}

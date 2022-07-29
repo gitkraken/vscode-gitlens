@@ -1084,7 +1084,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			key += `:${uri.sha}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(uri);
+		const doc = await this.container.tracker.getOrAdd(document ?? uri);
 		if (this.useCaching) {
 			if (doc.state != null) {
 				const cachedBlame = doc.state.getBlame(key);
@@ -1097,7 +1097,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 
@@ -1176,7 +1176,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: ${key}`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 
@@ -1248,7 +1248,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
 
 		if (!options?.forceSingleLine && this.useCaching) {
-			const blame = await this.getBlame(uri);
+			const blame = await this.getBlame(uri, document);
 			if (blame == null) return undefined;
 
 			let blameLine = blame.lines[editorLine];
@@ -1841,7 +1841,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 
@@ -1929,7 +1929,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: ${key}`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 
@@ -2546,7 +2546,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 

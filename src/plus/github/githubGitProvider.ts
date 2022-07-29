@@ -433,7 +433,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		Logger.debug(cc, `Cache miss: '${key}'`);
 
 		if (doc.state == null) {
-			doc.state = new GitDocumentState(doc.key);
+			doc.state = new GitDocumentState();
 		}
 
 		const promise = this.getBlameCore(uri, doc, key, cc);
@@ -1716,7 +1716,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			Logger.debug(cc, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState(doc.key);
+				doc.state = new GitDocumentState();
 			}
 		}
 
