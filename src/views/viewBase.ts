@@ -166,6 +166,8 @@ export abstract class ViewBase<
 	}
 
 	dispose() {
+		this._nodeState?.dispose();
+		this._nodeState = undefined;
 		Disposable.from(...this.disposables).dispose();
 	}
 
@@ -586,11 +588,20 @@ export abstract class ViewBase<
 	}
 }
 
-export class ViewNodeState {
+export class ViewNodeState implements Disposable {
 	private _state: Map<string, Map<string, unknown>> | undefined;
 
-	deleteState(id: string, key: string): void {
-		this._state?.get(id)?.delete(key);
+	dispose() {
+		this._state?.clear();
+		this._state = undefined;
+	}
+
+	deleteState(id: string, key?: string): void {
+		if (key == null) {
+			this._state?.delete(id);
+		} else {
+			this._state?.get(id)?.delete(key);
+		}
 	}
 
 	getState<T>(id: string, key: string): T | undefined {

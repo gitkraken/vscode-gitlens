@@ -10,9 +10,11 @@ import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
 import { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
+import { RichRemoteProvider } from '../remotes/provider';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
 import { PullRequest } from './pullRequest';
 import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
+import { GitRemote } from './remote';
 import { Repository } from './repository';
 
 const stashNumberRegex = /stash@{(\d+)}/;
@@ -389,10 +391,14 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	private _pullRequest: Promise<PullRequest | undefined> | undefined;
-	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
+	async getAssociatedPullRequest(options?: {
+		remote?: GitRemote<RichRemoteProvider>;
+		timeout?: number;
+	}): Promise<PullRequest | undefined> {
 		if (this._pullRequest == null) {
 			async function getCore(this: GitCommit): Promise<PullRequest | undefined> {
-				const remote = await this.container.git.getBestRemoteWithRichProvider(this.repoPath);
+				const remote =
+					options?.remote ?? (await this.container.git.getBestRemoteWithRichProvider(this.repoPath));
 				if (remote?.provider == null) return undefined;
 
 				return this.container.git.getPullRequestForCommit(this.ref, remote, options);

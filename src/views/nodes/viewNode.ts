@@ -95,7 +95,7 @@ export interface ViewNode {
 }
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
-export abstract class ViewNode<TView extends View = View> {
+export abstract class ViewNode<TView extends View = View, State extends object = any> {
 	static is(node: any): node is ViewNode {
 		return node instanceof ViewNode;
 	}
@@ -148,12 +148,40 @@ export abstract class ViewNode<TView extends View = View> {
 	}
 
 	getSplattedChild?(): Promise<ViewNode | undefined>;
+
+	deleteState<T extends StateKey<State> = StateKey<State>>(key?: T): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to delete state');
+		}
+		return this.view.nodeState.deleteState(this.id, key as string);
+	}
+
+	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to get state');
+		}
+		return this.view.nodeState.getState(this.id, key as string);
+	}
+
+	storeState<T extends StateKey<State> = StateKey<State>>(key: T, value: StateValue<State, T>): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to store state');
+		}
+		this.view.nodeState.storeState(this.id, key as string, value);
+	}
 }
+
+type StateKey<T> = keyof T;
+type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
 
 export abstract class ViewRefNode<
 	TView extends View = View,
 	TReference extends GitReference = GitReference,
-> extends ViewNode<TView> {
+	State extends object = any,
+> extends ViewNode<TView, State> {
 	abstract get ref(): TReference;
 
 	get repoPath(): string {
@@ -165,7 +193,11 @@ export abstract class ViewRefNode<
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
+export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewRefNode<
+	TView,
+	GitRevisionReference,
+	State
+> {
 	abstract get file(): GitFile;
 
 	override toString(): string {

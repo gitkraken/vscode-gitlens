@@ -25,6 +25,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Greatly improves performance of many view interactions when connected to a rich integration and pull request details are enabled, including:
+  - Showing and refreshing the _Commits_ view
+  - Expanding commits, branches, and worktrees
 - Remembers chosen filter on files nodes in comparisons when refreshing
 - Changes display of filtered state of files nodes in comparisons
 - Improves diff stat parsing performance and reduced memory usage

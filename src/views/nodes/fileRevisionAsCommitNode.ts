@@ -14,6 +14,7 @@ import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';
 import { joinPaths } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import { FileHistoryView } from '../fileHistoryView';
 import { LineHistoryView } from '../lineHistoryView';
 import { ViewsWithCommits } from '../viewBase';
@@ -52,11 +53,16 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const [mergeStatus, rebaseStatus] = await Promise.all([
+		const [mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
 			this.view.container.git.getMergeStatus(this.commit.repoPath),
 			this.view.container.git.getRebaseStatus(this.commit.repoPath),
 		]);
-		if (mergeStatus == null && rebaseStatus == null) return [];
+
+		const mergeStatus = getSettledValue(mergeStatusResult);
+		if (mergeStatus == null) return [];
+
+		const rebaseStatus = getSettledValue(rebaseStatusResult);
+		if (rebaseStatus == null) return [];
 
 		return [
 			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
@@ -208,13 +214,16 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		let pr;
 
 		if (remote?.provider != null) {
-			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
 				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),
-				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.commit.getAssociatedPullRequest({ remote: remote }),
 			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
 		}
 
 		const status = StatusFileFormatter.fromTemplate(`\${status}\${ (originalPath)}`, this.file);

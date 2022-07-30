@@ -8,6 +8,7 @@ import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReferen
 import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
 import { joinPaths, normalizePath } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';
 import { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
@@ -199,13 +200,16 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		let pr;
 
 		if (remote?.provider != null) {
-			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
 				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),
-				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.commit.getAssociatedPullRequest({ remote: remote }),
 			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(

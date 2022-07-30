@@ -4,6 +4,7 @@ import { Starred, WorkspaceStorageKeys } from '../../storage';
 import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { cancellable } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import { PullRequest, PullRequestState } from './pullRequest';
 import { GitBranchReference, GitReference, GitRevision } from './reference';
@@ -154,6 +155,8 @@ export class GitBranch implements GitBranchReference {
 		return this.date != null ? fromNow(this.date) : '';
 	}
 
+	private _pullRequest: Promise<PullRequest | undefined> | undefined;
+
 	@debug()
 	async getAssociatedPullRequest(options?: {
 		avatarSize?: number;
@@ -161,11 +164,18 @@ export class GitBranch implements GitBranchReference {
 		limit?: number;
 		timeout?: number;
 	}): Promise<PullRequest | undefined> {
-		const remote = await this.getRemote();
-		if (remote == null) return undefined;
+		if (this._pullRequest == null) {
+			async function getCore(this: GitBranch): Promise<PullRequest | undefined> {
+				const remote = await this.getRemote();
+				if (remote == null) return undefined;
 
-		const branch = this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote();
-		return Container.instance.git.getPullRequestForBranch(branch, remote, options);
+				const branch = this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote();
+				return Container.instance.git.getPullRequestForBranch(branch, remote, options);
+			}
+			this._pullRequest = getCore.call(this);
+		}
+
+		return cancellable(this._pullRequest, options?.timeout);
 	}
 
 	@memoize()
