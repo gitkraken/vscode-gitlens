@@ -1,5 +1,6 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
+import { ForcePushMode } from '../@types/vscode.git.enums';
 import { Features } from '../features';
 import type { GitUri } from './gitUri';
 import type {
@@ -56,7 +57,7 @@ export interface ScmRepository {
 	readonly inputBox: InputBox;
 
 	getCommit(ref: string): Promise<Commit>;
-	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
+	push(remoteName?: string, branchName?: string, setUpstream?: boolean, force?: ForcePushMode): Promise<void>;
 }
 
 export interface PagedResult<T> {

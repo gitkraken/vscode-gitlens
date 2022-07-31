@@ -10,6 +10,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
+import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
@@ -772,7 +773,7 @@ export class Repository implements Disposable {
 							this.path,
 						));
 					} else {
-						await repo?.push(branch.getRemoteName(), branch.name);
+						await repo?.push(branch.getRemoteName(), branch.name, undefined, options?.force ? ForcePushMode.ForceWithLease : undefined);
 					}
 				}
 			} else if (options?.reference != null) {
@@ -782,7 +783,7 @@ export class Repository implements Disposable {
 				const branch = await this.getBranch();
 				if (branch == null) return;
 
-				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`);
+				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`, undefined, options?.force ? ForcePushMode.ForceWithLease : undefined);
 			} else {
 				void (await executeCoreGitCommand(
 					options?.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,
