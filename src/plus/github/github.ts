@@ -458,7 +458,7 @@ export class GitHubApi implements Disposable {
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.filter(
-				pr => !pr.repository.isFork || pr.repository.owner.login === owner,
+				pr => pr != null && (!pr.repository.isFork || pr.repository.owner.login === owner),
 			);
 			if (prs == null || prs.length === 0) return undefined;
 
@@ -552,7 +552,7 @@ export class GitHubApi implements Disposable {
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
-				pr => !pr.repository.isFork || pr.repository.owner.login === owner,
+				pr => pr != null && (!pr.repository.isFork || pr.repository.owner.login === owner),
 			);
 			if (prs == null || prs.length === 0) return undefined;
 
