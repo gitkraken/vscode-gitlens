@@ -85,9 +85,12 @@ export class StatusBarController implements Disposable {
 				this._statusBarMode.command = Commands.SwitchMode;
 				this._statusBarMode.text = mode.statusBarItemName;
 				this._statusBarMode.tooltip = new MarkdownString(
-					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Mode`,
+					`**${mode.statusBarItemName}** ${GlyphChars.Dash} ${mode.description}\n\n---\n\nClick to Switch GitLens Modes`,
 					true,
 				);
+				this._statusBarMode.accessibilityInformation = {
+					label: `GitLens Mode: ${mode.statusBarItemName}\nClick to Switch GitLens Modes`,
+				};
 				this._statusBarMode.show();
 			} else {
 				this._statusBarMode?.dispose();
@@ -311,6 +314,9 @@ export class StatusBarController implements Disposable {
 		}
 
 		this._statusBarBlame.tooltip = tooltip;
+		this._statusBarBlame.accessibilityInformation = {
+			label: `${this._statusBarBlame.text}\n${tooltip}`,
+		};
 
 		if (this._tooltipDelayTimer != null) {
 			clearTimeout(this._tooltipDelayTimer);
@@ -388,6 +394,9 @@ export class StatusBarController implements Disposable {
 
 		tooltip.appendMarkdown(`\n\n---\n\n${actionTooltip}`);
 		statusBarItem.tooltip = tooltip;
+		statusBarItem.accessibilityInformation = {
+			label: `${statusBarItem.text}\n${actionTooltip}`,
+		};
 	}
 
 	private async waitForPendingPullRequest(
