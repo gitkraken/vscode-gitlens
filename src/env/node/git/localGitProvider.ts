@@ -3,7 +3,6 @@ import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
 import {
-	CancellationTokenSource,
 	Disposable,
 	env,
 	Event,
@@ -114,6 +113,7 @@ import { LogCorrelationContext, Logger } from '../../../logger';
 import { Messages } from '../../../messages';
 import { WorkspaceStorageKeys } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
+import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { filterMap as filterMapIterable, find, first, last, some } from '../../../system/iterable';
@@ -129,7 +129,7 @@ import {
 	relative,
 	splitPath,
 } from '../../../system/path';
-import { any, fastestSettled, PromiseOrValue } from '../../../system/promise';
+import { any, fastestSettled, getSettledValue, PromiseOrValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
@@ -3759,32 +3759,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const relativePath = this.getRelativePath(pathOrUri, repoPath);
 
-		const blob = await this.git.rev_parse__verify(repoPath, ref, relativePath);
-		if (blob == null) return GitRevision.deletedOrMissing;
-
-		let cancellation: CancellationTokenSource | undefined;
-		let timer: ReturnType<typeof setTimeout> | undefined;
+		let cancellation: TimedCancellationSource | undefined;
 		if (options?.timeout != null) {
-			cancellation = new CancellationTokenSource();
-			timer = setTimeout(() => cancellation?.cancel(), options.timeout);
+			cancellation = new TimedCancellationSource(options.timeout);
 		}
 
-		ref =
-			(await this.git.log__find_object(
-				repoPath,
-				blob,
-				ref,
-				this.container.config.advanced.commitOrdering,
-				relativePath,
-				cancellation?.token,
-			)) ?? ref;
+		const [verifiedResult, resolvedResult] = await Promise.allSettled([
+			this.git.rev_parse__verify(repoPath, ref, relativePath),
+			this.git.log__file_recent(repoPath, relativePath, {
+				ref: ref,
+				cancellation: cancellation?.token,
+			}),
+		]);
 
+		const verified = getSettledValue(verifiedResult);
+		if (verified == null) return GitRevision.deletedOrMissing;
+
+		const resolved = getSettledValue(resolvedResult);
+
+		const cancelled = cancellation?.token.isCancellationRequested;
 		cancellation?.dispose();
-		if (timer != null) {
-			clearTimeout(timer);
-		}
 
-		return ref;
+		return cancelled ? ref : resolved ?? ref;
 	}
 
 	@log()

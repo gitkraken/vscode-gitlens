@@ -116,7 +116,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 }
 
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
-	cancellationToken?: CancellationToken;
+	cancellation?: CancellationToken;
 	cwd?: string;
 	readonly env?: Record<string, any>;
 	readonly encoding?: TEncoding;
@@ -256,7 +256,7 @@ export function run<T extends number | string | Buffer>(
 			);
 		});
 
-		options?.cancellationToken?.onCancellationRequested(() => {
+		options?.cancellation?.onCancellationRequested(() => {
 			const success = proc.kill();
 			killed = true;
 

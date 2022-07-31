@@ -14,7 +14,7 @@ export interface GitCommandOptions {
 	local?: boolean;
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>
-	cancellationToken?: CancellationToken;
+	cancellation?: CancellationToken;
 	cwd?: string;
 	readonly env?: Record<string, any>;
 	readonly encoding?: BufferEncoding | 'buffer' | string;

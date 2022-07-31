@@ -875,29 +875,35 @@ export class Git {
 	async log__file_recent(
 		repoPath: string,
 		fileName: string,
-		{
-			ordering,
-			ref,
-			similarityThreshold,
-		}: { ordering?: string | null; ref?: string; similarityThreshold?: number | null } = {},
+		options?: {
+			ordering?: string | null;
+			ref?: string;
+			similarityThreshold?: number | null;
+			cancellation?: CancellationToken;
+		},
 	) {
 		const params = [
 			'log',
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+			`-M${options?.similarityThreshold == null ? '' : `${options?.similarityThreshold}%`}`,
 			'-n1',
 			'--format=%H',
 		];
 
-		if (ordering) {
-			params.push(`--${ordering}-order`);
+		if (options?.ordering) {
+			params.push(`--${options?.ordering}-order`);
 		}
 
-		if (ref) {
-			params.push(ref);
+		if (options?.ref) {
+			params.push(options?.ref);
 		}
 
 		const data = await this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			{
+				cancellation: options?.cancellation,
+				cwd: repoPath,
+				configs: ['-c', 'log.showSignature=false'],
+				errors: GitErrorHandling.Ignore,
+			},
 			...params,
 			'--',
 			fileName,
@@ -911,7 +917,7 @@ export class Git {
 		ref: string,
 		ordering: string | null,
 		file?: string,
-		token?: CancellationToken,
+		cancellation?: CancellationToken,
 	) {
 		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
 
@@ -925,7 +931,7 @@ export class Git {
 
 		const data = await this.git<string>(
 			{
-				cancellationToken: token,
+				cancellation: cancellation,
 				cwd: repoPath,
 				configs: ['-c', 'log.showSignature=false'],
 				errors: GitErrorHandling.Ignore,
