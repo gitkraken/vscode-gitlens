@@ -8806,7 +8806,8 @@
 				{
 					"command": "gitlens.views.push",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/",
-					"group": "inline@96"
+					"group": "inline@96",
+					"alt": "gitlens.views.pushWithForce"
 				},
 				{
 					"command": "gitlens.views.pushToCommit",
