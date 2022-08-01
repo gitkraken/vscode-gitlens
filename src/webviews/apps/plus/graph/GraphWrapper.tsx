@@ -263,7 +263,7 @@ export function GraphWrapper({
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
-								onShowMoreCommitsClicked={handleMoreCommits}
+								onShowMoreCommits={handleMoreCommits}
 								width={mainWidth}
 								themeOpacityFactor={styleProps.themeOpacityFactor}
 							/>
