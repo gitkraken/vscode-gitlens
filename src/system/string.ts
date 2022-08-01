@@ -405,6 +405,8 @@ export function getWidth(s: string): number {
 	}
 	s = s.replace(cachedAnsiRegex, '');
 
+	if (s.length === 0) return 0;
+
 	let count = 0;
 	let emoji = 0;
 	let joiners = 0;
