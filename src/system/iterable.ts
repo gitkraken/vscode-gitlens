@@ -38,12 +38,12 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
 	let count = 0;
 	let next: IteratorResult<T>;
 
 	while (true) {
-		next = (source as IterableIterator<T>).next();
+		next = source.next();
 		if (next.done) break;
 
 		if (predicate === undefined || predicate(next.value)) {
