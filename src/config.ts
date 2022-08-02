@@ -363,19 +363,7 @@ export interface AdvancedConfig {
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;
-	messages: {
-		suppressCommitHasNoPreviousCommitWarning: boolean;
-		suppressCommitNotFoundWarning: boolean;
-		suppressCreatePullRequestPrompt: boolean;
-		suppressDebugLoggingWarning: boolean;
-		suppressFileNotUnderSourceControlWarning: boolean;
-		suppressGitDisabledWarning: boolean;
-		suppressGitMissingWarning: boolean;
-		suppressGitVersionWarning: boolean;
-		suppressLineUncommittedWarning: boolean;
-		suppressNoRepositoryWarning: boolean;
-		suppressRebaseSwitchToTextWarning: boolean;
-	};
+	messages: { [key in SuppressedMessages]: boolean };
 	quickPick: {
 		closeOnFocusOut: boolean;
 	};
@@ -508,6 +496,24 @@ export interface RemotesUrlsConfig {
 	fileInCommit: string;
 	fileLine: string;
 	fileRange: string;
+}
+
+// NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
+export const enum SuppressedMessages {
+	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
+	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
+	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
+	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
+	GitDisabledWarning = 'suppressGitDisabledWarning',
+	GitMissingWarning = 'suppressGitMissingWarning',
+	GitVersionWarning = 'suppressGitVersionWarning',
+	LineUncommittedWarning = 'suppressLineUncommittedWarning',
+	NoRepositoryWarning = 'suppressNoRepositoryWarning',
+	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
+	IntegrationDisconnectedTooManyFailedRequestsWarning = 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
+	IntegrationRequestFailed500Warning = 'suppressIntegrationRequestFailed500Warning',
+	IntegrationRequestTimedOutWarning = 'suppressIntegrationRequestTimedOutWarning',
 }
 
 export interface ViewsCommonConfig {

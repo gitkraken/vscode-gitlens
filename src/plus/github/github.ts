@@ -21,6 +21,7 @@ import type { Account } from '../../git/models/author';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
+import { Messages } from '../../messages';
 import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
@@ -138,12 +139,18 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-				ref: ref,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				cc,
+			);
 
 			const author = rsp?.repository?.object?.author;
 			if (author == null) return undefined;
@@ -219,12 +226,18 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-				emailQuery: `in:email ${email}`,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					emailQuery: `in:email ${email}`,
+				},
+				cc,
+			);
 
 			const author = rsp?.search?.nodes?.[0];
 			if (author == null) return undefined;
@@ -287,11 +300,17 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+				},
+				cc,
+			);
 
 			const defaultBranch = rsp?.repository?.defaultBranchRef?.name ?? undefined;
 			if (defaultBranch == null) return undefined;
@@ -351,12 +370,18 @@ export class GitHubApi implements Disposable {
 		}
 	}`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-				number: number,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					number: number,
+				},
+				cc,
+			);
 
 			const issue = rsp?.repository?.issueOrPullRequest;
 			if (issue == null) return undefined;
@@ -447,14 +472,20 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-				branch: branch,
-				// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
-				limit: 10,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					branch: branch,
+					// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
+					limit: 10,
+				},
+				cc,
+			);
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.filter(
@@ -543,12 +574,18 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, query, {
-				...options,
-				owner: owner,
-				repo: repo,
-				ref: ref,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				cc,
+			);
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
@@ -631,12 +668,18 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-				path: path,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+					path: path,
+				},
+				cc,
+			);
 			if (rsp == null) return emptyBlameResult;
 
 			const ranges = rsp.repository?.object?.blame?.ranges;
@@ -703,13 +746,19 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				branchQuery: options?.query,
-				cursor: options?.cursor,
-				limit: Math.min(100, options?.limit ?? 100),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					branchQuery: options?.query,
+					cursor: options?.cursor,
+					limit: Math.min(100, options?.limit ?? 100),
+				},
+				cc,
+			);
 			if (rsp == null) return emptyPagedResult;
 
 			const refs = rsp.repository?.refs;
@@ -739,11 +788,17 @@ export class GitHubApi implements Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		try {
-			const rsp = await this.request(undefined, token, 'GET /repos/{owner}/{repo}/commits/{ref}', {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-			});
+			const rsp = await this.request(
+				undefined,
+				token,
+				'GET /repos/{owner}/{repo}/commits/{ref}',
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				cc,
+			);
 
 			const result = rsp?.data;
 			if (result == null) return undefined;
@@ -840,12 +895,18 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				since: date.toISOString(),
-				until: date.toISOString(),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					since: date.toISOString(),
+					until: date.toISOString(),
+				},
+				cc,
+			);
 
 			const nodes = rsp?.repository?.refs?.nodes;
 			if (nodes == null) return [];
@@ -902,11 +963,17 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				cc,
+			);
 
 			const count = rsp?.repository?.ref?.target.history.totalCount;
 			return count;
@@ -959,13 +1026,19 @@ export class GitHubApi implements Disposable {
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: `refs/heads/${branch}`,
-				since: date.toISOString(),
-				until: date.toISOString(),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: `refs/heads/${branch}`,
+					since: date.toISOString(),
+					until: date.toISOString(),
+				},
+				cc,
+			);
 
 			const nodes = rsp?.repository?.ref.target.history.nodes;
 			if (nodes == null) return [];
@@ -1093,18 +1166,24 @@ export class GitHubApi implements Disposable {
 				}
 			}
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-				after: options?.after,
-				before: options?.before,
-				path: options?.path,
-				author: authors,
-				limit: Math.min(100, options?.limit ?? 100),
-				since: typeof options?.since === 'string' ? options?.since : options?.since?.toISOString(),
-				until: typeof options?.until === 'string' ? options?.until : options?.until?.toISOString(),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+					after: options?.after,
+					before: options?.before,
+					path: options?.path,
+					author: authors,
+					limit: Math.min(100, options?.limit ?? 100),
+					since: typeof options?.since === 'string' ? options?.since : options?.since?.toISOString(),
+					until: typeof options?.until === 'string' ? options?.until : options?.until?.toISOString(),
+				},
+				cc,
+			);
 			const history = rsp?.repository?.object?.history;
 			if (history == null) return emptyPagedResult;
 
@@ -1171,11 +1250,17 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+				},
+				cc,
+			);
 			if (rsp == null) return emptyPagedResult;
 
 			const commit = rsp.repository?.object;
@@ -1249,18 +1334,24 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-				path: options?.path,
-				first: options?.first,
-				last: options?.last,
-				after: options?.after,
-				before: options?.before,
-				since: options?.since,
-				until: options?.until,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+					path: options?.path,
+					first: options?.first,
+					last: options?.last,
+					after: options?.after,
+					before: options?.before,
+					since: options?.since,
+					until: options?.until,
+				},
+				cc,
+			);
 			const history = rsp?.repository?.object?.history;
 			if (history == null) return undefined;
 
@@ -1341,11 +1432,17 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				sha: sha,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					sha: sha,
+				},
+				cc,
+			);
 			const date = rsp?.repository?.object?.committer.date;
 			return date;
 		} catch (ex) {
@@ -1362,11 +1459,17 @@ export class GitHubApi implements Disposable {
 		// TODO@eamodio implement pagination
 
 		try {
-			const rsp = await this.request(undefined, token, 'GET /repos/{owner}/{repo}/contributors', {
-				owner: owner,
-				repo: repo,
-				per_page: 100,
-			});
+			const rsp = await this.request(
+				undefined,
+				token,
+				'GET /repos/{owner}/{repo}/contributors',
+				{
+					owner: owner,
+					repo: repo,
+					per_page: 100,
+				},
+				cc,
+			);
 
 			const result = rsp?.data;
 			if (result == null) return [];
@@ -1404,10 +1507,16 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+				},
+				cc,
+			);
 			if (rsp == null) return undefined;
 
 			return rsp.repository?.defaultBranchRef?.name ?? undefined;
@@ -1441,10 +1550,16 @@ export class GitHubApi implements Disposable {
 	repository(owner: $owner, name: $repo) { viewerPermission }
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+				},
+				cc,
+			);
 			if (rsp == null) return undefined;
 
 			return {
@@ -1487,10 +1602,16 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+				},
+				cc,
+			);
 			if (rsp?.repository?.visibility == null) return undefined;
 
 			return rsp.repository.visibility === 'PUBLIC' ? RepositoryVisibility.Public : RepositoryVisibility.Private;
@@ -1559,13 +1680,19 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				tagQuery: options?.query,
-				cursor: options?.cursor,
-				limit: Math.min(100, options?.limit ?? 100),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					tagQuery: options?.query,
+					cursor: options?.cursor,
+					limit: Math.min(100, options?.limit ?? 100),
+				},
+				cc,
+			);
 			if (rsp == null) return emptyPagedResult;
 
 			const refs = rsp.repository?.refs;
@@ -1613,11 +1740,17 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-				const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-					owner: owner,
-					repo: repo,
-					ref: ref,
-				});
+				const rsp = await this.graphql<QueryResult>(
+					undefined,
+					token,
+					query,
+					{
+						owner: owner,
+						repo: repo,
+						ref: ref,
+					},
+					cc,
+				);
 				return rsp?.repository?.object?.oid ?? undefined;
 			}
 
@@ -1651,12 +1784,18 @@ export class GitHubApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(undefined, token, query, {
-				owner: owner,
-				repo: repo,
-				ref: ref,
-				path: path,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					ref: ref,
+					path: path,
+				},
+				cc,
+			);
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
@@ -1696,13 +1835,19 @@ export class GitHubApi implements Disposable {
 		}
 
 		try {
-			const rsp = await this.request(undefined, token, 'GET /search/commits', {
-				q: query,
-				sort: options?.sort,
-				order: options?.order,
-				per_page: pageSize,
-				page: page,
-			});
+			const rsp = await this.request(
+				undefined,
+				token,
+				'GET /search/commits',
+				{
+					q: query,
+					sort: options?.sort,
+					order: options?.order,
+					per_page: pageSize,
+					page: page,
+				},
+				cc,
+			);
 
 			const data = rsp?.data;
 			if (data == null || data.items.length === 0) return undefined;
@@ -1756,8 +1901,10 @@ export class GitHubApi implements Disposable {
 		if (version != null) return version;
 		if (version === null) return undefined;
 
+		const cc = Logger.getCorrelationContext();
+
 		try {
-			const rsp = await this.request(provider, token, 'GET /meta', options);
+			const rsp = await this.request(provider, token, 'GET /meta', options, cc);
 			const v = (rsp?.data as any)?.installed_version as string | null | undefined;
 			version = v ? fromString(v) : null;
 		} catch (ex) {
@@ -1824,6 +1971,7 @@ export class GitHubApi implements Disposable {
 		token: string,
 		query: string,
 		variables: { [key: string]: any },
+		cc: LogCorrelationContext | undefined,
 	): Promise<T | undefined> {
 		try {
 			return await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
@@ -1855,7 +2003,7 @@ export class GitHubApi implements Disposable {
 					void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`);
 				}
 			} else if (ex instanceof RequestError) {
-				this.handleRequestError(ex, token);
+				this.handleRequestError(provider, token, ex, cc);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
@@ -1868,7 +2016,10 @@ export class GitHubApi implements Disposable {
 		provider: RichRemoteProvider | undefined,
 		token: string,
 		route: keyof Endpoints | R,
-		options?: R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters,
+		options:
+			| (R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters)
+			| undefined,
+		cc: LogCorrelationContext | undefined,
 	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<unknown>> {
 		try {
 			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
@@ -1876,7 +2027,7 @@ export class GitHubApi implements Disposable {
 			)) as any;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
-				this.handleRequestError(ex, token);
+				this.handleRequestError(provider, token, ex, cc);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
@@ -1885,7 +2036,12 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleRequestError(ex: RequestError, token: string): void {
+	private handleRequestError(
+		provider: RichRemoteProvider | undefined,
+		token: string,
+		ex: RequestError,
+		cc: LogCorrelationContext | undefined,
+	): void {
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -1910,17 +2066,24 @@ export class GitHubApi implements Disposable {
 				}
 				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
+				Logger.error(ex, cc);
 				if (ex.response != null) {
-					void window.showErrorMessage(
-						'GitHub failed to respond and might be experiencing issues. Please visit the [GitHub status page](https://githubstatus.com) for more information.',
-						'OK',
+					provider?.trackRequestException();
+					void Messages.showIntegrationRequestFailed500WarningMessage(
+						`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
+							!provider?.custom
+								? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
+								: ''
+						}`,
 					);
 				}
 				return;
 			case 502: // Bad Gateway
+				Logger.error(ex, cc);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
-					void window.showErrorMessage('GitHub request timed out');
+					provider?.trackRequestException();
+					void Messages.showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitHub');
 					return;
 				}
 				break;
@@ -1929,6 +2092,7 @@ export class GitHubApi implements Disposable {
 				break;
 		}
 
+		Logger.error(ex, cc);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -1942,7 +2106,7 @@ export class GitHubApi implements Disposable {
 		cc: LogCorrelationContext | undefined,
 	): Error {
 		Logger.error(ex, cc);
-		debugger;
+		// debugger;
 
 		if (ex instanceof AuthenticationError) {
 			void this.showAuthenticationErrorMessage(ex, provider);

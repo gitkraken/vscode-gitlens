@@ -3011,7 +3011,10 @@
 							"suppressGitVersionWarning": false,
 							"suppressLineUncommittedWarning": false,
 							"suppressNoRepositoryWarning": false,
-							"suppressRebaseSwitchToTextWarning": false
+							"suppressRebaseSwitchToTextWarning": false,
+							"suppressIntegrationDisconnectedTooManyFailedRequestsWarning": false,
+							"suppressIntegrationRequestFailed500Warning": false,
+							"suppressIntegrationRequestTimedOutWarning": false
 						},
 						"properties": {
 							"suppressCommitHasNoPreviousCommitWarning": {
@@ -3068,6 +3071,21 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Rebase Switch To Text Warning"
+							},
+							"suppressIntegrationDisconnectedTooManyFailedRequestsWarning": {
+								"type": "boolean",
+								"default": false,
+								"description": "Integration Disconnected; Too Many Failed Requests Warning"
+							},
+							"suppressIntegrationRequestFailed500Warning": {
+								"type": "boolean",
+								"default": false,
+								"description": "Integration Request Failed (500 status code) Warning"
+							},
+							"suppressIntegrationRequestTimedOutWarning": {
+								"type": "boolean",
+								"default": false,
+								"description": "Integration Request Timed Out Warning"
 							}
 						},
 						"additionalProperties": false,

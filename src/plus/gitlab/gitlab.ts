@@ -16,6 +16,7 @@ import {
 import { Account, DefaultBranch, IssueOrPullRequest, IssueOrPullRequestType, PullRequest } from '../../git/models';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
+import { Messages } from '../../messages';
 import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
@@ -94,6 +95,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cc,
 			);
 
 			let user: GitLabUser | undefined;
@@ -195,9 +197,16 @@ export class GitLabApi implements Disposable {
 		}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
-				fullPath: `${owner}/${repo}`,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				{
+					fullPath: `${owner}/${repo}`,
+				},
+				cc,
+			);
 
 			const defaultBranch = rsp?.data?.project?.repository?.rootRef ?? undefined;
 			if (defaultBranch == null) return undefined;
@@ -274,10 +283,17 @@ export class GitLabApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
-				fullPath: `${owner}/${repo}`,
-				iid: String(number),
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				{
+					fullPath: `${owner}/${repo}`,
+					iid: String(number),
+				},
+				cc,
+			);
 
 			if (rsp?.data?.project?.issue != null) {
 				const issue = rsp.data.project.issue;
@@ -404,11 +420,18 @@ export class GitLabApi implements Disposable {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
-				fullPath: `${owner}/${repo}`,
-				branches: [branch],
-				state: options?.include,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				{
+					fullPath: `${owner}/${repo}`,
+					branches: [branch],
+					state: options?.include,
+				},
+				cc,
+			);
 
 			let pr: GitLabMergeRequest | undefined;
 
@@ -484,6 +507,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cc,
 			);
 			if (mrs == null || mrs.length === 0) return undefined;
 
@@ -547,9 +571,16 @@ $search: String!
 		}
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(provider, token, options?.baseUrl, query, {
-				search: search,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				options?.baseUrl,
+				query,
+				{
+					search: search,
+				},
+				cc,
+			);
 
 			const matches = rsp?.data?.users?.nodes;
 			if (matches == null || matches.length === 0) return [];
@@ -619,9 +650,16 @@ $search: String!
 		id
 	}
 }`;
-			const rsp = await this.graphql<QueryResult>(provider, token, baseUrl, query, {
-				fullPath: `${group}/${repo}`,
-			});
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				baseUrl,
+				query,
+				{
+					fullPath: `${group}/${repo}`,
+				},
+				cc,
+			);
 
 			const gid = rsp?.data?.project?.id;
 			if (gid == null) return undefined;
@@ -649,6 +687,7 @@ $search: String!
 		baseUrl: string | undefined,
 		query: string,
 		variables: { [key: string]: any },
+		cc: LogCorrelationContext | undefined,
 	): Promise<T | undefined> {
 		let rsp: Response;
 		try {
@@ -685,7 +724,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
-				this.handleRequestError(ex, token);
+				this.handleRequestError(provider, token, ex, cc);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
 			}
@@ -699,7 +738,8 @@ $search: String!
 		token: string,
 		baseUrl: string | undefined,
 		route: string,
-		options?: { method: RequestInit['method'] } & Record<string, unknown>,
+		options: { method: RequestInit['method'] } & Record<string, unknown>,
+		cc: LogCorrelationContext | undefined,
 	): Promise<T> {
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
 
@@ -732,7 +772,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
-				this.handleRequestError(ex, token);
+				this.handleRequestError(provider, token, ex, cc);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
 			}
@@ -741,7 +781,12 @@ $search: String!
 		}
 	}
 
-	private handleRequestError(ex: ProviderFetchError, token: string): void {
+	private handleRequestError(
+		provider: RichRemoteProvider | undefined,
+		token: string,
+		ex: ProviderFetchError,
+		cc: LogCorrelationContext | undefined,
+	): void {
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -766,17 +811,24 @@ $search: String!
 				}
 				throw new AuthenticationError('gitlab', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
+				Logger.error(ex, cc);
 				if (ex.response != null) {
-					void window.showErrorMessage(
-						'GitLab failed to respond and might be experiencing issues. Please visit the [GitLab status page](https://status.gitlab.com/) for more information.',
-						'OK',
+					provider?.trackRequestException();
+					void Messages.showIntegrationRequestFailed500WarningMessage(
+						`${provider?.name ?? 'GitLab'} failed to respond and might be experiencing issues.${
+							!provider?.custom
+								? ' Please visit the [GitLab status page](https://status.gitlab.com) for more information.'
+								: ''
+						}`,
 					);
 				}
 				return;
 			case 502: // Bad Gateway
+				Logger.error(ex, cc);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
-					void window.showErrorMessage('GitLab request timed out');
+					provider?.trackRequestException();
+					void Messages.showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitLab');
 					return;
 				}
 				break;
@@ -785,6 +837,7 @@ $search: String!
 				break;
 		}
 
+		Logger.error(ex, cc);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitLab request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -794,7 +847,7 @@ $search: String!
 
 	private handleException(ex: Error, provider: RichRemoteProvider, cc: LogCorrelationContext | undefined): Error {
 		Logger.error(ex, cc);
-		debugger;
+		// debugger;
 
 		if (ex instanceof AuthenticationError) {
 			void this.showAuthenticationErrorMessage(ex, provider);

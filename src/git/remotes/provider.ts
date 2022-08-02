@@ -18,6 +18,7 @@ import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
+import { Messages } from '../../messages';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
@@ -288,8 +289,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this._onDidChange.event;
 	}
 
-	private invalidClientExceptionCount = 0;
-
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
 		super(domain, path, protocol, name, custom);
 
@@ -304,7 +303,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				if (e.key !== this.key) return;
 
 				if (e.reason === 'disconnected') {
-					void this.disconnect(true);
+					void this.disconnect({ silent: true });
 				} else if (e.reason === 'connected') {
 					void this.ensureSession(false);
 				}
@@ -359,49 +358,58 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	@gate()
 	@log()
-	async disconnect(silent: boolean = false): Promise<void> {
+	async disconnect(options?: { silent?: boolean; currentSessionOnly?: boolean }): Promise<void> {
+		if (options?.currentSessionOnly && this._session === null) return;
+
 		const connected = this._session != null;
 
 		const container = Container.instance;
 
-		if (connected && !silent) {
-			const disable = { title: 'Disable' };
-			const signout = { title: 'Disable & Sign Out' };
-			const cancel = { title: 'Cancel', isCloseAffordance: true };
-
-			let result: MessageItem | undefined;
-			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
-				result = await window.showWarningMessage(
-					`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
-					{ modal: true },
-					disable,
-					signout,
-					cancel,
-				);
+		if (connected && !options?.silent) {
+			if (options?.currentSessionOnly) {
+				void Messages.showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
 			} else {
-				result = await window.showWarningMessage(
-					`Are you sure you want to disable the rich integration with ${this.name}?`,
-					{ modal: true },
-					disable,
-					cancel,
-				);
-			}
+				const disable = { title: 'Disable' };
+				const signout = { title: 'Disable & Sign Out' };
+				const cancel = { title: 'Cancel', isCloseAffordance: true };
 
-			if (result == null || result === cancel) return;
-			if (result === signout) {
-				void Container.instance.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
+				let result: MessageItem | undefined;
+				if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+					result = await window.showWarningMessage(
+						`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
+						{ modal: true },
+						disable,
+						signout,
+						cancel,
+					);
+				} else {
+					result = await window.showWarningMessage(
+						`Are you sure you want to disable the rich integration with ${this.name}?`,
+						{ modal: true },
+						disable,
+						cancel,
+					);
+				}
+
+				if (result == null || result === cancel) return;
+				if (result === signout) {
+					void container.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
+				}
 			}
 		}
 
-		this.invalidClientExceptionCount = 0;
+		this.resetRequestExceptionCount();
 		this._prsByCommit.clear();
 		this._session = null;
 
 		if (connected) {
-			void container.storage.storeWorkspace(this.connectedKey, false);
+			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
+			if (!options?.currentSessionOnly) {
+				void container.storage.storeWorkspace(this.connectedKey, false);
+			}
 
 			this._onDidChange.fire();
-			if (!silent) {
+			if (!options?.silent && !options?.currentSessionOnly) {
 				fireAuthenticationChanged(this.key, 'disconnected');
 			}
 		}
@@ -413,6 +421,21 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		this._session = undefined;
 		void (await this.ensureSession(true, true));
+	}
+
+	private requestExceptionCount = 0;
+
+	resetRequestExceptionCount() {
+		this.requestExceptionCount = 0;
+	}
+
+	@debug()
+	trackRequestException() {
+		this.requestExceptionCount++;
+
+		if (this.requestExceptionCount >= 5 && this._session !== null) {
+			void this.disconnect({ currentSessionOnly: true });
+		}
 	}
 
 	@gate()
@@ -438,13 +461,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		try {
 			const author = await this.getProviderAccountForCommit(this._session!, ref, options);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return undefined;
 		}
@@ -473,13 +496,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		try {
 			const author = await this.getProviderAccountForEmail(this._session!, email, options);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return undefined;
 		}
@@ -503,13 +526,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		try {
 			const defaultBranch = await this.getProviderDefaultBranch(this._session!);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return defaultBranch;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return undefined;
 		}
@@ -529,13 +552,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		try {
 			const issueOrPullRequest = await this.getProviderIssueOrPullRequest(this._session!, id);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return issueOrPullRequest;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return undefined;
 		}
@@ -578,13 +601,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		try {
 			const pr = await this.getProviderPullRequestForBranch(this._session!, branch, options);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return undefined;
 		}
@@ -622,7 +645,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		try {
 			const pr = (await this.getProviderPullRequestForCommit(this._session!, ref)) ?? null;
 			this._prsByCommit.set(ref, pr);
-			this.invalidClientExceptionCount = 0;
+			this.resetRequestExceptionCount();
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -630,7 +653,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this._prsByCommit.delete(ref);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.handleClientException();
+				this.trackRequestException();
 			}
 			return null;
 		}
@@ -689,7 +712,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		this._session = session ?? null;
-		this.invalidClientExceptionCount = 0;
+		this.resetRequestExceptionCount();
 
 		if (session != null) {
 			await container.storage.storeWorkspace(this.connectedKey, true);
@@ -701,14 +724,5 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		return session ?? undefined;
-	}
-
-	@debug()
-	private handleClientException() {
-		this.invalidClientExceptionCount++;
-
-		if (this.invalidClientExceptionCount >= 5) {
-			void this.disconnect();
-		}
 	}
 }

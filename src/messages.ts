@@ -1,23 +1,9 @@
 import { ConfigurationTarget, MessageItem, window } from 'vscode';
-import { configuration } from './configuration';
+import { configuration, SuppressedMessages } from './configuration';
 import { Commands } from './constants';
 import { GitCommit } from './git/models';
 import { Logger } from './logger';
 import { executeCommand } from './system/command';
-
-export const enum SuppressedMessages {
-	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
-	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
-	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
-	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
-	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
-	GitDisabledWarning = 'suppressGitDisabledWarning',
-	GitMissingWarning = 'suppressGitMissingWarning',
-	GitVersionWarning = 'suppressGitVersionWarning',
-	LineUncommittedWarning = 'suppressLineUncommittedWarning',
-	NoRepositoryWarning = 'suppressNoRepositoryWarning',
-	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
-}
 
 export class Messages {
 	static showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
@@ -155,6 +141,44 @@ export class Messages {
 		);
 	}
 
+	static showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
+		providerName: string,
+	): Promise<MessageItem | undefined> {
+		return Messages.showMessage(
+			'error',
+			`Rich integration with ${providerName} has been disconnected for this session, because of too many failed requests.`,
+			SuppressedMessages.IntegrationDisconnectedTooManyFailedRequestsWarning,
+			undefined,
+			{
+				title: 'OK',
+			},
+		);
+	}
+
+	static showIntegrationRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
+		return Messages.showMessage(
+			'error',
+			message,
+			SuppressedMessages.IntegrationRequestFailed500Warning,
+			undefined,
+			{
+				title: 'OK',
+			},
+		);
+	}
+
+	static showIntegrationRequestTimedOutWarningMessage(providerName: string): Promise<MessageItem | undefined> {
+		return Messages.showMessage(
+			'error',
+			`${providerName} request timed out.`,
+			SuppressedMessages.IntegrationRequestTimedOutWarning,
+			undefined,
+			{
+				title: 'OK',
+			},
+		);
+	}
+
 	static async showWhatsNewMessage(version: string) {
 		const whatsnew = { title: "See What's New" };
 		const result = await Messages.showMessage(
@@ -179,14 +203,14 @@ export class Messages {
 	): Promise<MessageItem | undefined> {
 		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
 
-		if (suppressionKey !== undefined && configuration.get(`advanced.messages.${suppressionKey}` as const)) {
+		if (suppressionKey != null && configuration.get(`advanced.messages.${suppressionKey}` as const)) {
 			Logger.log(
 				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`,
 			);
 			return undefined;
 		}
 
-		if (suppressionKey !== undefined && dontShowAgain !== null) {
+		if (suppressionKey != null && dontShowAgain !== null) {
 			actions.push(dontShowAgain);
 		}
 
@@ -205,13 +229,13 @@ export class Messages {
 				break;
 		}
 
-		if ((suppressionKey !== undefined && dontShowAgain === null) || result === dontShowAgain) {
+		if (suppressionKey != null && (dontShowAgain === null || result === dontShowAgain)) {
 			Logger.log(
 				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(
 					dontShowAgain,
 				)}) don't show again requested`,
 			);
-			await this.suppressedMessage(suppressionKey!);
+			await this.suppressedMessage(suppressionKey);
 
 			if (result === dontShowAgain) return undefined;
 		}

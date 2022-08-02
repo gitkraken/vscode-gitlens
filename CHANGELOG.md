@@ -202,6 +202,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2117](https://github.com/gitkraken/vscode-gitlens/issues/2117) - Gitlens freaks out when I'm off VPN
 - Fixes [#1859](https://github.com/gitkraken/vscode-gitlens/issues/1859) - GitLens dates use system locale instead of vscode language setting
 - Fixes [#1854](https://github.com/gitkraken/vscode-gitlens/issues/1854) - All repos have the same name
 - Fixes [#1866](https://github.com/gitkraken/vscode-gitlens/issues/1866) - Copy SHA and Copy Message don't work from the views (commits, branches, etc)
