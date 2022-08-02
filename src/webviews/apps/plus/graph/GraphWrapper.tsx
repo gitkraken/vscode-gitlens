@@ -117,16 +117,28 @@ const getGraphModel = (
 	return graphRows;
 };
 
+const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
+	commitAuthorZone: { width: 110 },
+	commitDateTimeZone: { width: 130 },
+	commitMessageZone: { width: 130 },
+	commitZone: { width: 170 },
+	refZone: { width: 150 }
+};
+
 const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings => {
 	const columnsSettings: GKGraphColumnsSettings = {};
 	if (config?.columns !== undefined) {
 		for (const key of Object.keys(config.columns)) {
-			columnsSettings[key] = {
-				width: config.columns[key].width || 0,
-			};
+			const width = config.columns[key].width;
+			if (width !== undefined) {
+				columnsSettings[key] = { width: width };
+			}
 		}
 	}
-	return columnsSettings;
+	return {
+		...defaultGraphColumnsSettings,
+		...columnsSettings
+	};
 };
 
 type DebouncableFn = (...args: any) => void;
