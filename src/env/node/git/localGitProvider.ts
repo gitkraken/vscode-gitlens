@@ -1074,7 +1074,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@log()
+	@log<LocalGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -1241,7 +1241,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate<LocalGitProvider['getBlameForLine']>(
 		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
 	)
-	@log()
+	@log<LocalGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based

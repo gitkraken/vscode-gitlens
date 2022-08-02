@@ -408,8 +408,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@gate()
-	@log()
+	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
+	@log<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -573,8 +573,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined; //this.getBlame(uri);
 	}
 
-	@gate()
-	@log()
+	@gate<GitHubGitProvider['getBlameForLine']>(
+		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
+	)
+	@log<GitHubGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based

@@ -726,6 +726,7 @@ export class GitProviderService implements Disposable {
 
 	private _context: { enabled: boolean; disabled: boolean } = { enabled: false, disabled: false };
 
+	@debug()
 	async setEnabledContext(enabled: boolean): Promise<void> {
 		let disabled = !enabled;
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
@@ -1093,7 +1094,7 @@ export class GitProviderService implements Disposable {
 		return provider.getAheadBehindCommitCount(path, refs);
 	}
 
-	@log()
+	@log<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
@@ -1115,7 +1116,7 @@ export class GitProviderService implements Disposable {
 		return provider.getBlameContents(uri, contents);
 	}
 
-	@log()
+	@log<GitProviderService['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
 	/**
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
