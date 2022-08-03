@@ -4273,7 +4273,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v12.1.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v12.1.2...HEAD
+[12.1.2]: https://github.com/gitkraken/vscode-gitlens/compare/v12.1.1...gitkraken:v12.1.2
 [12.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v12.1.0...gitkraken:v12.1.1
 [12.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.7...gitkraken:v12.1.0
 [12.0.6]: https://github.com/gitkraken/vscode-gitlens/compare/v12.0.6...gitkraken:v12.0.7
