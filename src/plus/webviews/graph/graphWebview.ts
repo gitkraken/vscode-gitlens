@@ -343,8 +343,12 @@ function combineAndFilterStashCommits(
 	stashCommits: GitStashCommit[] | undefined,
 	log: GitLog | undefined
 ): (GitCommit | GitStashCommit)[] {
-	if (commits === undefined || log === undefined || stashCommits === undefined) {
+	if (commits === undefined || log === undefined) {
 		return [];
+	}
+
+	if (stashCommits === undefined) {
+		return commits;
 	}
 
 	const stashCommitShas = stashCommits?.map(c => c.sha);
