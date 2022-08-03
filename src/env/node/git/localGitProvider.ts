@@ -2090,7 +2090,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ordering?: string | null;
 			ref?: string;
 			since?: string;
-			skip?: number;
+			until?: string;
 		},
 	): Promise<GitLog | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -2236,11 +2236,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const ref = last(log.commits.values())?.ref;
+			const refDate = last(log.commits.values())?.committer.date;
+			const refDateTimestamp = (refDate != null) ? (refDate?.getTime() / 1000) + 1 : undefined;
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				...options?.all && log.count > 0
-				? { skip: log.count - 1 }
+				...options?.all && refDateTimestamp
+				? { until: refDateTimestamp.toString() }
 				: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`}
 			});
 			// If we can't find any more, assume we have everything

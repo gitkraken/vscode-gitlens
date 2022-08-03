@@ -690,7 +690,7 @@ export class Git {
 			ordering,
 			similarityThreshold,
 			since,
-			skip,
+			until,
 		}: {
 			all?: boolean;
 			argsOrFormat?: string | string[];
@@ -700,7 +700,7 @@ export class Git {
 			ordering?: string | null;
 			similarityThreshold?: number | null;
 			since?: string;
-			skip?: number;
+			until?: string;
 		},
 	) {
 		if (argsOrFormat == null) {
@@ -731,6 +731,10 @@ export class Git {
 			params.push(`--since="${since}"`);
 		}
 
+		if (until) {
+			params.push(`--until="${until}"`);
+		}
+
 		if (!merges) {
 			params.push('--first-parent');
 		}
@@ -748,10 +752,6 @@ export class Git {
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
 			params.push(ref);
-		}
-
-		if (skip) {
-			params.push(`--skip=${skip}`);
 		}
 
 		return this.git<string>(
