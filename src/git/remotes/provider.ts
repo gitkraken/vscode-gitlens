@@ -143,10 +143,6 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return 'remote';
 	}
 
-	get avatarUrl(): string | undefined {
-		return undefined;
-	}
-
 	abstract get id(): string;
 	abstract get name(): string;
 

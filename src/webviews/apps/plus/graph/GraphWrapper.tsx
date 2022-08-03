@@ -92,7 +92,8 @@ const getGraphModel = (
 						? branch.name.replace(`${matchingRemote.name}/`, '')
 						: branch.name,
 					url: matchingRemoteUrl,
-					avatarUrl: matchingRemote?.avatarUrl ?? undefined
+					// TODO: Add avatarUrl support for remotes
+					// avatarUrl: matchingRemote?.avatarUrl ?? undefined
 				};
 			});
 

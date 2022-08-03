@@ -2167,7 +2167,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const url = `https://github.com/${owner}/${repo}.git`;
 		const domain = 'github.com';
 		const path = `${owner}/${repo}`;
-		const avatarUrl = `https://avatars.githubusercontent.com/${owner}`;
 
 		return [
 			new GitRemote(
@@ -2182,7 +2181,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					{ type: GitRemoteType.Fetch, url: url },
 					{ type: GitRemoteType.Push, url: url },
 				],
-				avatarUrl,
 			),
 		];
 	}
