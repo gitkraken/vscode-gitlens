@@ -205,9 +205,6 @@ export class Container {
 		context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
 		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
-		context.subscriptions.push((this._integrationAuthentication = new IntegrationAuthenticationService(this)));
-		context.subscriptions.push(new GitLabAuthenticationProvider(this));
-
 		if (config.terminalLinks.enabled) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
@@ -415,8 +412,16 @@ export class Container {
 		return this._insiders;
 	}
 
-	private _integrationAuthentication: IntegrationAuthenticationService;
+	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
+		if (this._integrationAuthentication == null) {
+			this._context.subscriptions.push(
+				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
+				// Register any integration authentication providers
+				new GitLabAuthenticationProvider(this),
+			);
+		}
+
 		return this._integrationAuthentication;
 	}
 
