@@ -5,7 +5,7 @@
 
 export const enum ForcePushMode {
 	Force,
-	ForceWithLease
+	ForceWithLease,
 }
 
 export const enum RefType {
@@ -72,5 +72,5 @@ export const enum GitErrorCodes {
 	PatchDoesNotApply = 'PatchDoesNotApply',
 	NoPathFound = 'NoPathFound',
 	UnknownPath = 'UnknownPath',
-	EmptyCommitMessage = 'EmptyCommitMessage'
+	EmptyCommitMessage = 'EmptyCommitMessage',
 }
