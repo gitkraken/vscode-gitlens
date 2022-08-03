@@ -362,7 +362,7 @@ export class FileAnnotationController implements Disposable {
 		context?: AnnotationContext | ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean> {
-		if (editor != null) {
+		if (editor != null && this._toggleModes.get(type) === AnnotationsToggleMode.File) {
 			const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 			if ((type === FileAnnotationType.Changes && !trackedDocument.isTracked) || !trackedDocument.isBlameable) {
 				return false;
