@@ -24,6 +24,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const gitlensVersion = context.extension.packageJSON.version;
 	const insiders = context.extension.id === 'eamodio.gitlens-insiders' || satisfies(gitlensVersion, '> 2020.0.0');
 
+	const outputLevel = configuration.get('outputLevel');
 	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
 			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
@@ -95,19 +96,19 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	Configuration.configure(context);
-	const cfg = configuration.get();
 
-	setDefaultDateLocales(cfg.defaultDateLocale ?? env.language);
+	setDefaultDateLocales(configuration.get('defaultDateLocale') ?? env.language);
 	context.subscriptions.push(
 		configuration.onDidChange(e => {
-			if (!e.affectsConfiguration('gitlens.defaultDateLocale')) return;
-			setDefaultDateLocales(configuration.get('defaultDateLocale', undefined, env.language));
+			if (configuration.changed(e, 'defaultDateLocale')) {
+				setDefaultDateLocales(configuration.get('defaultDateLocale', undefined, env.language));
+			}
 		}),
 	);
 
 	// await migrateSettings(context, previousVersion);
 
-	const container = Container.create(context, cfg, insiders);
+	const container = Container.create(context, insiders);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
@@ -122,9 +123,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			void context.globalState.update(SyncedStorageKeys.Version, gitlensVersion);
 		}
 
-		if (cfg.outputLevel === OutputLevel.Debug) {
+		if (outputLevel === OutputLevel.Debug) {
 			setTimeout(async () => {
-				if (cfg.outputLevel !== OutputLevel.Debug) return;
+				if (configuration.get('outputLevel') !== OutputLevel.Debug) return;
 
 				if (!container.insiders) {
 					if (await Messages.showDebugLoggingWarningMessage()) {
@@ -143,9 +144,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		void setContext(ContextKeys.Debugging, true);
 	}
 
+	const mode = container.mode;
 	sw.stop({
 		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
-			cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''
+			mode != null ? `, mode: ${mode.name}` : ''
 		}`,
 	});
 

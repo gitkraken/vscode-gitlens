@@ -25,15 +25,15 @@ export class SwitchModeCommand extends Command {
 			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 
-		const active = this.container.config.mode.active;
+		const active = configuration.get('mode.active');
 		if (active === pick.key) return;
 
 		// Check if we have applied any annotations and clear them if we won't be applying them again
 		if (active != null && active.length !== 0) {
-			const activeAnnotations = this.container.config.modes?.[active].annotations;
+			const modes = configuration.get('modes');
+			const activeAnnotations = modes?.[active].annotations;
 			if (activeAnnotations != null) {
-				const newAnnotations =
-					pick.key != null ? this.container.config.modes?.[pick.key].annotations : undefined;
+				const newAnnotations = pick.key != null ? modes?.[pick.key].annotations : undefined;
 				if (activeAnnotations !== newAnnotations) {
 					await this.container.fileAnnotations.clearAll();
 				}

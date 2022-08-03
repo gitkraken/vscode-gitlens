@@ -1,11 +1,4 @@
-import {
-	ConfigurationChangeEvent,
-	ConfigurationScope,
-	Event,
-	EventEmitter,
-	ExtensionContext,
-	ExtensionMode,
-} from 'vscode';
+import { ConfigurationChangeEvent, Event, EventEmitter, ExtensionContext, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
@@ -18,10 +11,10 @@ import {
 	AnnotationsToggleMode,
 	Config,
 	configuration,
-	ConfigurationWillChangeEvent,
 	DateSource,
 	DateStyle,
 	FileAnnotationType,
+	ModeConfig,
 } from './configuration';
 import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
@@ -71,17 +64,17 @@ export class Container {
 			if (Container.#instance != null) return (Container.#instance as any)[prop];
 
 			// Allow access to config before we are initialized
-			if (prop === 'config') return configuration.get();
+			if (prop === 'config') return configuration.getAll();
 
 			// debugger;
 			throw new Error('Container is not initialized');
 		},
 	});
 
-	static create(context: ExtensionContext, cfg: Config, insiders: boolean) {
+	static create(context: ExtensionContext, insiders: boolean) {
 		if (Container.#instance != null) throw new Error('Container is already initialized');
 
-		Container.#instance = new Container(context, cfg, insiders);
+		Container.#instance = new Container(context, insiders);
 		return Container.#instance;
 	}
 
@@ -145,17 +138,13 @@ export class Container {
 		},
 	};
 
-	private _configsAffectedByMode: string[] | undefined;
-	private _applyModeConfigurationTransformBound:
-		| ((e: ConfigurationChangeEvent) => ConfigurationChangeEvent)
-		| undefined;
-
+	private _configAffectedByModeRegex: RegExp | undefined;
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
-	private constructor(context: ExtensionContext, config: Config, insiders: boolean) {
+	private constructor(context: ExtensionContext, insiders: boolean) {
 		this._context = context;
-		this._config = this.applyMode(config);
 		this._insiders = insiders;
+		this.ensureModeApplied();
 
 		context.subscriptions.push((this._storage = new Storage(this._context)));
 
@@ -205,7 +194,7 @@ export class Container {
 		context.subscriptions.push((this._homeView = new HomeWebviewView(this)));
 		context.subscriptions.push((this._timelineView = new TimelineWebviewView(this)));
 
-		if (config.terminalLinks.enabled) {
+		if (configuration.get('terminalLinks.enabled')) {
 			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
@@ -214,7 +203,7 @@ export class Container {
 				if (!configuration.changed(e, 'terminalLinks.enabled')) return;
 
 				this._terminalLinks?.dispose();
-				if (this.config.terminalLinks.enabled) {
+				if (configuration.get('terminalLinks.enabled')) {
 					context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 				}
 			}),
@@ -241,22 +230,20 @@ export class Container {
 		this._git.registrationComplete();
 	}
 
-	private onConfigurationChanging(e: ConfigurationWillChangeEvent) {
+	private onConfigurationChanging(e: ConfigurationChangeEvent) {
 		this._config = undefined;
+		this._mode = undefined;
 
-		if (configuration.changed(e.change, 'outputLevel')) {
+		if (configuration.changed(e, 'outputLevel')) {
 			Logger.logLevel = configuration.get('outputLevel');
 		}
 
-		if (configuration.changed(e.change, 'defaultGravatarsStyle')) {
+		if (configuration.changed(e, 'defaultGravatarsStyle')) {
 			resetAvatarCache('fallback');
 		}
 
-		if (configuration.changed(e.change, 'mode') || configuration.changed(e.change, 'modes')) {
-			if (this._applyModeConfigurationTransformBound == null) {
-				this._applyModeConfigurationTransformBound = this.applyModeConfigurationTransform.bind(this);
-			}
-			e.transform = this._applyModeConfigurationTransformBound;
+		if (configuration.changed(e, 'mode')) {
+			this.ensureModeApplied();
 		}
 	}
 
@@ -304,7 +291,7 @@ export class Container {
 	private _config: Config | undefined;
 	get config() {
 		if (this._config == null) {
-			this._config = this.applyMode(configuration.get());
+			this._config = configuration.getAll();
 		}
 		return this._config;
 	}
@@ -580,25 +567,32 @@ export class Container {
 		return this._worktreesView;
 	}
 
-	private applyMode(config: Config) {
-		if (!config.mode.active) return config;
+	private _mode: ModeConfig | undefined;
+	get mode() {
+		if (this._mode == null) {
+			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
+		}
+		return this._mode;
+	}
 
-		const mode = config.modes?.[config.mode.active];
-		if (mode == null) return config;
+	private ensureModeApplied() {
+		const mode = this.mode;
+		if (mode == null) {
+			configuration.clearOverrides();
+
+			return;
+		}
 
 		if (mode.annotations != null) {
 			let command: Commands | undefined;
 			switch (mode.annotations) {
 				case 'blame':
-					config.blame.toggleMode = AnnotationsToggleMode.Window;
 					command = Commands.ToggleFileBlame;
 					break;
 				case 'changes':
-					config.changes.toggleMode = AnnotationsToggleMode.Window;
 					command = Commands.ToggleFileChanges;
 					break;
 				case 'heatmap':
-					config.heatmap.toggleMode = AnnotationsToggleMode.Window;
 					command = Commands.ToggleFileHeatmap;
 					break;
 			}
@@ -608,50 +602,87 @@ export class Container {
 					type: mode.annotations as FileAnnotationType,
 					on: true,
 				};
-				// Make sure to delay the execution by a bit so that the configuration changes get propegated first
+				// Make sure to delay the execution by a bit so that the configuration changes get propagated first
 				setTimeout(() => executeCommand(command!, commandArgs), 50);
 			}
 		}
 
-		if (mode.codeLens != null) {
-			config.codeLens.enabled = mode.codeLens;
-		}
+		// Apply any required configuration overrides
+		configuration.applyOverrides({
+			get: (section, value) => {
+				if (mode.annotations != null) {
+					if (configuration.matches(`${mode.annotations}.toggleMode`, section, value)) {
+						value = AnnotationsToggleMode.Window as typeof value;
+						return value;
+					}
 
-		if (mode.currentLine != null) {
-			config.currentLine.enabled = mode.currentLine;
-		}
+					if (configuration.matches(mode.annotations, section, value)) {
+						value.toggleMode = AnnotationsToggleMode.Window;
+						return value;
+					}
+				}
 
-		if (mode.hovers != null) {
-			config.hovers.enabled = mode.hovers;
-		}
+				for (const key of ['codeLens', 'currentLine', 'hovers', 'statusBar'] as const) {
+					if (mode[key] != null) {
+						if (configuration.matches(`${key}.enabled`, section, value)) {
+							value = mode[key] as NonNullable<typeof value>;
+							return value;
+						} else if (configuration.matches(key, section, value)) {
+							value.enabled = mode[key]!;
+							return value;
+						}
+					}
+				}
 
-		if (mode.statusBar != null) {
-			config.statusBar.enabled = mode.statusBar;
-		}
+				return value;
+			},
+			getAll: cfg => {
+				if (mode.annotations != null) {
+					cfg[mode.annotations].toggleMode = AnnotationsToggleMode.Window;
+				}
 
-		return config;
-	}
+				if (mode.codeLens != null) {
+					cfg.codeLens.enabled = mode.codeLens;
+				}
 
-	private applyModeConfigurationTransform(e: ConfigurationChangeEvent): ConfigurationChangeEvent {
-		if (this._configsAffectedByMode == null) {
-			this._configsAffectedByMode = [
-				`gitlens.${configuration.name('mode')}`,
-				`gitlens.${configuration.name('modes')}`,
-				`gitlens.${configuration.name('blame.toggleMode')}`,
-				`gitlens.${configuration.name('changes.toggleMode')}`,
-				`gitlens.${configuration.name('codeLens')}`,
-				`gitlens.${configuration.name('currentLine')}`,
-				`gitlens.${configuration.name('heatmap.toggleMode')}`,
-				`gitlens.${configuration.name('hovers')}`,
-				`gitlens.${configuration.name('statusBar')}`,
-			];
-		}
+				if (mode.currentLine != null) {
+					cfg.currentLine.enabled = mode.currentLine;
+				}
 
-		const original = e.affectsConfiguration;
-		return {
-			...e,
-			affectsConfiguration: (section: string, scope?: ConfigurationScope) =>
-				this._configsAffectedByMode?.some(n => section.startsWith(n)) ? true : original(section, scope),
-		};
+				if (mode.hovers != null) {
+					cfg.hovers.enabled = mode.hovers;
+				}
+
+				if (mode.statusBar != null) {
+					cfg.statusBar.enabled = mode.statusBar;
+				}
+
+				return cfg;
+			},
+			onChange: e => {
+				// When the mode or modes change, we will simulate that all the affected configuration also changed
+				if (configuration.changed(e, ['mode', 'modes'])) {
+					if (this._configAffectedByModeRegex == null) {
+						this._configAffectedByModeRegex = new RegExp(
+							`^gitlens\\.(?:${configuration.name('mode')}|${configuration.name(
+								'modes',
+							)}|${configuration.name('blame')}|${configuration.name('changes')}|${configuration.name(
+								'heatmap',
+							)}|${configuration.name('codeLens')}|${configuration.name(
+								'currentLine',
+							)}|${configuration.name('hovers')}|${configuration.name('statusBar')})\\b`,
+						);
+					}
+
+					const original = e.affectsConfiguration;
+					e = {
+						...e,
+						affectsConfiguration: (section, scope) =>
+							this._configAffectedByModeRegex!.test(section) ? true : original(section, scope),
+					};
+				}
+				return e;
+			},
+		});
 	}
 }

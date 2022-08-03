@@ -241,7 +241,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
 		return this.notify(DidChangeConfigurationNotificationType, {
-			config: configuration.get(),
+			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 		});
 	}

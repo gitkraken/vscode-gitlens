@@ -54,7 +54,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 
 		return {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
-			config: configuration.get(),
+			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 			scope: 'user',
 			scopes: scopes,
