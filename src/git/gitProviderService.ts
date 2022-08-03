@@ -750,7 +750,7 @@ export class GitProviderService implements Disposable {
 			promises.push(setContext(ContextKeys.Disabled, disabled));
 		}
 
-		await Promise.all(promises);
+		await Promise.allSettled(promises);
 
 		if (!this._initializing) {
 			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.AssumeRepositoriesOnStartup, enabled);
