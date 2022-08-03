@@ -1,5 +1,6 @@
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { FileAnnotationType } from '../config';
+import { configuration } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBlame, GitCommit } from '../git/models';
@@ -69,7 +70,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		dates.sort((a, b) => a.getTime() - b.getTime());
 
 		const coldThresholdDate = new Date();
-		coldThresholdDate.setDate(coldThresholdDate.getDate() - (this.container.config.heatmap.ageThreshold || 90));
+		coldThresholdDate.setDate(coldThresholdDate.getDate() - (configuration.get('heatmap.ageThreshold') || 90));
 		const coldThresholdTimestamp = coldThresholdDate.getTime();
 
 		const hotDates: Date[] = [];
@@ -132,11 +133,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	registerHoverProviders(providers: { details: boolean; changes: boolean }) {
-		if (
-			!this.container.config.hovers.enabled ||
-			!this.container.config.hovers.annotations.enabled ||
-			(!providers.details && !providers.changes)
-		) {
+		const cfg = configuration.get('hovers');
+		if (!cfg.enabled || !cfg.annotations.enabled || (!providers.details && !providers.changes)) {
 			return;
 		}
 
@@ -155,7 +153,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		position: Position,
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
-		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (configuration.get('hovers.annotations.over') !== 'line' && position.character !== 0) return undefined;
 
 		if (this.document.uri.toString() !== document.uri.toString()) return undefined;
 
@@ -188,16 +186,17 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
+		const cfg = configuration.get('hovers');
 		return Hovers.detailsMessage(
 			commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
-			this.container.config.hovers.detailsMarkdownFormat,
-			this.container.config.defaultDateFormat,
+			cfg.detailsMarkdownFormat,
+			configuration.get('defaultDateFormat'),
 			{
-				autolinks: this.container.config.hovers.autolinks.enabled,
+				autolinks: cfg.autolinks.enabled,
 				pullRequests: {
-					enabled: this.container.config.hovers.pullRequests.enabled,
+					enabled: cfg.pullRequests.enabled,
 				},
 			},
 		);

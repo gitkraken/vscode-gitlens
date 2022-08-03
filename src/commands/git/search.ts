@@ -1,3 +1,4 @@
+import { configuration } from '../../configuration';
 import { ContextKeys, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { getContext } from '../../context';
@@ -104,7 +105,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
-		const cfg = this.container.config.gitCommands.search;
+		const cfg = configuration.get('gitCommands.search');
 		if (state.matchAll == null) {
 			state.matchAll = cfg.matchAll;
 		}

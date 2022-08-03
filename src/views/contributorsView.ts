@@ -78,7 +78,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			const children = await child.getChildren();
 
-			// const all = this.view.container.config.views.contributors.showAllBranches;
+			// const all = configuration.get('views.contributors.showAllBranches');
 
 			// let ref: string | undefined;
 			// // If we aren't getting all branches, get the upstream of the current branch if there is one

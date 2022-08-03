@@ -167,7 +167,7 @@ export class ActionRunners implements Disposable {
 	}
 
 	get(action: Actions): RegisteredActionRunner[] | undefined {
-		return filterOnlyEnabledRunners(this.container.config, this._actionRunners.get(action));
+		return filterOnlyEnabledRunners(configuration.get('partners'), this._actionRunners.get(action));
 	}
 
 	has(action: Actions): boolean {
@@ -334,10 +334,8 @@ export class ActionRunners implements Disposable {
 	}
 }
 
-function filterOnlyEnabledRunners(config: Config, runners: RegisteredActionRunner[] | undefined) {
+function filterOnlyEnabledRunners(partners: Config['partners'], runners: RegisteredActionRunner[] | undefined) {
 	if (runners == null || runners.length === 0) return undefined;
-
-	const partners = config.partners;
 	if (partners == null) return runners;
 
 	return runners.filter(

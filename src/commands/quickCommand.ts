@@ -1,4 +1,5 @@
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { configuration } from '../configuration';
 import type { Container } from '../container';
 import { Keys } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
@@ -180,7 +181,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 		return override != null
 			? override
-			: !this.container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
+			: !configuration.get('gitCommands.skipConfirmations').includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string) {

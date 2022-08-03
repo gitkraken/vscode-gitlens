@@ -793,7 +793,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 						for (const branch of result.values) {
 							const date = new Date(
-								this.container.config.advanced.commitOrdering === 'author-date'
+								configuration.get('advanced.commitOrdering') === 'author-date'
 									? branch.target.authoredDate
 									: branch.target.committedDate,
 							);
@@ -1612,7 +1612,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options.all = false;
 
 		// if (options.renames == null) {
-		// 	options.renames = this.container.config.advanced.fileHistoryFollowsRenames;
+		// 	options.renames = configuration.get('advanced.fileHistoryFollowsRenames');
 		// }
 
 		let key = 'log';
@@ -1621,7 +1621,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		// if (options.all == null) {
-		// 	options.all = this.container.config.advanced.fileHistoryShowAllBranches;
+		// 	options.all = configuration.get('advanced.fileHistoryShowAllBranches');
 		// }
 		// if (options.all) {
 		// 	key += ':all';
@@ -2678,7 +2678,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private getPagingLimit(limit?: number): number {
-		limit = Math.min(100, limit ?? this.container.config.advanced.maxListItems ?? 100);
+		limit = Math.min(100, limit ?? configuration.get('advanced.maxListItems') ?? 100);
 		if (limit === 0) {
 			limit = 100;
 		}

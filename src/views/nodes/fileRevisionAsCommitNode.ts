@@ -9,6 +9,7 @@ import {
 	Uri,
 } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
+import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
 import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
@@ -89,7 +90,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 				messageTruncateAtNewLine: true,
 			}),
@@ -99,7 +100,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		item.contextValue = this.contextValue;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -109,7 +110,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
 				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
-				: await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle });
+				: await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') });
 		}
 
 		if (item.iconPath == null) {
@@ -232,7 +233,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,

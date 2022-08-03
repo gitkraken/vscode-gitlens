@@ -13,7 +13,6 @@ import {
 import { HeatmapLocations } from '../config';
 import { Config, configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
-import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
 import { GitCommit } from '../git/models';
 import { getWidth, interpolate, pad } from '../system/string';
@@ -62,19 +61,14 @@ const defaultHeatmapColors = [
 let heatmapColors: { hot: string[]; cold: string[] } | undefined;
 export async function getHeatmapColors() {
 	if (heatmapColors == null) {
+		const { coldColor, hotColor } = configuration.get('heatmap');
+
 		let colors;
-		if (
-			Container.instance.config.heatmap.coldColor === defaultHeatmapColdColor &&
-			Container.instance.config.heatmap.hotColor === defaultHeatmapHotColor
-		) {
+		if (coldColor === defaultHeatmapColdColor && hotColor === defaultHeatmapHotColor) {
 			colors = defaultHeatmapColors;
 		} else {
 			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
-			colors = chroma
-				.scale([Container.instance.config.heatmap.hotColor, Container.instance.config.heatmap.coldColor])
-				.mode('lrgb')
-				.classes(20)
-				.colors(20);
+			colors = chroma.scale([hotColor, coldColor]).mode('lrgb').classes(20).colors(20);
 		}
 
 		heatmapColors = {
@@ -83,11 +77,7 @@ export async function getHeatmapColors() {
 		};
 
 		const disposable = configuration.onDidChange(e => {
-			if (
-				configuration.changed(e, 'heatmap.ageThreshold') ||
-				configuration.changed(e, 'heatmap.hotColor') ||
-				configuration.changed(e, 'heatmap.coldColor')
-			) {
+			if (configuration.changed(e, ['heatmap.ageThreshold', 'heatmap.hotColor', 'heatmap.coldColor'])) {
 				disposable.dispose();
 				heatmapColors = undefined;
 			}
@@ -111,7 +101,7 @@ export class Annotations {
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
-		const { fadeLines, locations } = Container.instance.config.heatmap;
+		const { fadeLines, locations } = configuration.get('heatmap');
 		const gutter = locations.includes(HeatmapLocations.Gutter);
 		const line = locations.includes(HeatmapLocations.Line);
 		const scrollbar = locations.includes(HeatmapLocations.Scrollbar);

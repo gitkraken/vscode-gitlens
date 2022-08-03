@@ -114,7 +114,7 @@ export abstract class ViewBase<
 	) {
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
-		if (this.container.debugging || this.container.config.debug) {
+		if (this.container.debugging || configuration.get('debug')) {
 			function addDebuggingInfo(item: TreeItem, node: ViewNode, parent: ViewNode | undefined) {
 				if (item.tooltip == null) {
 					item.tooltip = new MarkdownString(
@@ -393,7 +393,7 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const queue: (ViewNode | undefined)[] = [root, undefined];
 
-		const defaultPageSize = this.container.config.advanced.maxListItems;
+		const defaultPageSize = configuration.get('advanced.maxListItems');
 
 		let depth = 0;
 		let node: ViewNode | undefined;
@@ -573,14 +573,14 @@ export abstract class ViewBase<
 	private _config: (ViewConfig & ViewsCommonConfig) | undefined;
 	get config(): ViewConfig & ViewsCommonConfig {
 		if (this._config == null) {
-			const cfg = { ...this.container.config.views };
+			const cfg = { ...configuration.get('views') };
 			for (const view of viewsConfigKeys) {
 				delete cfg[view];
 			}
 
 			this._config = {
 				...(cfg as ViewsCommonConfig),
-				...(this.container.config.views[this.configKey] as ViewConfig),
+				...(configuration.get('views')[this.configKey] as ViewConfig),
 			};
 		}
 

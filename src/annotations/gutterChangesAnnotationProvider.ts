@@ -12,7 +12,7 @@ import {
 	TextEditorDecorationType,
 	TextEditorRevealType,
 } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitCommit, GitDiff } from '../git/models';
 import { Hovers } from '../hovers/hovers';
@@ -280,9 +280,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	}
 
 	registerHoverProvider() {
-		if (!this.container.config.hovers.enabled || !this.container.config.hovers.annotations.enabled) {
-			return;
-		}
+		const cfg = configuration.get('hovers');
+		if (!cfg.enabled || !cfg.annotations.enabled) return;
 
 		this.hoverProviderDisposable = languages.registerHoverProvider(
 			{ pattern: this.document.uri.fsPath },
@@ -299,7 +298,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (this.state == null) return undefined;
-		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (configuration.get('hovers.annotations.over') !== 'line' && position.character !== 0) return undefined;
 
 		const { commit, diffs } = this.state;
 

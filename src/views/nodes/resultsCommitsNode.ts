@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
@@ -168,9 +169,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResults == null) {
-			this._commitsQueryResults = this._results.query(
-				this.limit ?? this.view.container.config.advanced.maxSearchItems,
-			);
+			this._commitsQueryResults = this._results.query(this.limit ?? configuration.get('advanced.maxSearchItems'));
 			const results = await this._commitsQueryResults;
 			this._hasMore = results.hasMore;
 

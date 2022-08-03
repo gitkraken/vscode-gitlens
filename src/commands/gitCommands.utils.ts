@@ -1,4 +1,5 @@
 import { GitCommandSorting } from '../config';
+import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { getContext } from '../context';
@@ -96,7 +97,7 @@ export class PickCommandStep implements QuickPickStep {
 				: new WorktreeGitCommand(container, args?.command === 'worktree' ? args : undefined),
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
-		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
+		if (configuration.get('gitCommands.sortBy') === GitCommandSorting.Usage) {
 			const usage = this.container.storage.getWorkspace<Usage>(WorkspaceStorageKeys.GitCommandPaletteUsage);
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));

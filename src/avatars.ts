@@ -1,5 +1,6 @@
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
+import { configuration } from './configuration';
 import { Container } from './container';
 import { GitRevisionReference } from './git/models';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
@@ -184,7 +185,7 @@ async function getAvatarUriFromRemoteProvider(
 
 	try {
 		let account;
-		if (Container.instance.config.integrations.enabled) {
+		if (configuration.get('integrations.enabled')) {
 			// if (typeof repoPathOrCommit === 'string') {
 			// 	const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit);
 			// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });

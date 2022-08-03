@@ -198,8 +198,8 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PlusFeatures.Timeline);
-		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		const shortDateFormat = this.container.config.defaultDateShortFormat ?? 'short';
+		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
+		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
 		if (!access.allowed) {

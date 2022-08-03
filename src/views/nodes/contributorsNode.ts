@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { GitContributor, Repository } from '../../git/models';
 import { gate } from '../../system/decorators/gate';
@@ -36,7 +37,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const all = this.view.container.config.views.contributors.showAllBranches;
+			const all = configuration.get('views.contributors.showAllBranches');
 
 			let ref: string | undefined;
 			// If we aren't getting all branches, get the upstream of the current branch if there is one
@@ -49,7 +50,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 				} catch {}
 			}
 
-			const stats = this.view.container.config.views.contributors.showStatistics;
+			const stats = configuration.get('views.contributors.showStatistics');
 
 			const contributors = await this.repo.getContributors({ all: all, ref: ref, stats: stats });
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];

@@ -312,7 +312,7 @@ export class GitProviderService implements Disposable {
 	// }
 
 	// get useCaching() {
-	// 	return this.container.config.advanced.caching.enabled;
+	// 	return configuration.get('advanced.caching.enabled');
 	// }
 
 	/**

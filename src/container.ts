@@ -9,7 +9,6 @@ import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
 import {
 	AnnotationsToggleMode,
-	Config,
 	configuration,
 	DateSource,
 	DateStyle,
@@ -231,7 +230,6 @@ export class Container {
 	}
 
 	private onConfigurationChanging(e: ConfigurationChangeEvent) {
-		this._config = undefined;
 		this._mode = undefined;
 
 		if (configuration.changed(e, 'outputLevel')) {
@@ -286,14 +284,6 @@ export class Container {
 		}
 
 		return this._commitsView;
-	}
-
-	private _config: Config | undefined;
-	get config() {
-		if (this._config == null) {
-			this._config = configuration.getAll();
-		}
-		return this._config;
 	}
 
 	private readonly _context: ExtensionContext;

@@ -52,11 +52,10 @@ export class ToggleReviewModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('review')) {
-			return;
-		}
+		const modes = configuration.get('modes');
+		if (modes == null || !Object.keys(modes).includes('review')) return;
 
-		const mode = this.container.config.mode.active === 'review' ? undefined : 'review';
+		const mode = configuration.get('mode.active') === 'review' ? undefined : 'review';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }
@@ -69,11 +68,10 @@ export class ToggleZenModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('zen')) {
-			return;
-		}
+		const modes = configuration.get('modes');
+		if (modes == null || !Object.keys(modes).includes('zen')) return;
 
-		const mode = this.container.config.mode.active === 'zen' ? undefined : 'zen';
+		const mode = configuration.get('mode.active') === 'zen' ? undefined : 'zen';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }

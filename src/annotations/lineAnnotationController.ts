@@ -64,7 +64,7 @@ export class LineAnnotationController implements Disposable {
 		if (!configuration.changed(e, 'currentLine')) return;
 
 		if (configuration.changed(e, 'currentLine.enabled')) {
-			if (this.container.config.currentLine.enabled) {
+			if (configuration.get('currentLine.enabled')) {
 				this._enabled = true;
 				this.resume();
 			} else {
@@ -207,7 +207,7 @@ export class LineAnnotationController implements Disposable {
 			this._editor = editor;
 		}
 
-		const cfg = this.container.config.currentLine;
+		const cfg = configuration.get('currentLine');
 		if (this.suspended) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the controller is suspended`;
@@ -303,7 +303,7 @@ export class LineAnnotationController implements Disposable {
 				// l,
 				cfg.format,
 				{
-					dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
+					dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
 					pullRequestOrRemote: prs?.get(commit.ref),
 					pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,

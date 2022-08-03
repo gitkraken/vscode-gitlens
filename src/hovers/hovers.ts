@@ -1,6 +1,7 @@
 import { CancellationToken, MarkdownString, TextDocument } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
@@ -272,7 +273,7 @@ export namespace Hovers {
 	}
 
 	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
-		if (diffStyle === 'hunk' || (diffStyle == null && Container.instance.config.hovers.changesDiff === 'hunk')) {
+		if (diffStyle === 'hunk' || (diffStyle == null && configuration.get('hovers.changesDiff') === 'hunk')) {
 			return getDiffFromHunk(hunkLine.hunk);
 		}
 
@@ -287,10 +288,11 @@ export namespace Hovers {
 
 		const start = hrtime();
 
+		const cfg = configuration.get('hovers');
 		if (
-			!Container.instance.config.hovers.autolinks.enabled ||
-			!Container.instance.config.hovers.autolinks.enhanced ||
-			!CommitFormatter.has(Container.instance.config.hovers.detailsMarkdownFormat, 'message')
+			!cfg.autolinks.enabled ||
+			!cfg.autolinks.enhanced ||
+			!CommitFormatter.has(cfg.detailsMarkdownFormat, 'message')
 		) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 

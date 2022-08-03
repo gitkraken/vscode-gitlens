@@ -1,5 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
+import { configuration } from '../../configuration';
 import { CommitFormatter } from '../../git/formatters';
 import { GitStashCommit, GitStashReference } from '../../git/models';
 import { makeHierarchical } from '../../system/array';
@@ -56,21 +57,21 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
 		item.tooltip = CommitFormatter.fromTemplate(
 			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
 			this.commit,
 			{
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				// messageAutolinks: true,
 			},
 		);

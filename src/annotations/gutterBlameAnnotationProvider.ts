@@ -1,5 +1,5 @@
 import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
-import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
+import { configuration, FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
@@ -45,7 +45,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		const sw = new Stopwatch(cc!);
 
-		const cfg = this.container.config.blame;
+		const cfg = configuration.get('blame');
 
 		// Precalculate the formatting options so we don't need to do it on each iteration
 		const tokenOptions = getTokensFromTemplate(cfg.format).reduce<{
@@ -61,13 +61,13 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		}
 
 		const options: CommitFormatOptions = {
-			dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
+			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			tokenOptions: tokenOptions,
 		};
 
 		const avatars = cfg.avatars;
-		const gravatarDefault = this.container.config.defaultGravatarsStyle;
+		const gravatarDefault = configuration.get('defaultGravatarsStyle');
 		const separateLines = cfg.separateLines;
 		const renderOptions = Annotations.gutterRenderOptions(
 			separateLines,
@@ -171,7 +171,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			sw.stop({ suffix: ' to apply all gutter blame annotations' });
 		}
 
-		this.registerHoverProviders(this.container.config.hovers.annotations);
+		this.registerHoverProviders(configuration.get('hovers.annotations'));
 		return true;
 	}
 

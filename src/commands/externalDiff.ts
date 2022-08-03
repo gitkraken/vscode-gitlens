@@ -1,6 +1,7 @@
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
 import { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
+import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -153,7 +154,7 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			const tool =
-				this.container.config.advanced.externalDiffTool || (await this.container.git.getDiffTool(repoPath));
+				configuration.get('advanced.externalDiffTool') || (await this.container.git.getDiffTool(repoPath));
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(

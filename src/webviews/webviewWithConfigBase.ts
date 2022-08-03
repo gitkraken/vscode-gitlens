@@ -162,10 +162,10 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							let includePullRequest = false;
 							switch (params.key) {
 								case configuration.name('currentLine.format'):
-									includePullRequest = this.container.config.currentLine.pullRequests.enabled;
+									includePullRequest = configuration.get('currentLine.pullRequests.enabled');
 									break;
 								case configuration.name('statusBar.format'):
-									includePullRequest = this.container.config.statusBar.pullRequests.enabled;
+									includePullRequest = configuration.get('statusBar.pullRequests.enabled');
 									break;
 							}
 
@@ -191,7 +191,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							let preview;
 							try {
 								preview = CommitFormatter.fromTemplate(params.format, commit, {
-									dateFormat: this.container.config.defaultDateFormat,
+									dateFormat: configuration.get('defaultDateFormat'),
 									pullRequestOrRemote: pr,
 									messageTruncateAtNewLine: true,
 								});

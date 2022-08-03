@@ -1,5 +1,6 @@
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
+import { configuration } from '../configuration';
 import { ContextKeys, Schemes } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
@@ -96,7 +97,7 @@ export class VslsController implements Disposable {
 			case 1 /*Role.Host*/:
 				this.setReadonly(false);
 				void setContext(ContextKeys.Vsls, 'host');
-				if (this.container.config.liveshare.allowGuestAccess) {
+				if (configuration.get('liveshare.allowGuestAccess')) {
 					this._host = await VslsHostService.share(api, this.container);
 				}
 

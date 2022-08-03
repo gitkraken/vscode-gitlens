@@ -1,4 +1,5 @@
 import { env, TextEditor, Uri } from 'vscode';
+import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -28,7 +29,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
-			args.sha = this.container.config.advanced.abbreviateShaOnCopy
+			args.sha = configuration.get('advanced.abbreviateShaOnCopy')
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
 			return this.execute(

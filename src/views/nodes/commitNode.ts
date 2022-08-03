@@ -1,6 +1,6 @@
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../configuration';
+import { configuration, ViewFilesLayout } from '../../configuration';
 import { Colors, Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitBranch, GitCommit, GitRemote, GitRevisionReference, PullRequest } from '../../git/models';
@@ -125,7 +125,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -140,7 +140,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -153,7 +153,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				: this.unpublished
 				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
 				: this.view.config.avatars
-				? await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })
+				? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				: new ThemeIcon('git-commit');
 		// item.tooltip = this.tooltip;
 
@@ -243,7 +243,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,

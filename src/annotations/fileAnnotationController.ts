@@ -112,31 +112,33 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		const cfg = this.container.config;
-
 		const initializing = e == null;
 
-		if (configuration.changed(e, 'blame.highlight') || configuration.changed(e, 'changes.locations')) {
+		if (configuration.changed(e, ['blame.highlight', 'changes.locations'])) {
 			this.updateDecorations(false);
 		}
 
+		let toggleMode;
 		if (configuration.changed(e, 'blame.toggleMode')) {
-			this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
-			if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
+			toggleMode = configuration.get('blame.toggleMode');
+			this._toggleModes.set(FileAnnotationType.Blame, toggleMode);
+			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
 		if (configuration.changed(e, 'changes.toggleMode')) {
-			this._toggleModes.set(FileAnnotationType.Changes, cfg.changes.toggleMode);
-			if (!initializing && cfg.changes.toggleMode === AnnotationsToggleMode.File) {
+			toggleMode = configuration.get('changes.toggleMode');
+			this._toggleModes.set(FileAnnotationType.Changes, toggleMode);
+			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
 		if (configuration.changed(e, 'heatmap.toggleMode')) {
-			this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
-			if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
+			toggleMode = configuration.get('heatmap.toggleMode');
+			this._toggleModes.set(FileAnnotationType.Heatmap, toggleMode);
+			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
@@ -144,14 +146,16 @@ export class FileAnnotationController implements Disposable {
 		if (initializing) return;
 
 		if (
-			configuration.changed(e, 'blame') ||
-			configuration.changed(e, 'changes') ||
-			configuration.changed(e, 'heatmap') ||
-			configuration.changed(e, 'hovers') ||
-			configuration.changed(e, 'defaultDateFormat') ||
-			configuration.changed(e, 'defaultDateSource') ||
-			configuration.changed(e, 'defaultDateStyle') ||
-			configuration.changed(e, 'defaultGravatarsStyle')
+			configuration.changed(e, [
+				'blame',
+				'changes',
+				'heatmap',
+				'hovers',
+				'defaultDateFormat',
+				'defaultDateSource',
+				'defaultDateStyle',
+				'defaultGravatarsStyle',
+			])
 		) {
 			// Since the configuration has changed -- reset any visible annotations
 			for (const provider of this._annotationProviders.values()) {
@@ -544,7 +548,7 @@ export class FileAnnotationController implements Disposable {
 		Decorations.changesLineChangedAnnotation?.dispose();
 		Decorations.changesLineDeletedAnnotation?.dispose();
 
-		const { locations } = this.container.config.changes;
+		const locations = configuration.get('changes.locations');
 
 		type RGB = [number, number, number];
 		let addedColor: RGB;
@@ -633,8 +637,7 @@ export class FileAnnotationController implements Disposable {
 		Decorations.gutterBlameHighlight?.dispose();
 		Decorations.gutterBlameHighlight = undefined;
 
-		const { highlight } = this.container.config.blame;
-
+		const highlight = configuration.get('blame.highlight');
 		if (highlight.enabled) {
 			const { locations } = highlight;
 

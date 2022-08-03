@@ -114,12 +114,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setAutoRefreshToOn'),
-				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, true),
+				() => this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'), true),
 				this,
 			),
 			commands.registerCommand(
 				this.getQualifiedCommand('setAutoRefreshToOff'),
-				() => this.setAutoRefresh(this.container.config.views.repositories.autoRefresh, false),
+				() => this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'), false),
 				this,
 			),
 			commands.registerCommand(
@@ -282,7 +282,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 	protected override onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, `views.${this.configKey}.autoRefresh` as const)) {
-			void this.setAutoRefresh(this.container.config.views.repositories.autoRefresh);
+			void this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'));
 		}
 
 		super.onConfigurationChanged(e);

@@ -1,4 +1,5 @@
 import { Disposable, TextEditor } from 'vscode';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit } from '../git/models';
@@ -100,7 +101,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-		const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		this.resume();

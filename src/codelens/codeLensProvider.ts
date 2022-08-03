@@ -120,7 +120,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (document.isDirty) {
 			// Only allow dirty blames if we are idle
 			if (trackedDocument.isDirtyIdle) {
-				const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
+				const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 				if (maxLines > 0 && document.lineCount > maxLines) {
 					dirty = true;
 				}
@@ -511,7 +511,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		let title = `${recentCommit.author.name}, ${
 			lens.dateFormat == null ? recentCommit.formattedDate : recentCommit.formatDate(lens.dateFormat)
 		}`;
-		if (this.container.config.debug) {
+		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
 			}${
@@ -582,7 +582,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		const author = first(blame.authors.values()).name;
 
 		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
-		if (this.container.config.debug) {
+		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
 			}${
@@ -872,10 +872,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private getDirtyTitle(cfg: CodeLensConfig) {
 		if (cfg.recentChange.enabled && cfg.authors.enabled) {
-			return this.container.config.strings.codeLens.unsavedChanges.recentChangeAndAuthors;
+			return configuration.get('strings.codeLens.unsavedChanges.recentChangeAndAuthors');
 		}
-		if (cfg.recentChange.enabled) return this.container.config.strings.codeLens.unsavedChanges.recentChangeOnly;
-		return this.container.config.strings.codeLens.unsavedChanges.authorsOnly;
+		if (cfg.recentChange.enabled) return configuration.get('strings.codeLens.unsavedChanges.recentChangeOnly');
+		return configuration.get('strings.codeLens.unsavedChanges.authorsOnly');
 	}
 }
 

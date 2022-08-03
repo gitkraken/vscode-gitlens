@@ -1,6 +1,6 @@
 import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../configuration';
+import { configuration, ViewFilesLayout } from '../../configuration';
 import { Commands, CoreCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
@@ -217,7 +217,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				markdown: true,
 				messageAutolinks: true,
 				messageIndent: 4,

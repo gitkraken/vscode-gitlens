@@ -1,4 +1,5 @@
 import { executeGitCommand } from '../commands/gitCommands.actions';
+import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { SearchPattern } from '../git/search';
@@ -51,7 +52,7 @@ export class SearchCommitsCommand extends Command {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					this.container.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					configuration.get('gitCommands.search.showResultsInSideBar') ?? args?.showResultsInSideBar,
 			},
 		}));
 	}

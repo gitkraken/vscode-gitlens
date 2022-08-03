@@ -1,5 +1,6 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { GitContributor, GitLog } from '../../git/models';
@@ -98,9 +99,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		let avatarUri;
 		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			const size = this.view.container.config.hovers.avatarSize;
+			const size = configuration.get('hovers.avatarSize');
 			avatarUri = await this.contributor.getAvatarUri({
-				defaultStyle: this.view.container.config.defaultGravatarsStyle,
+				defaultStyle: configuration.get('defaultGravatarsStyle'),
 				size: size,
 			});
 

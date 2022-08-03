@@ -149,14 +149,14 @@ export class Repository implements Disposable {
 		}
 
 		if (short) {
-			return formatDate(date, Container.instance.config.defaultDateShortFormat ?? 'short');
+			return formatDate(date, configuration.get('defaultDateShortFormat') ?? 'short');
 		}
 
 		let format =
-			Container.instance.config.defaultDateFormat ??
-			`dddd, MMMM Do, YYYY [at] ${Container.instance.config.defaultTimeFormat ?? 'h:mma'}`;
+			configuration.get('defaultDateFormat') ??
+			`dddd, MMMM Do, YYYY [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
 		if (!/[hHm]/.test(format)) {
-			format += ` [at] ${Container.instance.config.defaultTimeFormat ?? 'h:mma'}`;
+			format += ` [at] ${configuration.get('defaultTimeFormat') ?? 'h:mma'}`;
 		}
 		return formatDate(date, format);
 	}
@@ -773,7 +773,12 @@ export class Repository implements Disposable {
 							this.path,
 						));
 					} else {
-						await repo?.push(branch.getRemoteName(), branch.name, undefined, options?.force ? ForcePushMode.ForceWithLease : undefined);
+						await repo?.push(
+							branch.getRemoteName(),
+							branch.name,
+							undefined,
+							options?.force ? ForcePushMode.ForceWithLease : undefined,
+						);
 					}
 				}
 			} else if (options?.reference != null) {
@@ -783,7 +788,12 @@ export class Repository implements Disposable {
 				const branch = await this.getBranch();
 				if (branch == null) return;
 
-				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`, undefined, options?.force ? ForcePushMode.ForceWithLease : undefined);
+				await repo?.push(
+					branch.getRemoteName(),
+					`${options.reference.ref}:${branch.getNameWithoutRemote()}`,
+					undefined,
+					options?.force ? ForcePushMode.ForceWithLease : undefined,
+				);
 			} else {
 				void (await executeCoreGitCommand(
 					options?.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,

@@ -1,5 +1,6 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
+import { configuration } from '../../configuration';
 import { Commands, CoreCommands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
@@ -37,7 +38,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				: ` (${GitReference.toString(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })) ??
+			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
 
@@ -51,7 +52,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										commit,
 										{
 											avatarSize: 16,
-											dateFormat: this.view.container.config.defaultDateFormat,
+											dateFormat: configuration.get('defaultDateFormat'),
 											markdown: true,
 											// messageAutolinks: true,
 											messageIndent: 4,

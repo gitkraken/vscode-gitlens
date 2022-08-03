@@ -35,17 +35,12 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (
-			configuration.changed(e, 'codeLens') ||
-			configuration.changed(e, 'defaultDateFormat') ||
-			configuration.changed(e, 'defaultDateSource') ||
-			configuration.changed(e, 'defaultDateStyle')
-		) {
+		if (configuration.changed(e, ['codeLens', 'defaultDateFormat', 'defaultDateSource', 'defaultDateStyle'])) {
 			if (e != null) {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');
 			}
 
-			const cfg = this.container.config.codeLens;
+			const cfg = configuration.get('codeLens');
 			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
 				this.ensureProvider();
 			} else {
@@ -60,16 +55,16 @@ export class GitCodeLensController implements Disposable {
 
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
 		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
-		if (this._provider === undefined || !e.blameable) return;
+		if (this._provider == null || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');
 		this._provider.reset('saved');
 	}
 
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-		if (this._provider === undefined || !e.document.isBlameable) return;
+		if (this._provider == null || !e.document.isBlameable) return;
 
-		const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
@@ -80,7 +75,7 @@ export class GitCodeLensController implements Disposable {
 		if (!this._canToggle) return;
 
 		Logger.log('toggleCodeLens()');
-		if (this._provider !== undefined) {
+		if (this._provider != null) {
 			this._providerDisposable?.dispose();
 			this._provider = undefined;
 
@@ -91,7 +86,7 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private ensureProvider() {
-		if (this._provider !== undefined) {
+		if (this._provider != null) {
 			this._provider.reset();
 
 			return;

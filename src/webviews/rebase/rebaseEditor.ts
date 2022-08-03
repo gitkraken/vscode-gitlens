@@ -566,7 +566,7 @@ async function parseRebaseTodo(
 			authors.set(name, {
 				author: name,
 				avatarUrl: (
-					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
+					await ontoCommit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				).toString(true),
 				email: email,
 			});
@@ -575,7 +575,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: ontoCommit.ref,
 			author: name,
-			date: ontoCommit.formatDate(container.config.defaultDateFormat),
+			date: ontoCommit.formatDate(configuration.get('defaultDateFormat')),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
 		});
@@ -596,7 +596,7 @@ async function parseRebaseTodo(
 			authors.set(name, {
 				author: name,
 				avatarUrl: (
-					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
+					await commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				).toString(true),
 				email: email,
 			});
@@ -605,7 +605,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: commit.ref,
 			author: name,
-			date: commit.formatDate(container.config.defaultDateFormat),
+			date: commit.formatDate(configuration.get('defaultDateFormat')),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message ?? commit.summary,
 		});

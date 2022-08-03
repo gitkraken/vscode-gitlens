@@ -211,7 +211,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	private get useCaching() {
-		return this.container.config.advanced.caching.enabled;
+		return configuration.get('advanced.caching.enabled');
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
@@ -785,10 +785,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			// TODO: Add caching
+
+			const cfg = configuration.get('advanced');
+
 			// Get the most recent commit for this file name
 			ref = await this.git.log__file_recent(repoPath, relativePath, {
-				ordering: this.container.config.advanced.commitOrdering,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				ordering: cfg.commitOrdering,
+				similarityThreshold: cfg.similarityThreshold,
 			});
 			if (ref == null) return undefined;
 
@@ -798,7 +801,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				fileMode: 'simple',
 				filters: ['R', 'C', 'D'],
 				limit: 1,
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: cfg.commitOrdering,
 			});
 			if (data == null || data.length === 0) break;
 
@@ -1132,8 +1135,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const data = await this.git.blame(root, relativePath, uri.sha, {
-				args: this.container.config.advanced.blame.customArguments,
-				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
+				args: configuration.get('advanced.blame.customArguments'),
+				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 			});
 			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
@@ -1212,9 +1215,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const data = await this.git.blame__contents(root, relativePath, contents, {
-				args: this.container.config.advanced.blame.customArguments,
+				args: configuration.get('advanced.blame.customArguments'),
 				correlationKey: `:${key}`,
-				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
+				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 			});
 			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
@@ -1276,8 +1279,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const data = await this.git.blame(root, relativePath, uri.sha, {
-				args: this.container.config.advanced.blame.customArguments,
-				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
+				args: configuration.get('advanced.blame.customArguments'),
+				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
@@ -1327,8 +1330,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const data = await this.git.blame__contents(root, relativePath, contents, {
-				args: this.container.config.advanced.blame.customArguments,
-				ignoreWhitespace: this.container.config.blame.ignoreWhitespace,
+				args: configuration.get('advanced.blame.customArguments'),
+				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
@@ -1416,14 +1419,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} = await this.getBranches(repoPath, { filter: b => b.current });
 		if (branch != null) return branch;
 
-		const data = await this.git.rev_parse__currentBranch(repoPath, this.container.config.advanced.commitOrdering);
+		const commitOrdering = configuration.get('advanced.commitOrdering');
+
+		const data = await this.git.rev_parse__currentBranch(repoPath, commitOrdering);
 		if (data == null) return undefined;
 
 		const [name, upstream] = data[0].split('\n');
 		if (GitBranch.isDetached(name)) {
 			const [rebaseStatus, committerDate] = await Promise.all([
 				this.getRebaseStatus(repoPath),
-				this.git.log__recent_committerdate(repoPath, this.container.config.advanced.commitOrdering),
+
+				this.git.log__recent_committerdate(repoPath, commitOrdering),
 			]);
 
 			branch = new GitBranch(
@@ -1464,18 +1470,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					if (data == null || data.length === 0) {
 						let current;
 
-						const data = await this.git.rev_parse__currentBranch(
-							repoPath!,
-							this.container.config.advanced.commitOrdering,
-						);
+						const commitOrdering = configuration.get('advanced.commitOrdering');
+
+						const data = await this.git.rev_parse__currentBranch(repoPath!, commitOrdering);
 						if (data != null) {
 							const [name, upstream] = data[0].split('\n');
 							const [rebaseStatus, committerDate] = await Promise.all([
 								GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath!) : undefined,
-								this.git.log__recent_committerdate(
-									repoPath!,
-									this.container.config.advanced.commitOrdering,
-								),
+								this.git.log__recent_committerdate(repoPath!, commitOrdering),
 							]);
 
 							current = new GitBranch(
@@ -1613,7 +1615,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.log__file(root, relativePath, '@{push}..', {
 			argsOrFormat: ['-z', '--format=%H'],
 			fileMode: 'none',
-			ordering: this.container.config.advanced.commitOrdering,
+			ordering: configuration.get('advanced.commitOrdering'),
 			renames: true,
 		});
 		if (!data) return undefined;
@@ -1889,7 +1891,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				filters: ['M'],
 				linesOfContext: 0,
 				renames: true,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
 			const diff = GitDiffParser.parse(data);
@@ -1975,7 +1977,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const data = await this.git.diff__contents(root, relativePath, ref, contents, {
 				...options,
 				filters: ['M'],
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
 			const diff = GitDiffParser.parse(data);
@@ -2029,7 +2031,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitFile[] | undefined> {
 		try {
 			const data = await this.git.diff__name_status(repoPath, ref1, ref2, {
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 				...options,
 			});
 			if (!data) return undefined;
@@ -2094,7 +2096,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 
 		try {
 			// const parser = GitLogParser.defaultParser;
@@ -2104,8 +2106,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// args: parser.arguments,
 				limit: limit,
 				merges: options?.merges == null ? true : options.merges,
-				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
 			// const commits = [];
@@ -2177,7 +2179,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<Set<string> | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 
 		try {
 			const parser = GitLogParser.createSingle('%H');
@@ -2187,9 +2189,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				argsOrFormat: parser.arguments,
 				limit: limit,
 				merges: options?.merges == null ? true : options.merges,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 				since: options?.since,
-				ordering: options?.ordering ?? this.container.config.advanced.commitOrdering,
+				ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
 			});
 
 			const commits = new Set(parser.parse(data));
@@ -2219,7 +2221,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return log;
 			}
 
-			moreLimit = moreLimit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			// If the log is for a range, then just get everything prior + more
 			if (GitRevision.isRange(log.sha)) {
@@ -2269,8 +2271,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
 		try {
-			const limit = options?.limit ?? this.container.config.advanced.maxSearchItems ?? 0;
-			const similarityThreshold = this.container.config.advanced.similarityThreshold;
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
 			const operations = SearchPattern.parseSearchOperations(search.pattern);
 
@@ -2350,7 +2352,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const data = await this.git.log__search(repoPath, args, {
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
 				useShow: useShow,
@@ -2388,7 +2390,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {
-			limit = limit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			const moreLog = await this.getLogForSearch(log.repoPath, search, {
 				...options,
@@ -2447,7 +2449,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options = { reverse: false, ...options };
 
 		if (options.renames == null) {
-			options.renames = this.container.config.advanced.fileHistoryFollowsRenames;
+			options.renames = configuration.get('advanced.fileHistoryFollowsRenames');
 		}
 
 		let key = 'log';
@@ -2456,13 +2458,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options.all == null) {
-			options.all = this.container.config.advanced.fileHistoryShowAllBranches;
+			options.all = configuration.get('advanced.fileHistoryShowAllBranches');
 		}
 		if (options.all) {
 			key += ':all';
 		}
 
-		options.limit = options.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		options.limit = options.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 		if (options.limit) {
 			key += `:n${options.limit}`;
 		}
@@ -2604,7 +2606,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const data = await this.git.log__file(root, relativePath, ref, {
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				firstParent: options.renames,
 				startLine: range == null ? undefined : range.start.line + 1,
@@ -2674,7 +2676,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return log;
 			}
 
-			moreLimit = moreLimit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			const ref = last(log.commits.values())?.ref;
 			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
@@ -2913,7 +2915,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			fileMode: 'simple',
 			filters: filters,
 			limit: skip + 1,
-			ordering: this.container.config.advanced.commitOrdering,
+			ordering: configuration.get('advanced.commitOrdering'),
 			reverse: true,
 			// startLine: editorLine != null ? editorLine + 1 : undefined,
 		});
@@ -2927,7 +2929,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				fileMode: 'simple',
 				filters: ['R', 'C'],
 				limit: 1,
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: configuration.get('advanced.commitOrdering'),
 				// startLine: editorLine != null ? editorLine + 1 : undefined
 			});
 			if (data == null || data.length === 0) {
@@ -3168,7 +3170,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				fileMode: 'simple',
 				firstParent: firstParent,
 				limit: skip + 2,
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: configuration.get('advanced.commitOrdering'),
 				startLine: editorLine != null ? editorLine + 1 : undefined,
 			});
 		} catch (ex) {
@@ -3183,7 +3185,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				ref = await this.git.log__file_recent(repoPath, relativePath, {
-					ordering: this.container.config.advanced.commitOrdering,
+					ordering: configuration.get('advanced.commitOrdering'),
 				});
 				return GitUri.fromFile(relativePath, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
@@ -3207,11 +3209,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitReflog | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		const limit = options?.limit ?? this.container.config.advanced.maxListItems ?? 0;
+		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 		try {
 			// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
 			const data = await this.git.reflog(repoPath, {
-				ordering: this.container.config.advanced.commitOrdering,
+				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit * 100,
 			});
@@ -3234,7 +3236,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
-			limit = limit ?? this.container.config.advanced.maxSearchItems ?? 0;
+			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			const moreLog = await this.getIncomingActivity(reflog.repoPath, {
 				...options,
@@ -3315,7 +3317,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			const data = await this.git.stash__list(repoPath, {
 				args: parser.arguments,
-				similarityThreshold: this.container.config.advanced.similarityThreshold,
+				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
 			const commits = new Map<string, GitStashCommit>();
@@ -3381,7 +3383,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: this.container.config.advanced.similarityThreshold,
+			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
 		const status = GitStatusParser.parse(data, root, porcelainVersion);
 		if (status == null || !status.files.length) return undefined;
@@ -3396,7 +3398,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(pathOrGlob, repoPath);
 
 		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
-			similarityThreshold: this.container.config.advanced.similarityThreshold,
+			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
 		const status = GitStatusParser.parse(data, root, porcelainVersion);
 		if (status == null || !status.files.length) return [];
@@ -3411,7 +3413,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const porcelainVersion = (await this.git.isAtLeastVersion('2.11')) ? 2 : 1;
 
 		const data = await this.git.status(repoPath, porcelainVersion, {
-			similarityThreshold: this.container.config.advanced.similarityThreshold,
+			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
 		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
 
@@ -3675,7 +3677,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (!tool) {
 				const cc = Logger.getCorrelationContext();
 
-				tool = this.container.config.advanced.externalDiffTool || (await this.getDiffTool(root));
+				tool = configuration.get('advanced.externalDiffTool') || (await this.getDiffTool(root));
 				if (tool == null) throw new Error('No diff tool found');
 
 				Logger.log(cc, `Using tool=${tool}`);
@@ -3710,7 +3712,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (!tool) {
 				const cc = Logger.getCorrelationContext();
 
-				tool = this.container.config.advanced.externalDirectoryDiffTool || (await this.getDiffTool(repoPath));
+				tool = configuration.get('advanced.externalDirectoryDiffTool') || (await this.getDiffTool(repoPath));
 				if (tool == null) throw new Error('No diff tool found');
 
 				Logger.log(cc, `Using tool=${tool}`);

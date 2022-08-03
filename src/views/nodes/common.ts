@@ -1,6 +1,6 @@
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
@@ -150,7 +150,7 @@ export abstract class PagerNode extends ViewNode {
 			context?: Record<string, unknown>;
 			pageSize?: number;
 			getCount?: () => Promise<number | undefined>;
-		}, // protected readonly pageSize: number = Container.instance.config.views.pageItemLimit, // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
+		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
 		super(GitUri.unknown, view, parent);
 	}
@@ -168,7 +168,7 @@ export abstract class PagerNode extends ViewNode {
 	loadMore() {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
-			this.options?.pageSize ?? Container.instance.config.views.pageItemLimit,
+			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),
 			this.previousNode,
 			this.options?.context,
 		);

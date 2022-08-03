@@ -218,7 +218,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
 
-		if (container.config.showWelcomeOnInstall === false) return;
+		if (configuration.get('showWelcomeOnInstall') === false) return;
 
 		if (window.state.focused) {
 			await container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
@@ -234,7 +234,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 				// If the window is now focused and we are pending the welcome, clear the pending state and show the welcome
 				if (container.storage.get(StorageKeys.PendingWelcomeOnFocus) === true) {
 					void container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
-					if (container.config.showWelcomeOnInstall) {
+					if (configuration.get('showWelcomeOnInstall')) {
 						void executeCommand(Commands.ShowWelcomePage);
 					}
 				}
@@ -263,7 +263,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	void executeCommand(Commands.ShowHomeView);
 
-	if (container.config.showWhatsNewAfterUpgrades) {
+	if (configuration.get('showWhatsNewAfterUpgrades')) {
 		if (window.state.focused) {
 			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 			await Messages.showWhatsNewMessage(version);
@@ -278,7 +278,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 				// If the window is now focused and we are pending the what's new, clear the pending state and show the what's new
 				if (container.storage.get(StorageKeys.PendingWhatsNewOnFocus) === true) {
 					void container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
-					if (container.config.showWhatsNewAfterUpgrades) {
+					if (configuration.get('showWhatsNewAfterUpgrades')) {
 						void Messages.showWhatsNewMessage(version);
 					}
 				}

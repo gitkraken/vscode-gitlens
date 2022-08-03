@@ -57,13 +57,10 @@ export class StatusBarController implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'mode')) {
-			const mode =
-				this.container.config.mode.active && this.container.config.mode.statusBar.enabled
-					? this.container.config.modes?.[this.container.config.mode.active]
-					: undefined;
+			const mode = configuration.get('mode.statusBar.enabled') ? this.container.mode : undefined;
 			if (mode?.statusBarItemName) {
 				const alignment =
-					this.container.config.mode.statusBar.alignment !== 'left'
+					configuration.get('mode.statusBar.alignment') !== 'left'
 						? StatusBarAlignment.Right
 						: StatusBarAlignment.Left;
 
@@ -100,9 +97,9 @@ export class StatusBarController implements Disposable {
 
 		if (!configuration.changed(e, 'statusBar')) return;
 
-		if (this.container.config.statusBar.enabled) {
+		if (configuration.get('statusBar.enabled')) {
 			const alignment =
-				this.container.config.statusBar.alignment !== 'left'
+				configuration.get('statusBar.alignment') !== 'left'
 					? StatusBarAlignment.Right
 					: StatusBarAlignment.Left;
 
@@ -121,7 +118,7 @@ export class StatusBarController implements Disposable {
 					alignment === StatusBarAlignment.Right ? 1000 : 0,
 				);
 			this._statusBarBlame.name = 'GitLens Current Line Blame';
-			this._statusBarBlame.command = this.container.config.statusBar.command;
+			this._statusBarBlame.command = configuration.get('statusBar.command');
 
 			if (configuration.changed(e, 'statusBar.enabled')) {
 				this.container.lineTracker.subscribe(
@@ -148,7 +145,7 @@ export class StatusBarController implements Disposable {
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		// If we need to reduceFlicker, don't clear if only the selected lines changed
 		let clear = !(
-			this.container.config.statusBar.reduceFlicker &&
+			configuration.get('statusBar.reduceFlicker') &&
 			e.reason === 'selection' &&
 			(e.pending || e.selections != null)
 		);
@@ -178,7 +175,7 @@ export class StatusBarController implements Disposable {
 
 	@debug({ args: false })
 	private async updateBlame(editor: TextEditor, commit: GitCommit, options?: { pr?: PullRequest | null }) {
-		const cfg = this.container.config.statusBar;
+		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
 		const cc = Logger.getCorrelationContext();
@@ -220,7 +217,7 @@ export class StatusBarController implements Disposable {
 		}
 
 		this._statusBarBlame.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
-			dateFormat: cfg.dateFormat === null ? this.container.config.defaultDateFormat : cfg.dateFormat,
+			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
 			messageTruncateAtNewLine: true,
 			pullRequestOrRemote: pr,
@@ -380,8 +377,8 @@ export class StatusBarController implements Disposable {
 			commit,
 			commit.getGitUri(),
 			commit.lines[0].line,
-			this.container.config.statusBar.tooltipFormat,
-			this.container.config.defaultDateFormat,
+			configuration.get('statusBar.tooltipFormat'),
+			configuration.get('defaultDateFormat'),
 			{
 				autolinks: true,
 				cancellationToken: cancellationToken,
