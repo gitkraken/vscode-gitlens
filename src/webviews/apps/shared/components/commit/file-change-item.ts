@@ -96,7 +96,7 @@ export class FileChangeItem extends LitElement {
 		}
 
 		.change-list__path {
-			color: var(--color-background--lighten-50);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.change-list__actions {

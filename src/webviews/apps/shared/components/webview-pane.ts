@@ -9,7 +9,6 @@ export class WebviewPane extends LitElement {
 			display: flex;
 			flex-direction: column;
 			background-color: var(--color-view-background);
-			color: var(--color-view-foreground);
 		}
 
 		* {
@@ -20,7 +19,7 @@ export class WebviewPane extends LitElement {
 			flex: none;
 			display: flex;
 			background-color: var(--color-view-background);
-			color: var(--color-view-header-foreground);
+			color: var(--vscode-foreground);
 			border-top: 1px solid var(--vscode-panel-border);
 		}
 
@@ -29,18 +28,34 @@ export class WebviewPane extends LitElement {
 			outline-offset: -1px;
 		}
 
-		.title {
+		.label {
 			appearance: none;
+			display: flex;
+			flex-direction: row;
+			align-items: center;
 			width: 100%;
 			padding: 0;
 			border: none;
 			text-align: left;
+			font-family: var(--font-family);
+			font-size: 1.1rem;
 			line-height: 2.2rem;
-			font-weight: bold;
+			height: 2.2rem;
 			background: transparent;
 			color: inherit;
 			cursor: pointer;
 			outline: none;
+			text-overflow: ellipsis;
+		}
+
+		.title {
+			font-weight: bold;
+			text-transform: uppercase;
+		}
+
+		.subtitle {
+			margin-left: 0.5rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.icon {
@@ -50,8 +65,10 @@ export class WebviewPane extends LitElement {
 
 		.content {
 			overflow: auto;
-			/* scrollbar-gutter: stable; */
+			/*
+			scrollbar-gutter: stable;
 			box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
+			*/
 			padding-top: 0.6rem;
 		}
 
@@ -68,17 +85,21 @@ export class WebviewPane extends LitElement {
 
 	renderTitle() {
 		if (!this.collapsable) {
-			return html`<div class="title">${this.title}</div>`;
+			return html`<div class="label">
+				<span class="title"><slot name="title">Section</slot></span>
+				<span class="subtitle"><slot name="subtitle"></slot></span>
+			</div>`;
 		}
 		return html`<button
 			type="button"
-			class="title"
+			class="label"
 			aria-controls="content"
 			aria-expanded=${this.expanded}
 			@click="${this.toggleExpanded}"
 		>
 			<code-icon class="icon" icon=${this.expanded ? 'chevron-down' : 'chevron-right'}></code-icon
-			><slot name="title">Section</slot>
+			><span class="title"><slot name="title">Section</slot></span>
+			<span class="subtitle"><slot name="subtitle"></slot></span>
 		</button>`;
 	}
 

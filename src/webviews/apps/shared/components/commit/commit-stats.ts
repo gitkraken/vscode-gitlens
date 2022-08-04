@@ -8,7 +8,15 @@ export class CommitStats extends LitElement {
         :host {
             display: inline-flex;
             flex-direction: row;
+            align-items: center;
             gap: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .stat {
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
         }
 
         .added {
@@ -34,9 +42,9 @@ export class CommitStats extends LitElement {
 
 	override render() {
 		return html`
-			<span class="added"><code-icon icon="diff-added"></code-icon> ${this.added}</span>
-			<span class="modified"><code-icon icon="diff-modified"></code-icon> ${this.modified}</span>
-			<span class="deleted"><code-icon icon="diff-removed"></code-icon> ${this.removed}</span>
+			<span class="stat added"><code-icon icon="diff-added"></code-icon> ${this.added}</span>
+			<span class="stat modified"><code-icon icon="diff-modified"></code-icon> ${this.modified}</span>
+			<span class="stat deleted"><code-icon icon="diff-removed"></code-icon> ${this.removed}</span>
 		`;
 	}
 }
