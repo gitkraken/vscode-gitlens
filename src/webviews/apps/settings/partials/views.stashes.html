@@ -88,10 +88,10 @@
 								id="views.formats.stashes.description"
 								name="views.formats.stashes.description"
 								type="text"
-								placeholder="${agoOrDate}"
+								placeholder="${stashOnRef, }${agoOrDate}"
 								data-setting
 								data-setting-preview
-								data-default-value="${agoOrDate}"
+								data-default-value="${stashOnRef, }${agoOrDate}"
 								data-popup-trigger
 							/>
 							<label for="views.formats.stashes.description" title="See available tokens">
@@ -104,7 +104,7 @@
 							<span
 								data-setting-preview="views.formats.stashes.description"
 								data-setting-preview-type="commit"
-								data-setting-preview-default="${agoOrDate}"
+								data-setting-preview-default="${stashOnRef, }${agoOrDate}"
 							></span>
 						</span>
 					</div>
