@@ -13,6 +13,7 @@ import { debug } from '../../system/decorators/log';
 import { IpcMessage, onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
 import {
+	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
 	CommitDetails,
 	CommitSummary,
@@ -85,11 +86,20 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 					this.showCommitSearch();
 				});
 				break;
+			case AutolinkSettingsCommandType.method:
+				onIpc(AutolinkSettingsCommandType, e, params => {
+					this.showAutolinkSettings();
+				});
+				break;
 		}
 	}
 
 	private getFileFromParams(params: FileParams): GitFile | undefined {
 		return this.selectedCommit?.files?.find(file => file.path === params.path && file.repoPath === params.repoPath);
+	}
+
+	private showAutolinkSettings() {
+		void executeCommand(Commands.ShowSettingsPageAndJumpToAutolinks);
 	}
 
 	private showCommitSearch() {

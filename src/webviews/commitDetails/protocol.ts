@@ -39,6 +39,7 @@ export const FileComparePreviousCommandType = new IpcCommandType<FileParams>('co
 export const FileMoreActionsCommandType = new IpcCommandType<FileParams>('commit/file/moreActions');
 export const CommitActionsCommandType = new IpcCommandType<undefined>('commit/moreActions');
 export const PickCommitCommandType = new IpcCommandType<undefined>('commit/pickCommit');
+export const AutolinkSettingsCommandType = new IpcCommandType<undefined>('commit/autolinkSettings');
 
 // NOTIFICATIONS
 export interface DidChangeParams {
