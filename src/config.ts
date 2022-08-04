@@ -28,6 +28,7 @@ export interface Config {
 		dateFormat: string | null;
 		enabled: boolean;
 		format: string;
+		uncommittedChangesFormat: string | null;
 		pullRequests: {
 			enabled: boolean;
 		};

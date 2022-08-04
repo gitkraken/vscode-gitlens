@@ -297,11 +297,13 @@ export class LineAnnotationController implements Disposable {
 		const decorations = [];
 
 		for (const [l, commit] of commitLines) {
+			if (commit.isUncommitted && cfg.uncommittedChangesFormat === '') continue;
+
 			const decoration = Annotations.trailing(
 				commit,
 				// await GitUri.fromUri(editor.document.uri),
 				// l,
-				cfg.format,
+				commit.isUncommitted ? cfg.uncommittedChangesFormat ?? cfg.format : cfg.format,
 				{
 					dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,

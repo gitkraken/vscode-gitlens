@@ -140,16 +140,17 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 				onIpc(GenerateConfigurationPreviewCommandType, e, async params => {
 					switch (params.type) {
-						case 'commit': {
+						case 'commit':
+						case 'commit-uncommitted': {
 							const commit = new GitCommit(
 								this.container,
 								'~/code/eamodio/vscode-gitlens-demo',
 								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
-								'Supercharged',
+								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 								['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
-								'Supercharged',
+								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 								new GitFileChange(
 									'~/code/eamodio/vscode-gitlens-demo',
 									'code.ts',
@@ -223,6 +224,19 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 						name: 'workbench.editorAssociations',
 						enabled: () => this.container.rebaseEditor.enabled,
 						update: this.container.rebaseEditor.setEnabled,
+					},
+				],
+				[
+					'currentLine.useUncommittedChangesFormat',
+					{
+						name: 'currentLine.useUncommittedChangesFormat',
+						enabled: () => configuration.get('currentLine.uncommittedChangesFormat') != null,
+						update: async enabled =>
+							configuration.updateEffective(
+								'currentLine.uncommittedChangesFormat',
+								// eslint-disable-next-line no-template-curly-in-string
+								enabled ? '✏️ ${ago}' : null,
+							),
 					},
 				],
 			]);

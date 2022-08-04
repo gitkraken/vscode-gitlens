@@ -250,6 +250,13 @@
 						"scope": "window",
 						"order": 30
 					},
+					"gitlens.currentLine.uncommittedChangesFormat": {
+						"type": "string",
+						"default": null,
+						"markdownDescription": "Specifies the uncommitted changes format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting.\n\n**NOTE**: Setting this to an empty string will disable current line blame annotations for uncommitted changes.",
+						"scope": "window",
+						"order": 31
+					},
 					"gitlens.currentLine.scrollable": {
 						"type": "boolean",
 						"default": true,

@@ -467,6 +467,11 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		}
 
 		const state = flatten(this.state.config);
+		if (this.state.customSettings != null) {
+			for (const [key, value] of Object.entries(this.state.customSettings)) {
+				state[key] = value;
+			}
+		}
 		this.setVisibility(state);
 		this.setEnablement(state);
 	}
@@ -507,7 +512,8 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	}
 
 	private updatePreview(el: HTMLSpanElement, value?: string) {
-		switch (el.dataset.settingPreviewType) {
+		const previewType = el.dataset.settingPreviewType;
+		switch (previewType) {
 			case 'date': {
 				if (value === undefined) {
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
@@ -537,13 +543,20 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				}
 				break;
 			}
-			case 'commit': {
+			case 'commit':
+			case 'commit-uncommitted': {
 				if (value === undefined) {
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
 				if (!value) {
 					value = el.dataset.settingPreviewDefault;
+					if (value == null) {
+						const lookup = el.dataset.settingPreviewDefaultLookup;
+						if (lookup != null) {
+							value = this.getSettingValue<string>(lookup);
+						}
+					}
 				}
 
 				if (value == null) {
@@ -556,7 +569,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					GenerateConfigurationPreviewCommandType,
 					{
 						key: el.dataset.settingPreview!,
-						type: 'commit',
+						type: previewType,
 						format: value,
 					},
 					DidGenerateConfigurationPreviewNotificationType,

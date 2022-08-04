@@ -43,7 +43,7 @@ export const ExecuteCommandType = new IpcCommandType<ExecuteCommandParams>('comm
 
 export interface GenerateCommitPreviewParams {
 	key: string;
-	type: 'commit';
+	type: 'commit' | 'commit-uncommitted';
 	format: string;
 }
 
