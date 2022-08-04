@@ -50,8 +50,9 @@ ul {
 	display: inline-block;
 	border: none;
 	padding: 0.4rem;
+	font-family: inherit;
 	font-size: inherit;
-	line-height: inherit;
+	line-height: 1.4;
 	text-align: center;
 	text-decoration: none;
 	user-select: none;
@@ -70,6 +71,30 @@ ul {
 
 	&--full {
 		width: 100%;
+	}
+
+	code-icon {
+		pointer-events: none;
+	}
+}
+
+.button-container {
+	margin: 1rem auto 0;
+	text-align: left;
+	max-width: 30rem;
+	transition: max-width .2s ease-out;
+}
+
+.button-group {
+	display: inline-flex;
+	gap: 0.1rem;
+	width: 100%;
+	max-width: 30rem;
+}
+
+@media (min-width: 640px) {
+	.button-container {
+		max-width: 100%;
 	}
 }
 
@@ -172,7 +197,7 @@ ul {
 	}
 
 	&__message {
-		font-size: 1.5rem;
+		font-size: 1.3rem;
 		border: 1px solid var(--color-background--lighten-15);
 		padding: 0.5rem;
 	}
@@ -186,6 +211,11 @@ ul {
 			-webkit-line-clamp: 6;
 			-webkit-box-orient: vertical;
 			overflow: hidden;
+		}
+
+		strong {
+			font-weight: 600;
+			font-size: 1.4rem;
 		}
 	}
 

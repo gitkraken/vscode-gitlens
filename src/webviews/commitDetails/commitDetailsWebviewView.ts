@@ -27,6 +27,7 @@ import {
 	PickCommitCommandType,
 	RichCommitDetails,
 	RichContentNotificationType,
+	SearchCommitCommandType,
 	State,
 } from './protocol';
 
@@ -87,6 +88,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 					this.showCommitPicker();
 				});
 				break;
+			case SearchCommitCommandType.method:
+				onIpc(SearchCommitCommandType, e, _params => {
+					this.showCommitSearch();
+				});
+				break;
 			case AutolinkSettingsCommandType.method:
 				onIpc(AutolinkSettingsCommandType, e, _params => {
 					this.showAutolinkSettings();
@@ -101,6 +107,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 
 	private showAutolinkSettings() {
 		void executeCommand(Commands.ShowSettingsPageAndJumpToAutolinks);
+	}
+
+	private showCommitSearch() {
+		void executeCommand(Commands.SearchCommits, {
+			showResultsInDetails: true,
+		});
 	}
 
 	private showCommitPicker() {

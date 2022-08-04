@@ -10,8 +10,15 @@
 			<!-- commitDetails:choices -->
 			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
 				<p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p>
-				<p>
-					<button class="button button--full" type="button" data-action="pick-commit">Pick Commit...</button>
+				<p class="button-container">
+					<span class="button-group">
+						<button class="button button--full" type="button" data-action="pick-commit">
+							Pick Commit...
+						</button>
+						<button class="button" type="button" data-action="search-commit">
+							<code-icon icon="search"></code-icon>
+						</button>
+					</span>
 				</p>
 				<!-- <p><button class="button button--full" type="button">Follow Open Files</button></p> -->
 			</div>

@@ -12,6 +12,7 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	RichContentNotificationType,
+	SearchCommitCommandType,
 	State,
 } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
@@ -59,6 +60,7 @@ export class CommitDetailsApp extends App<State> {
 			),
 			DOM.on('[data-action="commit-show-actions"]', 'click', e => this.onCommitMoreActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
+			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 		];
 
@@ -68,6 +70,10 @@ export class CommitDetailsApp extends App<State> {
 	onAutolinkSettings(e: MouseEvent) {
 		e.preventDefault();
 		this.sendCommand(AutolinkSettingsCommandType, undefined);
+	}
+
+	onSearchCommit(_e: MouseEvent) {
+		this.sendCommand(SearchCommitCommandType, undefined);
 	}
 
 	onPickCommit(_e: MouseEvent) {
