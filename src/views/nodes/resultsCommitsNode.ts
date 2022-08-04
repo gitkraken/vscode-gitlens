@@ -27,7 +27,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		private _label: string,
 		private readonly _results: {
@@ -65,7 +65,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
+		return `${this.parent.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

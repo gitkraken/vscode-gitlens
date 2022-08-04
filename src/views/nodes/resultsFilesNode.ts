@@ -30,7 +30,7 @@ export interface FilesQueryResults {
 export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly ref1: string,
 		public readonly ref2: string,
@@ -46,7 +46,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:files`;
+		return `${this.parent.id}:results:files`;
 	}
 
 	get filter(): FilesQueryFilter | undefined {

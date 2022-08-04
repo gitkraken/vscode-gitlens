@@ -26,13 +26,13 @@ type State = {
 
 export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
 	static key = ':commit';
-	static getId(repoPath: string, sha: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${sha})`;
+	static getId(parent: ViewNode, repoPath: string, sha: string): string {
+		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${sha})`;
 	}
 
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly commit: GitCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
@@ -47,7 +47,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	override get id(): string {
-		return `${this.parent?.id}|${CommitNode.getId(this.commit.repoPath, this.commit.sha)}`;
+		return CommitNode.getId(this.parent, this.commit.repoPath, this.commit.sha);
 	}
 
 	get isTip(): boolean {

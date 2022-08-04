@@ -20,7 +20,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly log: GitLog,
 		private expand: boolean,
@@ -30,7 +30,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:autolinked:${this._instanceId}`;
+		return `${this.parent.id}:results:autolinked:${this._instanceId}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

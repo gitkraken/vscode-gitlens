@@ -7,8 +7,8 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	static key = ':pullrequest';
-	static getId(repoPath: string, id: string, refOrParent: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${refOrParent}`;
+	static getId(parent: ViewNode, repoPath: string, id: string, ref?: string): string {
+		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${id}):${ref}`;
 	}
 
 	public readonly pullRequest: PullRequest;
@@ -17,7 +17,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		pullRequest: PullRequest,
 		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
 	) {
@@ -42,7 +42,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return PullRequestNode.getId(this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref ?? this.parent!.id!);
+		return PullRequestNode.getId(this.parent, this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref);
 	}
 
 	getChildren(): ViewNode[] {

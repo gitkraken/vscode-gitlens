@@ -10,7 +10,7 @@ import { ContextValues, ViewNode } from './viewNode';
 export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly item: Autolink | IssueOrPullRequest,
 	) {
@@ -22,7 +22,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return `${this.parent!.id!}:item(${this.item.id})`;
+		return `${this.parent.id}:item(${this.item.id})`;
 	}
 
 	getChildren(): ViewNode[] {
