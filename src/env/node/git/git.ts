@@ -757,7 +757,12 @@ export class Git {
 					throw ex;
 				}
 			} else {
-				params.push(options.remote, options.branch);
+				params.push(
+					options.remote,
+					options.upstream
+						? `${options.upstream}:refs/remotes/${options.remote}/${options.branch}`
+						: options.branch,
+				);
 			}
 		} else if (options.remote) {
 			params.push(options.remote);
