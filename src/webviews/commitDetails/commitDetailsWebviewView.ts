@@ -4,6 +4,7 @@ import type {
 	DiffWithWorkingCommandArgs,
 	OpenFileOnRemoteCommandArgs,
 } from '../../commands';
+import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { Commands, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
@@ -83,11 +84,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 				break;
 			case PickCommitCommandType.method:
 				onIpc(PickCommitCommandType, e, _params => {
-					this.showCommitSearch();
+					this.showCommitPicker();
 				});
 				break;
 			case AutolinkSettingsCommandType.method:
-				onIpc(AutolinkSettingsCommandType, e, params => {
+				onIpc(AutolinkSettingsCommandType, e, _params => {
 					this.showAutolinkSettings();
 				});
 				break;
@@ -102,10 +103,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 		void executeCommand(Commands.ShowSettingsPageAndJumpToAutolinks);
 	}
 
-	private showCommitSearch() {
-		void executeCommand(Commands.SearchCommits, {
-			showResultsInDetails: true,
-		});
+	private showCommitPicker() {
+		void executeGitCommand({ command: 'log', state: { openPickInView: true } });
 	}
 
 	private showCommitActions() {

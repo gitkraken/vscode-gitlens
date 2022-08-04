@@ -13,7 +13,7 @@ export interface SearchCommitsCommandArgs {
 
 	prefillOnly?: boolean;
 
-	showResultsInDetails?: boolean;
+	openPickInView?: boolean;
 	showResultsInSideBar?: boolean;
 }
 
@@ -54,7 +54,7 @@ export class SearchCommitsCommand extends Command {
 				...args?.search,
 				showResultsInSideBar:
 					configuration.get('gitCommands.search.showResultsInSideBar') ?? args?.showResultsInSideBar,
-				showResultsInDetails: args?.showResultsInDetails ?? false,
+				openPickInView: args?.openPickInView ?? false,
 			},
 		}));
 	}

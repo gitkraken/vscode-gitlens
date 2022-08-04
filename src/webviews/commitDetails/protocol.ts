@@ -25,7 +25,7 @@ export type State = {
 	commits?: CommitSummary[];
 } & Record<string, any>;
 
-export type ShowCommitDetailsPageCommandArgs = string[];
+export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
 export interface FileParams {

@@ -50,7 +50,6 @@ import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
-import { CommitDetailsWebview } from './webviews/commitDetails/commitDetailsWebview';
 import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetailsWebviewView';
 import { HomeWebviewView } from './webviews/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
@@ -177,12 +176,11 @@ export class Container {
 		context.subscriptions.push((this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider(this)));
-		context.subscriptions.push((this._commitDetailsWebview = new CommitDetailsWebview(this)));
-		context.subscriptions.push((this._commitDetailsWebviewView = new CommitDetailsWebviewView(this)));
 
 		context.subscriptions.push(new ViewFileDecorationProvider());
 
 		context.subscriptions.push((this._repositoriesView = new RepositoriesView(this)));
+		context.subscriptions.push((this._commitDetailsView = new CommitDetailsWebviewView(this)));
 		context.subscriptions.push((this._commitsView = new CommitsView(this)));
 		context.subscriptions.push((this._fileHistoryView = new FileHistoryView(this)));
 		context.subscriptions.push((this._lineHistoryView = new LineHistoryView(this)));
@@ -290,22 +288,13 @@ export class Container {
 		return this._commitsView;
 	}
 
-	private _commitDetailsWebview: CommitDetailsWebview | undefined;
-	get commitDetailsWebview() {
-		if (this._commitDetailsWebview == null) {
-			this._context.subscriptions.push((this._commitDetailsWebview = new CommitDetailsWebview(this)));
+	private _commitDetailsView: CommitDetailsWebviewView | undefined;
+	get commitDetailsView() {
+		if (this._commitDetailsView == null) {
+			this._context.subscriptions.push((this._commitDetailsView = new CommitDetailsWebviewView(this)));
 		}
 
-		return this._commitDetailsWebview;
-	}
-
-	private _commitDetailsWebviewView: CommitDetailsWebviewView | undefined;
-	get commitDetailsWebviewView() {
-		if (this._commitDetailsWebviewView == null) {
-			this._context.subscriptions.push((this._commitDetailsWebviewView = new CommitDetailsWebviewView(this)));
-		}
-
-		return this._commitDetailsWebviewView;
+		return this._commitDetailsView;
 	}
 
 	private readonly _context: ExtensionContext;

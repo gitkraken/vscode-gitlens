@@ -584,7 +584,7 @@ export namespace GitActions {
 		}
 
 		export async function openDetails(commit: GitCommit): Promise<void> {
-			void (await Container.instance.commitDetailsWebviewView.show({ commit: commit }));
+			void (await Container.instance.commitDetailsView.show({ commit: commit }));
 		}
 
 		export async function openFiles(commit: GitCommit): Promise<void>;

@@ -4,6 +4,7 @@ import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import {
 	PartialStepState,
@@ -28,6 +29,7 @@ interface State {
 	reference: GitReference | 'HEAD';
 
 	fileName?: string;
+	openPickInView?: boolean;
 }
 
 type RepositoryStepState<T extends State = State> = SomeNonNullable<
@@ -191,18 +193,25 @@ export class LogGitCommand extends QuickCommand<State> {
 				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
-			const result = yield* getSteps(
-				this.container,
-				{
-					command: 'show',
-					state: {
-						repo: state.repo,
-						reference: state.reference,
-						fileName: state.fileName,
+			let result: StepResult<ReturnType<typeof getSteps>>;
+			if (state.openPickInView) {
+				void GitActions.Commit.openDetails(state.reference as GitCommit);
+				result = StepResult.Break;
+			} else {
+				result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: {
+							repo: state.repo,
+							reference: state.reference,
+							fileName: state.fileName,
+						},
 					},
-				},
-				this.pickedVia,
-			);
+					this.pickedVia,
+				);
+			}
+
 			state.counter--;
 			if (result === StepResult.Break) {
 				QuickCommand.endSteps(state);

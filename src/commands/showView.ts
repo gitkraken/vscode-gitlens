@@ -8,6 +8,7 @@ export class ShowViewCommand extends Command {
 	constructor(private readonly container: Container) {
 		super([
 			Commands.ShowBranchesView,
+			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
 			Commands.ShowContributorsView,
 			Commands.ShowFileHistoryView,
@@ -31,6 +32,8 @@ export class ShowViewCommand extends Command {
 		switch (command) {
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
+			case Commands.ShowCommitDetailsView:
+				return this.container.commitDetailsView.show();
 			case Commands.ShowCommitsView:
 				return this.container.commitsView.show();
 			case Commands.ShowContributorsView:

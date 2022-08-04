@@ -8,6 +8,7 @@ import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/co
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes';
 import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import {
 	appendReposToTitle,
@@ -35,8 +36,8 @@ interface Context {
 
 interface State extends Required<SearchPattern> {
 	repo: string | Repository;
+	openPickInView?: boolean;
 	showResultsInSideBar: boolean | SearchResultsNode;
-	showResultsInDetails?: boolean;
 }
 
 export interface SearchGitCommandArgs {
@@ -243,24 +244,24 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.commit = result;
 			}
 
-			if (state.showResultsInDetails) {
-				void this.container.commitDetailsWebviewView.show({
-					commit: context.commit,
-				});
-				break;
+			let result: StepResult<ReturnType<typeof getSteps>>;
+			if (state.openPickInView) {
+				void GitActions.Commit.openDetails(context.commit);
+				result = StepResult.Break;
+			} else {
+				result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: {
+							repo: state.repo,
+							reference: context.commit,
+						},
+					},
+					this.pickedVia,
+				);
 			}
 
-			const result = yield* getSteps(
-				this.container,
-				{
-					command: 'show',
-					state: {
-						repo: state.repo,
-						reference: context.commit,
-					},
-				},
-				this.pickedVia,
-			);
 			state.counter--;
 			if (result === StepResult.Break) {
 				QuickCommand.endSteps(state);
