@@ -294,6 +294,7 @@ export function GraphWrapper({
 								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
+								iconPack='codicon'
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
