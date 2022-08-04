@@ -76,12 +76,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 				});
 				break;
 			case CommitActionsCommandType.method:
-				onIpc(CommitActionsCommandType, e, params => {
+				onIpc(CommitActionsCommandType, e, _params => {
 					this.showCommitActions();
 				});
 				break;
 			case PickCommitCommandType.method:
-				onIpc(PickCommitCommandType, e, params => {
+				onIpc(PickCommitCommandType, e, _params => {
 					this.showCommitSearch();
 				});
 				break;
