@@ -3,6 +3,9 @@
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "es2020"],
 		"outDir": "../../",
+		"paths": {
+			"@env/*": ["src/env/browser/*"]
+		},
 		"useDefineForClassFields": false
 	},
 	"include": [

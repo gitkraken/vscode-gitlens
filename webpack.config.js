@@ -410,6 +410,9 @@ function getWebviewsConfig(mode, env) {
 			],
 		},
 		resolve: {
+			alias: {
+				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},
