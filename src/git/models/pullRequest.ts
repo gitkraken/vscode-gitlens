@@ -4,6 +4,7 @@ import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
+import { IssueOrPullRequest, IssueOrPullRequestType } from './issue';
 import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum PullRequestState {
@@ -12,7 +13,7 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
-export class PullRequest {
+export class PullRequest implements IssueOrPullRequest {
 	static is(pr: any): pr is PullRequest {
 		return pr instanceof PullRequest;
 	}
@@ -49,6 +50,8 @@ export class PullRequest {
 		}
 	}
 
+	readonly type = IssueOrPullRequestType.PullRequest;
+
 	constructor(
 		public readonly provider: RemoteProviderReference,
 		public readonly author: {
@@ -64,6 +67,10 @@ export class PullRequest {
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
 	) {}
+
+	get closed(): boolean {
+		return this.state === PullRequestState.Closed;
+	}
 
 	get formattedDate(): string {
 		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute

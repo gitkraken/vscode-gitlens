@@ -10,7 +10,7 @@ import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { every, join, map } from '../system/iterable';
-import { PromiseCancelledError, raceAll } from '../system/promise';
+import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
 import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
@@ -135,6 +135,24 @@ export class Autolinks implements Disposable {
 		return autolinks;
 	}
 
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options?: { autolinks?: Map<string, Autolink>; timeout?: never },
+	): Promise<Map<string, IssueOrPullRequest | undefined> | undefined>;
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options: { autolinks?: Map<string, Autolink>; timeout: number },
+	): Promise<
+		| Map<
+				string,
+				| IssueOrPullRequest
+				| PromiseCancelledErrorWithId<string, Promise<IssueOrPullRequest | undefined>>
+				| undefined
+		  >
+		| undefined
+	>;
 	@debug<Autolinks['getLinkedIssuesAndPullRequests']>({
 		args: {
 			0: '<message>',

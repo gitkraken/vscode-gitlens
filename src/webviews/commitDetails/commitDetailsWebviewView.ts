@@ -10,9 +10,9 @@ import type { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
 import { GitFile } from '../../git/models/file';
-import type { IssueOrPullRequest } from '../../git/models/issue';
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
+import { getSettledValue } from '../../system/promise';
 import { IpcMessage, onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
 import {
@@ -29,7 +29,6 @@ import {
 	PickCommitCommandType,
 	RichCommitDetails,
 	RichContentNotificationType,
-	SearchCommitCommandType,
 	State,
 } from './protocol';
 
@@ -86,11 +85,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 			case PickCommitCommandType.method:
 				onIpc(PickCommitCommandType, e, _params => {
 					this.showCommitPicker();
-				});
-				break;
-			case SearchCommitCommandType.method:
-				onIpc(SearchCommitCommandType, e, _params => {
-					this.showCommitSearch();
 				});
 				break;
 			case AutolinkSettingsCommandType.method:
@@ -200,57 +194,46 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 	private copyRemoteFileUrl() {}
 
 	private async getRichContent(selected: GitCommit): Promise<RichCommitDetails> {
-		const pullRequest = selected != null ? await selected.getAssociatedPullRequest() : undefined;
-		console.log('CommitDetailsWebview pullRequest', pullRequest);
+		const remotes = await this.container.git.getRemotesWithProviders(selected.repoPath, { sort: true });
+		const remote = await this.container.git.getBestRemoteWithRichProvider(remotes);
 
-		const issues: Record<string, any>[] = [];
-		let formattedMessage;
-		if (selected?.message !== undefined && typeof selected.message === 'string') {
-			const remote = await this.container.git.getBestRemoteWithRichProvider(selected.repoPath);
-			console.log('CommitDetailsWebview remote', remote);
+		if (selected.message == null) {
+			await selected.ensureFullDetails();
+		}
 
-			if (remote != null) {
-				const issueSearch = await this.container.autolinks.getLinkedIssuesAndPullRequests(
-					selected.message,
-					remote,
-				);
-				// TODO: add HTML formatting option to linkify
-				// formattedMessage = this.container.autolinks.linkify(
-				// 	escapeMarkdown(selected.message, { quoted: true }),
-				// 	true,
-				// 	[remote],
-				// 	// issueSearch,
-				// );
-				formattedMessage = this.container.autolinks.linkify(
-					encodeMarkup(selected.message),
-					true,
-					[remote],
-					// issueSearch,
-				);
+		let autolinkedIssuesOrPullRequests;
+		let pr;
 
-				let filteredIssues;
-				if (issueSearch != null) {
-					if (pullRequest !== undefined) {
-						issueSearch.delete(pullRequest.id);
-					}
+		if (remote?.provider != null) {
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.container.autolinks.getLinkedIssuesAndPullRequests(selected.message ?? selected.summary, remote),
+				selected.getAssociatedPullRequest({ remote: remote }),
+			]);
 
-					filteredIssues = Array.from(issueSearch.values()).filter(
-						value => value != null,
-					) as IssueOrPullRequest[];
-				}
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+		}
 
-				console.log('CommitDetailsWebview filteredIssues', filteredIssues);
+		// TODO: add HTML formatting option to linkify
+		const formattedMessage = this.container.autolinks.linkify(
+			encodeMarkup(selected.message!),
+			true,
+			remote != null ? [remote] : undefined,
+			autolinkedIssuesOrPullRequests,
+		);
 
-				if (filteredIssues !== undefined) {
-					issues.push(...filteredIssues);
-				}
-			}
+		// Remove possible duplicate pull request
+		if (pr != null) {
+			autolinkedIssuesOrPullRequests?.delete(pr.id);
 		}
 
 		return {
 			formattedMessage: formattedMessage,
-			pullRequest: pullRequest,
-			issues: issues?.length ? issues : undefined,
+			pullRequest: pr,
+			issues:
+				autolinkedIssuesOrPullRequests != null
+					? [...autolinkedIssuesOrPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
+					: undefined,
 		};
 	}
 

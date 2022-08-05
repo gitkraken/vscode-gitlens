@@ -1,3 +1,4 @@
+import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export type CommitSummary = {
@@ -17,8 +18,8 @@ export type CommitDetails = {
 
 export type RichCommitDetails = {
 	formattedMessage?: string;
-	pullRequest?: Record<string, any>;
-	issues?: Record<string, any>[];
+	pullRequest?: IssueOrPullRequest;
+	issues?: IssueOrPullRequest[];
 };
 
 export type State = {
