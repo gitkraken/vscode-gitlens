@@ -2,7 +2,8 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "es2020"],
-		"outDir": "../../"
+		"outDir": "../../",
+		"useDefineForClassFields": false
 	},
 	"include": [
 		"**/*",
