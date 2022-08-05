@@ -13,7 +13,7 @@ import {
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
 import { Authentication } from '../git/remotes/provider';

@@ -20,14 +20,10 @@ import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
-import {
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-	WorktreeNode,
-	WorktreesNode,
-} from './nodes';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import { WorktreeNode } from './nodes/worktreeNode';
+import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {

@@ -5,7 +5,8 @@ import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { executeCommand } from '../system/command';
-import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
+import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
 
 const pinnedSuffix = ' (pinned)';

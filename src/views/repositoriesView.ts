@@ -33,25 +33,23 @@ import type { GitWorktree } from '../git/models/worktree';
 import { WorkspaceStorageKeys } from '../storage';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	BranchesNode,
-	BranchNode,
-	BranchOrTagFolderNode,
-	BranchTrackingStatusNode,
-	CompareBranchNode,
-	ContributorNode,
-	ContributorsNode,
-	ReflogNode,
-	RemoteNode,
-	RemotesNode,
-	RepositoriesNode,
-	RepositoryNode,
-	StashesNode,
-	StashNode,
-	TagsNode,
-	WorktreeNode,
-	WorktreesNode,
-} from './nodes';
+import { BranchesNode } from './nodes/branchesNode';
+import { BranchNode } from './nodes/branchNode';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { CompareBranchNode } from './nodes/compareBranchNode';
+import { ContributorNode } from './nodes/contributorNode';
+import { ContributorsNode } from './nodes/contributorsNode';
+import { ReflogNode } from './nodes/reflogNode';
+import { RemoteNode } from './nodes/remoteNode';
+import { RemotesNode } from './nodes/remotesNode';
+import { RepositoriesNode } from './nodes/repositoriesNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { StashesNode } from './nodes/stashesNode';
+import { StashNode } from './nodes/stashNode';
+import { TagsNode } from './nodes/tagsNode';
+import { WorktreeNode } from './nodes/worktreeNode';
+import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {

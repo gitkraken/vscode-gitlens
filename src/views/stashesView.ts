@@ -16,14 +16,10 @@ import { GitReference, GitStashReference } from '../git/models/reference';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	StashesNode,
-	StashNode,
-	ViewNode,
-} from './nodes';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { StashesNode } from './nodes/stashesNode';
+import { StashNode } from './nodes/stashNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {

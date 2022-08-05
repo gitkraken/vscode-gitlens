@@ -2,7 +2,7 @@ import { ConfigurationChangeEvent, ConfigurationTarget, WebviewPanelOnDidChangeV
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';

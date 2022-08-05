@@ -4,7 +4,7 @@ import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';

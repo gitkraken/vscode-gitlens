@@ -11,7 +11,7 @@ import { Logger } from '../logger';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { pad, splitSingle } from '../system/string';
-import { StatusFileNode } from '../views/nodes';
+import { StatusFileNode } from '../views/nodes/statusFileNode';
 import {
 	ActiveEditorCommand,
 	CommandContext,

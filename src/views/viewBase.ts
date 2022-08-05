@@ -43,7 +43,7 @@ import { CommitsView } from './commitsView';
 import { ContributorsView } from './contributorsView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
-import { PageableViewNode, ViewNode } from './nodes';
+import { PageableViewNode, ViewNode } from './nodes/viewNode';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchAndCompareView } from './searchAndCompareView';

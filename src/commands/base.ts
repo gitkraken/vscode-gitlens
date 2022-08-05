@@ -20,7 +20,7 @@ import type { GitReference } from '../git/models/reference';
 import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import { GitTag } from '../git/models/tag';
-import { ViewNode, ViewRefNode } from '../views/nodes';
+import { ViewNode, ViewRefNode } from '../views/nodes/viewNode';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff

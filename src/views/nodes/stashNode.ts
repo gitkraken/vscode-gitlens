@@ -1,15 +1,18 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { configuration } from '../../configuration';
-import { CommitFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
 import type { RepositoriesView } from '../repositoriesView';
 import type { StashesView } from '../stashesView';
+import { FileNode, FolderNode } from './folderNode';
+import { RepositoryNode } from './repositoryNode';
+import { StashFileNode } from './stashFileNode';
+import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';

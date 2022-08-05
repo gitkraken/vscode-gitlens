@@ -15,16 +15,11 @@ import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { isPromise } from '../system/promise';
-import {
-	CompareResultsNode,
-	ContextValues,
-	FilesQueryFilter,
-	RepositoryFolderNode,
-	ResultsFilesNode,
-	SearchResultsNode,
-	ViewNode,
-} from './nodes';
 import { ComparePickerNode } from './nodes/comparePickerNode';
+import { CompareResultsNode } from './nodes/compareResultsNode';
+import { FilesQueryFilter, ResultsFilesNode } from './nodes/resultsFilesNode';
+import { SearchResultsNode } from './nodes/searchResultsNode';
+import { ContextValues, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 interface DeprecatedPinnedComparison {

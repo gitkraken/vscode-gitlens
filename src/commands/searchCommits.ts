@@ -4,7 +4,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { SearchPattern } from '../git/search';
 import { command } from '../system/command';
-import { SearchResultsNode } from '../views/nodes';
+import { SearchResultsNode } from '../views/nodes/searchResultsNode';
 import { Command, CommandContext, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {

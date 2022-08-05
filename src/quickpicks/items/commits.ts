@@ -4,7 +4,7 @@ import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFile
 import { QuickCommandButtons } from '../../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit } from '../../git/models/commit';
 import { GitFile, GitFileChange } from '../../git/models/file';
 import type { GitStatusFile } from '../../git/models/status';

@@ -19,16 +19,12 @@ import type { GitRemote } from '../git/models/remote';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	BranchNode,
-	BranchOrTagFolderNode,
-	RemoteNode,
-	RemotesNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import { BranchNode } from './nodes/branchNode';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import { RemoteNode } from './nodes/remoteNode';
+import { RemotesNode } from './nodes/remotesNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {

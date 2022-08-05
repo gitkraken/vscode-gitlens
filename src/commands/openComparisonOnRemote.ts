@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { command, executeCommand } from '../system/command';
-import { ResultsCommitsNode } from '../views/nodes';
+import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
 import { Command, CommandContext } from './base';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 

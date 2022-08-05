@@ -7,7 +7,7 @@ import { Messages } from '../messages';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
-import { CompareResultsNode } from '../views/nodes';
+import { CompareResultsNode } from '../views/nodes/compareResultsNode';
 import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRef } from './base';
 
 export interface OpenDirectoryCompareCommandArgs {

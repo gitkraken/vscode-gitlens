@@ -16,14 +16,10 @@ import { GitReference, GitTagReference } from '../git/models/reference';
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	BranchOrTagFolderNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	TagsNode,
-	ViewNode,
-} from './nodes';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { TagsNode } from './nodes/tagsNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {

@@ -23,43 +23,43 @@ import {
 import { debug } from '../system/decorators/log';
 import { OpenWorkspaceLocation } from '../system/utils';
 import { runGitCommandInTerminal } from '../terminal';
+import { BranchesNode } from './nodes/branchesNode';
+import { BranchNode } from './nodes/branchNode';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { CommitFileNode } from './nodes/commitFileNode';
+import { CommitNode } from './nodes/commitNode';
+import { PagerNode } from './nodes/common';
+import { CompareBranchNode } from './nodes/compareBranchNode';
+import { ContributorNode } from './nodes/contributorNode';
+import { ContributorsNode } from './nodes/contributorsNode';
+import { FileHistoryNode } from './nodes/fileHistoryNode';
+import { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
+import { FolderNode } from './nodes/folderNode';
+import { LineHistoryNode } from './nodes/lineHistoryNode';
+import { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
+import { PullRequestNode } from './nodes/pullRequestNode';
+import { RemoteNode } from './nodes/remoteNode';
+import { RemotesNode } from './nodes/remotesNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { ResultsFileNode } from './nodes/resultsFileNode';
+import { ResultsFilesNode } from './nodes/resultsFilesNode';
+import { StashFileNode } from './nodes/stashFileNode';
+import { StashNode } from './nodes/stashNode';
+import { StatusFileNode } from './nodes/statusFileNode';
+import { TagNode } from './nodes/tagNode';
+import { TagsNode } from './nodes/tagsNode';
 import {
-	BranchesNode,
-	BranchNode,
-	BranchTrackingStatusNode,
 	canClearNode,
 	canEditNode,
 	canViewDismissNode,
-	CommitFileNode,
-	CommitNode,
-	CompareBranchNode,
-	ContributorNode,
-	ContributorsNode,
-	FileHistoryNode,
-	FileRevisionAsCommitNode,
-	FolderNode,
-	LineHistoryNode,
-	MergeConflictFileNode,
 	PageableViewNode,
-	PagerNode,
-	PullRequestNode,
-	RemoteNode,
-	RemotesNode,
 	RepositoryFolderNode,
-	RepositoryNode,
-	ResultsFileNode,
-	ResultsFilesNode,
-	StashFileNode,
-	StashNode,
-	StatusFileNode,
-	TagNode,
-	TagsNode,
 	ViewNode,
 	ViewRefFileNode,
 	ViewRefNode,
-	WorktreeNode,
-	WorktreesNode,
-} from './nodes';
+} from './nodes/viewNode';
+import { WorktreeNode } from './nodes/worktreeNode';
+import { WorktreesNode } from './nodes/worktreesNode';
 
 interface CompareSelectedInfo {
 	ref: string;

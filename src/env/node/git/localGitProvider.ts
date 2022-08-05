@@ -77,19 +77,16 @@ import { GitTag, TagSortOptions } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import { GitUser, isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import {
-	GitBlameParser,
-	GitBranchParser,
-	GitDiffParser,
-	GitLogParser,
-	GitReflogParser,
-	GitRemoteParser,
-	GitStatusParser,
-	GitTagParser,
-	GitTreeParser,
-	GitWorktreeParser,
-	LogType,
-} from '../../../git/parsers';
+import { GitBlameParser } from '../../../git/parsers/blameParser';
+import { GitBranchParser } from '../../../git/parsers/branchParser';
+import { GitDiffParser } from '../../../git/parsers/diffParser';
+import { GitLogParser, LogType } from '../../../git/parsers/logParser';
+import { GitReflogParser } from '../../../git/parsers/reflogParser';
+import { GitRemoteParser } from '../../../git/parsers/remoteParser';
+import { GitStatusParser } from '../../../git/parsers/statusParser';
+import { GitTagParser } from '../../../git/parsers/tagParser';
+import { GitTreeParser } from '../../../git/parsers/treeParser';
+import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
 import { RemoteProvider, RemoteResourceType, RichRemoteProvider } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';

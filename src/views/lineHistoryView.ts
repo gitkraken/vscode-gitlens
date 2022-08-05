@@ -4,7 +4,7 @@ import { Commands, ContextKeys } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
 import { executeCommand } from '../system/command';
-import { LineHistoryTrackerNode } from './nodes';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
 
 const pinnedSuffix = ' (pinned)';

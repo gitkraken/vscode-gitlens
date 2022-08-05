@@ -2,7 +2,7 @@ import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemColla
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
 import { Colors, Commands } from '../../constants';
-import { CommitFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';

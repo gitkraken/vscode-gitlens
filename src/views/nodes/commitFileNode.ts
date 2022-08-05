@@ -1,7 +1,7 @@
 import { Command, MarkdownString, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
-import { StatusFileFormatter } from '../../git/formatters';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';

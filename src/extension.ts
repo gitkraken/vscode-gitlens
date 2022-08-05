@@ -19,7 +19,7 @@ import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare, satisfies } from './system/version';
-import { ViewNode } from './views/nodes';
+import { ViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion = context.extension.packageJSON.version;

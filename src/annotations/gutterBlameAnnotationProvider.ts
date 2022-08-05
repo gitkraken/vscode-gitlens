@@ -2,7 +2,7 @@ import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRende
 import { configuration, FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
+import { CommitFormatOptions, CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { Logger } from '../logger';

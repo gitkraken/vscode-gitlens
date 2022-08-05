@@ -1,6 +1,6 @@
 import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { CoreCommands } from '../../constants';
-import { StatusFileFormatter } from '../../git/formatters';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';

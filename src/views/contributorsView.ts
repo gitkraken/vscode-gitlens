@@ -18,14 +18,10 @@ import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
-import {
-	ContributorNode,
-	ContributorsNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import { ContributorNode } from './nodes/contributorNode';
+import { ContributorsNode } from './nodes/contributorsNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {

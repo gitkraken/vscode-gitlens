@@ -25,14 +25,10 @@ import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
-import {
-	BranchNode,
-	BranchTrackingStatusNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import { BranchNode } from './nodes/branchNode';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {

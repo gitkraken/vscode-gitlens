@@ -11,7 +11,8 @@ import {
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
-import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';

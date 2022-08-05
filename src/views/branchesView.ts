@@ -23,15 +23,11 @@ import { GitBranchReference, GitReference, GitRevisionReference } from '../git/m
 import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	BranchesNode,
-	BranchNode,
-	BranchOrTagFolderNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import { BranchesNode } from './nodes/branchesNode';
+import { BranchNode } from './nodes/branchNode';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, BranchesNode> {

@@ -8,7 +8,7 @@ import type { Repository } from '../../git/models/repository';
 import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
-import { SearchResultsNode } from '../../views/nodes';
+import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';

@@ -6,7 +6,10 @@ import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { GitRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
-import { GitBranchParser, GitLogParser, GitReflogParser, GitTagParser } from '../../../git/parsers';
+import { GitBranchParser } from '../../../git/parsers/branchParser';
+import { GitLogParser } from '../../../git/parsers/logParser';
+import { GitReflogParser } from '../../../git/parsers/reflogParser';
+import { GitTagParser } from '../../../git/parsers/tagParser';
 import { Logger } from '../../../logger';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
