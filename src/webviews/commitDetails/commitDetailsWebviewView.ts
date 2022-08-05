@@ -32,14 +32,12 @@ import {
 } from './protocol';
 
 export class CommitDetailsWebviewView extends WebviewViewBase<State> {
-	private originalTitle?: string;
 	private commits?: GitCommit[];
 	private selectedCommit?: GitCommit;
 	private loadedOnce = false;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.views.commitDetails', 'commitDetails.html', 'Commit Details');
-		this.originalTitle = this.title;
 	}
 
 	override async show(options?: { commit?: GitCommit; preserveFocus?: boolean | undefined }): Promise<void> {
@@ -257,9 +255,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 	private selectCommit(commit: GitCommit) {
 		this.commits = [commit];
 		this.selectedCommit = commit;
-		this.title = `${this.originalTitle}${
-			this.selectedCommit !== undefined ? `: ${this.selectedCommit.shortSha}` : ''
-		}`;
 	}
 
 	@debug({ args: false })
