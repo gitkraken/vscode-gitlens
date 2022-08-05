@@ -223,11 +223,11 @@ ul {
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
-		width: 20px;
+		// width: 20px;
 		height: 20px;
 		border-radius: 0.25em;
 		color: inherit;
-		padding: 2px;
+		padding: 0.2rem;
 		vertical-align: text-bottom;
 		text-decoration: none;
 
@@ -239,6 +239,11 @@ ul {
 			color: var(--vscode-foreground);
 			background-color: var(--color-background--lighten-15);
 		}
+	}
+
+	&__sha {
+		// padding-top: 0.2rem;
+		margin: 0 0.5rem;
 	}
 
 	&__authors {

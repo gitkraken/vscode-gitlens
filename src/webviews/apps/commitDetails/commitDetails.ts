@@ -107,7 +107,12 @@ export class CommitDetailsApp extends App<State> {
 			return;
 		}
 
-		this.sendCommand(CommitActionsCommandType, undefined);
+		if (e.altKey) {
+			this.sendCommand(CommitActionsCommandType, undefined);
+			return;
+		}
+
+		void navigator.clipboard.writeText(this.state.selected.sha);
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
@@ -163,6 +168,7 @@ export class CommitDetailsApp extends App<State> {
 			return;
 		}
 
+		this.renderSha();
 		this.renderMessage();
 		this.renderAuthor();
 		this.renderStats();
@@ -172,6 +178,17 @@ export class CommitDetailsApp extends App<State> {
 		if (this.state.includeRichContent) {
 			this.renderAutolinks();
 		}
+	}
+
+	renderSha() {
+		const $els = [...document.querySelectorAll<HTMLElement>('[data-region="shortsha"]')];
+		if ($els.length === 0) {
+			return;
+		}
+
+		$els.forEach($el => {
+			$el.textContent = this.state.selected.shortSha;
+		});
 	}
 
 	renderChoices() {
