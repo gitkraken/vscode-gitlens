@@ -58,61 +58,80 @@ export class CommitDetailsApp extends App<State> {
 			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
-			DOM.on('[data-action="commit-show-actions"]', 'click', e => this.onCommitMoreActions(e)),
+			DOM.on('[data-action="commit-actions-sha"]', 'click', e => this.onCommitShaActions(e)),
+			DOM.on('[data-action="commit-actions-more"]', 'click', e => this.onCommitMoreActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
+			DOM.on('file-change-item', 'keydown', (e, target: HTMLElement) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					(target as FileChangeItem).open(e.key === 'Enter' ? { preserveFocus: false } : undefined);
+				} else if (e.key === 'ArrowUp') {
+					const $previous: HTMLElement | null = target.parentElement?.previousElementSibling
+						?.firstElementChild as HTMLElement;
+					$previous?.focus();
+				} else if (e.key === 'ArrowDown') {
+					const $next: HTMLElement | null = target.parentElement?.nextElementSibling
+						?.firstElementChild as HTMLElement;
+					$next?.focus();
+				}
+			}),
 		];
 
 		return disposables;
 	}
 
-	onAutolinkSettings(e: MouseEvent) {
+	private onAutolinkSettings(e: MouseEvent) {
 		e.preventDefault();
 		this.sendCommand(AutolinkSettingsCommandType, undefined);
 	}
 
-	onSearchCommit(_e: MouseEvent) {
+	private onSearchCommit(_e: MouseEvent) {
 		this.sendCommand(SearchCommitCommandType, undefined);
 	}
 
-	onPickCommit(_e: MouseEvent) {
+	private onPickCommit(_e: MouseEvent) {
 		this.sendCommand(PickCommitCommandType, undefined);
 	}
 
-	onOpenFileOnRemote(e: FileChangeItemEventDetail) {
+	private onOpenFileOnRemote(e: FileChangeItemEventDetail) {
 		this.sendCommand(OpenFileOnRemoteCommandType, e);
 	}
 
-	onOpenFile(e: FileChangeItemEventDetail) {
+	private onOpenFile(e: FileChangeItemEventDetail) {
 		this.sendCommand(OpenFileCommandType, e);
 	}
 
-	onCompareFileWithWorking(e: FileChangeItemEventDetail) {
+	private onCompareFileWithWorking(e: FileChangeItemEventDetail) {
 		this.sendCommand(FileCompareWorkingCommandType, e);
 	}
 
-	onCompareFileWithPrevious(e: FileChangeItemEventDetail) {
+	private onCompareFileWithPrevious(e: FileChangeItemEventDetail) {
 		this.sendCommand(FileComparePreviousCommandType, e);
 	}
 
-	onFileMoreActions(e: FileChangeItemEventDetail) {
+	private onFileMoreActions(e: FileChangeItemEventDetail) {
 		this.sendCommand(FileMoreActionsCommandType, e);
 	}
 
-	onCommitMoreActions(e: MouseEvent) {
+	private onCommitMoreActions(e: MouseEvent) {
 		e.preventDefault();
 		if (this.state.selected === undefined) {
 			e.stopPropagation();
 			return;
 		}
 
-		if (e.altKey) {
-			this.sendCommand(CommitActionsCommandType, undefined);
+		this.sendCommand(CommitActionsCommandType, { action: 'more' });
+	}
+
+	private onCommitShaActions(e: MouseEvent) {
+		e.preventDefault();
+		if (this.state.selected === undefined) {
+			e.stopPropagation();
 			return;
 		}
 
-		void navigator.clipboard.writeText(this.state.selected.sha);
+		this.sendCommand(CommitActionsCommandType, { action: 'sha', alt: e.altKey });
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {

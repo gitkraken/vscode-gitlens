@@ -1,4 +1,4 @@
-import { Uri, window } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import type {
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
@@ -29,6 +29,7 @@ import {
 	PickCommitCommandType,
 	RichCommitDetails,
 	RichContentNotificationType,
+	SearchCommitCommandType,
 	State,
 } from './protocol';
 
@@ -78,13 +79,29 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 				});
 				break;
 			case CommitActionsCommandType.method:
-				onIpc(CommitActionsCommandType, e, _params => {
-					this.showCommitActions();
+				onIpc(CommitActionsCommandType, e, params => {
+					switch (params.action) {
+						case 'more':
+							this.showCommitActions();
+							break;
+						case 'sha':
+							if (params.alt) {
+								this.showCommitPicker();
+							} else if (this.selectedCommit != null) {
+								void env.clipboard.writeText(this.selectedCommit.sha);
+							}
+							break;
+					}
 				});
 				break;
 			case PickCommitCommandType.method:
 				onIpc(PickCommitCommandType, e, _params => {
 					this.showCommitPicker();
+				});
+				break;
+			case SearchCommitCommandType.method:
+				onIpc(SearchCommitCommandType, e, _params => {
+					this.showCommitSearch();
 				});
 				break;
 			case AutolinkSettingsCommandType.method:
@@ -104,13 +121,18 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 	}
 
 	private showCommitSearch() {
-		void executeCommand(Commands.SearchCommits, {
-			showResultsInDetails: true,
-		});
+		void executeGitCommand({ command: 'search', state: { openPickInView: true } });
 	}
 
 	private showCommitPicker() {
-		void executeGitCommand({ command: 'log', state: { openPickInView: true } });
+		void executeGitCommand({
+			command: 'log',
+			state: {
+				reference: 'HEAD',
+				repo: this.selectedCommit?.repoPath,
+				openPickInView: true,
+			},
+		});
 	}
 
 	private showCommitActions() {
@@ -164,6 +186,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 			showOptions: {
 				preserveFocus: true,
 				preview: true,
+				...params.showOptions,
 			},
 		});
 	}

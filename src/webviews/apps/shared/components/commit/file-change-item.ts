@@ -1,10 +1,12 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { FileShowOptions } from '../../../../commitDetails/protocol';
 import '../codicon';
 
 export interface FileChangeItemEventDetail {
 	path: string;
 	repoPath: string;
+	showOptions?: FileShowOptions;
 }
 
 // TODO: use the model version
@@ -62,12 +64,15 @@ export class FileChangeItem extends LitElement {
 			color: var(--vscode-sideBar-foreground);
 		}
 		:host(:hover) {
+			color: var(--vscode-list-hoverForeground);
 			background-color: var(--vscode-list-hoverBackground);
 		}
 
 		:host(:focus-within) {
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -1px;
+			color: var(--vscode-list-activeSelectionForeground);
+			background-color: var(--vscode-list-activeSelectionBackground);
 		}
 
 		* {
@@ -104,6 +109,11 @@ export class FileChangeItem extends LitElement {
 			user-select: none;
 			display: flex;
 			align-items: center;
+			color: var(--vscode-icon-foreground);
+		}
+
+		:host(:focus-within) .change-list__actions {
+			color: var(--vscode-list-activeSelectionIconForeground);
 		}
 
 		:host(:not(:hover):not(:focus-within)) .change-list__actions {
@@ -117,7 +127,7 @@ export class FileChangeItem extends LitElement {
 			width: 2rem;
 			height: 2rem;
 			border-radius: 0.25em;
-			color: var(--vscode-icon-foreground);
+			color: inherit;
 			padding: 2px;
 			vertical-align: text-bottom;
 			text-decoration: none;
@@ -155,6 +165,14 @@ export class FileChangeItem extends LitElement {
 		return html` <code-icon icon="${statusIcon}"></code-icon> `;
 	}
 
+	override focus(options?: FocusOptions | undefined): void {
+		this.shadowRoot?.getElementById('item')?.focus(options);
+	}
+
+	open(showOptions?: FileShowOptions): void {
+		this.onComparePrevious(undefined, showOptions);
+	}
+
 	override render() {
 		const statusName = this.status !== '' ? statusTextMap[this.status] : '';
 		const pathIndex = this.path.lastIndexOf('/');
@@ -162,7 +180,7 @@ export class FileChangeItem extends LitElement {
 		const filePath = pathIndex > -1 ? this.path.substring(0, pathIndex) : '';
 
 		return html`
-			<a class="change-list__link" @click=${this.onComparePrevious} href="#">
+			<a id="item" class="change-list__link" @click=${this.onComparePrevious} href="#">
 				<span class="change-list__status" aria-label="${statusName}">${this.renderIcon()}</span
 				><span class="change-list__filename">${fileName}</span>
 				<small class="change-list__path">${filePath}</small>
@@ -179,8 +197,8 @@ export class FileChangeItem extends LitElement {
 					class="change-list__action"
 					@click=${this.onCompareWorking}
 					href="#"
-					title="Compare"
-					aria-label="Compare"
+					title="Open Changes with Working File"
+					aria-label="Open Changes with Working File"
 					><code-icon icon="git-compare"></code-icon></a
 				><a
 					class="change-list__action"
@@ -216,9 +234,9 @@ export class FileChangeItem extends LitElement {
 		this.fireEvent('file-compare-working');
 	}
 
-	private onComparePrevious(e: Event) {
-		e.preventDefault();
-		this.fireEvent('file-compare-previous');
+	private onComparePrevious(e?: Event, showOptions?: FileShowOptions) {
+		e?.preventDefault();
+		this.fireEvent('file-compare-previous', showOptions);
 	}
 
 	private onMoreActions(e: Event) {
@@ -226,11 +244,12 @@ export class FileChangeItem extends LitElement {
 		this.fireEvent('file-more-actions');
 	}
 
-	private fireEvent(eventName: string) {
+	private fireEvent(eventName: string, showOptions?: FileShowOptions) {
 		const event = new CustomEvent<FileChangeItemEventDetail>(eventName, {
 			detail: {
 				path: this.path,
 				repoPath: this.repoPath,
+				showOptions: showOptions,
 			},
 			bubbles: true,
 			composed: true,

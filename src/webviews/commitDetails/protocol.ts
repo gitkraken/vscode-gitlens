@@ -1,5 +1,8 @@
+import { TextDocumentShowOptions } from 'vscode';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
+
+export type FileShowOptions = TextDocumentShowOptions;
 
 export type CommitSummary = {
 	sha: string;
@@ -32,13 +35,20 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 export interface FileParams {
 	path: string;
 	repoPath: string;
+
+	showOptions?: TextDocumentShowOptions;
+}
+
+export interface ActionsParams {
+	action: 'sha' | 'more';
+	alt?: boolean;
 }
 export const OpenFileOnRemoteCommandType = new IpcCommandType<FileParams>('commit/file/openOnRemote');
 export const OpenFileCommandType = new IpcCommandType<FileParams>('commit/file/open');
 export const FileCompareWorkingCommandType = new IpcCommandType<FileParams>('commit/file/compareWorking');
 export const FileComparePreviousCommandType = new IpcCommandType<FileParams>('commit/file/comparePrevious');
 export const FileMoreActionsCommandType = new IpcCommandType<FileParams>('commit/file/moreActions');
-export const CommitActionsCommandType = new IpcCommandType<undefined>('commit/moreActions');
+export const CommitActionsCommandType = new IpcCommandType<ActionsParams>('commit/actions');
 export const PickCommitCommandType = new IpcCommandType<undefined>('commit/pickCommit');
 export const SearchCommitCommandType = new IpcCommandType<undefined>('commit/searchCommit');
 export const AutolinkSettingsCommandType = new IpcCommandType<undefined>('commit/autolinkSettings');
