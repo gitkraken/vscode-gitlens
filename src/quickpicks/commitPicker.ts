@@ -1,7 +1,9 @@
 import { Disposable, window } from 'vscode';
+import { GitCommit, GitStashCommit } from 'src/git/models/commit';
+import { GitLog } from 'src/git/models/log';
+import { GitStash } from 'src/git/models/stash';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitStash, GitStashCommit } from '../git/models';
 import { KeyboardScope, Keys } from '../keyboard';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { filter, map } from '../system/iterable';

@@ -4,19 +4,11 @@ import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
-import {
-	GitCommit,
-	GitCommitIdentity,
-	GitCommitLine,
-	GitFile,
-	GitFileChange,
-	GitFileChangeStats,
-	GitFileIndexStatus,
-	GitLog,
-	GitRevision,
-	GitUser,
-	isUserMatch,
-} from '../models';
+import { GitCommit, GitCommitIdentity, GitCommitLine } from '../models/commit';
+import { GitFile, GitFileChange, GitFileChangeStats, GitFileIndexStatus } from '../models/file';
+import type { GitLog } from '../models/log';
+import { GitRevision } from '../models/reference';
+import { GitUser, isUserMatch } from '../models/user';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;

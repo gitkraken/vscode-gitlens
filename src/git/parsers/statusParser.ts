@@ -1,6 +1,6 @@
 import { debug } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
-import { GitStatus, GitStatusFile } from '../models';
+import { GitStatus, GitStatusFile } from '../models/status';
 
 const emptyStr = '';
 

@@ -1,12 +1,14 @@
 import { QuickPickItem, window } from 'vscode';
 import { GitActions } from '../../commands/gitCommands.actions';
-import { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
+import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
 import { QuickCommandButtons } from '../../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters';
-import { GitCommit, GitFile, GitFileChange, GitStatusFile } from '../../git/models';
-import { Keys } from '../../keyboard';
+import { GitCommit } from '../../git/models/commit';
+import { GitFile, GitFileChange } from '../../git/models/file';
+import type { GitStatusFile } from '../../git/models/status';
+import type { Keys } from '../../keyboard';
 import { basename } from '../../system/path';
 import { pad } from '../../system/string';
 import { CommandQuickPickItem } from './common';

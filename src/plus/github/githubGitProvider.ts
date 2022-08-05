@@ -39,46 +39,26 @@ import {
 	ScmRepository,
 } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
-import {
-	BranchSortOptions,
-	GitBlame,
-	GitBlameAuthor,
-	GitBlameLine,
-	GitBlameLines,
-	GitBranch,
-	GitBranchReference,
-	GitCommit,
-	GitCommitIdentity,
-	GitCommitLine,
-	GitContributor,
-	GitDiff,
-	GitDiffFilter,
-	GitDiffHunkLine,
-	GitDiffShortStat,
-	GitFile,
-	GitFileChange,
-	GitFileIndexStatus,
-	GitLog,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReference,
-	GitReflog,
-	GitRemote,
-	GitRemoteType,
-	GitRevision,
-	GitStash,
-	GitStatus,
-	GitStatusFile,
-	GitTag,
-	GitTreeEntry,
-	GitUser,
-	isUserMatch,
-	Repository,
-	RepositoryChangeEvent,
-	TagSortOptions,
-} from '../../git/models';
+import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
+import { BranchSortOptions, GitBranch } from '../../git/models/branch';
+import { GitCommit, GitCommitIdentity, GitCommitLine } from '../../git/models/commit';
+import { GitContributor } from '../../git/models/contributor';
+import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
+import { GitFile, GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import type { GitLog } from '../../git/models/log';
+import type { GitMergeStatus } from '../../git/models/merge';
+import type { GitRebaseStatus } from '../../git/models/rebase';
+import { GitBranchReference, GitReference, GitRevision } from '../../git/models/reference';
+import type { GitReflog } from '../../git/models/reflog';
+import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { Repository, RepositoryChangeEvent } from '../../git/models/repository';
+import type { GitStash } from '../../git/models/stash';
+import type { GitStatus, GitStatusFile } from '../../git/models/status';
+import { GitTag, TagSortOptions } from '../../git/models/tag';
+import type { GitTreeEntry } from '../../git/models/tree';
+import { GitUser, isUserMatch } from '../../git/models/user';
 import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
+import type { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
 import { LogCorrelationContext, Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
@@ -87,7 +67,7 @@ import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
-import { TrackedDocument } from '../../trackers/trackedDocument';
+import type { TrackedDocument } from '../../trackers/trackedDocument';
 import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';

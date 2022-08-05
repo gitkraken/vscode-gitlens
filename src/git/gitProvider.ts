@@ -1,38 +1,27 @@
 import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
-import { ForcePushMode } from '../@types/vscode.git.enums';
-import { Features } from '../features';
+import type { ForcePushMode } from '../@types/vscode.git.enums';
+import type { Features } from '../features';
 import type { GitUri } from './gitUri';
-import type {
-	BranchSortOptions,
-	GitBlame,
-	GitBlameLine,
-	GitBlameLines,
-	GitBranch,
-	GitBranchReference,
-	GitCommit,
-	GitContributor,
-	GitDiff,
-	GitDiffFilter,
-	GitDiffHunkLine,
-	GitDiffShortStat,
-	GitFile,
-	GitLog,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReflog,
-	GitRemote,
-	GitStash,
-	GitStatus,
-	GitStatusFile,
-	GitTag,
-	GitTreeEntry,
-	GitUser,
-	GitWorktree,
-	Repository,
-	RepositoryChangeEvent,
-	TagSortOptions,
-} from './models';
+import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
+import type { BranchSortOptions, GitBranch } from './models/branch';
+import type { GitCommit } from './models/commit';
+import type { GitContributor } from './models/contributor';
+import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitFile } from './models/file';
+import type { GitLog } from './models/log';
+import type { GitMergeStatus } from './models/merge';
+import type { GitRebaseStatus } from './models/rebase';
+import type { GitBranchReference } from './models/reference';
+import type { GitReflog } from './models/reflog';
+import type { GitRemote } from './models/remote';
+import type { Repository, RepositoryChangeEvent } from './models/repository';
+import type { GitStash } from './models/stash';
+import type { GitStatus, GitStatusFile } from './models/status';
+import type { GitTag, TagSortOptions } from './models/tag';
+import type { GitTreeEntry } from './models/tree';
+import type { GitUser } from './models/user';
+import type { GitWorktree } from './models/worktree';
 import type { RemoteProviders } from './remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import type { SearchPattern } from './search';

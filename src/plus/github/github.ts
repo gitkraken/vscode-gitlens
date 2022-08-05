@@ -16,8 +16,12 @@ import {
 	ProviderRequestRateLimitError,
 } from '../../errors';
 import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
-import { type DefaultBranch, GitRevision, type GitUser, type IssueOrPullRequest, PullRequest } from '../../git/models';
 import type { Account } from '../../git/models/author';
+import type { DefaultBranch } from '../../git/models/defaultBranch';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { PullRequest } from '../../git/models/pullRequest';
+import { GitRevision } from '../../git/models/reference';
+import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';

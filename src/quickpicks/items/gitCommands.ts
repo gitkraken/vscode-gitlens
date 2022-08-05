@@ -4,18 +4,15 @@ import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import {
-	GitBranch,
-	GitCommit,
-	GitContributor,
-	GitReference,
-	GitRemoteType,
-	GitRevision,
-	GitStatus,
-	GitTag,
-	GitWorktree,
-	Repository,
-} from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import { GitCommit } from '../../git/models/commit';
+import type { GitContributor } from '../../git/models/contributor';
+import { GitReference, GitRevision } from '../../git/models/reference';
+import { GitRemoteType } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
+import type { GitTag } from '../../git/models/tag';
+import type { GitWorktree } from '../../git/models/worktree';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
 import { CommandQuickPickItem, QuickPickItemOfT } from './common';

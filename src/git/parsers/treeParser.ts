@@ -1,5 +1,5 @@
 import { debug } from '../../system/decorators/log';
-import { GitTreeEntry } from '../models';
+import { GitTreeEntry } from '../models/tree';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;

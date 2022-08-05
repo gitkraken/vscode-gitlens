@@ -1,10 +1,10 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Autolink } from '../../annotations/autolinks';
+import type { Autolink } from '../../annotations/autolinks';
 import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models';
+import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
 import { fromNow } from '../../system/date';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {

@@ -10,19 +10,13 @@ import {
 } from 'vscode';
 import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import {
-	GitBranch,
-	GitBranchReference,
-	GitCommit,
-	GitReference,
-	GitRemote,
-	GitRevisionReference,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/models';
+import { GitBranch } from '../git/models/branch';
+import { GitCommit } from '../git/models/commit';
+import { GitBranchReference, GitReference, GitRevisionReference } from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import {

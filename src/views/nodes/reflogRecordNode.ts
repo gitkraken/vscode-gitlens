@@ -1,11 +1,12 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitLog, GitReflogRecord } from '../../git/models';
+import type { GitLog } from '../../git/models/log';
+import type { GitReflogRecord } from '../../git/models/reflog';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';

@@ -53,46 +53,35 @@ import {
 	RepositoryVisibility,
 	ScmRepository,
 } from './gitProvider';
-import { GitUri } from './gitUri';
+import type { GitUri } from './gitUri';
+import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
+import type { BranchSortOptions, GitBranch } from './models/branch';
+import type { GitCommit } from './models/commit';
+import type { GitContributor } from './models/contributor';
+import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitFile } from './models/file';
+import type { GitLog } from './models/log';
+import type { GitMergeStatus } from './models/merge';
+import type { PullRequest, PullRequestState } from './models/pullRequest';
+import type { GitRebaseStatus } from './models/rebase';
+import { GitBranchReference, GitReference, GitRevision } from './models/reference';
+import type { GitReflog } from './models/reflog';
+import { GitRemote } from './models/remote';
 import {
-	BranchSortOptions,
-	GitBlame,
-	GitBlameLine,
-	GitBlameLines,
-	GitBranch,
-	GitBranchReference,
-	GitCommit,
-	GitContributor,
-	GitDiff,
-	GitDiffFilter,
-	GitDiffHunkLine,
-	GitDiffShortStat,
-	GitFile,
-	GitLog,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReference,
-	GitReflog,
-	GitRemote,
-	GitRevision,
-	GitStash,
-	GitStatus,
-	GitStatusFile,
-	GitTag,
-	GitTreeEntry,
-	GitUser,
-	GitWorktree,
-	PullRequest,
-	PullRequestState,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-	TagSortOptions,
-} from './models';
-import { RemoteProviders } from './remotes/factory';
+} from './models/repository';
+import type { GitStash } from './models/stash';
+import type { GitStatus, GitStatusFile } from './models/status';
+import type { GitTag, TagSortOptions } from './models/tag';
+import type { GitTreeEntry } from './models/tree';
+import type { GitUser } from './models/user';
+import type { GitWorktree } from './models/worktree';
+import type { RemoteProviders } from './remotes/factory';
 import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
-import { SearchPattern } from './search';
+import type { SearchPattern } from './search';
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([

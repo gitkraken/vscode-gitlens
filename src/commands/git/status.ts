@@ -1,10 +1,12 @@
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitReference, GitStatus, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickRepositoryStep,

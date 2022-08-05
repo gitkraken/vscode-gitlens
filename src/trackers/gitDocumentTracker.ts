@@ -1,5 +1,7 @@
 import { TextDocument, Uri } from 'vscode';
-import { GitBlame, GitDiff, GitLog } from '../git/models';
+import type { GitBlame } from '../git/models/blame';
+import type { GitDiff } from '../git/models/diff';
+import type { GitLog } from '../git/models/log';
 import { DocumentTracker } from './documentTracker';
 
 export * from './documentTracker';

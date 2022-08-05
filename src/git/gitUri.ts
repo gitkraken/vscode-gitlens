@@ -12,7 +12,8 @@ import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '..
 // import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 import type { RevisionUriData } from './gitProvider';
-import { GitFile, GitRevision } from './models';
+import type { GitFile } from './models/file';
+import { GitRevision } from './models/reference';
 
 const slash = 47; //CharCode.Slash;
 

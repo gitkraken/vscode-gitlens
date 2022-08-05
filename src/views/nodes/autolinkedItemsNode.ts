@@ -1,7 +1,9 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
 import { GitUri } from '../../git/gitUri';
-import { GitLog, IssueOrPullRequest, PullRequest } from '../../git/models';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { GitLog } from '../../git/models/log';
+import { PullRequest } from '../../git/models/pullRequest';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { union } from '../../system/iterable';

@@ -1,7 +1,9 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/models';
-import { ViewsWithCommits } from '../viewBase';
+import type { GitBranch } from '../../git/models/branch';
+import { GitCommit } from '../../git/models/commit';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import type { ViewsWithCommits } from '../viewBase';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 

@@ -3,8 +3,10 @@ import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/models';
-import { KeyboardScope, Keys } from '../keyboard';
+import type { BranchSortOptions, GitBranch } from '../git/models/branch';
+import { GitReference } from '../git/models/reference';
+import type { GitTag, TagSortOptions } from '../git/models/tag';
+import type { KeyboardScope, Keys } from '../keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 

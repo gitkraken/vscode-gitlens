@@ -1,23 +1,23 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
-import { GitUri } from '../../git/gitUri';
+import type { GitUri } from '../../git/gitUri';
+import { GitBranch } from '../../git/models/branch';
+import { GitRemote } from '../../git/models/remote';
 import {
-	GitBranch,
-	GitRemote,
-	GitStatus,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/models';
+} from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { disposableInterval } from '../../system/function';
 import { pad } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';

@@ -1,4 +1,5 @@
-import { GitFile, GitStashCommit } from '../../git/models';
+import { GitStashCommit } from 'src/git/models/commit';
+import { GitFile } from 'src/git/models/file';
 import { RepositoriesView } from '../repositoriesView';
 import { StashesView } from '../stashesView';
 import { CommitFileNode } from './commitFileNode';

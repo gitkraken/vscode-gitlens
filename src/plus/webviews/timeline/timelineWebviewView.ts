@@ -3,11 +3,15 @@ import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
 import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
-import { Container } from '../../../container';
+import type { Container } from '../../../container';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
+import {
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+} from '../../../git/models/repository';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import { debounce, Deferrable } from '../../../system/function';

@@ -1,10 +1,11 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { GitBranchReference, GitReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,

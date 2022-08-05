@@ -1,7 +1,10 @@
-import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { GitReference, GitRevision } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	PartialStepState,

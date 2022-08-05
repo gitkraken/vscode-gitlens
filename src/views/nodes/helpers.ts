@@ -1,4 +1,4 @@
-import { GitCommit } from '../../git/models';
+import type { GitCommit } from '../../git/models/commit';
 import { MessageNode } from './common';
 import { ContextValues, ViewNode } from './viewNode';
 

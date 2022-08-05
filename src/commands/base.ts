@@ -11,18 +11,15 @@ import {
 	window,
 } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
-import { Commands } from '../constants';
-import {
-	GitBranch,
-	GitCommit,
-	GitContributor,
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitStashCommit,
-	GitTag,
-	Repository,
-} from '../git/models';
+import type { Commands } from '../constants';
+import { GitBranch } from '../git/models/branch';
+import { GitCommit, GitStashCommit } from '../git/models/commit';
+import { GitContributor } from '../git/models/contributor';
+import type { GitFile } from '../git/models/file';
+import type { GitReference } from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
+import { Repository } from '../git/models/repository';
+import { GitTag } from '../git/models/tag';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {

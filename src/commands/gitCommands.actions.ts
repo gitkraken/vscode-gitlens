@@ -6,30 +6,30 @@ import type {
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
-import { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { GitCommit } from '../git/models/commit';
+import type { GitContributor } from '../git/models/contributor';
+import type { GitFile } from '../git/models/file';
 import {
 	GitBranchReference,
-	GitCommit,
-	GitContributor,
-	GitFile,
 	GitReference,
-	GitRemote,
 	GitRevision,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-	GitWorktree,
-	Repository,
-} from '../git/models';
+} from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import type { Repository } from '../git/models/repository';
+import type { GitWorktree } from '../git/models/worktree';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
 import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
-import { ViewsWithRepositoryFolders } from '../views/viewBase';
-import { ResetGitCommandArgs } from './git/reset';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase';
+import type { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));

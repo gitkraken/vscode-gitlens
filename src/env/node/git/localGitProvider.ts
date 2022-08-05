@@ -53,46 +53,30 @@ import {
 } from '../../../git/gitProvider';
 import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
+import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
+import { BranchSortOptions, GitBranch } from '../../../git/models/branch';
+import { GitCommit, GitCommitIdentity, GitStashCommit } from '../../../git/models/commit';
+import { GitContributor } from '../../../git/models/contributor';
+import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
+import { GitFile, GitFileChange, GitFileStatus } from '../../../git/models/file';
+import type { GitLog } from '../../../git/models/log';
+import type { GitMergeStatus } from '../../../git/models/merge';
+import type { GitRebaseStatus } from '../../../git/models/rebase';
+import { GitBranchReference, GitReference, GitRevision } from '../../../git/models/reference';
+import type { GitReflog } from '../../../git/models/reflog';
+import { GitRemote } from '../../../git/models/remote';
 import {
-	BranchSortOptions,
-	GitBlame,
-	GitBlameAuthor,
-	GitBlameLine,
-	GitBlameLines,
-	GitBranch,
-	GitBranchReference,
-	GitCommit,
-	GitCommitIdentity,
-	GitContributor,
-	GitDiff,
-	GitDiffFilter,
-	GitDiffHunkLine,
-	GitDiffShortStat,
-	GitFile,
-	GitFileChange,
-	GitFileStatus,
-	GitLog,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReference,
-	GitReflog,
-	GitRemote,
-	GitRevision,
-	GitStash,
-	GitStashCommit,
-	GitStatus,
-	GitStatusFile,
-	GitTag,
-	GitTreeEntry,
-	GitUser,
-	GitWorktree,
-	isUserMatch,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-	TagSortOptions,
-} from '../../../git/models';
+} from '../../../git/models/repository';
+import type { GitStash } from '../../../git/models/stash';
+import { GitStatus, GitStatusFile } from '../../../git/models/status';
+import { GitTag, TagSortOptions } from '../../../git/models/tag';
+import type { GitTreeEntry } from '../../../git/models/tree';
+import { GitUser, isUserMatch } from '../../../git/models/user';
+import type { GitWorktree } from '../../../git/models/worktree';
 import {
 	GitBlameParser,
 	GitBranchParser,

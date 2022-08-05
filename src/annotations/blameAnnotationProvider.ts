@@ -1,12 +1,13 @@
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
-import { FileAnnotationType } from '../config';
+import type { FileAnnotationType } from '../config';
 import { configuration } from '../configuration';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBlame, GitCommit } from '../git/models';
+import type { GitBlame } from '../git/models/blame';
+import type { GitCommit } from '../git/models/commit';
 import { Hovers } from '../hovers/hovers';
 import { log } from '../system/decorators/log';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
 

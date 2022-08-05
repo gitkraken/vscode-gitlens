@@ -12,8 +12,8 @@ import {
 } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
@@ -25,16 +25,13 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
 import { isPromise } from '../../system/promise';
-import {
-	Account,
-	DefaultBranch,
-	GitCommit,
-	IssueOrPullRequest,
-	PullRequest,
-	PullRequestState,
-	RemoteProviderReference,
-	Repository,
-} from '../models';
+import type { Account } from '../models/author';
+import type { GitCommit } from '../models/commit';
+import type { DefaultBranch } from '../models/defaultBranch';
+import type { IssueOrPullRequest } from '../models/issue';
+import type { PullRequest, PullRequestState } from '../models/pullRequest';
+import type { RemoteProviderReference } from '../models/remoteProvider';
+import type { Repository } from '../models/repository';
 
 export const enum RemoteResourceType {
 	Branch = 'branch',

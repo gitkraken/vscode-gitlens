@@ -1,9 +1,12 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
-import { Container } from '../../container';
-import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitCommit } from '../../git/models/commit';
+import type { GitLog } from '../../git/models/log';
+import { GitReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import {

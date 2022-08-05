@@ -1,12 +1,16 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitCommit, GitFileWithCommit, GitLog, GitStatus, GitStatusFile, GitTrackingState } from '../../git/models';
+import type { GitTrackingState } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFileWithCommit } from '../../git/models/file';
+import type { GitLog } from '../../git/models/log';
+import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { WorktreesView } from '../worktreesView';
 import { FileNode, FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';

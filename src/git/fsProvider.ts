@@ -12,13 +12,14 @@ import {
 } from 'vscode';
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { debug } from '../system/decorators/log';
 import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
-import { GitRevision, GitTreeEntry } from './models';
+import { GitRevision } from './models/reference';
+import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);
 

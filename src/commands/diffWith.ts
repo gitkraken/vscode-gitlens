@@ -1,7 +1,8 @@
 import { Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
 import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitRevision } from '../git/models';
+import { GitCommit } from '../git/models/commit';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { command, executeCoreCommand } from '../system/command';

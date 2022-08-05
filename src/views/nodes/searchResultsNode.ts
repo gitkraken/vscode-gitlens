@@ -1,12 +1,12 @@
 import { ThemeIcon, TreeItem } from 'vscode';
 import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
-import { GitLog } from '../../git/models';
+import type { GitLog } from '../../git/models/log';
 import { SearchPattern } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { md5, pluralize } from '../../system/string';
-import { SearchAndCompareView } from '../searchAndCompareView';
+import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';

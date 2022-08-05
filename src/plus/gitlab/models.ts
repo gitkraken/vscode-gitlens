@@ -1,4 +1,4 @@
-import { PullRequest, PullRequestState } from '../../git/models';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 
 export interface GitLabUser {

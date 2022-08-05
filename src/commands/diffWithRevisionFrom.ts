@@ -2,7 +2,7 @@ import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
+import { GitReference, GitRevision } from '../git/models/reference';
 import { Messages } from '../messages';
 import { StashPicker } from '../quickpicks/commitPicker';
 import { ReferencePicker } from '../quickpicks/referencePicker';
@@ -10,7 +10,7 @@ import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;

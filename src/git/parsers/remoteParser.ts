@@ -1,7 +1,6 @@
 import { debug } from '../../system/decorators/log';
-import { GitRemote } from '../models';
-import { GitRemoteType } from '../models/remote';
-import { RemoteProvider } from '../remotes/provider';
+import { GitRemote, GitRemoteType } from '../models/remote';
+import type { RemoteProvider } from '../remotes/provider';
 
 const emptyStr = '';
 

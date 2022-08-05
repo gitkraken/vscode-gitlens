@@ -1,22 +1,22 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { GitRevision } from '../../git/models/reference';
 import {
-	GitBranch,
-	GitLog,
-	GitRevision,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/models';
+} from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
 import { basename } from '../../system/path';
-import { FileHistoryView } from '../fileHistoryView';
+import type { FileHistoryView } from '../fileHistoryView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';

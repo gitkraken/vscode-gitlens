@@ -1,11 +1,11 @@
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models';
+import { GitFile } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 

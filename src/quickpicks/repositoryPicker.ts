@@ -1,6 +1,6 @@
 import { Disposable, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../git/models';
+import type { Repository } from '../git/models/repository';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';

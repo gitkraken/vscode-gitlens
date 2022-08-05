@@ -17,7 +17,7 @@ import { ShowQuickCommitCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { executeCoreCommand } from '../../system/command';

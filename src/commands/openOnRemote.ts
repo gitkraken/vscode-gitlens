@@ -1,6 +1,7 @@
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitRemote, GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
 import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { Messages } from '../messages';

@@ -1,11 +1,14 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitMergeStatus, GitReference, GitStatus } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitMergeStatus } from '../../git/models/merge';
+import { GitReference } from '../../git/models/reference';
+import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { FileNode, FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';

@@ -1,5 +1,7 @@
 import type { Endpoints } from '@octokit/types';
-import { GitFileIndexStatus, type IssueOrPullRequestType, PullRequest, PullRequestState } from '../../git/models';
+import { GitFileIndexStatus } from '../../git/models/file';
+import type { IssueOrPullRequestType } from '../../git/models/issue';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 
 export interface GitHubBlame {

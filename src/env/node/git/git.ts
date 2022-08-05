@@ -3,13 +3,15 @@ import { CancellationToken, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
-import { GitDiffFilter, GitRevision, GitUser } from '../../../git/models';
+import type { GitDiffFilter } from '../../../git/models/diff';
+import { GitRevision } from '../../../git/models/reference';
+import type { GitUser } from '../../../git/models/user';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitTagParser } from '../../../git/parsers';
 import { Logger } from '../../../logger';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
-import { GitLocation } from './locator';
+import type { GitLocation } from './locator';
 import { fsExists, run, RunError, RunOptions } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];

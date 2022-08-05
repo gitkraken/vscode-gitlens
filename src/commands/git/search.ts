@@ -1,13 +1,15 @@
 import { configuration } from '../../configuration';
 import { ContextKeys, GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { getContext } from '../../context';
-import { GitCommit, GitLog, Repository } from '../../git/models';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitLog } from '../../git/models/log';
+import type { Repository } from '../../git/models/repository';
 import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
 import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import {

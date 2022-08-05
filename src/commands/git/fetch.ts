@@ -1,11 +1,12 @@
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitBranchReference, GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	appendReposToTitle,
 	AsyncStepResultGenerator,

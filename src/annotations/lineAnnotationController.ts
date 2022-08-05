@@ -12,9 +12,10 @@ import {
 } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitCommit, PullRequest } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
+import type { PullRequest } from '../git/models/pullRequest';
 import { Authentication } from '../git/remotes/provider';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, log } from '../system/decorators/log';
@@ -22,7 +23,7 @@ import { once } from '../system/event';
 import { count, every, filterMap } from '../system/iterable';
 import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({

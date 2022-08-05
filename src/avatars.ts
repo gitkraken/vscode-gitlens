@@ -2,13 +2,13 @@ import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { configuration } from './configuration';
 import { Container } from './container';
-import { GitRevisionReference } from './git/models';
+import type { GitRevisionReference } from './git/models/reference';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import { StorageKeys } from './storage';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase, md5 } from './system/string';
-import { ContactPresenceStatus } from './vsls/vsls';
+import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 

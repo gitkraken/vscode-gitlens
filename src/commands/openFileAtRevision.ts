@@ -3,7 +3,7 @@ import { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommitPicker } from '../quickpicks/commitPicker';
@@ -12,7 +12,7 @@ import { command } from '../system/command';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
-import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
+import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;

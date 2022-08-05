@@ -12,7 +12,7 @@ import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constan
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
+import { GitReference, GitRevision } from '../git/models/reference';
 import {
 	executeActionCommand,
 	executeCommand,

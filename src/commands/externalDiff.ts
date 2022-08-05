@@ -1,11 +1,11 @@
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
-import { ScmResource } from '../@types/vscode.git.resources';
+import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';

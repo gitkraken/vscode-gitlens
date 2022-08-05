@@ -2,9 +2,10 @@ import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscod
 import type { OpenOnRemoteCommandArgs } from '../commands';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitRemote } from '../git/models';
+import { GitBranch } from '../git/models/branch';
+import { GitRemote } from '../git/models/remote';
 import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
-import { Keys } from '../keyboard';
+import type { Keys } from '../keyboard';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';

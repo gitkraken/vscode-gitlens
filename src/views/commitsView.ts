@@ -13,15 +13,14 @@ import { Commands, ContextKeys, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
+import { GitCommit } from '../git/models/commit';
+import { GitReference, GitRevisionReference } from '../git/models/reference';
 import {
-	GitCommit,
-	GitReference,
-	GitRevisionReference,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../git/models';
+} from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';

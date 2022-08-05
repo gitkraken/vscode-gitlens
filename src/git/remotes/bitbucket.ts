@@ -1,8 +1,8 @@
 import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference, AutolinkType } from '../../config';
-import { GitRevision } from '../models';
-import { Repository } from '../models/repository';
+import { GitRevision } from '../models/reference';
+import type { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;

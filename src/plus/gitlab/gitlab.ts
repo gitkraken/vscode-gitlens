@@ -13,7 +13,10 @@ import {
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
 } from '../../errors';
-import { Account, DefaultBranch, IssueOrPullRequest, IssueOrPullRequestType, PullRequest } from '../../git/models';
+import type { Account } from '../../git/models/author';
+import type { DefaultBranch } from '../../git/models/defaultBranch';
+import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
+import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
 import { Messages } from '../../messages';

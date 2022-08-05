@@ -3,7 +3,7 @@ import { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference } from '../git/models';
+import type { GitReference } from '../git/models/reference';
 import { Messages } from '../messages';
 import { StashPicker } from '../quickpicks/commitPicker';
 import { ReferencePicker } from '../quickpicks/referencePicker';

@@ -16,20 +16,20 @@ import {
 	ViewShowBranchComparison,
 } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
+import { GitBranch } from '../git/models/branch';
+import { GitCommit } from '../git/models/commit';
+import type { GitContributor } from '../git/models/contributor';
 import {
-	GitBranch,
 	GitBranchReference,
-	GitCommit,
-	GitContributor,
 	GitReference,
-	GitRemote,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-	GitWorktree,
-} from '../git/models';
+} from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import type { GitWorktree } from '../git/models/worktree';
 import { WorkspaceStorageKeys } from '../storage';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';

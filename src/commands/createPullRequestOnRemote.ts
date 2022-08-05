@@ -1,10 +1,10 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitRemote } from '../git/models';
+import type { GitRemote } from '../git/models/remote';
 import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import { command, executeCommand } from '../system/command';
 import { Command } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {
 	base?: string;

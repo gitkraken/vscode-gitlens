@@ -1,23 +1,19 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitLog,
-	GitRemote,
-	GitRemoteType,
-	GitRevision,
-	GitWorktree,
-	PullRequest,
-	PullRequestState,
-} from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import { GitRevision } from '../../git/models/reference';
+import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import type { GitWorktree } from '../../git/models/worktree';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
-import { WorktreesView } from '../worktreesView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { WorktreesView } from '../worktreesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';

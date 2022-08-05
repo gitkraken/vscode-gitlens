@@ -3,16 +3,12 @@ import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuratio
 import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitBranchReference,
-	GitLog,
-	GitRemote,
-	GitRemoteType,
-	GitUser,
-	PullRequest,
-	PullRequestState,
-} from '../../git/models';
+import { GitBranch } from '../../git/models/branch';
+import { GitLog } from '../../git/models/log';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import { GitBranchReference } from '../../git/models/reference';
+import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { GitUser } from '../../git/models/user';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

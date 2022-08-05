@@ -1,7 +1,7 @@
 import { ConfigurationTarget, MessageItem, window } from 'vscode';
 import { configuration, SuppressedMessages } from './configuration';
 import { Commands } from './constants';
-import { GitCommit } from './git/models';
+import type { GitCommit } from './git/models/commit';
 import { Logger } from './logger';
 import { executeCommand } from './system/command';
 

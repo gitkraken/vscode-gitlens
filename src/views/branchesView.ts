@@ -16,17 +16,11 @@ import {
 	ViewShowBranchComparison,
 } from '../configuration';
 import { Commands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import {
-	GitBranchReference,
-	GitCommit,
-	GitReference,
-	GitRevisionReference,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/models';
+import { GitCommit } from '../git/models/commit';
+import { GitBranchReference, GitReference, GitRevisionReference } from '../git/models/reference';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import {

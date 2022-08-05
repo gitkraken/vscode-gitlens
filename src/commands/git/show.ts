@@ -1,9 +1,11 @@
-import { Container } from '../../container';
-import { GitCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitCommit, GitStashCommit } from '../../git/models/commit';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import {
 	PartialStepState,
 	pickCommitStep,

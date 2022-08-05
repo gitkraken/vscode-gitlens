@@ -1,11 +1,11 @@
 import { Disposable, TextEditor } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitCommit } from '../git/models';
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
-import {
+import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,

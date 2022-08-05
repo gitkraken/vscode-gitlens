@@ -8,25 +8,24 @@ import {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
+import type { GitFile } from '../../git/models/file';
+import { GitReference, GitRevisionReference } from '../../git/models/reference';
+import { GitRemote } from '../../git/models/remote';
 import {
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitRevisionReference,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
-} from '../../git/models';
+} from '../../git/models/repository';
 import { Logger } from '../../logger';
-import { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { pad } from '../../system/string';
-import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',

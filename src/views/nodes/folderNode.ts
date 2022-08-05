@@ -3,9 +3,9 @@ import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
-import { FileHistoryView } from '../fileHistoryView';
-import { StashesView } from '../stashesView';
-import { ViewsWithCommits } from '../viewBase';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { StashesView } from '../stashesView';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {

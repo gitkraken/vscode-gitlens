@@ -22,10 +22,14 @@ import { emojify } from '../../emojis';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';
-import { ContactPresence } from '../../vsls/vsls';
-import { PreviousLineComparisonUrisResult } from '../gitProvider';
-import { GitCommit, GitRemote, GitRevision, IssueOrPullRequest, PullRequest } from '../models';
-import { RemoteProvider } from '../remotes/provider';
+import type { ContactPresence } from '../../vsls/vsls';
+import type { PreviousLineComparisonUrisResult } from '../gitProvider';
+import { GitCommit } from '../models/commit';
+import type { IssueOrPullRequest } from '../models/issue';
+import { PullRequest } from '../models/pullRequest';
+import { GitRevision } from '../models/reference';
+import { GitRemote } from '../models/remote';
+import type { RemoteProvider } from '../remotes/provider';
 import { FormatOptions, Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {

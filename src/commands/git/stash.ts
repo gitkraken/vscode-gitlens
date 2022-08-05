@@ -1,16 +1,18 @@
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { ContextKeys, GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { getContext } from '../../context';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
-import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
+import type { GitStashCommit } from '../../git/models/commit';
+import { GitReference, GitStashReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import {

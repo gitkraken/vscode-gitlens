@@ -1,7 +1,9 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitRemote, Repository } from '../git/models';
-import { RichRemoteProvider } from '../git/remotes/provider';
+import type { GitCommit } from '../git/models/commit';
+import { GitRemote } from '../git/models/remote';
+import type { Repository } from '../git/models/repository';
+import type { RichRemoteProvider } from '../git/remotes/provider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';

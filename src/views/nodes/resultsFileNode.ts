@@ -3,9 +3,10 @@ import type { DiffWithCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitReference, GitRevisionReference } from '../../git/models';
+import { GitFile } from '../../git/models/file';
+import { GitReference, GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
-import { View } from '../viewBase';
+import type { View } from '../viewBase';
 import { FileNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 

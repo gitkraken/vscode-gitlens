@@ -1,8 +1,9 @@
 import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitStashCommit, GitStashReference } from '../git/models';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
+import type { GitStashCommit } from '../git/models/commit';
+import type { GitStashReference } from '../git/models/reference';
+import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
 import {
 	Command,

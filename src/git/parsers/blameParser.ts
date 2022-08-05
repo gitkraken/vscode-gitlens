@@ -1,17 +1,11 @@
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
-import {
-	GitBlame,
-	GitBlameAuthor,
-	GitCommit,
-	GitCommitIdentity,
-	GitCommitLine,
-	GitFileChange,
-	GitFileIndexStatus,
-	GitRevision,
-	GitUser,
-} from '../models';
+import type { GitBlame, GitBlameAuthor } from '../models/blame';
+import { GitCommit, GitCommitIdentity, GitCommitLine } from '../models/commit';
+import { GitFileChange, GitFileIndexStatus } from '../models/file';
+import { GitRevision } from '../models/reference';
+import type { GitUser } from '../models/user';
 
 interface BlameEntry {
 	sha: string;

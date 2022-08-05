@@ -33,9 +33,10 @@ import {
 	FileAnnotationType,
 } from '../configuration';
 import { Commands, CoreCommands, Schemes } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
+import type { GitBlame, GitBlameLines } from '../git/models/blame';
+import type { GitCommit } from '../git/models/commit';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { asCommand, executeCoreCommand } from '../system/command';

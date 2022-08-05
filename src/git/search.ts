@@ -1,4 +1,4 @@
-import { GitRevision, GitRevisionReference } from './models';
+import { GitRevision, GitRevisionReference } from './models/reference';
 
 export type SearchOperators =
 	| ''

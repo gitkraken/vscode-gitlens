@@ -1,11 +1,11 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { RepositoriesView } from '../repositoriesView';
-import { StashesView } from '../stashesView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { StashesView } from '../stashesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { StashNode } from './stashNode';

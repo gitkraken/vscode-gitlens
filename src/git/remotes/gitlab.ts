@@ -2,22 +2,19 @@ import { AuthenticationSession, Disposable, env, QuickInputButton, Range, ThemeI
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference, AutolinkType } from '../../config';
 import { Container } from '../../container';
-import {
+import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../plus/integrationAuthentication';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { log } from '../../system/decorators/log';
 import { equalsIgnoreCase } from '../../system/string';
-import {
-	type Account,
-	type DefaultBranch,
-	GitRevision,
-	type IssueOrPullRequest,
-	type PullRequest,
-	type PullRequestState,
-	type Repository,
-} from '../models';
+import type { Account } from '../models/author';
+import type { DefaultBranch } from '../models/defaultBranch';
+import type { IssueOrPullRequest } from '../models/issue';
+import type { PullRequest, PullRequestState } from '../models/pullRequest';
+import { GitRevision } from '../models/reference';
+import type { Repository } from '../models/repository';
 import { RichRemoteProvider } from './provider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;

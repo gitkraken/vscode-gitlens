@@ -8,7 +8,9 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { GitReference, GitWorktree, Repository } from '../../git/models';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import { GitWorktree } from '../../git/models/worktree';
 import { Messages } from '../../messages';
 import { QuickPickItemOfT, QuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
@@ -16,7 +18,7 @@ import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import {
 	appendReposToTitle,

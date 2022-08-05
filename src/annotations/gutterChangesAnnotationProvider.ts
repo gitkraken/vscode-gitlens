@@ -13,13 +13,14 @@ import {
 	TextEditorRevealType,
 } from 'vscode';
 import { configuration, FileAnnotationType } from '../configuration';
-import { Container } from '../container';
-import { GitCommit, GitDiff } from '../git/models';
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
+import type { GitDiff } from '../git/models/diff';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
 import { Decorations } from './fileAnnotationController';
 

@@ -4,7 +4,8 @@ import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBranch, GitRevision } from '../git/models';
+import { GitBranch } from '../git/models/branch';
+import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { ReferencePicker } from '../quickpicks/referencePicker';
@@ -18,7 +19,7 @@ import {
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenFileOnRemoteCommandArgs {
 	branchOrTag?: string;

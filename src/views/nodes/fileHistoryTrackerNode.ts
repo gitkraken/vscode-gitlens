@@ -3,14 +3,14 @@ import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import { GitCommitish, GitUri } from '../../git/gitUri';
-import { GitReference, GitRevision } from '../../git/models';
+import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce, Deferrable } from '../../system/function';
 import { isVirtualUri } from '../../system/utils';
-import { FileHistoryView } from '../fileHistoryView';
+import type { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
 import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 

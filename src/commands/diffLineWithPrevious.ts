@@ -2,12 +2,12 @@ import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithPreviousCommandArgs {
 	commit?: GitCommit;

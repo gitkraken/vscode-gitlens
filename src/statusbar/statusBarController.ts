@@ -13,9 +13,10 @@ import {
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters';
-import { GitCommit, PullRequest } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
+import type { PullRequest } from '../git/models/pullRequest';
 import { Hovers } from '../hovers/hovers';
 import { LogCorrelationContext, Logger } from '../logger';
 import { asCommand } from '../system/command';
@@ -23,7 +24,7 @@ import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { PromiseCancelledError } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
 	private _pullRequestCancellation: CancellationTokenSource | undefined;

@@ -1,12 +1,13 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { configuration } from '../../configuration';
-import { GitUri } from '../../git/gitUri';
-import { GitContributor, Repository } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import { GitContributor } from '../../git/models/contributor';
+import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { timeout } from '../../system/decorators/timeout';
-import { ContributorsView } from '../contributorsView';
-import { RepositoriesView } from '../repositoriesView';
+import type { ContributorsView } from '../contributorsView';
+import type { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 import { RepositoryNode } from './repositoryNode';

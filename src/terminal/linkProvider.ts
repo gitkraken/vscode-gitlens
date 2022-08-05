@@ -5,9 +5,11 @@ import type {
 	ShowQuickCommitCommandArgs,
 } from '../commands';
 import { Commands } from '../constants';
-import { Container } from '../container';
-import { PagedResult } from '../git/gitProvider';
-import { GitBranch, GitReference, GitTag } from '../git/models';
+import type { Container } from '../container';
+import type { PagedResult } from '../git/gitProvider';
+import type { GitBranch } from '../git/models/branch';
+import { GitReference } from '../git/models/reference';
+import type { GitTag } from '../git/models/tag';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;

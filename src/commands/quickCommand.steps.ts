@@ -4,26 +4,23 @@ import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
 import type { PagedResult } from '../git/gitProvider';
+import { BranchSortOptions, GitBranch } from '../git/models/branch';
+import { GitCommit, GitStashCommit } from '../git/models/commit';
+import type { GitContributor } from '../git/models/contributor';
+import type { GitLog } from '../git/models/log';
 import {
-	BranchSortOptions,
-	GitBranch,
 	GitBranchReference,
-	GitCommit,
-	GitContributor,
-	GitLog,
 	GitReference,
-	GitRemote,
 	GitRevision,
 	GitRevisionReference,
-	GitStash,
-	GitStashCommit,
-	GitStatus,
-	GitTag,
 	GitTagReference,
-	GitWorktree,
-	Repository,
-	TagSortOptions,
-} from '../git/models';
+} from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
+import { Repository } from '../git/models/repository';
+import type { GitStash } from '../git/models/stash';
+import type { GitStatus } from '../git/models/status';
+import { GitTag, TagSortOptions } from '../git/models/tag';
+import type { GitWorktree } from '../git/models/worktree';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { SearchPattern } from '../git/search';
 import {
@@ -63,7 +60,7 @@ import {
 	TagQuickPickItem,
 	WorktreeQuickPickItem,
 } from '../quickpicks/items/gitCommands';
-import { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
+import type { ReferencesQuickPickItem } from '../quickpicks/referencePicker';
 import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
