@@ -1,6 +1,6 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import { Colors } from '../../constants';
-import { RemoteProviderReference } from './remoteProvider';
+import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum IssueOrPullRequestType {
 	Issue = 'Issue',

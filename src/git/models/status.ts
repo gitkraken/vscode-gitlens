@@ -14,8 +14,8 @@ import {
 	GitFileWorkingTreeStatus,
 } from './file';
 import { GitRevision } from './reference';
-import { GitRemote } from './remote';
-import { GitUser } from './user';
+import type { GitRemote } from './remote';
+import type { GitUser } from './user';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;

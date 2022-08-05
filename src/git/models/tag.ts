@@ -3,7 +3,7 @@ import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
-import { GitReference, GitTagReference } from './reference';
+import type { GitReference, GitTagReference } from './reference';
 
 export interface TagSortOptions {
 	current?: boolean;

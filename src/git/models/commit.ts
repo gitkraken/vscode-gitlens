@@ -8,14 +8,14 @@ import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
-import { PreviousLineComparisonUrisResult } from '../gitProvider';
+import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
-import { RichRemoteProvider } from '../remotes/provider';
+import type { RichRemoteProvider } from '../remotes/provider';
 import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
-import { PullRequest } from './pullRequest';
+import type { PullRequest } from './pullRequest';
 import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
-import { GitRemote } from './remote';
-import { Repository } from './repository';
+import type { GitRemote } from './remote';
+import type { Repository } from './repository';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 

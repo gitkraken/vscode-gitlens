@@ -6,9 +6,9 @@ import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { sortCompare } from '../../system/string';
-import { PullRequest, PullRequestState } from './pullRequest';
+import type { PullRequest, PullRequestState } from './pullRequest';
 import { GitBranchReference, GitReference, GitRevision } from './reference';
-import { GitRemote } from './remote';
+import type { GitRemote } from './remote';
 import { GitStatus } from './status';
 
 const whitespaceRegex = /\s/;

@@ -4,7 +4,7 @@ import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import { RemoteProviderReference } from './remoteProvider';
+import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum PullRequestState {
 	Open = 'Open',

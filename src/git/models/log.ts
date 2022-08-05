@@ -1,5 +1,5 @@
 import { Range } from 'vscode';
-import { GitCommit } from './commit';
+import type { GitCommit } from './commit';
 
 export interface GitLog {
 	readonly repoPath: string;

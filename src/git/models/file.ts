@@ -5,7 +5,7 @@ import { memoize } from '../../system/decorators/memoize';
 import { formatPath } from '../../system/formatPath';
 import { relativeDir, splitPath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
-import { GitCommit } from './commit';
+import type { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 
