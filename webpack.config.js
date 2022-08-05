@@ -443,7 +443,10 @@ function getCspHtmlPlugin(mode, env) {
 				mode !== 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
 					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'unsafe-hashes'", "'unsafe-inline'"],
+			'style-src':
+				mode === 'production'
+					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"]
+					: ['#{cspSource}', "'unsafe-hashes'", "'unsafe-inline'"],
 			'font-src': ['#{cspSource}'],
 		},
 		{
@@ -451,11 +454,11 @@ function getCspHtmlPlugin(mode, env) {
 			hashingMethod: 'sha256',
 			hashEnabled: {
 				'script-src': true,
-				'style-src': false,
+				'style-src': mode === 'production',
 			},
 			nonceEnabled: {
 				'script-src': true,
-				'style-src': false,
+				'style-src': mode === 'production',
 			},
 		},
 	);
