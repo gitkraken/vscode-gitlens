@@ -59,7 +59,7 @@ export class FileChangeItem extends LitElement {
 			justify-content: space-between;
 			font-size: var(--vscode-font-size);
 			line-height: 2rem;
-			color: var(--vscode-foreground);
+			color: var(--vscode-sideBar-foreground);
 		}
 		:host(:hover) {
 			background-color: var(--vscode-list-hoverBackground);

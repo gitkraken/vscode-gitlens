@@ -119,6 +119,7 @@ ul {
 	&__filename {
 	}
 	&__path {
+		font-size: 0.9em;
 	}
 	&__actions {
 		flex: none;
@@ -198,9 +199,11 @@ ul {
 
 	&__message {
 		font-size: 1.3rem;
-		border: 1px solid var(--color-background--lighten-15);
+		border: 1px solid var(--vscode-input-border);
+		background: var(--vscode-input-background);
 		padding: 0.5rem;
 	}
+
 	&__message-text {
 		flex: 1;
 		margin: 0;
@@ -300,6 +303,8 @@ ul {
 	max-height: 100vh;
 	overflow: auto;
 	scrollbar-gutter: stable;
+	color: var(--vscode-sideBar-foreground);
+	background-color: var(--vscode-sideBar-background);
 
 	[aria-hidden='true'] {
 		display: none;
