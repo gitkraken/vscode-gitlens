@@ -908,7 +908,7 @@ export class GitProviderService implements Disposable {
 			if (typeof pathOrFile === 'string') {
 				path = pathOrFile;
 			} else {
-				path = pathOrFile!.originalPath ?? pathOrFile!.path;
+				path = pathOrFile?.originalPath ?? pathOrFile?.path ?? '';
 			}
 		} else {
 			ref = refOrUri.sha;
