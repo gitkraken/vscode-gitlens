@@ -8,7 +8,7 @@ export class WebviewPane extends LitElement {
 		:host {
 			display: flex;
 			flex-direction: column;
-			background-color: var(--color-view-background);
+			background-color: var(--vscode-sideBar-background);
 		}
 
 		* {
@@ -18,9 +18,9 @@ export class WebviewPane extends LitElement {
 		.header {
 			flex: none;
 			display: flex;
-			background-color: var(--color-view-background);
+			background-color: var(--vscode-sideBarSectionHeader-background);
 			color: var(--vscode-foreground);
-			border-top: 1px solid var(--vscode-panel-border);
+			border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		}
 
 		.header:focus-within {
@@ -54,8 +54,8 @@ export class WebviewPane extends LitElement {
 		}
 
 		.subtitle {
-			margin-left: 0.5rem;
-			color: var(--vscode-descriptionForeground);
+			margin-left: 1rem;
+			opacity: 0.6;
 		}
 
 		.icon {

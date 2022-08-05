@@ -17,6 +17,11 @@ export class CommitStats extends LitElement {
             display: inline-flex;
             flex-direction: row;
             align-items: center;
+            min-width: 3.4em;
+        }
+
+        .stat code-icon {
+            margin-right: 0.25rem;
         }
 
         .added {

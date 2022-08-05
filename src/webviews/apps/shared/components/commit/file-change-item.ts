@@ -61,13 +61,12 @@ export class FileChangeItem extends LitElement {
 			line-height: 2rem;
 			color: var(--vscode-foreground);
 		}
-		:host(:hover),
-		:host(:focus-within) {
+		:host(:hover) {
 			background-color: var(--vscode-list-hoverBackground);
 		}
 
 		:host(:focus-within) {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -1px;
 		}
 
@@ -86,7 +85,7 @@ export class FileChangeItem extends LitElement {
 		}
 
 		.change-list__status {
-			margin-right: 0.33em;
+			margin-right: 0.6rem;
 		}
 
 		.change-list__status-icon {
@@ -96,7 +95,8 @@ export class FileChangeItem extends LitElement {
 		}
 
 		.change-list__path {
-			color: var(--vscode-descriptionForeground);
+			opacity: 0.7;
+			margin-left: 0.3rem;
 		}
 
 		.change-list__actions {
@@ -117,13 +117,20 @@ export class FileChangeItem extends LitElement {
 			width: 2rem;
 			height: 2rem;
 			border-radius: 0.25em;
-			color: inherit;
+			color: var(--vscode-icon-foreground);
 			padding: 2px;
 			vertical-align: text-bottom;
 			text-decoration: none;
 		}
+		.change-list__action:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
 		.change-list__action:hover {
-			background-color: var(--color-background--lighten-15);
+			background-color: var(--vscode-toolbar-hoverBackground);
+		}
+		.change-list__action:active {
+			background-color: var(--vscode-toolbar-activeBackground);
 		}
 	`;
 

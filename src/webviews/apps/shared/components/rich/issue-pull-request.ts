@@ -8,7 +8,7 @@ export class IssuePullRequest extends LitElement {
 	static override styles = css`
 		:host {
 			display: grid;
-			gap: 0.25rem 0.5rem;
+			gap: 0.25rem 0.6rem;
 			justify-content: start;
 		}
 
@@ -21,22 +21,22 @@ export class IssuePullRequest extends LitElement {
 			grid-column: 1;
 			grid-row: 1 / 3;
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
-			width: 32px;
 			text-align: center;
+			padding-top: 0.1rem;
 		}
 
 		.title {
 			grid-column: 2;
 			grid-row: 1;
 			margin: 0;
-			font-size: 1.5rem;
+			font-size: 1.4rem;
 		}
 
 		.date {
 			grid-column: 2;
 			grid-row: 2;
 			margin: 0;
-			font-size: 1.2rem;
+			font-size: 1.3rem;
 		}
 	`;
 
