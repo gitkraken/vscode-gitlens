@@ -136,7 +136,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			commands.registerCommand(

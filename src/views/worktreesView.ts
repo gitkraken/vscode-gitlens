@@ -11,6 +11,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
@@ -181,7 +182,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => commands.executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			commands.registerCommand(

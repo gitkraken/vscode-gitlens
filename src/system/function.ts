@@ -153,6 +153,18 @@ export function disposableInterval(fn: (...args: any[]) => void, ms: number): Di
 	return disposable;
 }
 
+export async function sequentialize<T extends (...args: any[]) => unknown>(
+	fn: T,
+	argArray: Parameters<T>[],
+	thisArg?: unknown,
+): Promise<any> {
+	for (const args of argArray) {
+		try {
+			void (await fn.apply(thisArg, args));
+		} catch {}
+	}
+}
+
 /**
  * Szudzik elegant pairing function
  * http://szudzik.com/ElegantPairing.pdf

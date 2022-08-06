@@ -318,7 +318,7 @@ export class Container {
 
 	@memoize()
 	get env(): 'dev' | 'staging' | 'production' {
-		if (this.insiders || this.debugging) {
+		if (this.insidersOrDebugging) {
 			const env = configuration.getAny('gitkraken.env');
 			if (env === 'dev') return 'dev';
 			if (env === 'staging') return 'staging';
@@ -398,6 +398,11 @@ export class Container {
 	private readonly _insiders;
 	get insiders() {
 		return this._insiders;
+	}
+
+	@memoize()
+	get insidersOrDebugging() {
+		return this._insiders || this.debugging;
 	}
 
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;

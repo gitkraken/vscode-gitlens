@@ -74,10 +74,16 @@ export class Configuration {
 		queueMicrotask(() => (this._overrides = undefined));
 	}
 
+	get<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): ConfigPathValue<T>;
+	get<T extends ConfigPath>(
+		section: T,
+		scope: ConfigurationScope | null | undefined,
+		defaultValue: NonNullable<ConfigPathValue<T>>,
+	): NonNullable<ConfigPathValue<T>>;
 	get<T extends ConfigPath>(
 		section: T,
 		scope?: ConfigurationScope | null,
-		defaultValue?: ConfigPathValue<T>,
+		defaultValue?: NonNullable<ConfigPathValue<T>>,
 	): ConfigPathValue<T> {
 		const value =
 			defaultValue === undefined

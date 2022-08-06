@@ -20,6 +20,7 @@ import type { GitReference } from '../git/models/reference';
 import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import { GitTag } from '../git/models/tag';
+import { sequentialize } from '../system/function';
 import { ViewNode, ViewRefNode } from '../views/nodes/viewNode';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
@@ -73,6 +74,12 @@ export interface CommandUrisContext extends CommandBaseContext {
 export interface CommandViewNodeContext extends CommandBaseContext {
 	readonly type: 'viewItem';
 	readonly node: ViewNode;
+}
+
+export interface CommandViewNodesContext extends CommandBaseContext {
+	readonly type: 'viewItems';
+	readonly node: ViewNode;
+	readonly nodes: ViewNode[];
 }
 
 export function isCommandContextGitTimelineItem(context: CommandContext): context is CommandGitTimelineItemContext {
@@ -181,7 +188,8 @@ export type CommandContext =
 	| CommandUriContext
 	| CommandUrisContext
 	// | CommandViewContext
-	| CommandViewNodeContext;
+	| CommandViewNodeContext
+	| CommandViewNodesContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
@@ -250,14 +258,24 @@ export abstract class Command implements Disposable {
 		this._disposable.dispose();
 	}
 
-	protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+	protected preExecute(_context: CommandContext, ...args: any[]): Promise<unknown> {
 		return this.execute(...args);
 	}
 
 	abstract execute(...args: any[]): any;
 
-	protected _execute(command: string, ...args: any[]): any {
+	protected _execute(command: string, ...args: any[]): Promise<unknown> {
 		const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
+
+		// If there an array of contexts, then we want to execute the command for each
+		if (Array.isArray(context)) {
+			return sequentialize(
+				this.preExecute,
+				context.map<[CommandContext, ...any[]]>((c: CommandContext) => [c, ...rest]),
+				this,
+			);
+		}
+
 		return this.preExecute(context, ...rest);
 	}
 
@@ -265,7 +283,7 @@ export abstract class Command implements Disposable {
 		command: string,
 		options: CommandContextParsingOptions,
 		...args: any[]
-	): [CommandContext, any[]] {
+	): [CommandContext | CommandContext[], any[]] {
 		let editor: TextEditor | undefined = undefined;
 
 		let firstArg = args[0];
@@ -307,7 +325,24 @@ export abstract class Command implements Disposable {
 		}
 
 		if (firstArg instanceof ViewNode) {
-			const [node, ...rest] = args as [ViewNode, any];
+			let [node, ...rest] = args as [ViewNode, unknown];
+
+			// If there is a node followed by an array of nodes, then we want to execute the command for each
+			firstArg = rest[0];
+			if (Array.isArray(firstArg) && firstArg[0] instanceof ViewNode) {
+				let nodes;
+				[nodes, ...rest] = rest as unknown as [ViewNode[], unknown];
+
+				const contexts: CommandContext[] = [];
+				for (const n of nodes) {
+					if (n?.constructor === node.constructor) {
+						contexts.push({ command: command, type: 'viewItem', node: n, uri: n.uri });
+					}
+				}
+
+				return [contexts, rest];
+			}
+
 			return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
 		}
 

@@ -798,6 +798,13 @@
 						"scope": "window",
 						"order": 35
 					},
+					"gitlens.views.experimental.multiSelect.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to enable experimental multi-select support in the views.\n**NOTE**: Requires a restart to take effect.",
+						"scope": "window",
+						"order": 35
+					},
 					"gitlens.views.commitFileFormat": {
 						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
 						"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"

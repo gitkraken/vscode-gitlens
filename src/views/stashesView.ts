@@ -105,7 +105,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			commands.registerCommand(

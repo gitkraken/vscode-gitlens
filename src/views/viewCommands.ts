@@ -1,4 +1,4 @@
-import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { commands, Disposable, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type {
 	DiffWithCommandArgs,
@@ -12,7 +12,7 @@ import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constan
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models/reference';
+import { GitReference, GitRevision, GitStashReference } from '../git/models/reference';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -21,6 +21,7 @@ import {
 	executeEditorCommand,
 } from '../system/command';
 import { debug } from '../system/decorators/log';
+import { sequentialize } from '../system/function';
 import { OpenWorkspaceLocation } from '../system/utils';
 import { runGitCommandInTerminal } from '../terminal';
 import { BranchesNode } from './nodes/branchesNode';
@@ -67,37 +68,77 @@ interface CompareSelectedInfo {
 	uri?: Uri;
 }
 
+const enum ViewCommandMultiSelectMode {
+	Disallowed,
+	Allowed,
+	Custom,
+}
+
 export class ViewCommands {
+	private registerCommand(
+		command: string,
+		callback: (...args: any[]) => any,
+		thisArg?: any,
+		multiSelect: ViewCommandMultiSelectMode = ViewCommandMultiSelectMode.Allowed,
+	): Disposable {
+		return commands.registerCommand(
+			command,
+			(...args: any[]) => {
+				if (multiSelect !== ViewCommandMultiSelectMode.Disallowed) {
+					let [node, nodes, ...rest] = args;
+					// If there is a node followed by an array of nodes, then we want to execute the command for each
+					if (node instanceof ViewNode && Array.isArray(nodes) && nodes[0] instanceof ViewNode) {
+						nodes = nodes.filter(n => n?.constructor === node.constructor);
+
+						if (multiSelect === ViewCommandMultiSelectMode.Custom) {
+							return callback.apply(thisArg, [node, nodes, ...rest]);
+						}
+
+						return sequentialize(
+							callback,
+							nodes.map((n: ViewNode) => [n, ...rest]),
+							thisArg,
+						);
+					}
+				}
+
+				return callback.apply(thisArg, args);
+			},
+			thisArg,
+		);
+	}
+
 	constructor(private readonly container: Container) {
-		commands.registerCommand('gitlens.views.clearNode', (n: ViewNode) => canClearNode(n) && n.clear(), this);
+		this.registerCommand('gitlens.views.clearNode', (n: ViewNode) => canClearNode(n) && n.clear(), this);
+		// Register independently as it already handles copying multiple nodes
 		commands.registerCommand(
-			'gitlens.views.copy',
-			async (selection: ViewNode | ViewNode[]) => {
-				selection = Array.isArray(selection) ? selection : [selection];
+			Commands.ViewsCopy,
+			async (active: ViewNode | undefined, selection: ViewNode[]) => {
+				selection = Array.isArray(selection) ? selection : active != null ? [active] : [];
 				if (selection.length === 0) return;
 
 				const data = selection
 					.map(n => n.toClipboard?.())
-					.filter(s => s != null && s.length > 0)
-					.join(',');
+					.filter(s => Boolean(s))
+					.join('\n');
 				await env.clipboard.writeText(data);
 			},
 			this,
 		);
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.dismissNode',
 			(n: ViewNode) => canViewDismissNode(n.view) && n.view.dismissNode(n),
 			this,
 		);
-		commands.registerCommand('gitlens.views.editNode', (n: ViewNode) => canEditNode(n) && n.edit(), this);
-		commands.registerCommand(
+		this.registerCommand('gitlens.views.editNode', (n: ViewNode) => canEditNode(n) && n.edit(), this);
+		this.registerCommand(
 			'gitlens.views.expandNode',
 			(n: ViewNode) => n.view.reveal(n, { select: false, focus: false, expand: 3 }),
 			this,
 		);
-		commands.registerCommand('gitlens.views.loadMoreChildren', (n: PagerNode) => n.loadMore(), this);
-		commands.registerCommand('gitlens.views.loadAllChildren', (n: PagerNode) => n.loadAll(), this);
-		commands.registerCommand(
+		this.registerCommand('gitlens.views.loadMoreChildren', (n: PagerNode) => n.loadMore(), this);
+		this.registerCommand('gitlens.views.loadAllChildren', (n: PagerNode) => n.loadAll(), this);
+		this.registerCommand(
 			'gitlens.views.refreshNode',
 			(n: ViewNode, reset?: boolean) => {
 				if (reset == null && PageableViewNode.is(n)) {
@@ -110,131 +151,127 @@ export class ViewCommands {
 			this,
 		);
 
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.setShowRelativeDateMarkersOn',
 			() => this.setShowRelativeDateMarkers(true),
 			this,
 		);
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.setShowRelativeDateMarkersOff',
 			() => this.setShowRelativeDateMarkers(false),
 			this,
 		);
 
-		commands.registerCommand('gitlens.views.fetch', this.fetch, this);
-		commands.registerCommand('gitlens.views.publishBranch', this.publishBranch, this);
-		commands.registerCommand('gitlens.views.publishRepository', this.publishRepository, this);
-		commands.registerCommand('gitlens.views.pull', this.pull, this);
-		commands.registerCommand('gitlens.views.push', this.push, this);
-		commands.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
-		commands.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
+		this.registerCommand('gitlens.views.fetch', this.fetch, this);
+		this.registerCommand('gitlens.views.publishBranch', this.publishBranch, this);
+		this.registerCommand('gitlens.views.publishRepository', this.publishRepository, this);
+		this.registerCommand('gitlens.views.pull', this.pull, this);
+		this.registerCommand('gitlens.views.push', this.push, this);
+		this.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
+		this.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
 
-		commands.registerCommand('gitlens.views.setAsDefault', this.setAsDefault, this);
-		commands.registerCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
+		this.registerCommand('gitlens.views.setAsDefault', this.setAsDefault, this);
+		this.registerCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
 
-		commands.registerCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
-		commands.registerCommand('gitlens.views.star', this.star, this);
-		commands.registerCommand('gitlens.views.unstar', this.unstar, this);
+		this.registerCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
+		this.registerCommand('gitlens.views.star', this.star, this);
+		this.registerCommand('gitlens.views.unstar', this.unstar, this);
 
-		commands.registerCommand('gitlens.views.browseRepoAtRevision', this.browseRepoAtRevision, this);
-		commands.registerCommand(
+		this.registerCommand('gitlens.views.browseRepoAtRevision', this.browseRepoAtRevision, this);
+		this.registerCommand(
 			'gitlens.views.browseRepoAtRevisionInNewWindow',
 			n => this.browseRepoAtRevision(n, { openInNewWindow: true }),
 			this,
 		);
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.browseRepoBeforeRevision',
 			n => this.browseRepoAtRevision(n, { before: true }),
 			this,
 		);
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.browseRepoBeforeRevisionInNewWindow',
 			n => this.browseRepoAtRevision(n, { before: true, openInNewWindow: true }),
 			this,
 		);
 
-		commands.registerCommand('gitlens.views.addAuthors', this.addAuthors, this);
-		commands.registerCommand('gitlens.views.addAuthor', this.addAuthors, this);
+		this.registerCommand('gitlens.views.addAuthors', this.addAuthors, this);
+		this.registerCommand('gitlens.views.addAuthor', this.addAuthors, this);
 
-		commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
-		commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
-		commands.registerCommand(
-			'gitlens.views.openPreviousChangesWithWorking',
-			this.openPreviousChangesWithWorking,
-			this,
-		);
-		commands.registerCommand('gitlens.views.openFile', this.openFile, this);
-		commands.registerCommand('gitlens.views.openFileRevision', this.openRevision, this);
-		commands.registerCommand('gitlens.views.openChangedFiles', this.openFiles, this);
-		commands.registerCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
-		commands.registerCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
-		commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this);
-		commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
-		commands.registerCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
-		commands.registerCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this);
-		commands.registerCommand('gitlens.views.restore', this.restore, this);
-		commands.registerCommand('gitlens.views.switchToBranch', this.switch, this);
-		commands.registerCommand('gitlens.views.switchToAnotherBranch', this.switch, this);
-		commands.registerCommand('gitlens.views.switchToCommit', this.switch, this);
-		commands.registerCommand('gitlens.views.switchToTag', this.switch, this);
-		commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
-		commands.registerCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
+		this.registerCommand('gitlens.views.openChanges', this.openChanges, this);
+		this.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
+		this.registerCommand('gitlens.views.openPreviousChangesWithWorking', this.openPreviousChangesWithWorking, this);
+		this.registerCommand('gitlens.views.openFile', this.openFile, this);
+		this.registerCommand('gitlens.views.openFileRevision', this.openRevision, this);
+		this.registerCommand('gitlens.views.openChangedFiles', this.openFiles, this);
+		this.registerCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
+		this.registerCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
+		this.registerCommand('gitlens.views.openChangedFileRevisions', this.openRevisions, this);
+		this.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
+		this.registerCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
+		this.registerCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this);
+		this.registerCommand('gitlens.views.restore', this.restore, this);
+		this.registerCommand('gitlens.views.switchToBranch', this.switch, this);
+		this.registerCommand('gitlens.views.switchToAnotherBranch', this.switch, this);
+		this.registerCommand('gitlens.views.switchToCommit', this.switch, this);
+		this.registerCommand('gitlens.views.switchToTag', this.switch, this);
+		this.registerCommand('gitlens.views.addRemote', this.addRemote, this);
+		this.registerCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
 
-		commands.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
-		commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
-		commands.registerCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this);
-		commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
+		this.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
+		this.registerCommand('gitlens.views.stageFile', this.stageFile, this);
+		this.registerCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this);
+		this.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
 
-		commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
-		commands.registerCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
-		commands.registerCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
-		commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
-		commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
-		commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
-		commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
-		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWorkingWith, this);
+		this.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
+		this.registerCommand('gitlens.views.compareWithHead', this.compareHeadWith, this);
+		this.registerCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
+		this.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
+		this.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
+		this.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
+		this.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
+		this.registerCommand('gitlens.views.compareWithWorking', this.compareWorkingWith, this);
 
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.setBranchComparisonToWorking',
 			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
 			this,
 		);
-		commands.registerCommand(
+		this.registerCommand(
 			'gitlens.views.setBranchComparisonToBranch',
 			n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
 			this,
 		);
 
-		commands.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
-		commands.registerCommand('gitlens.views.createBranch', this.createBranch, this);
-		commands.registerCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
-		commands.registerCommand('gitlens.views.renameBranch', this.renameBranch, this);
-		commands.registerCommand('gitlens.views.deleteStash', this.deleteStash, this);
-		commands.registerCommand('gitlens.views.createTag', this.createTag, this);
-		commands.registerCommand('gitlens.views.deleteTag', this.deleteTag, this);
+		this.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
+		this.registerCommand('gitlens.views.createBranch', this.createBranch, this);
+		this.registerCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
+		this.registerCommand('gitlens.views.renameBranch', this.renameBranch, this);
+		this.registerCommand('gitlens.views.deleteStash', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
+		this.registerCommand('gitlens.views.createTag', this.createTag, this);
+		this.registerCommand('gitlens.views.deleteTag', this.deleteTag, this);
 
-		commands.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
-		commands.registerCommand('gitlens.views.pushToCommit', this.pushToCommit, this);
+		this.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
+		this.registerCommand('gitlens.views.pushToCommit', this.pushToCommit, this);
 
-		commands.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
-		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
-		commands.registerCommand('gitlens.views.rebaseOntoCommit', this.rebase, this);
+		this.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
+		this.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
+		this.registerCommand('gitlens.views.rebaseOntoCommit', this.rebase, this);
 
-		commands.registerCommand('gitlens.views.resetCommit', this.resetCommit, this);
-		commands.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
-		commands.registerCommand('gitlens.views.revert', this.revert, this);
-		commands.registerCommand('gitlens.views.undoCommit', this.undoCommit, this);
+		this.registerCommand('gitlens.views.resetCommit', this.resetCommit, this);
+		this.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
+		this.registerCommand('gitlens.views.revert', this.revert, this);
+		this.registerCommand('gitlens.views.undoCommit', this.undoCommit, this);
 
-		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
+		this.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 
-		commands.registerCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
-		commands.registerCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
+		this.registerCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
+		this.registerCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
 
-		commands.registerCommand('gitlens.views.createWorktree', this.createWorktree, this);
-		commands.registerCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
-		commands.registerCommand('gitlens.views.openWorktree', this.openWorktree, this);
-		commands.registerCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
-		commands.registerCommand(
+		this.registerCommand('gitlens.views.createWorktree', this.createWorktree, this);
+		this.registerCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
+		this.registerCommand('gitlens.views.openWorktree', this.openWorktree, this);
+		this.registerCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
+		this.registerCommand(
 			'gitlens.views.openWorktreeInNewWindow',
 			n => this.openWorktree(n, { location: OpenWorkspaceLocation.NewWindow }),
 			this,
@@ -405,9 +442,18 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private deleteStash(node: StashNode) {
+	private deleteStash(node: StashNode, nodes?: StashNode[]) {
 		if (!(node instanceof StashNode)) return Promise.resolve();
 
+		if (nodes != null && nodes.length !== 0) {
+			const sorted = nodes.sort((a, b) => parseInt(b.commit.number, 10) - parseInt(a.commit.number, 10));
+
+			return sequentialize(
+				GitActions.Stash.drop,
+				sorted.map<[string, GitStashReference]>(n => [n.repoPath, n.commit]),
+				this,
+			);
+		}
 		return GitActions.Stash.drop(node.repoPath, node.commit);
 	}
 

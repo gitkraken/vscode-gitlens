@@ -172,12 +172,19 @@ export abstract class ViewBase<
 	}
 
 	private onReady() {
-		this.initialize({ showCollapseAll: this.showCollapseAll });
+		this.initialize({ canSelectMany: this.canSelectMany, showCollapseAll: this.showCollapseAll });
 		queueMicrotask(() => this.onConfigurationChanged());
 	}
 
 	get canReveal(): boolean {
 		return true;
+	}
+
+	get canSelectMany(): boolean {
+		return (
+			this.container.insidersOrDebugging &&
+			configuration.get('views.experimental.multiSelect.enabled', undefined, false)
+		);
 	}
 
 	private _nodeState: ViewNodeState | undefined;
@@ -248,7 +255,7 @@ export abstract class ViewBase<
 		}
 	}
 
-	protected initialize(options: { showCollapseAll?: boolean } = {}) {
+	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
 		this.tree = window.createTreeView<ViewNode<View>>(this.id, {
 			...options,
 			treeDataProvider: this,
@@ -305,6 +312,13 @@ export abstract class ViewBase<
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
 		this._onDidChangeVisibility.fire(e);
+	}
+
+	get activeSelection(): ViewNode | undefined {
+		if (this.tree == null || this.root == null) return undefined;
+
+		// TODO@eamodio: https://github.com/microsoft/vscode/issues/157406
+		return this.tree.selection[0];
 	}
 
 	get selection(): readonly ViewNode[] {

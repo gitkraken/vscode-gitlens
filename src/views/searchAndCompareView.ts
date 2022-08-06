@@ -270,7 +270,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

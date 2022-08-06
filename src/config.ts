@@ -535,6 +535,12 @@ export interface ViewsCommonConfig {
 	};
 	pageItemLimit: number;
 	showRelativeDateMarkers: boolean;
+
+	experimental: {
+		multiSelect: {
+			enabled: boolean | null | undefined;
+		};
+	};
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [

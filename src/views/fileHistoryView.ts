@@ -38,7 +38,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return [
 			commands.registerCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
 			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),

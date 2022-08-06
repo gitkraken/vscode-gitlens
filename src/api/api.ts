@@ -1,6 +1,5 @@
 import { Disposable } from 'vscode';
 import { Container } from '../container';
-import { Logger } from '../logger';
 import { builtInActionRunnerName } from './actionRunners';
 import type { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
@@ -43,7 +42,7 @@ export function preview() {
 		if (fn == null) throw new Error('Not supported');
 
 		descriptor.value = function (this: any, ...args: any[]) {
-			if (Container.instance.insiders || Logger.isDebugging) return fn!.apply(this, args);
+			if (Container.instance.insidersOrDebugging) return fn!.apply(this, args);
 
 			console.error('GitLens preview APIs are only available in the Insiders edition');
 			return emptyDisposable;
