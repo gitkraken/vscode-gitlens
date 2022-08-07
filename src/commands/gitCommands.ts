@@ -771,16 +771,25 @@ export class GitCommandsCommand extends Command {
 				// Needs to be after we reset the command
 				quickpick.buttons = this.getButtons(step, commandsStep.command);
 
-				if (step.value != null) {
+				const selectValueWhenShown = step.selectValueWhenShown ?? true;
+				if (step.value != null && selectValueWhenShown) {
 					quickpick.value = step.value;
 				}
 
 				quickpick.show();
 
-				// Manually trigger `onDidChangeValue`, because the QuickPick seems to fail to call it properly
-				if (step.value != null) {
+				if (step.value != null && !selectValueWhenShown) {
+					quickpick.value = step.value;
+				}
+
+				// Manually trigger `onDidChangeValue`, because the QuickPick fails to call it if the value is set before it is shown
+				if (step.value != null && selectValueWhenShown) {
 					// HACK: This is fragile!
-					(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+					try {
+						(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+					} catch {
+						debugger;
+					}
 				}
 			});
 		} finally {

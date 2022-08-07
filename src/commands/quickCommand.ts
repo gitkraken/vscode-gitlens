@@ -54,6 +54,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	selectedItems?: QuickPickItem[];
 	title?: string;
 	value?: string;
+	selectValueWhenShown?: boolean;
 
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;

@@ -315,6 +315,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
 			items: items,
 			value: state.pattern,
+			selectValueWhenShown: false,
 			onDidAccept: (quickpick): boolean => {
 				const pick = quickpick.selectedItems[0];
 				if (!searchOperators.has(pick.item)) return true;

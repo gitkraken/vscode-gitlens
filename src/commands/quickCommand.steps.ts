@@ -688,6 +688,7 @@ export async function* pickBranchOrTagStep<
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value,
+		selectValueWhenShown: true,
 		items:
 			branchesAndOrTags.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
@@ -802,6 +803,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: value ?? (GitReference.isRevision(state.reference) ? state.reference.ref : undefined),
+		selectValueWhenShown: true,
 		items:
 			branchesAndOrTags.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
@@ -923,6 +925,7 @@ export async function* pickCommitStep<
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
+		selectValueWhenShown: true,
 		items: showInSideBarCommand != null ? [showInSideBarCommand, ...getItems(log)] : getItems(log),
 		onDidLoadMore: async quickpick => {
 			quickpick.keepScrollPosition = true;
