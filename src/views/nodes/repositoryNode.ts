@@ -4,13 +4,8 @@ import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import { GitRemote } from '../../git/models/remote';
-import {
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/models/repository';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
@@ -31,7 +26,8 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
@@ -331,9 +327,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					}
 
 					if (this.splatted) {
-						void this.view.triggerNodeChange(this.parent ?? this);
+						this.view.triggerNodeChange(this.parent ?? this);
 					} else {
-						void this.view.triggerNodeChange(this);
+						this.view.triggerNodeChange(this);
 					}
 				}, interval),
 			);
@@ -417,21 +413,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof StashesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof TagsNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 	}

@@ -16,7 +16,8 @@ import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';

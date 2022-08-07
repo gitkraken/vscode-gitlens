@@ -1,18 +1,20 @@
-import {
-	authentication,
+import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
+	Event,
+	MessageItem,
+	StatusBarItem,
+} from 'vscode';
+import {
+	authentication,
 	version as codeVersion,
 	commands,
 	Disposable,
 	env,
-	Event,
 	EventEmitter,
 	MarkdownString,
-	MessageItem,
 	ProgressLocation,
 	StatusBarAlignment,
-	StatusBarItem,
 	ThemeColor,
 	Uri,
 	window,
@@ -24,9 +26,10 @@ import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
 import { StorageKeys } from '../../storage';
+import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
 	getSubscriptionPlan,
@@ -37,7 +40,6 @@ import {
 	isSubscriptionExpired,
 	isSubscriptionPaidPlan,
 	isSubscriptionTrial,
-	Subscription,
 	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../subscription';
@@ -260,7 +262,7 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					void this.learn();
+					this.learn();
 				}
 			} else {
 				void window.showInformationMessage(`You are now signed in to your ${actual.name} account.`, 'OK');
@@ -315,7 +317,7 @@ export class SubscriptionService implements Disposable {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this._subscription.account == null) {
-			void this.showPlans();
+			this.showPlans();
 		} else {
 			void env.openExternal(Uri.joinPath(this.baseAccountUri, 'subscription').with({ query: 'product=gitlens' }));
 		}
@@ -458,7 +460,7 @@ export class SubscriptionService implements Disposable {
 		);
 
 		if (result === learn) {
-			void this.learn();
+			this.learn();
 		}
 	}
 
@@ -817,7 +819,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private updateContext(): void {
-		void this.updateStatusBar();
+		this.updateStatusBar();
 
 		queueMicrotask(async () => {
 			const { allowed, subscription } = await this.container.git.access();

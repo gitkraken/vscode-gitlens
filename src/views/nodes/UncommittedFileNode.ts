@@ -1,4 +1,5 @@
-import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -6,7 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import { GitFile } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
-import { FileNode } from './folderNode';
+import type { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class UncommittedFileNode extends ViewNode<ViewsWithCommits> implements FileNode {

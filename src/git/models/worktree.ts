@@ -1,8 +1,9 @@
-import { Uri, workspace, WorkspaceFolder } from 'vscode';
+import type { Uri, WorkspaceFolder } from 'vscode';
+import { workspace } from 'vscode';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { normalizePath, relative } from '../../system/path';
-import { GitBranch } from './branch';
+import type { GitBranch } from './branch';
 import { GitRevision } from './reference';
 import type { GitStatus } from './status';
 

@@ -1,4 +1,4 @@
-import { Range } from 'vscode';
+import type { Range } from 'vscode';
 import type { GitCommit } from './commit';
 
 export interface GitLog {

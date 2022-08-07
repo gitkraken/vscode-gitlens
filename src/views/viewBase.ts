@@ -1,22 +1,17 @@
-import {
+import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
-	Disposable,
 	Event,
-	EventEmitter,
-	MarkdownString,
 	TreeDataProvider,
 	TreeItem,
-	TreeItemCollapsibleState,
 	TreeView,
 	TreeViewExpansionEvent,
 	TreeViewVisibilityChangeEvent,
-	window,
 } from 'vscode';
-import {
+import { Disposable, EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
+import type {
 	BranchesViewConfig,
 	CommitsViewConfig,
-	configuration,
 	ContributorsViewConfig,
 	FileHistoryViewConfig,
 	LineHistoryViewConfig,
@@ -26,30 +21,30 @@ import {
 	StashesViewConfig,
 	TagsViewConfig,
 	ViewsCommonConfig,
-	viewsCommonConfigKeys,
-	viewsConfigKeys,
 	ViewsConfigKeys,
 	WorktreesViewConfig,
 } from '../configuration';
-import { Container } from '../container';
+import { configuration, viewsCommonConfigKeys, viewsConfigKeys } from '../configuration';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
 import { debug, getLogScope, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { cancellable, isPromise } from '../system/promise';
-import { BranchesView } from './branchesView';
-import { CommitsView } from './commitsView';
-import { ContributorsView } from './contributorsView';
-import { FileHistoryView } from './fileHistoryView';
-import { LineHistoryView } from './lineHistoryView';
-import { PageableViewNode, ViewNode } from './nodes/viewNode';
-import { RemotesView } from './remotesView';
-import { RepositoriesView } from './repositoriesView';
-import { SearchAndCompareView } from './searchAndCompareView';
-import { StashesView } from './stashesView';
-import { TagsView } from './tagsView';
-import { WorktreesView } from './worktreesView';
+import type { BranchesView } from './branchesView';
+import type { CommitsView } from './commitsView';
+import type { ContributorsView } from './contributorsView';
+import type { FileHistoryView } from './fileHistoryView';
+import type { LineHistoryView } from './lineHistoryView';
+import type { ViewNode } from './nodes/viewNode';
+import { PageableViewNode } from './nodes/viewNode';
+import type { RemotesView } from './remotesView';
+import type { RepositoriesView } from './repositoriesView';
+import type { SearchAndCompareView } from './searchAndCompareView';
+import type { StashesView } from './stashesView';
+import type { TagsView } from './tagsView';
+import type { WorktreesView } from './worktreesView';
 
 export type View =
 	| BranchesView
@@ -561,7 +556,7 @@ export abstract class ViewBase<
 		context?: Record<string, unknown>,
 	) {
 		if (previousNode != null) {
-			void (await this.reveal(previousNode, { select: true }));
+			(await this.reveal(previousNode, { select: true }));
 		}
 
 		await node.loadMore(limit, context);

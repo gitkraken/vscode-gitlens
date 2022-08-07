@@ -1,4 +1,5 @@
-import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Commands, CoreCommands, GlyphChars } from '../../constants';

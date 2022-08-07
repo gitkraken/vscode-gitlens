@@ -1,4 +1,4 @@
-import { CancellationToken, Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { map } from './iterable';
 
 export type PromiseOrValue<T> = Promise<T> | T;
@@ -37,10 +37,14 @@ export async function* fastestSettled<T>(promises: Promise<T>[]): AsyncIterable<
 		promises.map((promise, i) => [
 			i,
 			promise.then(
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-				v => ({ index: i, value: v, status: 'fulfilled' } as PromiseFulfilledResult<T> & { index: number }),
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-				e => ({ index: i, reason: e, status: 'rejected' } as PromiseRejectedResult & { index: number }),
+				v =>
+					({ index: i, value: v, status: 'fulfilled' } as unknown as PromiseFulfilledResult<T> & {
+						index: number;
+					}),
+				e =>
+					({ index: i, reason: e, status: 'rejected' } as unknown as PromiseRejectedResult & {
+						index: number;
+					}),
 			),
 		]),
 	);

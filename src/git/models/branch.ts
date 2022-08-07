@@ -1,13 +1,15 @@
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Container } from '../../container';
-import { Starred, WorkspaceStorageKeys } from '../../storage';
+import type { Starred } from '../../storage';
+import { WorkspaceStorageKeys } from '../../storage';
 import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { PullRequest, PullRequestState } from './pullRequest';
-import { GitBranchReference, GitReference, GitRevision } from './reference';
+import type { GitBranchReference, GitReference } from './reference';
+import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import { GitStatus } from './status';
 

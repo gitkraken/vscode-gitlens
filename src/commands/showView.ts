@@ -1,7 +1,8 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 @command()
 export class ShowViewCommand extends Command {

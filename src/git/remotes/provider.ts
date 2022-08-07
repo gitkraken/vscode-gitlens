@@ -1,15 +1,5 @@
-import {
-	authentication,
-	AuthenticationSession,
-	AuthenticationSessionsChangeEvent,
-	env,
-	Event,
-	EventEmitter,
-	MessageItem,
-	Range,
-	Uri,
-	window,
-} from 'vscode';
+import type { AuthenticationSession, AuthenticationSessionsChangeEvent, Event, MessageItem, Range } from 'vscode';
+import { authentication, env, EventEmitter, Uri, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
@@ -18,7 +8,7 @@ import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
+import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
@@ -147,7 +137,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		const url = this.url(resource);
 		if (url == null) return;
 
-		void (await env.clipboard.writeText(url));
+		await env.clipboard.writeText(url);
 	}
 
 	hasRichApi(): this is RichRemoteProvider {
@@ -266,6 +256,7 @@ function fireAuthenticationChanged(key: string, reason: 'connected' | 'disconnec
 	_onDidChangeAuthentication.fire({ key: key, reason: reason });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class Authentication {
 	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
 		return _onDidChangeAuthentication.event;
@@ -364,7 +355,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		if (connected && !options?.silent) {
 			if (options?.currentSessionOnly) {
-				void Messages.showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
+				void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
 			} else {
 				const disable = { title: 'Disable' };
 				const signout = { title: 'Disable & Sign Out' };

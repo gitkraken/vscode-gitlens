@@ -1,4 +1,5 @@
-import { QuickPickItem, window } from 'vscode';
+import type { QuickPickItem } from 'vscode';
+import { window } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 

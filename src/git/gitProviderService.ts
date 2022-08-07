@@ -1,21 +1,15 @@
 import { encodingExists } from 'iconv-lite';
-import {
+import type {
 	ConfigurationChangeEvent,
-	Disposable,
 	Event,
-	EventEmitter,
-	FileType,
-	ProgressLocation,
 	Range,
 	TextDocument,
 	TextEditor,
-	Uri,
-	window,
 	WindowState,
-	workspace,
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
+import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import { configuration } from '../configuration';
 import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../constants';
@@ -25,16 +19,11 @@ import { AccessDeniedError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures } from '../features';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
-import { asRepoComparisonKey, RepoComparisonKey, Repositories } from '../repositories';
+import type { RepoComparisonKey } from '../repositories';
+import { asRepoComparisonKey, Repositories } from '../repositories';
 import { WorkspaceStorageKeys } from '../storage';
-import {
-	FreeSubscriptionPlans,
-	getSubscriptionPlanPriority,
-	isSubscriptionPaidPlan,
-	RequiredSubscriptionPlans,
-	Subscription,
-	SubscriptionPlanId,
-} from '../subscription';
+import type { FreeSubscriptionPlans, RequiredSubscriptionPlans, Subscription } from '../subscription';
+import { getSubscriptionPlanPriority, isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
@@ -42,7 +31,7 @@ import { count, filter, first, flatMap, map, some } from '../system/iterable';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
-import {
+import type {
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
@@ -50,9 +39,9 @@ import {
 	PagedResult,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
-	RepositoryVisibility,
 	ScmRepository,
 } from './gitProvider';
+import { RepositoryVisibility } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
@@ -64,15 +53,12 @@ import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { PullRequest, PullRequestState } from './models/pullRequest';
 import type { GitRebaseStatus } from './models/rebase';
-import { GitBranchReference, GitReference, GitRevision } from './models/reference';
+import type { GitBranchReference, GitReference } from './models/reference';
+import { GitRevision } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import { GitRemote } from './models/remote';
-import {
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from './models/repository';
+import type { RepositoryChangeEvent } from './models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitStash } from './models/stash';
 import type { GitStatus, GitStatusFile } from './models/status';
 import type { GitTag, TagSortOptions } from './models/tag';
@@ -80,7 +66,8 @@ import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProviders } from './remotes/factory';
-import { Authentication, RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import { Authentication } from './remotes/provider';
 import type { SearchPattern } from './search';
 
 const maxDefaultBranchWeight = 100;
@@ -1925,7 +1912,7 @@ export class GitProviderService implements Disposable {
 
 				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
 
-				Logger.log(scope, `Repository found in '${repoUri.toString(false)}'`);
+				Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
 				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
 				for (const repository of repositories) {
 					this._repositories.add(repository);
@@ -2100,7 +2087,7 @@ export class GitProviderService implements Disposable {
 
 	@log<GitProviderService['isRepositoryForEditor']>({
 		args: {
-			0: r => r.uri.toString(false),
+			0: r => r.uri.toString(true),
 			1: e => (e != null ? `TextEditor(${Logger.toLoggable(e.document.uri)})` : undefined),
 		},
 	})

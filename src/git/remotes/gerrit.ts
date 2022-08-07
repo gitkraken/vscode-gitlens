@@ -1,4 +1,4 @@
-import { Range, Uri } from 'vscode';
+import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { GitRevision } from '../models/reference';

@@ -1,28 +1,21 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	ThemeColor,
-	TreeItem,
-	TreeItemCollapsibleState,
-	TreeViewVisibilityChangeEvent,
-	window,
-} from 'vscode';
-import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import { commands, ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { WorktreesViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
 import { RepositoryNode } from './nodes/repositoryNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';

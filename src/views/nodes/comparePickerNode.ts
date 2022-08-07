@@ -1,8 +1,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { NamedRef } from '../../storage';
-import { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
+import type { NamedRef } from '../../storage';
+import type { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, ViewNode } from './viewNode';
 
 interface RepoRef {

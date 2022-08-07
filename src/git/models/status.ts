@@ -1,18 +1,13 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { pluralize } from '../../system/string';
-import { GitBranch, GitTrackingState } from './branch';
+import type { GitTrackingState } from './branch';
+import { GitBranch } from './branch';
 import { GitCommit, GitCommitIdentity } from './commit';
-import {
-	GitFile,
-	GitFileChange,
-	GitFileConflictStatus,
-	GitFileIndexStatus,
-	GitFileStatus,
-	GitFileWorkingTreeStatus,
-} from './file';
+import type { GitFileStatus } from './file';
+import { GitFile, GitFileChange, GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './file';
 import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { GitUser } from './user';

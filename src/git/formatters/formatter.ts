@@ -1,3 +1,4 @@
+import type { TokenOptions } from '../../system/string';
 import {
 	getTokensFromTemplate,
 	getWidth,
@@ -5,7 +6,6 @@ import {
 	interpolateAsync,
 	padLeft,
 	padRight,
-	TokenOptions,
 	truncate,
 } from '../../system/string';
 
@@ -36,8 +36,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		if (options == null && this._options != null) return;
 
 		if (options == null) {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-			options = {} as Options;
+			options = {} as unknown as Options;
 		}
 
 		if (options.dateFormat == null) {
@@ -115,10 +114,9 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 		let options: Options | undefined = undefined;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				dateFormat: dateFormatOrOptions,
-			} as Options;
+			} as unknown as Options;
 		} else {
 			options = dateFormatOrOptions;
 		}
@@ -159,10 +157,9 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 		let options: Options | undefined = undefined;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				dateFormat: dateFormatOrOptions,
-			} as Options;
+			} as unknown as Options;
 		} else {
 			options = dateFormatOrOptions;
 		}

@@ -2,17 +2,19 @@
 /*global*/
 import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
+import type { State } from '../../../../plus/webviews/timeline/protocol';
 import {
 	DidChangeStateNotificationType,
 	OpenDataPointCommandType,
-	State,
 	UpdatePeriodCommandType,
 } from '../../../../plus/webviews/timeline/protocol';
 import { SubscriptionPlanId, SubscriptionState } from '../../../../subscription';
-import { ExecuteCommandType, IpcMessage, onIpc } from '../../../protocol';
+import type { IpcMessage } from '../../../protocol';
+import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
-import { DataPointClickEvent, TimelineChart } from './chart';
+import type { DataPointClickEvent } from './chart';
+import { TimelineChart } from './chart';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;

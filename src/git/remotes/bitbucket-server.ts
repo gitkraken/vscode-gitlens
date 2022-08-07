@@ -1,6 +1,7 @@
-import { Range, Uri } from 'vscode';
+import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference, AutolinkType } from '../../config';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';

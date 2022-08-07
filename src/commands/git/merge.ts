@@ -7,20 +7,22 @@ import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/direct
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	pickBranchOrTagStep,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {

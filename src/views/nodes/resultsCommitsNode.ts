@@ -11,8 +11,10 @@ import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { FilesQueryResults } from './resultsFilesNode';
+import { ResultsFilesNode } from './resultsFilesNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;

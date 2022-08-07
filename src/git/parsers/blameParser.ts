@@ -2,7 +2,8 @@ import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
-import { GitCommit, GitCommitIdentity, GitCommitLine } from '../models/commit';
+import type { GitCommitLine } from '../models/commit';
+import { GitCommit, GitCommitIdentity } from '../models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
 import { GitRevision } from '../models/reference';
 import type { GitUser } from '../models/user';
@@ -32,6 +33,7 @@ interface BlameEntry {
 	summary?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitBlameParser {
 	@debug({ args: false, singleLine: true })
 	static parse(
@@ -57,13 +59,12 @@ export class GitBlameParser {
 
 			[key] = lineParts;
 			if (entry == null) {
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 				entry = {
 					sha: key,
 					originalLine: parseInt(lineParts[1], 10),
 					line: parseInt(lineParts[2], 10),
 					lineCount: parseInt(lineParts[3], 10),
-				} as BlameEntry;
+				} as unknown as BlameEntry;
 
 				continue;
 			}

@@ -1,7 +1,9 @@
-import { commands, Disposable, Event, EventEmitter, QuickPickItem, window } from 'vscode';
-import { Config, configuration } from '../configuration';
+import type { Event, QuickPickItem } from 'vscode';
+import { commands, Disposable, EventEmitter, window } from 'vscode';
+import type { Config } from '../configuration';
+import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
 import { sortCompare } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
@@ -314,7 +316,7 @@ export class ActionRunners implements Disposable {
 				runner = pick.runner;
 			} finally {
 				quickpick.dispose();
-				disposables.forEach(d => d.dispose());
+				disposables.forEach(d => void d.dispose());
 			}
 		} else {
 			[runner] = runners;

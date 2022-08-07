@@ -108,7 +108,7 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 }
 
 export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
-	return source[Symbol.iterator]().next().value;
+	return source[Symbol.iterator]().next().value as T;
 }
 
 export function* flatMap<T, TMapped>(
@@ -168,7 +168,7 @@ export function* map<T, TMapped>(
 }
 
 export function next<T>(source: IterableIterator<T>): T {
-	return source.next().value;
+	return source.next().value as T;
 }
 
 export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {

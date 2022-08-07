@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import type {
 	Action,
 	ActionContext,
@@ -21,7 +21,8 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
-import { escapeMarkdown, getSuperscript, TokenOptions } from '../../system/string';
+import type { TokenOptions } from '../../system/string';
+import { escapeMarkdown, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitCommit } from '../models/commit';
@@ -30,7 +31,8 @@ import { PullRequest } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/provider';
-import { FormatOptions, Formatter } from './formatter';
+import type { FormatOptions } from './formatter';
+import { Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>;

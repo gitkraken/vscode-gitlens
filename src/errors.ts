@@ -1,6 +1,7 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import type { Response } from '@env/fetch';
-import { isSubscriptionPaidPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './subscription';
+import { isSubscriptionPaidPlan } from './subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;

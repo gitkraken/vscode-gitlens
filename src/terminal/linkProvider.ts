@@ -1,4 +1,5 @@
-import { commands, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider, window } from 'vscode';
+import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
+import { commands, window } from 'vscode';
 import type {
 	GitCommandsCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,

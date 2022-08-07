@@ -1,10 +1,12 @@
 /*global*/
 import './home.scss';
 import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
-import { Disposable } from 'vscode';
+import type { Disposable } from 'vscode';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
-import { CompletedActions, DidChangeSubscriptionNotificationType, State } from '../../home/protocol';
-import { ExecuteCommandType, IpcMessage, onIpc } from '../../protocol';
+import type { State } from '../../home/protocol';
+import { CompletedActions, DidChangeSubscriptionNotificationType } from '../../home/protocol';
+import type { IpcMessage } from '../../protocol';
+import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 

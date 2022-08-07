@@ -1,14 +1,15 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { findOrOpenEditor } from '../system/utils';
-import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
@@ -89,7 +90,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			if (diffUris == null || diffUris.previous == null) {
 				if (diffUris == null) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -102,7 +103,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -134,7 +135,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

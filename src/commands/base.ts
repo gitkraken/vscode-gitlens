@@ -1,19 +1,17 @@
-import {
-	commands,
-	Disposable,
+import type {
 	GitTimelineItem,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
 	TextEditor,
 	TextEditorEdit,
 	TimelineItem,
-	Uri,
-	window,
 } from 'vscode';
+import { commands, Disposable, Uri, window } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
 import type { Commands } from '../constants';
 import { GitBranch } from '../git/models/branch';
-import { GitCommit, GitStashCommit } from '../git/models/commit';
+import type { GitStashCommit } from '../git/models/commit';
+import { GitCommit } from '../git/models/commit';
 import { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type { GitReference } from '../git/models/reference';
@@ -259,6 +257,7 @@ export abstract class Command implements Disposable {
 	}
 
 	protected preExecute(_context: CommandContext, ...args: any[]): Promise<unknown> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this.execute(...args);
 	}
 
@@ -392,6 +391,7 @@ export abstract class ActiveEditorCommand extends Command {
 	}
 
 	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this.execute(context.editor, context.uri, ...args);
 	}
 
@@ -437,6 +437,7 @@ export abstract class EditorCommand implements Disposable {
 				commands.registerTextEditorCommand(
 					cmd,
 					(editor: TextEditor, edit: TextEditorEdit, ...args: any[]) =>
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 						this.executeCore(cmd, editor, edit, ...args),
 					this,
 				),

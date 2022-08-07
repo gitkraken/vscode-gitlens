@@ -2,20 +2,8 @@ import { readdir, realpath } from 'fs';
 import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
-import {
-	Disposable,
-	env,
-	Event,
-	EventEmitter,
-	extensions,
-	FileType,
-	Range,
-	TextDocument,
-	Uri,
-	window,
-	workspace,
-	WorkspaceFolder,
-} from 'vscode';
+import type { Event, TextDocument, WorkspaceFolder } from 'vscode';
+import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
@@ -36,10 +24,9 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
-import {
+import type {
 	GitProvider,
 	GitProviderDescriptor,
-	GitProviderId,
 	NextComparisonUrisResult,
 	PagedResult,
 	PreviousComparisonUrisResult,
@@ -47,35 +34,38 @@ import {
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
-	RepositoryVisibility,
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
+import { GitProviderId, RepositoryVisibility } from '../../../git/gitProvider';
 import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
-import { BranchSortOptions, GitBranch } from '../../../git/models/branch';
-import { GitCommit, GitCommitIdentity, GitStashCommit } from '../../../git/models/commit';
+import type { BranchSortOptions } from '../../../git/models/branch';
+import { GitBranch } from '../../../git/models/branch';
+import type { GitStashCommit } from '../../../git/models/commit';
+import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
-import { GitFile, GitFileChange, GitFileStatus } from '../../../git/models/file';
+import type { GitFile, GitFileStatus } from '../../../git/models/file';
+import { GitFileChange } from '../../../git/models/file';
 import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
-import { GitBranchReference, GitReference, GitRevision } from '../../../git/models/reference';
+import type { GitBranchReference } from '../../../git/models/reference';
+import { GitReference, GitRevision } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
 import { GitRemote } from '../../../git/models/remote';
-import {
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../../../git/models/repository';
+import type { RepositoryChangeEvent } from '../../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitStash } from '../../../git/models/stash';
-import { GitStatus, GitStatusFile } from '../../../git/models/status';
-import { GitTag, TagSortOptions } from '../../../git/models/tag';
+import type { GitStatusFile } from '../../../git/models/status';
+import { GitStatus } from '../../../git/models/status';
+import type { TagSortOptions } from '../../../git/models/tag';
+import { GitTag } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
-import { GitUser, isUserMatch } from '../../../git/models/user';
+import type { GitUser } from '../../../git/models/user';
+import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
 import { GitBlameParser } from '../../../git/parsers/blameParser';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
@@ -87,11 +77,20 @@ import { GitStatusParser } from '../../../git/parsers/statusParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { GitTreeParser } from '../../../git/parsers/treeParser';
 import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
-import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
-import { RemoteProvider, RemoteResourceType, RichRemoteProvider } from '../../../git/remotes/provider';
+import type { RemoteProviders } from '../../../git/remotes/factory';
+import { RemoteProviderFactory } from '../../../git/remotes/factory';
+import type { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
+import { RemoteResourceType } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';
-import { Logger, LogScope } from '../../../logger';
-import { Messages } from '../../../messages';
+import { Logger } from '../../../logger';
+import type { LogScope } from '../../../logger';
+import {
+	showGenericErrorMessage,
+	showGitDisabledErrorMessage,
+	showGitInvalidConfigErrorMessage,
+	showGitMissingErrorMessage,
+	showGitVersionUnsupportedErrorMessage,
+} from '../../../messages';
 import { WorkspaceStorageKeys } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
@@ -110,19 +109,17 @@ import {
 	relative,
 	splitPath,
 } from '../../../system/path';
-import { any, fastestSettled, getSettledValue, PromiseOrValue } from '../../../system/promise';
+import type { PromiseOrValue } from '../../../system/promise';
+import { any, fastestSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
-import {
-	CachedBlame,
-	CachedDiff,
-	CachedLog,
-	GitDocumentState,
-	TrackedDocument,
-} from '../../../trackers/gitDocumentTracker';
-import { Git, GitErrors, maxGitCliLength } from './git';
-import { findGitPath, GitLocation, InvalidGitConfigError, UnableToFindGitError } from './locator';
+import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
+import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
+import type { Git } from './git';
+import { GitErrors, maxGitCliLength } from './git';
+import type { GitLocation } from './locator';
+import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists, RunError } from './shell';
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
@@ -244,7 +241,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (!configuration.getAny<boolean>('git.enabled', null, true)) {
 			Logger.log(scope, 'Built-in Git is disabled ("git.enabled": false)');
-			void Messages.showGitDisabledErrorMessage();
+			void showGitDisabledErrorMessage();
 
 			throw new UnableToFindGitError();
 		}
@@ -311,7 +308,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// Warn if git is less than v2.7.2
 		if (compare(fromString(location.version), fromString('2.7.2')) === -1) {
 			Logger.log(scope, `Git version (${location.version}) is outdated`);
-			void Messages.showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
+			void showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
 		}
 
 		return location;
@@ -349,9 +346,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return repositories;
 		} catch (ex) {
 			if (ex instanceof InvalidGitConfigError) {
-				void Messages.showGitInvalidConfigErrorMessage();
+				void showGitInvalidConfigErrorMessage();
 			} else if (ex instanceof UnableToFindGitError) {
-				void Messages.showGitMissingErrorMessage();
+				void showGitMissingErrorMessage();
 			} else {
 				const msg: string = ex?.message ?? '';
 				if (msg) {
@@ -421,7 +418,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
 		return {
 			onDidCreate: watcher.onDidCreate,
-			dispose: () => watcher.dispose(),
+			dispose: () => void watcher.dispose(),
 		};
 	}
 
@@ -649,7 +646,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					debugger;
 					void window.showErrorMessage(
 						`Unable to get absolute uri between ${
-							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
 						} and ${base}; Base path '${base}' must be an absolute path`,
 					);
 					throw new Error(`Base path '${base}' must be an absolute path`);
@@ -701,7 +698,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					debugger;
 					void window.showErrorMessage(
 						`Unable to get relative path between ${
-							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+							typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
 						} and ${base}; Base path '${base}' must be an absolute path`,
 					);
 					throw new Error(`Base path '${base}' must be an absolute path`);
@@ -849,7 +846,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.error(ex, scope);
-			void Messages.showGenericErrorMessage('Unable to apply changes');
+			void showGenericErrorMessage('Unable to apply changes');
 		}
 	}
 
@@ -866,14 +863,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (/overwritten by checkout/i.test(msg)) {
-				void Messages.showGenericErrorMessage(
+				void showGenericErrorMessage(
 					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
 				);
 				return;
 			}
 
 			Logger.error(ex, scope);
-			void void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'`);
+			void showGenericErrorMessage(`Unable to checkout '${ref}'`);
 		}
 	}
 
@@ -1504,7 +1501,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			};
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (options?.sort) {
 			GitBranch.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
@@ -3450,7 +3446,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			};
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (options?.sort) {
 			GitTag.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
@@ -3553,7 +3548,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const path = repoPath ? `${repoPath}/${relativePath}` : relativePath;
 
 		let key = path;
-		key = `${ref ?? ''}:${key[0] === '/' ? key : `/${key}`}`;
+		key = `${ref ?? ''}:${key.startsWith('/') ? key : `/${key}`}`;
 
 		let tracked = this._trackedPaths.get(key);
 		if (tracked != null) return tracked;
@@ -3683,7 +3678,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.error(ex, 'openDiffTool');
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 
@@ -3718,7 +3713,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.error(ex, 'openDirectoryCompare');
-			void Messages.showGenericErrorMessage('Unable to open directory compare');
+			void showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
 

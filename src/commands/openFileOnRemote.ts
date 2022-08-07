@@ -1,4 +1,5 @@
-import { Range, TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { Range, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
@@ -12,9 +13,9 @@ import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { pad, splitSingle } from '../system/string';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,

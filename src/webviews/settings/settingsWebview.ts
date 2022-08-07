@@ -3,7 +3,7 @@ import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
-import { State } from './protocol';
+import type { State } from './protocol';
 
 const anchorRegex = /.*?#(.*)/;
 

@@ -1,18 +1,22 @@
-import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
-import { GitCommitish, GitUri } from '../../git/gitUri';
+import type { GitCommitish } from '../../git/gitUri';
+import { GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
-import { debounce, Deferrable } from '../../system/function';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
 import { isVirtualUri } from '../../system/utils';
 import type { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;

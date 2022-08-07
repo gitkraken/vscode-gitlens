@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { resolveProp } from './resolver';
 
 export function serialize<T extends (...arg: any) => any>(

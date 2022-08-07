@@ -1,4 +1,4 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 
 abstract class Comparer<T> {
 	abstract equals(lhs: T, rhs: T): boolean;

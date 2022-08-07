@@ -15,22 +15,21 @@ import {
 } from '../../errors';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
-import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
-import { Logger, LogLevel, LogScope } from '../../logger';
-import { Messages } from '../../messages';
+import type { LogScope } from '../../logger';
+import { Logger, LogLevel } from '../../logger';
+import {
+	showIntegrationRequestFailed500WarningMessage,
+	showIntegrationRequestTimedOutWarningMessage,
+} from '../../messages';
 import { debug, getLogScope } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
-import {
-	GitLabCommit,
-	GitLabIssue,
-	GitLabMergeRequest,
-	GitLabMergeRequestREST,
-	GitLabMergeRequestState,
-	GitLabUser,
-} from './models';
+import type { GitLabCommit, GitLabIssue, GitLabUser } from './models';
+import { GitLabMergeRequest, GitLabMergeRequestREST, GitLabMergeRequestState } from './models';
 
 export class GitLabApi implements Disposable {
 	private _disposable: Disposable | undefined;
@@ -817,7 +816,7 @@ $search: String!
 				Logger.error(ex, scope);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					void Messages.showIntegrationRequestFailed500WarningMessage(
+					void showIntegrationRequestFailed500WarningMessage(
 						`${provider?.name ?? 'GitLab'} failed to respond and might be experiencing issues.${
 							!provider?.custom
 								? ' Please visit the [GitLab status page](https://status.gitlab.com) for more information.'
@@ -831,7 +830,7 @@ $search: String!
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
-					void Messages.showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitLab');
+					void showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitLab');
 					return;
 				}
 				break;

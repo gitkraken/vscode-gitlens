@@ -5,12 +5,8 @@ import type { GitStashCommit } from '../git/models/commit';
 import type { GitStashReference } from '../git/models/reference';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
-import {
-	Command,
-	CommandContext,
-	isCommandContextViewNodeHasCommit,
-	isCommandContextViewNodeHasRepository,
-} from './base';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './base';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;

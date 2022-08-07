@@ -1,8 +1,10 @@
-import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { Selection } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
-import { GitCommitish, GitUri } from '../../git/gitUri';
+import type { GitCommitish } from '../../git/gitUri';
+import { GitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
@@ -13,7 +15,8 @@ import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { LineHistoryNode } from './lineHistoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
 	private _base: string | undefined;

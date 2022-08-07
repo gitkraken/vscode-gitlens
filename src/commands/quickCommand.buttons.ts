@@ -1,4 +1,5 @@
-import { QuickInput, QuickInputButton, ThemeIcon, Uri } from 'vscode';
+import type { QuickInput, QuickInputButton } from 'vscode';
+import { ThemeIcon, Uri } from 'vscode';
 import { Container } from '../container';
 
 export class ToggleQuickInputButton implements QuickInputButton {

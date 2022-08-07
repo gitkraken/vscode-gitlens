@@ -1,11 +1,11 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
+import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {

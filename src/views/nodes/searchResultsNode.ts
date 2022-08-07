@@ -1,4 +1,5 @@
-import { ThemeIcon, TreeItem } from 'vscode';
+import type { TreeItem } from 'vscode';
+import { ThemeIcon } from 'vscode';
 import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
@@ -8,8 +9,10 @@ import { debug, log } from '../../system/decorators/log';
 import { md5, pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { CommitsQueryResults } from './resultsCommitsNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
@@ -167,7 +170,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		log: Promise<GitLog | undefined> | GitLog | undefined;
 	}) {
 		if (search == null) {
-			void (await executeGitCommand({
+			(await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
 				state: {

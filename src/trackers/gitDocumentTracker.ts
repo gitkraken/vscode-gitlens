@@ -1,4 +1,4 @@
-import { TextDocument, Uri } from 'vscode';
+import type { TextDocument, Uri } from 'vscode';
 import type { GitBlame } from '../git/models/blame';
 import type { GitDiff } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';

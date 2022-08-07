@@ -1,5 +1,5 @@
-import { AuthenticationSession, Disposable } from 'vscode';
-import { Container } from '../container';
+import type { AuthenticationSession, Disposable } from 'vscode';
+import type { Container } from '../container';
 import { debug } from '../system/decorators/log';
 
 interface StoredSession {

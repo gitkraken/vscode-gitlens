@@ -1,25 +1,21 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
+import { commands, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { TagsViewConfig } from '../configuration';
+import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitTagReference } from '../git/models/reference';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { GitTagReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { TagsNode } from './nodes/tagsNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {

@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { GitActions } from '../commands/gitCommands.actions';
@@ -6,9 +6,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { command } from '../system/command';
+import type { CommandContext } from './base';
 import {
 	Command,
-	CommandContext,
 	isCommandContextViewNodeHasFile,
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,

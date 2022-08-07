@@ -1,24 +1,14 @@
-import {
-	Command,
-	Disposable,
-	Event,
-	MarkdownString,
-	TreeItem,
-	TreeItemCollapsibleState,
-	TreeViewVisibilityChangeEvent,
-} from 'vscode';
+import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import { GitReference, GitRevisionReference } from '../../git/models/reference';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
-import {
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../../git/models/repository';
+import type { RepositoryChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';

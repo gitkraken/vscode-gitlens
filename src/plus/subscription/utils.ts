@@ -1,4 +1,5 @@
-import { MessageItem, window } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { window } from 'vscode';
 import { configuration } from '../../configuration';
 
 export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
@@ -15,6 +16,6 @@ export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 
 	if (result !== confirm) return false;
 
-	void (await configuration.updateEffective('plusFeatures.enabled', true));
+	(await configuration.updateEffective('plusFeatures.enabled', true));
 	return true;
 }

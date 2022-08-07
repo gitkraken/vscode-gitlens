@@ -1,4 +1,5 @@
-import { TextDocument, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window, workspace } from 'vscode';
+import type { TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { ViewColumn, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { GitUri } from '../git/gitUri';

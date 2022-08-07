@@ -1,22 +1,17 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
+import { commands, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { RemotesViewConfig } from '../configuration';
+import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitBranch } from '../git/models/branch';
 import { GitCommit } from '../git/models/commit';
-import { GitBranchReference, GitReference, GitRevisionReference } from '../git/models/reference';
+import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { BranchNode } from './nodes/branchNode';
@@ -24,7 +19,8 @@ import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 import { RemoteNode } from './nodes/remoteNode';
 import { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {

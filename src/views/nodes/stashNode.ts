@@ -9,10 +9,12 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { RepositoriesView } from '../repositoriesView';
 import type { StashesView } from '../stashesView';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
 import { StashFileNode } from './stashFileNode';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';

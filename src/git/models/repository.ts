@@ -1,25 +1,16 @@
-import {
-	ConfigurationChangeEvent,
-	Disposable,
-	Event,
-	EventEmitter,
-	ProgressLocation,
-	RelativePattern,
-	Uri,
-	window,
-	workspace,
-	WorkspaceFolder,
-} from 'vscode';
+import type { ConfigurationChangeEvent, Event, WorkspaceFolder } from 'vscode';
+import { Disposable, EventEmitter, ProgressLocation, RelativePattern, Uri, window, workspace } from 'vscode';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
+import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
-import { Starred, WorkspaceStorageKeys } from '../../storage';
+import type { Starred } from '../../storage';
+import { WorkspaceStorageKeys } from '../../storage';
 import { filterMap, groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
@@ -30,17 +21,20 @@ import { filter, join, some } from '../../system/iterable';
 import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitProviderDescriptor } from '../gitProvider';
-import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
+import type { RemoteProviders } from '../remotes/factory';
+import { RemoteProviderFactory } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import type { SearchPattern } from '../search';
-import { BranchSortOptions, GitBranch } from './branch';
+import type { BranchSortOptions } from './branch';
+import { GitBranch } from './branch';
 import type { GitCommit } from './commit';
 import type { GitContributor } from './contributor';
 import type { GitDiffShortStat } from './diff';
 import type { GitLog } from './log';
 import type { GitMergeStatus } from './merge';
 import type { GitRebaseStatus } from './rebase';
-import { GitBranchReference, GitReference, GitTagReference } from './reference';
+import type { GitBranchReference, GitTagReference } from './reference';
+import { GitReference } from './reference';
 import type { GitRemote } from './remote';
 import type { GitStash } from './stash';
 import type { GitStatus } from './status';
@@ -478,7 +472,7 @@ export class Repository implements Disposable {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.fetchCore(opts);
 
-		return void (await window.withProgress(
+		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title:
@@ -487,7 +481,7 @@ export class Repository implements Disposable {
 						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
 			},
 			() => this.fetchCore(opts),
-		));
+		);
 	}
 
 	private async fetchCore(options?: {
@@ -498,12 +492,12 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			void (await this.container.git.fetch(this.path, options));
+			await this.container.git.fetch(this.path, options);
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void Messages.showGenericErrorMessage('Unable to fetch repository');
+			void showGenericErrorMessage('Unable to fetch repository');
 		}
 	}
 
@@ -664,13 +658,13 @@ export class Repository implements Disposable {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pullCore();
 
-		return void (await window.withProgress(
+		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Pulling ${this.formattedName}...`,
 			},
 			() => this.pullCore(opts),
-		));
+		);
 	}
 
 	private async pullCore(options?: { rebase?: boolean }) {
@@ -682,13 +676,13 @@ export class Repository implements Disposable {
 					this.path,
 				));
 			} else if (configuration.getAny<boolean>(CoreGitConfiguration.FetchOnPull, Uri.file(this.path))) {
-				void (await this.container.git.fetch(this.path));
+				await this.container.git.fetch(this.path);
 			}
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void Messages.showGenericErrorMessage('Unable to pull repository');
+			void showGenericErrorMessage('Unable to pull repository');
 		}
 	}
 
@@ -705,7 +699,7 @@ export class Repository implements Disposable {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pushCore(opts);
 
-		return void (await window.withProgress(
+		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: GitReference.isBranch(opts.reference)
@@ -713,12 +707,12 @@ export class Repository implements Disposable {
 					: `Pushing ${this.formattedName}...`,
 			},
 			() => this.pushCore(opts),
-		));
+		);
 	}
 
 	private async showCreatePullRequestPrompt(remoteName: string, branch: GitBranchReference) {
 		if (!this.container.actionRunners.count('createPullRequest')) return;
-		if (!(await Messages.showCreatePullRequestPrompt(branch.name))) return;
+		if (!(await showCreatePullRequestPrompt(branch.name))) return;
 
 		const remote = await this.getRemote(remoteName);
 
@@ -804,7 +798,7 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void Messages.showGenericErrorMessage('Unable to push repository');
+			void showGenericErrorMessage('Unable to push repository');
 		}
 	}
 
@@ -859,10 +853,7 @@ export class Repository implements Disposable {
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
-		void (await this.container.storage.storeWorkspace(
-			WorkspaceStorageKeys.DefaultRemote,
-			value ? remote.id : undefined,
-		));
+		await this.container.storage.storeWorkspace(WorkspaceStorageKeys.DefaultRemote, value ? remote.id : undefined);
 
 		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
 	}
@@ -879,7 +870,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashApply(stashName: string, options?: { deleteAfter?: boolean }) {
-		void (await this.container.git.stashApply(this.path, stashName, options));
+		await this.container.git.stashApply(this.path, stashName, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -887,7 +878,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashDelete(stashName: string, ref?: string) {
-		void (await this.container.git.stashDelete(this.path, stashName, ref));
+		await this.container.git.stashDelete(this.path, stashName, ref);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -895,7 +886,7 @@ export class Repository implements Disposable {
 	@gate()
 	@log()
 	async stashSave(message?: string, uris?: Uri[], options?: { includeUntracked?: boolean; keepIndex?: boolean }) {
-		void (await this.container.git.stashSave(this.path, message, uris, options));
+		await this.container.git.stashSave(this.path, message, uris, options);
 
 		this.fireChange(RepositoryChange.Stash);
 	}
@@ -906,24 +897,24 @@ export class Repository implements Disposable {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
-		return void (await window.withProgress(
+		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Switching ${this.formattedName} to ${ref}...`,
 				cancellable: false,
 			},
 			() => this.switchCore(ref, opts),
-		));
+		);
 	}
 
 	private async switchCore(ref: string, options?: { createBranch?: string }) {
 		try {
-			void (await this.container.git.checkout(this.path, ref, options));
+			await this.container.git.checkout(this.path, ref, options);
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
-			void Messages.showGenericErrorMessage('Unable to switch to reference');
+			void showGenericErrorMessage('Unable to switch to reference');
 		}
 	}
 

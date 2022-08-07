@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 // eslint-disable-next-line no-restricted-imports
 import { debounce as _debounce, once as _once } from 'lodash-es';
-import { Disposable } from 'vscode';
+import type { Disposable } from 'vscode';
 
 export interface Deferrable<T extends (...args: any[]) => any> {
 	(...args: Parameters<T>): ReturnType<T> | undefined;

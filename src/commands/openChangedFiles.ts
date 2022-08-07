@@ -1,8 +1,9 @@
-import { Uri, window } from 'vscode';
+import type { Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
@@ -40,7 +41,7 @@ export class OpenChangedFilesCommand extends Command {
 			findOrOpenEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			void Messages.showGenericErrorMessage('Unable to open all changed files');
+			void showGenericErrorMessage('Unable to open all changed files');
 		}
 	}
 }

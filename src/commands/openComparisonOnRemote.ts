@@ -5,8 +5,9 @@ import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { command, executeCommand } from '../system/command';
 import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
-import { Command, CommandContext } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { CommandContext } from './base';
+import { Command } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;

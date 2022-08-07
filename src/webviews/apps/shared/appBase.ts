@@ -1,14 +1,8 @@
 /*global window document*/
-import {
-	IpcCommandType,
-	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
-	onIpc,
-	WebviewReadyCommandType,
-} from '../../protocol';
+import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
+import { onIpc, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
-import { Disposable } from './events';
+import type { Disposable } from './events';
 import { initializeAndWatchThemeColors } from './theme';
 
 interface VsCodeApi {
@@ -32,7 +26,7 @@ function nextIpcId() {
 	return `webview:${ipcSequence}`;
 }
 
-export abstract class App<State = void> {
+export abstract class App<State = undefined> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 

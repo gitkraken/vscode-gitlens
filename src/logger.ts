@@ -1,4 +1,5 @@
-import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
+import type { ExtensionContext, OutputChannel } from 'vscode';
+import { ExtensionMode, Uri, window } from 'vscode';
 import { OutputLevel } from './configuration';
 
 const emptyStr = '';
@@ -30,6 +31,7 @@ const enum OrderedLevel {
 	Debug = 4,
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class Logger {
 	static readonly slowCallWarningThreshold = 500;
 

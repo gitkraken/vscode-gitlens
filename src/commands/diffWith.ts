@@ -1,10 +1,11 @@
-import { Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
+import type { TextDocumentShowOptions, Uri } from 'vscode';
+import { Range, ViewColumn } from 'vscode';
 import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitCommit } from '../git/models/commit';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
 import { Command } from './base';
@@ -187,7 +188,7 @@ export class DiffWithCommand extends Command {
 			));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

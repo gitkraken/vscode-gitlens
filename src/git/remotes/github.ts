@@ -1,4 +1,5 @@
-import { AuthenticationSession, Range, Uri, window } from 'vscode';
+import type { AuthenticationSession, Range, Uri } from 'vscode';
+import { window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';

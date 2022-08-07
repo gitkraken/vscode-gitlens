@@ -1,18 +1,20 @@
-import {
+import type {
 	ColorTheme,
-	ColorThemeKind,
 	ConfigurationChangeEvent,
-	DecorationRangeBehavior,
-	Disposable,
 	Event,
-	EventEmitter,
-	OverviewRulerLane,
 	Progress,
-	ProgressLocation,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
 	TextEditorViewColumnChangeEvent,
+} from 'vscode';
+import {
+	ColorThemeKind,
+	DecorationRangeBehavior,
+	Disposable,
+	EventEmitter,
+	OverviewRulerLane,
+	ProgressLocation,
 	ThemeColor,
 	Uri,
 	window,
@@ -26,28 +28,25 @@ import {
 	FileAnnotationType,
 } from '../configuration';
 import { Colors, ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
-import { KeyboardScope } from '../keyboard';
+import type { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
-import {
+import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
-import {
-	AnnotationContext,
-	AnnotationProviderBase,
-	AnnotationStatus,
-	TextEditorCorrelationKey,
-} from './annotationProvider';
+import type { AnnotationContext, TextEditorCorrelationKey } from './annotationProvider';
+import { AnnotationProviderBase, AnnotationStatus } from './annotationProvider';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
-import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
+import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
+import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
 import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 
 export const enum AnnotationClearReason {
@@ -539,7 +538,7 @@ export class FileAnnotationController implements Disposable {
 		if (replaceDecorationTypes.size === 0) return;
 
 		for (const e of window.visibleTextEditors) {
-			void this.getProvider(e)?.refresh(replaceDecorationTypes);
+			this.getProvider(e)?.refresh(replaceDecorationTypes);
 		}
 	}
 

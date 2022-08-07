@@ -1,18 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
-import {
-	authentication,
-	AuthenticationSession,
-	Disposable,
-	Event,
-	EventEmitter,
-	FileType,
-	Range,
-	TextDocument,
-	Uri,
-	window,
-	workspace,
-	WorkspaceFolder,
-} from 'vscode';
+import type { AuthenticationSession, Disposable, Event, Range, TextDocument, WorkspaceFolder } from 'vscode';
+import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
 import { CharCode, ContextKeys, Schemes } from '../../constants';
@@ -26,49 +14,59 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
 import { Features } from '../../features';
-import {
+import type {
 	GitProvider,
-	GitProviderId,
 	NextComparisonUrisResult,
 	PagedResult,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
-	RepositoryVisibility,
 	ScmRepository,
 } from '../../git/gitProvider';
+import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
-import { BranchSortOptions, GitBranch } from '../../git/models/branch';
-import { GitCommit, GitCommitIdentity, GitCommitLine } from '../../git/models/commit';
+import type { BranchSortOptions } from '../../git/models/branch';
+import { GitBranch } from '../../git/models/branch';
+import type { GitCommitLine } from '../../git/models/commit';
+import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitContributor } from '../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
-import { GitFile, GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { GitBranchReference, GitReference, GitRevision } from '../../git/models/reference';
+import type { GitBranchReference, GitReference } from '../../git/models/reference';
+import { GitRevision } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
-import { Repository, RepositoryChangeEvent } from '../../git/models/repository';
+import type { RepositoryChangeEvent } from '../../git/models/repository';
+import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
 import type { GitStatus, GitStatusFile } from '../../git/models/status';
-import { GitTag, TagSortOptions } from '../../git/models/tag';
+import type { TagSortOptions } from '../../git/models/tag';
+import { GitTag } from '../../git/models/tag';
 import type { GitTreeEntry } from '../../git/models/tree';
-import { GitUser, isUserMatch } from '../../git/models/user';
-import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factory';
+import type { GitUser } from '../../git/models/user';
+import { isUserMatch } from '../../git/models/user';
+import type { RemoteProviders } from '../../git/remotes/factory';
+import { RemoteProviderFactory } from '../../git/remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
-import { Logger, LogScope } from '../../logger';
+import type { LogScope } from '../../logger';
+import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
-import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
+import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
+import { GitDocumentState } from '../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../trackers/trackedDocument';
-import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
+import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
+import { getRemoteHubApi } from '../remotehub';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
@@ -112,7 +110,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	constructor(private readonly container: Container) {}
 
 	dispose() {
-		this._disposables.forEach(d => d.dispose());
+		this._disposables.forEach(d => void d.dispose());
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
@@ -241,7 +239,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				debugger;
 				void window.showErrorMessage(
 					`Unable to get absolute uri between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
 					} and ${base}; Base path '${base}' must be a uri`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
@@ -271,7 +269,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				debugger;
 				void window.showErrorMessage(
 					`Unable to get relative path between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
 					} and ${base}; Base path '${base}' must be a uri`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
@@ -528,7 +526,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			debugger;
 			// Trap and cache expected blame errors
-			if (document.state != null && !/No provider registered with/.test(String(ex))) {
+			if (document.state != null && !String(ex).includes('No provider registered with')) {
 				const msg = ex?.toString() ?? '';
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 

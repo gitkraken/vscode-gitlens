@@ -1,4 +1,5 @@
-import { Disposable, TextEditor } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
@@ -11,7 +12,8 @@ import type {
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from './gitDocumentTracker';
-import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
+import type { LinesChangeEvent, LineSelection } from './lineTracker';
+import { LineTracker } from './lineTracker';
 
 export * from './lineTracker';
 

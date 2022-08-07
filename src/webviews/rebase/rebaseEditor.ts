@@ -1,17 +1,5 @@
-import {
-	CancellationToken,
-	ConfigurationTarget,
-	CustomTextEditorProvider,
-	Disposable,
-	Position,
-	Range,
-	TextDocument,
-	Uri,
-	WebviewPanel,
-	window,
-	workspace,
-	WorkspaceEdit,
-} from 'vscode';
+import type { CancellationToken, CustomTextEditorProvider, TextDocument, WebviewPanel } from 'vscode';
+import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../../commands';
 import { configuration } from '../../configuration';
@@ -19,27 +7,23 @@ import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
+import { showRebaseSwitchToTextWarningMessage } from '../../messages';
 import { executeCoreCommand } from '../../system/command';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { join, map } from '../../system/iterable';
 import { normalizePath } from '../../system/path';
-import { IpcMessage, onIpc } from '../protocol';
+import type { IpcMessage } from '../protocol';
+import { onIpc } from '../protocol';
+import type { Author, Commit, RebaseEntry, RebaseEntryAction, ReorderParams, State } from './protocol';
 import {
 	AbortCommandType,
-	Author,
 	ChangeEntryCommandType,
-	Commit,
 	DidChangeNotificationType,
 	DisableCommandType,
 	MoveEntryCommandType,
-	RebaseEntry,
-	RebaseEntryAction,
 	ReorderCommandType,
-	ReorderParams,
 	StartCommandType,
-	State,
 	SwitchCommandType,
 } from './protocol';
 
@@ -151,10 +135,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		let associations = inspection?.globalValue;
 		if (Array.isArray(associations)) {
-			associations = associations.reduce((accumulator, current) => {
+			associations = associations.reduce<Record<string, string>>((accumulator, current) => {
 				accumulator[current.filenamePattern] = current.viewType;
 				return accumulator;
-			}, Object.create(null) as Record<string, string>);
+			}, Object.create(null));
 		}
 
 		if (associations == null) {
@@ -177,7 +161,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
-			dispose: () => Disposable.from(...subscriptions).dispose(),
+			dispose: () => void Disposable.from(...subscriptions).dispose(),
 
 			id: nextWebviewId(),
 			subscriptions: subscriptions,
@@ -477,7 +461,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	private switch(context: RebaseEditorContext) {
 		context.abortOnClose = false;
 
-		void Messages.showRebaseSwitchToTextWarningMessage();
+		void showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
 		void executeCoreCommand(CoreCommands.Open, context.document.uri, {

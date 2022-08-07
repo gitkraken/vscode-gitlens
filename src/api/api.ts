@@ -1,4 +1,4 @@
-import { Disposable } from 'vscode';
+import type { Disposable } from 'vscode';
 import { Container } from '../container';
 import { builtInActionRunnerName } from './actionRunners';
 import type { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
@@ -42,6 +42,7 @@ export function preview() {
 		if (fn == null) throw new Error('Not supported');
 
 		descriptor.value = function (this: any, ...args: any[]) {
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			if (Container.instance.insidersOrDebugging) return fn!.apply(this, args);
 
 			console.error('GitLens preview APIs are only available in the Insiders edition');

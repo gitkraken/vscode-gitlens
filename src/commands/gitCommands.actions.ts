@@ -1,4 +1,5 @@
-import { env, Range, TextDocumentShowOptions, Uri, window } from 'vscode';
+import type { TextDocumentShowOptions } from 'vscode';
+import { env, Range, Uri, window } from 'vscode';
 import type {
 	BrowseRepoAtRevisionCommandArgs,
 	DiffWithCommandArgs,
@@ -13,21 +14,22 @@ import { GitUri } from '../git/gitUri';
 import { GitCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
-import {
+import type {
 	GitBranchReference,
 	GitReference,
-	GitRevision,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
+import { GitRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
-import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import type { OpenWorkspaceLocation } from '../system/utils';
+import { findOrOpenEditor, findOrOpenEditors, openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type { ResetGitCommandArgs } from './git/reset';
 
@@ -168,7 +170,7 @@ export namespace GitActions {
 			ref2?: GitRevisionReference,
 		) {
 			// Open the working file to ensure undo will work
-			void (await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
+			(await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
 
 			let ref = ref1.ref;
 			// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
@@ -176,7 +178,7 @@ export namespace GitActions {
 				ref = `${ref}^3`;
 			}
 
-			void (await Container.instance.git.applyChangesToWorkingFile(
+			(await Container.instance.git.applyChangesToWorkingFile(
 				GitUri.fromFile(file, ref1.repoPath, ref),
 				ref,
 				ref2?.ref,
@@ -184,7 +186,7 @@ export namespace GitActions {
 		}
 
 		export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
-			void (await env.clipboard.writeText(ref.ref));
+			(await env.clipboard.writeText(ref.ref));
 		}
 
 		export async function copyMessageToClipboard(
@@ -202,7 +204,7 @@ export namespace GitActions {
 			}
 
 			const message = commit.message ?? commit.summary;
-			void (await env.clipboard.writeText(message));
+			(await env.clipboard.writeText(message));
 		}
 
 		export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
@@ -336,7 +338,7 @@ export namespace GitActions {
 			options = { preserveFocus: true, preview: false, ...options };
 
 			for (const file of files) {
-				void (await openChangesWithWorking(file, ref, options));
+				(await openChangesWithWorking(file, ref, options));
 			}
 		}
 
@@ -584,7 +586,7 @@ export namespace GitActions {
 		}
 
 		export async function openDetails(commit: GitCommit): Promise<void> {
-			void (await Container.instance.commitDetailsView.show({ commit: commit }));
+			(await Container.instance.commitDetailsView.show({ commit: commit }));
 		}
 
 		export async function openFiles(commit: GitCommit): Promise<void>;
@@ -681,7 +683,7 @@ export namespace GitActions {
 					file.status === `?` ? `${revision.ref}^3` : file.status === 'D' ? `${revision.ref}^` : revision.ref;
 			}
 
-			void (await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
+			(await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
 		}
 
 		export async function reveal(
@@ -764,8 +766,8 @@ export namespace GitActions {
 			if (url == null || url.length === 0) return undefined;
 
 			repo = ensureRepo(repo);
-			void (await Container.instance.git.addRemote(repo.path, name, url));
-			void (await repo.fetch({ remote: name }));
+			(await Container.instance.git.addRemote(repo.path, name, url));
+			(await repo.fetch({ remote: name }));
 
 			return name;
 		}
@@ -778,11 +780,11 @@ export namespace GitActions {
 				repo = r;
 			}
 
-			void (await repo.fetch({ remote: remote }));
+			(await repo.fetch({ remote: remote }));
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			void (await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
+			(await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
 		}
 
 		export async function reveal(

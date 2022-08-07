@@ -1,19 +1,15 @@
-import {
-	authentication,
+import type {
 	AuthenticationProvider,
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
-	Disposable,
-	EventEmitter,
-	extensions,
-	window,
 } from 'vscode';
+import { authentication, Disposable, EventEmitter, extensions, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
 import { StorageKeys } from '../../storage';
 import { debug, getLogScope } from '../../system/decorators/log';
-import { ServerConnection } from './serverConnection';
+import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {
 	id: string;

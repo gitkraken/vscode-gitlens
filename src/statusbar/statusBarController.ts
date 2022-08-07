@@ -1,15 +1,5 @@
-import {
-	CancellationToken,
-	CancellationTokenSource,
-	ConfigurationChangeEvent,
-	Disposable,
-	MarkdownString,
-	StatusBarAlignment,
-	StatusBarItem,
-	TextEditor,
-	Uri,
-	window,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
+import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
@@ -18,7 +8,8 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
 import { Hovers } from '../hovers/hovers';
-import { Logger, LogScope } from '../logger';
+import type { LogScope } from '../logger';
+import { Logger } from '../logger';
 import { asCommand } from '../system/command';
 import { debug, getLogScope } from '../system/decorators/log';
 import { once } from '../system/event';

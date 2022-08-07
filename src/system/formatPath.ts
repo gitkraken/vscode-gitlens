@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { basename, getBestPath, relativeDir } from './path';
 import { truncateLeft, truncateMiddle } from './string';
 

@@ -1,4 +1,5 @@
-import { extensions, Uri } from 'vscode';
+import type { Uri } from 'vscode';
+import { extensions } from 'vscode';
 import { ExtensionNotFoundError } from '../errors';
 import { Logger } from '../logger';
 

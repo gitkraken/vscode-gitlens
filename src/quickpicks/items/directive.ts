@@ -1,4 +1,4 @@
-import { QuickPickItem } from 'vscode';
+import type { QuickPickItem } from 'vscode';
 import type { Subscription } from '../../subscription';
 
 export enum Directive {

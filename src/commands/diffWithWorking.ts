@@ -1,10 +1,11 @@
-import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
@@ -51,7 +52,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				void Messages.showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}

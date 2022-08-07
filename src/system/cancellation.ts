@@ -1,4 +1,5 @@
-import { CancellationToken, CancellationTokenSource, Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
+import { CancellationTokenSource } from 'vscode';
 
 export class TimedCancellationSource implements CancellationTokenSource, Disposable {
 	private readonly cancellation = new CancellationTokenSource();

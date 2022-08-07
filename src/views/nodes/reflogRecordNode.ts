@@ -10,7 +10,8 @@ import type { ViewsWithCommits } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
 	static key = ':reflog-record';

@@ -1,5 +1,6 @@
 'use strict';
-import { commands, Disposable, TextEditor, Uri, ViewColumn, window } from 'vscode';
+import type { Disposable, TextEditor } from 'vscode';
+import { commands, Uri, ViewColumn, window } from 'vscode';
 import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
@@ -7,29 +8,22 @@ import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitUri } from '../../../git/gitUri';
-import {
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../../../git/models/repository';
+import type { RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
-import { debounce, Deferrable } from '../../../system/function';
+import type { Deferrable } from '../../../system/function';
+import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { getBestPath } from '../../../system/path';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
-import { IpcMessage, onIpc } from '../../../webviews/protocol';
+import type { IpcMessage } from '../../../webviews/protocol';
+import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import {
-	Commit,
-	DidChangeStateNotificationType,
-	OpenDataPointCommandType,
-	Period,
-	State,
-	UpdatePeriodCommandType,
-} from './protocol';
+import type { Commit, Period, State } from './protocol';
+import { DidChangeStateNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 import { generateRandomTimelineDataset } from './timelineWebviewView';
 
 interface Context {

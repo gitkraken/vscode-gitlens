@@ -5,19 +5,21 @@ import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	PartialStepState,
 	pickBranchOrTagStep,
 	pickCommitsStep,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {

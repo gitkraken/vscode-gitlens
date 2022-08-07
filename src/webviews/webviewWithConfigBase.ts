@@ -1,18 +1,19 @@
-import { ConfigurationChangeEvent, ConfigurationTarget, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
-import { Commands } from '../constants';
+import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';
 import { Logger } from '../logger';
+import type { IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
 	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
-	IpcMessage,
 	onIpc,
 	UpdateConfigurationCommandType,
 } from './protocol';
@@ -121,11 +122,11 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							}
 						}
 
-						void (await configuration.update(key as any, value, target));
+						await configuration.update(key as any, value, target);
 					}
 
 					for (const key of params.removes) {
-						void (await configuration.update(key as any, undefined, target));
+						await configuration.update(key as any, undefined, target);
 					}
 				});
 				break;
@@ -240,7 +241,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 	}
 
 	protected getCustomSettings(): Record<string, boolean> {
-		const customSettings = Object.create(null);
+		const customSettings: Record<string, boolean> = Object.create(null);
 		for (const [key, setting] of this.customSettings) {
 			customSettings[key] = setting.enabled();
 		}

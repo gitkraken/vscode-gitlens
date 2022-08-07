@@ -1,14 +1,7 @@
 export * from './config';
 
-import {
-	ConfigurationChangeEvent,
-	ConfigurationScope,
-	ConfigurationTarget,
-	Event,
-	EventEmitter,
-	ExtensionContext,
-	workspace,
-} from 'vscode';
+import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
+import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
 import type { Config } from './config';
 import { areEqual } from './system/object';
 

@@ -3,7 +3,8 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
 import { AutolinkedItemNode } from '../views/nodes/autolinkedItemNode';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 export interface OpenIssueOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -36,7 +37,7 @@ export class OpenIssueOnRemoteCommand extends Command {
 
 	async execute(args: OpenIssueOnRemoteCommandArgs) {
 		if (args.clipboard) {
-			void (await env.clipboard.writeText(args.issue.url));
+			(await env.clipboard.writeText(args.issue.url));
 		} else {
 			void env.openExternal(Uri.parse(args.issue.url));
 		}

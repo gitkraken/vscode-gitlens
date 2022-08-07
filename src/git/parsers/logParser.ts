@@ -1,14 +1,17 @@
-import { Range } from 'vscode';
+import type { Range } from 'vscode';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
-import { GitCommit, GitCommitIdentity, GitCommitLine } from '../models/commit';
-import { GitFile, GitFileChange, GitFileChangeStats, GitFileIndexStatus } from '../models/file';
+import type { GitCommitLine } from '../models/commit';
+import { GitCommit, GitCommitIdentity } from '../models/commit';
+import type { GitFile, GitFileChangeStats } from '../models/file';
+import { GitFileChange, GitFileIndexStatus } from '../models/file';
 import type { GitLog } from '../models/log';
 import { GitRevision } from '../models/reference';
-import { GitUser, isUserMatch } from '../models/user';
+import type { GitUser } from '../models/user';
+import { isUserMatch } from '../models/user';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
@@ -74,6 +77,7 @@ type ParserWithFiles<T> = {
 	parse: (data: string) => Generator<ParsedEntryWithFiles<T>>;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitLogParser {
 	static readonly shortstatRegex =
 		/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;

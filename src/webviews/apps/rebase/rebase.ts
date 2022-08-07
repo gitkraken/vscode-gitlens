@@ -2,17 +2,15 @@
 import './rebase.scss';
 import Sortable from 'sortablejs';
 import { onIpc } from '../../protocol';
+import type { RebaseEntry, RebaseEntryAction, State } from '../../rebase/protocol';
 import {
 	AbortCommandType,
 	ChangeEntryCommandType,
 	DidChangeNotificationType,
 	DisableCommandType,
 	MoveEntryCommandType,
-	RebaseEntry,
-	RebaseEntryAction,
 	ReorderCommandType,
 	StartCommandType,
-	State,
 	SwitchCommandType,
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';

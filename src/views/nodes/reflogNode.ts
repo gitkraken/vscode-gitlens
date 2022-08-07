@@ -8,7 +8,8 @@ import type { RepositoriesView } from '../repositoriesView';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
 	static key = ':reflog';

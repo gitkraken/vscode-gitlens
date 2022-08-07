@@ -10,8 +10,9 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
-import { BranchTrackingStatus } from './branchTrackingStatusNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { BranchTrackingStatus } from './branchTrackingStatusNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 

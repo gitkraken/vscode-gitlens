@@ -1,20 +1,20 @@
 import type { Container } from '../../container';
-import { GitCommit, GitStashCommit } from '../../git/models/commit';
+import type { GitStashCommit } from '../../git/models/commit';
+import { GitCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { PartialStepState, StepGenerator } from '../quickCommand';
 import {
-	PartialStepState,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	showCommitOrStashFilesStep,
 	showCommitOrStashFileStep,
 	showCommitOrStashStep,
-	StepGenerator,
 	StepResult,
 } from '../quickCommand';
 

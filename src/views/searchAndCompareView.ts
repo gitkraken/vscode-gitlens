@@ -1,5 +1,7 @@
-import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { configuration, SearchAndCompareViewConfig, ViewFilesLayout } from '../configuration';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import { commands, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { SearchAndCompareViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
@@ -9,7 +11,8 @@ import { GitRevision } from '../git/models/reference';
 import type { SearchPattern } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
-import { NamedRef, PinnedItem, PinnedItems, WorkspaceStorageKeys } from '../storage';
+import type { NamedRef, PinnedItem, PinnedItems } from '../storage';
+import { WorkspaceStorageKeys } from '../storage';
 import { filterMap } from '../system/array';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
@@ -170,7 +173,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		this.removeComparePicker();
-		void (await this.view.compare(repoPath, selectedRef.ref, ref));
+		(await this.view.compare(repoPath, selectedRef.ref, ref));
 	}
 
 	async selectForCompare(repoPath?: string, ref?: string | NamedRef, options?: { prompt?: boolean }) {

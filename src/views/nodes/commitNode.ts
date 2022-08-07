@@ -1,4 +1,5 @@
-import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
 import { Colors, Commands } from '../../constants';
@@ -18,10 +19,12 @@ import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
 import type { ViewsWithCommits } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;

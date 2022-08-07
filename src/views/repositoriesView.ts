@@ -1,33 +1,20 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	Event,
-	EventEmitter,
-	ProgressLocation,
-	window,
-} from 'vscode';
-import {
-	configuration,
-	RepositoriesViewConfig,
-	ViewBranchesLayout,
-	ViewFilesLayout,
-	ViewShowBranchComparison,
-} from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
+import { commands, EventEmitter, ProgressLocation, window } from 'vscode';
+import type { RepositoriesViewConfig } from '../configuration';
+import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitBranch } from '../git/models/branch';
 import { GitCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
-import {
+import type {
 	GitBranchReference,
-	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
 import { WorkspaceStorageKeys } from '../storage';

@@ -1,23 +1,26 @@
-import { ProgressLocation, QuickPickItem, window } from 'vscode';
+import type { QuickPickItem } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { isStringArray } from '../../system/array';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
-	inputBranchNameStep,
+import type {
 	PartialStepState,
-	pickBranchOrTagStepMultiRepo,
-	pickRepositoriesStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
+	inputBranchNameStep,
+	pickBranchOrTagStepMultiRepo,
+	pickRepositoriesStep,
+	QuickCommand,
+	StepResult,
 } from '../quickCommand';
 
 interface Context {

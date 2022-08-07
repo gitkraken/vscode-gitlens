@@ -1,4 +1,5 @@
-import { Disposable, Terminal, window } from 'vscode';
+import type { Disposable, Terminal } from 'vscode';
+import { window } from 'vscode';
 import { Container } from './container';
 
 let _terminal: Terminal | undefined;

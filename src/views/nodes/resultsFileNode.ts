@@ -1,14 +1,17 @@
-import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import { GitFile } from '../../git/models/file';
-import { GitReference, GitRevisionReference } from '../../git/models/reference';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
-import { FileNode } from './folderNode';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { FileNode } from './folderNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	constructor(

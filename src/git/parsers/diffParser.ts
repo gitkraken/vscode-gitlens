@@ -1,11 +1,13 @@
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
-import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
-import { GitFile, GitFileStatus } from '../models/file';
+import type { GitDiff, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
+import { GitDiffHunk } from '../models/diff';
+import type { GitFile, GitFileStatus } from '../models/file';
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitDiffParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string, debug: boolean = false): GitDiff | undefined {

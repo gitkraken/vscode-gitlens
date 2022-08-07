@@ -11,7 +11,8 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 

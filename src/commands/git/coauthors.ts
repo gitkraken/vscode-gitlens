@@ -5,15 +5,8 @@ import type { Repository } from '../../git/models/repository';
 import { executeCoreCommand } from '../../system/command';
 import { normalizePath } from '../../system/path';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	PartialStepState,
-	pickContributorsStep,
-	pickRepositoryStep,
-	QuickCommand,
-	StepGenerator,
-	StepResult,
-	StepState,
-} from '../quickCommand';
+import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
+import { pickContributorsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];

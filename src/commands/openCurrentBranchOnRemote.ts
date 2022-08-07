@@ -1,4 +1,5 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -7,7 +8,7 @@ import { Logger } from '../logger';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 @command()
 export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {

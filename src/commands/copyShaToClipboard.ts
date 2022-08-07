@@ -1,15 +1,16 @@
-import { env, TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
@@ -77,17 +78,17 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 						args.sha = blame.commit.sha;
 					} catch (ex) {
 						Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-						void Messages.showGenericErrorMessage('Unable to copy commit SHA');
+						void showGenericErrorMessage('Unable to copy commit SHA');
 
 						return;
 					}
 				}
 			}
 
-			void (await env.clipboard.writeText(args.sha));
+			await env.clipboard.writeText(args.sha);
 		} catch (ex) {
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			void Messages.showGenericErrorMessage('Unable to copy commit SHA');
+			void showGenericErrorMessage('Unable to copy commit SHA');
 		}
 	}
 }

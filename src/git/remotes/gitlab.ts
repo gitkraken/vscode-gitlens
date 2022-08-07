@@ -1,6 +1,8 @@
-import { AuthenticationSession, Disposable, env, QuickInputButton, Range, ThemeIcon, Uri, window } from 'vscode';
+import type { AuthenticationSession, Disposable, QuickInputButton, Range } from 'vscode';
+import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference, AutolinkType } from '../../config';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
 import { Container } from '../../container';
 import type {
 	IntegrationAuthenticationProvider,
@@ -456,7 +458,7 @@ export class GitLabAuthenticationProvider implements Disposable, IntegrationAuth
 			});
 		} finally {
 			input.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 
 		if (!token) return undefined;

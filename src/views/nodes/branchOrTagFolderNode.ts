@@ -1,10 +1,10 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { HierarchicalItem } from '../../system/array';
-import { View } from '../viewBase';
+import type { HierarchicalItem } from '../../system/array';
+import type { View } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { RepositoryNode } from './repositoryNode';
-import { TagNode } from './tagNode';
+import type { TagNode } from './tagNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class BranchOrTagFolderNode extends ViewNode {

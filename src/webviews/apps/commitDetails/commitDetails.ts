@@ -1,9 +1,10 @@
 /*global*/
-import { IpcMessage, onIpc } from '../../../webviews/protocol';
+import type { IpcMessage } from '../../../webviews/protocol';
+import { onIpc } from '../../../webviews/protocol';
+import type { CommitSummary, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	CommitSummary,
 	DidChangeNotificationType,
 	FileComparePreviousCommandType,
 	FileCompareWorkingCommandType,
@@ -13,11 +14,9 @@ import {
 	PickCommitCommandType,
 	RichContentNotificationType,
 	SearchCommitCommandType,
-	State,
 } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
-// eslint-disable-next-line import/no-duplicates
-import { FileChangeItem, FileChangeItemEventDetail } from '../shared/components/commit/file-change-item';
+import type { FileChangeItem, FileChangeItemEventDetail } from '../shared/components/commit/file-change-item';
 import { DOM } from '../shared/dom';
 import './commitDetails.scss';
 import '../shared/components/codicon';
@@ -26,7 +25,7 @@ import '../shared/components/formatted-date';
 import '../shared/components/rich/issue-pull-request';
 import '../shared/components/skeleton-loader';
 import '../shared/components/commit/commit-stats';
-// eslint-disable-next-line @typescript-eslint/no-duplicate-imports, import/no-duplicates
+
 import '../shared/components/commit/file-change-item';
 import '../shared/components/webview-pane';
 
@@ -193,7 +192,6 @@ export class CommitDetailsApp extends App<State> {
 		this.renderStats();
 		this.renderFiles();
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (this.state.includeRichContent) {
 			this.renderAutolinks();
 		}

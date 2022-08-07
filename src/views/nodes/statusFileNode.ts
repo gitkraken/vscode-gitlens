@@ -1,4 +1,5 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
 import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Commands } from '../../constants';
@@ -10,7 +11,7 @@ import { joinPaths, relativeDir } from '../../system/path';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { FileNode } from './folderNode';
+import type { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {

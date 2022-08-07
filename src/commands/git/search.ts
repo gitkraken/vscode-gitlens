@@ -5,25 +5,23 @@ import { getContext } from '../../context';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
-import { searchOperators, SearchOperators, SearchPattern } from '../../git/search';
-import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks/items/common';
+import type { SearchOperators } from '../../git/search';
+import { searchOperators, SearchPattern } from '../../git/search';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
+import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import {
 	appendReposToTitle,
-	PartialStepState,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -175,7 +173,6 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.resultsKey = searchKey;
 			}
 
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
 				void this.container.searchAndCompareView.search(
 					state.repo.path,

@@ -1,4 +1,5 @@
-import { ConfigurationChangeEvent, Event, EventEmitter, ExtensionContext, ExtensionMode } from 'vscode';
+import type { ConfigurationChangeEvent, Event, ExtensionContext } from 'vscode';
+import { EventEmitter, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
@@ -7,14 +8,8 @@ import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
-import {
-	AnnotationsToggleMode,
-	configuration,
-	DateSource,
-	DateStyle,
-	FileAnnotationType,
-	ModeConfig,
-} from './configuration';
+import type { FileAnnotationType, ModeConfig } from './configuration';
+import { AnnotationsToggleMode, configuration, DateSource, DateStyle } from './configuration';
 import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
@@ -61,6 +56,7 @@ export class Container {
 	static #proxy = new Proxy<Container>({} as Container, {
 		get: function (target, prop) {
 			// In case anyone has cached this instance
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 			if (Container.#instance != null) return (Container.#instance as any)[prop];
 
 			// Allow access to config before we are initialized
@@ -543,7 +539,7 @@ export class Container {
 
 	@memoize()
 	get version(): string {
-		return this.context.extension.packageJSON.version;
+		return this.context.extension.packageJSON.version as string;
 	}
 
 	private _viewCommands: ViewCommands | undefined;

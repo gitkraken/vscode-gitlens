@@ -95,10 +95,10 @@ export class KeyboardScope implements Disposable {
 		if (this._paused) return;
 
 		this._paused = true;
-		const mapping = (Object.keys(this._mapping) as Keys[]).reduce((accumulator, key) => {
+		const mapping = (Object.keys(this._mapping) as Keys[]).reduce<KeyMapping>((accumulator, key) => {
 			accumulator[key] = keys == null || keys.includes(key) ? undefined : this._mapping[key];
 			return accumulator;
-		}, Object.create(null) as KeyMapping);
+		}, Object.create(null));
 
 		await this.updateKeyCommandsContext(mapping);
 	}
@@ -208,7 +208,7 @@ export class Keyboard implements Disposable {
 				return;
 			}
 
-			void (await command.onDidPressKey(key));
+			await command.onDidPressKey(key);
 		} catch (ex) {
 			Logger.error(ex, scope);
 		}

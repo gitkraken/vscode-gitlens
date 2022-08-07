@@ -1,4 +1,5 @@
-import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
+import type { Disposable, QuickPick } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
 import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
@@ -8,7 +9,8 @@ import { GitReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import type { KeyboardScope, Keys } from '../keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
+import type { BranchQuickPickItem, TagQuickPickItem } from './items/gitCommands';
+import { RefQuickPickItem } from './items/gitCommands';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -18,6 +20,7 @@ export const enum ReferencesQuickPickIncludes {
 	WorkingTree = 1 << 2,
 	HEAD = 1 << 3,
 
+	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
 	BranchesAndTags = Branches | Tags,
 }
 
@@ -93,7 +96,6 @@ export namespace ReferencePicker {
 		const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
 			buttons: [QuickCommandButtons.RevealInSideBar],
 			ranges:
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
 					? options.allowEnteringRefs.ranges
 					: undefined,
@@ -115,7 +117,6 @@ export namespace ReferencePicker {
 						resolve(quickpick.activeItems[0]);
 					}),
 					quickpick.onDidChangeValue(async e => {
-						// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 						if (options.allowEnteringRefs) {
 							if (!(await getValidateGitReference(quickpick, e))) {
 								quickpick.items = await items;
@@ -152,7 +153,7 @@ export namespace ReferencePicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 

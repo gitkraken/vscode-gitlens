@@ -11265,6 +11265,7 @@
 		"clean": "npx rimraf dist out .vscode-test .vscode-test-web .eslintcache* tsconfig*.tsbuildinfo",
 		"copy:images": "webpack --config webpack.config.images.js",
 		"lint": "eslint src/**/*.ts --fix",
+		"lint:webviews": "eslint src/webviews/apps/**/*.ts --fix",
 		"package": "vsce package --yarn",
 		"package-insiders": "yarn run patch-insiders && yarn run package",
 		"patch-insiders": "node ./scripts/applyPatchForInsiders.js",

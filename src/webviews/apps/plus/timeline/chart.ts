@@ -1,11 +1,13 @@
 'use strict';
 /*global*/
-import { bar, bb, bubble, Chart, ChartOptions, ChartTypes, DataItem, zoom } from 'billboard.js';
+import type { Chart, ChartOptions, ChartTypes, DataItem } from 'billboard.js';
+import { bar, bb, bubble, zoom } from 'billboard.js';
 // import BubbleCompare from 'billboard.js/dist/plugin/billboardjs-plugin-bubblecompare';
 // import { scaleSqrt } from 'd3-scale';
-import { Commit, State } from '../../../../plus/webviews/timeline/protocol';
+import type { Commit, State } from '../../../../plus/webviews/timeline/protocol';
 import { formatDate, fromNow } from '../../shared/date';
-import { Emitter, Event } from '../../shared/events';
+import type { Event } from '../../shared/events';
+import { Emitter } from '../../shared/events';
 
 export interface DataPointClickEvent {
 	data: {
@@ -97,7 +99,7 @@ export class TimelineChart {
 			const $overlay = document.getElementById('chart-empty-overlay') as HTMLDivElement;
 			$overlay?.classList.toggle('hidden', false);
 
-			const $emptyMessage = $overlay.querySelector('[data-bind="empty"]') as HTMLHeadingElement;
+			const $emptyMessage = $overlay.querySelector<HTMLHeadingElement>('[data-bind="empty"]')!;
 			$emptyMessage.textContent = state.title;
 
 			return;
@@ -207,6 +209,7 @@ export class TimelineChart {
 
 		groups.push(group);
 
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		const columns = Object.entries(series).map(([key, value]) => [key, ...value]);
 
 		if (this._chart == null) {
@@ -407,9 +410,9 @@ export class TimelineChart {
 		return `${commit.author}, ${formattedDate}`;
 	}
 
-	private getTooltipValue(value: any, ratio: number, id: string, index: number) {
+	private getTooltipValue(value: unknown, ratio: number, id: string, index: number): string {
 		if (id === 'additions' || /*id === 'changes' ||*/ id === 'deletions') {
-			return value === 0 ? undefined! : value;
+			return value === 0 ? undefined! : (value as string);
 		}
 
 		const date = new Date(this._chart!.data(id)[0].values[index].x);

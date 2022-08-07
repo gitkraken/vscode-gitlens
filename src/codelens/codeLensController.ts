@@ -1,11 +1,12 @@
-import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
+import type { ConfigurationChangeEvent } from 'vscode';
+import { Disposable, languages } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
 import { Logger } from '../logger';
 import { once } from '../system/event';
-import {
+import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	GitDocumentState,

@@ -1,7 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitTrackingState } from '../../git/models/branch';
+import type { GitTrackingState } from '../../git/models/branch';
+import { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { GitRevision } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
@@ -16,7 +17,8 @@ import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
 	ref: string;

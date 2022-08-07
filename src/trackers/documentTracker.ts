@@ -1,9 +1,6 @@
-import {
+import type {
 	ConfigurationChangeEvent,
-	Disposable,
-	EndOfLine,
 	Event,
-	EventEmitter,
 	Position,
 	Range,
 	TextDocument,
@@ -11,23 +8,24 @@ import {
 	TextDocumentContentChangeEvent,
 	TextEditor,
 	TextLine,
-	Uri,
-	window,
-	workspace,
 } from 'vscode';
+import { Disposable, EndOfLine, EventEmitter, Uri, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService';
 import { GitUri } from '../git/gitUri';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce, Deferrable } from '../system/function';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
 import { filter, join, map } from '../system/iterable';
 import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
-import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
+import type { DocumentBlameStateChangeEvent } from './trackedDocument';
+import { TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
 
@@ -166,7 +164,7 @@ export class DocumentTracker<T> implements Disposable {
 				RepositoryChangeComparisonMode.Any,
 			)
 		) {
-			void this.reset('repository', new Set([e.repository.path]));
+			this.reset('repository', new Set([e.repository.path]));
 		}
 	}
 

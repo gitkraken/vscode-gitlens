@@ -1,17 +1,12 @@
-import {
+import type {
 	CancellationToken,
 	DecorationOptions,
 	Disposable,
-	Hover,
-	languages,
-	Position,
-	Range,
-	Selection,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
-	TextEditorRevealType,
 } from 'vscode';
+import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
 import { configuration, FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
@@ -20,7 +15,8 @@ import { Hovers } from '../hovers/hovers';
 import { getLogScope, log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
+import type { AnnotationContext } from './annotationProvider';
+import { AnnotationProviderBase } from './annotationProvider';
 import { Decorations } from './fileAnnotationController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)

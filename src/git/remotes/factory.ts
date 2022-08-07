@@ -1,4 +1,5 @@
-import { CustomRemoteType, RemotesConfig } from '../../configuration';
+import type { RemotesConfig } from '../../configuration';
+import { CustomRemoteType } from '../../configuration';
 import { Logger } from '../../logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
@@ -9,7 +10,7 @@ import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
 import { GoogleSourceRemote } from './google-source';
-import { RemoteProvider } from './provider';
+import type { RemoteProvider } from './provider';
 
 // export { RemoteProvider, RichRemoteProvider };
 export type RemoteProviders = {
@@ -71,6 +72,7 @@ const builtInProviders: RemoteProviders = [
 	},
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class RemoteProviderFactory {
 	static factory(
 		providers: RemoteProviders,

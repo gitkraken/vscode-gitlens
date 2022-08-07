@@ -1,5 +1,6 @@
 import { commands } from 'vscode';
-import { ContextKeys, CoreCommands } from './constants';
+import type { ContextKeys } from './constants';
+import { CoreCommands } from './constants';
 
 const contextStorage = new Map<string, unknown>();
 

@@ -1,4 +1,5 @@
-import { version as codeVersion, env, ExtensionContext, extensions, window, workspace } from 'vscode';
+import type { ExtensionContext } from 'vscode';
+import { version as codeVersion, env, extensions, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -11,7 +12,7 @@ import { GitUri } from './git/gitUri';
 import { GitBranch } from './git/models/branch';
 import { GitCommit } from './git/models/commit';
 import { Logger, LogLevel } from './logger';
-import { Messages } from './messages';
+import { showDebugLoggingWarningMessage, showInsidersErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { StorageKeys, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
@@ -56,7 +57,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(() => void Messages.showInsidersErrorMessage(), 0);
+			setTimeout(() => void showInsidersErrorMessage(), 0);
 
 			return undefined;
 		}
@@ -129,7 +130,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				if (configuration.get('outputLevel') !== OutputLevel.Debug) return;
 
 				if (!container.insidersOrDebugging) {
-					if (await Messages.showDebugLoggingWarningMessage()) {
+					if (await showDebugLoggingWarningMessage()) {
 						void executeCommand(Commands.DisableDebugLogging);
 					}
 				}
@@ -267,7 +268,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 	if (configuration.get('showWhatsNewAfterUpgrades')) {
 		if (window.state.focused) {
 			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
-			await Messages.showWhatsNewMessage(version);
+			await showWhatsNewMessage(version);
 		} else {
 			// Save pending on window getting focus
 			await container.storage.store(StorageKeys.PendingWhatsNewOnFocus, true);
@@ -280,7 +281,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 				if (container.storage.get(StorageKeys.PendingWhatsNewOnFocus) === true) {
 					void container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
 					if (configuration.get('showWhatsNewAfterUpgrades')) {
-						void Messages.showWhatsNewMessage(version);
+						void showWhatsNewMessage(version);
 					}
 				}
 			});

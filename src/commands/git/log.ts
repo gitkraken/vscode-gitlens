@@ -9,15 +9,8 @@ import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
-import {
-	PartialStepState,
-	pickBranchOrTagStep,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
-	StepGenerator,
-	StepResult,
-} from '../quickCommand';
+import type { PartialStepState, StepGenerator } from '../quickCommand';
+import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];

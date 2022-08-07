@@ -1,4 +1,4 @@
-import { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
+import type { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { Features } from '../features';

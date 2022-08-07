@@ -1,7 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
+import type { ViewsFilesConfig } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { HierarchicalItem } from '../../system/array';
+import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { StashesView } from '../stashesView';

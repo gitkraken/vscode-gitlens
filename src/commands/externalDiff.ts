@@ -1,4 +1,5 @@
-import { env, SourceControlResourceState, Uri, window } from 'vscode';
+import type { SourceControlResourceState } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
 import { configuration } from '../configuration';
@@ -7,16 +8,12 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
-import {
-	Command,
-	CommandContext,
-	isCommandContextViewNodeHasFileCommit,
-	isCommandContextViewNodeHasFileRefs,
-} from './base';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -180,7 +177,7 @@ export class ExternalDiffCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			void Messages.showGenericErrorMessage('Unable to open changes in diff tool');
+			void showGenericErrorMessage('Unable to open changes in diff tool');
 		}
 	}
 }

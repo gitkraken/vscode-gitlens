@@ -7,7 +7,8 @@ import type { RichRemoteProvider } from '../git/remotes/provider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
-import { Command, CommandContext, isCommandContextViewNodeHasRemote } from './base';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasRemote } from './base';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;

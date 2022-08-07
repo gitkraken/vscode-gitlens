@@ -1,4 +1,5 @@
-import { Disposable, Event, EventEmitter, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
+import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
+import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
 

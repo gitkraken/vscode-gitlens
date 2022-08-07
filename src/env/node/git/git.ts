@@ -1,8 +1,10 @@
 import * as process from 'process';
-import { CancellationToken, Uri, window, workspace } from 'vscode';
+import type { CancellationToken } from 'vscode';
+import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
-import { GitCommandOptions, GitErrorHandling } from '../../../git/commandOptions';
+import type { GitCommandOptions } from '../../../git/commandOptions';
+import { GitErrorHandling } from '../../../git/commandOptions';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { GitRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -15,7 +17,8 @@ import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath 
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
 import type { GitLocation } from './locator';
-import { fsExists, run, RunError, RunOptions } from './shell';
+import type { RunOptions } from './shell';
+import { fsExists, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});

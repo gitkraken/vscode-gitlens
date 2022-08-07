@@ -5,7 +5,8 @@ import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
-import { GitRevision, GitTagReference } from '../../git/models/reference';
+import type { GitTagReference } from '../../git/models/reference';
+import { GitRevision } from '../../git/models/reference';
 import type { GitTag } from '../../git/models/tag';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -17,7 +18,8 @@ import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
+import type { PageableViewNode, ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';

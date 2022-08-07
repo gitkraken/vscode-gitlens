@@ -13,24 +13,21 @@ import { GitFile } from '../../git/models/file';
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
-import { IpcMessage, onIpc } from '../protocol';
+import type { IpcMessage } from '../protocol';
+import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
+import type { CommitDetails, CommitSummary, FileParams, RichCommitDetails, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	CommitDetails,
-	CommitSummary,
 	FileComparePreviousCommandType,
 	FileCompareWorkingCommandType,
 	FileMoreActionsCommandType,
-	FileParams,
 	OpenFileCommandType,
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
-	RichCommitDetails,
 	RichContentNotificationType,
 	SearchCommitCommandType,
-	State,
 } from './protocol';
 
 export class CommitDetailsWebviewView extends WebviewViewBase<State> {

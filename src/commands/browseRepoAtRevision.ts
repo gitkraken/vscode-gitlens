@@ -1,13 +1,14 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
-import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
@@ -73,7 +74,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'BrowseRepoAtRevisionCommand');
-			void Messages.showGenericErrorMessage('Unable to open the repository at the specified revision');
+			void showGenericErrorMessage('Unable to open the repository at the specified revision');
 		}
 	}
 }

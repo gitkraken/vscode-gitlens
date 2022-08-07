@@ -3,7 +3,8 @@ import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import { Disposable, Event, EventEmitter, Uri, window } from 'vscode';
+import type { Event } from 'vscode';
+import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration } from '../../configuration';
@@ -15,7 +16,8 @@ import {
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
 } from '../../errors';
-import { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
+import type { PagedResult } from '../../git/gitProvider';
+import { RepositoryVisibility } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -24,13 +26,18 @@ import { GitRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
-import { Logger, LogLevel, LogScope } from '../../logger';
-import { Messages } from '../../messages';
+import type { LogScope } from '../../logger';
+import { Logger, LogLevel } from '../../logger';
+import {
+	showIntegrationRequestFailed500WarningMessage,
+	showIntegrationRequestTimedOutWarningMessage,
+} from '../../messages';
 import { debug, getLogScope } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
-import { fromString, satisfies, Version } from '../../system/version';
-import {
+import type { Version } from '../../system/version';
+import { fromString, satisfies } from '../../system/version';
+import type {
 	GitHubBlame,
 	GitHubBlameRange,
 	GitHubBranch,
@@ -40,10 +47,10 @@ import {
 	GitHubIssueOrPullRequest,
 	GitHubPagedResult,
 	GitHubPageInfo,
-	GitHubPullRequest,
 	GitHubPullRequestState,
 	GitHubTag,
 } from './models';
+import { GitHubPullRequest } from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -2028,7 +2035,7 @@ export class GitHubApi implements Disposable {
 		try {
 			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
 				this.octokit(token).request<R>(route, options),
-			)) as any;
+			)) as R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<unknown>;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
 				this.handleRequestError(provider, token, ex, scope);
@@ -2073,7 +2080,7 @@ export class GitHubApi implements Disposable {
 				Logger.error(ex, scope);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					void Messages.showIntegrationRequestFailed500WarningMessage(
+					void showIntegrationRequestFailed500WarningMessage(
 						`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
 							!provider?.custom
 								? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
@@ -2087,7 +2094,7 @@ export class GitHubApi implements Disposable {
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
-					void Messages.showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitHub');
+					void showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'GitHub');
 					return;
 				}
 				break;

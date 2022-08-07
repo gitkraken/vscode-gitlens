@@ -3,7 +3,8 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
 import { PullRequestNode } from '../views/nodes/pullRequestNode';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -45,7 +46,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		}
 
 		if (args.clipboard) {
-			void (await env.clipboard.writeText(args.pr.url));
+			(await env.clipboard.writeText(args.pr.url));
 		} else {
 			void env.openExternal(Uri.parse(args.pr.url));
 		}

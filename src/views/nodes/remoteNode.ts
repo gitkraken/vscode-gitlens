@@ -2,7 +2,8 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import type { GitRemote } from '../../git/models/remote';
+import { GitRemoteType } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
@@ -158,7 +159,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@log()
 	async setAsDefault(state: boolean = true) {
-		void (await this.remote.setAsDefault(state));
+		(await this.remote.setAsDefault(state));
 		void this.triggerChange();
 	}
 }

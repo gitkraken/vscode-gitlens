@@ -1,5 +1,6 @@
 import { debug } from '../../system/decorators/log';
-import { GitRemote, GitRemoteType } from '../models/remote';
+import type { GitRemoteType } from '../models/remote';
+import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/provider';
 
 const emptyStr = '';
@@ -46,6 +47,7 @@ user:password@host.xz:/path/to/repo.git
 user:password@host.xz:/path/to/repo.git/
 */
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitRemoteParser {
 	@debug({ args: false, singleLine: true })
 	static parse(

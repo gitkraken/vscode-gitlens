@@ -1,10 +1,12 @@
-import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
+import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch } from '../git/models/branch';
 import { GitRemote } from '../git/models/remote';
-import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
+import type { RemoteProvider, RemoteResource } from '../git/remotes/provider';
+import { getNameFromRemoteResource, RemoteResourceType } from '../git/remotes/provider';
 import type { Keys } from '../keyboard';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getSettledValue } from '../system/promise';
@@ -174,7 +176,6 @@ export namespace RemoteProviderPicker {
 			);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (autoPick && remotes.length === 1) return items[0];
 
 		const quickpick = window.createQuickPick<
@@ -200,7 +201,7 @@ export namespace RemoteProviderPicker {
 							e.button === QuickCommandButtons.SetRemoteAsDefault &&
 							e.item instanceof CopyOrOpenRemoteCommandQuickPickItem
 						) {
-							void (await e.item.setAsDefault());
+							await e.item.setAsDefault();
 							resolve(e.item);
 						}
 					}),
@@ -218,7 +219,7 @@ export namespace RemoteProviderPicker {
 			return pick;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

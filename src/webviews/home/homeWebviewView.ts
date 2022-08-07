@@ -1,4 +1,5 @@
-import { commands, Disposable, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { commands, window } from 'vscode';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
@@ -7,7 +8,8 @@ import { StorageKeys, SyncedStorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand } from '../../system/command';
 import { WebviewViewBase } from '../webviewViewBase';
-import { CompletedActions, DidChangeSubscriptionNotificationType, State } from './protocol';
+import type { State } from './protocol';
+import { CompletedActions, DidChangeSubscriptionNotificationType } from './protocol';
 
 export class HomeWebviewView extends WebviewViewBase<State> {
 	constructor(container: Container) {
@@ -103,7 +105,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		if (this._validating == null) {
 			this._validating = this.container.subscription.validate();
 			try {
-				void (await this._validating);
+				(await this._validating);
 			} finally {
 				this._validating = undefined;
 			}

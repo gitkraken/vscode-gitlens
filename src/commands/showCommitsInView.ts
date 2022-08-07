@@ -1,11 +1,11 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { SearchPattern } from '../git/search';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
 import { ActiveEditorCommand, getCommandUri } from './base';
@@ -43,13 +43,13 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 						  )
 						: await this.container.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
-						return Messages.showFileNotUnderSourceControlWarningMessage('Unable to find commits');
+						return showFileNotUnderSourceControlWarningMessage('Unable to find commits');
 					}
 
 					args.refs = [...filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))];
 				} catch (ex) {
 					Logger.error(ex, 'ShowCommitsInViewCommand', 'getBlameForRange');
-					return Messages.showGenericErrorMessage('Unable to find commits');
+					return showGenericErrorMessage('Unable to find commits');
 				}
 			} else {
 				if (gitUri.sha == null) return undefined;

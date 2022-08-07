@@ -14,6 +14,7 @@ interface WorktreeEntry {
 	prunable?: boolean | string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitWorktreeParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string, repoPath: string): GitWorktree[] {

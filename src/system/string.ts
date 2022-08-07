@@ -210,7 +210,7 @@ export function interpolate(template: string, context: object | undefined): stri
 		interpolationMap.set(template, fn);
 	}
 
-	return fn.call(context);
+	return fn.call(context) as string;
 }
 
 // eslint-disable-next-line prefer-arrow-callback
@@ -235,7 +235,7 @@ export async function interpolateAsync(template: string, context: object | undef
 	}
 
 	const value = await fn.call(context);
-	return value;
+	return value as string;
 }
 
 export function isLowerAsciiLetter(code: number): boolean {

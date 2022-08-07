@@ -1,4 +1,5 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -6,8 +7,9 @@ import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
-import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
 	clipboard?: boolean;

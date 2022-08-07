@@ -1,5 +1,6 @@
 import { debug } from '../../system/decorators/log';
-import { GitReflog, GitReflogRecord } from '../models/reflog';
+import type { GitReflog } from '../models/reflog';
+import { GitReflogRecord } from '../models/reflog';
 
 const reflogRegex = /^<r>(.+)<d>(.+?)@{(.+)}<s>(\w*)(.*?)(?::(.*))?$/gm;
 // const reflogRegex = /^<r>(.+)<d>(.+?)@{(.+)}<s>(\w*)(.*?)(?::(.*))?<n>(.*)$/gm;
@@ -9,6 +10,7 @@ const reflogHEADRegex = /.*?\/?HEAD$/;
 const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitReflogParser {
 	static defaultFormat = [
 		`${lb}r${rb}%H`, // ref

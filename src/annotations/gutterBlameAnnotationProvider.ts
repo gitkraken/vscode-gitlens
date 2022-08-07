@@ -1,19 +1,23 @@
-import { DecorationOptions, Range, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
-import { configuration, FileAnnotationType, GravatarDefaultStyle } from '../configuration';
+import type { DecorationOptions, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
+import { Range } from 'vscode';
+import type { GravatarDefaultStyle } from '../configuration';
+import { configuration, FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter } from '../git/formatters/commitFormatter';
+import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { filterMap } from '../system/array';
 import { getLogScope, log } from '../system/decorators/log';
 import { first } from '../system/iterable';
 import { Stopwatch } from '../system/stopwatch';
-import { getTokensFromTemplate, getWidth, TokenOptions } from '../system/string';
+import type { TokenOptions } from '../system/string';
+import { getTokensFromTemplate, getWidth } from '../system/string';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext } from './annotationProvider';
-import { Annotations } from './annotations';
+import { applyHeatmap, getGutterDecoration, getGutterRenderOptions } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { Decorations } from './fileAnnotationController';
 
@@ -69,13 +73,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const avatars = cfg.avatars;
 		const gravatarDefault = configuration.get('defaultGravatarsStyle');
 		const separateLines = cfg.separateLines;
-		const renderOptions = Annotations.gutterRenderOptions(
-			separateLines,
-			cfg.heatmap,
-			cfg.avatars,
-			cfg.format,
-			options,
-		);
+		const renderOptions = getGutterRenderOptions(separateLines, cfg.heatmap, cfg.avatars, cfg.format, options);
 
 		const decorationOptions = [];
 		const decorationsMap = new Map<string, DecorationOptions | undefined>();
@@ -144,10 +142,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				continue;
 			}
 
-			gutter = Annotations.gutter(commit, cfg.format, options, renderOptions) as DecorationOptions;
+			gutter = getGutterDecoration(commit, cfg.format, options, renderOptions) as DecorationOptions;
 
 			if (computedHeatmap != null) {
-				Annotations.applyHeatmap(gutter, commit.date, computedHeatmap);
+				applyHeatmap(gutter, commit.date, computedHeatmap);
 			}
 
 			gutter.range = new Range(editorLine, 0, editorLine, 0);

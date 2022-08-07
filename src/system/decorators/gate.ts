@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { isPromise } from '../promise';
 import { resolveProp } from './resolver';
 

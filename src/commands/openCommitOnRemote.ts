@@ -1,15 +1,16 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
@@ -72,9 +73,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage(
-						'Unable to open commit on remote provider',
-					);
+					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
 
 					return;
 				}

@@ -1,7 +1,8 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { GitRemote } from '../git/models/remote';
-import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
+import type { RemoteProvider, RemoteResource } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/remotes/provider';
 import { command, executeCommand } from '../system/command';
 import { Command } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';

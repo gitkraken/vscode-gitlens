@@ -1,13 +1,5 @@
-import {
-	Command,
-	MarkdownString,
-	Selection,
-	ThemeColor,
-	ThemeIcon,
-	TreeItem,
-	TreeItemCollapsibleState,
-	Uri,
-} from 'vscode';
+import type { Command, Selection } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
@@ -25,7 +17,8 @@ import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(

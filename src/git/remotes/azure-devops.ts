@@ -1,7 +1,8 @@
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference, AutolinkType } from '../../config';
-import { Repository } from '../models/repository';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import type { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
 
 const gitRegex = /\/_git\/?/i;

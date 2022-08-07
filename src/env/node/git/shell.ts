@@ -1,9 +1,11 @@
-import { ExecException, execFile } from 'child_process';
-import { exists, existsSync, Stats, statSync } from 'fs';
+import type { ExecException } from 'child_process';
+import { execFile } from 'child_process';
+import type { Stats } from 'fs';
+import { exists, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { decode } from 'iconv-lite';
-import { CancellationToken } from 'vscode';
+import type { CancellationToken } from 'vscode';
 import { Logger } from '../../../logger';
 
 export const isWindows = process.platform === 'win32';

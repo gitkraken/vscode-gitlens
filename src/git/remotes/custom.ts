@@ -1,7 +1,7 @@
-import { Range, Uri } from 'vscode';
-import { RemotesUrlsConfig } from '../../configuration';
+import type { Range, Uri } from 'vscode';
+import type { RemotesUrlsConfig } from '../../configuration';
 import { interpolate } from '../../system/string';
-import { Repository } from '../models/repository';
+import type { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
 
 export class CustomRemote extends RemoteProvider {

@@ -1,25 +1,21 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
+import { commands, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { StashesViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitStashReference } from '../git/models/reference';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { GitStashReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { StashesNode } from './nodes/stashesNode';
 import { StashNode } from './nodes/stashNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {

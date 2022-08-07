@@ -38,13 +38,13 @@ export function filterMap<T, TMapped>(
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
 ): TMapped[] {
 	let index = 0;
-	return source.reduce((accumulator, current) => {
+	return source.reduce<TMapped[]>((accumulator, current) => {
 		const mapped = predicateMapper(current, index++);
 		if (mapped != null) {
 			accumulator.push(mapped);
 		}
 		return accumulator;
-	}, [] as TMapped[]);
+	}, []);
 }
 
 export function filterMapAsync<T, TMapped>(
@@ -52,17 +52,19 @@ export function filterMapAsync<T, TMapped>(
 	predicateMapper: (item: T, index: number) => Promise<TMapped | null | undefined>,
 ): Promise<TMapped[]> {
 	let index = 0;
-	return source.reduce(async (accumulator, current) => {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+	return source.reduce<any>(async (accumulator, current: T) => {
 		const mapped = await predicateMapper(current, index++);
 		if (mapped != null) {
 			accumulator.push(mapped);
 		}
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return accumulator;
-	}, [] as any);
+	}, []);
 }
 
 export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Record<string, T[]> {
-	return source.reduce((groupings, current) => {
+	return source.reduce<Record<string, T[]>>((groupings, current) => {
 		const value = groupingKey(current);
 		const group = groupings[value];
 		if (group === undefined) {
@@ -71,7 +73,7 @@ export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Recor
 			group.push(current);
 		}
 		return groupings;
-	}, Object.create(null) as Record<string, T[]>);
+	}, Object.create(null));
 }
 
 export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: TValue) => TKey): Map<TKey, TValue[]> {

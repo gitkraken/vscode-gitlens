@@ -1,9 +1,11 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, ThemeIcon, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { View } from '../viewBase';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(

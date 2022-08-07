@@ -1,4 +1,5 @@
-import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
 import { Commands, CoreCommands } from '../../constants';
@@ -7,7 +8,8 @@ import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { GitReference, GitRevisionReference } from '../../git/models/reference';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
@@ -17,7 +19,8 @@ import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { CommitFileNode } from './commitFileNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 

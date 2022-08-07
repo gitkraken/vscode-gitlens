@@ -1,15 +1,11 @@
-import {
+import type {
 	CancellationToken,
-	CancellationTokenSource,
 	ConfigurationChangeEvent,
 	DecorationOptions,
-	DecorationRangeBehavior,
-	Disposable,
-	Range,
 	TextEditor,
 	TextEditorDecorationType,
-	window,
 } from 'vscode';
+import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
@@ -17,14 +13,16 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
 import { Authentication } from '../git/remotes/provider';
-import { Logger, LogScope } from '../logger';
+import type { LogScope } from '../logger';
+import { Logger } from '../logger';
 import { debug, getLogScope, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { count, every, filterMap } from '../system/iterable';
-import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
+import type { PromiseCancelledErrorWithId } from '../system/promise';
+import { PromiseCancelledError, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';
 import type { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
-import { Annotations } from './annotations';
+import { getInlineDecoration } from './annotations';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -300,7 +298,7 @@ export class LineAnnotationController implements Disposable {
 		for (const [l, commit] of commitLines) {
 			if (commit.isUncommitted && cfg.uncommittedChangesFormat === '') continue;
 
-			const decoration = Annotations.trailing(
+			const decoration = getInlineDecoration(
 				commit,
 				// await GitUri.fromUri(editor.document.uri),
 				// l,

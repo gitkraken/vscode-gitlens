@@ -1,6 +1,6 @@
-import { Disposable } from 'vscode';
+import type { Disposable } from 'vscode';
 
-export { Disposable } from 'vscode';
+export type { Disposable } from 'vscode';
 
 export interface RemoteProvider {
 	readonly id: string;
@@ -46,7 +46,7 @@ export interface HoverCommandsActionContext {
 		author: {
 			name: string;
 			email: string | undefined;
-			[key: string]: any;
+			[key: string]: unknown;
 		};
 	};
 	readonly file:

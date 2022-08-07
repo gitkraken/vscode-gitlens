@@ -1,19 +1,18 @@
-import {
+import type {
 	DecorationOptions,
-	Disposable,
 	Range,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
 	TextEditorSelectionChangeEvent,
 	Uri,
-	window,
 } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import { Disposable, window } from 'vscode';
+import type { FileAnnotationType } from '../configuration';
 import { ContextKeys } from '../constants';
 import { setContext } from '../context';
 import { Logger } from '../logger';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export const enum AnnotationStatus {
 	Computing = 'computing',

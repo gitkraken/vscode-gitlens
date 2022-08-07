@@ -2,10 +2,11 @@ import { executeGitCommand } from '../commands/gitCommands.actions';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { SearchPattern } from '../git/search';
+import type { SearchPattern } from '../git/search';
 import { command } from '../system/command';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';
-import { Command, CommandContext, isCommandContextViewNodeHasRepository } from './base';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;
@@ -46,7 +47,7 @@ export class SearchCommitsCommand extends Command {
 	}
 
 	async execute(args?: SearchCommitsCommandArgs) {
-		void (await executeGitCommand({
+		(await executeGitCommand({
 			command: 'search',
 			prefillOnly: args?.prefillOnly,
 			state: {

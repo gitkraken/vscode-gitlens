@@ -1,4 +1,5 @@
-import { CancellationToken, MarkdownString, TextDocument } from 'vscode';
+import type { CancellationToken, TextDocument } from 'vscode';
+import { MarkdownString } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';

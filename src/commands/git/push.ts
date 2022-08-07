@@ -2,7 +2,8 @@ import { configuration } from '../../configuration';
 import { CoreGitConfiguration, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { GitBranch } from '../../git/models/branch';
-import { GitBranchReference, GitReference } from '../../git/models/reference';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -10,19 +11,21 @@ import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	pickRepositoriesStep,
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {

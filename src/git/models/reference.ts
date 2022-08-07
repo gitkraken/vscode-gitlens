@@ -239,7 +239,7 @@ export namespace GitReference {
 	}
 
 	export function isStash(ref: GitReference | undefined): ref is GitStashReference {
-		return ref?.refType === 'stash' || (ref?.refType === 'revision' && (ref as any)?.stashName);
+		return ref?.refType === 'stash' || (ref?.refType === 'revision' && Boolean((ref as any)?.stashName));
 	}
 
 	export function isTag(ref: GitReference | undefined): ref is GitTagReference {

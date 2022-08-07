@@ -1,7 +1,8 @@
 import { Container } from '../../container';
 import { WorkspaceStorageKeys } from '../../storage';
 import { sortCompare } from '../../system/string';
-import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
+import type { RemoteProvider } from '../remotes/provider';
+import { RichRemoteProvider } from '../remotes/provider';
 
 export const enum GitRemoteType {
 	Fetch = 'fetch',

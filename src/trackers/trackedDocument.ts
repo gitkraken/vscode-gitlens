@@ -1,11 +1,13 @@
-import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
+import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
+import { EventEmitter } from 'vscode';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { debounce, Deferrable } from '../system/function';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
 import { getEditorIfActive, isActiveDocument } from '../system/utils';
 
 export interface DocumentBlameStateChangeEvent<T> {

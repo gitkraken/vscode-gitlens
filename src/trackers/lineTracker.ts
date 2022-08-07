@@ -1,7 +1,9 @@
-import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
+import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import { Logger } from '../logger';
 import { debug, getLogScope } from '../system/decorators/log';
-import { debounce, Deferrable } from '../system/function';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
 import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {
@@ -178,7 +180,7 @@ export class LineTracker<T> implements Disposable {
 		if (!options?.force && !this._suspended) return;
 
 		this._suspended = false;
-		void this.onResume?.();
+		this.onResume?.();
 		this.trigger('editor');
 	}
 
@@ -189,7 +191,7 @@ export class LineTracker<T> implements Disposable {
 		if (!options?.force && this._suspended) return;
 
 		this._suspended = true;
-		void this.onSuspend?.();
+		this.onSuspend?.();
 		this.trigger('editor');
 	}
 
@@ -212,7 +214,7 @@ export class LineTracker<T> implements Disposable {
 					this._linesChangedDebounced.cancel();
 				}
 
-				void this.fireLinesChanged(e);
+				this.fireLinesChanged(e);
 			});
 
 			return;
@@ -227,7 +229,7 @@ export class LineTracker<T> implements Disposable {
 						return;
 					}
 
-					void this.fireLinesChanged(e);
+					this.fireLinesChanged(e);
 				},
 				250,
 				{ track: true },
@@ -236,7 +238,7 @@ export class LineTracker<T> implements Disposable {
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
 		if (!this._linesChangedDebounced.pending?.()) {
-			void this.fireLinesChanged({ ...e, pending: true });
+			this.fireLinesChanged({ ...e, pending: true });
 		}
 
 		this._linesChangedDebounced(e);

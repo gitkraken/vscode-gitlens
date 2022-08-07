@@ -1,7 +1,9 @@
-import { commands, Command as CoreCommand, Disposable, Uri } from 'vscode';
-import { Action, ActionContext } from '../api/gitlens';
+import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
+import { commands } from 'vscode';
+import type { Action, ActionContext } from '../api/gitlens';
 import type { Command } from '../commands/base';
-import { Commands, CoreCommands, CoreGitCommands } from '../constants';
+import type { CoreCommands, CoreGitCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 
 interface CommandConstructor {

@@ -1,27 +1,22 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import { commands, Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Avatars } from '../avatars';
-import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
+import type { ContributorsViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitContributor } from '../git/models/contributor';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models/repository';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
 import { RepositoryNode } from './nodes/repositoryNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {

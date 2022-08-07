@@ -1,11 +1,11 @@
 /*global document*/
 import type { Config } from '../../../config';
+import type { IpcMessage } from '../../protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
 	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
-	IpcMessage,
 	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
@@ -278,10 +278,10 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		const $popup = document.getElementById(`${element.name}.popup`);
 		if ($popup != null) {
 			if ($popup.childElementCount === 0) {
-				const $template = (document.querySelector('#token-popup') as HTMLTemplateElement)?.content.cloneNode(
-					true,
-				);
-				$popup.appendChild($template);
+				const $template = document.querySelector<HTMLTemplateElement>('#token-popup')?.content.cloneNode(true);
+				if ($template != null) {
+					$popup.appendChild($template);
+				}
 			}
 			$popup.classList.remove('hidden');
 		}
@@ -392,7 +392,6 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					if (value === undefined) {
 						value = this.getSettingValue<string | boolean>(lhs) ?? false;
 					}
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 					state = rhs !== undefined ? rhs !== String(value) : !value;
 					break;
 				}
@@ -417,7 +416,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 	private getSettingValue<T>(path: string): T | undefined {
 		const customSetting = this.getCustomSettingValue(path);
-		if (customSetting != null) return customSetting as any;
+		if (customSetting != null) return customSetting as unknown as T;
 
 		return get<T>(this.state.config, path);
 	}
@@ -594,6 +593,7 @@ function ensureIfBooleanOrNull(value: string | boolean): string | boolean | null
 }
 
 function get<T>(o: Record<string, any>, path: string): T | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 	return path.split('.').reduce((o = {}, key) => (o == null ? undefined : o[key]), o) as T;
 }
 
@@ -651,7 +651,7 @@ function flatten(o: Record<string, any>, path?: string): Record<string, any> {
 	return results;
 }
 
-function fromCheckboxValue(elementValue: any) {
+function fromCheckboxValue(elementValue: unknown) {
 	switch (elementValue) {
 		case 'on':
 			return true;

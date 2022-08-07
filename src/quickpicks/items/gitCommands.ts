@@ -1,4 +1,4 @@
-import { QuickInputButton, QuickPickItem } from 'vscode';
+import type { QuickInputButton, QuickPickItem } from 'vscode';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
@@ -15,7 +15,8 @@ import type { GitTag } from '../../git/models/tag';
 import type { GitWorktree } from '../../git/models/worktree';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
-import { CommandQuickPickItem, QuickPickItemOfT } from './common';
+import type { QuickPickItemOfT } from './common';
+import { CommandQuickPickItem } from './common';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);

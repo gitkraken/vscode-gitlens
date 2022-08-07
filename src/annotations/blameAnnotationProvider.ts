@@ -1,4 +1,5 @@
-import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
+import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
+import { Hover, languages, Range } from 'vscode';
 import type { FileAnnotationType } from '../config';
 import { configuration } from '../configuration';
 import type { Container } from '../container';
@@ -9,7 +10,8 @@ import { Hovers } from '../hovers/hovers';
 import { log } from '../system/decorators/log';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
-import { ComputedHeatmap, getHeatmapColors } from './annotations';
+import type { ComputedHeatmap } from './annotations';
+import { getHeatmapColors } from './annotations';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 

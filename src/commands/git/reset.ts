@@ -1,23 +1,20 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import { GitReference, GitRevisionReference } from '../../git/models/reference';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type {
 	PartialStepState,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { appendReposToTitle, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];

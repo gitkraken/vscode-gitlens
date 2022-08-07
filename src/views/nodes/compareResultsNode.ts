@@ -8,8 +8,10 @@ import { getSettledValue } from '../../system/promise';
 import { md5, pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
+import type { CommitsQueryResults } from './resultsCommitsNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import type { FilesQueryResults } from './resultsFilesNode';
+import { ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 let instanceId = 0;

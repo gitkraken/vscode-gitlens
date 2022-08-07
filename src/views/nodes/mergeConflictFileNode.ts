@@ -1,4 +1,5 @@
-import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, Uri } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CoreCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -7,7 +8,7 @@ import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import { relativeDir } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
-import { FileNode } from './folderNode';
+import type { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
 import { ContextValues, ViewNode } from './viewNode';

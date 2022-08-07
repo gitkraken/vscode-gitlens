@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { cancellable, isPromise } from '../promise';
 
 export function timeout(timeout: number): any;

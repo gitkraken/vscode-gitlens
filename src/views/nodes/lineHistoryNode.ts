@@ -1,15 +1,12 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { GitFile, GitFileIndexStatus } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { GitFileIndexStatus } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
 import { GitRevision } from '../../git/models/reference';
-import {
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/models/repository';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -22,7 +19,8 @@ import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>

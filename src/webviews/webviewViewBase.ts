@@ -1,29 +1,20 @@
-import {
+import type {
 	CancellationToken,
-	Disposable,
-	Uri,
 	Webview,
 	WebviewView,
 	WebviewViewProvider,
 	WebviewViewResolveContext,
-	window,
 	WindowState,
-	workspace,
 } from 'vscode';
+import { Disposable, Uri, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { Commands } from '../constants';
+import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
 import { getLogScope, log } from '../system/decorators/log';
-import {
-	ExecuteCommandType,
-	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
-	onIpc,
-	WebviewReadyCommandType,
-} from './protocol';
+import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
+import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -55,7 +46,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 	}
 
 	dispose() {
-		this.disposables.forEach(d => d.dispose());
+		this.disposables.forEach(d => void d.dispose());
 		this._disposableView?.dispose();
 	}
 

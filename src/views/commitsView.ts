@@ -1,26 +1,16 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import { commands, Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { CommitsViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { GitCommit } from '../git/models/commit';
-import { GitReference, GitRevisionReference } from '../git/models/reference';
-import {
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/models/repository';
+import type { GitRevisionReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
@@ -28,7 +18,8 @@ import { disposableInterval } from '../system/function';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { RepositoryNode } from './nodes/repositoryNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
@@ -91,9 +82,9 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 					}
 
 					if (this.splatted) {
-						void this.view.triggerNodeChange(this.parent ?? this);
+						this.view.triggerNodeChange(this.parent ?? this);
 					} else {
-						void this.view.triggerNodeChange(this);
+						this.view.triggerNodeChange(this);
 					}
 				}, interval),
 			);

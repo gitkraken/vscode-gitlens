@@ -1,10 +1,6 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
-/* eslint-disable @typescript-eslint/prefer-optional-chain */
 const { spawnSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
@@ -48,7 +44,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } } env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -229,7 +225,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } } env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {

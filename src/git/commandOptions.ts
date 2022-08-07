@@ -1,4 +1,4 @@
-import { CancellationToken } from 'vscode';
+import type { CancellationToken } from 'vscode';
 
 export const enum GitErrorHandling {
 	Throw = 0,

@@ -1,7 +1,7 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
-import { AutolinkReference } from 'src/config';
-import { State } from '../../settings/protocol';
+import type { AutolinkReference } from 'src/config';
+import type { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
@@ -184,7 +184,7 @@ export class SettingsApp extends AppWithConfig<State> {
 				if (element.dataset.actionTarget) {
 					for (const el of document.querySelectorAll(`[data-region="${element.dataset.actionTarget}"]`)) {
 						el.classList.remove('hidden');
-						(el.querySelector('input,select,textarea,button') as HTMLElement)?.focus();
+						el.querySelector<HTMLElement>('input,select,textarea,button')?.focus();
 					}
 				}
 				break;

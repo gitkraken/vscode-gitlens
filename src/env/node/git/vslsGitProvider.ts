@@ -1,9 +1,10 @@
 import { FileType, Uri, workspace } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
-import { GitCommandOptions } from '../../../git/commandOptions';
-import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
-import { Repository } from '../../../git/models/repository';
+import type { GitCommandOptions } from '../../../git/commandOptions';
+import type { GitProviderDescriptor } from '../../../git/gitProvider';
+import { GitProviderId } from '../../../git/gitProvider';
+import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
 import { getLogScope } from '../../../system/decorators/log';
 import { addVslsPrefixIfNeeded } from '../../../system/path';

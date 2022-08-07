@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import { filterMap } from './iterable';
@@ -197,7 +197,6 @@ export class PathEntryTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return false;
 
 		node.value = undefined;
@@ -240,7 +239,6 @@ export class PathEntryTrie<T> {
 
 		// Avoids allocations & garbage on `has` calls
 		if (existenceOnly) return node?.value != null;
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return undefined;
 
 		return {
@@ -272,7 +270,6 @@ export class PathEntryTrie<T> {
 		if (node?.children == null) return [];
 		return [
 			...filterMap(node.children.values(), n =>
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				n.value ? { value: n.value, path: n.path, fullPath: fullPath } : undefined,
 			),
 		];
@@ -293,7 +290,6 @@ export class PathEntryTrie<T> {
 		let ancestor: PathNode<T> | undefined;
 
 		for (const segment of path.split('/')) {
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (node?.value && (!predicate || predicate?.(node.value))) {
 				ancestor = node;
 				fullAncestorPath = fullPath;
@@ -306,12 +302,10 @@ export class PathEntryTrie<T> {
 			fullPath += `${n.path}/`;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 			return { value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) };
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		return ancestor?.value
 			? { value: ancestor.value, path: ancestor.path, fullPath: fullAncestorPath.slice(0, -1) }
 			: undefined;
@@ -332,7 +326,6 @@ export class PathEntryTrie<T> {
 	// 	let node: PathNode<T> | undefined;
 
 	// 	for (const segment of path.split('/')) {
-	// 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	// 		if (node?.value && (!predicate || predicate?.(node.value))) {
 	// 			ancestors.push({ value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) });
 	// 		}
@@ -344,7 +337,6 @@ export class PathEntryTrie<T> {
 	// 		fullPath += `${n.path}/`;
 	// 	}
 
-	// 	// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	// 	if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 	// 		ancestors.push({ value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) });
 	// 	}
@@ -380,7 +372,6 @@ export class PathEntryTrie<T> {
 		): Generator<PathEntry<T>> {
 			for (const node of children.values()) {
 				const relativePath = path ? `${path}/${node.path}` : node.path;
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				if (node.value && (!predicate || predicate?.(node.value))) {
 					yield {
 						value: node.value,
@@ -456,7 +447,6 @@ export class PathTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return false;
 
 		node.value = undefined;
@@ -508,7 +498,6 @@ export class PathTrie<T> {
 		}
 
 		if (node?.children == null) return [];
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		return [...filterMap(node.children.values(), n => n.value || undefined)];
 	}
 
@@ -525,7 +514,6 @@ export class PathTrie<T> {
 		let ancestor: PathNode<T> | undefined;
 
 		for (const segment of path.split('/')) {
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (node?.value && (!predicate || predicate?.(node.value))) {
 				ancestor = node;
 			}
@@ -536,7 +524,6 @@ export class PathTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 			return node.value;
 		}
@@ -572,7 +559,6 @@ export class PathTrie<T> {
 		): Generator<T> {
 			for (const node of children.values()) {
 				const relativePath = path ? `${path}/${node.path}` : node.path;
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				if (node.value && (!predicate || predicate?.(node.value))) {
 					yield node.value;
 				}

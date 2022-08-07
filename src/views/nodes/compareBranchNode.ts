@@ -6,7 +6,8 @@ import type { GitBranch } from '../../git/models/branch';
 import { GitRevision } from '../../git/models/reference';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
-import { BranchComparison, BranchComparisons, WorkspaceStorageKeys } from '../../storage';
+import type { BranchComparison, BranchComparisons } from '../../storage';
+import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
@@ -16,8 +17,10 @@ import type { CommitsView } from '../commitsView';
 import type { RepositoriesView } from '../repositoriesView';
 import type { WorktreesView } from '../worktreesView';
 import { RepositoryNode } from './repositoryNode';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
+import type { CommitsQueryResults } from './resultsCommitsNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import type { FilesQueryResults } from './resultsFilesNode';
+import { ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView | WorktreesView> {

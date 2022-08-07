@@ -1,20 +1,14 @@
-import {
+import type {
 	CancellationToken,
-	CodeLens,
 	CodeLensProvider,
 	Command,
 	DocumentSelector,
 	DocumentSymbol,
 	Event,
-	EventEmitter,
-	Location,
-	Position,
-	Range,
-	SymbolInformation,
-	SymbolKind,
 	TextDocument,
 	Uri,
 } from 'vscode';
+import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
 import type {
 	DiffWithPreviousCommandArgs,
 	OpenOnRemoteCommandArgs,
@@ -24,14 +18,8 @@ import type {
 	ShowQuickFileHistoryCommandArgs,
 	ToggleFileChangesAnnotationCommandArgs,
 } from '../commands';
-import {
-	CodeLensCommand,
-	CodeLensConfig,
-	CodeLensLanguageScope,
-	CodeLensScopes,
-	configuration,
-	FileAnnotationType,
-} from '../configuration';
+import type { CodeLensConfig, CodeLensLanguageScope } from '../configuration';
+import { CodeLensCommand, CodeLensScopes, configuration, FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands, Schemes } from '../constants';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';

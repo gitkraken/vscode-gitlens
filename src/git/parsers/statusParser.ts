@@ -7,6 +7,7 @@ const emptyStr = '';
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitStatusParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {

@@ -1,27 +1,12 @@
-import {
-	commands,
-	Disposable,
-	Uri,
-	ViewColumn,
-	Webview,
-	WebviewPanel,
-	WebviewPanelOnDidChangeViewStateEvent,
-	window,
-	workspace,
-} from 'vscode';
+import type { Webview, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import { commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { Commands } from '../constants';
+import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
-import {
-	ExecuteCommandType,
-	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
-	onIpc,
-	WebviewReadyCommandType,
-} from './protocol';
+import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
+import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -55,7 +40,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	}
 
 	dispose() {
-		this.disposables.forEach(d => d.dispose());
+		this.disposables.forEach(d => void d.dispose());
 		this._disposablePanel?.dispose();
 	}
 

@@ -1,23 +1,12 @@
-import {
-	CancellationToken,
-	ConfigurationChangeEvent,
-	Disposable,
-	Hover,
-	languages,
-	Position,
-	Range,
-	TextDocument,
-	TextEditor,
-	Uri,
-	window,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
+import { Disposable, Hover, languages, Range, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)

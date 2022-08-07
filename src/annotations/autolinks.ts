@@ -1,5 +1,7 @@
-import { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { AutolinkReference, AutolinkType, configuration } from '../configuration';
+import type { ConfigurationChangeEvent } from 'vscode';
+import { Disposable } from 'vscode';
+import type { AutolinkReference, AutolinkType } from '../configuration';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { IssueOrPullRequest } from '../git/models/issue';
@@ -10,7 +12,8 @@ import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { every, join, map } from '../system/iterable';
-import { PromiseCancelledError, PromiseCancelledErrorWithId, raceAll } from '../system/promise';
+import type { PromiseCancelledErrorWithId } from '../system/promise';
+import { PromiseCancelledError, raceAll } from '../system/promise';
 import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
@@ -303,7 +306,7 @@ export class Autolinks implements Disposable {
 					});
 				}
 
-				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
+				text = text.replace(ref.messageRegex!, (_substring, linkText: string, num) => {
 					const issue = issuesOrPullRequests?.get(num);
 					if (issue == null) return linkText;
 

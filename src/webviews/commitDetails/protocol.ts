@@ -1,4 +1,4 @@
-import { TextDocumentShowOptions } from 'vscode';
+import type { TextDocumentShowOptions } from 'vscode';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { IpcCommandType, IpcNotificationType } from '../protocol';

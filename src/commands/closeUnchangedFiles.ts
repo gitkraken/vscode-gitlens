@@ -1,17 +1,10 @@
-import {
-	TabInputCustom,
-	TabInputNotebook,
-	TabInputNotebookDiff,
-	TabInputText,
-	TabInputTextDiff,
-	Uri,
-	window,
-} from 'vscode';
+import type { Uri } from 'vscode';
+import { TabInputCustom, TabInputNotebook, TabInputNotebookDiff, TabInputText, TabInputTextDiff, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { Command } from './base';
@@ -67,7 +60,7 @@ export class CloseUnchangedFilesCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CloseUnchangedFilesCommand');
-			void Messages.showGenericErrorMessage('Unable to close all unchanged files');
+			void showGenericErrorMessage('Unable to close all unchanged files');
 		}
 	}
 }

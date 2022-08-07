@@ -1,4 +1,5 @@
-import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
+import type { TextEditor, TextEditorDecorationType } from 'vscode';
+import { Range } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
@@ -7,7 +8,7 @@ import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
 import type { AnnotationContext } from './annotationProvider';
-import { Annotations } from './annotations';
+import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
@@ -40,7 +41,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;
 
-			Annotations.addOrUpdateGutterHeatmapDecoration(
+			addOrUpdateGutterHeatmapDecoration(
 				commit.date,
 				computedHeatmap,
 				new Range(editorLine, 0, editorLine, 0),

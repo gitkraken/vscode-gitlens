@@ -1,4 +1,5 @@
-import { commands, Disposable, env, TextDocumentShowOptions, Uri, window } from 'vscode';
+import type { Disposable, TextDocumentShowOptions } from 'vscode';
+import { commands, env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import type {
 	DiffWithCommandArgs,
@@ -12,7 +13,8 @@ import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constan
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision, GitStashReference } from '../git/models/reference';
+import type { GitStashReference } from '../git/models/reference';
+import { GitReference, GitRevision } from '../git/models/reference';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -29,7 +31,7 @@ import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommitFileNode } from './nodes/commitFileNode';
 import { CommitNode } from './nodes/commitNode';
-import { PagerNode } from './nodes/common';
+import type { PagerNode } from './nodes/common';
 import { CompareBranchNode } from './nodes/compareBranchNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
@@ -40,7 +42,7 @@ import { LineHistoryNode } from './nodes/lineHistoryNode';
 import { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
 import { PullRequestNode } from './nodes/pullRequestNode';
 import { RemoteNode } from './nodes/remoteNode';
-import { RemotesNode } from './nodes/remotesNode';
+import type { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { ResultsFileNode } from './nodes/resultsFileNode';
 import { ResultsFilesNode } from './nodes/resultsFilesNode';
@@ -48,7 +50,7 @@ import { StashFileNode } from './nodes/stashFileNode';
 import { StashNode } from './nodes/stashNode';
 import { StatusFileNode } from './nodes/statusFileNode';
 import { TagNode } from './nodes/tagNode';
-import { TagsNode } from './nodes/tagsNode';
+import type { TagsNode } from './nodes/tagsNode';
 import {
 	canClearNode,
 	canEditNode,
@@ -77,7 +79,7 @@ const enum ViewCommandMultiSelectMode {
 export class ViewCommands {
 	private registerCommand(
 		command: string,
-		callback: (...args: any[]) => any,
+		callback: (...args: any[]) => unknown,
 		thisArg?: any,
 		multiSelect: ViewCommandMultiSelectMode = ViewCommandMultiSelectMode.Allowed,
 	): Disposable {
@@ -96,7 +98,8 @@ export class ViewCommands {
 
 						return sequentialize(
 							callback,
-							nodes.map((n: ViewNode) => [n, ...rest]),
+							// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+							(nodes as ViewNode[]).map(n => [n, ...rest]),
 							thisArg,
 						);
 					}
@@ -486,7 +489,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.openFile(node, { preserveFocus: true, preview: true }));
+		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
@@ -508,7 +511,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.openFile(node, { preserveFocus: true, preview: true }));
+		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
@@ -721,7 +724,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.stageFile(node.repoPath, node.file.path));
+		await this.container.git.stageFile(node.repoPath, node.file.path);
 		void node.triggerChange();
 	}
 
@@ -729,7 +732,7 @@ export class ViewCommands {
 	private async stageDirectory(node: FolderNode) {
 		if (!(node instanceof FolderNode) || !node.relativePath) return;
 
-		void (await this.container.git.stageDirectory(node.repoPath, node.relativePath));
+		await this.container.git.stageDirectory(node.repoPath, node.relativePath);
 		void node.triggerChange();
 	}
 
@@ -798,7 +801,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.container.git.unStageFile(node.repoPath, node.file.path));
+		await this.container.git.unStageFile(node.repoPath, node.file.path);
 		void node.triggerChange();
 	}
 
@@ -806,7 +809,7 @@ export class ViewCommands {
 	private async unstageDirectory(node: FolderNode) {
 		if (!(node instanceof FolderNode) || !node.relativePath) return;
 
-		void (await this.container.git.unStageDirectory(node.repoPath, node.relativePath));
+		await this.container.git.unStageDirectory(node.repoPath, node.relativePath);
 		void node.triggerChange();
 	}
 

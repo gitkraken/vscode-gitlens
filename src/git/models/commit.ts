@@ -1,8 +1,9 @@
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
-import { DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
+import type { GravatarDefaultStyle } from '../../configuration';
+import { DateSource, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
@@ -11,9 +12,11 @@ import { pad, pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RichRemoteProvider } from '../remotes/provider';
-import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
+import type { GitFile } from './file';
+import { GitFileChange, GitFileWorkingTreeStatus } from './file';
 import type { PullRequest } from './pullRequest';
-import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
+import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
+import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { Repository } from './repository';
 
@@ -375,12 +378,10 @@ export class GitCommit implements GitRevisionReference {
 
 		if (expand) {
 			if (additions) {
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				status += `${changedFiles ? sectionSeparator : ''}${pluralize('addition', additions)}`;
 			}
 
 			if (deletions) {
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				status += `${changedFiles || additions ? separator : ''}${pluralize('deletion', deletions)}`;
 			}
 		}
