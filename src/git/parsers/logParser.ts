@@ -280,7 +280,7 @@ export class GitLogParser {
 	): GitLog | undefined {
 		if (!data) return undefined;
 
-		let relativeFileName: string;
+		let relativeFileName: string | undefined;
 
 		let entry: LogEntry = {};
 		let line: string | undefined = undefined;
@@ -531,7 +531,11 @@ export class GitLogParser {
 						);
 						relativeFileName = normalizePath(relative(repoPath, fileName));
 					} else {
-						relativeFileName = entry.path!;
+						relativeFileName =
+							entry.path ??
+							(repoPath != null && fileName != null
+								? normalizePath(relative(repoPath, fileName))
+								: undefined);
 					}
 					first = false;
 
@@ -578,7 +582,7 @@ export class GitLogParser {
 		commit: GitCommit | undefined,
 		type: LogType,
 		repoPath: string | undefined,
-		relativeFileName: string,
+		relativeFileName: string | undefined,
 		commits: Map<string, GitCommit>,
 		currentUser: GitUser | undefined,
 	): void {
@@ -600,7 +604,7 @@ export class GitLogParser {
 			const files: { file?: GitFileChange; files?: GitFileChange[] } = {
 				files: entry.files?.map(f => new GitFileChange(repoPath!, f.path, f.status, f.originalPath)),
 			};
-			if (type === LogType.LogFile) {
+			if (type === LogType.LogFile && relativeFileName != null) {
 				files.file = new GitFileChange(
 					repoPath!,
 					relativeFileName,
