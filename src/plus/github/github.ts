@@ -24,9 +24,9 @@ import { GitRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
-import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
+import { Logger, LogLevel, LogScope } from '../../logger';
 import { Messages } from '../../messages';
-import { debug } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
 import { fromString, satisfies, Version } from '../../system/version';
@@ -103,7 +103,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -153,7 +153,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					ref: ref,
 				},
-				cc,
+				scope,
 			);
 
 			const author = rsp?.repository?.object?.author;
@@ -180,7 +180,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -196,7 +196,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			search:
@@ -240,7 +240,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					emailQuery: `in:email ${email}`,
 				},
-				cc,
+				scope,
 			);
 
 			const author = rsp?.search?.nodes?.[0];
@@ -267,7 +267,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -281,7 +281,7 @@ export class GitHubApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<DefaultBranch | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -313,7 +313,7 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 				},
-				cc,
+				scope,
 			);
 
 			const defaultBranch = rsp?.repository?.defaultBranchRef?.name ?? undefined;
@@ -326,7 +326,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -341,7 +341,7 @@ export class GitHubApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest };
@@ -384,7 +384,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					number: number,
 				},
-				cc,
+				scope,
 			);
 
 			const issue = rsp?.repository?.issueOrPullRequest;
@@ -403,7 +403,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -420,7 +420,7 @@ export class GitHubApi implements Disposable {
 			include?: GitHubPullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -488,7 +488,7 @@ export class GitHubApi implements Disposable {
 					// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
 					limit: 10,
 				},
-				cc,
+				scope,
 			);
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
@@ -510,7 +510,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -526,7 +526,7 @@ export class GitHubApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<PullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -588,7 +588,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					ref: ref,
 				},
-				cc,
+				scope,
 			);
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
@@ -610,13 +610,13 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
 	@debug<GitHubApi['getBlame']>({ args: { 0: '<token>' } })
 	async getBlame(token: string, owner: string, repo: string, ref: string, path: string): Promise<GitHubBlame> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			viewer: { name: string };
@@ -682,7 +682,7 @@ export class GitHubApi implements Disposable {
 					ref: ref,
 					path: path,
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return emptyBlameResult;
 
@@ -693,7 +693,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyBlameResult;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -704,7 +704,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
 	): Promise<PagedResult<GitHubBranch>> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -761,7 +761,7 @@ export class GitHubApi implements Disposable {
 					cursor: options?.cursor,
 					limit: Math.min(100, options?.limit ?? 100),
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return emptyPagedResult;
 
@@ -778,7 +778,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -789,7 +789,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		ref: string,
 	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const rsp = await this.request(
@@ -801,7 +801,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					ref: ref,
 				},
-				cc,
+				scope,
 			);
 
 			const result = rsp?.data;
@@ -831,7 +831,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 
 		// const results = await this.getCommits(token, owner, repo, ref, { limit: 1 });
@@ -860,7 +860,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getCommitBranches']>({ args: { 0: '<token>' } })
 	async getCommitBranches(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository: {
@@ -909,7 +909,7 @@ export class GitHubApi implements Disposable {
 					since: date.toISOString(),
 					until: date.toISOString(),
 				},
-				cc,
+				scope,
 			);
 
 			const nodes = rsp?.repository?.refs?.nodes;
@@ -930,13 +930,13 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
 	@debug<GitHubApi['getCommitCount']>({ args: { 0: '<token>' } })
 	async getCommitCount(token: string, owner: string, repo: string, ref: string): Promise<number | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository: {
@@ -976,7 +976,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					ref: ref,
 				},
-				cc,
+				scope,
 			);
 
 			const count = rsp?.repository?.ref?.target.history.totalCount;
@@ -984,7 +984,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -997,7 +997,7 @@ export class GitHubApi implements Disposable {
 		ref: string,
 		date: Date,
 	): Promise<string[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository: {
@@ -1041,7 +1041,7 @@ export class GitHubApi implements Disposable {
 					since: date.toISOString(),
 					until: date.toISOString(),
 				},
-				cc,
+				scope,
 			);
 
 			const nodes = rsp?.repository?.ref.target.history.nodes;
@@ -1060,7 +1060,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1081,7 +1081,7 @@ export class GitHubApi implements Disposable {
 			until?: string | Date;
 		},
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (options?.limit === 1 && options?.path == null) {
 			return this.getCommitsCoreSingle(token, owner, repo, ref);
@@ -1186,7 +1186,7 @@ export class GitHubApi implements Disposable {
 					since: typeof options?.since === 'string' ? options?.since : options?.since?.toISOString(),
 					until: typeof options?.until === 'string' ? options?.until : options?.until?.toISOString(),
 				},
-				cc,
+				scope,
 			);
 			const history = rsp?.repository?.object?.history;
 			if (history == null) return emptyPagedResult;
@@ -1205,7 +1205,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1215,7 +1215,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		ref: string,
 	): Promise<PagedResult<GitHubCommit> & { viewer?: string }> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			viewer: { name: string };
@@ -1263,7 +1263,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					ref: ref,
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return emptyPagedResult;
 
@@ -1272,7 +1272,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1292,7 +1292,7 @@ export class GitHubApi implements Disposable {
 			until?: string;
 		},
 	): Promise<GitHubPagedResult<GitHubCommitRef> | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -1354,7 +1354,7 @@ export class GitHubApi implements Disposable {
 					since: options?.since,
 					until: options?.until,
 				},
-				cc,
+				scope,
 			);
 			const history = rsp?.repository?.object?.history;
 			if (history == null) return undefined;
@@ -1367,7 +1367,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1412,7 +1412,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async getCommitDate(token: string, owner: string, repo: string, sha: string): Promise<string | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -1445,20 +1445,20 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					sha: sha,
 				},
-				cc,
+				scope,
 			);
 			const date = rsp?.repository?.object?.committer.date;
 			return date;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
 	@debug<GitHubApi['getContributors']>({ args: { 0: '<token>' } })
 	async getContributors(token: string, owner: string, repo: string): Promise<GitHubContributor[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		// TODO@eamodio implement pagination
 
@@ -1472,7 +1472,7 @@ export class GitHubApi implements Disposable {
 					repo: repo,
 					per_page: 100,
 				},
-				cc,
+				scope,
 			);
 
 			const result = rsp?.data;
@@ -1482,13 +1482,13 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
 	@debug<GitHubApi['getDefaultBranchName']>({ args: { 0: '<token>' } })
 	async getDefaultBranchName(token: string, owner: string, repo: string): Promise<string | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -1519,7 +1519,7 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return undefined;
 
@@ -1527,13 +1527,13 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
 	@debug<GitHubApi['getCurrentUser']>({ args: { 0: '<token>' } })
 	async getCurrentUser(token: string, owner: string, repo: string): Promise<GitUser | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			viewer: {
@@ -1562,7 +1562,7 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return undefined;
 
@@ -1575,7 +1575,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1585,7 +1585,7 @@ export class GitHubApi implements Disposable {
 		owner: string,
 		repo: string,
 	): Promise<RepositoryVisibility | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -1614,7 +1614,7 @@ export class GitHubApi implements Disposable {
 					owner: owner,
 					repo: repo,
 				},
-				cc,
+				scope,
 			);
 			if (rsp?.repository?.visibility == null) return undefined;
 
@@ -1622,7 +1622,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1633,7 +1633,7 @@ export class GitHubApi implements Disposable {
 		repo: string,
 		options?: { query?: string; cursor?: string; limit?: number },
 	): Promise<PagedResult<GitHubTag>> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			repository:
@@ -1695,7 +1695,7 @@ export class GitHubApi implements Disposable {
 					cursor: options?.cursor,
 					limit: Math.min(100, options?.limit ?? 100),
 				},
-				cc,
+				scope,
 			);
 			if (rsp == null) return emptyPagedResult;
 
@@ -1712,7 +1712,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return emptyPagedResult;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1724,7 +1724,7 @@ export class GitHubApi implements Disposable {
 		ref: string,
 		path?: string,
 	): Promise<string | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			if (!path) {
@@ -1753,7 +1753,7 @@ export class GitHubApi implements Disposable {
 						repo: repo,
 						ref: ref,
 					},
-					cc,
+					scope,
 				);
 				return rsp?.repository?.object?.oid ?? undefined;
 			}
@@ -1798,13 +1798,13 @@ export class GitHubApi implements Disposable {
 					ref: ref,
 					path: path,
 				},
-				cc,
+				scope,
 			);
 			return rsp?.repository?.object?.history.nodes?.[0]?.oid ?? undefined;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1819,7 +1819,7 @@ export class GitHubApi implements Disposable {
 			sort?: 'author-date' | 'committer-date' | undefined;
 		},
 	): Promise<GitHubPagedResult<GitHubCommit> | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const limit = Math.min(100, options?.limit ?? 100);
 
@@ -1850,7 +1850,7 @@ export class GitHubApi implements Disposable {
 					per_page: pageSize,
 					page: page,
 				},
-				cc,
+				scope,
 			);
 
 			const data = rsp?.data;
@@ -1889,7 +1889,7 @@ export class GitHubApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, undefined, cc);
+			throw this.handleException(ex, undefined, scope);
 		}
 	}
 
@@ -1905,10 +1905,10 @@ export class GitHubApi implements Disposable {
 		if (version != null) return version;
 		if (version === null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
-			const rsp = await this.request(provider, token, 'GET /meta', options, cc);
+			const rsp = await this.request(provider, token, 'GET /meta', options, scope);
 			const v = (rsp?.data as any)?.installed_version as string | null | undefined;
 			version = v ? fromString(v) : null;
 		} catch (ex) {
@@ -1975,7 +1975,7 @@ export class GitHubApi implements Disposable {
 		token: string,
 		query: string,
 		variables: { [key: string]: any },
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		try {
 			return await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
@@ -2007,7 +2007,7 @@ export class GitHubApi implements Disposable {
 					void window.showErrorMessage(`GitHub request failed: ${ex.errors?.[0]?.message ?? ex.message}`);
 				}
 			} else if (ex instanceof RequestError) {
-				this.handleRequestError(provider, token, ex, cc);
+				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
@@ -2023,7 +2023,7 @@ export class GitHubApi implements Disposable {
 		options:
 			| (R extends keyof Endpoints ? Endpoints[R]['parameters'] & RequestParameters : RequestParameters)
 			| undefined,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<R extends keyof Endpoints ? Endpoints[R]['response'] : OctokitResponse<unknown>> {
 		try {
 			return (await wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
@@ -2031,7 +2031,7 @@ export class GitHubApi implements Disposable {
 			)) as any;
 		} catch (ex) {
 			if (ex instanceof RequestError) {
-				this.handleRequestError(provider, token, ex, cc);
+				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitHub request failed: ${ex.message}`);
 			}
@@ -2044,7 +2044,7 @@ export class GitHubApi implements Disposable {
 		provider: RichRemoteProvider | undefined,
 		token: string,
 		ex: RequestError,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): void {
 		switch (ex.status) {
 			case 404: // Not found
@@ -2070,7 +2070,7 @@ export class GitHubApi implements Disposable {
 				}
 				throw new AuthenticationError('github', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, cc);
+				Logger.error(ex, scope);
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					void Messages.showIntegrationRequestFailed500WarningMessage(
@@ -2083,7 +2083,7 @@ export class GitHubApi implements Disposable {
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, cc);
+				Logger.error(ex, scope);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
@@ -2096,7 +2096,7 @@ export class GitHubApi implements Disposable {
 				break;
 		}
 
-		Logger.error(ex, cc);
+		Logger.error(ex, scope);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitHub request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -2104,12 +2104,8 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleException(
-		ex: Error,
-		provider: RichRemoteProvider | undefined,
-		cc: LogCorrelationContext | undefined,
-	): Error {
-		Logger.error(ex, cc);
+	private handleException(ex: Error, provider: RichRemoteProvider | undefined, scope: LogScope | undefined): Error {
+		Logger.error(ex, scope);
 		// debugger;
 
 		if (ex instanceof AuthenticationError) {

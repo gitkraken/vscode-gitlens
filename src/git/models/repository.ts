@@ -24,7 +24,7 @@ import { filterMap, groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
-import { debug, log, logName } from '../../system/decorators/log';
+import { debug, getLogScope, log, logName } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { basename, normalizePath } from '../../system/path';
@@ -1008,7 +1008,7 @@ export class Repository implements Disposable {
 
 	@debug()
 	private fireChange(...changes: RepositoryChange[]) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this._updatedAt = Date.now();
 
@@ -1021,7 +1021,7 @@ export class Repository implements Disposable {
 		this.onDidRepositoryChange(this, new RepositoryChangeEvent(this, changes));
 
 		if (this._suspended) {
-			Logger.debug(cc, `queueing suspended ${this._pendingRepoChange.toString(true)}`);
+			Logger.debug(scope, `queueing suspended ${this._pendingRepoChange.toString(true)}`);
 
 			return;
 		}
@@ -1041,7 +1041,7 @@ export class Repository implements Disposable {
 
 	@debug()
 	private fireFileSystemChange(uri: Uri) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this._updatedAt = Date.now();
 
@@ -1057,7 +1057,7 @@ export class Repository implements Disposable {
 		e.uris.push(uri);
 
 		if (this._suspended) {
-			Logger.debug(cc, `queueing suspended fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+			Logger.debug(scope, `queueing suspended fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 			return;
 		}
 

@@ -22,7 +22,7 @@ import { Messages } from '../../messages';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
 import { isPromise } from '../../system/promise';
 import type { Account } from '../models/author';
@@ -451,7 +451,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -461,7 +461,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.trackRequestException();
@@ -486,7 +486,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -496,7 +496,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.trackRequestException();
@@ -516,7 +516,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	@gate()
 	@debug()
 	async getDefaultBranch(): Promise<DefaultBranch | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -526,7 +526,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return defaultBranch;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.trackRequestException();
@@ -542,7 +542,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	@gate()
 	@debug()
 	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -552,7 +552,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return issueOrPullRequest;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.trackRequestException();
@@ -591,7 +591,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			include?: PullRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
@@ -601,7 +601,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return pr;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
 				this.trackRequestException();
@@ -634,7 +634,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	@debug()
 	private async getPullRequestForCommitCore(ref: string) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return null;
@@ -645,7 +645,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return pr;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			this._prsByCommit.delete(ref);
 

@@ -12,7 +12,7 @@ import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
 import { StorageKeys } from '../../storage';
-import { debug } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import { ServerConnection } from './serverConnection';
 
 interface StoredSession {
@@ -64,7 +64,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 	@debug()
 	public async createSession(scopes: string[]): Promise<AuthenticationSession> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		// Ensure that the scopes are sorted consistently (since we use them for matching and order doesn't matter)
 		scopes = scopes.sort();
@@ -90,7 +90,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			// If login was cancelled, do not notify user.
 			if (ex === 'Cancelled') throw ex;
 
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			void window.showErrorMessage(`Unable to sign in to GitLens+: ${ex}`);
 			throw ex;
 		}
@@ -98,7 +98,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 	@debug()
 	async getSessions(scopes?: string[]): Promise<AuthenticationSession[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		scopes = scopes?.sort();
 		const scopesKey = getScopesKey(scopes);
@@ -106,8 +106,8 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		const sessions = await this._sessionsPromise;
 		const filtered = scopes != null ? sessions.filter(s => getScopesKey(s.scopes) === scopesKey) : sessions;
 
-		if (cc != null) {
-			cc.exitDetails = ` \u2022 Found ${filtered.length} sessions`;
+		if (scope != null) {
+			scope.exitDetails = ` \u2022 Found ${filtered.length} sessions`;
 		}
 
 		return filtered;
@@ -115,7 +115,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 	@debug()
 	public async removeSession(id: string) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const sessions = await this._sessionsPromise;
@@ -132,7 +132,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 			this._onDidChangeSessions.fire({ added: [], removed: [session], changed: [] });
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
 			throw ex;
 		}
@@ -140,7 +140,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 	@debug()
 	public async removeSessionsByScopes(scopes?: string[]) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			scopes = scopes?.sort();
@@ -168,7 +168,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 
 			this._onDidChangeSessions.fire({ added: [], removed: removed, changed: [] });
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
 			throw ex;
 		}

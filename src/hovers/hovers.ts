@@ -12,6 +12,7 @@ import type { PullRequest } from '../git/models/pullRequest';
 import { GitRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import { Logger, LogLevel } from '../logger';
+import { getNewLogScope } from '../system/decorators/log';
 import { count } from '../system/iterable';
 import { PromiseCancelledError } from '../system/promise';
 import { getDurationMilliseconds } from '../system/string';
@@ -287,8 +288,8 @@ export namespace Hovers {
 	}
 
 	async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssuesOrPullRequests');
-		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
+		const scope = getNewLogScope('Hovers.getAutoLinkedIssuesOrPullRequests');
+		Logger.debug(scope, `${GlyphChars.Dash} message=<message>`);
 
 		const start = hrtime();
 
@@ -298,14 +299,14 @@ export namespace Hovers {
 			!cfg.autolinks.enhanced ||
 			!CommitFormatter.has(cfg.detailsMarkdownFormat, 'message')
 		) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
 		const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -323,7 +324,7 @@ export namespace Hovers {
 				const prCount = count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
 				if (prCount !== 0) {
 					Logger.debug(
-						cc,
+						scope,
 						`timed out ${
 							GlyphChars.Dash
 						} ${prCount} issue/pull request queries took too long (over ${timeout} ms) ${
@@ -340,7 +341,7 @@ export namespace Hovers {
 					// ];
 					// void Promise.all(pending).then(() => {
 					// 	Logger.debug(
-					// 		cc,
+					// 		scope,
 					// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
 					// 	);
 					// 	void executeCoreCommand(CoreCommands.EditorShowHover);
@@ -350,11 +351,11 @@ export namespace Hovers {
 				}
 			}
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return autolinks;
 		} catch (ex) {
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -367,13 +368,13 @@ export namespace Hovers {
 			pullRequests?: boolean;
 		},
 	) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
-		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
+		const scope = getNewLogScope('Hovers.getPullRequestForCommit');
+		Logger.debug(scope, `${GlyphChars.Dash} ref=${ref}`);
 
 		const start = hrtime();
 
 		if (!options?.pullRequests) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -382,7 +383,7 @@ export namespace Hovers {
 			includeDisconnected: true,
 		});
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -390,7 +391,7 @@ export namespace Hovers {
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
 		if (!connected) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return remote;
 		}
@@ -398,17 +399,17 @@ export namespace Hovers {
 		try {
 			const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return pr;
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {
-				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+				Logger.debug(scope, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 				return ex;
 			}
 
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}

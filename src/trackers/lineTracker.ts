@@ -1,6 +1,6 @@
 import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { Logger } from '../logger';
-import { debug } from '../system/decorators/log';
+import { debug, getLogScope } from '../system/decorators/log';
 import { debounce, Deferrable } from '../system/function';
 import { isTextEditor } from '../system/utils';
 
@@ -115,7 +115,7 @@ export class LineTracker<T> implements Disposable {
 
 	@debug({ args: false })
 	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const disposable = {
 			dispose: () => this.unsubscribe(subscriber),
@@ -132,7 +132,7 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (first) {
-			Logger.debug(cc, 'Starting line tracker...');
+			Logger.debug(scope, 'Starting line tracker...');
 
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),

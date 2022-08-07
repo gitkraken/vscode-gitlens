@@ -90,13 +90,13 @@ import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
 import { RemoteProviderFactory, RemoteProviders } from '../../../git/remotes/factory';
 import { RemoteProvider, RemoteResourceType, RichRemoteProvider } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';
-import { LogCorrelationContext, Logger } from '../../../logger';
+import { Logger, LogScope } from '../../../logger';
 import { Messages } from '../../../messages';
 import { WorkspaceStorageKeys } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
-import { debug, log } from '../../../system/decorators/log';
+import { debug, getLogScope, log } from '../../../system/decorators/log';
 import { filterMap as filterMapIterable, find, first, last, some } from '../../../system/iterable';
 import {
 	commonBaseIndex,
@@ -240,10 +240,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	private async findGit(): Promise<GitLocation> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!configuration.getAny<boolean>('git.enabled', null, true)) {
-			Logger.log(cc, 'Built-in Git is disabled ("git.enabled": false)');
+			Logger.log(scope, 'Built-in Git is disabled ("git.enabled": false)');
 			void Messages.showGitDisabledErrorMessage();
 
 			throw new UnableToFindGitError();
@@ -295,13 +295,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.GitPath, location.path);
 		}, 1000);
 
-		if (cc != null) {
-			cc.exitDetails = ` ${GlyphChars.Dot} Git (${location.version}) found in ${
+		if (scope != null) {
+			scope.exitDetails = ` ${GlyphChars.Dot} Git (${location.version}) found in ${
 				location.path === 'git' ? 'PATH' : location.path
 			}`;
 		} else {
 			Logger.log(
-				cc,
+				scope,
 				`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path} ${
 					GlyphChars.Dot
 				} ${getDurationMilliseconds(start)} ms`,
@@ -310,7 +310,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		// Warn if git is less than v2.7.2
 		if (compare(fromString(location.version), fromString('2.7.2')) === -1) {
-			Logger.log(cc, `Git version (${location.version}) is outdated`);
+			Logger.log(scope, `Git version (${location.version}) is outdated`);
 			void Messages.showGitVersionUnsupportedErrorMessage(location.version, '2.7.2');
 		}
 
@@ -501,13 +501,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}`,
 	})
 	private async repositorySearch(folder: WorkspaceFolder, depth?: number): Promise<Repository[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 		depth =
 			depth ??
 			configuration.get('advanced.repositorySearchDepth', folder.uri) ??
 			configuration.getAny<number>(CoreGitConfiguration.RepositoryScanMaxDepth, folder.uri, 1);
 
-		Logger.log(cc, `searching (depth=${depth})...`);
+		Logger.log(scope, `searching (depth=${depth})...`);
 
 		const repositories: Repository[] = [];
 
@@ -523,7 +523,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				canonicalRootPath = normalizePath(canonicalUri.fsPath);
 			}
 
-			Logger.log(cc, `found root repository in '${uri.fsPath}'`);
+			Logger.log(scope, `found root repository in '${uri.fsPath}'`);
 			repositories.push(...this.openRepository(folder, uri, true));
 		}
 
@@ -554,9 +554,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
-				Logger.log(cc, `FAILED${msg ? ` Error: ${msg}` : ''}`);
+				Logger.log(scope, `FAILED${msg ? ` Error: ${msg}` : ''}`);
 			} else {
-				Logger.error(ex, cc, 'FAILED');
+				Logger.error(ex, scope, 'FAILED');
 			}
 
 			return repositories;
@@ -576,16 +576,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				continue;
 			}
 
-			Logger.log(cc, `searching in '${p}'...`);
+			Logger.log(scope, `searching in '${p}'...`);
 			Logger.debug(
-				cc,
+				scope,
 				`normalizedRepoPath=${normalized}, rootPath=${rootPath}, canonicalRootPath=${canonicalRootPath}`,
 			);
 
 			const rp = await this.findRepositoryUri(Uri.file(p), true);
 			if (rp == null) continue;
 
-			Logger.log(cc, `found repository in '${rp.fsPath}'`);
+			Logger.log(scope, `found repository in '${rp.fsPath}'`);
 			repositories.push(...this.openRepository(folder, rp, false));
 		}
 
@@ -599,7 +599,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		excludes: Set<string>,
 		repositories: string[] = [],
 	): Promise<string[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		return new Promise<string[]>((resolve, reject) => {
 			readdir(root, { withFileTypes: true }, async (err, files) => {
@@ -623,7 +623,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						try {
 							await this.repositorySearchCore(resolvePath(root, f.name), depth, excludes, repositories);
 						} catch (ex) {
-							Logger.error(ex, cc, 'FAILED');
+							Logger.error(ex, scope, 'FAILED');
 						}
 					}
 				}
@@ -809,7 +809,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		ref1 = ref1 ?? uri.sha;
 		if (ref1 == null || uri.repoPath == null) return;
@@ -848,7 +848,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			void Messages.showGenericErrorMessage('Unable to apply changes');
 		}
 	}
@@ -859,7 +859,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string,
 		options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			await this.git.checkout(repoPath, ref, options);
@@ -872,7 +872,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return;
 			}
 
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			void void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'`);
 		}
 	}
@@ -952,7 +952,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let repoPath: string | undefined;
 		try {
@@ -1007,13 +1007,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				[repoPath, symlink] = await new Promise<[string, string | undefined]>(resolve => {
 					realpath(uri.fsPath, { encoding: 'utf8' }, (err, resolvedPath) => {
 						if (err != null) {
-							Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
+							Logger.debug(scope, `fs.realpath failed; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
 						}
 
 						if (equalsIgnoreCase(uri.fsPath, resolvedPath)) {
-							Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
+							Logger.debug(scope, `No symlink detected; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
 						}
@@ -1028,7 +1028,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						}
 
 						Logger.debug(
-							cc,
+							scope,
 							`Symlink detected; repoPath=${repoPath}, path=${uri.fsPath}, resolvedPath=${resolvedPath}`,
 						);
 						resolve([repoPath!, linkPath]);
@@ -1044,7 +1044,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return repoPath ? Uri.file(repoPath) : undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -1060,7 +1060,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
 	@log<LocalGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (document?.isDirty) return this.getBlameContents(uri, document.getText());
 
@@ -1074,22 +1074,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedBlame = doc.state.getBlame(key);
 				if (cachedBlame != null) {
-					Logger.debug(cc, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${key}'`);
 					return cachedBlame.item;
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
 			}
 		}
 
-		const promise = this.getBlameCore(uri, doc, key, cc);
+		const promise = this.getBlameCore(uri, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -1104,11 +1104,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: GitUri,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
 		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
-			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
+			Logger.log(scope, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
@@ -1125,7 +1125,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -1144,7 +1144,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log<LocalGitProvider['getBlameContents']>({ args: { 1: '<contents>' } })
 	async getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const key = `blame:${md5(contents)}`;
 
@@ -1153,22 +1153,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedBlame = doc.state.getBlame(key);
 				if (cachedBlame != null) {
-					Logger.debug(cc, `Cache hit: ${key}`);
+					Logger.debug(scope, `Cache hit: ${key}`);
 					return cachedBlame.item;
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: ${key}`);
+			Logger.debug(scope, `Cache miss: ${key}`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
 			}
 		}
 
-		const promise = this.getBlameContentsCore(uri, contents, doc, key, cc);
+		const promise = this.getBlameContentsCore(uri, contents, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -1184,11 +1184,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		contents: string,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
 		const paths = await this.isTrackedPrivate(uri);
 		if (paths == null) {
-			Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
+			Logger.log(scope, `Skipping blame; '${uri.fsPath}' is not tracked`);
 			return emptyPromise as Promise<GitBlame>;
 		}
 
@@ -1206,7 +1206,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -1561,7 +1561,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		options?: { ref?: string; firstIfNotFound?: boolean; range?: Range },
 	): Promise<GitCommit | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const [relativePath, root] = splitPath(uri, repoPath);
 
@@ -1584,7 +1584,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return commit ?? first(log.commits.values());
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -1712,7 +1712,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const repo = this._repoInfoCache.get(repoPath);
 
@@ -1767,7 +1767,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._repoInfoCache.set(repoPath, { ...repo, user: user });
 			return user;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
@@ -1804,7 +1804,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let key = 'diff';
 		if (ref1 != null) {
@@ -1819,12 +1819,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedDiff = doc.state.getDiff(key);
 				if (cachedDiff != null) {
-					Logger.debug(cc, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${key}'`);
 					return cachedDiff.item;
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
@@ -1839,11 +1839,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			{ encoding: GitProviderService.getEncoding(uri) },
 			doc,
 			key,
-			cc,
+			scope,
 		);
 
 		if (doc.state != null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
 				item: promise as Promise<GitDiff>,
@@ -1862,7 +1862,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options: { encoding?: string },
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitDiff | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
@@ -1881,7 +1881,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
 					item: emptyPromise as Promise<GitDiff>,
@@ -1898,7 +1898,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
 	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const key = `diff:${md5(contents)}`;
 
@@ -1907,12 +1907,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedDiff = doc.state.getDiff(key);
 				if (cachedDiff != null) {
-					Logger.debug(cc, `Cache hit: ${key}`);
+					Logger.debug(scope, `Cache hit: ${key}`);
 					return cachedDiff.item;
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: ${key}`);
+			Logger.debug(scope, `Cache miss: ${key}`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
@@ -1927,11 +1927,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			{ encoding: GitProviderService.getEncoding(uri) },
 			doc,
 			key,
-			cc,
+			scope,
 		);
 
 		if (doc.state != null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
 				item: promise as Promise<GitDiff>,
@@ -1950,7 +1950,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options: { encoding?: string },
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitDiff | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
@@ -1967,7 +1967,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
 					item: emptyPromise as Promise<GitDiff>,
@@ -2075,7 +2075,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 
@@ -2139,7 +2139,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -2158,7 +2158,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			since?: string;
 		},
 	): Promise<Set<string> | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 
@@ -2178,7 +2178,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const commits = new Set(parser.parse(data));
 			return commits;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -2419,7 +2419,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const relativePath = this.getRelativePath(pathOrUri, repoPath);
 
@@ -2471,7 +2471,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
-					Logger.debug(cc, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${key}'`);
 					return cachedLog.item;
 				}
 
@@ -2482,14 +2482,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					);
 					if (cachedLog != null) {
 						if (options.ref == null) {
-							Logger.debug(cc, `Cache hit: ~'${key}'`);
+							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(cc, `Cache ?: '${key}'`);
+						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(options.ref)) {
-							Logger.debug(cc, `Cache hit: '${key}'`);
+							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -2529,17 +2529,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, options, doc, key, cc);
+		const promise = this.getLogForFileCore(repoPath, relativePath, options, doc, key, scope);
 
 		if (doc.state != null && options.range == null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
@@ -2571,11 +2571,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		},
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitLog | undefined> {
 		const paths = await this.isTrackedPrivate(path, repoPath, ref);
 		if (paths == null) {
-			Logger.log(cc, `Skipping blame; '${path}' is not tracked`);
+			Logger.log(scope, `Skipping blame; '${path}' is not tracked`);
 			return emptyPromise as Promise<GitLog>;
 		}
 
@@ -2621,7 +2621,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected log errors
 			if (document.state != null && range == null && !options.reverse) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedLog = {
 					item: emptyPromise as Promise<GitLog>,
@@ -2699,7 +2699,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getMergeBase(repoPath: string, ref1: string, ref2: string, options?: { forkPoint?: boolean }) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const data = await this.git.merge_base(repoPath, ref1, ref2, options);
@@ -2707,7 +2707,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return data.split('\n')[0].trim() || undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -3135,7 +3135,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitUri | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (ref === GitRevision.uncommitted) {
 			ref = undefined;
@@ -3171,7 +3171,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return GitUri.fromFile(relativePath, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			throw ex;
 		}
 		if (data == null || data.length === 0) return undefined;
@@ -3188,7 +3188,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitReflog | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 		try {
@@ -3207,7 +3207,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return reflog;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -3656,12 +3656,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			let tool = options?.tool;
 			if (!tool) {
-				const cc = Logger.getCorrelationContext();
+				const scope = getLogScope();
 
 				tool = configuration.get('advanced.externalDiffTool') || (await this.getDiffTool(root));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.log(cc, `Using tool=${tool}`);
+				Logger.log(scope, `Using tool=${tool}`);
 			}
 
 			await this.git.difftool(root, relativePath, tool, options);
@@ -3691,12 +3691,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void> {
 		try {
 			if (!tool) {
-				const cc = Logger.getCorrelationContext();
+				const scope = getLogScope();
 
 				tool = configuration.get('advanced.externalDirectoryDiffTool') || (await this.getDiffTool(repoPath));
 				if (tool == null) throw new Error('No diff tool found');
 
-				Logger.log(cc, `Using tool=${tool}`);
+				Logger.log(scope, `Using tool=${tool}`);
 			}
 
 			await this.git.difftool__dir_diff(repoPath, tool, ref1, ref2);
@@ -3988,31 +3988,31 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 		try {
 			const gitApi = await this.getScmGitApi();
 			return gitApi?.repositories ?? [];
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return [];
 		}
 	}
 
 	@log()
 	async getScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 		try {
 			const gitApi = await this.getScmGitApi();
 			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
 
 	@log()
 	async getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 		try {
 			const gitApi = await this.getScmGitApi();
 			if (gitApi?.openRepository != null) {
@@ -4021,19 +4021,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
 
 	@log()
 	private async openScmRepository(uri: Uri): Promise<BuiltInGitRepository | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 		try {
 			const gitApi = await this.getScmGitApi();
 			return (await gitApi?.openRepository?.(uri)) ?? undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}

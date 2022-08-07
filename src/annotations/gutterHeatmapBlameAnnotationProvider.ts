@@ -2,8 +2,7 @@ import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { Logger } from '../logger';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
@@ -18,14 +17,14 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 
 	@log()
 	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this.annotationContext = context;
 
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = new Stopwatch(cc!);
+		const sw = new Stopwatch(scope);
 
 		const decorationsMap = new Map<
 			string,

@@ -14,7 +14,7 @@ import { uuid } from '@env/crypto';
 import { fetch, getProxyAgent, Response } from '@env/fetch';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { DeferredEvent, DeferredEventExecutor, promisifyDeferred } from '../../system/event';
 
@@ -75,7 +75,7 @@ export class ServerConnection implements Disposable {
 
 	@debug({ args: false })
 	async getAccountInfo(token: string): Promise<AccountInfo> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let rsp: Response;
 		try {
@@ -88,7 +88,7 @@ export class ServerConnection implements Disposable {
 				},
 			});
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			throw ex;
 		}
 

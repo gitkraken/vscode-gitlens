@@ -15,7 +15,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import {
 	ExecuteCommandType,
 	IpcMessage,
@@ -85,12 +85,12 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 		}
 	}
 

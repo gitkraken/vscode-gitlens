@@ -3,14 +3,14 @@ import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
 import { Container } from '../container';
 import { GitCommandOptions } from '../git/commandOptions';
 import { Logger } from '../logger';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { VslsHostService } from './host';
 import { GetRepositoriesForUriRequestType, GitCommandRequestType, RepositoryProxy, RequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
 	static async connect(api: LiveShare, container: Container) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const service = await api.getSharedService(VslsHostService.ServiceId);
@@ -20,7 +20,7 @@ export class VslsGuestService implements Disposable {
 
 			return new VslsGuestService(api, service, container);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}

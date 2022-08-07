@@ -34,7 +34,7 @@ import {
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { cancellable, isPromise } from '../system/promise';
@@ -369,7 +369,7 @@ export abstract class ViewBase<
 			token?: CancellationToken;
 		} = {},
 	): Promise<ViewNode | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		async function find(this: ViewBase<RootNode, ViewConfig>) {
 			try {
@@ -384,7 +384,7 @@ export abstract class ViewBase<
 
 				return node;
 			} catch (ex) {
-				Logger.error(ex, cc);
+				Logger.error(ex, scope);
 				return undefined;
 			}
 		}
@@ -537,12 +537,12 @@ export abstract class ViewBase<
 
 	@log()
 	async show(options?: { preserveFocus?: boolean }) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			void (await executeCommand(`${this.id}.focus`, options));
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 		}
 	}
 

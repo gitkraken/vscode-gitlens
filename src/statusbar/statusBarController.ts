@@ -18,9 +18,9 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
 import { Hovers } from '../hovers/hovers';
-import { LogCorrelationContext, Logger } from '../logger';
+import { Logger, LogScope } from '../logger';
 import { asCommand } from '../system/command';
-import { debug } from '../system/decorators/log';
+import { debug, getLogScope } from '../system/decorators/log';
 import { once } from '../system/event';
 import { PromiseCancelledError } from '../system/promise';
 import { isTextEditor } from '../system/utils';
@@ -179,7 +179,7 @@ export class StatusBarController implements Disposable {
 		const cfg = configuration.get('statusBar');
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const showPullRequests =
 			cfg.pullRequests.enabled &&
@@ -214,7 +214,14 @@ export class StatusBarController implements Disposable {
 		if (pr != null) {
 			this._pullRequestCancellation?.cancel();
 			this._pullRequestCancellation = new CancellationTokenSource();
-			void this.waitForPendingPullRequest(editor, commit, pr, this._pullRequestCancellation.token, timeout, cc);
+			void this.waitForPendingPullRequest(
+				editor,
+				commit,
+				pr,
+				this._pullRequestCancellation.token,
+				timeout,
+				scope,
+			);
 		}
 
 		this._statusBarBlame.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
@@ -403,18 +410,18 @@ export class StatusBarController implements Disposable {
 		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
 		cancellationToken: CancellationToken,
 		timeout: number,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	) {
 		if (cancellationToken.isCancellationRequested || !(pr instanceof PromiseCancelledError)) return;
 
 		// If the PR timed out, refresh the status bar once it completes
-		Logger.debug(cc, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
+		Logger.debug(scope, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
 
 		pr = await pr.promise;
 
 		if (cancellationToken.isCancellationRequested) return;
 
-		Logger.debug(cc, `${GlyphChars.Dot} pull request query completed; refreshing...`);
+		Logger.debug(scope, `${GlyphChars.Dot} pull request query completed; refreshing...`);
 
 		void this.updateBlame(editor, commit, { pr: pr ?? null });
 	}

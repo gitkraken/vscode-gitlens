@@ -37,7 +37,7 @@ import {
 } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map, some } from '../system/iterable';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
@@ -418,7 +418,7 @@ export class GitProviderService implements Disposable {
 
 	@log({ singleLine: true })
 	registrationComplete() {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this._initializing = false;
 
@@ -429,8 +429,8 @@ export class GitProviderService implements Disposable {
 			this.updateContext();
 		}
 
-		if (cc != null) {
-			cc.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${
+		if (scope != null) {
+			scope.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${
 				workspaceFolders?.length
 			}, git.autoRepositoryDetection=${configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 				CoreGitConfiguration.AutoRepositoryDetection,
@@ -1874,7 +1874,7 @@ export class GitProviderService implements Disposable {
 
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
 	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const path = getBestPath(uri);
 		let repository: Repository | undefined;
@@ -1925,7 +1925,7 @@ export class GitProviderService implements Disposable {
 
 				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
 
-				Logger.log(cc, `Repository found in '${repoUri.toString(false)}'`);
+				Logger.log(scope, `Repository found in '${repoUri.toString(false)}'`);
 				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
 				for (const repository of repositories) {
 					this._repositories.add(repository);

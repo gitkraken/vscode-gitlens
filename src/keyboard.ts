@@ -2,7 +2,7 @@ import { commands, Disposable } from 'vscode';
 import { ContextKeys } from './constants';
 import { setContext } from './context';
 import { Logger } from './logger';
-import { log } from './system/decorators/log';
+import { getLogScope, log } from './system/decorators/log';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;
@@ -49,9 +49,9 @@ export class KeyboardScope implements Disposable {
 	async dispose() {
 		const index = mappings.indexOf(this._mapping);
 
-		const cc = Logger.getCorrelationContext();
-		if (cc != null) {
-			cc.exitDetails = ` \u2022 index=${index}`;
+		const scope = getLogScope();
+		if (scope != null) {
+			scope.exitDetails = ` \u2022 index=${index}`;
 		}
 
 		if (index === mappings.length - 1) {
@@ -72,12 +72,12 @@ export class KeyboardScope implements Disposable {
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async clearKeyCommand(key: Keys) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping || mapping[key] == null) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped';
 			}
 
 			return;
@@ -123,12 +123,12 @@ export class KeyboardScope implements Disposable {
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped';
 			}
 
 			return;
@@ -183,11 +183,11 @@ export class Keyboard implements Disposable {
 
 	@log()
 	async execute(key: Keys): Promise<void> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!mappings.length) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped, no mappings';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped, no mappings';
 			}
 
 			return;
@@ -201,8 +201,8 @@ export class Keyboard implements Disposable {
 				command = await command();
 			}
 			if (typeof command?.onDidPressKey !== 'function') {
-				if (cc != null) {
-					cc.exitDetails = ' \u2022 skipped, no callback';
+				if (scope != null) {
+					scope.exitDetails = ' \u2022 skipped, no callback';
 				}
 
 				return;
@@ -210,7 +210,7 @@ export class Keyboard implements Disposable {
 
 			void (await command.onDidPressKey(key));
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 		}
 	}
 }

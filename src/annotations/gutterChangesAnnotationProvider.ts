@@ -17,8 +17,7 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiff } from '../git/models/diff';
 import { Hovers } from '../hovers/hovers';
-import { Logger } from '../logger';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
@@ -66,7 +65,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 	@log()
 	async onProvideAnnotation(context?: ChangesAnnotationContext): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (this.mustReopen(context)) {
 			this.clear();
@@ -159,7 +158,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
-		const sw = new Stopwatch(cc!);
+		const sw = new Stopwatch(scope);
 
 		const decorationsMap = new Map<
 			string,

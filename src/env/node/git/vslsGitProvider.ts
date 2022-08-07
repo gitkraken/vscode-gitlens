@@ -5,6 +5,7 @@ import { GitCommandOptions } from '../../../git/commandOptions';
 import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
 import { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
+import { getLogScope } from '../../../system/decorators/log';
 import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
@@ -38,7 +39,7 @@ export class VslsGitProvider extends LocalGitProvider {
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const guest = await this.container.vsls.guest();
@@ -49,7 +50,7 @@ export class VslsGitProvider extends LocalGitProvider {
 				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, undefined, r.closed),
 			);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			return [];
@@ -73,7 +74,7 @@ export class VslsGitProvider extends LocalGitProvider {
 	}
 
 	override async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let repoPath: string | undefined;
 		try {
@@ -92,7 +93,7 @@ export class VslsGitProvider extends LocalGitProvider {
 
 			return repoPath ? Uri.parse(repoPath, true) : undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}

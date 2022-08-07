@@ -116,7 +116,7 @@ export class GitCommandsCommand extends Command {
 		return this.execute(args);
 	}
 
-	@log({ args: false, correlate: true, singleLine: true, timed: false })
+	@log({ args: false, scoped: true, singleLine: true, timed: false })
 	async execute(args?: GitCommandsCommandArgs) {
 		const commandsStep = new PickCommandStep(this.container, args);
 

@@ -7,7 +7,7 @@ import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
@@ -142,7 +142,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		exit: r => `returned ${r}`,
 	})
 	override async refresh(reset: boolean = false) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!this.canSubscribe) return false;
 
@@ -166,8 +166,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			this.reset();
 
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+			if (scope != null) {
+				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 			}
 			return false;
 		}
@@ -177,8 +177,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+			if (scope != null) {
+				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 			}
 			return true;
 		}
@@ -204,8 +204,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.resetChild();
 		}
 
-		if (cc != null) {
-			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+		if (scope != null) {
+			scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 		}
 		return false;
 	}

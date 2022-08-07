@@ -60,9 +60,9 @@ import { GitUser, isUserMatch } from '../../git/models/user';
 import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
-import { LogCorrelationContext, Logger } from '../../logger';
+import { Logger, LogScope } from '../../logger';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
@@ -364,7 +364,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, _isDirectory?: boolean): Promise<Uri | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const remotehub = await this.ensureRemoteHubApi();
@@ -374,7 +374,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (!(ex instanceof ExtensionNotFoundError)) {
 				debugger;
 			}
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 
 			return undefined;
 		}
@@ -391,7 +391,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
 	@log<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameContents(uri, document.getText());
@@ -405,21 +405,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.debug(cc, `Cache hit: '${key}'`);
+				Logger.debug(scope, `Cache hit: '${key}'`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.debug(cc, `Cache miss: '${key}'`);
+		Logger.debug(scope, `Cache miss: '${key}'`);
 
 		if (doc.state == null) {
 			doc.state = new GitDocumentState();
 		}
 
-		const promise = this.getBlameCore(uri, doc, key, cc);
+		const promise = this.getBlameCore(uri, doc, key, scope);
 
 		if (doc.state != null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -434,7 +434,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: GitUri,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<GitBlame | undefined> {
 		try {
 			const context = await this.ensureRepositoryContext(uri.repoPath!);
@@ -530,7 +530,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected blame errors
 			if (document.state != null && !/No provider registered with/.test(String(ex))) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -563,7 +563,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameForLineContents(uri, editorLine, document.getText(), options);
@@ -648,7 +648,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		} catch (ex) {
 			debugger;
-			Logger.error(cc, ex);
+			Logger.error(scope, ex);
 			return undefined;
 		}
 	}
@@ -747,7 +747,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let branchesPromise = options?.cursor ? undefined : this._branchesCache.get(repoPath);
 		if (branchesPromise == null) {
@@ -793,7 +793,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						cursor = result.paging.cursor;
 					}
 				} catch (ex) {
-					Logger.error(ex, cc);
+					Logger.error(ex, scope);
 					debugger;
 
 					this._branchesCache.delete(repoPath!);
@@ -843,7 +843,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -888,7 +888,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				[],
 			);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -902,7 +902,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -930,7 +930,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return branches;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return [];
 		}
@@ -940,7 +940,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -954,7 +954,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return count;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -968,7 +968,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, remotehub, session } = await this.ensureRepositoryContext(repoPath);
@@ -1025,7 +1025,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				[],
 			);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -1044,7 +1044,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1074,7 +1074,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return contributors;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return [];
 		}
@@ -1085,7 +1085,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const repo = this._repoInfoCache.get(repoPath);
 
@@ -1101,7 +1101,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this._repoInfoCache.set(repoPath, { ...repo, user: user ?? null });
 			return user;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			// Mark it so we won't bother trying again
@@ -1114,13 +1114,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getDefaultBranchName(repoPath: string | undefined, _remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -1190,7 +1190,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const limit = this.getPagingLimit(options?.limit);
 
@@ -1274,7 +1274,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -1376,7 +1376,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const operations = SearchPattern.parseSearchOperations(search.pattern);
 
@@ -1514,7 +1514,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			return undefined;
 		}
@@ -1577,7 +1577,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const relativePath = this.getRelativePath(pathOrUri, repoPath);
 
@@ -1637,7 +1637,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
-					Logger.debug(cc, `Cache hit: '${key}'`);
+					Logger.debug(scope, `Cache hit: '${key}'`);
 					return cachedLog.item;
 				}
 
@@ -1648,14 +1648,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					);
 					if (cachedLog != null) {
 						if (options.ref == null) {
-							Logger.debug(cc, `Cache hit: ~'${key}'`);
+							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(cc, `Cache ?: '${key}'`);
+						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(options.ref)) {
-							Logger.debug(cc, `Cache hit: '${key}'`);
+							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -1695,17 +1695,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			Logger.debug(cc, `Cache miss: '${key}'`);
+			Logger.debug(scope, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
 				doc.state = new GitDocumentState();
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, cc, options);
+		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, scope, options);
 
 		if (doc.state != null && options.range == null) {
-			Logger.debug(cc, `Cache add: '${key}'`);
+			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
@@ -1721,7 +1721,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		path: string,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 		options?: {
 			all?: boolean;
 			cursor?: string;
@@ -1843,7 +1843,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected log errors
 			if (document.state != null && options?.range == null && !options?.reverse) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedLog = {
 					item: emptyPromise as Promise<GitLog>,
@@ -1952,7 +1952,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// If we have no ref there is no next commit
 		if (!ref) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
@@ -1983,7 +1983,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				next: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip])),
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			throw ex;
@@ -2000,7 +2000,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (ref === GitRevision.uncommitted) {
 			ref = undefined;
@@ -2051,7 +2051,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				),
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			throw ex;
@@ -2068,7 +2068,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PreviousLineComparisonUrisResult | undefined> {
 		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
@@ -2117,7 +2117,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				line: (currentLine ?? editorLine) + 1, // 1-based
 			};
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			throw ex;
@@ -2199,7 +2199,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let tagsPromise = options?.cursor ? undefined : this._tagsCache.get(repoPath);
 		if (tagsPromise == null) {
@@ -2238,7 +2238,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						cursor = result.paging.cursor;
 					}
 				} catch (ex) {
-					Logger.error(ex, cc);
+					Logger.error(ex, scope);
 					debugger;
 
 					this._tagsCache.delete(repoPath!);

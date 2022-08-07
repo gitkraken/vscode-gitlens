@@ -1,6 +1,5 @@
 import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
 import { OutputLevel } from './configuration';
-import { getCorrelationContext, getNextCorrelationId } from './system/decorators/log';
 
 const emptyStr = '';
 const outputChannelName = 'GitLens';
@@ -17,18 +16,18 @@ export const enum LogLevel {
 	Debug = 'debug',
 }
 
+export interface LogScope {
+	readonly scopeId?: number;
+	readonly prefix: string;
+	exitDetails?: string;
+}
+
 const enum OrderedLevel {
 	Off = 0,
 	Error = 1,
 	Warn = 2,
 	Info = 3,
 	Debug = 4,
-}
-
-export interface LogCorrelationContext {
-	readonly correlationId?: number;
-	readonly prefix: string;
-	exitDetails?: string;
 }
 
 export class Logger {
@@ -70,18 +69,18 @@ export class Logger {
 	}
 
 	static debug(message: string, ...params: any[]): void;
-	static debug(context: LogCorrelationContext | undefined, message: string, ...params: any[]): void;
-	static debug(contextOrMessage: LogCorrelationContext | string | undefined, ...params: any[]): void {
+	static debug(scope: LogScope | undefined, message: string, ...params: any[]): void;
+	static debug(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Debug && !this.isDebugging) return;
 
 		let message;
-		if (typeof contextOrMessage === 'string') {
-			message = contextOrMessage;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
 		} else {
 			message = params.shift();
 
-			if (contextOrMessage != null) {
-				message = `${contextOrMessage.prefix} ${message ?? emptyStr}`;
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
 			}
 		}
 
@@ -94,19 +93,15 @@ export class Logger {
 	}
 
 	static error(ex: Error | unknown, message?: string, ...params: any[]): void;
-	static error(ex: Error | unknown, context?: LogCorrelationContext, message?: string, ...params: any[]): void;
-	static error(
-		ex: Error | unknown,
-		contextOrMessage: LogCorrelationContext | string | undefined,
-		...params: any[]
-	): void {
+	static error(ex: Error | unknown, scope?: LogScope, message?: string, ...params: any[]): void;
+	static error(ex: Error | unknown, scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Error && !this.isDebugging) return;
 
 		let message;
-		if (contextOrMessage == null || typeof contextOrMessage === 'string') {
-			message = contextOrMessage;
+		if (scopeOrMessage == null || typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
 		} else {
-			message = `${contextOrMessage.prefix} ${params.shift() ?? emptyStr}`;
+			message = `${scopeOrMessage.prefix} ${params.shift() ?? emptyStr}`;
 		}
 
 		if (message == null) {
@@ -130,18 +125,18 @@ export class Logger {
 	}
 
 	static log(message: string, ...params: any[]): void;
-	static log(context: LogCorrelationContext | undefined, message: string, ...params: any[]): void;
-	static log(contextOrMessage: LogCorrelationContext | string | undefined, ...params: any[]): void {
+	static log(scope: LogScope | undefined, message: string, ...params: any[]): void;
+	static log(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Info && !this.isDebugging) return;
 
 		let message;
-		if (typeof contextOrMessage === 'string') {
-			message = contextOrMessage;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
 		} else {
 			message = params.shift();
 
-			if (contextOrMessage != null) {
-				message = `${contextOrMessage.prefix} ${message ?? emptyStr}`;
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
 			}
 		}
 
@@ -154,18 +149,18 @@ export class Logger {
 	}
 
 	static warn(message: string, ...params: any[]): void;
-	static warn(context: LogCorrelationContext | undefined, message: string, ...params: any[]): void;
-	static warn(contextOrMessage: LogCorrelationContext | string | undefined, ...params: any[]): void {
+	static warn(scope: LogScope | undefined, message: string, ...params: any[]): void;
+	static warn(scopeOrMessage: LogScope | string | undefined, ...params: any[]): void {
 		if (this.level < OrderedLevel.Warn && !this.isDebugging) return;
 
 		let message;
-		if (typeof contextOrMessage === 'string') {
-			message = contextOrMessage;
+		if (typeof scopeOrMessage === 'string') {
+			message = scopeOrMessage;
 		} else {
 			message = params.shift();
 
-			if (contextOrMessage != null) {
-				message = `${contextOrMessage.prefix} ${message ?? emptyStr}`;
+			if (scopeOrMessage != null) {
+				message = `${scopeOrMessage.prefix} ${message ?? emptyStr}`;
 			}
 		}
 
@@ -175,18 +170,6 @@ export class Logger {
 
 		if (this.output == null || this.level < OrderedLevel.Warn) return;
 		this.output.appendLine(`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}`);
-	}
-
-	static getCorrelationContext() {
-		return getCorrelationContext();
-	}
-
-	static getNewCorrelationContext(prefix: string): LogCorrelationContext {
-		const correlationId = getNextCorrelationId();
-		return {
-			correlationId: correlationId,
-			prefix: `[${String(correlationId).padStart(5)}] ${prefix}`,
-		};
 	}
 
 	static showOutputChannel(): void {

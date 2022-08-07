@@ -18,9 +18,9 @@ import type { DefaultBranch } from '../../git/models/defaultBranch';
 import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/provider';
-import { LogCorrelationContext, Logger, LogLevel } from '../../logger';
+import { Logger, LogLevel, LogScope } from '../../logger';
 import { Messages } from '../../messages';
-import { debug } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
 import {
@@ -83,7 +83,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
 		if (!projectId) return undefined;
@@ -98,7 +98,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
-				cc,
+				scope,
 			);
 
 			let user: GitLabUser | undefined;
@@ -132,7 +132,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -148,7 +148,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const [user] = await this.findUser(provider, token, email, options);
@@ -163,7 +163,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -177,7 +177,7 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<DefaultBranch | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			data: {
@@ -208,7 +208,7 @@ export class GitLabApi implements Disposable {
 				{
 					fullPath: `${owner}/${repo}`,
 				},
-				cc,
+				scope,
 			);
 
 			const defaultBranch = rsp?.data?.project?.repository?.rootRef ?? undefined;
@@ -221,7 +221,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -236,7 +236,7 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 		},
 	): Promise<IssueOrPullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			data: {
@@ -295,7 +295,7 @@ export class GitLabApi implements Disposable {
 					fullPath: `${owner}/${repo}`,
 					iid: String(number),
 				},
-				cc,
+				scope,
 			);
 
 			if (rsp?.data?.project?.issue != null) {
@@ -331,7 +331,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -348,7 +348,7 @@ export class GitLabApi implements Disposable {
 			include?: GitLabMergeRequestState[];
 		},
 	): Promise<PullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			data: {
@@ -433,7 +433,7 @@ export class GitLabApi implements Disposable {
 					branches: [branch],
 					state: options?.include,
 				},
-				cc,
+				scope,
 			);
 
 			let pr: GitLabMergeRequest | undefined;
@@ -478,7 +478,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -494,7 +494,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<PullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
 		if (!projectId) return undefined;
@@ -510,7 +510,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
-				cc,
+				scope,
 			);
 			if (mrs == null || mrs.length === 0) return undefined;
 
@@ -527,7 +527,7 @@ export class GitLabApi implements Disposable {
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			throw this.handleException(ex, provider, cc);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -540,7 +540,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 		},
 	): Promise<GitLabUser[]> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			data: {
@@ -582,7 +582,7 @@ $search: String!
 				{
 					search: search,
 				},
-				cc,
+				scope,
 			);
 
 			const matches = rsp?.data?.users?.nodes;
@@ -609,7 +609,7 @@ $search: String!
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return [];
 
-			this.handleException(ex, provider, cc);
+			this.handleException(ex, provider, scope);
 			return [];
 		}
 	}
@@ -639,7 +639,7 @@ $search: String!
 		repo: string,
 		baseUrl?: string,
 	): Promise<string | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		interface QueryResult {
 			data: { project: { id: string } };
@@ -661,7 +661,7 @@ $search: String!
 				{
 					fullPath: `${group}/${repo}`,
 				},
-				cc,
+				scope,
 			);
 
 			const gid = rsp?.data?.project?.id;
@@ -672,14 +672,14 @@ $search: String!
 
 			const projectId = match[1];
 
-			if (cc != null) {
-				cc.exitDetails = `\u2022 projectId=${projectId}`;
+			if (scope != null) {
+				scope.exitDetails = `\u2022 projectId=${projectId}`;
 			}
 			return projectId;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
-			this.handleException(ex, provider, cc);
+			this.handleException(ex, provider, scope);
 			return undefined;
 		}
 	}
@@ -690,7 +690,7 @@ $search: String!
 		baseUrl: string | undefined,
 		query: string,
 		variables: { [key: string]: any },
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		let rsp: Response;
 		try {
@@ -727,7 +727,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
-				this.handleRequestError(provider, token, ex, cc);
+				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
 			}
@@ -742,7 +742,7 @@ $search: String!
 		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): Promise<T> {
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
 
@@ -775,7 +775,7 @@ $search: String!
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
-				this.handleRequestError(provider, token, ex, cc);
+				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
 			}
@@ -788,7 +788,7 @@ $search: String!
 		provider: RichRemoteProvider | undefined,
 		token: string,
 		ex: ProviderFetchError,
-		cc: LogCorrelationContext | undefined,
+		scope: LogScope | undefined,
 	): void {
 		switch (ex.status) {
 			case 404: // Not found
@@ -814,7 +814,7 @@ $search: String!
 				}
 				throw new AuthenticationError('gitlab', AuthenticationErrorReason.Forbidden, ex);
 			case 500: // Internal Server Error
-				Logger.error(ex, cc);
+				Logger.error(ex, scope);
 				if (ex.response != null) {
 					provider?.trackRequestException();
 					void Messages.showIntegrationRequestFailed500WarningMessage(
@@ -827,7 +827,7 @@ $search: String!
 				}
 				return;
 			case 502: // Bad Gateway
-				Logger.error(ex, cc);
+				Logger.error(ex, scope);
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
@@ -840,7 +840,7 @@ $search: String!
 				break;
 		}
 
-		Logger.error(ex, cc);
+		Logger.error(ex, scope);
 		if (Logger.isDebugging) {
 			void window.showErrorMessage(
 				`GitLab request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
@@ -848,8 +848,8 @@ $search: String!
 		}
 	}
 
-	private handleException(ex: Error, provider: RichRemoteProvider, cc: LogCorrelationContext | undefined): Error {
-		Logger.error(ex, cc);
+	private handleException(ex: Error, provider: RichRemoteProvider, scope: LogScope | undefined): Error {
+		Logger.error(ex, scope);
 		// debugger;
 
 		if (ex instanceof AuthenticationError) {

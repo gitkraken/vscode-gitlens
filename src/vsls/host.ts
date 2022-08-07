@@ -3,7 +3,7 @@ import { git } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { isVslsRoot, normalizePath } from '../system/path';
 import {
@@ -103,7 +103,7 @@ export class VslsHostService implements Disposable {
 	private onWorkspaceFoldersChanged(_e?: WorkspaceFoldersChangeEvent) {
 		if (workspace.workspaceFolders == null || workspace.workspaceFolders.length === 0) return;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this._localToSharedPaths.clear();
 		this._sharedToLocalPaths.clear();
@@ -114,7 +114,7 @@ export class VslsHostService implements Disposable {
 			localPath = normalizePath(f.uri.fsPath);
 			sharedPath = normalizePath(this.convertLocalUriToShared(f.uri).toString());
 
-			Logger.debug(cc, `shared='${sharedPath}' \u2194 local='${localPath}'`);
+			Logger.debug(scope, `shared='${sharedPath}' \u2194 local='${localPath}'`);
 			this._localToSharedPaths.set(localPath, sharedPath);
 			this._sharedToLocalPaths.set(sharedPath, localPath);
 		}
@@ -233,11 +233,11 @@ export class VslsHostService implements Disposable {
 		exit: result => `returned ${result.toString(true)}`,
 	})
 	private convertLocalUriToShared(localUri: Uri) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let sharedUri = this._api.convertLocalUriToShared(localUri);
 		Logger.debug(
-			cc,
+			scope,
 			`LiveShare.convertLocalUriToShared(${localUri.toString(true)}) returned ${sharedUri.toString(true)}`,
 		);
 

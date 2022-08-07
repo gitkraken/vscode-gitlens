@@ -44,7 +44,7 @@ import {
 import { executeCommand } from '../../system/command';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
@@ -327,7 +327,7 @@ export class SubscriptionService implements Disposable {
 	async resendVerification(): Promise<boolean> {
 		if (this._subscription.account?.verified) return true;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		void this.showHomeView(true);
 
@@ -348,7 +348,11 @@ export class SubscriptionService implements Disposable {
 
 			if (!rsp.ok) {
 				debugger;
-				Logger.error('', cc, `Unable to resend verification email; status=(${rsp.status}): ${rsp.statusText}`);
+				Logger.error(
+					'',
+					scope,
+					`Unable to resend verification email; status=(${rsp.status}): ${rsp.statusText}`,
+				);
 
 				void window.showErrorMessage(`Unable to resend verification email; Status: ${rsp.statusText}`, 'OK');
 
@@ -368,7 +372,7 @@ export class SubscriptionService implements Disposable {
 				return true;
 			}
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			void window.showErrorMessage('Unable to resend verification email', 'OK');
@@ -461,7 +465,7 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@log()
 	async validate(): Promise<void> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const session = await this.ensureSession(false);
 		if (session == null) {
@@ -472,7 +476,7 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(session);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 		}
 	}
@@ -500,7 +504,7 @@ export class SubscriptionService implements Disposable {
 
 	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const checkInData = {
@@ -533,7 +537,7 @@ export class SubscriptionService implements Disposable {
 			this.validateSubscription(data);
 			this._lastCheckInDate = new Date();
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
 
@@ -657,7 +661,7 @@ export class SubscriptionService implements Disposable {
 
 	@debug()
 	private async getOrCreateSession(createIfNeeded: boolean): Promise<AuthenticationSession | null> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let session: AuthenticationSession | null | undefined;
 
@@ -678,7 +682,7 @@ export class SubscriptionService implements Disposable {
 				return null;
 			}
 
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 		}
 
 		// If we didn't find a session, check if we could migrate one from the GK auth provider
@@ -694,7 +698,7 @@ export class SubscriptionService implements Disposable {
 		try {
 			await this.checkInAndValidate(session, createIfNeeded);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			const name = session.account.label;

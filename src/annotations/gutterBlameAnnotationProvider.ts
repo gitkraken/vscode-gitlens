@@ -5,9 +5,8 @@ import type { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
-import { Logger } from '../logger';
 import { filterMap } from '../system/array';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import { first } from '../system/iterable';
 import { Stopwatch } from '../system/stopwatch';
 import { getTokensFromTemplate, getWidth, TokenOptions } from '../system/string';
@@ -37,14 +36,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 	@log()
 	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this.annotationContext = context;
 
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = new Stopwatch(cc!);
+		const sw = new Stopwatch(scope);
 
 		const cfg = configuration.get('blame');
 
