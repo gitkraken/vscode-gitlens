@@ -42,7 +42,7 @@ import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
-import { GitBranch } from '../../../git/models/branch';
+import { GitBranch, isDetachedHead, sortBranches } from '../../../git/models/branch';
 import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
@@ -61,8 +61,8 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import type { GitStash } from '../../../git/models/stash';
 import type { GitStatusFile } from '../../../git/models/status';
 import { GitStatus } from '../../../git/models/status';
-import type { TagSortOptions } from '../../../git/models/tag';
-import { GitTag } from '../../../git/models/tag';
+import type { GitTag, TagSortOptions } from '../../../git/models/tag';
+import { sortTags } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
@@ -1403,7 +1403,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (data == null) return undefined;
 
 		const [name, upstream] = data[0].split('\n');
-		if (GitBranch.isDetached(name)) {
+		if (isDetachedHead(name)) {
 			const [rebaseStatus, committerDate] = await Promise.all([
 				this.getRebaseStatus(repoPath),
 
@@ -1454,7 +1454,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (data != null) {
 							const [name, upstream] = data[0].split('\n');
 							const [rebaseStatus, committerDate] = await Promise.all([
-								GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath!) : undefined,
+								isDetachedHead(name) ? this.getRebaseStatus(repoPath!) : undefined,
 								this.git.log__recent_committerdate(repoPath!, commitOrdering),
 							]);
 
@@ -1502,7 +1502,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort) {
-			GitBranch.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			sortBranches(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;
@@ -3447,7 +3447,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort) {
-			GitTag.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;

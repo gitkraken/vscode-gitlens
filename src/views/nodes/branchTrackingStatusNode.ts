@@ -1,8 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import type { GitTrackingState } from '../../git/models/branch';
-import { GitBranch } from '../../git/models/branch';
+import type { GitBranch, GitTrackingState } from '../../git/models/branch';
+import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { GitRevision } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
@@ -170,7 +170,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to push to ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to push to ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.ahead);
@@ -191,7 +191,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to pull from ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to pull from ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.behind);
@@ -212,7 +212,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'same': {
 				const remote = await this.branch.getRemote();
 
-				label = `Up to date with ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';

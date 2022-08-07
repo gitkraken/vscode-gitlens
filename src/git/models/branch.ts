@@ -11,7 +11,7 @@ import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
 import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
-import { GitStatus } from './status';
+import { getUpstreamStatus } from './status';
 
 const whitespaceRegex = /\s/;
 const detachedHEADRegex = /^(?=.*\bHEAD\b)?(?=.*\bdetached\b).*$/;
@@ -39,72 +39,6 @@ export interface BranchSortOptions {
 }
 
 export class GitBranch implements GitBranchReference {
-	static is(branch: any): branch is GitBranch {
-		return branch instanceof GitBranch;
-	}
-
-	static isOfRefType(branch: GitReference | undefined) {
-		return branch?.refType === 'branch';
-	}
-
-	static sort(branches: GitBranch[], options?: BranchSortOptions) {
-		options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
-
-		switch (options.orderBy) {
-			case BranchSorting.DateAsc:
-				return branches.sort(
-					(a, b) =>
-						(options!.missingUpstream
-							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
-							: 0) ||
-						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
-				);
-			case BranchSorting.NameAsc:
-				return branches.sort(
-					(a, b) =>
-						(options!.missingUpstream
-							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
-							: 0) ||
-						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						sortCompare(a.name, b.name),
-				);
-			case BranchSorting.NameDesc:
-				return branches.sort(
-					(a, b) =>
-						(options!.missingUpstream
-							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
-							: 0) ||
-						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
-						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
-						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
-						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						sortCompare(b.name, a.name),
-				);
-			case BranchSorting.DateDesc:
-			default:
-				return branches.sort(
-					(a, b) =>
-						(options!.missingUpstream
-							? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1)
-							: 0) ||
-						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
-						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
-				);
-		}
-	}
-
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
@@ -126,9 +60,9 @@ export class GitBranch implements GitBranchReference {
 	) {
 		this.id = `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
 
-		this.detached = detached || (this.current ? GitBranch.isDetached(name) : false);
+		this.detached = detached || (this.current ? isDetachedHead(name) : false);
 		if (this.detached) {
-			this.name = GitBranch.formatDetached(this.sha!);
+			this.name = formatDetachedHeadName(this.sha!);
 		}
 
 		this.upstream = upstream?.name == null || upstream.name.length === 0 ? undefined : upstream;
@@ -210,8 +144,8 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	getRemoteName(): string | undefined {
-		if (this.remote) return GitBranch.getRemote(this.name);
-		if (this.upstream != null) return GitBranch.getRemote(this.upstream.name);
+		if (this.remote) return getRemoteNameFromBranchName(this.name);
+		if (this.upstream != null) return getRemoteNameFromBranchName(this.upstream.name);
 
 		return undefined;
 	}
@@ -243,7 +177,7 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.upstream, this.state, options);
+		return getUpstreamStatus(this.upstream, this.state, options);
 	}
 
 	get starred() {
@@ -258,22 +192,80 @@ export class GitBranch implements GitBranchReference {
 	unstar() {
 		return Container.instance.git.getRepository(this.repoPath)?.unstar(this);
 	}
+}
 
-	static formatDetached(sha: string): string {
-		return `(${GitRevision.shorten(sha)}...)`;
-	}
+export function formatDetachedHeadName(sha: string): string {
+	return `(${GitRevision.shorten(sha)}...)`;
+}
 
-	static getNameWithoutRemote(name: string): string {
-		return name.substring(name.indexOf('/') + 1);
-	}
+export function getBranchNameWithoutRemote(name: string): string {
+	return name.substring(name.indexOf('/') + 1);
+}
 
-	static getRemote(name: string): string {
-		return name.substring(0, name.indexOf('/'));
-	}
+export function getRemoteNameFromBranchName(name: string): string {
+	return name.substring(0, name.indexOf('/'));
+}
 
-	static isDetached(name: string): boolean {
-		// If there is whitespace in the name assume this is not a valid branch name
-		// Deals with detached HEAD states
-		return whitespaceRegex.test(name) || detachedHEADRegex.test(name);
+export function isBranch(branch: any): branch is GitBranch {
+	return branch instanceof GitBranch;
+}
+
+export function isDetachedHead(name: string): boolean {
+	// If there is whitespace in the name assume this is not a valid branch name
+	// Deals with detached HEAD states
+	return whitespaceRegex.test(name) || detachedHEADRegex.test(name);
+}
+
+export function isOfBranchRefType(branch: GitReference | undefined) {
+	return branch?.refType === 'branch';
+}
+
+export function sortBranches(branches: GitBranch[], options?: BranchSortOptions) {
+	options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
+
+	switch (options.orderBy) {
+		case BranchSorting.DateAsc:
+			return branches.sort(
+				(a, b) =>
+					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
+			);
+		case BranchSorting.NameAsc:
+			return branches.sort(
+				(a, b) =>
+					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
+					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
+					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
+					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+					sortCompare(a.name, b.name),
+			);
+		case BranchSorting.NameDesc:
+			return branches.sort(
+				(a, b) =>
+					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+					(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
+					(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
+					(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
+					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+					sortCompare(b.name, a.name),
+			);
+		case BranchSorting.DateDesc:
+		default:
+			return branches.sort(
+				(a, b) =>
+					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
+					(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+					(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
+			);
 	}
 }

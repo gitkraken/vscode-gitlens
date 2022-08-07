@@ -28,7 +28,7 @@ import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
-import { GitBranch } from '../../git/models/branch';
+import { GitBranch, sortBranches } from '../../git/models/branch';
 import type { GitCommitLine } from '../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitContributor } from '../../git/models/contributor';
@@ -47,7 +47,7 @@ import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
 import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import type { TagSortOptions } from '../../git/models/tag';
-import { GitTag } from '../../git/models/tag';
+import { GitTag, sortTags } from '../../git/models/tag';
 import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
@@ -814,7 +814,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort != null) {
-			GitBranch.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			sortBranches(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;
@@ -2259,7 +2259,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort != null) {
-			GitTag.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;

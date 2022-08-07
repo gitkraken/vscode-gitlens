@@ -5,7 +5,7 @@ import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configura
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBranch } from '../git/models/branch';
+import { getRemoteNameFromBranchName } from '../git/models/branch';
 import { GitCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { GitReference } from '../git/models/reference';
@@ -209,7 +209,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 				if (n instanceof RemoteNode) {
 					if (!n.id.startsWith(repoNodeId)) return false;
 
-					return n.remote.name === GitBranch.getRemote(branch.name);
+					return n.remote.name === getRemoteNameFromBranchName(branch.name);
 				}
 
 				return false;

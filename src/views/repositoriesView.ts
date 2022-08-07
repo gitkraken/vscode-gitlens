@@ -5,7 +5,7 @@ import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchCompa
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import { GitBranch } from '../git/models/branch';
+import { getRemoteNameFromBranchName } from '../git/models/branch';
 import { GitCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type {
@@ -294,7 +294,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 					if (n instanceof RemoteNode) {
 						if (!n.id.startsWith(repoNodeId)) return false;
 
-						return branch.remote && n.remote.name === GitBranch.getRemote(branch.name); //branch.getRemoteName();
+						return branch.remote && n.remote.name === getRemoteNameFromBranchName(branch.name); //branch.getRemoteName();
 					}
 
 					if (

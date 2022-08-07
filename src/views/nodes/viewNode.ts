@@ -2,7 +2,8 @@ import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
+import type { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
@@ -85,10 +86,6 @@ export interface ViewNode {
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<TView extends View = View, State extends object = any> {
-	static is(node: any): node is ViewNode {
-		return node instanceof ViewNode;
-	}
-
 	protected splatted = false;
 
 	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
@@ -161,6 +158,10 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 		}
 		this.view.nodeState.storeState(this.id, key as string, value);
 	}
+}
+
+export function isViewNode(node: any): node is ViewNode {
+	return node instanceof ViewNode;
 }
 
 type StateKey<T> = keyof T;
@@ -543,7 +544,7 @@ export abstract class RepositoriesSubscribeableNode<
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override async getSplattedChild() {

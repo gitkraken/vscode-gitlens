@@ -2,7 +2,7 @@ import type { Command, ThemeIcon, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -24,7 +24,7 @@ export class MessageNode extends ViewNode {
 			| ThemeIcon,
 		private readonly _contextValue?: string,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -93,7 +93,7 @@ export class UpdateableMessageNode extends ViewNode {
 			  }
 			| ThemeIcon,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 		this.id = id;
 	}
 
@@ -154,7 +154,7 @@ export abstract class PagerNode extends ViewNode {
 			getCount?: () => Promise<number | undefined>;
 		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	async loadAll() {

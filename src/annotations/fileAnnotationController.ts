@@ -42,8 +42,8 @@ import type {
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
-import type { AnnotationContext, TextEditorCorrelationKey } from './annotationProvider';
-import { AnnotationProviderBase, AnnotationStatus } from './annotationProvider';
+import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
+import { AnnotationStatus, getEditorCorrelationKey } from './annotationProvider';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
@@ -259,7 +259,7 @@ export class FileAnnotationController implements Disposable {
 			return this.clearAll();
 		}
 
-		return this.clearCore(AnnotationProviderBase.getCorrelationKey(editor), reason);
+		return this.clearCore(getEditorCorrelationKey(editor), reason);
 	}
 
 	async clearAll() {
@@ -281,7 +281,7 @@ export class FileAnnotationController implements Disposable {
 
 	getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
 		if (editor == null || editor.document == null) return undefined;
-		return this._annotationProviders.get(AnnotationProviderBase.getCorrelationKey(editor));
+		return this._annotationProviders.get(getEditorCorrelationKey(editor));
 	}
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
@@ -415,7 +415,7 @@ export class FileAnnotationController implements Disposable {
 		this._annotationProviders.delete(key);
 		provider.dispose();
 
-		if (this._annotationProviders.size === 0 || key === AnnotationProviderBase.getCorrelationKey(this._editor)) {
+		if (this._annotationProviders.size === 0 || key === getEditorCorrelationKey(this._editor)) {
 			await setContext(ContextKeys.AnnotationStatus, undefined);
 			await this.detachKeyboardHook();
 		}

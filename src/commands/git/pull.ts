@@ -1,6 +1,6 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { GitBranch } from '../../git/models/branch';
+import { isBranch } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
@@ -69,7 +69,7 @@ export class PullGitCommand extends QuickCommand<State> {
 	async execute(state: PullStepState) {
 		if (GitReference.isBranch(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
-			if (!GitBranch.is(state.reference) || !state.reference.current) {
+			if (!isBranch(state.reference) || !state.reference.current) {
 				const currentBranch = await state.repos[0].getBranch();
 				if (currentBranch?.name !== state.reference.name) {
 					return state.repos[0].fetch({ branch: state.reference, pull: true });

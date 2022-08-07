@@ -1,6 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
 import type { NamedRef } from '../../storage';
 import type { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, ViewNode } from './viewNode';
@@ -16,7 +16,7 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 	readonly pinned: boolean = false;
 
 	constructor(view: SearchAndCompareView, parent: SearchAndCompareViewNode, public readonly selectedRef: RepoRef) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	get canDismiss(): boolean {

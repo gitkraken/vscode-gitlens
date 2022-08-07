@@ -3,7 +3,7 @@ import { Range, window } from 'vscode';
 import type { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
+import { GitUri, isGitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
@@ -38,7 +38,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}
 
 			args.uri = await GitUri.fromUri(uri);
-			if (GitUri.is(args.uri) && args.uri.sha) {
+			if (isGitUri(args.uri) && args.uri.sha) {
 				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(

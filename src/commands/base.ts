@@ -9,7 +9,8 @@ import type {
 import { commands, Disposable, Uri, window } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
 import type { Commands } from '../constants';
-import { GitBranch } from '../git/models/branch';
+import type { GitBranch } from '../git/models/branch';
+import { isBranch } from '../git/models/branch';
 import type { GitStashCommit } from '../git/models/commit';
 import { GitCommit } from '../git/models/commit';
 import { GitContributor } from '../git/models/contributor';
@@ -17,7 +18,8 @@ import type { GitFile } from '../git/models/file';
 import type { GitReference } from '../git/models/reference';
 import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
-import { GitTag } from '../git/models/tag';
+import type { GitTag } from '../git/models/tag';
+import { isTag } from '../git/models/tag';
 import { sequentialize } from '../system/function';
 import { ViewNode, ViewRefNode } from '../views/nodes/viewNode';
 
@@ -89,7 +91,7 @@ export function isCommandContextViewNodeHasBranch(
 ): context is CommandViewNodeContext & { node: ViewNode & { branch: GitBranch } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
+	return isBranch((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
 export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStashCommit>(
@@ -175,7 +177,7 @@ export function isCommandContextViewNodeHasTag(
 ): context is CommandViewNodeContext & { node: ViewNode & { tag: GitTag } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitTag.is((context.node as ViewNode & { tag: GitTag }).tag);
+	return isTag((context.node as ViewNode & { tag: GitTag }).tag);
 }
 
 export type CommandContext =
@@ -264,7 +266,7 @@ export abstract class Command implements Disposable {
 	abstract execute(...args: any[]): any;
 
 	protected _execute(command: string, ...args: any[]): Promise<unknown> {
-		const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
+		const [context, rest] = parseCommandContext(command, { ...this.contextParsingOptions }, ...args);
 
 		// If there an array of contexts, then we want to execute the command for each
 		if (Array.isArray(context)) {
@@ -277,110 +279,107 @@ export abstract class Command implements Disposable {
 
 		return this.preExecute(context, ...rest);
 	}
+}
 
-	private static parseContext(
-		command: string,
-		options: CommandContextParsingOptions,
-		...args: any[]
-	): [CommandContext | CommandContext[], any[]] {
-		let editor: TextEditor | undefined = undefined;
+function parseCommandContext(
+	command: string,
+	options: CommandContextParsingOptions,
+	...args: any[]
+): [CommandContext | CommandContext[], any[]] {
+	let editor: TextEditor | undefined = undefined;
 
-		let firstArg = args[0];
+	let firstArg = args[0];
 
-		if (options.expectsEditor) {
-			if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
-				editor = firstArg;
-				args = args.slice(1);
-				firstArg = args[0];
-			}
+	if (options.expectsEditor) {
+		if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
+			editor = firstArg;
+			args = args.slice(1);
+			firstArg = args[0];
+		}
 
-			if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
-				const [uri, ...rest] = args as [Uri, any];
-				if (uri != null) {
-					// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor
-					if (
-						editor == null &&
-						(uri.toString() === window.activeTextEditor?.document.uri.toString() ||
-							command.endsWith('InDiffLeft'))
-					) {
-						editor = window.activeTextEditor;
-					}
-
-					const uris = rest[0];
-					if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
-						return [
-							{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris },
-							rest.slice(1),
-						];
-					}
-					return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+		if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
+			const [uri, ...rest] = args as [Uri, any];
+			if (uri != null) {
+				// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor
+				if (
+					editor == null &&
+					(uri.toString() === window.activeTextEditor?.document.uri.toString() ||
+						command.endsWith('InDiffLeft'))
+				) {
+					editor = window.activeTextEditor;
 				}
 
-				args = args.slice(1);
-			} else if (editor == null) {
-				// If we are expecting an editor and we have no uri, then pass the active editor
-				editor = window.activeTextEditor;
-			}
-		}
-
-		if (firstArg instanceof ViewNode) {
-			let [node, ...rest] = args as [ViewNode, unknown];
-
-			// If there is a node followed by an array of nodes, then we want to execute the command for each
-			firstArg = rest[0];
-			if (Array.isArray(firstArg) && firstArg[0] instanceof ViewNode) {
-				let nodes;
-				[nodes, ...rest] = rest as unknown as [ViewNode[], unknown];
-
-				const contexts: CommandContext[] = [];
-				for (const n of nodes) {
-					if (n?.constructor === node.constructor) {
-						contexts.push({ command: command, type: 'viewItem', node: n, uri: n.uri });
-					}
+				const uris = rest[0];
+				if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
+					return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
 				}
-
-				return [contexts, rest];
+				return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
 			}
 
-			return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
+			args = args.slice(1);
+		} else if (editor == null) {
+			// If we are expecting an editor and we have no uri, then pass the active editor
+			editor = window.activeTextEditor;
 		}
-
-		if (isScmResourceState(firstArg)) {
-			const states = [];
-			let count = 0;
-			for (const arg of args) {
-				if (!isScmResourceState(arg)) break;
-
-				count++;
-				states.push(arg);
-			}
-
-			return [
-				{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
-				args.slice(count),
-			];
-		}
-
-		if (isScmResourceGroup(firstArg)) {
-			const groups = [];
-			let count = 0;
-			for (const arg of args) {
-				if (!isScmResourceGroup(arg)) break;
-
-				count++;
-				groups.push(arg);
-			}
-
-			return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
-		}
-
-		if (isGitTimelineItem(firstArg)) {
-			const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
-			return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
-		}
-
-		return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 	}
+
+	if (firstArg instanceof ViewNode) {
+		let [node, ...rest] = args as [ViewNode, unknown];
+
+		// If there is a node followed by an array of nodes, then we want to execute the command for each
+		firstArg = rest[0];
+		if (Array.isArray(firstArg) && firstArg[0] instanceof ViewNode) {
+			let nodes;
+			[nodes, ...rest] = rest as unknown as [ViewNode[], unknown];
+
+			const contexts: CommandContext[] = [];
+			for (const n of nodes) {
+				if (n?.constructor === node.constructor) {
+					contexts.push({ command: command, type: 'viewItem', node: n, uri: n.uri });
+				}
+			}
+
+			return [contexts, rest];
+		}
+
+		return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
+	}
+
+	if (isScmResourceState(firstArg)) {
+		const states = [];
+		let count = 0;
+		for (const arg of args) {
+			if (!isScmResourceState(arg)) break;
+
+			count++;
+			states.push(arg);
+		}
+
+		return [
+			{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
+			args.slice(count),
+		];
+	}
+
+	if (isScmResourceGroup(firstArg)) {
+		const groups = [];
+		let count = 0;
+		for (const arg of args) {
+			if (!isScmResourceGroup(arg)) break;
+
+			count++;
+			groups.push(arg);
+		}
+
+		return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+	}
+
+	if (isGitTimelineItem(firstArg)) {
+		const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
+		return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
+	}
+
+	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 }
 
 export abstract class ActiveEditorCommand extends Command {

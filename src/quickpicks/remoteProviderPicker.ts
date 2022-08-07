@@ -3,7 +3,7 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch } from '../git/models/branch';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { GitRemote } from '../git/models/remote';
 import type { RemoteProvider, RemoteResource } from '../git/remotes/provider';
 import { getNameFromRemoteResource, RemoteResourceType } from '../git/remotes/provider';
@@ -41,12 +41,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	override async execute(): Promise<void> {
 		let resource = this.resource;
 		if (resource.type === RemoteResourceType.Comparison) {
-			if (GitBranch.getRemote(resource.base) === this.remote.name) {
-				resource = { ...resource, base: GitBranch.getNameWithoutRemote(resource.base) };
+			if (getRemoteNameFromBranchName(resource.base) === this.remote.name) {
+				resource = { ...resource, base: getBranchNameWithoutRemote(resource.base) };
 			}
 
-			if (GitBranch.getRemote(resource.compare) === this.remote.name) {
-				resource = { ...resource, compare: GitBranch.getNameWithoutRemote(resource.compare) };
+			if (getRemoteNameFromBranchName(resource.compare) === this.remote.name) {
+				resource = { ...resource, compare: getBranchNameWithoutRemote(resource.compare) };
 			}
 		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 			let branch = resource.base.branch;

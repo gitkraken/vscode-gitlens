@@ -5,7 +5,7 @@ import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBranch } from '../git/models/branch';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { Logger } from '../logger';
@@ -169,9 +169,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 					if (pick.refType === 'branch') {
 						if (pick.remote) {
-							args.branchOrTag = GitBranch.getNameWithoutRemote(pick.name);
+							args.branchOrTag = getBranchNameWithoutRemote(pick.name);
 
-							const remoteName = GitBranch.getRemote(pick.name);
+							const remoteName = getRemoteNameFromBranchName(pick.name);
 							const remote = remotes.find(r => r.name === remoteName);
 							if (remote != null) {
 								remotes = [remote];

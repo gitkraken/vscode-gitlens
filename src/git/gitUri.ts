@@ -39,15 +39,6 @@ interface UriEx {
 }
 
 export class GitUri extends (Uri as any as UriEx) {
-	private static readonly _unknown = new GitUri();
-	static get unknown() {
-		return this._unknown;
-	}
-
-	static is(uri: any): uri is GitUri {
-		return uri instanceof GitUri;
-	}
-
 	readonly repoPath?: string;
 	readonly sha?: string;
 
@@ -214,7 +205,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	equals(uri: Uri | undefined) {
 		if (!UriComparer.equals(this, uri)) return false;
 
-		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
+		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
 	}
 
 	getFormattedFileName(options?: { suffix?: string; truncateTo?: number }): string {
@@ -255,7 +246,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		exit: uri => `returned ${Logger.toLoggable(uri)}`,
 	})
 	static async fromUri(uri: Uri): Promise<GitUri> {
-		if (GitUri.is(uri)) return uri;
+		if (isGitUri(uri)) return uri;
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
 		if (uri.scheme === Schemes.GitLens) return new GitUri(uri);
 
@@ -344,6 +335,12 @@ export class GitUri extends (Uri as any as UriEx) {
 		const repository = await Container.instance.git.getOrOpenRepository(uri);
 		return new GitUri(uri, repository?.path);
 	}
+}
+
+export const unknownGitUri = Object.freeze(new GitUri());
+
+export function isGitUri(uri: any): uri is GitUri {
+	return uri instanceof GitUri;
 }
 
 export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {

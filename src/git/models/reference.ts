@@ -1,6 +1,6 @@
 import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { GitBranch } from './branch';
+import { getBranchNameWithoutRemote } from './branch';
 
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
@@ -221,7 +221,7 @@ export namespace GitReference {
 
 	export function getNameWithoutRemote(ref: GitReference) {
 		if (ref.refType === 'branch') {
-			return ref.remote ? GitBranch.getNameWithoutRemote(ref.name) : ref.name;
+			return ref.remote ? getBranchNameWithoutRemote(ref.name) : ref.name;
 		}
 		return ref.name;
 	}

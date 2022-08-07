@@ -4,7 +4,7 @@ import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
-import { GitUri } from '../../git/gitUri';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
@@ -26,7 +26,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {
@@ -109,7 +109,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != GitUri.unknown;
+		return this._uri != unknownGitUri;
 	}
 
 	@gate()
@@ -150,7 +150,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
-			if (this._uri != null && this._uri !== GitUri.unknown) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
 				await this.view.container.tracker.resetCache(this._uri, 'log');
 			}
 
@@ -258,7 +258,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? GitUri.unknown;
+		this._uri = uri ?? unknownGitUri;
 		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}
 }

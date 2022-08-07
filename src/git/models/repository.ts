@@ -25,8 +25,8 @@ import type { RemoteProviders } from '../remotes/factory';
 import { RemoteProviderFactory } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import type { SearchPattern } from '../search';
-import type { BranchSortOptions } from './branch';
-import { GitBranch } from './branch';
+import type { BranchSortOptions, GitBranch } from './branch';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
 import type { GitCommit } from './commit';
 import type { GitContributor } from './contributor';
 import type { GitDiffShortStat } from './diff';
@@ -421,14 +421,16 @@ export class Repository implements Disposable {
 			if (options?.remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
 				if (trackingBranches.length !== 0) {
-					const branchesByOrigin = groupByMap(trackingBranches, b => GitBranch.getRemote(b.upstream!.name));
+					const branchesByOrigin = groupByMap(trackingBranches, b =>
+						getRemoteNameFromBranchName(b.upstream!.name),
+					);
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
 						this.runTerminalCommand(
 							'push',
 							'-d',
 							remote,
-							...branches.map(b => GitBranch.getNameWithoutRemote(b.upstream!.name)),
+							...branches.map(b => getBranchNameWithoutRemote(b.upstream!.name)),
 						);
 					}
 				}
@@ -437,7 +439,7 @@ export class Repository implements Disposable {
 
 		const remoteBranches = branches.filter(b => b.remote);
 		if (remoteBranches.length !== 0) {
-			const branchesByOrigin = groupByMap(remoteBranches, b => GitBranch.getRemote(b.name));
+			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
 				this.runTerminalCommand(

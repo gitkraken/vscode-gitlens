@@ -35,10 +35,6 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
 	}
 
-	static override is(node: any): node is SearchResultsNode {
-		return node instanceof SearchResultsNode;
-	}
-
 	private _instanceId: number;
 	constructor(
 		view: SearchAndCompareView,
@@ -170,7 +166,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		log: Promise<GitLog | undefined> | GitLog | undefined;
 	}) {
 		if (search == null) {
-			(await executeGitCommand({
+			await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
 				state: {
@@ -178,7 +174,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 					...this.search,
 					showResultsInSideBar: this,
 				},
-			}));
+			});
 
 			return;
 		}

@@ -5,7 +5,7 @@ import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import { GitUri } from '../git/gitUri';
+import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { GitRevision } from '../git/models/reference';
 import type { SearchPattern } from '../git/search';
@@ -41,7 +41,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	private _children: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined;
@@ -173,7 +173,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		this.removeComparePicker();
-		(await this.view.compare(repoPath, selectedRef.ref, ref));
+		await this.view.compare(repoPath, selectedRef.ref, ref);
 	}
 
 	async selectForCompare(repoPath?: string, ref?: string | NamedRef, options?: { prompt?: boolean }) {

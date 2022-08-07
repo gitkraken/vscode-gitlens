@@ -15,7 +15,8 @@ import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService';
-import { GitUri } from '../git/gitUri';
+import type { GitUri } from '../git/gitUri';
+import { isGitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { debug } from '../system/decorators/log';
@@ -235,7 +236,7 @@ export class DocumentTracker<T> implements Disposable {
 	add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>>;
 	async add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
 		let document;
-		if (GitUri.is(documentOrUri)) {
+		if (isGitUri(documentOrUri)) {
 			try {
 				document = await workspace.openTextDocument(documentOrUri.documentUri());
 			} catch (ex) {

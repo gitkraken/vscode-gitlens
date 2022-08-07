@@ -1,7 +1,7 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -16,7 +16,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: RepositoriesView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {

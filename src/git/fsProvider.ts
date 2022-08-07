@@ -3,7 +3,7 @@ import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from '
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
+import { GitUri, isGitUri } from '../git/gitUri';
 import { debug } from '../system/decorators/log';
 import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
@@ -14,7 +14,7 @@ import type { GitTreeEntry } from './models/tree';
 const emptyArray = new Uint8Array(0);
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
-	const gitUri = GitUri.is(uri) ? uri : GitUri.fromRevisionUri(uri);
+	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
 	return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
 }
 

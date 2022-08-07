@@ -4,8 +4,8 @@ import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
 import type { PagedResult } from '../git/gitProvider';
-import type { BranchSortOptions } from '../git/models/branch';
-import { GitBranch } from '../git/models/branch';
+import type { BranchSortOptions, GitBranch } from '../git/models/branch';
+import { sortBranches } from '../git/models/branch';
 import type { GitStashCommit } from '../git/models/commit';
 import { GitCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
@@ -16,8 +16,8 @@ import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitStash } from '../git/models/stash';
 import type { GitStatus } from '../git/models/status';
-import type { TagSortOptions } from '../git/models/tag';
-import { GitTag } from '../git/models/tag';
+import type { GitTag, TagSortOptions } from '../git/models/tag';
+import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
 import { RemoteResourceType } from '../git/remotes/provider';
 import { SearchPattern } from '../git/search';
@@ -247,13 +247,13 @@ export async function getBranchesAndOrTags(
 				: undefined;
 
 		if (include.includes('branches') && branchesByRepo != null) {
-			branches = GitBranch.sort(
+			branches = sortBranches(
 				intersection(...branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
 			);
 		}
 
 		if (include.includes('tags') && tagsByRepo != null) {
-			tags = GitTag.sort(intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
+			tags = sortTags(intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
 		}
 	}
 
@@ -1609,7 +1609,7 @@ export async function* showCommitOrStashStep<
 			onDidPressKey: async (quickpick, key) => {
 				if (quickpick.activeItems.length === 0) return;
 
-				(await quickpick.activeItems[0].onDidPressKey(key));
+				await quickpick.activeItems[0].onDidPressKey(key);
 			},
 		});
 	const selection: StepSelection<typeof step> = yield step;
@@ -1896,7 +1896,7 @@ export function* showCommitOrStashFilesStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
-			(await quickpick.activeItems[0].onDidPressKey(key));
+			await quickpick.activeItems[0].onDidPressKey(key);
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
@@ -1968,7 +1968,7 @@ export async function* showCommitOrStashFileStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
-			(await quickpick.activeItems[0].onDidPressKey(key));
+			await quickpick.activeItems[0].onDidPressKey(key);
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
@@ -2090,7 +2090,7 @@ export function* showRepositoryStatusStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
-			(await quickpick.activeItems[0].onDidPressKey(key));
+			await quickpick.activeItems[0].onDidPressKey(key);
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;

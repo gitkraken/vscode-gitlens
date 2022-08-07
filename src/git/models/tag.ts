@@ -11,30 +11,6 @@ export interface TagSortOptions {
 }
 
 export class GitTag implements GitTagReference {
-	static is(tag: any): tag is GitTag {
-		return tag instanceof GitTag;
-	}
-
-	static isOfRefType(tag: GitReference | undefined) {
-		return tag?.refType === 'tag';
-	}
-
-	static sort(tags: GitTag[], options?: TagSortOptions) {
-		options = { orderBy: configuration.get('sortTagsBy'), ...options };
-
-		switch (options.orderBy) {
-			case TagSorting.DateAsc:
-				return tags.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
-			case TagSorting.NameAsc:
-				return tags.sort((a, b) => sortCompare(a.name, b.name));
-			case TagSorting.NameDesc:
-				return tags.sort((a, b) => sortCompare(b.name, a.name));
-			case TagSorting.DateDesc:
-			default:
-				return tags.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
-		}
-	}
-
 	readonly refType = 'tag';
 
 	constructor(
@@ -78,5 +54,29 @@ export class GitTag implements GitTagReference {
 	getBasename(): string {
 		const index = this.name.lastIndexOf('/');
 		return index !== -1 ? this.name.substring(index + 1) : this.name;
+	}
+}
+
+export function isTag(tag: any): tag is GitTag {
+	return tag instanceof GitTag;
+}
+
+export function isOfTagRefType(tag: GitReference | undefined) {
+	return tag?.refType === 'tag';
+}
+
+export function sortTags(tags: GitTag[], options?: TagSortOptions) {
+	options = { orderBy: configuration.get('sortTagsBy'), ...options };
+
+	switch (options.orderBy) {
+		case TagSorting.DateAsc:
+			return tags.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
+		case TagSorting.NameAsc:
+			return tags.sort((a, b) => sortCompare(a.name, b.name));
+		case TagSorting.NameDesc:
+			return tags.sort((a, b) => sortCompare(b.name, a.name));
+		case TagSorting.DateDesc:
+		default:
+			return tags.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
 	}
 }

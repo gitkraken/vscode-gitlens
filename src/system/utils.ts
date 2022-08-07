@@ -2,7 +2,7 @@ import type { TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vsc
 import { ViewColumn, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
-import { GitUri } from '../git/gitUri';
+import { isGitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
 import { extname } from './path';
@@ -98,7 +98,7 @@ export async function openEditor(
 ): Promise<TextEditor | undefined> {
 	const { rethrow, ...opts } = options;
 	try {
-		if (GitUri.is(uri)) {
+		if (isGitUri(uri)) {
 			uri = uri.documentUri();
 		}
 

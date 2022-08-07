@@ -8,8 +8,8 @@ import { configuration, Configuration, OutputLevel } from './configuration';
 import { Commands, ContextKeys, CoreCommands } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
-import { GitUri } from './git/gitUri';
-import { GitBranch } from './git/models/branch';
+import { isGitUri } from './git/gitUri';
+import { getBranchNameWithoutRemote } from './git/models/branch';
 import { GitCommit } from './git/models/commit';
 import { Logger, LogLevel } from './logger';
 import { showDebugLoggingWarningMessage, showInsidersErrorMessage, showWhatsNewMessage } from './messages';
@@ -20,7 +20,7 @@ import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare, satisfies } from './system/version';
-import { ViewNode } from './views/nodes/viewNode';
+import { isViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion = context.extension.packageJSON.version;
@@ -28,7 +28,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const outputLevel = configuration.get('outputLevel');
 	Logger.configure(context, configuration.get('outputLevel'), o => {
-		if (GitUri.is(o)) {
+		if (isGitUri(o)) {
 			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
 				o.sha ? ` sha=${o.sha}` : ''
 			})`;
@@ -38,7 +38,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
 		}
 
-		if (ViewNode.is(o)) return o.toString();
+		if (isViewNode(o)) return o.toString();
 
 		return undefined;
 	});
@@ -194,9 +194,9 @@ function registerBuiltInActionRunners(container: Container): void {
 				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(Commands.CreatePullRequestOnRemote, {
 					base: undefined,
 					compare: ctx.branch.isRemote
-						? GitBranch.getNameWithoutRemote(ctx.branch.name)
+						? getBranchNameWithoutRemote(ctx.branch.name)
 						: ctx.branch.upstream
-						? GitBranch.getNameWithoutRemote(ctx.branch.upstream)
+						? getBranchNameWithoutRemote(ctx.branch.upstream)
 						: ctx.branch.name,
 					remote: ctx.remote?.name ?? '',
 					repoPath: ctx.repoPath,
