@@ -2090,6 +2090,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ordering?: string | null;
 			ref?: string;
 			since?: string;
+			until?: string;
 		},
 	): Promise<GitLog | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -2204,6 +2205,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogMoreFn(
 		log: GitLog,
 		options?: {
+			all?: boolean;
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
@@ -2234,10 +2236,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const ref = last(log.commits.values())?.ref;
+			const refDate = last(log.commits.values())?.committer.date;
+			const refDateTimestamp = (refDate != null) ? (refDate?.getTime() / 1000) + 1 : undefined;
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
+				...options?.all && refDateTimestamp
+				? { until: refDateTimestamp.toString() }
+				: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`}
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
@@ -3347,8 +3353,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					summary = message.split('\n', 1)[0] ?? '';
 				}
 
-				const baseParentSha = s.parents.split(' ')[0];
-
 				commits.set(
 					s.sha,
 					new GitCommit(
@@ -3358,7 +3362,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
 						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
 						summary,
-						baseParentSha ? [baseParentSha] : [],
+						s.parents.split(' ') ?? [],
 						message,
 						s.files?.map(
 							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),

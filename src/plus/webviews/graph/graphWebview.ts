@@ -1,5 +1,9 @@
 import { CommitType } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
-import { commitNodeType, stashNodeType } from '@gitkraken/gitkraken-components/lib/domain/commit/CommitConstants';
+import {
+	commitNodeType,
+	mergeNodeType,
+	stashNodeType
+} from '@gitkraken/gitkraken-components/lib/domain/commit/CommitConstants';
 import { Disposable, ViewColumn, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -81,7 +85,6 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		if (this.currentLog?.more !== undefined) {
 			const { defaultLimit, pageLimit } = this.getConfig();
 			const nextLog = await this.currentLog.more(limit ?? pageLimit ?? defaultLimit);
-			console.log('GraphWebview moreCommits', nextLog);
 			if (nextLog !== undefined) {
 				this.currentLog = nextLog;
 			}
@@ -104,11 +107,22 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	}
 
 	private async notifyDidChangeCommits() {
-		const commitsAndLog = await this.getCommits();
+		const [commitsAndLog, stashCommits] = await Promise.all([
+			this.getCommits(),
+			this.getStashCommits()
+		]);
+
+		const log = commitsAndLog?.log;
+		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
+			commitsAndLog?.commits,
+			stashCommits,
+			log
+		);
+
 
 		return this.notify(DidChangeCommitsNotificationType, {
-			commits: formatCommits(commitsAndLog?.commits ?? []),
-			log: commitsAndLog?.log != null ? formatLog(commitsAndLog.log) : undefined,
+			commits: formatCommits(combinedCommitsWithFilteredStashes),
+			log: log != null ? formatLog(log) : undefined,
 		});
 	}
 
@@ -135,6 +149,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 		const { defaultLimit, pageLimit } = this.getConfig();
 		return this.container.git.getLog(repository.uri, {
+			all: true,
 			limit: pageLimit ?? defaultLimit,
 		});
 	}
@@ -275,13 +290,16 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		]);
 
 		const log = commitsAndLog?.log;
-		const filteredStashCommits = filterStashCommits(stashCommits, log);
-		const commits = [...(commitsAndLog?.commits ?? []), ...(filteredStashCommits ?? [])];
+		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
+			commitsAndLog?.commits,
+			stashCommits,
+			log
+		);
 
 		return {
 			repositories: formatRepositories(repositories),
 			selectedRepository: this.selectedRepository?.path,
-			commits: formatCommits(commits),
+			commits: formatCommits(combinedCommitsWithFilteredStashes),
 			remotes: remotes, // TODO: add a format function
 			branches: branches, // TODO: add a format function
 			tags: tags, // TODO: add a format function
@@ -308,28 +326,54 @@ function formatCommits(commits: (GitCommit | GitStashCommit)[]): GraphCommit[] {
 }
 
 function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
-	let type: CommitType = commitNodeType;
 	if (GitCommit.isStash(commit)) {
-		type = stashNodeType;
+		return stashNodeType;
+	}
+
+	if (commit.parents.length > 1) {
+		return mergeNodeType;
 	}
 
 	// TODO: add other needed commit types for graph
-	return type;
+	return commitNodeType;
 }
 
-function filterStashCommits(stashCommits: GitStashCommit[] | undefined, log: GitLog | undefined): GitStashCommit[] {
-	if (stashCommits === undefined || log === undefined) {
+function combineAndFilterStashCommits(
+	commits: GitCommit[] | undefined,
+	stashCommits: GitStashCommit[] | undefined,
+	log: GitLog | undefined
+): (GitCommit | GitStashCommit)[] {
+	if (commits === undefined || log === undefined) {
 		return [];
 	}
 
-	// Filter out stash commits whose parents are not in the log
-	return stashCommits.filter((stashCommit: GitStashCommit): boolean => {
+	if (stashCommits === undefined) {
+		return commits;
+	}
+
+	const stashCommitShas = stashCommits?.map(c => c.sha);
+	const stashCommitShaSecondParents = stashCommits?.map(c => c.parents.length > 1 ? c.parents[1] : undefined);
+	const filteredCommits = commits.filter((commit: GitCommit): boolean =>
+		!stashCommitShas.includes(commit.sha) &&
+		!stashCommitShaSecondParents.includes(commit.sha)
+	);
+
+	const filteredStashCommits = stashCommits.filter((stashCommit: GitStashCommit): boolean => {
 		if (!stashCommit.parents?.length) {
 			return true;
 		}
 		const parentCommit: GitCommit | undefined = log.commits.get(stashCommit.parents[0]);
 		return parentCommit !== undefined;
 	});
+
+	// Remove the second parent, if existing, from each stash commit as it affects column processing
+	for (const stashCommit of filteredStashCommits) {
+		if (stashCommit.parents.length > 1) {
+			stashCommit.parents.splice(1, 1);
+		}
+	}
+
+	return [ ...filteredCommits, ...filteredStashCommits ];
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
