@@ -2,5 +2,8 @@
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
 		"jsx": "react"
-	}
+	},
+	"include": [
+		"/node_modules/@gitkraken/gitkraken-components/dist/index.d.ts"
+	]
 }

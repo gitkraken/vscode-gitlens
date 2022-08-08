@@ -1,8 +1,8 @@
 /*global document window*/
-import { CssVariables } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
+import { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import { GraphConfig } from 'src/config';
+import { GraphConfig } from '../../../../config';
 import {
 	ColumnChangeCommandType,
 	CommitListCallback,
