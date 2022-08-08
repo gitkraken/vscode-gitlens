@@ -1,13 +1,13 @@
 import GraphContainer, {
-	CssVariables,
-	GraphColumnSetting as GKGraphColumnSetting,
-	GraphColumnsSettings as GKGraphColumnsSettings,
-	GraphRow,
-	GraphZoneType,
-	Head,
-	Remote,
-	Tag,
-} from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
+	type CssVariables,
+	type GraphColumnSetting as GKGraphColumnSetting,
+	type GraphColumnsSettings as GKGraphColumnsSettings,
+	type GraphRow,
+	type GraphZoneType,
+	type Head,
+	type Remote,
+	type Tag,
+} from '@gitkraken/gitkraken-components';
 import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
 	CommitListCallback,

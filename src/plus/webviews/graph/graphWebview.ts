@@ -1,9 +1,4 @@
-import { CommitType } from '@gitkraken/gitkraken-components/lib/components/graph/GraphContainer';
-import {
-	commitNodeType,
-	mergeNodeType,
-	stashNodeType
-} from '@gitkraken/gitkraken-components/lib/domain/commit/CommitConstants';
+import { commitNodeType, CommitType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
 import { Disposable, ViewColumn, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
