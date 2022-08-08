@@ -8,7 +8,8 @@ import GraphContainer, {
 	type Remote,
 	type Tag,
 } from '@gitkraken/gitkraken-components';
-import React, { useEffect, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import React, { createElement, useEffect, useRef, useState } from 'react';
 import type {
 	CommitListCallback,
 	GraphBranch,
@@ -163,6 +164,23 @@ const debounceFrame = (func: DebouncableFn): DebouncedFn => {
 	};
 };
 
+const getIconElements = (): { [key: string]: ReactElement<any> } => {
+	const iconList = ['vm', 'cloud', 'tag'];
+	const elementLibrary: { [key: string]: ReactElement<any> } = {};
+	iconList.forEach(iconKey => {
+		elementLibrary[iconKey] = createElement('span', { className: `codicon codicon-${iconKey}` });
+	});
+	return elementLibrary;
+};
+
+const getIconElementLibrary = (): ((key: string, props: { [key: string]: string }) => ReactElement) => {
+	const iconElementLibrary = getIconElements();
+
+	return (iconKey: string, _props: { [propKey: string]: string }) => {
+		return iconElementLibrary[iconKey];
+	};
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -298,7 +316,7 @@ export function GraphWrapper({
 								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
-								iconPack='codicon'
+								iconElementLibrary={getIconElementLibrary()}
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
