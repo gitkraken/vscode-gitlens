@@ -11,8 +11,8 @@ import type { ActionContext } from '../api/gitlens';
 import type { Commands } from '../constants';
 import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
-import type { GitStashCommit } from '../git/models/commit';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type { GitReference } from '../git/models/reference';
@@ -99,7 +99,7 @@ export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStash
 ): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
+	return isCommit((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
 }
 
 export function isCommandContextViewNodeHasContributor(
@@ -125,7 +125,7 @@ export function isCommandContextViewNodeHasFileCommit(
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
-	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
+	return node.file != null && isCommit(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
 export function isCommandContextViewNodeHasFileRefs(context: CommandContext): context is CommandViewNodeContext & {

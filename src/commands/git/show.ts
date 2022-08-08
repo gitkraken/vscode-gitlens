@@ -1,6 +1,6 @@
 import type { Container } from '../../container';
-import type { GitStashCommit } from '../../git/models/commit';
-import { GitCommit } from '../../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../../git/models/commit';
+import { isCommit } from '../../git/models/commit';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
@@ -48,7 +48,7 @@ function assertStateStepRepository(state: PartialStepState<State>): asserts stat
 
 type CommitStepState = SomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
 function assertsStateStepCommit(state: RepositoryStepState): asserts state is CommitStepState {
-	if (GitCommit.is(state.reference)) return;
+	if (isCommit(state.reference)) return;
 
 	debugger;
 	throw new Error('Missing reference');
@@ -138,10 +138,10 @@ export class ShowGitCommand extends QuickCommand<State> {
 			if (
 				state.counter < 2 ||
 				state.reference == null ||
-				!GitCommit.is(state.reference) ||
+				!isCommit(state.reference) ||
 				state.reference.file != null
 			) {
-				if (state.reference != null && !GitCommit.is(state.reference)) {
+				if (state.reference != null && !isCommit(state.reference)) {
 					state.reference = await this.container.git.getCommit(state.reference.repoPath, state.reference.ref);
 				}
 

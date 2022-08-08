@@ -2,7 +2,8 @@ import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { Range, ViewColumn } from 'vscode';
 import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
@@ -31,7 +32,7 @@ export class DiffWithCommand extends Command {
 	static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
 	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
 		let args: DiffWithCommandArgs | GitCommit;
-		if (GitCommit.is(argsOrCommit)) {
+		if (isCommit(argsOrCommit)) {
 			const commit = argsOrCommit;
 			if (commit.file == null || commit.unresolvedPreviousSha == null) {
 				debugger;

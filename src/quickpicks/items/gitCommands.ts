@@ -5,7 +5,8 @@ import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitBranch } from '../../git/models/branch';
-import { GitCommit } from '../../git/models/commit';
+import type { GitCommit } from '../../git/models/commit';
+import { isStash } from '../../git/models/commit';
 import type { GitContributor } from '../../git/models/contributor';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import { GitRemoteType } from '../../git/models/remote';
@@ -150,7 +151,7 @@ export namespace CommitQuickPickItem {
 		picked?: boolean,
 		options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 	) {
-		if (GitCommit.isStash(commit)) {
+		if (isStash(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
 
 			if (options?.compact) {

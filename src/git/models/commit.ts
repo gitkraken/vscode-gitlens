@@ -23,27 +23,6 @@ import type { Repository } from './repository';
 const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitCommit implements GitRevisionReference {
-	static is(commit: any): commit is GitCommit {
-		return commit instanceof GitCommit;
-	}
-
-	static isStash(commit: any): commit is GitStashCommit {
-		return commit instanceof GitCommit && commit.refType === 'stash' && Boolean(commit.stashName);
-	}
-
-	static isOfRefType(commit: GitReference | undefined): boolean {
-		return commit?.refType === 'revision' || commit?.refType === 'stash';
-	}
-
-	static hasFullDetails(commit: GitCommit): commit is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
-		return (
-			commit.message != null &&
-			commit.files != null &&
-			commit.parents.length !== 0 &&
-			(commit.refType !== 'stash' || commit._stashUntrackedFilesLoaded)
-		);
-	}
-
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
 
@@ -194,9 +173,18 @@ export class GitCommit implements GitRevisionReference {
 		);
 	}
 
+	hasFullDetails(commit: GitCommit): commit is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+		return (
+			commit.message != null &&
+			commit.files != null &&
+			commit.parents.length !== 0 &&
+			(commit.refType !== 'stash' || commit._stashUntrackedFilesLoaded)
+		);
+	}
+
 	@gate()
 	async ensureFullDetails(): Promise<void> {
-		if (this.isUncommitted || GitCommit.hasFullDetails(this)) return;
+		if (this.isUncommitted || this.hasFullDetails(this)) return;
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
 			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,
@@ -300,7 +288,7 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(path: string): Promise<GitFileChange | undefined>;
 	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
 	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
-		if (!GitCommit.hasFullDetails(this)) {
+		if (!this.hasFullDetails(this)) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
@@ -424,7 +412,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getCommitsForFiles(): Promise<GitCommit[]> {
-		if (!GitCommit.hasFullDetails(this)) {
+		if (!this.hasFullDetails(this)) {
 			await this.ensureFullDetails();
 			if (this._files == null) return [];
 		}
@@ -550,6 +538,18 @@ export class GitCommit implements GitRevisionReference {
 		if (change === undefined) return original;
 		return change !== null ? change : undefined;
 	}
+}
+
+export function isCommit(commit: any): commit is GitCommit {
+	return commit instanceof GitCommit;
+}
+
+export function isStash(commit: any): commit is GitStashCommit {
+	return commit instanceof GitCommit && commit.refType === 'stash' && Boolean(commit.stashName);
+}
+
+export function isOfCommitOrStashRefType(commit: GitReference | undefined): boolean {
+	return commit?.refType === 'revision' || commit?.refType === 'stash';
 }
 
 export class GitCommitIdentity {

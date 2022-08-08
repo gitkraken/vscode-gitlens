@@ -3,8 +3,8 @@ import { Uri, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import type { GitStashCommit } from '../git/models/commit';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import { Logger } from '../logger';
 import {
@@ -136,7 +136,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			}
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
-			if (GitCommit.is(args.commit)) {
+			if (isCommit(args.commit)) {
 				if (args.commit.files == null) {
 					await args.commit.ensureFullDetails();
 				}

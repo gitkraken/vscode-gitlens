@@ -6,7 +6,8 @@ import { Commands, ContextKeys, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitRevisionReference } from '../git/models/reference';
 import { GitReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
@@ -279,7 +280,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		// Check if the commit exists on the current branch
 		const branches = await Container.instance.git.getCommitBranches(commit.repoPath, commit.ref, {
 			branch: branch.name,
-			commitDate: GitCommit.is(commit) ? commit.committer.date : undefined,
+			commitDate: isCommit(commit) ? commit.committer.date : undefined,
 		});
 		if (!branches.length) return undefined;
 

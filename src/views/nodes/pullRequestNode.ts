@@ -1,7 +1,8 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { GitCommit } from '../../git/models/commit';
+import type { GitCommit } from '../../git/models/commit';
+import { isCommit } from '../../git/models/commit';
 import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { ViewsWithCommits } from '../viewBase';
 import { RepositoryNode } from './repositoryNode';
@@ -62,7 +63,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		if (GitCommit.is(this.branchOrCommit)) {
+		if (isCommit(this.branchOrCommit)) {
 			tooltip.appendMarkdown(
 				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
 			);

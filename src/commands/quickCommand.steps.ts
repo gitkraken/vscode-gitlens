@@ -6,8 +6,8 @@ import type { PlusFeatures } from '../features';
 import type { PagedResult } from '../git/gitProvider';
 import type { BranchSortOptions, GitBranch } from '../git/models/branch';
 import { sortBranches } from '../git/models/branch';
-import type { GitStashCommit } from '../git/models/commit';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit, isStash } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type { GitLog } from '../git/models/log';
 import type { GitBranchReference, GitRevisionReference, GitTagReference } from '../git/models/reference';
@@ -1626,7 +1626,7 @@ async function getShowCommitOrStashStepItems<
 
 	let unpublished: boolean | undefined;
 
-	if (GitCommit.isStash(state.reference)) {
+	if (isStash(state.reference)) {
 		items.push(
 			QuickPickSeparator.create('Actions'),
 			new GitCommandQuickPickItem('Apply Stash...', {
@@ -1672,7 +1672,7 @@ async function getShowCommitOrStashStepItems<
 			branch != null
 				? Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, {
 						branch: branch.name,
-						commitDate: GitCommit.is(state.reference) ? state.reference.committer.date : undefined,
+						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
 				  })
 				: undefined,
 			!branch?.remote && branch?.upstream != null ? state.reference.isPushed() : undefined,
@@ -1852,7 +1852,7 @@ export function* showCommitOrStashFilesStep<
 		items: [
 			new CommitFilesQuickPickItem(state.reference, {
 				picked: state.fileName == null,
-				hint: `Click to see ${GitCommit.isStash(state.reference) ? 'stash' : 'commit'} actions`,
+				hint: `Click to see ${isStash(state.reference) ? 'stash' : 'commit'} actions`,
 			}),
 			QuickPickSeparator.create('Files'),
 			...(state.reference.files?.map(
@@ -1990,7 +1990,7 @@ async function getShowCommitOrStashFileStepItems<
 
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [];
 
-	if (GitCommit.isStash(state.reference)) {
+	if (isStash(state.reference)) {
 		items.push(
 			QuickPickSeparator.create(),
 			new CommitCopyMessageQuickPickItem(state.reference),

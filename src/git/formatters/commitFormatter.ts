@@ -25,7 +25,8 @@ import type { TokenOptions } from '../../system/string';
 import { escapeMarkdown, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
-import { GitCommit } from '../models/commit';
+import type { GitCommit } from '../models/commit';
+import { isCommit } from '../models/commit';
 import type { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
@@ -256,21 +257,21 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get changes(): string {
 		return this._padOrTruncate(
-			GitCommit.is(this._item) ? this._item.formatStats() : '',
+			isCommit(this._item) ? this._item.formatStats() : '',
 			this._options.tokenOptions.changes,
 		);
 	}
 
 	get changesDetail(): string {
 		return this._padOrTruncate(
-			GitCommit.is(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
+			isCommit(this._item) ? this._item.formatStats({ expand: true, separator: ', ' }) : '',
 			this._options.tokenOptions.changesDetail,
 		);
 	}
 
 	get changesShort(): string {
 		return this._padOrTruncate(
-			GitCommit.is(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
+			isCommit(this._item) ? this._item.formatStats({ compact: true, separator: '' }) : '',
 			this._options.tokenOptions.changesShort,
 		);
 	}

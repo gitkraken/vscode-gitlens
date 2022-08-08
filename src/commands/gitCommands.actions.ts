@@ -11,7 +11,8 @@ import type { FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type {
@@ -170,7 +171,7 @@ export namespace GitActions {
 			ref2?: GitRevisionReference,
 		) {
 			// Open the working file to ensure undo will work
-			(await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
+			await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false });
 
 			let ref = ref1.ref;
 			// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
@@ -178,22 +179,22 @@ export namespace GitActions {
 				ref = `${ref}^3`;
 			}
 
-			(await Container.instance.git.applyChangesToWorkingFile(
+			await Container.instance.git.applyChangesToWorkingFile(
 				GitUri.fromFile(file, ref1.repoPath, ref),
 				ref,
 				ref2?.ref,
-			));
+			);
 		}
 
 		export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
-			(await env.clipboard.writeText(ref.ref));
+			await env.clipboard.writeText(ref.ref);
 		}
 
 		export async function copyMessageToClipboard(
 			ref: { repoPath: string; ref: string } | GitCommit,
 		): Promise<void> {
 			let commit;
-			if (GitCommit.is(ref)) {
+			if (isCommit(ref)) {
 				commit = ref;
 				if (commit.message == null) {
 					await commit.ensureFullDetails();
@@ -204,7 +205,7 @@ export namespace GitActions {
 			}
 
 			const message = commit.message ?? commit.summary;
-			(await env.clipboard.writeText(message));
+			await env.clipboard.writeText(message);
 		}
 
 		export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
@@ -220,7 +221,7 @@ export namespace GitActions {
 		) {
 			let files;
 			let refs;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -265,7 +266,7 @@ export namespace GitActions {
 			ref?: { repoPath: string; ref: string },
 		) {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -309,7 +310,7 @@ export namespace GitActions {
 		) {
 			let files;
 			let ref;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -338,7 +339,7 @@ export namespace GitActions {
 			options = { preserveFocus: true, preview: false, ...options };
 
 			for (const file of files) {
-				(await openChangesWithWorking(file, ref, options));
+				await openChangesWithWorking(file, ref, options);
 			}
 		}
 
@@ -358,7 +359,7 @@ export namespace GitActions {
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRefs)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRefs)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRefs.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -368,7 +369,7 @@ export namespace GitActions {
 
 			if (file.status === 'A') return;
 
-			const refs = GitCommit.is(commitOrRefs)
+			const refs = isCommit(commitOrRefs)
 				? {
 						repoPath: commitOrRefs.repoPath,
 						// Don't need to worry about verifying the previous sha, as the DiffWith command will
@@ -409,7 +410,7 @@ export namespace GitActions {
 			tool?: string,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -445,7 +446,7 @@ export namespace GitActions {
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -456,7 +457,7 @@ export namespace GitActions {
 			if (file.status === 'D') return;
 
 			let ref;
-			if (GitCommit.is(commitOrRef)) {
+			if (isCommit(commitOrRef)) {
 				ref = {
 					repoPath: commitOrRef.repoPath,
 					ref: commitOrRef.sha,
@@ -541,12 +542,12 @@ export namespace GitActions {
 		): Promise<void> {
 			let uri;
 			if (fileOrRevisionUri instanceof Uri) {
-				if (GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
 				uri = fileOrRevisionUri;
 				options = commitOrOptions;
 			} else {
-				if (!GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
 				const commit = commitOrOptions;
 
@@ -586,7 +587,7 @@ export namespace GitActions {
 		}
 
 		export async function openDetails(commit: GitCommit): Promise<void> {
-			(await Container.instance.commitDetailsView.show({ commit: commit }));
+			await Container.instance.commitDetailsView.show({ commit: commit });
 		}
 
 		export async function openFiles(commit: GitCommit): Promise<void>;
@@ -597,7 +598,7 @@ export namespace GitActions {
 			ref?: string,
 		): Promise<void> {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -642,7 +643,7 @@ export namespace GitActions {
 			ref2?: string,
 		): Promise<void> {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -683,7 +684,7 @@ export namespace GitActions {
 					file.status === `?` ? `${revision.ref}^3` : file.status === 'D' ? `${revision.ref}^` : revision.ref;
 			}
 
-			(await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
+			await Container.instance.git.checkout(revision.repoPath, ref, { path: path });
 		}
 
 		export async function reveal(
@@ -766,8 +767,8 @@ export namespace GitActions {
 			if (url == null || url.length === 0) return undefined;
 
 			repo = ensureRepo(repo);
-			(await Container.instance.git.addRemote(repo.path, name, url));
-			(await repo.fetch({ remote: name }));
+			await Container.instance.git.addRemote(repo.path, name, url);
+			await repo.fetch({ remote: name });
 
 			return name;
 		}
@@ -780,11 +781,11 @@ export namespace GitActions {
 				repo = r;
 			}
 
-			(await repo.fetch({ remote: remote }));
+			await repo.fetch({ remote: remote });
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			(await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
+			await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote);
 		}
 
 		export async function reveal(

@@ -6,7 +6,8 @@ import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type {
 	GitBranchReference,
@@ -336,7 +337,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		let branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
-			GitCommit.is(commit) ? { commitDate: commit.committer.date } : undefined,
+			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length !== 0) {
 			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
@@ -371,7 +372,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
-			GitCommit.is(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;
 

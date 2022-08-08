@@ -5,7 +5,8 @@ import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchCompa
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { GitReference } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
@@ -228,7 +229,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
-			GitCommit.is(commit) ? { commitDate: commit.committer.date } : undefined,
+			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length === 0) return undefined;
 

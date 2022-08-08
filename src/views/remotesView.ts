@@ -6,7 +6,8 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
-import { GitCommit } from '../git/models/commit';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
 import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
@@ -225,7 +226,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
-			GitCommit.is(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
+			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;
 

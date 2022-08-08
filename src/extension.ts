@@ -10,7 +10,7 @@ import { Container } from './container';
 import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote } from './git/models/branch';
-import { GitCommit } from './git/models/commit';
+import { isCommit } from './git/models/commit';
 import { Logger, LogLevel } from './logger';
 import { showDebugLoggingWarningMessage, showInsidersErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
@@ -34,7 +34,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			})`;
 		}
 
-		if (GitCommit.is(o)) {
+		if (isCommit(o)) {
 			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
 		}
 
