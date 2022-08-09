@@ -126,19 +126,15 @@ const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
 };
 
 const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings => {
-	const columnsSettings: GKGraphColumnsSettings = {};
+	const columnsSettings: GKGraphColumnsSettings = { ...defaultGraphColumnsSettings };
 	if (config?.columns !== undefined) {
-		for (const key of Object.keys(config.columns)) {
-			const width = config.columns[key].width;
-			if (width !== undefined) {
-				columnsSettings[key] = { width: width };
-			}
+		for (const column of Object.keys(config.columns)) {
+			columnsSettings[column] = {
+				width: config.columns[column].width,
+			};
 		}
 	}
-	return {
-		...defaultGraphColumnsSettings,
-		...columnsSettings
-	};
+	return columnsSettings;
 };
 
 type DebouncableFn = (...args: any) => void;
