@@ -163,7 +163,7 @@ const debounceFrame = (func: DebouncableFn): DebouncedFn => {
 };
 
 const getIconElements = (): {[key: string]: ReactElement<any>} => {
-	const iconList = ['vm', 'cloud', 'tag'];
+	const iconList = ['vm', 'cloud', 'tag', 'inbox', 'check', 'chrome-minimize'];
 	const elementLibrary: {[key: string]: ReactElement<any>} = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', {className: `codicon codicon-${iconKey}`});
@@ -171,10 +171,10 @@ const getIconElements = (): {[key: string]: ReactElement<any>} => {
 	return elementLibrary;
 };
 
-const getIconElementLibrary = (): (key: string, props: {[key: string]: string}) => ReactElement => {
+const getIconElementLibrary = (): (key: string, props?: {[key: string]: string}) => ReactElement => {
 	const iconElementLibrary = getIconElements();
 
-	return (iconKey: string, props: {[propKey: string]: string}) => {
+	return (iconKey: string, props?: {[propKey: string]: string}) => {
 		return iconElementLibrary[iconKey];
 	};
 };
