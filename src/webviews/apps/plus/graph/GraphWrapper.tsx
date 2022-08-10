@@ -231,13 +231,6 @@ export function GraphWrapper({
 		return subscriber(transformData);
 	}, []);
 
-	const handleSelectRepository = (event: ChangeEvent<HTMLSelectElement>) => {
-		if (onSelectRepository !== undefined) {
-			const item = reposList.find(repo => repo.path === event.target.value);
-			item != null && onSelectRepository(item);
-		}
-	};
-
 	const handleMoreCommits = () => {
 		setIsLoading(true);
 		onMoreCommits?.();
@@ -250,50 +243,28 @@ export function GraphWrapper({
 	};
 
 	return (
-		<>
-			<header className="graph-app__header">
-				<h2>Repository: {reposList.length === 0 ? 'none available' : currentRepository ?? 'unselected'}</h2>
-				{reposList.length > 0 && (
-					<div>
-						<label htmlFor="repo-picker">Switch</label>{' '}
-						<select
-							name="repo-picker"
-							id="repo-picker"
-							value={currentRepository}
-							onChange={handleSelectRepository}
-						>
-							{reposList.map((item, index) => (
-								<option value={item.path} key={`repos-${index}`}>
-									{item.formattedName}
-								</option>
-							))}
-						</select>
-					</div>
-				)}
-			</header>
-			<main ref={mainRef} id="main" className="graph-app__main">
-				{currentRepository !== undefined ? (
-					<>
-						{mainWidth !== undefined && mainHeight !== undefined && (
-							<GraphContainer
-								columnsSettings={graphColSettings}
-								cssVariables={styleProps.cssVariables}
-								graphRows={graphList}
-								height={mainHeight}
-								hasMoreCommits={logState?.hasMore}
-								isLoadingRows={isLoading}
-								nonce={nonce}
-								onColumnResized={handleOnColumnResized}
-								onShowMoreCommits={handleMoreCommits}
-								width={mainWidth}
-								themeOpacityFactor={styleProps.themeOpacityFactor}
-							/>
-						)}
-					</>
-				) : (
-					<p>No repository is selected</p>
-				)}
-			</main>
-		</>
+		<main ref={mainRef} id="main" className="graph-app__main">
+			{currentRepository !== undefined ? (
+				<>
+					{mainWidth !== undefined && mainHeight !== undefined && (
+						<GraphContainer
+							columnsSettings={graphColSettings}
+							cssVariables={styleProps.cssVariables}
+							graphRows={graphList}
+							height={mainHeight}
+							hasMoreCommits={logState?.hasMore}
+							isLoadingRows={isLoading}
+							nonce={nonce}
+							onColumnResized={handleOnColumnResized}
+							onShowMoreCommits={handleMoreCommits}
+							width={mainWidth}
+							themeOpacityFactor={styleProps.themeOpacityFactor}
+						/>
+					)}
+				</>
+			) : (
+				<p>No repository is selected</p>
+			)}
+		</main>
 	);
 }
