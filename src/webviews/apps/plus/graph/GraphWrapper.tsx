@@ -164,8 +164,8 @@ const debounceFrame = (func: DebouncableFn): DebouncedFn => {
 	};
 };
 
-const getIconElements = (): { [key: string]: ReactElement<any> } => {
-	const iconList = ['vm', 'cloud', 'tag', 'inbox', 'check', 'chrome-minimize'];
+const createIconElements = (): { [key: string]: ReactElement<any> } => {
+	const iconList = ['vm', 'cloud', 'tag', 'inbox', 'check', 'loading', 'warning'];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `codicon codicon-${iconKey}` });
@@ -173,12 +173,10 @@ const getIconElements = (): { [key: string]: ReactElement<any> } => {
 	return elementLibrary;
 };
 
-const getIconElementLibrary = (): ((key: string, props?: { [key: string]: string }) => ReactElement) => {
-	const iconElementLibrary = getIconElements();
+const iconElementLibrary = createIconElements();
 
-	return (iconKey: string, _props?: { [propKey: string]: string }) => {
-		return iconElementLibrary[iconKey];
-	};
+const getIconElementLibrary = (iconKey: string) => {
+	return iconElementLibrary[iconKey];
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -313,10 +311,10 @@ export function GraphWrapper({
 							<GraphContainer
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
+								getExternalIcon={getIconElementLibrary}
 								graphRows={graphList}
 								height={mainHeight}
 								hasMoreCommits={logState?.hasMore}
-								iconElementLibrary={getIconElementLibrary()}
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
