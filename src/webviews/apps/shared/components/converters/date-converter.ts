@@ -1,12 +1,12 @@
 import type { ComplexAttributeConverter } from 'lit';
 
-export const dateConverter = (locale?: string): ComplexAttributeConverter<Date> => {
+export const dateConverter = (): ComplexAttributeConverter<Date, number> => {
 	return {
 		toAttribute: (date: Date) => {
-			return date.toLocaleDateString(locale);
+			return date.getTime();
 		},
-		fromAttribute: (value: string) => {
-			return new Date(value);
+		fromAttribute: (value: string, _type?: number) => {
+			return new Date(parseInt(value, 10));
 		},
 	};
 };

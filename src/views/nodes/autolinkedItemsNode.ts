@@ -7,7 +7,6 @@ import { PullRequest } from '../../git/models/pullRequest';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { union } from '../../system/iterable';
-import { PromiseCancelledErrorWithId } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -63,8 +62,6 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 
 					if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
 						for (const [id, issue] of autolinkedMapResult.value) {
-							if (issue == null || issue instanceof PromiseCancelledErrorWithId) continue;
-
 							items.set(id, issue);
 						}
 					}

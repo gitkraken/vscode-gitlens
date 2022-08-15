@@ -11,7 +11,7 @@ import { Logger } from '../logger';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
-import { every, join, map } from '../system/iterable';
+import { join, map } from '../system/iterable';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
@@ -142,18 +142,13 @@ export class Autolinks implements Disposable {
 		message: string,
 		remote: GitRemote,
 		options?: { autolinks?: Map<string, Autolink>; timeout?: never },
-	): Promise<Map<string, IssueOrPullRequest | undefined> | undefined>;
+	): Promise<Map<string, IssueOrPullRequest> | undefined>;
 	async getLinkedIssuesAndPullRequests(
 		message: string,
 		remote: GitRemote,
 		options: { autolinks?: Map<string, Autolink>; timeout: number },
 	): Promise<
-		| Map<
-				string,
-				| IssueOrPullRequest
-				| PromiseCancelledErrorWithId<string, Promise<IssueOrPullRequest | undefined>>
-				| undefined
-		  >
+		| Map<string, IssueOrPullRequest | PromiseCancelledErrorWithId<string, Promise<IssueOrPullRequest | undefined>>>
 		| undefined
 	>;
 	@debug<Autolinks['getLinkedIssuesAndPullRequests']>({
@@ -186,11 +181,15 @@ export class Autolinks implements Disposable {
 			id => provider.getIssueOrPullRequest(id),
 			options?.timeout,
 		);
-		if (issuesOrPullRequests.size === 0 || every(issuesOrPullRequests.values(), pr => pr == null)) {
-			return undefined;
+
+		// Remove any issues or pull requests that were not found
+		for (const [id, issueOrPullRequest] of issuesOrPullRequests) {
+			if (issueOrPullRequest == null) {
+				issuesOrPullRequests.delete(id);
+			}
 		}
 
-		return issuesOrPullRequests;
+		return issuesOrPullRequests.size !== 0 ? issuesOrPullRequests : undefined;
 	}
 
 	@debug<Autolinks['linkify']>({

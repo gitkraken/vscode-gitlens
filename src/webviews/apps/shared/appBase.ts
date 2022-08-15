@@ -73,8 +73,8 @@ export abstract class App<State = undefined> {
 		this.bindDisposables = this.onBind?.();
 	}
 
-	protected log(message: string) {
-		console.log(message);
+	protected log(message: string, ...optionalParams: any[]) {
+		console.log(message, ...optionalParams);
 	}
 
 	protected getState(): State {

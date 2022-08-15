@@ -48,6 +48,9 @@ export class CommitIdentity extends LitElement {
 	@property()
 	avatar = 'https://www.gravatar.com/avatar/?s=16&d=robohash';
 
+	@property()
+	dateFormat = 'MMMM Do, YYYY h:mma';
+
 	@property({ type: Boolean, reflect: true })
 	committer = false;
 
@@ -59,8 +62,7 @@ export class CommitIdentity extends LitElement {
 			/></a>
 			<a class="name" href="${this.email ? `mailto:${this.email}` : '#'}">${this.name}</a>
 			<span class="date"
-				>${this.committer === true ? 'committed' : 'authored'}
-				<formatted-date date="${this.date}"></formatted-date
+				>committed <formatted-date date=${this.date} dateFormat="${this.dateFormat}"></formatted-date
 			></span>
 		`;
 	}

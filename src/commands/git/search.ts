@@ -245,7 +245,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void GitActions.Commit.openDetails(context.commit);
+				void GitActions.Commit.showDetailsView(context.commit);
 				result = StepResult.Break;
 			} else {
 				result = yield* getSteps(

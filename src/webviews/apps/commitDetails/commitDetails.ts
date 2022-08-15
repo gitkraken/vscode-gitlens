@@ -1,18 +1,20 @@
 /*global*/
+import type { Serialized } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { CommitSummary, State } from '../../commitDetails/protocol';
+import type { State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	DidChangeNotificationType,
-	FileComparePreviousCommandType,
-	FileCompareWorkingCommandType,
-	FileMoreActionsCommandType,
+	DidChangeRichStateNotificationType,
+	DidChangeStateNotificationType,
+	FileActionsCommandType,
 	OpenFileCommandType,
+	OpenFileComparePreviousCommandType,
+	OpenFileCompareWorkingCommandType,
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
-	RichContentNotificationType,
+	PinCommitCommandType,
 	SearchCommitCommandType,
 } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
@@ -25,18 +27,19 @@ import '../shared/components/formatted-date';
 import '../shared/components/rich/issue-pull-request';
 import '../shared/components/skeleton-loader';
 import '../shared/components/commit/commit-stats';
-
 import '../shared/components/commit/file-change-item';
 import '../shared/components/webview-pane';
 
-export class CommitDetailsApp extends App<State> {
+type CommitState = SomeNonNullable<Serialized<State>, 'selected'>;
+
+export class CommitDetailsApp extends App<Serialized<State>> {
 	constructor() {
 		super('CommitDetailsApp');
-		console.log('CommitDetailsApp', this.state);
+		this.log('CommitDetailsApp', this.state);
 	}
 
 	override onInitialize() {
-		console.log('CommitDetailsApp onInitialize', this.state);
+		this.log('CommitDetailsApp.onInitialize', this.state);
 		this.renderContent();
 	}
 
@@ -75,9 +78,51 @@ export class CommitDetailsApp extends App<State> {
 					$next?.focus();
 				}
 			}),
+			DOM.on('[data-action="commit-actions-pin"]', 'click', e => this.onTogglePin(e)),
 		];
 
 		return disposables;
+	}
+
+	protected override onMessageReceived(e: MessageEvent) {
+		const msg = e.data as IpcMessage;
+		switch (msg.method) {
+			case DidChangeRichStateNotificationType.method:
+				onIpc(DidChangeRichStateNotificationType, msg, params => {
+					if (this.state.selected == null) return;
+
+					assertsSerialized<typeof params>(params);
+
+					const newState = { ...this.state };
+					if (params.formattedMessage != null) {
+						newState.selected!.message = params.formattedMessage;
+					}
+					// if (params.pullRequest != null) {
+					newState.pullRequest = params.pullRequest;
+					// }
+					// if (params.formattedMessage != null) {
+					newState.autolinkedIssues = params.autolinkedIssues;
+					// }
+
+					this.state = newState;
+					this.renderRichContent();
+				});
+				break;
+			case DidChangeStateNotificationType.method:
+				onIpc(DidChangeStateNotificationType, msg, params => {
+					assertsSerialized<typeof params.state>(params.state);
+
+					// TODO: Undefined won't get serialized -- need to convert to null or something
+					this.state = params.state; //{ ...this.state, ...params.state };
+					this.renderContent();
+				});
+				break;
+		}
+	}
+
+	private onTogglePin(e: MouseEvent) {
+		e.preventDefault();
+		this.sendCommand(PinCommitCommandType, { pin: !this.state.pinned });
 	}
 
 	private onAutolinkSettings(e: MouseEvent) {
@@ -102,15 +147,15 @@ export class CommitDetailsApp extends App<State> {
 	}
 
 	private onCompareFileWithWorking(e: FileChangeItemEventDetail) {
-		this.sendCommand(FileCompareWorkingCommandType, e);
+		this.sendCommand(OpenFileCompareWorkingCommandType, e);
 	}
 
 	private onCompareFileWithPrevious(e: FileChangeItemEventDetail) {
-		this.sendCommand(FileComparePreviousCommandType, e);
+		this.sendCommand(OpenFileComparePreviousCommandType, e);
 	}
 
 	private onFileMoreActions(e: FileChangeItemEventDetail) {
-		this.sendCommand(FileMoreActionsCommandType, e);
+		this.sendCommand(FileActionsCommandType, e);
 	}
 
 	private onCommitMoreActions(e: MouseEvent) {
@@ -133,37 +178,8 @@ export class CommitDetailsApp extends App<State> {
 		this.sendCommand(CommitActionsCommandType, { action: 'sha', alt: e.altKey });
 	}
 
-	protected override onMessageReceived(e: MessageEvent) {
-		const msg = e.data as IpcMessage;
-		switch (msg.method) {
-			case RichContentNotificationType.method:
-				onIpc(RichContentNotificationType, msg, params => {
-					const newState = { ...this.state };
-					if (params.formattedMessage != null) {
-						newState.selected.message = params.formattedMessage;
-					}
-					if (params.pullRequest != null) {
-						newState.pullRequest = params.pullRequest;
-					}
-					if (params.formattedMessage != null) {
-						newState.issues = params.issues;
-					}
-
-					this.state = newState;
-					this.renderRichContent();
-				});
-				break;
-			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = { ...this.state, ...params.state };
-					this.renderContent();
-				});
-				break;
-		}
-	}
-
-	renderCommit() {
-		const hasSelection = this.state.selected !== undefined;
+	renderCommit(state: Serialized<State>): state is CommitState {
+		const hasSelection = state.selected !== undefined;
 		const $empty = document.getElementById('empty');
 		const $main = document.getElementById('main');
 		$empty?.setAttribute('aria-hidden', hasSelection ? 'true' : 'false');
@@ -173,38 +189,51 @@ export class CommitDetailsApp extends App<State> {
 	}
 
 	renderRichContent() {
-		if (!this.renderCommit()) {
-			return;
-		}
+		if (!this.renderCommit(this.state)) return;
 
-		this.renderMessage();
-		this.renderAutolinks();
+		this.renderMessage(this.state);
+		this.renderPullRequestAndAutolinks(this.state);
 	}
 
 	renderContent() {
-		if (!this.renderCommit()) {
+		if (!this.renderCommit(this.state)) {
 			return;
 		}
 
-		this.renderSha();
-		this.renderMessage();
-		this.renderAuthor();
-		this.renderStats();
-		this.renderFiles();
+		this.renderPin(this.state);
+		this.renderSha(this.state);
+		this.renderMessage(this.state);
+		this.renderAuthor(this.state);
+		this.renderStats(this.state);
+		this.renderFiles(this.state);
 
-		if (this.state.includeRichContent) {
-			this.renderAutolinks();
-		}
+		// if (this.state.includeRichContent) {
+		this.renderPullRequestAndAutolinks(this.state);
+		// }
 	}
 
-	renderSha() {
+	renderPin(state: CommitState) {
+		const $el = document.querySelector<HTMLElement>('[data-action="commit-actions-pin"]');
+		if ($el == null) {
+			return;
+		}
+
+		const label = state.pinned ? 'Unpin this Commit' : 'Pin this Commit';
+		$el.setAttribute('aria-label', label);
+		$el.setAttribute('title', label);
+
+		const $icon = $el.querySelector('[data-region="commit-pin"]');
+		$icon?.setAttribute('icon', state.pinned ? 'pinned' : 'pin');
+	}
+
+	renderSha(state: CommitState) {
 		const $els = [...document.querySelectorAll<HTMLElement>('[data-region="shortsha"]')];
 		if ($els.length === 0) {
 			return;
 		}
 
 		$els.forEach($el => {
-			$el.textContent = this.state.selected.shortSha;
+			$el.textContent = state.selected.shortSha;
 		});
 	}
 
@@ -227,60 +256,66 @@ export class CommitDetailsApp extends App<State> {
 			return;
 		}
 
-		if (this.state.commits?.length) {
-			const $count = $el.querySelector<HTMLElement>('[data-region="choices-count"]');
-			if ($count != null) {
-				$count.innerHTML = `${this.state.commits.length}`;
-			}
+		// if (this.state.commits?.length) {
+		// 	const $count = $el.querySelector<HTMLElement>('[data-region="choices-count"]');
+		// 	if ($count != null) {
+		// 		$count.innerHTML = `${this.state.commits.length}`;
+		// 	}
 
-			const $list = $el.querySelector<HTMLElement>('[data-region="choices-list"]');
-			if ($list != null) {
-				$list.innerHTML = this.state.commits
-					.map(
-						(item: CommitSummary) => `
-							<li class="commit-detail-panel__commit">
-								<button class="commit-detail-panel__commit-button" type="button" ${
-									item.sha === this.state.selected.sha ? 'aria-current="true"' : ''
-								}>
-									<img src="${item.avatar}" alt="${item.author.name}" />
-									<span>${item.message}</span>
-									<span>${item.shortSha}</span>
-								</button>
-							</li>
-						`,
-					)
-					.join('');
-			}
-			$el.setAttribute('aria-hidden', 'false');
-		} else {
-			$el.setAttribute('aria-hidden', 'true');
-			$el.innerHTML = '';
-		}
+		// 	const $list = $el.querySelector<HTMLElement>('[data-region="choices-list"]');
+		// 	if ($list != null) {
+		// 		$list.innerHTML = this.state.commits
+		// 			.map(
+		// 				(item: CommitSummary) => `
+		// 					<li class="commit-detail-panel__commit">
+		// 						<button class="commit-detail-panel__commit-button" type="button" ${
+		// 							item.sha === this.state.selected?.sha ? 'aria-current="true"' : ''
+		// 						}>
+		// 							<img src="${item.avatar}" alt="${item.author.name}" />
+		// 							<span>${item.message}</span>
+		// 							<span>${item.shortSha}</span>
+		// 						</button>
+		// 					</li>
+		// 				`,
+		// 			)
+		// 			.join('');
+		// 	}
+		// 	$el.setAttribute('aria-hidden', 'false');
+		// } else {
+		$el.setAttribute('aria-hidden', 'true');
+		$el.innerHTML = '';
+		// }
 	}
 
-	renderStats() {
+	renderStats(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="stats"]');
 		if ($el == null) {
 			return;
 		}
-		if (this.state.selected.stats?.changedFiles !== undefined) {
-			const { added, deleted, changed } = this.state.selected.stats.changedFiles;
-			$el.innerHTML = `
+		if (state.selected.stats?.changedFiles !== undefined) {
+			if (typeof state.selected.stats.changedFiles === 'number') {
+				$el.innerHTML = `
+				<commit-stats added="?" modified="${state.selected.stats.changedFiles}" removed="?"></commit-stats>
+			`;
+			} else {
+				const { added, deleted, changed } = state.selected.stats.changedFiles;
+				$el.innerHTML = `
 				<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>
 			`;
+			}
 		} else {
 			$el.innerHTML = '';
 		}
 	}
 
-	renderFiles() {
+	renderFiles(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="files"]');
 		if ($el == null) {
 			return;
 		}
 
-		if (this.state.selected.files?.length > 0) {
-			$el.innerHTML = this.state.selected.files
+		if (state.selected.files?.length) {
+			$el.innerHTML = state.selected.files
 				.map(
 					(file: Record<string, any>) => `
 						<li class="change-list__item">
@@ -295,19 +330,20 @@ export class CommitDetailsApp extends App<State> {
 		}
 	}
 
-	renderAuthor() {
+	renderAuthor(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="author"]');
 		if ($el == null) {
 			return;
 		}
 
-		if (this.state.selected.author != null) {
+		if (state.selected.author != null) {
 			$el.innerHTML = `
 				<commit-identity
-					name="${this.state.selected.author.name}"
-					email="${this.state.selected.author.email}"
-					date="${this.state.selected.author.date}"
-					avatar="${this.state.selected.author.avatar}"
+					name="${state.selected.author.name}"
+					email="${state.selected.author.email}"
+					date=${state.selected.author.date}
+					dateFormat="${state.dateFormat}"
+					avatar="${state.selected.author.avatar}"
 				></commit-identity>
 			`;
 			$el.setAttribute('aria-hidden', 'false');
@@ -317,33 +353,33 @@ export class CommitDetailsApp extends App<State> {
 		}
 	}
 
-	renderCommitter() {
-		// <li class="commit-details__author" data-region="committer">
-		// 	<skeleton-loader></skeleton-loader>
-		// </li>
-		const $el = document.querySelector<HTMLElement>('[data-region="committer"]');
-		if ($el == null) {
-			return;
-		}
+	// renderCommitter(state: CommitState) {
+	// 	// <li class="commit-details__author" data-region="committer">
+	// 	// 	<skeleton-loader></skeleton-loader>
+	// 	// </li>
+	// 	const $el = document.querySelector<HTMLElement>('[data-region="committer"]');
+	// 	if ($el == null) {
+	// 		return;
+	// 	}
 
-		if (this.state.selected.committer != null) {
-			$el.innerHTML = `
-				<commit-identity
-					name="${this.state.selected.committer.name}"
-					email="${this.state.selected.committer.email}"
-					date="${this.state.selected.committer.date}"
-					avatar="${this.state.selected.committer.avatar}"
-					committer
-				></commit-identity>
-			`;
-			$el.setAttribute('aria-hidden', 'false');
-		} else {
-			$el.innerHTML = '';
-			$el.setAttribute('aria-hidden', 'true');
-		}
-	}
+	// 	if (state.selected.committer != null) {
+	// 		$el.innerHTML = `
+	// 			<commit-identity
+	// 				name="${state.selected.committer.name}"
+	// 				email="${state.selected.committer.email}"
+	// 				date="${state.selected.committer.date}"
+	// 				avatar="${state.selected.committer.avatar}"
+	// 				committer
+	// 			></commit-identity>
+	// 		`;
+	// 		$el.setAttribute('aria-hidden', 'false');
+	// 	} else {
+	// 		$el.innerHTML = '';
+	// 		$el.setAttribute('aria-hidden', 'true');
+	// 	}
+	// }
 
-	renderTitle() {
+	renderTitle(state: CommitState) {
 		// <header class="commit-detail-panel__header" role="banner" aria-hidden="true">
 		// 	<h1 class="commit-detail-panel__title">
 		// 		<span class="codicon codicon-git-commit commit-detail-panel__title-icon"></span>
@@ -352,17 +388,17 @@ export class CommitDetailsApp extends App<State> {
 		// </header>
 		const $el = document.querySelector<HTMLElement>('[data-region="commit-title"]');
 		if ($el != null) {
-			$el.innerHTML = this.state.selected.shortSha;
+			$el.innerHTML = state.selected.shortSha;
 		}
 	}
 
-	renderMessage() {
+	renderMessage(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="message"]');
 		if ($el == null) {
 			return;
 		}
 
-		const [headline, ...lines] = this.state.selected.message.split('\n');
+		const [headline, ...lines] = state.selected.message.split('\n');
 		if (lines.length > 1) {
 			$el.innerHTML = `<strong>${headline}</strong><br>${lines.join('<br>')}`;
 		} else {
@@ -370,38 +406,39 @@ export class CommitDetailsApp extends App<State> {
 		}
 	}
 
-	renderAutolinks() {
+	renderPullRequestAndAutolinks(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="autolinks"]');
 		if ($el == null) {
 			return;
 		}
 
 		const $info = document.querySelector<HTMLElement>('[data-region="rich-info"]');
-		if (this.state.pullRequest != null || this.state.issues?.length > 0) {
+		if (state.pullRequest != null || state.autolinkedIssues?.length) {
 			$el.setAttribute('aria-hidden', 'false');
 			$info?.setAttribute('aria-hidden', 'true');
-			this.renderPullRequest();
-			this.renderIssues();
+			this.renderPullRequest(state);
+			this.renderIssues(state);
 		} else {
 			$el.setAttribute('aria-hidden', 'true');
 			$info?.setAttribute('aria-hidden', 'false');
 		}
 	}
 
-	renderPullRequest() {
+	renderPullRequest(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="pull-request"]');
 		if ($el == null) {
 			return;
 		}
 
-		if (this.state.pullRequest != null) {
+		if (state.pullRequest != null) {
 			$el.innerHTML = `
 				<issue-pull-request
-					name="${this.state.pullRequest.title}"
-					url="${this.state.pullRequest.url}"
-					key="${this.state.pullRequest.id}"
-					status="${this.state.pullRequest.state}"
-					date="${this.state.pullRequest.date}"
+					name="${state.pullRequest.title}"
+					url="${state.pullRequest.url}"
+					key="${state.pullRequest.id}"
+					status="${state.pullRequest.state}"
+					date=${state.pullRequest.date}
+					dateFormat="${state.dateFormat}"
 				></issue-pull-request>
 			`;
 			$el.setAttribute('aria-hidden', 'false');
@@ -411,13 +448,13 @@ export class CommitDetailsApp extends App<State> {
 		}
 	}
 
-	renderIssues() {
+	renderIssues(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="issue"]');
 		if ($el == null) {
 			return;
 		}
-		if (this.state.issues?.length > 0) {
-			$el.innerHTML = this.state.issues
+		if (state.autolinkedIssues?.length) {
+			$el.innerHTML = state.autolinkedIssues
 				.map(
 					(issue: Record<string, any>) => `
 						<issue-pull-request
@@ -437,5 +474,7 @@ export class CommitDetailsApp extends App<State> {
 		}
 	}
 }
+
+function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
 
 new CommitDetailsApp();

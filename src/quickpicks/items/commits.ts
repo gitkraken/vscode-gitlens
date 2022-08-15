@@ -262,7 +262,7 @@ export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem 
 	}
 
 	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return GitActions.Commit.openDetails(this.commit);
+		return GitActions.Commit.showDetailsView(this.commit);
 	}
 }
 

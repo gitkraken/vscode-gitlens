@@ -8,7 +8,7 @@ export class FormattedDate extends LitElement {
 	@property()
 	format = 'MMMM Do, YYYY h:mma';
 
-	@property({ converter: dateConverter(navigator.language), reflect: true })
+	@property({ converter: dateConverter(), reflect: true })
 	date = new Date();
 
 	override render() {

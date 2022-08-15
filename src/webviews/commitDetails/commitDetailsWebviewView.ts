@@ -1,79 +1,159 @@
-import { env, Uri, window } from 'vscode';
-import type {
-	DiffWithPreviousCommandArgs,
-	DiffWithWorkingCommandArgs,
-	OpenFileOnRemoteCommandArgs,
-} from '../../commands';
-import { executeGitCommand } from '../../commands/gitCommands.actions';
-import { Commands, CoreCommands } from '../../constants';
+import type { CancellationToken, TreeViewSelectionChangeEvent, TreeViewVisibilityChangeEvent } from 'vscode';
+import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
+import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
+import { configuration } from '../../configuration';
+import { Commands } from '../../constants';
 import type { Container } from '../../container';
-import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
+import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
-import { executeCommand, executeCoreCommand } from '../../system/command';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { PullRequest } from '../../git/models/pullRequest';
+import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
 import { getSettledValue } from '../../system/promise';
+import type { Serialized } from '../../system/serialize';
+import { serialize } from '../../system/serialize';
+import type { LinesChangeEvent } from '../../trackers/lineTracker';
+import { CommitFileNode } from '../../views/nodes/commitFileNode';
+import { CommitNode } from '../../views/nodes/commitNode';
+import { FileRevisionAsCommitNode } from '../../views/nodes/fileRevisionAsCommitNode';
+import type { ViewNode } from '../../views/nodes/viewNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
-import type { CommitDetails, CommitSummary, FileParams, RichCommitDetails, State } from './protocol';
+import type { CommitDetails, FileActionParams, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	FileComparePreviousCommandType,
-	FileCompareWorkingCommandType,
-	FileMoreActionsCommandType,
+	DidChangeStateNotificationType,
+	FileActionsCommandType,
 	OpenFileCommandType,
+	OpenFileComparePreviousCommandType,
+	OpenFileCompareWorkingCommandType,
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
-	RichContentNotificationType,
+	PinCommitCommandType,
 	SearchCommitCommandType,
 } from './protocol';
 
-export class CommitDetailsWebviewView extends WebviewViewBase<State> {
-	private commits?: GitCommit[];
-	private selectedCommit?: GitCommit;
-	private loadedOnce = false;
+interface Context {
+	pinned: boolean;
+	commit: GitCommit | undefined;
+
+	richStateLoaded: boolean;
+	formattedMessage: string | undefined;
+	autolinkedIssues: IssueOrPullRequest[] | undefined;
+	pullRequest: PullRequest | undefined;
+
+	// commits: GitCommit[] | undefined;
+}
+
+export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<State>> {
+	private _bootstraping = true;
+	/** The context the webview has */
+	private _context: Context;
+	/** The context the webview should have */
+	private _pendingContext: Partial<Context> | undefined;
+
+	private _pinned = false;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.views.commitDetails', 'commitDetails.html', 'Commit Details');
+
+		this._context = {
+			pinned: false,
+			commit: undefined,
+			richStateLoaded: false,
+			formattedMessage: undefined,
+			autolinkedIssues: undefined,
+			pullRequest: undefined,
+		};
 	}
 
 	override async show(options?: { commit?: GitCommit; preserveFocus?: boolean | undefined }): Promise<void> {
-		if (options?.commit != null) {
-			this.selectCommit(options.commit);
-			void this.refresh();
+		if (options != null) {
+			let commit;
+			// eslint-disable-next-line prefer-const
+			({ commit, ...options } = options);
+			if (commit != null) {
+				this.updateCommit(commit, { pinned: true });
+			}
 		}
 
-		return super.show(options != null ? { preserveFocus: options.preserveFocus } : undefined);
+		return super.show(options);
+	}
+
+	protected override async includeBootstrap(): Promise<Serialized<State>> {
+		this._bootstraping = true;
+
+		this._context = { ...this._context, ...this._pendingContext };
+		this._pendingContext = undefined;
+
+		return this.getState(this._context);
+	}
+
+	private _visibilityDisposable: Disposable | undefined;
+	protected override onVisibilityChanged(visible: boolean) {
+		this.ensureTrackers();
+		if (!visible) return;
+
+		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
+		if (this._bootstraping) {
+			this._bootstraping = false;
+
+			if (this._pendingContext == null) return;
+		}
+
+		this.updateState(true);
+	}
+
+	private ensureTrackers(): void {
+		this._visibilityDisposable?.dispose();
+		this._visibilityDisposable = undefined;
+
+		if (this._pinned || !this.visible) return;
+
+		const { lineTracker, commitsView } = this.container;
+		this._visibilityDisposable = Disposable.from(
+			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
+			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
+			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
+		);
+
+		let commit;
+		const line = lineTracker.selections?.[0].active;
+		if (line != null) {
+			commit = lineTracker.getState(line)?.commit;
+		}
+
+		// // keep the last selected commit if the lineTracker can't find a commit
+		// if (commit == null && this._context.commit != null) return;
+		this.updateCommit(commit, { immediate: false });
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenFileOnRemoteCommandType.method:
-				onIpc(OpenFileOnRemoteCommandType, e, params => {
-					this.openFileOnRemote(params);
-				});
+				onIpc(OpenFileOnRemoteCommandType, e, params => void this.openFileOnRemote(params));
 				break;
 			case OpenFileCommandType.method:
-				onIpc(OpenFileCommandType, e, params => {
-					this.openFile(params);
-				});
+				onIpc(OpenFileCommandType, e, params => void this.openFile(params));
 				break;
-			case FileCompareWorkingCommandType.method:
-				onIpc(FileCompareWorkingCommandType, e, params => {
-					this.openFileComparisonWithWorking(params);
-				});
+			case OpenFileCompareWorkingCommandType.method:
+				onIpc(OpenFileCompareWorkingCommandType, e, params => void this.openFileComparisonWithWorking(params));
 				break;
-			case FileComparePreviousCommandType.method:
-				onIpc(FileComparePreviousCommandType, e, params => {
-					this.openFileComparisonWithPrevious(params);
-				});
+			case OpenFileComparePreviousCommandType.method:
+				onIpc(
+					OpenFileComparePreviousCommandType,
+					e,
+					params => void this.openFileComparisonWithPrevious(params),
+				);
 				break;
-			case FileMoreActionsCommandType.method:
-				onIpc(FileMoreActionsCommandType, e, params => {
-					this.showFileActions(params);
-				});
+			case FileActionsCommandType.method:
+				onIpc(FileActionsCommandType, e, params => void this.showFileActions(params));
 				break;
 			case CommitActionsCommandType.method:
 				onIpc(CommitActionsCommandType, e, params => {
@@ -84,33 +164,320 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 						case 'sha':
 							if (params.alt) {
 								this.showCommitPicker();
-							} else if (this.selectedCommit != null) {
-								void env.clipboard.writeText(this.selectedCommit.sha);
+							} else if (this._context.commit != null) {
+								void env.clipboard.writeText(this._context.commit.sha);
 							}
 							break;
 					}
 				});
 				break;
 			case PickCommitCommandType.method:
-				onIpc(PickCommitCommandType, e, _params => {
-					this.showCommitPicker();
-				});
+				onIpc(PickCommitCommandType, e, _params => this.showCommitPicker());
 				break;
 			case SearchCommitCommandType.method:
-				onIpc(SearchCommitCommandType, e, _params => {
-					this.showCommitSearch();
-				});
+				onIpc(SearchCommitCommandType, e, _params => this.showCommitSearch());
 				break;
 			case AutolinkSettingsCommandType.method:
-				onIpc(AutolinkSettingsCommandType, e, _params => {
-					this.showAutolinkSettings();
-				});
+				onIpc(AutolinkSettingsCommandType, e, _params => this.showAutolinkSettings());
+				break;
+			case PinCommitCommandType.method:
+				onIpc(PinCommitCommandType, e, params => this.updatePinned(params.pin ?? false, true));
 				break;
 		}
 	}
 
-	private getFileFromParams(params: FileParams): GitFile | undefined {
-		return this.selectedCommit?.files?.find(file => file.path === params.path && file.repoPath === params.repoPath);
+	private onActiveLinesChanged(e: LinesChangeEvent) {
+		if (e.pending) return;
+
+		const commit =
+			e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
+		this.updateCommit(commit);
+	}
+
+	private onCommitsViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		const node = e.selection?.[0];
+		if (
+			node != null &&
+			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
+		) {
+			this.updateCommit(node.commit);
+		}
+	}
+
+	private onCommitsViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		if (!e.visible) return;
+
+		const node = this.container.commitsView.activeSelection;
+		if (
+			node != null &&
+			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
+		) {
+			this.updateCommit(node.commit);
+		}
+	}
+
+	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
+
+	@debug({ args: false })
+	protected async getState(current: Context): Promise<Serialized<State>> {
+		if (this._cancellationTokenSource != null) {
+			this._cancellationTokenSource.cancel();
+			this._cancellationTokenSource.dispose();
+			this._cancellationTokenSource = undefined;
+		}
+
+		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
+
+		let details;
+		if (current.commit != null) {
+			if (!current.commit.hasFullDetails()) {
+				await current.commit.ensureFullDetails();
+				// current.commit.assertsFullDetails();
+			}
+
+			details = await this.getDetailsModel(current.commit, current.formattedMessage);
+
+			if (!current.richStateLoaded) {
+				this._cancellationTokenSource = new CancellationTokenSource();
+
+				const cancellation = this._cancellationTokenSource.token;
+				setTimeout(() => {
+					if (cancellation.isCancellationRequested) return;
+					void this.updateRichState(cancellation);
+				}, 100);
+			}
+		}
+
+		// const commitChoices = await Promise.all(this.commits.map(async commit => summaryModel(commit)));
+
+		const state = serialize<State>({
+			pinned: current.pinned,
+			includeRichContent: current.richStateLoaded,
+			// commits: commitChoices,
+			selected: details,
+			autolinkedIssues: current.autolinkedIssues,
+			pullRequest: current.pullRequest,
+
+			dateFormat: dateFormat,
+		});
+		return state;
+	}
+
+	private async updateRichState(cancellation: CancellationToken): Promise<void> {
+		const commit = this._context.commit;
+		if (commit == null) return;
+
+		const remotes = await this.container.git.getRemotesWithProviders(commit.repoPath, { sort: true });
+		const remote = await this.container.git.getBestRemoteWithRichProvider(remotes);
+
+		if (cancellation.isCancellationRequested) return;
+
+		let autolinkedIssuesOrPullRequests;
+		let pr;
+
+		if (remote?.provider != null) {
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote),
+				commit.getAssociatedPullRequest({ remote: remote }),
+			]);
+
+			if (cancellation.isCancellationRequested) return;
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+		}
+
+		// TODO: add HTML formatting option to linkify
+		const formattedMessage = this.container.autolinks.linkify(
+			encodeMarkup(commit.message!),
+			true,
+			remote != null ? [remote] : undefined,
+			autolinkedIssuesOrPullRequests,
+		);
+
+		// Remove possible duplicate pull request
+		if (pr != null) {
+			autolinkedIssuesOrPullRequests?.delete(pr.id);
+		}
+
+		this.updatePendingContext({
+			richStateLoaded: true,
+			formattedMessage: formattedMessage,
+			autolinkedIssues:
+				autolinkedIssuesOrPullRequests != null ? [...autolinkedIssuesOrPullRequests.values()] : undefined,
+			pullRequest: pr,
+		});
+
+		this.updateState();
+
+		// return {
+		// 	formattedMessage: formattedMessage,
+		// 	pullRequest: pr,
+		// 	autolinkedIssues:
+		// 		autolinkedIssuesOrPullRequests != null
+		// 			? [...autolinkedIssuesOrPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
+		// 			: undefined,
+		// };
+	}
+
+	private updateCommit(commit: GitCommit | undefined, options?: { pinned?: boolean; immediate?: boolean }) {
+		// this.commits = [commit];
+		if (this._context.commit?.sha === commit?.sha) return;
+
+		this.updatePendingContext({
+			commit: commit,
+			richStateLoaded: Boolean(commit?.isUncommitted),
+			formattedMessage: undefined,
+			autolinkedIssues: undefined,
+			pullRequest: undefined,
+		});
+
+		if (options?.pinned != null) {
+			this.updatePinned(options?.pinned);
+		}
+
+		this.updateState(options?.immediate ?? true);
+	}
+
+	private updatePinned(pinned: boolean, immediate?: boolean) {
+		if (pinned === this._context.pinned) return;
+
+		this._pinned = pinned;
+		this.ensureTrackers();
+
+		this.updatePendingContext({ pinned: pinned });
+		this.updateState(immediate);
+	}
+
+	private updatePendingContext(context: Partial<Context>): boolean {
+		let changed = false;
+		for (const [key, value] of Object.entries(context)) {
+			const current = (this._context as unknown as Record<string, unknown>)[key];
+			if (
+				(current instanceof Uri || value instanceof Uri) &&
+				(current as any)?.toString() === value?.toString()
+			) {
+				continue;
+			}
+
+			if (current === value) {
+				if (value !== undefined || key in this._context) continue;
+			}
+
+			if (this._pendingContext == null) {
+				this._pendingContext = {};
+			}
+
+			(this._pendingContext as Record<string, unknown>)[key] = value;
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateState(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		if (immediate) {
+			void this.notifyDidChangeState();
+			return;
+		}
+
+		if (this._notifyDidChangeStateDebounced == null) {
+			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
+		}
+
+		this._notifyDidChangeStateDebounced();
+
+		// if (this.commit == null) return;
+
+		// const state = await this.getState(false);
+		// if (state != null) {
+		// 	void this.notify(DidChangeStateNotificationType, { state: state });
+		// 	queueMicrotask(() => this.updateRichState());
+		// }
+	}
+
+	@debug()
+	private async notifyDidChangeState() {
+		if (!this.isReady || !this.visible) return false;
+
+		this._notifyDidChangeStateDebounced?.cancel();
+		if (this._pendingContext == null) return false;
+
+		const context = { ...this._context, ...this._pendingContext };
+
+		return window.withProgress({ location: { viewId: this.id } }, async () => {
+			const success = await this.notify(DidChangeStateNotificationType, {
+				state: await this.getState(context),
+			});
+			if (success) {
+				this._context = context;
+				this._pendingContext = undefined;
+			}
+		});
+	}
+
+	// private async updateRichState() {
+	// 	if (this.commit == null) return;
+
+	// 	const richState = await this.getRichState(this.commit);
+	// 	if (richState != null) {
+	// 		void this.notify(DidChangeRichStateNotificationType, richState);
+	// 	}
+	// }
+
+	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
+		// if (commit == null) return undefined;
+
+		// if (!commit.hasFullDetails()) {
+		// 	await commit.ensureFullDetails();
+		// 	commit.assertsFullDetails();
+		// }
+
+		const authorAvatar = await commit.author.getAvatarUri(commit);
+		// const committerAvatar = await commit.committer?.getAvatarUri(commit);
+
+		// const formattedMessage = this.container.autolinks.linkify(
+		// 	encodeMarkup(commit.message),
+		// 	true,
+		// 	remote != null ? [remote] : undefined,
+		// 	autolinkedIssuesOrPullRequests,
+		// );
+
+		return {
+			sha: commit.sha,
+			shortSha: commit.shortSha,
+			// summary: commit.summary,
+			message: formattedMessage ?? encodeMarkup(commit.message ?? commit.summary),
+			author: { ...commit.author, avatar: authorAvatar.toString(true) },
+			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
+			files: commit.files?.map(({ status, repoPath, path, originalPath }) => {
+				const icon = GitFile.getStatusIcon(status);
+				return {
+					path: path,
+					originalPath: originalPath,
+					status: status,
+					repoPath: repoPath,
+					icon: {
+						dark: this._view!.webview.asWebviewUri(
+							Uri.joinPath(this.container.context.extensionUri, 'images', 'dark', icon),
+						).toString(),
+						light: this._view!.webview.asWebviewUri(
+							Uri.joinPath(this.container.context.extensionUri, 'images', 'light', icon),
+						).toString(),
+					},
+				};
+			}),
+			stats: commit.stats,
+		};
+	}
+
+	private async getFileFromParams(params: FileActionParams): Promise<GitFileChange | undefined> {
+		return this._context.commit?.findFile(params.path);
 	}
 
 	private showAutolinkSettings() {
@@ -126,242 +493,124 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State> {
 			command: 'log',
 			state: {
 				reference: 'HEAD',
-				repo: this.selectedCommit?.repoPath,
+				repo: this._context.commit?.repoPath,
 				openPickInView: true,
 			},
 		});
 	}
 
 	private showCommitActions() {
-		if (this.selectedCommit === undefined) {
-			return;
-		}
+		if (this._context.commit == null) return;
 
-		void executeCommand(Commands.ShowQuickCommit, {
-			commit: this.selectedCommit,
+		void GitActions.Commit.showDetailsQuickPick(this._context.commit);
+
+		// void executeCommand(Commands.ShowQuickCommit, {
+		// 	commit: this._context.commit,
+		// });
+	}
+
+	private async showFileActions(params: FileActionParams) {
+		if (this._context.commit == null) return;
+
+		const file = await this.getFileFromParams(params);
+		if (file == null) return;
+
+		void GitActions.Commit.showDetailsQuickPick(this._context.commit, file);
+
+		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
+		// void executeCommand(Commands.ShowQuickCommitFile, uri, {
+		// 	sha: this._context.commit.sha,
+		// });
+	}
+
+	private async openFileComparisonWithWorking(params: FileActionParams) {
+		if (this._context.commit == null) return;
+
+		const file = await this.getFileFromParams(params);
+		if (file == null) return;
+
+		void GitActions.Commit.openChangesWithWorking(file.path, this._context.commit, {
+			preserveFocus: true,
+			preview: true,
+			...params.showOptions,
 		});
+
+		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
+		// void executeCommand<[Uri, DiffWithWorkingCommandArgs]>(Commands.DiffWithWorking, uri, {
+		// 	showOptions: {
+		// 		preserveFocus: true,
+		// 		preview: true,
+		// 	},
+		// });
 	}
 
-	private showFileActions(params: FileParams) {
-		const file = this.getFileFromParams(params);
-		if (this.selectedCommit === undefined || file === undefined) {
-			return;
-		}
+	private async openFileComparisonWithPrevious(params: FileActionParams) {
+		if (this._context.commit == null) return;
 
-		const uri = GitUri.fromFile(file, this.selectedCommit.repoPath, this.selectedCommit.sha);
-		void executeCommand(Commands.ShowQuickCommitFile, uri, {
-			sha: this.selectedCommit.sha,
+		const file = await this.getFileFromParams(params);
+		if (file == null) return;
+
+		void GitActions.Commit.openChanges(file.path, this._context.commit, {
+			preserveFocus: true,
+			preview: true,
+			...params.showOptions,
 		});
+
+		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
+		// const line = this._context.commit.lines.length ? this._context.commit.lines[0].line - 1 : 0;
+		// void executeCommand<[Uri, DiffWithPreviousCommandArgs]>(Commands.DiffWithPrevious, uri, {
+		// 	commit: this._context.commit,
+		// 	line: line,
+		// 	showOptions: {
+		// 		preserveFocus: true,
+		// 		preview: true,
+		// 		...params.showOptions,
+		// 	},
+		// });
 	}
 
-	private openFileComparisonWithWorking(params: FileParams) {
-		const file = this.getFileFromParams(params);
-		if (this.selectedCommit === undefined || file === undefined) {
-			return;
-		}
+	private async openFile(params: FileActionParams) {
+		if (this._context.commit == null) return;
 
-		const uri = GitUri.fromFile(file, this.selectedCommit.repoPath, this.selectedCommit.sha);
-		void executeCommand<[Uri, DiffWithWorkingCommandArgs]>(Commands.DiffWithWorking, uri, {
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+		const file = await this.getFileFromParams(params);
+		if (file == null) return;
+
+		void GitActions.Commit.openFile(file.path, this._context.commit, {
+			preserveFocus: true,
+			preview: true,
+			...params.showOptions,
 		});
+
+		// const uri = GitUri.fromFile(file, this.commit.repoPath, this.commit.sha);
+		// void executeCoreCommand(CoreCommands.Open, uri, { background: false, preview: false });
 	}
 
-	private openFileComparisonWithPrevious(params: FileParams) {
-		const file = this.getFileFromParams(params);
-		if (this.selectedCommit === undefined || file === undefined) {
-			return;
-		}
+	private async openFileOnRemote(params: FileActionParams) {
+		if (this._context.commit == null) return;
 
-		const uri = GitUri.fromFile(file, this.selectedCommit.repoPath, this.selectedCommit.sha);
-		const line = this.selectedCommit.lines.length ? this.selectedCommit.lines[0].line - 1 : 0;
-		void executeCommand<[Uri, DiffWithPreviousCommandArgs]>(Commands.DiffWithPrevious, uri, {
-			commit: this.selectedCommit,
-			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-				...params.showOptions,
-			},
-		});
-	}
+		const file = await this.getFileFromParams(params);
+		if (file == null) return;
 
-	private openFile(params: FileParams) {
-		const file = this.getFileFromParams(params);
-		if (this.selectedCommit === undefined || file === undefined) {
-			return;
-		}
+		void GitActions.Commit.openFileOnRemote(file.path, this._context.commit);
 
-		const uri = GitUri.fromFile(file, this.selectedCommit.repoPath, this.selectedCommit.sha);
-		void executeCoreCommand(CoreCommands.Open, uri, { background: false, preview: false });
-	}
+		// const uri = GitUri.fromFile(file, this.commit.repoPath, this.commit.sha);
 
-	private openFileOnRemote(params: FileParams) {
-		const file = this.getFileFromParams(params);
-		if (this.selectedCommit === undefined || file === undefined) {
-			return;
-		}
-
-		const uri = GitUri.fromFile(file, this.selectedCommit.repoPath, this.selectedCommit.sha);
-
-		void executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(Commands.OpenFileOnRemote, uri, {
-			sha: this.selectedCommit?.sha,
-		});
-	}
-
-	private copyRemoteFileUrl() {}
-
-	private async getRichContent(selected: GitCommit): Promise<RichCommitDetails> {
-		const remotes = await this.container.git.getRemotesWithProviders(selected.repoPath, { sort: true });
-		const remote = await this.container.git.getBestRemoteWithRichProvider(remotes);
-
-		if (selected.message == null) {
-			await selected.ensureFullDetails();
-		}
-
-		let autolinkedIssuesOrPullRequests;
-		let pr;
-
-		if (remote?.provider != null) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.container.autolinks.getLinkedIssuesAndPullRequests(selected.message ?? selected.summary, remote),
-				selected.getAssociatedPullRequest({ remote: remote }),
-			]);
-
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
-			pr = getSettledValue(prResult);
-		}
-
-		// TODO: add HTML formatting option to linkify
-		const formattedMessage = this.container.autolinks.linkify(
-			encodeMarkup(selected.message!),
-			true,
-			remote != null ? [remote] : undefined,
-			autolinkedIssuesOrPullRequests,
-		);
-
-		// Remove possible duplicate pull request
-		if (pr != null) {
-			autolinkedIssuesOrPullRequests?.delete(pr.id);
-		}
-
-		return {
-			formattedMessage: formattedMessage,
-			pullRequest: pr,
-			issues:
-				autolinkedIssuesOrPullRequests != null
-					? [...autolinkedIssuesOrPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
-					: undefined,
-		};
-	}
-
-	private selectCommit(commit: GitCommit) {
-		this.commits = [commit];
-		this.selectedCommit = commit;
-	}
-
-	@debug({ args: false })
-	protected async getState(includeRichContent = true): Promise<State | undefined> {
-		if (this.commits === undefined) {
-			return;
-		}
-		console.log('CommitDetailsWebview selected', this.selectedCommit);
-
-		let richContent;
-		let formattedCommit;
-		if (this.selectedCommit !== undefined) {
-			if (includeRichContent) {
-				richContent = await this.getRichContent(this.selectedCommit);
-			}
-			formattedCommit = await this.getDetailsModel(this.selectedCommit, richContent?.formattedMessage);
-		}
-
-		const commitChoices = await Promise.all(this.commits.map(async commit => summaryModel(commit)));
-
-		return {
-			includeRichContent: includeRichContent,
-			commits: commitChoices,
-			selected: formattedCommit,
-			pullRequest: richContent?.pullRequest,
-			issues: richContent?.issues,
-		};
-	}
-
-	protected override async includeBootstrap() {
-		return window.withProgress({ location: { viewId: this.id } }, async () => {
-			const state = await this.getState(this.loadedOnce);
-			if (state === undefined) {
-				return {};
-			}
-
-			if (this.loadedOnce === false) {
-				void this.updateRichContent();
-				this.loadedOnce = true;
-			}
-
-			return state;
-		});
-	}
-
-	private async updateRichContent() {
-		if (this.selectedCommit === undefined) {
-			return;
-		}
-
-		const richContent = await this.getRichContent(this.selectedCommit);
-		if (richContent != null) {
-			void this.notify(RichContentNotificationType, richContent);
-		}
-	}
-
-	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails | undefined> {
-		if (commit === undefined) {
-			return;
-		}
-
-		const authorAvatar = await commit.author?.getAvatarUri(commit);
-		// const committerAvatar = await commit.committer?.getAvatarUri(commit);
-
-		return {
-			sha: commit.sha,
-			shortSha: commit.shortSha,
-			summary: commit.summary,
-			message: formattedMessage ?? encodeMarkup(commit.message ?? ''),
-			author: { ...commit.author, avatar: authorAvatar?.toString(true) },
-			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
-			files: commit.files?.map(({ repoPath, path, status }) => {
-				const icon = GitFile.getStatusIcon(status);
-				return {
-					repoPath: repoPath,
-					path: path,
-					status: status,
-					icon: {
-						dark: this._view!.webview.asWebviewUri(
-							Uri.joinPath(this.container.context.extensionUri, 'images', 'dark', icon),
-						).toString(),
-						light: this._view!.webview.asWebviewUri(
-							Uri.joinPath(this.container.context.extensionUri, 'images', 'light', icon),
-						).toString(),
-					},
-				};
-			}),
-			stats: commit.stats,
-		};
+		// void executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(Commands.OpenFileOnRemote, uri, {
+		// 	sha: this.commit?.sha,
+		// });
 	}
 }
 
-async function summaryModel(commit: GitCommit): Promise<CommitSummary> {
-	return {
-		sha: commit.sha,
-		shortSha: commit.shortSha,
-		summary: commit.summary,
-		message: commit.message,
-		author: commit.author,
-		avatar: (await commit.getAvatarUri())?.toString(true),
-	};
-}
+// async function summaryModel(commit: GitCommit): Promise<CommitSummary> {
+// 	return {
+// 		sha: commit.sha,
+// 		shortSha: commit.shortSha,
+// 		summary: commit.summary,
+// 		message: commit.message,
+// 		author: commit.author,
+// 		avatar: (await commit.getAvatarUri())?.toString(true),
+// 	};
+// }
 
 function encodeMarkup(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

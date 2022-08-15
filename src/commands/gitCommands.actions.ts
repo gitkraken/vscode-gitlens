@@ -5,7 +5,10 @@ import type {
 	DiffWithCommandArgs,
 	DiffWithWorkingCommandArgs,
 	GitCommandsCommandArgs,
+	OpenFileOnRemoteCommandArgs,
 	OpenWorkingFileCommandArgs,
+	ShowQuickCommitCommandArgs,
+	ShowQuickCommitFileCommandArgs,
 } from '../commands';
 import type { FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
@@ -586,8 +589,26 @@ export namespace GitActions {
 			}
 		}
 
-		export async function openDetails(commit: GitCommit): Promise<void> {
-			await Container.instance.commitDetailsView.show({ commit: commit });
+		export async function openFileOnRemote(uri: Uri): Promise<void>;
+		export async function openFileOnRemote(file: string | GitFile, ref: GitRevisionReference): Promise<void>;
+		export async function openFileOnRemote(
+			fileOrUri: string | GitFile | Uri,
+			ref?: GitRevisionReference,
+		): Promise<void> {
+			let uri;
+			if (fileOrUri instanceof Uri) {
+				uri = fileOrUri;
+			} else {
+				if (ref == null) throw new Error('Invalid arguments');
+
+				uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
+				// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
+				if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
+			}
+
+			void (await executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(Commands.OpenFileOnRemote, uri, {
+				sha: ref?.ref,
+			}));
 		}
 
 		export async function openFiles(commit: GitCommit): Promise<void>;
@@ -711,6 +732,33 @@ export namespace GitActions {
 			}
 
 			return undefined;
+		}
+
+		export async function showDetailsQuickPick(commit: GitCommit, uri?: Uri): Promise<void>;
+		export async function showDetailsQuickPick(commit: GitCommit, file?: string | GitFile): Promise<void>;
+		export async function showDetailsQuickPick(
+			commit: GitCommit,
+			fileOrUri?: string | GitFile | Uri,
+		): Promise<void> {
+			if (fileOrUri == null) {
+				void (await executeCommand<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, { commit: commit }));
+				return;
+			}
+
+			let uri;
+			if (fileOrUri instanceof Uri) {
+				uri = fileOrUri;
+			} else {
+				uri = GitUri.fromFile(fileOrUri, commit.repoPath, commit.ref);
+			}
+
+			void (await executeCommand<[Uri, ShowQuickCommitFileCommandArgs]>(Commands.ShowQuickCommitFile, uri, {
+				sha: commit.sha,
+			}));
+		}
+
+		export function showDetailsView(commit: GitCommit): Promise<void> {
+			return Container.instance.commitDetailsView.show({ commit: commit });
 		}
 	}
 

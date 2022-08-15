@@ -14,7 +14,17 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
-export class PullRequest implements IssueOrPullRequest {
+export interface PullRequestShape extends IssueOrPullRequest {
+	readonly author: {
+		readonly name: string;
+		readonly avatarUrl: string;
+		readonly url: string;
+	};
+	readonly state: PullRequestState;
+	readonly mergedDate?: Date;
+}
+
+export class PullRequest implements PullRequestShape {
 	static is(pr: any): pr is PullRequest {
 		return pr instanceof PullRequest;
 	}

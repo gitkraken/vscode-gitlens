@@ -8,14 +8,14 @@ export const enum IssueOrPullRequestType {
 }
 
 export interface IssueOrPullRequest {
-	type: IssueOrPullRequestType;
-	provider: RemoteProviderReference;
-	id: string;
-	date: Date;
-	title: string;
-	closed: boolean;
-	closedDate?: Date;
-	url: string;
+	readonly type: IssueOrPullRequestType;
+	readonly provider: RemoteProviderReference;
+	readonly id: string;
+	readonly title: string;
+	readonly url: string;
+	readonly date: Date;
+	readonly closedDate?: Date;
+	readonly closed: boolean;
 }
 
 export namespace IssueOrPullRequest {

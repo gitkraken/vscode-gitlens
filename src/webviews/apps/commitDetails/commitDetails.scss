@@ -194,7 +194,7 @@ ul {
 		flex-direction: row;
 		align-items: flex-start;
 		justify-content: space-between;
-		gap: 0.5rem;
+		// gap: 0.5rem;
 	}
 
 	&__message {
@@ -209,12 +209,16 @@ ul {
 		margin: 0;
 		display: block;
 
-		@supports (-webkit-line-clamp: 6) {
-			display: -webkit-box;
-			-webkit-line-clamp: 6;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
-		}
+		overflow-y: auto;
+		overflow-x: hidden;
+		max-height: 9rem;
+
+		// @supports (-webkit-line-clamp: 6) {
+		// 	display: -webkit-box;
+		// 	-webkit-line-clamp: 6;
+		// 	-webkit-box-orient: vertical;
+		// 	overflow: hidden;
+		// }
 
 		strong {
 			font-weight: 600;
@@ -259,10 +263,14 @@ ul {
 	}
 
 	&__rich {
-		padding: 0.5rem var(--gitlens-scrollbar-gutter-width) 1rem var(--gitlens-gutter-width);
+		padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
 
+		> :first-child {
+			margin-top: 0;
+		}
 		> :last-child {
 			margin-top: 0.5rem;
+			margin-bottom: 0;
 		}
 	}
 	&__pull-request {

@@ -29,7 +29,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-export abstract class WebviewViewBase<State> implements WebviewViewProvider, Disposable {
+export abstract class WebviewViewBase<State, SerializedState = State> implements WebviewViewProvider, Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
 	private _disposableView: Disposable | undefined;
@@ -93,7 +93,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 	protected registerCommands?(): Disposable[];
 
-	protected includeBootstrap?(): State | Promise<State>;
+	protected includeBootstrap?(): SerializedState | Promise<SerializedState>;
 	protected includeHead?(): string | Promise<string>;
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
@@ -201,7 +201,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 
 		const html = content.replace(
 			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
-			(_substring, token) => {
+			(_substring: string, token: string) => {
 				switch (token) {
 					case 'head':
 						return head ?? '';
@@ -238,7 +238,7 @@ export abstract class WebviewViewBase<State> implements WebviewViewProvider, Dis
 		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
 	}
 
-	private postMessage(message: IpcMessage) {
+	protected postMessage(message: IpcMessage) {
 		if (this._view == null) return Promise.resolve(false);
 
 		return this._view.webview.postMessage(message);

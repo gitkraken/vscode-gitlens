@@ -9,7 +9,8 @@
 			<!-- commitDetails:header -->
 			<!-- commitDetails:choices -->
 			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
-				<p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p>
+				<!-- <p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p> -->
+				<p>Open a file with commit history or pick a specific commit to see commit details.</p>
 				<p class="button-container">
 					<span class="button-group">
 						<button class="button button--full" type="button" data-action="pick-commit">
@@ -20,7 +21,11 @@
 						</button>
 					</span>
 				</p>
-				<!-- <p><button class="button button--full" type="button">Follow Open Files</button></p> -->
+				<!-- <p class="button-container">
+					<span class="button-group"
+						><button class="button button--full" type="button">Follow Open Files</button></span
+					>
+				</p> -->
 			</div>
 			<main class="commit-details commit-detail-panel__main" id="main" tabindex="-1">
 				<div class="commit-details__commit">
@@ -30,6 +35,14 @@
 								<skeleton-loader></skeleton-loader>
 							</li>
 						</ul>
+						<a
+							class="commit-details__commit-action"
+							href="#"
+							data-action="commit-actions-pin"
+							aria-label="Pin Commit to View"
+							title="Pin Commit to View"
+							><code-icon icon="pin" data-region="commit-pin"></code-icon
+						></a>
 						<a
 							class="commit-details__commit-action"
 							href="#"

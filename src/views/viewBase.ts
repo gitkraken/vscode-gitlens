@@ -6,6 +6,7 @@ import type {
 	TreeItem,
 	TreeView,
 	TreeViewExpansionEvent,
+	TreeViewSelectionChangeEvent,
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { Disposable, EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
@@ -84,6 +85,11 @@ export abstract class ViewBase<
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
+	}
+
+	private _onDidChangeSelection = new EventEmitter<TreeViewSelectionChangeEvent<ViewNode>>();
+	get onDidChangeSelection(): Event<TreeViewSelectionChangeEvent<ViewNode>> {
+		return this._onDidChangeSelection.event;
 	}
 
 	private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
@@ -261,6 +267,7 @@ export abstract class ViewBase<
 				this.onConfigurationChanged(e);
 			}, this),
 			this.tree,
+			this.tree.onDidChangeSelection(debounce(this.onSelectionChanged, 250), this),
 			this.tree.onDidChangeVisibility(debounce(this.onVisibilityChanged, 250), this),
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this.tree.onDidExpandElement(this.onElementExpanded, this),
@@ -301,6 +308,10 @@ export abstract class ViewBase<
 
 	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
 		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
+	}
+
+	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		this._onDidChangeSelection.fire(e);
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {

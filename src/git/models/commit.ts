@@ -173,18 +173,24 @@ export class GitCommit implements GitRevisionReference {
 		);
 	}
 
-	hasFullDetails(commit: GitCommit): commit is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+	hasFullDetails(): this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
 		return (
-			commit.message != null &&
-			commit.files != null &&
-			commit.parents.length !== 0 &&
-			(commit.refType !== 'stash' || commit._stashUntrackedFilesLoaded)
+			this.message != null &&
+			this.files != null &&
+			this.parents.length !== 0 &&
+			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
 		);
+	}
+
+	assertsFullDetails(): asserts this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+		if (!this.hasFullDetails()) {
+			throw new Error(`GitCommit(${this.sha}) is not fully loaded`);
+		}
 	}
 
 	@gate()
 	async ensureFullDetails(): Promise<void> {
-		if (this.isUncommitted || this.hasFullDetails(this)) return;
+		if (this.isUncommitted || this.hasFullDetails()) return;
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
 			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,
@@ -288,7 +294,7 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(path: string): Promise<GitFileChange | undefined>;
 	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
 	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
-		if (!this.hasFullDetails(this)) {
+		if (!this.hasFullDetails()) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
@@ -412,7 +418,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getCommitsForFiles(): Promise<GitCommit[]> {
-		if (!this.hasFullDetails(this)) {
+		if (!this.hasFullDetails()) {
 			await this.ensureFullDetails();
 			if (this._files == null) return [];
 		}
@@ -552,7 +558,13 @@ export function isOfCommitOrStashRefType(commit: GitReference | undefined): bool
 	return commit?.refType === 'revision' || commit?.refType === 'stash';
 }
 
-export class GitCommitIdentity {
+export interface GitCommitIdentityShape {
+	readonly name: string;
+	readonly email: string | undefined;
+	readonly date: Date;
+}
+
+export class GitCommitIdentity implements GitCommitIdentityShape {
 	constructor(
 		public readonly name: string,
 		public readonly email: string | undefined,
