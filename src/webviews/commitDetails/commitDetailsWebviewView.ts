@@ -76,9 +76,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	override async show(options?: { commit?: GitCommit; preserveFocus?: boolean | undefined }): Promise<void> {
 		if (options != null) {
 			let commit;
-			// eslint-disable-next-line prefer-const
 			({ commit, ...options } = options);
-			if (commit != null) {
+			if (commit == null) {
+				commit = this.getBestCommit();
+			}
+			if (commit == null) {
 				this.updateCommit(commit, { pinned: true });
 			}
 		}
@@ -93,6 +95,17 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._pendingContext = undefined;
 
 		return this.getState(this._context);
+	}
+
+	protected override onInitializing(): Disposable[] | undefined {
+		if (this._context.commit == null) {
+			const commit = this.getBestCommit();
+			if (commit != null) {
+				this.updateCommit(commit, { immediate: false });
+			}
+		}
+
+		return undefined;
 	}
 
 	private _visibilityDisposable: Disposable | undefined;
@@ -123,15 +136,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
 		);
 
-		let commit;
-		const line = lineTracker.selections?.[0].active;
-		if (line != null) {
-			commit = lineTracker.getState(line)?.commit;
-		}
-
-		// // keep the last selected commit if the lineTracker can't find a commit
-		// if (commit == null && this._context.commit != null) return;
+		const commit = this.getBestCommit();
 		this.updateCommit(commit, { immediate: false });
+	}
+
+	protected override onReady(): void {
+		this.updateState(false);
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
@@ -320,9 +330,25 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		// };
 	}
 
+	private _commitDisposable: Disposable | undefined;
+
 	private updateCommit(commit: GitCommit | undefined, options?: { pinned?: boolean; immediate?: boolean }) {
 		// this.commits = [commit];
 		if (this._context.commit?.sha === commit?.sha) return;
+
+		this._commitDisposable?.dispose();
+
+		if (commit?.isUncommitted) {
+			const repository = this.container.git.getRepository(commit.repoPath)!;
+			this._commitDisposable = Disposable.from(
+				repository.startWatchingFileSystem(),
+				repository.onDidChangeFileSystem(() => {
+					// this.updatePendingContext({ commit: undefined });
+					this.updatePendingContext({ commit: commit }, true);
+					this.updateState();
+				}),
+			);
+		}
 
 		this.updatePendingContext({
 			commit: commit,
@@ -349,19 +375,25 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this.updateState(immediate);
 	}
 
-	private updatePendingContext(context: Partial<Context>): boolean {
+	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
 		let changed = false;
 		for (const [key, value] of Object.entries(context)) {
 			const current = (this._context as unknown as Record<string, unknown>)[key];
 			if (
+				!force &&
 				(current instanceof Uri || value instanceof Uri) &&
 				(current as any)?.toString() === value?.toString()
 			) {
 				continue;
 			}
 
-			if (current === value) {
-				if (value !== undefined || key in this._context) continue;
+			if (!force && current === value) {
+				if (
+					(value !== undefined || key in this._context) &&
+					(this._pendingContext == null || !(key in this._pendingContext))
+				) {
+					continue;
+				}
 			}
 
 			if (this._pendingContext == null) {
@@ -391,14 +423,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		}
 
 		this._notifyDidChangeStateDebounced();
-
-		// if (this.commit == null) return;
-
-		// const state = await this.getState(false);
-		// if (state != null) {
-		// 	void this.notify(DidChangeStateNotificationType, { state: state });
-		// 	queueMicrotask(() => this.updateRichState());
-		// }
 	}
 
 	@debug()
@@ -429,6 +453,33 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	// 		void this.notify(DidChangeRichStateNotificationType, richState);
 	// 	}
 	// }
+
+	private getBestCommit(): GitCommit | undefined {
+		if (this._pinned) return undefined;
+
+		let commit;
+
+		const { lineTracker } = this.container;
+		const line = lineTracker.selections?.[0].active;
+		if (line != null) {
+			commit = lineTracker.getState(line)?.commit;
+		}
+
+		if (commit == null) {
+			const { commitsView } = this.container;
+			const node = commitsView.activeSelection;
+			if (
+				node != null &&
+				(node instanceof CommitNode ||
+					node instanceof FileRevisionAsCommitNode ||
+					node instanceof CommitFileNode)
+			) {
+				commit = node.commit;
+			}
+		}
+
+		return commit;
+	}
 
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
 		// if (commit == null) return undefined;
@@ -500,7 +551,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private showCommitActions() {
-		if (this._context.commit == null) return;
+		if (this._context.commit == null || this._context.commit.isUncommitted) return;
 
 		void GitActions.Commit.showDetailsQuickPick(this._context.commit);
 

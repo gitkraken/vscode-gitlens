@@ -30,6 +30,8 @@ import '../shared/components/commit/commit-stats';
 import '../shared/components/commit/file-change-item';
 import '../shared/components/webview-pane';
 
+const uncommittedSha = '0000000000000000000000000000000000000000';
+
 type CommitState = SomeNonNullable<Serialized<State>, 'selected'>;
 
 export class CommitDetailsApp extends App<Serialized<State>> {
@@ -344,6 +346,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 					date=${state.selected.author.date}
 					dateFormat="${state.dateFormat}"
 					avatar="${state.selected.author.avatar}"
+					actionLabel="${state.selected.sha === uncommittedSha ? 'modified' : 'committed'}"
 				></commit-identity>
 			`;
 			$el.setAttribute('aria-hidden', 'false');

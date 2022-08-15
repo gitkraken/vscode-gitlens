@@ -54,6 +54,9 @@ export class CommitIdentity extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	committer = false;
 
+	@property()
+	actionLabel = 'committed';
+
 	override render() {
 		const largerUrl = this.avatar.replace('s=32', 's=64');
 		return html`
@@ -62,7 +65,7 @@ export class CommitIdentity extends LitElement {
 			/></a>
 			<a class="name" href="${this.email ? `mailto:${this.email}` : '#'}">${this.name}</a>
 			<span class="date"
-				>committed <formatted-date date=${this.date} dateFormat="${this.dateFormat}"></formatted-date
+				>${this.actionLabel} <formatted-date date=${this.date} dateFormat="${this.dateFormat}"></formatted-date
 			></span>
 		`;
 	}

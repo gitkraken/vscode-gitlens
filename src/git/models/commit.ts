@@ -84,9 +84,6 @@ export class GitCommit implements GitRevisionReference {
 				this._files = files;
 			} else if (files instanceof GitFileChange) {
 				this._file = files;
-				if (GitRevision.isUncommitted(sha, true)) {
-					this._files = [files];
-				}
 			} else {
 				if (files.file != null) {
 					this._file = files.file;
@@ -173,11 +170,16 @@ export class GitCommit implements GitRevisionReference {
 		);
 	}
 
+	private _etagFileSystem: number | undefined;
+
 	hasFullDetails(): this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
 		return (
 			this.message != null &&
 			this.files != null &&
-			this.parents.length !== 0 &&
+			((this.isUncommitted &&
+				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
+				this._etagFileSystem === this.container.git.getRepository(this.repoPath)?.etagFileSystem) ||
+				this.parents.length !== 0) &&
 			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
 		);
 	}
@@ -190,7 +192,31 @@ export class GitCommit implements GitRevisionReference {
 
 	@gate()
 	async ensureFullDetails(): Promise<void> {
-		if (this.isUncommitted || this.hasFullDetails()) return;
+		if (this.hasFullDetails()) return;
+
+		// If the commit is "uncommitted", then have the files list be all uncommitted files
+		if (this.isUncommitted) {
+			this._message = 'Uncommitted Changes';
+
+			const repository = this.container.git.getRepository(this.repoPath);
+			this._etagFileSystem = repository?.etagFileSystem;
+
+			if (this._etagFileSystem != null) {
+				const status = await this.container.git.getStatusForRepo(this.repoPath);
+				if (status != null) {
+					this._files = status.files.map(
+						f => new GitFileChange(this.repoPath, f.path, f.status, f.originalPath),
+					);
+				}
+				this._etagFileSystem = repository?.etagFileSystem;
+			}
+
+			if (this._files == null) {
+				this._files = this.file != null ? [this.file] : [];
+			}
+
+			return;
+		}
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
 			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,

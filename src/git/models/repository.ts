@@ -296,6 +296,7 @@ export class Repository implements Disposable {
 		// Ignore .git changes
 		if (/\.git(?:\/|\\|$)/.test(uri.fsPath)) return;
 
+		this._etagFileSystem = Date.now();
 		this.fireFileSystemChange(uri);
 	}
 
@@ -956,6 +957,11 @@ export class Repository implements Disposable {
 		this.fireChange(RepositoryChange.Starred);
 	}
 
+	private _etagFileSystem: number | undefined;
+	get etagFileSystem(): number | undefined {
+		return this._etagFileSystem;
+	}
+
 	startWatchingFileSystem(): Disposable {
 		this._fsWatchCounter++;
 		if (this._fsWatcherDisposable == null) {
@@ -966,6 +972,8 @@ export class Repository implements Disposable {
 				watcher.onDidCreate(this.onFileSystemChanged, this),
 				watcher.onDidDelete(this.onFileSystemChanged, this),
 			);
+
+			this._etagFileSystem = Date.now();
 		}
 
 		return { dispose: () => this.stopWatchingFileSystem() };
@@ -975,6 +983,7 @@ export class Repository implements Disposable {
 		if (this._fsWatcherDisposable == null) return;
 		if (--this._fsWatchCounter > 0 && !force) return;
 
+		this._etagFileSystem = undefined;
 		this._fsWatchCounter = 0;
 		this._fsWatcherDisposable.dispose();
 		this._fsWatcherDisposable = undefined;
