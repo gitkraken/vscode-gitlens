@@ -15,10 +15,12 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
+	PreferencesCommandType,
 	SearchCommitCommandType,
 } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
 import type { FileChangeItem, FileChangeItemEventDetail } from '../shared/components/commit/file-change-item';
+import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
 import { DOM } from '../shared/dom';
 import './commitDetails.scss';
 import '../shared/components/codicon';
@@ -81,6 +83,11 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				}
 			}),
 			DOM.on('[data-action="commit-actions-pin"]', 'click', e => this.onTogglePin(e)),
+			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
+				'[data-region="rich-pane"]',
+				'expanded-change',
+				e => this.onExpandedChange(e.detail),
+			),
 		];
 
 		return disposables;
@@ -120,6 +127,12 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				});
 				break;
 		}
+	}
+
+	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
+		this.sendCommand(PreferencesCommandType, {
+			autolinksExpanded: e.expanded,
+		});
 	}
 
 	private onTogglePin(e: MouseEvent) {
@@ -410,21 +423,30 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	renderPullRequestAndAutolinks(state: CommitState) {
-		const $el = document.querySelector<HTMLElement>('[data-region="autolinks"]');
+		const $el = document.querySelector<WebviewPane>('[data-region="rich-pane"]');
 		if ($el == null) {
 			return;
 		}
 
-		const $info = document.querySelector<HTMLElement>('[data-region="rich-info"]');
+		$el.expanded = this.state.preferences?.autolinksExpanded ?? true;
+
+		const $info = $el.querySelector('[data-region="rich-info"]');
+		const $autolinks = $el.querySelector('[data-region="autolinks"]');
 		if (state.pullRequest != null || state.autolinkedIssues?.length) {
-			$el.setAttribute('aria-hidden', 'false');
+			$autolinks?.setAttribute('aria-hidden', 'false');
 			$info?.setAttribute('aria-hidden', 'true');
 			this.renderPullRequest(state);
 			this.renderIssues(state);
 		} else {
-			$el.setAttribute('aria-hidden', 'true');
+			$autolinks?.setAttribute('aria-hidden', 'true');
 			$info?.setAttribute('aria-hidden', 'false');
 		}
+
+		const $count = $el.querySelector('[data-region="autolink-count"]');
+		if ($count == null) return;
+
+		const count = (state.pullRequest != null ? 1 : 0) + (state.autolinkedIssues?.length ?? 0);
+		$count.innerHTML = `${count === 0 ? 'none' : count} found`;
 	}
 
 	renderPullRequest(state: CommitState) {

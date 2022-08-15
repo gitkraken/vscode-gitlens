@@ -2,6 +2,10 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './codicon';
 
+export interface WebviewPaneExpandedChangeEventDetail {
+	expanded: boolean;
+}
+
 @customElement('webview-pane')
 export class WebviewPane extends LitElement {
 	static override styles = css`
@@ -72,7 +76,8 @@ export class WebviewPane extends LitElement {
 			padding-top: 0.6rem;
 		}
 
-		:host([collapsable]:not([expanded])) .content {
+		:host([collapsable]:not([expanded])) .content,
+		:host([collapsable][expanded='false']) .content {
 			display: none;
 		}
 	`;
@@ -114,5 +119,15 @@ export class WebviewPane extends LitElement {
 
 	private toggleExpanded() {
 		this.expanded = !this.expanded;
+
+		this.dispatchEvent(
+			new CustomEvent<WebviewPaneExpandedChangeEventDetail>('expanded-change', {
+				detail: {
+					expanded: this.expanded,
+				},
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 }

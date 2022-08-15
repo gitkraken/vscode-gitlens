@@ -9,6 +9,7 @@ import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import { WorkspaceStorageKeys } from '../../storage';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -24,7 +25,7 @@ import type { ViewNode } from '../../views/nodes/viewNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
-import type { CommitDetails, FileActionParams, State } from './protocol';
+import type { CommitDetails, FileActionParams, SavedPreferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
@@ -36,13 +37,14 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
+	PreferencesCommandType,
 	SearchCommitCommandType,
 } from './protocol';
 
 interface Context {
 	pinned: boolean;
 	commit: GitCommit | undefined;
-
+	preferences: SavedPreferences | undefined;
 	richStateLoaded: boolean;
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
@@ -66,6 +68,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._context = {
 			pinned: false,
 			commit: undefined,
+			preferences: {
+				autolinksExpanded: this.container.storage.getWorkspace(
+					WorkspaceStorageKeys.ViewsCommitDetailsAutolinksExpanded,
+				),
+			},
 			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
@@ -193,6 +200,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			case PinCommitCommandType.method:
 				onIpc(PinCommitCommandType, e, params => this.updatePinned(params.pin ?? false, true));
 				break;
+			case PreferencesCommandType.method:
+				onIpc(PreferencesCommandType, e, params => this.updatePreferences(params));
+				break;
 		}
 	}
 
@@ -264,6 +274,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			pinned: current.pinned,
 			includeRichContent: current.richStateLoaded,
 			// commits: commitChoices,
+			preferences: current.preferences,
 			selected: details,
 			autolinkedIssues: current.autolinkedIssues,
 			pullRequest: current.pullRequest,
@@ -373,6 +384,17 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		this.updatePendingContext({ pinned: pinned });
 		this.updateState(immediate);
+	}
+
+	private updatePreferences(preferences: SavedPreferences) {
+		if (this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded) return;
+
+		void this.container.storage.storeWorkspace(
+			WorkspaceStorageKeys.ViewsCommitDetailsAutolinksExpanded,
+			preferences.autolinksExpanded,
+		);
+
+		this.updatePendingContext({ preferences: { autolinksExpanded: preferences.autolinksExpanded } });
 	}
 
 	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {

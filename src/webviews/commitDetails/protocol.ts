@@ -22,8 +22,13 @@ export type CommitDetails = CommitSummary & {
 	stats?: GitCommitStats;
 };
 
+export type SavedPreferences = {
+	autolinksExpanded?: boolean;
+};
+
 export type State = {
 	pinned: boolean;
+	preferences?: SavedPreferences;
 	// commits?: CommitSummary[];
 	includeRichContent?: boolean;
 
@@ -64,6 +69,11 @@ export interface PinParams {
 	pin: boolean;
 }
 export const PinCommitCommandType = new IpcCommandType<PinParams>('commit/pin');
+
+export interface PreferenceParams {
+	autolinksExpanded: boolean;
+}
+export const PreferencesCommandType = new IpcCommandType<PreferenceParams>('commit/preferences');
 
 // NOTIFICATIONS
 
