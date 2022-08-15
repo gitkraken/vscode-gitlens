@@ -243,6 +243,11 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
 			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(

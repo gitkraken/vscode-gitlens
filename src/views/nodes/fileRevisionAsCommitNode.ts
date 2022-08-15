@@ -222,6 +222,11 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
 			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const status = StatusFileFormatter.fromTemplate(`\${status}\${ (originalPath)}`, this.file);

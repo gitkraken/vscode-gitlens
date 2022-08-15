@@ -15,7 +15,7 @@ import type { GitRemote } from '../git/models/remote';
 import { Logger, LogLevel } from '../logger';
 import { getNewLogScope } from '../system/decorators/log';
 import { count } from '../system/iterable';
-import { PromiseCancelledError } from '../system/promise';
+import { getSettledValue, PromiseCancelledError } from '../system/promise';
 import { getDurationMilliseconds } from '../system/string';
 
 export namespace Hovers {
@@ -231,26 +231,37 @@ export namespace Hovers {
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
-		const [previousLineComparisonUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
-			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
-			getAutoLinkedIssuesOrPullRequests(message, remotes),
-			options?.pullRequests?.pr ??
-				getPullRequestForCommit(commit.ref, remotes, {
-					pullRequests:
-						options?.pullRequests?.enabled !== false &&
-						CommitFormatter.has(
-							format,
-							'pullRequest',
-							'pullRequestAgo',
-							'pullRequestAgoOrDate',
-							'pullRequestDate',
-							'pullRequestState',
-						),
-				}),
-			Container.instance.vsls.maybeGetPresence(commit.author.email),
-		]);
+		const [previousLineComparisonUrisResult, autolinkedIssuesOrPullRequestsResult, prResult, presenceResult] =
+			await Promise.allSettled([
+				commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
+				getAutoLinkedIssuesOrPullRequests(message, remotes),
+				options?.pullRequests?.pr ??
+					getPullRequestForCommit(commit.ref, remotes, {
+						pullRequests:
+							options?.pullRequests?.enabled !== false &&
+							CommitFormatter.has(
+								format,
+								'pullRequest',
+								'pullRequestAgo',
+								'pullRequestAgoOrDate',
+								'pullRequestDate',
+								'pullRequestState',
+							),
+					}),
+				Container.instance.vsls.maybeGetPresence(commit.author.email),
+			]);
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+
+		const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
+		const autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+		const pr = getSettledValue(prResult);
+		const presence = getSettledValue(presenceResult);
+
+		// Remove possible duplicate pull request
+		if (pr != null && !(pr instanceof PromiseCancelledError)) {
+			autolinkedIssuesOrPullRequests?.delete(pr.id);
+		}
 
 		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,

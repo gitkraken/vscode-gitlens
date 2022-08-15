@@ -217,6 +217,11 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
 			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
