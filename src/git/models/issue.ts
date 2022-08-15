@@ -38,7 +38,7 @@ export namespace IssueOrPullRequest {
 		}
 		return `<span style="color:${
 			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-		};">$(issue)</span>`;
+		};">$(issues)</span>`;
 	}
 
 	export function getThemeIcon(issue: IssueOrPullRequest): ThemeIcon {
