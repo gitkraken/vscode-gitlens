@@ -134,24 +134,22 @@ export abstract class ViewBase<
 			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
 				const item = await getTreeItemFn.apply(this, [node]);
 
-				const parent = node.getParent();
-
-				if (node.resolveTreeItem != null) {
-					if (item.tooltip != null) {
-						addDebuggingInfo(item, node, parent);
-					}
-
-					const resolveTreeItemFn = node.resolveTreeItem;
-					node.resolveTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, item: TreeItem) {
-						const resolvedItem = await resolveTreeItemFn.apply(this, [item]);
-
-						addDebuggingInfo(resolvedItem, node, parent);
-
-						return resolvedItem;
-					};
-				} else {
-					addDebuggingInfo(item, node, parent);
+				if (node.resolveTreeItem == null) {
+					addDebuggingInfo(item, node, node.getParent());
 				}
+
+				return item;
+			};
+
+			const resolveTreeItemFn = this.resolveTreeItem;
+			this.resolveTreeItem = async function (
+				this: ViewBase<RootNode, ViewConfig>,
+				item: TreeItem,
+				node: ViewNode,
+			) {
+				item = await resolveTreeItemFn.apply(this, [item, node]);
+
+				addDebuggingInfo(item, node, node.getParent());
 
 				return item;
 			};
@@ -556,7 +554,7 @@ export abstract class ViewBase<
 		context?: Record<string, unknown>,
 	) {
 		if (previousNode != null) {
-			(await this.reveal(previousNode, { select: true }));
+			await this.reveal(previousNode, { select: true });
 		}
 
 		await node.loadMore(limit, context);
