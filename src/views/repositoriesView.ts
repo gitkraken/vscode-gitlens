@@ -52,6 +52,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return this._onDidChangeAutoRefresh.event;
 	}
 
+	override get canSelectMany(): boolean {
+		return false;
+	}
+
 	protected getRoot() {
 		return new RepositoriesNode(this);
 	}
