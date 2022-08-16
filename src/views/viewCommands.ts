@@ -245,7 +245,7 @@ export class ViewCommands {
 			this,
 		);
 
-		this.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
+		this.registerCommand('gitlens.views.cherryPick', this.cherryPick, this, ViewCommandMultiSelectMode.Custom);
 		this.registerCommand('gitlens.views.createBranch', this.createBranch, this);
 		this.registerCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
 		this.registerCommand('gitlens.views.renameBranch', this.renameBranch, this);
@@ -326,8 +326,15 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private cherryPick(node: CommitNode) {
+	private cherryPick(node: CommitNode, nodes?: CommitNode[]) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
+
+		if (nodes != null && nodes.length !== 0) {
+			return GitActions.cherryPick(
+				node.repoPath,
+				nodes.map(n => n.ref),
+			);
+		}
 
 		return GitActions.cherryPick(node.repoPath, node.ref);
 	}
