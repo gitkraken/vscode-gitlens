@@ -62,6 +62,11 @@ export interface SelectRepositoryParams {
 }
 export const SelectRepositoryCommandType = new IpcCommandType<SelectRepositoryParams>('graph/selectRepository');
 
+export interface UpdateSelectionParams {
+	selection: GraphCommit[];
+}
+export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
+
 // Notifications
 export interface DidChangeParams {
 	state: State;

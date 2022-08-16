@@ -27,6 +27,7 @@ export interface GraphWrapperProps extends State {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
+	onSelectionChange?: (selection: GraphCommit[]) => void;
 }
 
 // Copied from original pushed code of Miggy E.
@@ -175,6 +176,7 @@ export function GraphWrapper({
 	// onSelectRepository,
 	onColumnChange,
 	onMoreCommits,
+	onSelectionChange,
 	nonce,
 	mixedColumnColors,
 }: GraphWrapperProps) {
@@ -236,9 +238,11 @@ export function GraphWrapper({
 	};
 
 	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
-		if (onColumnChange !== undefined) {
-			onColumnChange(graphZoneType, { width: columnSettings.width });
-		}
+		onColumnChange?.(graphZoneType, { width: columnSettings.width });
+	};
+
+	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
+		onSelectionChange?.(graphRows);
 	};
 
 	return (
@@ -255,6 +259,7 @@ export function GraphWrapper({
 							isLoadingRows={isLoading}
 							nonce={nonce}
 							onColumnResized={handleOnColumnResized}
+							onSelectGraphRows={handleSelectGraphRows}
 							onShowMoreCommits={handleMoreCommits}
 							width={mainWidth}
 							themeOpacityFactor={styleProps.themeOpacityFactor}

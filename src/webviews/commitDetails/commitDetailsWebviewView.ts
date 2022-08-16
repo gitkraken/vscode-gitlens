@@ -9,6 +9,7 @@ import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { GraphSelectionChangeEvent } from '../../plus/webviews/graph/graphWebview';
 import { WorkspaceStorageKeys } from '../../storage';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
@@ -136,11 +137,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		if (this._pinned || !this.visible) return;
 
-		const { lineTracker, commitsView } = this.container;
+		const { lineTracker, commitsView, graphWebview } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
 			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
 			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
+			graphWebview.onDidChangeSelection(this.onGraphWebviewSelectionChanged, this),
 		);
 
 		const commit = this.getBestCommit();
@@ -222,6 +224,10 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		) {
 			this.updateCommit(node.commit);
 		}
+	}
+
+	private onGraphWebviewSelectionChanged(e: GraphSelectionChangeEvent) {
+		this.updateCommit(e.selection[0]);
 	}
 
 	private onCommitsViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {

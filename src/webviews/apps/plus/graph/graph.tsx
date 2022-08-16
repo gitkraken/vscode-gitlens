@@ -6,15 +6,18 @@ import type { GraphConfig } from '../../../../config';
 import type {
 	CommitListCallback,
 	GraphColumnConfig,
+	GraphCommit,
 	GraphRepository,
-	State} from '../../../../plus/webviews/graph/protocol';
+	State,
+} from '../../../../plus/webviews/graph/protocol';
 import {
 	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
 	MoreCommitsCommandType,
-	SelectRepositoryCommandType
+	SelectRepositoryCommandType,
+	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
 import { DidChangeConfigurationNotificationType, onIpc } from '../../../../webviews/protocol';
@@ -34,7 +37,7 @@ export class GraphApp extends App<State> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		console.log('GraphApp onBind log', this.state.log);
+		this.log('GraphApp onBind log', this.state.log);
 
 		const $root = document.getElementById('root');
 		if ($root != null) {
@@ -47,6 +50,7 @@ export class GraphApp extends App<State> {
 					)}
 					onSelectRepository={debounce((path: GraphRepository) => this.onRepositoryChanged(path), 250)}
 					onMoreCommits={(...params) => this.onMoreCommits(...params)}
+					onSelectionChange={debounce((selection: GraphCommit[]) => this.onSelectionChanged(selection), 250)}
 					{...this.state}
 				/>,
 				$root,
@@ -60,7 +64,7 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
-		console.log('onMessageReceived', e);
+		this.log('onMessageReceived', e);
 
 		const msg = e.data;
 		switch (msg.method) {
@@ -153,6 +157,12 @@ export class GraphApp extends App<State> {
 	private onMoreCommits(limit?: number) {
 		this.sendCommand(MoreCommitsCommandType, {
 			limit: limit,
+		});
+	}
+
+	private onSelectionChanged(selection: GraphCommit[]) {
+		this.sendCommand(UpdateSelectionCommandType, {
+			selection: selection,
 		});
 	}
 

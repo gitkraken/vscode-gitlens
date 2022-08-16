@@ -1,7 +1,7 @@
 import type { CommitType } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
-import type { Disposable } from 'vscode';
-import { ViewColumn, window } from 'vscode';
+import type { Disposable, Event } from 'vscode';
+import { EventEmitter, ViewColumn, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -34,9 +34,19 @@ import {
 	DidChangeNotificationType,
 	MoreCommitsCommandType,
 	SelectRepositoryCommandType,
+	UpdateSelectionCommandType,
 } from './protocol';
 
+export interface GraphSelectionChangeEvent {
+	readonly selection: GitCommit[];
+}
+
 export class GraphWebview extends WebviewWithConfigBase<State> {
+	private _onDidChangeSelection = new EventEmitter<GraphSelectionChangeEvent>();
+	get onDidChangeSelection(): Event<GraphSelectionChangeEvent> {
+		return this._onDidChangeSelection.event;
+	}
+
 	private selectedRepository?: Repository;
 	private currentLog?: GitLog;
 	private repoDisposable: Disposable | undefined;
@@ -63,6 +73,9 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 				break;
 			case SelectRepositoryCommandType.method:
 				onIpc(SelectRepositoryCommandType, e, params => this.changeRepository(params.path));
+				break;
+			case UpdateSelectionCommandType.method:
+				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
 				break;
 		}
 	}
@@ -95,6 +108,20 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			this.currentLog = undefined;
 		}
 		void this.notifyDidChangeState();
+	}
+
+	private async onSelectionChanged(selection: GraphCommit[]) {
+		const ref = selection[0]?.sha;
+
+		let commits: GitCommit[] | undefined;
+		if (ref != null) {
+			const commit = await this.selectedRepository?.getCommit(ref);
+			if (commit != null) {
+				commits = [commit];
+			}
+		}
+
+		this._onDidChangeSelection.fire({ selection: commits ?? [] });
 	}
 
 	private async notifyDidChangeConfig() {
