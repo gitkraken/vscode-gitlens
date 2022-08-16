@@ -16,6 +16,6 @@ export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 
 	if (result !== confirm) return false;
 
-	(await configuration.updateEffective('plusFeatures.enabled', true));
+	await configuration.updateEffective('plusFeatures.enabled', true);
 	return true;
 }

@@ -105,7 +105,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		if (this._validating == null) {
 			this._validating = this.container.subscription.validate();
 			try {
-				(await this._validating);
+				await this._validating;
 			} finally {
 				this._validating = undefined;
 			}

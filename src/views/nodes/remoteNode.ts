@@ -159,7 +159,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@log()
 	async setAsDefault(state: boolean = true) {
-		(await this.remote.setAsDefault(state));
+		await this.remote.setAsDefault(state);
 		void this.triggerChange();
 	}
 }

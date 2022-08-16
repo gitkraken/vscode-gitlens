@@ -47,7 +47,7 @@ export class SearchCommitsCommand extends Command {
 	}
 
 	async execute(args?: SearchCommitsCommandArgs) {
-		(await executeGitCommand({
+		await executeGitCommand({
 			command: 'search',
 			prefillOnly: args?.prefillOnly,
 			state: {
@@ -57,6 +57,6 @@ export class SearchCommitsCommand extends Command {
 					configuration.get('gitCommands.search.showResultsInSideBar') ?? args?.showResultsInSideBar,
 				openPickInView: args?.openPickInView ?? false,
 			},
-		}));
+		});
 	}
 }

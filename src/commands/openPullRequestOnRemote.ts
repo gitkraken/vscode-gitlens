@@ -46,7 +46,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		}
 
 		if (args.clipboard) {
-			(await env.clipboard.writeText(args.pr.url));
+			await env.clipboard.writeText(args.pr.url);
 		} else {
 			void env.openExternal(Uri.parse(args.pr.url));
 		}

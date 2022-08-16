@@ -37,7 +37,7 @@ export class OpenIssueOnRemoteCommand extends Command {
 
 	async execute(args: OpenIssueOnRemoteCommandArgs) {
 		if (args.clipboard) {
-			(await env.clipboard.writeText(args.issue.url));
+			await env.clipboard.writeText(args.issue.url);
 		} else {
 			void env.openExternal(Uri.parse(args.issue.url));
 		}

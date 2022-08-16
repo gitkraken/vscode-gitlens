@@ -60,7 +60,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 			return;
 		}
 
-		(await executeGitCommand({
+		await executeGitCommand({
 			command: 'log',
 			state:
 				gitUri?.repoPath != null
@@ -70,6 +70,6 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 							fileName: gitUri.relativePath,
 					  }
 					: {},
-		}));
+		});
 	}
 }
