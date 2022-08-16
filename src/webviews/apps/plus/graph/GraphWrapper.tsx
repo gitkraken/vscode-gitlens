@@ -27,6 +27,7 @@ export interface GraphWrapperProps extends State {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
+	onDismissPreview?: () => void;
 	onSelectionChange?: (selection: GraphCommit[]) => void;
 }
 
@@ -173,16 +174,20 @@ export function GraphWrapper({
 	selectedRepository,
 	config,
 	log,
-	// onSelectRepository,
+	onSelectRepository,
 	onColumnChange,
 	onMoreCommits,
 	onSelectionChange,
 	nonce,
 	mixedColumnColors,
+	previewBanner = true,
+	onDismissPreview,
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(getGraphModel(commits, remotes, tags, branches));
-	const [_reposList, setReposList] = useState(repositories);
-	const [currentRepository, setCurrentRepository] = useState(selectedRepository);
+	const [reposList, setReposList] = useState(repositories);
+	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
+		reposList.find(item => item.path === selectedRepository),
+	);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
@@ -192,6 +197,9 @@ export function GraphWrapper({
 	const [mainWidth, setMainWidth] = useState<number>();
 	const [mainHeight, setMainHeight] = useState<number>();
 	const mainRef = useRef<HTMLElement>(null);
+	const [showBanner, setShowBanner] = useState(previewBanner);
+	// repo selection UI
+	const [repoExpanded, setRepoExpanded] = useState(false);
 
 	useEffect(() => {
 		if (mainRef.current === null) {
@@ -218,7 +226,7 @@ export function GraphWrapper({
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
 		setReposList(state.repositories ?? []);
-		setCurrentRepository(state.selectedRepository);
+		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setLogState(state.log);
 		setIsLoading(false);
@@ -231,6 +239,18 @@ export function GraphWrapper({
 		}
 		return subscriber(transformData);
 	}, []);
+
+	const handleSelectRepository = (item: GraphRepository) => {
+		if (item != null && item !== currentRepository) {
+			onSelectRepository?.(item);
+		}
+		setRepoExpanded(false);
+	};
+
+	const handleToggleRepos = () => {
+		if (currentRepository != null && reposList.length <= 1) return;
+		setRepoExpanded(!repoExpanded);
+	};
 
 	const handleMoreCommits = () => {
 		setIsLoading(true);
@@ -245,30 +265,105 @@ export function GraphWrapper({
 		onSelectionChange?.(graphRows);
 	};
 
+	const handleDismissBanner = () => {
+		setShowBanner(false);
+		onDismissPreview?.();
+	};
+
 	return (
-		<main ref={mainRef} id="main" className="graph-app__main">
-			{currentRepository !== undefined ? (
-				<>
-					{mainWidth !== undefined && mainHeight !== undefined && (
-						<GraphContainer
-							columnsSettings={graphColSettings}
-							cssVariables={styleProps.cssVariables}
-							graphRows={graphList}
-							height={mainHeight}
-							hasMoreCommits={logState?.hasMore}
-							isLoadingRows={isLoading}
-							nonce={nonce}
-							onColumnResized={handleOnColumnResized}
-							onSelectGraphRows={handleSelectGraphRows}
-							onShowMoreCommits={handleMoreCommits}
-							width={mainWidth}
-							themeOpacityFactor={styleProps.themeOpacityFactor}
-						/>
-					)}
-				</>
-			) : (
-				<p>No repository is selected</p>
+		<>
+			{showBanner && (
+				<section className="graph-app__banner">
+					<div className="alert">
+						<span className="alert__icon codicon codicon-preview"></span>
+						<div className="alert__content">
+							<p className="alert__title">Preview</p>
+							<p className="alert__message">
+								This is a GitLens+ feature that requires a paid account for use on private repositories.
+							</p>
+						</div>
+						<button className="alert__action" type="button" onClick={() => handleDismissBanner()}>
+							<span className="codicon codicon-chrome-close"></span>
+						</button>
+					</div>
+				</section>
 			)}
-		</main>
+			<main ref={mainRef} id="main" className="graph-app__main">
+				{currentRepository !== undefined ? (
+					<>
+						{mainWidth !== undefined && mainHeight !== undefined && (
+							<GraphContainer
+								columnsSettings={graphColSettings}
+								cssVariables={styleProps.cssVariables}
+								graphRows={graphList}
+								height={mainHeight}
+								hasMoreCommits={logState?.hasMore}
+								isLoadingRows={isLoading}
+								nonce={nonce}
+								onColumnResized={handleOnColumnResized}
+								onSelectGraphRows={handleSelectGraphRows}
+								onShowMoreCommits={handleMoreCommits}
+								width={mainWidth}
+								themeOpacityFactor={styleProps.themeOpacityFactor}
+							/>
+						)}
+					</>
+				) : (
+					<p>No repository is selected</p>
+				)}
+			</main>
+			<footer className="actionbar graph-app__footer">
+				<div className="actioncombo">
+					<button
+						type="button"
+						aria-controls="repo-actioncombo-list"
+						aria-expanded={repoExpanded}
+						aria-haspopup="listbox"
+						id="repo-actioncombo-label"
+						className="actioncombo__label"
+						role="combobox"
+						aria-activedescendant=""
+						onClick={() => handleToggleRepos()}
+					>
+						<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
+						{currentRepository?.formattedName ?? 'none selected'}
+					</button>
+					<div
+						className="actioncombo__list"
+						id="repo-actioncombo-list"
+						role="listbox"
+						tabIndex={-1}
+						aria-labelledby="repo-actioncombo-label"
+					>
+						{reposList.length > 0 ? (
+							reposList.map((item, index) => (
+								<button
+									type="button"
+									className="actioncombo__item"
+									role="option"
+									data-value={item.path}
+									id={`repo-actioncombo-item-${index}`}
+									key={`repo-actioncombo-item-${index}`}
+									aria-selected={item.path === currentRepository?.path}
+									onClick={() => handleSelectRepository(item)}
+									disabled={item.path === currentRepository?.path}
+								>
+									{item.formattedName}
+								</button>
+							))
+						) : (
+							<li
+								className="actioncombo__item"
+								role="option"
+								id="repo-actioncombo-item-0"
+								aria-selected="true"
+							>
+								None available
+							</li>
+						)}
+					</div>
+				</div>
+			</footer>
+		</>
 	);
 }

@@ -15,6 +15,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
+	DismissPreviewCommandType,
 	MoreCommitsCommandType,
 	SelectRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -51,6 +52,7 @@ export class GraphApp extends App<State> {
 					onSelectRepository={debounce((path: GraphRepository) => this.onRepositoryChanged(path), 250)}
 					onMoreCommits={(...params) => this.onMoreCommits(...params)}
 					onSelectionChange={debounce((selection: GraphCommit[]) => this.onSelectionChanged(selection), 250)}
+					onDismissPreview={() => this.onDismissPreview()}
 					{...this.state}
 				/>,
 				$root,
@@ -139,6 +141,10 @@ export class GraphApp extends App<State> {
 	protected override onThemeUpdated() {
 		this.setState({ ...this.state, mixedColumnColors: this.getGraphColors(this.state.config) });
 		this.refresh(this.state);
+	}
+
+	private onDismissPreview() {
+		this.sendCommand(DismissPreviewCommandType, undefined);
 	}
 
 	private onColumnChanged(name: string, settings: GraphColumnConfig) {

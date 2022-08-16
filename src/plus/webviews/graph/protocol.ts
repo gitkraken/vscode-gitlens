@@ -11,6 +11,7 @@ export interface State {
 	log?: GraphLog;
 	nonce?: string;
 	mixedColumnColors?: { [variable: string]: string };
+	previewBanner?: boolean;
 }
 
 export interface GraphLog {
@@ -61,6 +62,8 @@ export interface SelectRepositoryParams {
 	path: string;
 }
 export const SelectRepositoryCommandType = new IpcCommandType<SelectRepositoryParams>('graph/selectRepository');
+
+export const DismissPreviewCommandType = new IpcCommandType<undefined>('graph/dismissPreview');
 
 export interface UpdateSelectionParams {
 	selection: GraphCommit[];
