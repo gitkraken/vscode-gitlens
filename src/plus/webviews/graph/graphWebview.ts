@@ -24,6 +24,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeConfigNotificationType,
 	DidChangeNotificationType,
+	DismissPreviewCommandType,
 	GraphColumnConfig,
 	GraphColumnConfigDictionary,
 	GraphCommit,
@@ -39,6 +40,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	private currentLog?: GitLog;
 	private repoDisposable: Disposable | undefined;
 	private defaultTitle?: string;
+	private previewBanner?: boolean;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.graph', 'graph.html', 'images/gitlens-icon.png', 'Graph', Commands.ShowGraphPage);
@@ -62,7 +64,15 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			case SelectRepositoryCommandType.method:
 				onIpc(SelectRepositoryCommandType, e, params => this.changeRepository(params.path));
 				break;
+			case DismissPreviewCommandType.method:
+				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
+				break;
 		}
+	}
+
+	private dismissPreview() {
+		this.previewBanner = false;
+		void this.container.storage.storeWorkspace(WorkspaceStorageKeys.GraphPreview, false);
 	}
 
 	private changeColumn(name: string, config: GraphColumnConfig) {
@@ -263,6 +273,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			};
 		}
 
+		if (this.previewBanner == null) {
+			// FIXME: remove this before committing
+			void this.container.storage.deleteWorkspace(WorkspaceStorageKeys.GraphPreview);
+			this.previewBanner = await this.container.storage.getWorkspace(WorkspaceStorageKeys.GraphPreview) ?? true;
+		}
+
 		if (this.selectedRepository === undefined) {
 			const idealRepo = await this.pickRepository(repositories);
 			this.selectedRepository = idealRepo;
@@ -292,6 +308,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		);
 
 		return {
+			previewBanner: this.previewBanner,
 			repositories: formatRepositories(repositories),
 			selectedRepository: this.selectedRepository?.path,
 			commits: formatCommits(combinedCommitsWithFilteredStashes),

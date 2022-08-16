@@ -8,6 +8,148 @@
 @import '../../shared/utils';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
+body {
+    &.vscode-dark {
+        --actionbar-background-color: var(--color-background--lighten-05);
+        --actionbar-hover-background-color: var(--color-background--lighten-075);
+    }
+
+    &.vscode-light {
+        --actionbar-background-color: var(--color-background--darken-05);
+        --actionbar-hover-background-color: var(--color-background--darken-075);
+    }
+}
+
+.actionbar {
+    --actionbar-height: 22px;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    height: var(--actionbar-height);
+    background-color: var(--actionbar-background-color);
+    color: var(--color-foreground);
+
+    > * {
+        margin: 0;
+    }
+}
+
+.actioncombo {
+    $block: &;
+    $block-expanded: #{$block}--expanded;
+
+    --actioncombo-height: 2.2rem;
+    --actioncombo-items: 1;
+
+    position: relative;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: stretch;
+    font-size: 1.2rem;
+    gap: 0.25rem;
+    height: var(--actioncombo-height);
+    line-height: var(--actioncombo-height);
+
+    &__label,
+    &__item {
+        appearance: none;
+        font-family: inherit;
+        background-color: transparent;
+        border: none;
+        color: inherit;
+        height: var(--actioncombo-height);
+        line-height: var(--actioncombo-height);
+        cursor: pointer;
+        background-color: var(--actionbar-background-color);
+        text-align: left;
+
+        &:hover {
+            background-color: var(--actionbar-hover-background-color);
+        }
+
+        &[disabled] {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+    }
+
+    &__label {}
+
+    &__icon.codicon[class*="codicon-"] {
+        margin-right: 0.25rem;
+    }
+
+    &__list {
+        position: absolute;
+        left: 0;
+        bottom: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: stretch;
+        min-width: 100%;
+        width: max-content;
+        z-index: 100;
+    }
+
+    &__label:not([aria-expanded="true"]) + &__list {
+        display: none;
+    }
+
+    &__item {
+        height: var(--actioncombo-height);
+        line-height: var(--actioncombo-height);
+        padding: 0 0.75rem;
+    }
+}
+
+.alert {
+    --alert-foreground: var(--vscode-foreground);
+    --alert-background: transparent;
+    --alert-border: var(--vscode-foreground);
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--vscode-foreground);
+
+    &__icon {}
+
+    &__content {
+        padding-top: 0.24rem;
+    }
+    &__title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    &__message {
+        margin: 0;
+    }
+
+    &__title + &__message {
+        margin-top: 0.25rem;
+    }
+
+    &__action {
+        border: 1px solid transparent;
+        background-color: transparent;
+        color: inherit;
+        appearance: none;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        cursor: pointer;
+        margin-left: auto;
+    }
+}
+
 .graph-app {
     padding: 0;
 
@@ -15,8 +157,17 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
-        gap: 0.5rem;
+        gap: 0;
         padding: 0 2px;
+    }
+
+    &__banner {
+        flex: none;
+        padding: 0.5rem;
+    }
+
+    &__footer {
+        flex: none;
     }
 
     &__main {

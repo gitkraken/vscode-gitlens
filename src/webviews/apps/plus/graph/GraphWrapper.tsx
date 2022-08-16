@@ -8,7 +8,7 @@ import GraphContainer, {
 	type Remote,
 	type Tag,
 } from '@gitkraken/gitkraken-components';
-import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
+import React, { FocusEvent as ReactFocusEvent, MouseEvent as ReactMouseEvent, useEffect, useRef, useState } from 'react';
 import {
 	CommitListCallback,
 	GraphBranch,
@@ -27,18 +27,19 @@ export interface GraphWrapperProps extends State {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
+	onDismissPreview?: () => void;
 }
 
 // Copied from original pushed code of Miggy E.
 // TODO: review that code as I'm not sure if it is the correct way to do that in Gitlens side.
 // I suppose we need to use the GitLens themes here instead.
 const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariables => {
-    const body = document.body;
-    const computedStyle = window.getComputedStyle(body);
+	const body = document.body;
+	const computedStyle = window.getComputedStyle(body);
 
 	return {
-        '--app__bg0': computedStyle.getPropertyValue('--color-background'),
-        '--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
+		'--app__bg0': computedStyle.getPropertyValue('--color-background'),
+		'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
 		'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
 		'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
 		'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
@@ -46,13 +47,15 @@ const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariab
 		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-		... mixedColumnColors,
-    };
+		...mixedColumnColors,
+	};
 };
 
-const getStyleProps = (mixedColumnColors: CssVariables | undefined):{cssVariables: CssVariables, themeOpacityFactor: number } => {
+const getStyleProps = (
+	mixedColumnColors: CssVariables | undefined,
+): { cssVariables: CssVariables; themeOpacityFactor: number } => {
 	const body = document.body;
-    const computedStyle = window.getComputedStyle(body);
+	const computedStyle = window.getComputedStyle(body);
 	return {
 		cssVariables: getCssVariables(mixedColumnColors),
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
@@ -77,20 +80,17 @@ const getGraphModel = (
 		const graphRemotes: Remote[] = gitBranches
 			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.remote)
 			.map((branch: GraphBranch) => {
-				const matchingRemote: GraphRemote | undefined = gitRemotes.find(
-					(remote: GraphRemote) => branch.name.startsWith(remote.name)
+				const matchingRemote: GraphRemote | undefined = gitRemotes.find((remote: GraphRemote) =>
+					branch.name.startsWith(remote.name),
 				);
 
 				const matchingRemoteUrl: string | undefined =
-					matchingRemote !== undefined &&	matchingRemote.urls.length > 0
-						? matchingRemote.urls[0]
-						: undefined;
+					matchingRemote !== undefined && matchingRemote.urls.length > 0 ? matchingRemote.urls[0] : undefined;
 
 				return {
 					// If a matching remote is found, remove the remote name and slash from the branch name
-					name: matchingRemote !== undefined
-						? branch.name.replace(`${matchingRemote.name}/`, '')
-						: branch.name,
+					name:
+						matchingRemote !== undefined ? branch.name.replace(`${matchingRemote.name}/`, '') : branch.name,
 					url: matchingRemoteUrl,
 					// TODO: Add avatarUrl support for remotes
 					// avatarUrl: matchingRemote?.avatarUrl ?? undefined
@@ -110,7 +110,7 @@ const getGraphModel = (
 			.filter((tag: GraphTag) => tag.sha === gitCommit.sha)
 			.map((tag: GraphTag) => ({
 				name: tag.name,
-				annotated: Boolean(tag.message)
+				annotated: Boolean(tag.message),
 			}));
 
 		graphRows.push({
@@ -135,7 +135,7 @@ const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
 	commitDateTimeZone: { width: 130 },
 	commitMessageZone: { width: 130 },
 	commitZone: { width: 170 },
-	refZone: { width: 150 }
+	refZone: { width: 150 },
 };
 
 const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings => {
@@ -177,11 +177,15 @@ export function GraphWrapper({
 	onColumnChange,
 	onMoreCommits,
 	nonce,
-	mixedColumnColors
+	mixedColumnColors,
+	previewBanner = true,
+	onDismissPreview,
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(getGraphModel(commits, remotes, tags, branches));
 	const [reposList, setReposList] = useState(repositories);
-	const [currentRepository, setCurrentRepository] = useState(selectedRepository);
+	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
+		reposList.find(item => item.path === selectedRepository),
+	);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [logState, setLogState] = useState(log);
 	const [isLoading, setIsLoading] = useState(false);
@@ -191,6 +195,9 @@ export function GraphWrapper({
 	const [mainWidth, setMainWidth] = useState<number>();
 	const [mainHeight, setMainHeight] = useState<number>();
 	const mainRef = useRef<HTMLElement>(null);
+	const [showBanner, setShowBanner] = useState(previewBanner);
+	// repo selection UI
+	const [repoExpanded, setRepoExpanded] = useState(false);
 
 	useEffect(() => {
 		if (mainRef.current === null) {
@@ -217,7 +224,7 @@ export function GraphWrapper({
 	function transformData(state: State) {
 		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
 		setReposList(state.repositories ?? []);
-		setCurrentRepository(state.selectedRepository);
+		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setLogState(state.log);
 		setIsLoading(false);
@@ -231,6 +238,18 @@ export function GraphWrapper({
 		return subscriber(transformData);
 	}, []);
 
+	const handleSelectRepository = (item: GraphRepository) => {
+		if (item != null && item !== currentRepository) {
+			onSelectRepository?.(item);
+		}
+		setRepoExpanded(false);
+	};
+
+	const handleToggleRepos = () => {
+		if (currentRepository != null && reposList.length <= 1) return;
+		setRepoExpanded(!repoExpanded);
+	};
+
 	const handleMoreCommits = () => {
 		setIsLoading(true);
 		onMoreCommits?.();
@@ -242,29 +261,104 @@ export function GraphWrapper({
 		}
 	};
 
+	const handleDismissBanner = () => {
+		setShowBanner(false);
+		onDismissPreview?.();
+	};
+
 	return (
-		<main ref={mainRef} id="main" className="graph-app__main">
-			{currentRepository !== undefined ? (
-				<>
-					{mainWidth !== undefined && mainHeight !== undefined && (
-						<GraphContainer
-							columnsSettings={graphColSettings}
-							cssVariables={styleProps.cssVariables}
-							graphRows={graphList}
-							height={mainHeight}
-							hasMoreCommits={logState?.hasMore}
-							isLoadingRows={isLoading}
-							nonce={nonce}
-							onColumnResized={handleOnColumnResized}
-							onShowMoreCommits={handleMoreCommits}
-							width={mainWidth}
-							themeOpacityFactor={styleProps.themeOpacityFactor}
-						/>
-					)}
-				</>
-			) : (
-				<p>No repository is selected</p>
+		<>
+			{showBanner && (
+				<section className="graph-app__banner">
+					<div className="alert">
+						<span className="alert__icon codicon codicon-preview"></span>
+						<div className="alert__content">
+							<p className="alert__title">Preview</p>
+							<p className="alert__message">
+								This is a GitLens+ feature that requires a paid account for use on private repositories.
+							</p>
+						</div>
+						<button className="alert__action" type="button" onClick={() => handleDismissBanner()}>
+							<span className="codicon codicon-chrome-close"></span>
+						</button>
+					</div>
+				</section>
 			)}
-		</main>
+			<main ref={mainRef} id="main" className="graph-app__main">
+				{currentRepository !== undefined ? (
+					<>
+						{mainWidth !== undefined && mainHeight !== undefined && (
+							<GraphContainer
+								columnsSettings={graphColSettings}
+								cssVariables={styleProps.cssVariables}
+								graphRows={graphList}
+								height={mainHeight}
+								hasMoreCommits={logState?.hasMore}
+								isLoadingRows={isLoading}
+								nonce={nonce}
+								onColumnResized={handleOnColumnResized}
+								onShowMoreCommits={handleMoreCommits}
+								width={mainWidth}
+								themeOpacityFactor={styleProps.themeOpacityFactor}
+							/>
+						)}
+					</>
+				) : (
+					<p>No repository is selected</p>
+				)}
+			</main>
+			<footer className="actionbar graph-app__footer">
+				<div className="actioncombo">
+					<button
+						type="button"
+						aria-controls="repo-actioncombo-list"
+						aria-expanded={repoExpanded}
+						aria-haspopup="listbox"
+						id="repo-actioncombo-label"
+						className="actioncombo__label"
+						role="combobox"
+						aria-activedescendant=""
+						onClick={() => handleToggleRepos()}
+					>
+						<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
+						{currentRepository?.formattedName ?? 'none selected'}
+					</button>
+					<div
+						className="actioncombo__list"
+						id="repo-actioncombo-list"
+						role="listbox"
+						tabIndex={-1}
+						aria-labelledby="repo-actioncombo-label"
+					>
+						{reposList.length > 0 ? (
+							reposList.map((item, index) => (
+								<button
+									type="button"
+									className="actioncombo__item"
+									role="option"
+									data-value={item.path}
+									id={`repo-actioncombo-item-${index}`}
+									key={`repo-actioncombo-item-${index}`}
+									aria-selected={item.path === currentRepository?.path}
+									onClick={e => handleSelectRepository(item)}
+									disabled={item.path === currentRepository?.path}
+								>
+									{item.formattedName}
+								</button>
+							))
+						) : (
+							<li
+								className="actioncombo__item"
+								role="option"
+								id="repo-actioncombo-item-0"
+								aria-selected="true"
+							>
+								None available
+							</li>
+						)}
+					</div>
+				</div>
+			</footer>
+		</>
 	);
 }
