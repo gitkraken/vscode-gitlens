@@ -92,6 +92,7 @@ const getGraphModel = (
 						matchingRemote !== undefined ? branch.name.replace(`${matchingRemote.name}/`, '') : branch.name,
 					url: matchingRemote?.url,
 					avatarUrl: matchingRemote?.avatarUrl ?? undefined,
+					...matchingRemote?.name !== undefined ? { owner: matchingRemote.name } : {},
 				};
 			});
 
