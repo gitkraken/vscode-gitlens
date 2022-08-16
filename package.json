@@ -89,6 +89,7 @@
 		"onCommand:gitlens.showSettingsPage#worktrees-view",
 		"onCommand:gitlens.showWelcomePage",
 		"onCommand:gitlens.showBranchesView",
+		"onCommand:gitlens.showCommitDetailsView",
 		"onCommand:gitlens.showCommitsView",
 		"onCommand:gitlens.showContributorsView",
 		"onCommand:gitlens.showFileHistoryView",
@@ -100,7 +101,6 @@
 		"onCommand:gitlens.showStashesView",
 		"onCommand:gitlens.showTagsView",
 		"onCommand:gitlens.showTimelineView",
-		"onCommand:gitlens.showCommitDetailsView",
 		"onCommand:gitlens.showWorktreesView",
 		"onCommand:gitlens.compareWith",
 		"onCommand:gitlens.compareHeadWith",
@@ -3886,6 +3886,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showCommitDetailsView",
+				"title": "Show Commit Details View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showCommitsView",
 				"title": "Show Commits View",
 				"category": "GitLens"
@@ -3938,11 +3943,6 @@
 			{
 				"command": "gitlens.showTimelineView",
 				"title": "Show Visual File History View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showCommitDetailsView",
-				"title": "Show Commit Details View",
 				"category": "GitLens"
 			},
 			{
@@ -6201,6 +6201,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.showCommitDetailsView",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.showCommitsView",
 					"when": "gitlens:enabled"
 				},
@@ -6242,10 +6246,6 @@
 				},
 				{
 					"command": "gitlens.showTimelineView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showCommitDetailsView",
 					"when": "gitlens:enabled"
 				},
 				{
