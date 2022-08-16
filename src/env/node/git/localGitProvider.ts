@@ -3283,12 +3283,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				sha: string;
 				date: string;
 				committedDate: string;
+				parents: string;
 				stashName: string;
 				summary: string;
 			}>({
 				sha: '%H',
 				date: '%at',
 				committedDate: '%ct',
+				parents: '%P',
 				stashName: '%gd',
 				summary: '%B',
 			});
@@ -3304,19 +3306,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				let onRef;
 				let summary;
 				let message;
+
 				const match = stashSummaryRegex.exec(s.summary);
 				if (match?.groups != null) {
 					onRef = match.groups.onref;
-					if (match.groups.wip) {
-						message = `WIP: ${match.groups.summary.trim()}`;
-						summary = `WIP on ${onRef}`;
+					summary = match.groups.summary.trim();
+
+					if (summary.length === 0) {
+						message = 'WIP';
+					} else if (match.groups.wip) {
+						message = `WIP: ${summary}`;
 					} else {
-						message = match.groups.summary.trim();
-						summary = message.split('\n', 1)[0] ?? '';
+						message = summary;
 					}
 				} else {
 					message = s.summary.trim();
-					summary = message.split('\n', 1)[0] ?? '';
 				}
 
 				commits.set(
@@ -3327,8 +3331,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						s.sha,
 						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
 						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
-						summary,
-						[],
+						message.split('\n', 1)[0] ?? '',
+						s.parents.split(' '),
 						message,
 						s.files?.map(
 							f => new GitFileChange(repoPath, f.path, f.status as GitFileStatus, f.originalPath),
@@ -3342,8 +3346,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			stash = { repoPath: repoPath, commits: commits };
-
-			// sw.stop();
 
 			if (this.useCaching) {
 				this._stashesCache.set(repoPath, stash ?? null);
