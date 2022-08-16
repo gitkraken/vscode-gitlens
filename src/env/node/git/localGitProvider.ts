@@ -2068,7 +2068,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: string | null;
 			ref?: string;
-			since?: string;
+			since?: number | string;
+			until?: number | string;
 		},
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
@@ -2183,6 +2184,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getLogMoreFn(
 		log: GitLog,
 		options?: {
+			all?: boolean;
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
@@ -2212,11 +2214,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return moreLog;
 			}
 
-			const ref = last(log.commits.values())?.ref;
+			const lastCommit = last(log.commits.values());
+			const ref = lastCommit?.ref;
+
+			// If we were asked for all refs, use the last commit timestamp (plus a second) as a cursor
+			let timestamp: number | undefined;
+			if (options?.all) {
+				const date = lastCommit?.committer.date;
+				// Git only allows 1-second precision, so round up to the nearest second
+				timestamp = date != null ? Math.ceil(date.getTime() / 1000) + 1 : undefined;
+			}
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
+				...(timestamp
+					? { until: timestamp }
+					: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };

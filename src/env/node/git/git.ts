@@ -698,6 +698,7 @@ export class Git {
 			ordering,
 			similarityThreshold,
 			since,
+			until,
 		}: {
 			all?: boolean;
 			argsOrFormat?: string | string[];
@@ -706,7 +707,8 @@ export class Git {
 			merges?: boolean;
 			ordering?: string | null;
 			similarityThreshold?: number | null;
-			since?: string;
+			since?: number | string;
+			until?: number | string;
 		},
 	) {
 		if (argsOrFormat == null) {
@@ -735,6 +737,10 @@ export class Git {
 
 		if (since) {
 			params.push(`--since="${since}"`);
+		}
+
+		if (until) {
+			params.push(`--until="${until}"`);
 		}
 
 		if (!merges) {
