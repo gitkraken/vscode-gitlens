@@ -12,14 +12,19 @@ import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote } from './git/models/branch';
 import { isCommit } from './git/models/commit';
 import { Logger, LogLevel } from './logger';
-import { showDebugLoggingWarningMessage, showInsidersErrorMessage, showWhatsNewMessage } from './messages';
+import {
+	showDebugLoggingWarningMessage,
+	showInsidersErrorMessage,
+	showInsidersExpiredErrorMessage,
+	showWhatsNewMessage,
+} from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { StorageKeys, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
-import { compare, satisfies } from './system/version';
+import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
@@ -58,6 +63,23 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
 			setTimeout(() => void showInsidersErrorMessage(), 0);
+
+			return undefined;
+		}
+	}
+
+	// Ensure that this insiders version hasn't expired
+	if (insiders) {
+		const v = fromString(gitlensVersion);
+		// Get the build date from the version number
+		const date = new Date(v.major, v.minor - 1, Number(v.patch.toString().substring(0, 2)));
+
+		// If the build date is older than 14 days then show the expired error message
+		if (date.getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) {
+			sw.stop({ message: ` was NOT activated because the insiders version (${gitlensVersion}) has expired` });
+
+			// If we don't use a setTimeout here this notification will get lost for some reason
+			setTimeout(() => void showInsidersExpiredErrorMessage(gitlensVersion), 0);
 
 			return undefined;
 		}

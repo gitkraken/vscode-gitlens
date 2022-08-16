@@ -108,7 +108,13 @@ export function showInsidersErrorMessage() {
 	return showMessage(
 		'error',
 		'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
-		SuppressedMessages.GitDisabledWarning,
+	);
+}
+
+export function showInsidersExpiredErrorMessage(version: string) {
+	return showMessage(
+		'error',
+		`GitLens (Insiders) version (${version}) has expired. Please install a more recent version.`,
 	);
 }
 
