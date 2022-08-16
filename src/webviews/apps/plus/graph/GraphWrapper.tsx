@@ -311,6 +311,8 @@ export function GraphWrapper({
 							<GraphContainer
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
+								// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+								//@ts-ignore - remove once the Graph component is updated to use the new API
 								getExternalIcon={getIconElementLibrary}
 								graphRows={graphList}
 								height={mainHeight}
