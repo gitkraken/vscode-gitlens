@@ -80,65 +80,14 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@fortawesome/fontawesome-common-types@6.1.2":
-  version "6.1.2"
-  resolved "https://npm.fontawesome.com/@fortawesome/fontawesome-common-types/-/6.1.2/fontawesome-common-types-6.1.2.tgz#c1095b1bbabf19f37f9ff0719db38d92a410bcfe"
-  integrity sha512-wBaAPGz1Awxg05e0PBRkDRuTsy4B3dpBm+zreTTyd9TH4uUM27cAL4xWyWR0rLJCrRwzVsQ4hF3FvM6rqydKPA==
-
-"@fortawesome/fontawesome-common-types@^0.3.0":
-  version "0.3.0"
-  resolved "https://npm.fontawesome.com/@fortawesome/fontawesome-common-types/-/0.3.0/fontawesome-common-types-0.3.0.tgz#949995a05c0d8801be7e0a594f775f1dbaa0d893"
-  integrity sha512-CA3MAZBTxVsF6SkfkHXDerkhcQs0QPofy43eFdbWJJkZiq3SfiaH1msOkac59rQaqto5EqWnASboY1dBuKen5w==
-
-"@fortawesome/fontawesome-svg-core@^1.2.21":
-  version "1.3.0"
-  resolved "https://npm.fontawesome.com/@fortawesome/fontawesome-svg-core/-/1.3.0/fontawesome-svg-core-1.3.0.tgz#343fac91fa87daa630d26420bfedfba560f85885"
-  integrity sha512-UIL6crBWhjTNQcONt96ExjUnKt1D68foe3xjEensLDclqQ6YagwCRYVQdrp/hW0ALRp/5Fv/VKw+MqTUWYYvPg==
-  dependencies:
-    "@fortawesome/fontawesome-common-types" "^0.3.0"
-
-"@fortawesome/free-brands-svg-icons@^6.1.1":
-  version "6.1.2"
-  resolved "https://npm.fontawesome.com/@fortawesome/free-brands-svg-icons/-/6.1.2/free-brands-svg-icons-6.1.2.tgz#14160348b8ad5986b3805797dc4377a96e0014d9"
-  integrity sha512-b2eMfXQBsSxh52pcPtYchURQs6BWNh3zVTG8XH8Lv6V4kDhEg7D0kHN+K1SZniDiPb/e5tBlaygsinMUvetITA==
-  dependencies:
-    "@fortawesome/fontawesome-common-types" "6.1.2"
-
-"@fortawesome/pro-regular-svg-icons@^6.1.1":
-  version "6.1.2"
-  resolved "https://npm.fontawesome.com/@fortawesome/pro-regular-svg-icons/-/6.1.2/pro-regular-svg-icons-6.1.2.tgz#f232ce529f59e8279536ce6fdd52f408e2ddf2b3"
-  integrity sha512-5BQ3Guv+FRDyXJ9qy5SQZc+tWsCstQscd4JILb8dFzFtZsDef9cDgxxFEj//QmyrVI45kKVhjfGY8voHHvMQTQ==
-  dependencies:
-    "@fortawesome/fontawesome-common-types" "6.1.2"
-
-"@fortawesome/pro-solid-svg-icons@^6.1.1":
-  version "6.1.2"
-  resolved "https://npm.fontawesome.com/@fortawesome/pro-solid-svg-icons/-/6.1.2/pro-solid-svg-icons-6.1.2.tgz#ecdab98c3e901c72e99c5a1a961070b3b80e05d6"
-  integrity sha512-E1TzmbuO0Klch/EqAjh4WPs93Oss8KwY5MUi2pcSyflN8sq5UqnMZFLWGlLQy24BXeMwgMDw4Aa9xH6lVNg1ig==
-  dependencies:
-    "@fortawesome/fontawesome-common-types" "6.1.2"
-
-"@fortawesome/react-fontawesome@^0.1.4":
-  version "0.1.19"
-  resolved "https://npm.fontawesome.com/@fortawesome/react-fontawesome/-/0.1.19/react-fontawesome-0.1.19.tgz#2b36917578596f31934e71f92b7cf9c425fd06e4"
-  integrity sha512-Hyb+lB8T18cvLNX0S3llz7PcSOAJMLwiVKBuuzwM/nI5uoBw+gQjnf9il0fR1C3DKOI5Kc79pkJ4/xB0Uw9aFQ==
-  dependencies:
-    prop-types "^15.8.1"
-
-"@gitkraken/gitkraken-components@1.0.0-rc.1":
-  version "1.0.0-rc.1"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.0.0-rc.1.tgz#14416a20cac070ca854f3d03587c5ed278dc2e9b"
-  integrity sha512-4K/GXcxXR+mf+jPj9UB+ZRVp4PItSd0JhoWJRPps399/WDJmJBJ70Zg1b3VY/oiYM9G8fjAYMOuv3X3RxS9jzQ==
+"@gitkraken/gitkraken-components@1.0.0-rc.2":
+  version "1.0.0-rc.2"
+  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.0.0-rc.2.tgz#ce0c20d4b3ce7ca91813f59e19bc28816494828a"
+  integrity sha512-AZH5a+9UTFsicYql2E0IE2jav21TAs60GzESPJ6r/eqVtoyn7hfIY6lfqfNOdLpyhyEx8ktOmSH8MbHp8dcNYQ==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
-    "@fortawesome/fontawesome-svg-core" "^1.2.21"
-    "@fortawesome/free-brands-svg-icons" "^6.1.1"
-    "@fortawesome/pro-regular-svg-icons" "^6.1.1"
-    "@fortawesome/pro-solid-svg-icons" "^6.1.1"
-    "@fortawesome/react-fontawesome" "^0.1.4"
     classnames "2.2.3"
     color "^4.2.0"
-    fs-extra "5.0.0"
     re-resizable "6.9.1"
     react "16.8.4"
     react-bootstrap "^0.32.4"
@@ -2974,15 +2923,6 @@ fs-constants@^1.0.0:
   resolved "https://registry.yarnpkg.com/fs-constants/-/fs-constants-1.0.0.tgz#6be0de9be998ce16af8afc24497b9ee9b7ccd9ad"
   integrity sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==
 
-fs-extra@5.0.0:
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-5.0.0.tgz#414d0110cdd06705734d055652c5411260c31abd"
-  integrity sha512-66Pm4RYbjzdyeuqudYqhFiNBbCIuI9kgRqLPSHIlXHidW8NIQtVdkM1yeZ4lXwuhbTETv3EUGMNHAAw6hiundQ==
-  dependencies:
-    graceful-fs "^4.1.2"
-    jsonfile "^4.0.0"
-    universalify "^0.1.0"
-
 fs-extra@^9.0.0:
   version "9.1.0"
   resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-9.1.0.tgz#5954460c764a8da2094ba3554bf839e6b9a7c86d"
@@ -3791,13 +3731,6 @@ json5@^1.0.1:
   integrity sha512-aKS4WQjPenRxiQsC93MNfjx+nbF4PAdYzmd/1JIj8HYzqfbu86beTuNgXDzPknWk0n0uARlyewZo4s++ES36Ow==
   dependencies:
     minimist "^1.2.0"
-
-jsonfile@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/jsonfile/-/jsonfile-4.0.0.tgz#8771aae0799b64076b76640fca058f9c10e33ecb"
-  integrity sha512-m6F1R3z8jjlf2imQHS2Qez5sjKWQzbuuhuJ/FKYFRZvPE3PuHcSMVZzfsLhGVOkfd20obL5SWEBew5ShlquNxg==
-  optionalDependencies:
-    graceful-fs "^4.1.6"
 
 jsonfile@^6.0.1:
   version "6.1.0"
@@ -4854,7 +4787,7 @@ prop-types-extra@^1.0.1:
     react-is "^16.3.2"
     warning "^4.0.0"
 
-prop-types@^15.5.10, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2, prop-types@^15.8.1:
+prop-types@^15.5.10, prop-types@^15.6.1, prop-types@^15.6.2, prop-types@^15.7.2:
   version "15.8.1"
   resolved "https://registry.yarnpkg.com/prop-types/-/prop-types-15.8.1.tgz#67d87bf1a694f48435cf332c24af10214a3140b5"
   integrity sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==
@@ -5969,11 +5902,6 @@ universal-user-agent@^6.0.0:
   version "6.0.0"
   resolved "https://registry.yarnpkg.com/universal-user-agent/-/universal-user-agent-6.0.0.tgz#3381f8503b251c0d9cd21bc1de939ec9df5480ee"
   integrity sha512-isyNax3wXoKaulPDZWHQqbmIx1k2tb9fb3GGDBRxCscfYV2Ch7WxPArBsFEG8s/safwXTT7H4QGhaIkTp9447w==
-
-universalify@^0.1.0:
-  version "0.1.2"
-  resolved "https://registry.yarnpkg.com/universalify/-/universalify-0.1.2.tgz#b646f69be3942dabcecc9d6639c80dc105efaa66"
-  integrity sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==
 
 universalify@^2.0.0:
   version "2.0.0"
