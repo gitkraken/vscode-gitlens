@@ -382,6 +382,7 @@ export function GraphWrapper({
 						)}
 					</div>
 				</div>
+				<div className="actionbar__end"><span className="badge">Preview</span></div>
 			</footer>
 		</>
 	);

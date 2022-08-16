@@ -20,6 +20,11 @@ body {
 	}
 }
 
+.badge {
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
 .actionbar {
 	--actionbar-height: 22px;
 
@@ -30,6 +35,7 @@ body {
 	gap: 0.5rem;
 	padding: 0 1rem;
 	height: var(--actionbar-height);
+	overflow: hidden;
 	background-color: var(--actionbar-background-color);
 	color: var(--color-foreground);
 
@@ -108,9 +114,9 @@ body {
 }
 
 .alert {
-	--alert-foreground: var(--vscode-foreground);
-	--alert-background: transparent;
-	--alert-border: var(--vscode-foreground);
+	--alert-foreground: var(--vscode-input-foreground);
+	--alert-background: var(--vscode-inputValidation-infoBackground);
+	--alert-border-color: var(--vscode-inputValidation-infoBorder);
 	display: flex;
 	flex-direction: row;
 	justify-content: flex-start;
@@ -118,7 +124,9 @@ body {
 	gap: 1rem;
 	padding: 1rem;
 	border-radius: 0.25rem;
-	border: 1px solid var(--vscode-foreground);
+	border: 1px solid var(--alert-border-color);
+	background-color: var(--alert-background);
+	color: var(--alert-foreground);
 
 	&__icon {
 	}
