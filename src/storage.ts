@@ -121,6 +121,7 @@ export const enum WorkspaceStorageKeys {
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
 	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
 	ViewsCommitDetailsAutolinksExpanded = 'gitlens:views:commitDetails:autolinksExpanded',
+	GraphColumns = 'gitlens:graph:columns',
 
 	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',

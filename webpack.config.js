@@ -57,13 +57,14 @@ function getExtensionConfig(target, mode, env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: 'src/**/*.ts',
+				files: 'src/**/*.ts?(x)',
 				options: {
 					// cache: true,
 					// cacheLocation: path.join(
 					// 	__dirname,
 					// 	target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
 					// ),
+					fix: mode !== 'production',
 					overrideConfigFile: path.join(
 						__dirname,
 						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
@@ -173,7 +174,7 @@ function getExtensionConfig(target, mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'ts',
+									loader: 'tsx',
 									target: ['es2020', 'chrome91', 'node14.16'],
 									tsconfigRaw: resolveTSConfig(
 										path.join(
@@ -248,8 +249,11 @@ function getWebviewsConfig(mode, env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				// options: { cache: true },
+				files: path.join(basePath, '**', '*.ts?(x)'),
+				options: {
+					// cache: true,
+					fix: mode !== 'production',
+				},
 			},
 			formatter: 'basic',
 			typescript: {
@@ -258,6 +262,7 @@ function getWebviewsConfig(mode, env) {
 		}),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
 		getHtmlPlugin('commitDetails', false, mode, env),
+		getHtmlPlugin('graph', true, mode, env),
 		getHtmlPlugin('home', false, mode, env),
 		getHtmlPlugin('rebase', false, mode, env),
 		getHtmlPlugin('settings', false, mode, env),
@@ -302,6 +307,7 @@ function getWebviewsConfig(mode, env) {
 		context: basePath,
 		entry: {
 			commitDetails: './commitDetails/commitDetails.ts',
+			graph: './plus/graph/graph.tsx',
 			home: './home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
@@ -367,7 +373,7 @@ function getWebviewsConfig(mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'ts',
+									loader: 'tsx',
 									target: 'es2020',
 									tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
 								},
@@ -411,6 +417,10 @@ function getWebviewsConfig(mode, env) {
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
+			fallback: {
+				crypto: require.resolve('crypto-browserify'),
+				stream: require.resolve('stream-browserify'),
+			},
 		},
 		plugins: plugins,
 		infrastructureLogging: {

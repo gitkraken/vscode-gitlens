@@ -57,6 +57,7 @@ export interface Config {
 		skipConfirmations: string[];
 		sortBy: GitCommandSorting;
 	};
+	graph: GraphConfig;
 	heatmap: {
 		ageThreshold: number;
 		coldColor: string;
@@ -370,6 +371,16 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
+}
+
+export interface GraphColumnConfig {
+	width: number;
+}
+
+export interface GraphConfig {
+	defaultLimit: number;
+	pageLimit: number;
+	columnColors: string[];
 }
 
 export interface CodeLensConfig {

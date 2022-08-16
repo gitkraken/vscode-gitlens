@@ -1,6 +1,7 @@
 {
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
+		"jsx": "react",
 		"lib": ["dom", "dom.iterable", "es2020"],
 		"outDir": "../../",
 		"paths": {

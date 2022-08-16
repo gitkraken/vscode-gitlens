@@ -29,6 +29,23 @@ export function opacity(color: string, percentage: number) {
 	return `rgba(${r}, ${g}, ${b}, ${a * (percentage / 100)})`;
 }
 
+export function mix(color1: string, color2: string, percentage: number) {
+	const rgba1 = toRgba(color1);
+	const rgba2 = toRgba(color2);
+	if (rgba1 == null || rgba2 == null) return color1;
+	const [r1, g1, b1, a1] = rgba1;
+	const [r2, g2, b2, a2] = rgba2;
+	return `rgba(${mixChannel(r1, r2, percentage)}, ${mixChannel(g1, g2, percentage)}, ${mixChannel(
+		b1,
+		b2,
+		percentage,
+	)}, ${mixChannel(a1, a2, percentage)})`;
+}
+
+const mixChannel = (channel1: number, channel2: number, percentage: number) => {
+	return channel1 + ((channel2 - channel1) * percentage) / 100;
+};
+
 export function toRgba(color: string) {
 	color = color.trim();
 

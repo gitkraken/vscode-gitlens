@@ -1,7 +1,7 @@
 /*global window document MutationObserver*/
 import { darken, lighten, opacity } from './colors';
 
-export function initializeAndWatchThemeColors() {
+export function initializeAndWatchThemeColors(callback?: () => void) {
 	const onColorThemeChanged = () => {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
@@ -93,9 +93,19 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-hover-foreground', color);
 		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-statusBarBackground').trim();
 		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
+
+		// graph-specific colors
+		const isLightTheme =
+			body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
+		color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+		bodyStyle.setProperty('--graph-panel-bg', isLightTheme ? darken(color, 5) : lighten(color, 5));
+		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
+
+		callback?.();
 	};
 
 	const observer = new MutationObserver(onColorThemeChanged);
+
 	observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 	onColorThemeChanged();

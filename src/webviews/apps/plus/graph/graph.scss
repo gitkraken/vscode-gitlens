@@ -1,0 +1,26 @@
+@import '../../shared/base';
+@import '../../shared/buttons';
+@import '../../shared/icons';
+
+// page stuff
+
+@import '../../shared/codicons';
+@import '../../shared/utils';
+@import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
+
+.graph-app {
+	padding: 0;
+
+	&__container {
+		display: flex;
+		flex-direction: column;
+		height: 100vh;
+		gap: 0.5rem;
+		padding: 0 2px;
+	}
+
+	&__main {
+		flex: 1 1 auto;
+		overflow: hidden;
+	}
+}
