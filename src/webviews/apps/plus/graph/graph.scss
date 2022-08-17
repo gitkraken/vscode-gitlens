@@ -35,7 +35,6 @@ body {
 	gap: 0.5rem;
 	padding: 0 1rem;
 	height: var(--actionbar-height);
-	overflow: hidden;
 	background-color: var(--actionbar-background-color);
 	color: var(--color-foreground);
 
@@ -67,6 +66,7 @@ body {
 		background-color: transparent;
 		border: none;
 		color: inherit;
+		padding: 0 0.75rem;
 		height: var(--actioncombo-height);
 		line-height: var(--actioncombo-height);
 		cursor: pointer;
@@ -107,9 +107,6 @@ body {
 	}
 
 	&__item {
-		height: var(--actioncombo-height);
-		line-height: var(--actioncombo-height);
-		padding: 0 0.75rem;
 	}
 }
 
