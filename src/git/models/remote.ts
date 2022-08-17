@@ -56,6 +56,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		public readonly path: string,
 		public readonly provider: TProvider,
 		public readonly urls: { type: GitRemoteType; url: string }[],
+		public readonly avatarUrl?: string | undefined,
 	) {}
 
 	get default() {

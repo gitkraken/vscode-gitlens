@@ -101,6 +101,11 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this.formatName('GitHub');
 	}
 
+	override get avatarUrl() {
+		const [owner] = this.splitPath();
+		return `https://avatars.githubusercontent.com/${owner}`;
+	}
+
 	@log()
 	override async connect(): Promise<boolean> {
 		if (!equalsIgnoreCase(this.domain, 'github.com')) {
