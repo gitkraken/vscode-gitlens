@@ -48,7 +48,14 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	private previewBanner?: boolean;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.graph', 'graph.html', 'images/gitlens-icon.png', 'Graph', Commands.ShowGraphPage);
+		super(
+			container,
+			'gitlens.graph',
+			'graph.html',
+			'images/gitlens-icon.png',
+			'Commit Graph',
+			Commands.ShowGraphPage,
+		);
 		this.defaultTitle = this.title;
 		this.disposables.push({ dispose: () => void this.repoDisposable?.dispose() });
 	}
