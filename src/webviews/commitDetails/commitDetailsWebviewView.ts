@@ -85,7 +85,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			if (commit == null) {
 				commit = this.getBestCommit();
 			}
-			if (commit == null) {
+			if (commit != null) {
 				this.updateCommit(commit, { pinned: true });
 			}
 		}
