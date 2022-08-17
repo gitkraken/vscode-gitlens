@@ -161,6 +161,88 @@ body {
 	}
 }
 
+// TODO: move this to host-side
+.graph-icon {
+	font: normal normal normal 14px/1 codicon;
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+
+	vertical-align: middle;
+	line-height: 2rem;
+	letter-spacing: normal;
+}
+
+.icon--head {
+	&::before{
+		// codicon-vm
+		font-family: codicon;
+		content: '\ea7a';
+	}
+}
+
+.icon--remote {
+	&::before{
+		// codicon-cloud
+		font-family: codicon;
+		content: '\ebaa';
+	}
+}
+
+.icon--tag {
+	&::before{
+		// codicon-tag
+		font-family: codicon;
+		content: '\ea66';
+	}
+}
+
+.icon--stash {
+	&::before {
+		// codicon-inbox
+		font-family: codicon;
+		content: '\eb09';
+	}
+}
+
+.icon--check {
+	&::before{
+		// codicon-check
+		font-family: codicon;
+		content: '\eab2';
+	}
+}
+
+.icon--loading {
+	&::before{
+		// codicon-loading
+		font-family: codicon;
+		content: '\eb19';
+	}
+	animation: spin 1s infinite linear;
+	animation-delay: .2s;
+
+	@keyframes spin {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
+}
+
+.icon--warning {
+	:before{
+		// codicon-vm
+		font-family: codicon;
+		content: '\ea6c';
+	}
+	color:  #DE9B43;
+}
+
 .graph-app {
 	--fs-2: 1.3rem;
 	--scroll-thumb-bg: var(--vscode-scrollbarSlider-background);
