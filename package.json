@@ -11021,7 +11021,7 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/commits.svg",
-					"visibility": "hidden"
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.commits",
