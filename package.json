@@ -2087,9 +2087,67 @@
 				}
 			},
 			{
+				"id": "graph",
+				"title": "Commit Graph",
+				"order": 105,
+				"properties": {
+					"gitlens.graph.defaultItemLimit": {
+						"type": "number",
+						"default": 500,
+						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.graph.pageItemLimit": {
+						"type": "number",
+						"default": 200,
+						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.graph.columnColors": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$"
+						},
+						"default": [
+							"#15a0bf",
+							"#0669f7",
+							"#8e00c2",
+							"#c517b6",
+							"#d90171",
+							"#cd0101",
+							"#f25d2e",
+							"#f2ca33",
+							"#7bd938",
+							"#2ece9d"
+						],
+						"markdownDescription": "Specifies the colors used for the different columns in the _Commit Graph_",
+						"scope": "window",
+						"order": 30,
+						"maxItems": 10,
+						"minItems": 10
+					}
+				}
+			},
+			{
+				"id": "visual-history",
+				"title": "Visual File History",
+				"order": 106,
+				"properties": {
+					"gitlens.visualHistory.queryLimit": {
+						"type": "number",
+						"default": 20,
+						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the Visual File History, because of rate limits. Only applies to virtual workspaces.",
+						"scope": "window"
+					}
+				}
+			},
+			{
 				"id": "rebase-editor",
 				"title": "Interactive Rebase Editor",
-				"order": 105,
+				"order": 107,
 				"properties": {
 					"gitlens.rebaseEditor.ordering": {
 						"type": "string",
@@ -2453,19 +2511,6 @@
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more",
-						"scope": "window"
-					}
-				}
-			},
-			{
-				"id": "visual-history",
-				"title": "Visual File History",
-				"order": 113,
-				"properties": {
-					"gitlens.visualHistory.queryLimit": {
-						"type": "number",
-						"default": 20,
-						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the Visual File History, because of rate limits. Only applies to virtual workspaces.",
 						"scope": "window"
 					}
 				}
@@ -3001,51 +3046,6 @@
 						"markdownDescription": "Specifies the user-defined GitLens modes",
 						"scope": "window",
 						"order": 30
-					}
-				}
-			},
-			{
-				"id": "graph",
-				"title": "Graph",
-				"order": 124,
-				"properties": {
-					"gitlens.graph.defaultLimit": {
-						"type": "number",
-						"default": 500,
-						"markdownDescription": "Specifies the default number of items to show in the graph list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 10
-					},
-					"gitlens.graph.pageLimit": {
-						"type": "number",
-						"default": 200,
-						"markdownDescription": "Specifies the number of items to show in a each page when paginating a graph list. Use 0 to specify no limit",
-						"scope": "window",
-						"order": 20
-					},
-					"gitlens.graph.columnColors": {
-						"type": "array",
-						"items": {
-							"type": "string",
-							"pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$"
-						},
-						"default": [
-							"#15a0bf",
-							"#0669f7",
-							"#8e00c2",
-							"#c517b6",
-							"#d90171",
-							"#cd0101",
-							"#f25d2e",
-							"#f2ca33",
-							"#7bd938",
-							"#2ece9d"
-						],
-						"markdownDescription": "Specifies the colors used for the different columns in the graph",
-						"scope": "window",
-						"order": 30,
-						"maxItems": 10,
-						"minItems": 10
 					}
 				}
 			},

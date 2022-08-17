@@ -378,8 +378,8 @@ export interface GraphColumnConfig {
 }
 
 export interface GraphConfig {
-	defaultLimit: number;
-	pageLimit: number;
+	defaultItemLimit: number;
+	pageItemLimit: number;
 	columnColors: string[];
 }
 

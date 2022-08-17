@@ -99,8 +99,8 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 	private async moreCommits(limit?: number) {
 		if (this.currentLog?.more !== undefined) {
-			const { defaultLimit, pageLimit } = this.getConfig();
-			const nextLog = await this.currentLog.more(limit ?? pageLimit ?? defaultLimit);
+			const { defaultItemLimit, pageItemLimit } = this.getConfig();
+			const nextLog = await this.currentLog.more(limit ?? pageItemLimit ?? defaultItemLimit);
 			if (nextLog !== undefined) {
 				this.currentLog = nextLog;
 			}
@@ -173,10 +173,10 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			return undefined;
 		}
 
-		const { defaultLimit, pageLimit } = this.getConfig();
+		const { defaultItemLimit, pageItemLimit } = this.getConfig();
 		return this.container.git.getLog(repository.uri, {
 			all: true,
-			limit: pageLimit ?? defaultLimit,
+			limit: pageItemLimit ?? defaultItemLimit,
 		});
 	}
 
