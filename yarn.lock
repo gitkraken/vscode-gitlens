@@ -80,10 +80,10 @@
     minimatch "^3.1.2"
     strip-json-comments "^3.1.1"
 
-"@gitkraken/gitkraken-components@1.0.0-rc.2":
-  version "1.0.0-rc.2"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.0.0-rc.2.tgz#ce0c20d4b3ce7ca91813f59e19bc28816494828a"
-  integrity sha512-AZH5a+9UTFsicYql2E0IE2jav21TAs60GzESPJ6r/eqVtoyn7hfIY6lfqfNOdLpyhyEx8ktOmSH8MbHp8dcNYQ==
+"@gitkraken/gitkraken-components@1.0.0-rc.3":
+  version "1.0.0-rc.3"
+  resolved "https://registry.npmjs.org/@gitkraken/gitkraken-components/-/gitkraken-components-1.0.0-rc.3.tgz#34bf8a95bcea6ef9659175ad02f465e1f0a2cf05"
+  integrity sha512-xy0sTC1QSk1X/I4nW8Qg/25JtkZtU/XVdW9Mw9vUkjysB0nNqfP2TnUbFCaG5qulMoKGvo/nDGmtxYI/PEtyyQ==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
     classnames "2.2.3"

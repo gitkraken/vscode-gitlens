@@ -243,6 +243,42 @@ body {
 	color:  #DE9B43;
 }
 
+.icon--added {
+	&::before{
+		// codicon-add
+		font-family: codicon;
+		content: '\ea60';
+	}
+}
+.icon--modified {
+	&::before{
+		// codicon-edit
+		font-family: codicon;
+		content: '\ea73';
+	}
+}
+.icon--deleted {
+	&::before{
+		// codicon-dash
+		font-family: codicon;
+		content: '\eacc';
+	}
+}
+.icon--renamed {
+	&::before{
+		// codicon-file
+		font-family: codicon;
+		content: '\eb60';
+	}
+}
+.icon--resolved {
+	&::before{
+		// codicon-pass-filled
+		font-family: codicon;
+		content: '\ebb3';
+	}
+}
+
 .graph-app {
 	--fs-2: 1.3rem;
 	--scroll-thumb-bg: var(--vscode-scrollbarSlider-background);
