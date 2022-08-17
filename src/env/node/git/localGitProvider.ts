@@ -91,7 +91,6 @@ import {
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
-import { WorkspaceStorageKeys } from '../../../storage';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
@@ -264,8 +263,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		void subscribeToScmOpenCloseRepository.call(this);
 
 		const potentialGitPaths =
-			configuration.getAny<string | string[]>('git.path') ??
-			this.container.storage.getWorkspace(WorkspaceStorageKeys.GitPath, undefined);
+			configuration.getAny<string | string[]>('git.path') ?? this.container.storage.getWorkspace('gitPath');
 
 		const start = hrtime();
 
@@ -289,7 +287,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
 		setTimeout(() => {
-			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.GitPath, location.path);
+			void this.container.storage.storeWorkspace('gitPath', location.path);
 		}, 1000);
 
 		if (scope != null) {

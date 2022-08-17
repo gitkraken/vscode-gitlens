@@ -25,7 +25,7 @@ import { GraphWebview } from './plus/webviews/graph/graphWebview';
 import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
 import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
 import { StatusBarController } from './statusbar/statusBarController';
-import { Storage } from './storage';
+import type { Storage } from './storage';
 import { executeCommand } from './system/command';
 import { log } from './system/decorators/log';
 import { memoize } from './system/decorators/memoize';
@@ -68,10 +68,10 @@ export class Container {
 		},
 	});
 
-	static create(context: ExtensionContext, insiders: boolean) {
+	static create(context: ExtensionContext, storage: Storage, insiders: boolean) {
 		if (Container.#instance != null) throw new Error('Container is already initialized');
 
-		Container.#instance = new Container(context, insiders);
+		Container.#instance = new Container(context, storage, insiders);
 		return Container.#instance;
 	}
 
@@ -138,12 +138,12 @@ export class Container {
 	private _configAffectedByModeRegex: RegExp | undefined;
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
-	private constructor(context: ExtensionContext, insiders: boolean) {
+	private constructor(context: ExtensionContext, storage: Storage, insiders: boolean) {
 		this._context = context;
 		this._insiders = insiders;
 		this.ensureModeApplied();
 
-		context.subscriptions.push((this._storage = new Storage(this._context)));
+		context.subscriptions.push((this._storage = storage));
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 

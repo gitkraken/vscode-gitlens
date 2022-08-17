@@ -21,7 +21,6 @@ import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
-import { WorkspaceStorageKeys } from '../storage';
 import type { FreeSubscriptionPlans, RequiredSubscriptionPlans, Subscription } from '../subscription';
 import { getSubscriptionPlanPriority, isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
@@ -707,9 +706,7 @@ export class GitProviderService implements Disposable {
 		let disabled = !enabled;
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
 		if (!enabled && this._initializing) {
-			disabled = !(
-				this.container.storage.getWorkspace<boolean>(WorkspaceStorageKeys.AssumeRepositoriesOnStartup) ?? true
-			);
+			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? true);
 		}
 
 		if (this._context.enabled === enabled && this._context.disabled === disabled) return;
@@ -729,7 +726,7 @@ export class GitProviderService implements Disposable {
 		await Promise.allSettled(promises);
 
 		if (!this._initializing) {
-			void this.container.storage.storeWorkspace(WorkspaceStorageKeys.AssumeRepositoriesOnStartup, enabled);
+			void this.container.storage.storeWorkspace('assumeRepositoriesOnStartup', enabled);
 		}
 	}
 

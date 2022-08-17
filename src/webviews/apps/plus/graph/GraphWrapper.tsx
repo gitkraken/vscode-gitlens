@@ -10,12 +10,12 @@ import GraphContainer, {
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
+import type { GraphColumnConfig } from '../../../../config';
 import type {
 	CommitListCallback,
 	GraphBranch,
-	GraphColumnConfig,
 	GraphCommit,
-	GraphConfig,
+	GraphCompositeConfig,
 	GraphRemote,
 	GraphRepository,
 	GraphTag,
@@ -140,7 +140,7 @@ const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
 	refZone: { width: 150 },
 };
 
-const getGraphColSettingsModel = (config?: GraphConfig): GKGraphColumnsSettings => {
+const getGraphColSettingsModel = (config?: GraphCompositeConfig): GKGraphColumnsSettings => {
 	const columnsSettings: GKGraphColumnsSettings = { ...defaultGraphColumnsSettings };
 	if (config?.columns !== undefined) {
 		for (const column of Object.keys(config.columns)) {
@@ -382,7 +382,9 @@ export function GraphWrapper({
 						)}
 					</div>
 				</div>
-				<div className="actionbar__end"><span className="badge">Preview</span></div>
+				<div className="actionbar__end">
+					<span className="badge">Preview</span>
+				</div>
 			</footer>
 		</>
 	);

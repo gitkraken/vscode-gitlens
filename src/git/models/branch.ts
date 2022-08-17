@@ -1,7 +1,5 @@
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Container } from '../../container';
-import type { Starred } from '../../storage';
-import { WorkspaceStorageKeys } from '../../storage';
 import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
@@ -181,7 +179,7 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get starred() {
-		const starred = Container.instance.storage.getWorkspace<Starred>(WorkspaceStorageKeys.StarredBranches);
+		const starred = Container.instance.storage.getWorkspace('starred:branches');
 		return starred !== undefined && starred[this.id] === true;
 	}
 

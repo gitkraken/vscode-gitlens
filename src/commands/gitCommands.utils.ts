@@ -4,7 +4,6 @@ import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { getContext } from '../context';
 import type { Usage } from '../storage';
-import { WorkspaceStorageKeys } from '../storage';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';
@@ -99,7 +98,7 @@ export class PickCommandStep implements QuickPickStep {
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
 		if (configuration.get('gitCommands.sortBy') === GitCommandSorting.Usage) {
-			const usage = this.container.storage.getWorkspace<Usage>(WorkspaceStorageKeys.GitCommandPaletteUsage);
+			const usage = this.container.storage.getWorkspace('gitComandPalette:usage');
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -139,12 +138,12 @@ export class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = this.container.storage.getWorkspace<Usage>(WorkspaceStorageKeys.GitCommandPaletteUsage);
+		let usage = this.container.storage.getWorkspace(`gitComandPalette:usage`);
 		if (usage === undefined) {
 			usage = Object.create(null) as Usage;
 		}
 
 		usage[id] = timestamp;
-		await this.container.storage.storeWorkspace(WorkspaceStorageKeys.GitCommandPaletteUsage, usage);
+		await this.container.storage.storeWorkspace(`gitComandPalette:usage`, usage);
 	}
 }

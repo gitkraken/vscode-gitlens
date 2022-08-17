@@ -10,7 +10,6 @@ import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
-import { WorkspaceStorageKeys } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
@@ -310,8 +309,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
-	private get connectedKey(): `${WorkspaceStorageKeys.ConnectedPrefix}${string}` {
-		return `${WorkspaceStorageKeys.ConnectedPrefix}${this.key}`;
+	private get connectedKey(): `connected:${string}` {
+		return `connected:${this.key}`;
 	}
 
 	get maybeConnected(): boolean | undefined {
@@ -664,7 +663,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		if (createIfNeeded) {
 			await container.storage.deleteWorkspace(this.connectedKey);
-		} else if (container.storage.getWorkspace<boolean>(this.connectedKey) === false) {
+		} else if (container.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
 		}
 

@@ -7,7 +7,6 @@ import { authentication, Disposable, EventEmitter, extensions, window } from 'vs
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
-import { StorageKeys } from '../../storage';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { ServerConnection } from './serverConnection';
 
@@ -173,7 +172,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 	private _migrated: boolean | undefined;
 	async tryMigrateSession(): Promise<AuthenticationSession | undefined> {
 		if (this._migrated == null) {
-			this._migrated = this.container.storage.get<boolean>(StorageKeys.MigratedAuthentication, false);
+			this._migrated = this.container.storage.get('plus:migratedAuthentication', false);
 		}
 		if (this._migrated) return undefined;
 
@@ -209,7 +208,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			Logger.error(ex, 'Unable to migrate authentication');
 		} finally {
 			this._migrated = true;
-			void this.container.storage.store<boolean>(StorageKeys.MigratedAuthentication, true);
+			void this.container.storage.store('plus:migratedAuthentication', true);
 		}
 		return session;
 	}

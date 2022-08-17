@@ -1,5 +1,4 @@
 import { Container } from '../../container';
-import { WorkspaceStorageKeys } from '../../storage';
 import { sortCompare } from '../../system/string';
 import type { RemoteProvider } from '../remotes/provider';
 import { RichRemoteProvider } from '../remotes/provider';
@@ -60,7 +59,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.instance.storage.getWorkspace<string>(WorkspaceStorageKeys.DefaultRemote);
+		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
 		return this.id === defaultRemote;
 	}
 

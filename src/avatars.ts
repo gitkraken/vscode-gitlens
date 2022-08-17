@@ -4,7 +4,7 @@ import { configuration } from './configuration';
 import { Container } from './container';
 import type { GitRevisionReference } from './git/models/reference';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
-import { StorageKeys } from './storage';
+import type { StoredAvatar } from './storage';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase, md5 } from './system/string';
@@ -20,18 +20,18 @@ _onDidFetchAvatar.event(
 				? [
 						...filterMap(avatarCache, ([key, avatar]) =>
 							avatar.uri != null
-								? [
+								? ([
 										key,
 										{
 											uri: avatar.uri.toString(),
 											timestamp: avatar.timestamp,
 										},
-								  ]
+								  ] as [string, StoredAvatar])
 								: undefined,
 						),
 				  ]
 				: undefined;
-		void Container.instance.storage.store(StorageKeys.Avatars, avatars);
+		void Container.instance.storage.store('avatars', avatars);
 	}, 1000),
 );
 
@@ -44,11 +44,6 @@ interface Avatar {
 	fallback?: Uri;
 	timestamp: number;
 	retries: number;
-}
-
-interface SerializedAvatar {
-	uri: string;
-	timestamp: number;
 }
 
 let avatarCache: Map<string, Avatar> | undefined;
@@ -140,7 +135,7 @@ function createOrUpdateAvatar(
 function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
 	if (cache == null) {
 		const avatars: [string, Avatar][] | undefined = Container.instance.storage
-			.get<[string, SerializedAvatar][]>(StorageKeys.Avatars)
+			.get('avatars')
 			?.map<[string, Avatar]>(([key, avatar]) => [
 				key,
 				{
@@ -249,7 +244,7 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 	switch (reset) {
 		case 'all':
-			void Container.instance.storage.delete(StorageKeys.Avatars);
+			void Container.instance.storage.delete('avatars');
 			avatarCache?.clear();
 			avatarQueue.clear();
 			break;

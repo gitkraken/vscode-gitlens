@@ -19,7 +19,7 @@ import {
 	showWhatsNewMessage,
 } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { StorageKeys, SyncedStorageKeys } from './storage';
+import { DeprecatedStorageKeys, Storage, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
@@ -94,10 +94,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	setKeysForSync(context);
 
-	const syncedVersion = context.globalState.get<string>(SyncedStorageKeys.Version);
-	const localVersion =
-		context.globalState.get<string>(StorageKeys.Version) ??
-		context.globalState.get<string>(StorageKeys.Deprecated_Version);
+	const storage = new Storage(context);
+	const syncedVersion = storage.get('synced:version');
+	const localVersion = storage.get('version') ?? context.globalState.get<string>(DeprecatedStorageKeys.Version);
 
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
@@ -110,13 +109,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	let exitMessage;
 	if (Logger.enabled(LogLevel.Debug)) {
-		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${context.globalState.get<boolean>(
-			SyncedStorageKeys.HomeViewWelcomeVisible,
+		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${storage.get(
+			'views:welcome:visible',
 		)}`;
 	}
 
 	if (previousVersion == null) {
-		void context.globalState.update(SyncedStorageKeys.HomeViewWelcomeVisible, true);
+		void storage.store('views:welcome:visible', true);
 	}
 
 	Configuration.configure(context);
@@ -132,7 +131,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	// await migrateSettings(context, previousVersion);
 
-	const container = Container.create(context, insiders);
+	const container = Container.create(context, storage, insiders);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
@@ -140,11 +139,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
-		void context.globalState.update(StorageKeys.Version, gitlensVersion);
+		void storage.store('version', gitlensVersion);
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void context.globalState.update(SyncedStorageKeys.Version, gitlensVersion);
+			void storage.store('synced:version', gitlensVersion);
 		}
 
 		if (outputLevel === OutputLevel.Debug) {
@@ -245,19 +244,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		if (configuration.get('showWelcomeOnInstall') === false) return;
 
 		if (window.state.focused) {
-			await container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
+			await container.storage.delete('pendingWelcomeOnFocus');
 			await executeCommand(Commands.ShowWelcomePage);
 		} else {
 			// Save pending on window getting focus
-			await container.storage.store(StorageKeys.PendingWelcomeOnFocus, true);
+			await container.storage.store('pendingWelcomeOnFocus', true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the welcome, clear the pending state and show the welcome
-				if (container.storage.get(StorageKeys.PendingWelcomeOnFocus) === true) {
-					void container.storage.delete(StorageKeys.PendingWelcomeOnFocus);
+				if (container.storage.get('pendingWelcomeOnFocus') === true) {
+					void container.storage.delete('pendingWelcomeOnFocus');
 					if (configuration.get('showWelcomeOnInstall')) {
 						void executeCommand(Commands.ShowWelcomePage);
 					}
@@ -289,19 +288,19 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 
 	if (configuration.get('showWhatsNewAfterUpgrades')) {
 		if (window.state.focused) {
-			await container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
+			await container.storage.delete('pendingWhatsNewOnFocus');
 			await showWhatsNewMessage(version);
 		} else {
 			// Save pending on window getting focus
-			await container.storage.store(StorageKeys.PendingWhatsNewOnFocus, true);
+			await container.storage.store('pendingWhatsNewOnFocus', true);
 			const disposable = window.onDidChangeWindowState(e => {
 				if (!e.focused) return;
 
 				disposable.dispose();
 
 				// If the window is now focused and we are pending the what's new, clear the pending state and show the what's new
-				if (container.storage.get(StorageKeys.PendingWhatsNewOnFocus) === true) {
-					void container.storage.delete(StorageKeys.PendingWhatsNewOnFocus);
+				if (container.storage.get('pendingWhatsNewOnFocus') === true) {
+					void container.storage.delete('pendingWhatsNewOnFocus');
 					if (configuration.get('showWhatsNewAfterUpgrades')) {
 						void showWhatsNewMessage(version);
 					}

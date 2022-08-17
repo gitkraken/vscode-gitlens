@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitRevision } from '../../git/models/reference';
-import type { NamedRef } from '../../storage';
+import type { StoredNamedRef } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
@@ -33,8 +33,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		view: SearchAndCompareView,
 		parent: ViewNode,
 		public readonly repoPath: string,
-		private _ref: NamedRef,
-		private _compareWith: NamedRef,
+		private _ref: StoredNamedRef,
+		private _compareWith: StoredNamedRef,
 		private _pinned: number = 0,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
@@ -176,7 +176,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	@gate()
 	@debug()
 	async getDiffRefs(): Promise<[string, string]> {
-		return Promise.resolve([this._compareWith.ref, this._ref.ref]);
+		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
 
 	@log()

@@ -9,8 +9,7 @@ import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
-import type { Starred } from '../../storage';
-import { WorkspaceStorageKeys } from '../../storage';
+import type { StoredStarred } from '../../storage';
 import { filterMap, groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
@@ -856,13 +855,13 @@ export class Repository implements Disposable {
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
-		await this.container.storage.storeWorkspace(WorkspaceStorageKeys.DefaultRemote, value ? remote.id : undefined);
+		await this.container.storage.storeWorkspace('remote:default', value ? remote.id : undefined);
 
 		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
 	}
 
 	get starred() {
-		const starred = this.container.storage.getWorkspace<Starred>(WorkspaceStorageKeys.StarredRepositories);
+		const starred = this.container.storage.getWorkspace('starred:repositories');
 		return starred != null && starred[this.id] === true;
 	}
 
@@ -932,18 +931,19 @@ export class Repository implements Disposable {
 
 	private async updateStarred(star: boolean, branch?: GitBranch) {
 		if (branch != null) {
-			await this.updateStarredCore(WorkspaceStorageKeys.StarredBranches, branch.id, star);
+			await this.updateStarredCore('branches', branch.id, star);
 		} else {
-			await this.updateStarredCore(WorkspaceStorageKeys.StarredRepositories, this.id, star);
+			await this.updateStarredCore('repositories', this.id, star);
 		}
 
 		this.fireChange(RepositoryChange.Starred);
 	}
 
-	private async updateStarredCore(key: WorkspaceStorageKeys, id: string, star: boolean) {
-		let starred = this.container.storage.getWorkspace<Starred>(key);
+	private async updateStarredCore(key: 'branches' | 'repositories', id: string, star: boolean) {
+		const storageKey = `starred:${key}` as const;
+		let starred = this.container.storage.getWorkspace(storageKey);
 		if (starred === undefined) {
-			starred = Object.create(null) as Starred;
+			starred = Object.create(null) as StoredStarred;
 		}
 
 		if (star) {
@@ -952,7 +952,7 @@ export class Repository implements Disposable {
 			const { [id]: _, ...rest } = starred;
 			starred = rest;
 		}
-		await this.container.storage.storeWorkspace(key, starred);
+		await this.container.storage.storeWorkspace(storageKey, starred);
 
 		this.fireChange(RepositoryChange.Starred);
 	}

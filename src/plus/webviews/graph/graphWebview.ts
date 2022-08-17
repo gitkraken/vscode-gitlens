@@ -2,6 +2,7 @@ import type { CommitType } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter, ViewColumn, window } from 'vscode';
+import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -14,19 +15,11 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import { WorkspaceStorageKeys } from '../../../storage';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type {
-	GraphColumnConfig,
-	GraphColumnConfigDictionary,
-	GraphCommit,
-	GraphConfig as GraphConfigWithColumns,
-	GraphRepository,
-	State,
-} from './protocol';
+import type { GraphCommit, GraphCompositeConfig, GraphRepository, State } from './protocol';
 import {
 	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,
@@ -87,17 +80,13 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 
 	private dismissPreview() {
 		this.previewBanner = false;
-		void this.container.storage.storeWorkspace(WorkspaceStorageKeys.GraphPreview, false);
+		void this.container.storage.storeWorkspace('graph:preview', false);
 	}
 
 	private changeColumn(name: string, config: GraphColumnConfig) {
-		const columns =
-			this.container.storage.getWorkspace<GraphColumnConfigDictionary>(WorkspaceStorageKeys.GraphColumns) ?? {};
+		const columns = this.container.storage.getWorkspace('graph:columns') ?? {};
 		columns[name] = config;
-		void this.container.storage.storeWorkspace<GraphColumnConfigDictionary>(
-			WorkspaceStorageKeys.GraphColumns,
-			columns,
-		);
+		void this.container.storage.storeWorkspace('graph:columns', columns);
 		void this.notifyDidChangeConfig();
 	}
 
@@ -274,13 +263,11 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		return repositories.find(r => r.path === repoPath);
 	}
 
-	private getConfig(): GraphConfigWithColumns {
+	private getConfig(): GraphCompositeConfig {
 		const settings = configuration.get('graph');
-		const config: GraphConfigWithColumns = {
+		const config: GraphCompositeConfig = {
 			...settings,
-			columns: this.container.storage.getWorkspace<GraphColumnConfigDictionary>(
-				WorkspaceStorageKeys.GraphColumns,
-			),
+			columns: this.container.storage.getWorkspace('graph:columns'),
 		};
 		return config;
 	}
@@ -300,7 +287,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		}
 
 		if (this.previewBanner == null) {
-			this.previewBanner = (await this.container.storage.getWorkspace(WorkspaceStorageKeys.GraphPreview)) ?? true;
+			this.previewBanner = this.container.storage.getWorkspace('graph:preview') ?? true;
 		}
 
 		if (this.selectedRepository === undefined) {

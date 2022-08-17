@@ -6,8 +6,7 @@ import type { GitBranch } from '../../git/models/branch';
 import { GitRevision } from '../../git/models/reference';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { ReferencePicker } from '../../quickpicks/referencePicker';
-import type { BranchComparison, BranchComparisons } from '../../storage';
-import { WorkspaceStorageKeys } from '../../storage';
+import type { StoredBranchComparison, StoredBranchComparisons } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
@@ -30,7 +29,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private _children: ViewNode[] | undefined;
-	private _compareWith: BranchComparison | undefined;
+	private _compareWith: StoredBranchComparison | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -370,9 +369,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private loadCompareWith() {
-		const comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
-			WorkspaceStorageKeys.BranchComparisons,
-		);
+		const comparisons = this.view.container.storage.getWorkspace('branch:comparisons');
 
 		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
 		const compareWith = comparisons?.[id];
@@ -387,16 +384,14 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		}
 	}
 
-	private async updateCompareWith(compareWith: BranchComparison | undefined) {
+	private async updateCompareWith(compareWith: StoredBranchComparison | undefined) {
 		this._compareWith = compareWith;
 
-		let comparisons = this.view.container.storage.getWorkspace<BranchComparisons>(
-			WorkspaceStorageKeys.BranchComparisons,
-		);
+		let comparisons = this.view.container.storage.getWorkspace('branch:comparisons');
 		if (comparisons == null) {
 			if (compareWith == null) return;
 
-			comparisons = Object.create(null) as BranchComparisons;
+			comparisons = Object.create(null) as StoredBranchComparisons;
 		}
 
 		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
@@ -409,6 +404,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
-		await this.view.container.storage.storeWorkspace(WorkspaceStorageKeys.BranchComparisons, comparisons);
+		await this.view.container.storage.storeWorkspace('branch:comparisons', comparisons);
 	}
 }

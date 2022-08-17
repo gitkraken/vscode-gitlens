@@ -10,7 +10,6 @@ import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { GraphSelectionChangeEvent } from '../../plus/webviews/graph/graphWebview';
-import { WorkspaceStorageKeys } from '../../storage';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -70,9 +69,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			pinned: false,
 			commit: undefined,
 			preferences: {
-				autolinksExpanded: this.container.storage.getWorkspace(
-					WorkspaceStorageKeys.ViewsCommitDetailsAutolinksExpanded,
-				),
+				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
 			},
 			richStateLoaded: false,
 			formattedMessage: undefined,
@@ -396,7 +393,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded) return;
 
 		void this.container.storage.storeWorkspace(
-			WorkspaceStorageKeys.ViewsCommitDetailsAutolinksExpanded,
+			'views:commitDetails:autolinksExpanded',
 			preferences.autolinksExpanded,
 		);
 

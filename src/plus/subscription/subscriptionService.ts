@@ -28,7 +28,6 @@ import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
-import { StorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
@@ -795,7 +794,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private getStoredSubscription(): Subscription | undefined {
-		const storedSubscription = this.container.storage.get<Stored<Subscription>>(StorageKeys.Subscription);
+		const storedSubscription = this.container.storage.get('premium:subscription');
 
 		const subscription = storedSubscription?.data;
 		if (subscription != null) {
@@ -812,7 +811,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async storeSubscription(subscription: Subscription): Promise<void> {
-		return this.container.storage.store<Stored<Subscription>>(StorageKeys.Subscription, {
+		return this.container.storage.store('premium:subscription', {
 			v: 1,
 			data: subscription,
 		});
@@ -969,9 +968,4 @@ interface GKUser {
 	email: string;
 	status: 'activated' | 'pending';
 	firstGitLensCheckIn?: string;
-}
-
-interface Stored<T, SchemaVersion extends number = 1> {
-	v: SchemaVersion;
-	data: T;
 }

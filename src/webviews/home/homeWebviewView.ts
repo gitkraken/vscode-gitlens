@@ -4,7 +4,6 @@ import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
-import { StorageKeys, SyncedStorageKeys } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand } from '../../system/command';
 import { WebviewViewBase } from '../webviewViewBase';
@@ -44,22 +43,19 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
 			commands.registerCommand('gitlens.home.toggleWelcome', async () => {
 				const welcomeVisible = !this.welcomeVisible;
-				await this.container.storage.store(SyncedStorageKeys.HomeViewWelcomeVisible, welcomeVisible);
+				await this.container.storage.store('views:welcome:visible', welcomeVisible);
 				if (welcomeVisible) {
-					await this.container.storage.store(StorageKeys.HomeViewActionsCompleted, []);
+					await this.container.storage.store('home:actions:completed', []);
 				}
 
 				void this.notifyDidChangeData();
 			}),
 
 			commands.registerCommand('gitlens.home.showSCM', async () => {
-				const completedActions = this.container.storage.get<CompletedActions[]>(
-					StorageKeys.HomeViewActionsCompleted,
-					[],
-				);
+				const completedActions = this.container.storage.get('home:actions:completed', []);
 				if (!completedActions.includes(CompletedActions.OpenedSCM)) {
 					completedActions.push(CompletedActions.OpenedSCM);
-					await this.container.storage.store(StorageKeys.HomeViewActionsCompleted, completedActions);
+					await this.container.storage.store('home:actions:completed', completedActions);
 
 					void this.notifyDidChangeData();
 				}
@@ -74,14 +70,12 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	}
 
 	private get welcomeVisible(): boolean {
-		return this.container.storage.get(SyncedStorageKeys.HomeViewWelcomeVisible, true);
+		return this.container.storage.get('views:welcome:visible', true);
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
 		// Make sure to make a copy of the array otherwise it will be live to the storage value
-		const completedActions = [
-			...this.container.storage.get<CompletedActions[]>(StorageKeys.HomeViewActionsCompleted, []),
-		];
+		const completedActions = [...this.container.storage.get('home:actions:completed', [])];
 		if (!this.welcomeVisible) {
 			completedActions.push(CompletedActions.DismissedWelcome);
 		}

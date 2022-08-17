@@ -1,15 +1,25 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { ViewShowBranchComparison } from './config';
+import type { GraphColumnConfig, ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
+import type { Subscription } from './subscription';
+import type { CompletedActions } from './webviews/home/protocol';
 
-export interface StorageChangeEvent {
-	/**
-	 * The key of the stored value that has changed.
-	 */
-	readonly key: string;
-	readonly workspace: boolean;
-}
+export type StorageChangeEvent =
+	| {
+			/**
+			 * The key of the stored value that has changed.
+			 */
+			readonly key: GlobalStoragePath;
+			readonly workspace: false;
+	  }
+	| {
+			/**
+			 * The key of the stored value that has changed.
+			 */
+			readonly key: WorkspaceStoragePath;
+			readonly workspace: true;
+	  };
 
 export class Storage implements Disposable {
 	private _onDidChange = new EventEmitter<StorageChangeEvent>();
@@ -31,19 +41,25 @@ export class Storage implements Disposable {
 		this._disposable.dispose();
 	}
 
-	get<T>(key: StorageKeys | SyncedStorageKeys): T | undefined;
-	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue: T): T;
-	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue?: T): T | undefined {
-		return this.context.globalState.get(key, defaultValue);
+	get<T extends GlobalStoragePath>(key: T): GlobalStoragePathValue<T>;
+	get<T extends GlobalStoragePath>(
+		key: T,
+		defaultValue: NonNullable<GlobalStoragePathValue<T>>,
+	): NonNullable<GlobalStoragePathValue<T>>;
+	get<T extends GlobalStoragePath>(
+		key: T,
+		defaultValue?: GlobalStoragePathValue<T>,
+	): GlobalStoragePathValue<T> | undefined {
+		return this.context.globalState.get(`gitlens:${key}`, defaultValue);
 	}
 
-	async delete(key: StorageKeys | SyncedStorageKeys): Promise<void> {
-		await this.context.globalState.update(key, undefined);
+	async delete<T extends GlobalStoragePath>(key: T): Promise<void> {
+		await this.context.globalState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
-	async store<T>(key: StorageKeys | SyncedStorageKeys, value: T): Promise<void> {
-		await this.context.globalState.update(key, value);
+	async store<T extends GlobalStoragePath>(key: T, value: GlobalStoragePathValue<T>): Promise<void> {
+		await this.context.globalState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
@@ -59,100 +75,149 @@ export class Storage implements Disposable {
 		return this.context.secrets.store(key, value);
 	}
 
-	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`): T | undefined;
-	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`, defaultValue: T): T;
-	getWorkspace<T>(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		defaultValue?: T,
-	): T | undefined {
-		return this.context.workspaceState.get(key, defaultValue);
+	getWorkspace<T extends WorkspaceStoragePath>(key: T): WorkspaceStoragePathValue<T>;
+	getWorkspace<T extends WorkspaceStoragePath>(
+		key: T,
+		defaultValue: NonNullable<WorkspaceStoragePathValue<T>>,
+	): NonNullable<WorkspaceStoragePathValue<T>>;
+	getWorkspace<T extends WorkspaceStoragePath>(
+		key: T,
+		defaultValue?: WorkspaceStoragePathValue<T>,
+	): WorkspaceStoragePathValue<T> | undefined {
+		return this.context.workspaceState.get(`gitlens:${key}`, defaultValue);
 	}
 
-	async deleteWorkspace(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-	): Promise<void> {
-		await this.context.workspaceState.update(key, undefined);
+	async deleteWorkspace<T extends WorkspaceStoragePath>(key: T): Promise<void> {
+		await this.context.workspaceState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
-	async storeWorkspace<T>(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		value: T,
-	): Promise<void> {
-		await this.context.workspaceState.update(key, value);
+	async storeWorkspace<T extends WorkspaceStoragePath>(key: T, value: WorkspaceStoragePathValue<T>): Promise<void> {
+		await this.context.workspaceState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 }
 
 export type SecretKeys = string;
 
-export const enum StorageKeys {
-	Avatars = 'gitlens:avatars',
-	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
-	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
-	HomeViewActionsCompleted = 'gitlens:home:actions:completed',
-
-	Version = 'gitlens:version',
-
-	MigratedAuthentication = 'gitlens:plus:migratedAuthentication',
-	Subscription = 'gitlens:premium:subscription', // Don't change this key name as its the stored subscription
-
-	Deprecated_Version = 'gitlensVersion',
+export const enum DeprecatedStorageKeys {
+	/** @deprecated use `gitlens:version` */
+	Version = 'gitlensVersion',
+	/** @deprecated */
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
-export const enum WorkspaceStorageKeys {
-	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
-	GitPath = 'gitlens:gitPath',
-
-	BranchComparisons = 'gitlens:branch:comparisons',
-	ConnectedPrefix = 'gitlens:connected:',
-	DefaultRemote = 'gitlens:remote:default',
-	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
-	StarredBranches = 'gitlens:starred:branches',
-	StarredRepositories = 'gitlens:starred:repositories',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
-	ViewsCommitDetailsAutolinksExpanded = 'gitlens:views:commitDetails:autolinksExpanded',
-	GraphColumns = 'gitlens:graph:columns',
-	GraphPreview = 'gitlens:graph:preview',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
+export interface GlobalStorage {
+	avatars?: [string, StoredAvatar][];
+	home: {
+		actions: {
+			completed?: CompletedActions[];
+		};
+	};
+	pendingWelcomeOnFocus?: boolean;
+	pendingWhatsNewOnFocus?: boolean;
+	plus: {
+		migratedAuthentication?: boolean;
+	};
+	// Don't change this key name ('premium`) as its the stored subscription
+	premium: {
+		subscription?: Stored<Subscription>;
+	};
+	synced: {
+		version?: string;
+	};
+	version?: string;
+	views: {
+		welcome: {
+			visible?: boolean;
+		};
+	};
 }
 
-export interface BranchComparison {
+export interface WorkspaceStorage {
+	assumeRepositoriesOnStartup?: boolean;
+	branch: {
+		comparisons?: StoredBranchComparisons;
+	};
+	connected: {
+		[key: string]: boolean;
+	};
+	gitComandPalette: {
+		usage?: Usage;
+	};
+	gitPath?: string;
+	graph: {
+		columns?: {
+			[key: string]: GraphColumnConfig;
+		};
+		preview?: boolean;
+	};
+	remote: {
+		default?: string;
+	};
+	starred: {
+		branches?: StoredStarred;
+		repositories?: StoredStarred;
+	};
+	views: {
+		repositories: {
+			autoRefresh?: boolean;
+		};
+		searchAndCompare: {
+			keepResults?: boolean;
+			pinned?: StoredPinnedItems;
+		};
+		commitDetails: {
+			autolinksExpanded?: boolean;
+		};
+	};
+
+	pinned: {
+		/** @deprecated use `gitlens:views:searchAndCompare:pinned` */
+		comparisons?: DeprecatedPinnedComparisons;
+	};
+}
+
+export interface Stored<T, SchemaVersion extends number = 1> {
+	v: SchemaVersion;
+	data: T;
+}
+
+export interface StoredAvatar {
+	uri: string;
+	timestamp: number;
+}
+
+export interface StoredBranchComparison {
 	ref: string;
 	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 }
 
-export interface BranchComparisons {
-	[id: string]: string | BranchComparison;
+export interface StoredBranchComparisons {
+	[id: string]: string | StoredBranchComparison;
 }
 
-export interface NamedRef {
+export interface StoredNamedRef {
 	label?: string;
 	ref: string;
 }
 
-export interface PinnedComparison {
+export interface StoredPinnedComparison {
 	type: 'comparison';
 	timestamp: number;
 	path: string;
-	ref1: NamedRef;
-	ref2: NamedRef;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
 	notation?: '..' | '...';
 }
 
-export interface PinnedSearch {
+export interface StoredPinnedSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
@@ -168,16 +233,53 @@ export interface PinnedSearch {
 	search: SearchPattern;
 }
 
-export type PinnedItem = PinnedComparison | PinnedSearch;
+export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
 
-export interface PinnedItems {
-	[id: string]: PinnedItem;
+export interface StoredPinnedItems {
+	[id: string]: StoredPinnedItem;
 }
 
-export interface Starred {
+export interface StoredStarred {
 	[id: string]: boolean;
 }
 
 export interface Usage {
 	[id: string]: number;
 }
+
+interface DeprecatedPinnedComparison {
+	path: string;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
+	notation?: '..' | '...';
+}
+
+interface DeprecatedPinnedComparisons {
+	[id: string]: DeprecatedPinnedComparison;
+}
+
+type SubPath<T, Key extends keyof T> = Key extends string
+	? T[Key] extends Record<string, any>
+		?
+				| `${Key}:${SubPath<T[Key], Exclude<keyof T[Key], keyof any[]>>}`
+				| `${Key}:${Exclude<keyof T[Key], keyof any[]> & string}`
+		: never
+	: never;
+
+type Path<T> = SubPath<T, keyof T> | keyof T;
+
+type PathValue<T, P extends Path<T>> = P extends `${infer Key}:${infer Rest}`
+	? Key extends keyof T
+		? Rest extends Path<T[Key]>
+			? PathValue<T[Key], Rest>
+			: never
+		: never
+	: P extends keyof T
+	? T[P]
+	: never;
+
+type GlobalStoragePath = Path<GlobalStorage>;
+type GlobalStoragePathValue<P extends GlobalStoragePath> = PathValue<GlobalStorage, P>;
+
+type WorkspaceStoragePath = Path<WorkspaceStorage>;
+type WorkspaceStoragePathValue<P extends WorkspaceStoragePath> = PathValue<WorkspaceStorage, P>;

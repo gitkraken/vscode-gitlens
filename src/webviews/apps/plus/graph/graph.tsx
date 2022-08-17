@@ -2,14 +2,8 @@
 import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import type { GraphConfig } from '../../../../config';
-import type {
-	CommitListCallback,
-	GraphColumnConfig,
-	GraphCommit,
-	GraphRepository,
-	State,
-} from '../../../../plus/webviews/graph/protocol';
+import type { GraphColumnConfig, GraphConfig } from '../../../../config';
+import type { CommitListCallback, GraphCommit, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
 import {
 	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,

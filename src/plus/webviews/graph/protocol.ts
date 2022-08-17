@@ -1,10 +1,11 @@
+import type { GraphColumnConfig, GraphConfig } from '../../../config';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	commits?: GraphCommit[];
-	config?: GraphConfig;
+	config?: GraphCompositeConfig;
 	remotes?: GraphRemote[];
 	tags?: GraphTag[];
 	branches?: GraphBranch[];
@@ -27,19 +28,10 @@ export type GraphRemote = Record<string, any>;
 export type GraphTag = Record<string, any>;
 export type GraphBranch = Record<string, any>;
 
-export interface GraphColumnConfig {
-	width: number;
-}
-
-export interface GraphColumnConfigDictionary {
-	[key: string]: GraphColumnConfig;
-}
-
-export interface GraphConfig {
-	defaultLimit: number;
-	pageLimit: number;
-	columns?: GraphColumnConfigDictionary;
-	columnColors: string[];
+export interface GraphCompositeConfig extends GraphConfig {
+	columns?: {
+		[key: string]: GraphColumnConfig;
+	};
 }
 
 export interface CommitListCallback {
@@ -77,7 +69,7 @@ export interface DidChangeParams {
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange');
 
 export interface DidChangeConfigParams {
-	config: GraphConfig;
+	config: GraphCompositeConfig;
 }
 export const DidChangeConfigNotificationType = new IpcNotificationType<DidChangeConfigParams>('graph/didChangeConfig');
 

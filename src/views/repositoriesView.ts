@@ -18,7 +18,6 @@ import type {
 import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
-import { WorkspaceStorageKeys } from '../storage';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { BranchesNode } from './nodes/branchesNode';
@@ -279,10 +278,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	}
 
 	get autoRefresh() {
-		return (
-			this.config.autoRefresh &&
-			this.container.storage.getWorkspace<boolean>(WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh, true)
-		);
+		return this.config.autoRefresh && this.container.storage.getWorkspace('views:repositories:autoRefresh', true);
 	}
 
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
@@ -855,15 +851,9 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
-				workspaceEnabled = this.container.storage.getWorkspace<boolean>(
-					WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh,
-					true,
-				);
+				workspaceEnabled = this.container.storage.getWorkspace('views:repositories:autoRefresh', true);
 			} else {
-				await this.container.storage.storeWorkspace(
-					WorkspaceStorageKeys.ViewsRepositoriesAutoRefresh,
-					workspaceEnabled,
-				);
+				await this.container.storage.storeWorkspace('views:repositories:autoRefresh', workspaceEnabled);
 			}
 		}
 
