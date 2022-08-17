@@ -11320,6 +11320,8 @@
 		"bundle": "webpack --mode production",
 		"clean": "npx rimraf dist out .vscode-test .vscode-test-web .eslintcache* tsconfig*.tsbuildinfo",
 		"copy:images": "webpack --config webpack.config.images.js",
+		"graph:link": "pushd \"../GitKrakenComponents\" && yarn link && popd && yarn link @gitkraken/gitkraken-components",
+		"graph:unlink": "yarn unlink @gitkraken/gitkraken-components",
 		"lint": "eslint \"src/**/*.ts?(x)\" --fix",
 		"lint:webviews": "eslint \"src/webviews/apps/**/*.ts?(x)\" --fix",
 		"package": "vsce package --yarn",
