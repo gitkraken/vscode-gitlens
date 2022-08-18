@@ -1,5 +1,5 @@
-import type { AuthenticationSession, Range, Uri } from 'vscode';
-import { window } from 'vscode';
+import type { AuthenticationSession, Range } from 'vscode';
+import { Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { Container } from '../../container';
@@ -89,6 +89,11 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this._autolinks;
 	}
 
+	override get avatarUri() {
+		const [owner] = this.splitPath();
+		return Uri.parse(`https://avatars.githubusercontent.com/${owner}`);
+	}
+
 	override get icon() {
 		return 'github';
 	}
@@ -99,11 +104,6 @@ export class GitHubRemote extends RichRemoteProvider {
 
 	get name() {
 		return this.formatName('GitHub');
-	}
-
-	override get avatarUrl() {
-		const [owner] = this.splitPath();
-		return `https://avatars.githubusercontent.com/${owner}`;
 	}
 
 	@log()

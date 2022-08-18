@@ -99,7 +99,6 @@ export class GitRemoteParser {
 					provider,
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					[{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }],
-					provider !== undefined ? provider.avatarUrl : undefined,
 				);
 				remotes.push(remote);
 				groups[uniqueness] = remote;
