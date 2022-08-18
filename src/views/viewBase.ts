@@ -508,6 +508,11 @@ export abstract class ViewBase<
 
 	@debug()
 	async refresh(reset: boolean = false) {
+		// If we are resetting, make sure to clear any saved node state
+		if (reset) {
+			this.nodeState.reset();
+		}
+
 		await this.root?.refresh?.(reset);
 
 		this.triggerNodeChange();
@@ -610,6 +615,10 @@ export class ViewNodeState implements Disposable {
 	private _state: Map<string, Map<string, unknown>> | undefined;
 
 	dispose() {
+		this.reset();
+	}
+
+	reset() {
 		this._state?.clear();
 		this._state = undefined;
 	}

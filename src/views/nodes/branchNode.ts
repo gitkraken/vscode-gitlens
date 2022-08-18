@@ -140,13 +140,14 @@ export class BranchNode
 		if (this._children == null) {
 			const branch = this.branch;
 
-			const pullRequest = this.getState('pullRequest');
+			let pullRequest;
 
 			if (
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(branch.upstream != null || branch.remote)
 			) {
+				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					void this.getAssociatedPullRequest(
 						branch,
