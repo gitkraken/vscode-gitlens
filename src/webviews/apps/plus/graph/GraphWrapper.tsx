@@ -86,16 +86,12 @@ const getGraphModel = (
 					branch.name.startsWith(remote.name),
 				);
 
-				const matchingRemoteUrl: string | undefined =
-					matchingRemote !== undefined && matchingRemote.urls.length > 0 ? matchingRemote.urls[0] : undefined;
-
 				return {
 					// If a matching remote is found, remove the remote name and slash from the branch name
 					name:
 						matchingRemote !== undefined ? branch.name.replace(`${matchingRemote.name}/`, '') : branch.name,
-					url: matchingRemoteUrl,
-					// TODO: Add avatarUrl support for remotes
-					avatarUrl: matchingRemote?.avatarUrl ?? undefined
+					url: matchingRemote?.url,
+					avatarUrl: matchingRemote?.avatarUrl ?? undefined,
 				};
 			});
 

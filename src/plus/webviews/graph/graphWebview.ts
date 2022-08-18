@@ -1,7 +1,7 @@
 import type { CommitType } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
 import type { Disposable, Event } from 'vscode';
-import { EventEmitter, ViewColumn, window } from 'vscode';
+import { EventEmitter, Uri, ViewColumn, window } from 'vscode';
 import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -19,7 +19,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { GraphCommit, GraphCompositeConfig, GraphRepository, State } from './protocol';
+import type { GraphCommit, GraphCompositeConfig, GraphRemote, GraphRepository, State } from './protocol';
 import {
 	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,
@@ -330,7 +330,11 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			repositories: formatRepositories(repositories),
 			selectedRepository: this.selectedRepository?.path,
 			commits: formatCommits(combinedCommitsWithFilteredStashes),
-			remotes: remotes, // TODO: add a format function
+			remotes: formatRemotes(remotes, icon =>
+				this._panel?.webview
+					.asWebviewUri(Uri.joinPath(this.container.context.extensionUri, `images/dark/icon-${icon}.svg`))
+					.toString(),
+			),
 			branches: branches, // TODO: add a format function
 			tags: tags, // TODO: add a format function
 			config: this.getConfig(),
@@ -404,6 +408,17 @@ function combineAndFilterStashCommits(
 	}
 
 	return [...filteredCommits, ...filteredStashCommits];
+}
+
+function formatRemotes(
+	remotes: GitRemote[] | undefined,
+	getIconUrl: (icon?: string) => string | undefined,
+): GraphRemote[] | undefined {
+	return remotes?.map(r => ({
+		name: r.name,
+		url: r.url,
+		avatarUrl: r.provider?.avatarUri?.toString(true) ?? getIconUrl(r.provider?.icon),
+	}));
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
