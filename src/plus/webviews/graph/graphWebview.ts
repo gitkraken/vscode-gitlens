@@ -14,7 +14,6 @@ import type { GitLog } from '../../../git/models/log';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
-import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
@@ -270,7 +269,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		return Array.from(stash?.commits?.values());
 	}
 
-	private async pickRepository(repositories: Repository[]): Promise<Repository | undefined> {
+	private pickRepository(repositories: Repository[]): Repository | undefined {
 		if (repositories.length === 0) {
 			return undefined;
 		}
@@ -279,15 +278,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			return repositories[0];
 		}
 
-		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
-				undefined,
-				window.activeTextEditor,
-				'Choose a repository to visualize',
-			)
-		)?.path;
+		const bestRepo = this.container.git.getBestRepository(window.activeTextEditor);
+		if (bestRepo != null) {
+			return bestRepo;
+		}
 
-		return repositories.find(r => r.path === repoPath);
+		return repositories[0];
 	}
 
 	private getConfig(): GraphCompositeConfig {
@@ -318,7 +314,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		}
 
 		if (this.selectedRepository === undefined) {
-			const idealRepo = await this.pickRepository(repositories);
+			const idealRepo = this.pickRepository(repositories);
 			this.selectedRepository = idealRepo;
 			this.repoDisposable?.dispose();
 			if (this.selectedRepository != null) {
