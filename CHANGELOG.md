@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `${userHome}` &mdash; the path of the user's home folder
   - `${workspaceFolder}` &mdash; the path of the folder opened in VS Code containing the specified repository
   - `${workspaceFolderBasename}` &mdash; the name of the folder opened in VS Code containing the specified repository without any slashes (/)
+- Adds owner avatars to remotes in the _Remotes_ view for GitHub remotes
 
 ### Changed
 
