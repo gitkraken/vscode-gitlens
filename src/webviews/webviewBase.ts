@@ -25,7 +25,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
 	private _disposablePanel: Disposable | undefined;
-	private _panel: WebviewPanel | undefined;
+	protected _panel: WebviewPanel | undefined;
 
 	constructor(
 		protected readonly container: Container,

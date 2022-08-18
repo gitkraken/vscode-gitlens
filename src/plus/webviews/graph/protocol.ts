@@ -1,3 +1,4 @@
+import type { Remote } from '@gitkraken/gitkraken-components';
 import type { GraphColumnConfig, GraphConfig } from '../../../config';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
@@ -24,7 +25,7 @@ export interface GraphLog {
 
 export type GraphRepository = Record<string, any>;
 export type GraphCommit = Record<string, any>;
-export type GraphRemote = Record<string, any>;
+export type GraphRemote = Remote;
 export type GraphTag = Record<string, any>;
 export type GraphBranch = Record<string, any>;
 
