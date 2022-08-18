@@ -1,7 +1,7 @@
 import type { CommitType } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
-import type { Disposable, Event } from 'vscode';
-import { EventEmitter, Uri, ViewColumn, window } from 'vscode';
+import type { ColorTheme, Disposable, Event } from 'vscode';
+import { ColorThemeKind, EventEmitter, Uri, ViewColumn, window } from 'vscode';
 import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -63,6 +63,26 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	override async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(column);
+	}
+
+	private _theme: ColorTheme | undefined;
+	protected override onInitializing(): Disposable[] | undefined {
+		this._theme = window.activeColorTheme;
+		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
+	}
+
+	private onThemeChanged(theme: ColorTheme) {
+		if (this._theme != null) {
+			if (
+				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
+				(isLightTheme(theme) && isLightTheme(this._theme))
+			) {
+				return;
+			}
+		}
+
+		this._theme = theme;
+		void this.notifyDidChangeState();
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
@@ -325,6 +345,8 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			log,
 		);
 
+		const theme = window.activeColorTheme;
+
 		return {
 			previewBanner: this.previewBanner,
 			repositories: formatRepositories(repositories),
@@ -332,7 +354,12 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			commits: formatCommits(combinedCommitsWithFilteredStashes),
 			remotes: formatRemotes(remotes, icon =>
 				this._panel?.webview
-					.asWebviewUri(Uri.joinPath(this.container.context.extensionUri, `images/dark/icon-${icon}.svg`))
+					.asWebviewUri(
+						Uri.joinPath(
+							this.container.context.extensionUri,
+							`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${icon}.svg`,
+						),
+					)
 					.toString(),
 			),
 			branches: branches, // TODO: add a format function
@@ -346,6 +373,14 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	protected override async includeBootstrap(): Promise<State> {
 		return this.getState();
 	}
+}
+
+function isDarkTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Dark || theme.kind === ColorThemeKind.HighContrast;
+}
+
+function isLightTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
 
 function formatCommits(commits: (GitCommit | GitStashCommit)[]): GraphCommit[] {
@@ -417,7 +452,8 @@ function formatRemotes(
 	return remotes?.map(r => ({
 		name: r.name,
 		url: r.url,
-		avatarUrl: r.provider?.avatarUri?.toString(true) ?? getIconUrl(r.provider?.icon),
+		avatarUrl:
+			r.provider?.avatarUri?.toString(true) ?? r.provider?.icon != null ? getIconUrl(r.provider.icon) : undefined,
 	}));
 }
 
