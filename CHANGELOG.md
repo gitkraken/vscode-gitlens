@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds stats (additions & deletions) to files nodes in comparisons &mdash; closes [#2078](https://github.com/gitkraken/vscode-gitlens/issues/2078) thanks to help via [PR #2079](https://github.com/gitkraken/vscode-gitlens/pull/2079) by Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem))
 - Adds the ability to uniquely format uncommitted changes for the current line blame annotations &mdash; closes [#1987](https://github.com/gitkraken/vscode-gitlens/issues/1987)
   - Adds a `gitlens.currentLine.uncommittedChangesFormat` setting to specify the uncommitted changes format of the current line blame annotation. **NOTE**: Setting this to an empty string will disable current line blame annotations for uncommitted changes
+- Adds variable expansion support to the `gitlens.worktrees.defaultLocation` setting
+  - `${userHome}` &mdash; the path of the user's home folder
+  - `${workspaceFolder}` &mdash; the path of the folder opened in VS Code containing the specified repository
+  - `${workspaceFolderBasename}` &mdash; the name of the folder opened in VS Code containing the specified repository without any slashes (/)
 
 ### Changed
 

@@ -110,7 +110,7 @@ import {
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, fastestSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, md5, splitSingle } from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
@@ -3930,7 +3930,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			location = joinPaths(homedir(), location.slice(1));
 		}
 
-		return this.getAbsoluteUri(location, repoPath); //isAbsolute(location) ? GitUri.file(location) : ;
+		const folder = this.container.git.getRepository(repoPath)?.folder;
+		location = interpolate(location, {
+			userHome: homedir(),
+			workspaceFolder: folder?.uri.fsPath,
+			workspaceFolderBasename: folder?.name,
+		});
+
+		return this.getAbsoluteUri(location, repoPath);
 	}
 
 	@log()

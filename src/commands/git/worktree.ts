@@ -478,14 +478,18 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		let recommendedRootUri;
 
 		const repoUri = state.repo.uri;
+		const trailer = `${basename(repoUri.path)}.worktrees`;
+
 		if (repoUri.toString() !== pickedUri.toString()) {
 			if (isDescendent(pickedUri, repoUri)) {
-				recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
+				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
+			} else if (basename(pickedUri.path) === trailer) {
+				recommendedRootUri = pickedUri;
 			} else {
-				recommendedRootUri = Uri.joinPath(pickedUri, `${basename(repoUri.path)}.worktrees`);
+				recommendedRootUri = Uri.joinPath(pickedUri, trailer);
 			}
 		} else {
-			recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
+			recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			// Don't allow creating directly into the main worktree folder
 			canCreateDirectlyInPicked = false;
 		}
