@@ -28,18 +28,22 @@ body {
 .actionbar {
 	--actionbar-height: 22px;
 
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	align-items: baseline;
-	gap: 0.5rem;
-	padding: 0 1rem;
-	height: var(--actionbar-height);
 	background-color: var(--actionbar-background-color);
 	color: var(--color-foreground);
+	padding: 0 1rem;
+	height: var(--actionbar-height);
 
-	> * {
-		margin: 0;
+	&,
+	&__group {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.5rem;
+
+		> * {
+			margin: 0;
+		}
 	}
 }
 

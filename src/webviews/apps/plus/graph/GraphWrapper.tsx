@@ -328,57 +328,64 @@ export function GraphWrapper({
 				)}
 			</main>
 			<footer className="actionbar graph-app__footer">
-				<div className="actioncombo">
-					<button
-						type="button"
-						aria-controls="repo-actioncombo-list"
-						aria-expanded={repoExpanded}
-						aria-haspopup="listbox"
-						id="repo-actioncombo-label"
-						className="actioncombo__label"
-						role="combobox"
-						aria-activedescendant=""
-						onClick={() => handleToggleRepos()}
-					>
-						<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
-						{currentRepository?.formattedName ?? 'none selected'}
-					</button>
-					<div
-						className="actioncombo__list"
-						id="repo-actioncombo-list"
-						role="listbox"
-						tabIndex={-1}
-						aria-labelledby="repo-actioncombo-label"
-					>
-						{reposList.length > 0 ? (
-							reposList.map((item, index) => (
-								<button
-									type="button"
+				<div className="actionbar__group">
+					<div className="actioncombo">
+						<button
+							type="button"
+							aria-controls="repo-actioncombo-list"
+							aria-expanded={repoExpanded}
+							aria-haspopup="listbox"
+							id="repo-actioncombo-label"
+							className="actioncombo__label"
+							role="combobox"
+							aria-activedescendant=""
+							onClick={() => handleToggleRepos()}
+						>
+							<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
+							{currentRepository?.formattedName ?? 'none selected'}
+						</button>
+						<div
+							className="actioncombo__list"
+							id="repo-actioncombo-list"
+							role="listbox"
+							tabIndex={-1}
+							aria-labelledby="repo-actioncombo-label"
+						>
+							{reposList.length > 0 ? (
+								reposList.map((item, index) => (
+									<button
+										type="button"
+										className="actioncombo__item"
+										role="option"
+										data-value={item.path}
+										id={`repo-actioncombo-item-${index}`}
+										key={`repo-actioncombo-item-${index}`}
+										aria-selected={item.path === currentRepository?.path}
+										onClick={() => handleSelectRepository(item)}
+										disabled={item.path === currentRepository?.path}
+									>
+										{item.formattedName}
+									</button>
+								))
+							) : (
+								<li
 									className="actioncombo__item"
 									role="option"
-									data-value={item.path}
-									id={`repo-actioncombo-item-${index}`}
-									key={`repo-actioncombo-item-${index}`}
-									aria-selected={item.path === currentRepository?.path}
-									onClick={() => handleSelectRepository(item)}
-									disabled={item.path === currentRepository?.path}
+									id="repo-actioncombo-item-0"
+									aria-selected="true"
 								>
-									{item.formattedName}
-								</button>
-							))
-						) : (
-							<li
-								className="actioncombo__item"
-								role="option"
-								id="repo-actioncombo-item-0"
-								aria-selected="true"
-							>
-								None available
-							</li>
-						)}
+									None available
+								</li>
+							)}
+						</div>
 					</div>
+					{graphList.length > 0 && (
+						<span>
+							{graphList.length} commit{graphList.length ? 's' : ''}
+						</span>
+					)}
 				</div>
-				<div className="actionbar__end">
+				<div className="actionbar__group">
 					<span className="badge">Preview</span>
 				</div>
 			</footer>
