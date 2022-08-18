@@ -15,6 +15,7 @@ export type CommitSummary = {
 	message: string;
 	author: GitCommitIdentityShape & { avatar: string | undefined };
 	// committer: GitCommitIdentityShape & { avatar: string | undefined };
+	isStash: boolean;
 };
 
 export type CommitDetails = CommitSummary & {

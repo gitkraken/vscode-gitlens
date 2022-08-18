@@ -46,7 +46,7 @@ export class CommitIdentity extends LitElement {
 	date = '';
 
 	@property()
-	avatar = 'https://www.gravatar.com/avatar/?s=16&d=robohash';
+	avatar = 'https://www.gravatar.com/avatar/?s=64&d=robohash';
 
 	@property()
 	dateFormat = 'MMMM Do, YYYY h:mma';

@@ -21,6 +21,8 @@ import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import { CommitFileNode } from '../../views/nodes/commitFileNode';
 import { CommitNode } from '../../views/nodes/commitNode';
 import { FileRevisionAsCommitNode } from '../../views/nodes/fileRevisionAsCommitNode';
+import { StashFileNode } from '../../views/nodes/stashFileNode';
+import { StashNode } from '../../views/nodes/stashNode';
 import type { ViewNode } from '../../views/nodes/viewNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
@@ -134,12 +136,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		if (this._pinned || !this.visible) return;
 
-		const { lineTracker, commitsView, graphWebview } = this.container;
+		const { lineTracker, commitsView, graphWebview, stashesView } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
 			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
 			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
 			graphWebview.onDidChangeSelection(this.onGraphWebviewSelectionChanged, this),
+			stashesView.onDidChangeSelection(this.onStashesViewSelectionChanged, this),
 		);
 
 		const commit = this.getBestCommit();
@@ -219,6 +222,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			node != null &&
 			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
 		) {
+			this.updateCommit(node.commit);
+		}
+	}
+
+	private onStashesViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		const node = e.selection?.[0];
+		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
 			this.updateCommit(node.commit);
 		}
 	}
@@ -527,6 +537,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		return {
 			sha: commit.sha,
 			shortSha: commit.shortSha,
+			isStash: commit.refType === 'stash',
 			// summary: commit.summary,
 			message: formattedMessage ?? encodeMarkup(commit.message ?? commit.summary),
 			author: { ...commit.author, avatar: authorAvatar.toString(true) },

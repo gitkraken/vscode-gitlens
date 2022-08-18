@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { FileShowOptions } from '../../../../commitDetails/protocol';
 import '../codicon';
@@ -156,6 +156,9 @@ export class FileChangeItem extends LitElement {
 	@property()
 	icon = '';
 
+	@property({ type: Boolean, reflect: true })
+	stash = false;
+
 	private renderIcon() {
 		if (this.icon !== '') {
 			return html`<img class="change-list__status-icon" src="${this.icon}" />`;
@@ -181,7 +184,8 @@ export class FileChangeItem extends LitElement {
 
 		return html`
 			<a id="item" class="change-list__link" @click=${this.onComparePrevious} href="#">
-				<span class="change-list__status" aria-label="${statusName}">${this.renderIcon()}</span
+				<span class="change-list__status" title="${statusName}" aria-label="${statusName}"
+					>${this.renderIcon()}</span
 				><span class="change-list__filename">${fileName}</span>
 				<small class="change-list__path">${filePath}</small>
 			</a>
@@ -200,21 +204,23 @@ export class FileChangeItem extends LitElement {
 					title="Open Changes with Working File"
 					aria-label="Open Changes with Working File"
 					><code-icon icon="git-compare"></code-icon></a
-				><a
-					class="change-list__action"
-					@click=${this.onOpenFileOnRemote}
-					href="#"
-					title="Open on remote"
-					aria-label="Open on remote"
-					><code-icon icon="globe"></code-icon></a
-				><a
-					class="change-list__action"
-					@click=${this.onMoreActions}
-					href="#"
-					title="Show more actions"
-					aria-label="Show more actions"
-					><code-icon icon="ellipsis"></code-icon
-				></a>
+				>${!this.stash
+					? html`<a
+								class="change-list__action"
+								@click=${this.onOpenFileOnRemote}
+								href="#"
+								title="Open on remote"
+								aria-label="Open on remote"
+								><code-icon icon="globe"></code-icon></a
+							><a
+								class="change-list__action"
+								@click=${this.onMoreActions}
+								href="#"
+								title="Show more actions"
+								aria-label="Show more actions"
+								><code-icon icon="ellipsis"></code-icon
+							></a>`
+					: nothing}
 			</nav>
 		`;
 	}

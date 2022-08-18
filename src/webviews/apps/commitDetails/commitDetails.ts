@@ -330,11 +330,12 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		if (state.selected.files?.length) {
+			const stashAttr = state.selected.isStash ? 'stash ' : '';
 			$el.innerHTML = state.selected.files
 				.map(
 					(file: Record<string, any>) => `
 						<li class="change-list__item">
-							<file-change-item class="commit-details__file" status="${file.status}" path="${file.path}" repo-path="${file.repoPath}" icon="${file.icon.dark}"></file-change-item>
+							<file-change-item class="commit-details__file" ${stashAttr}status="${file.status}" path="${file.path}" repo-path="${file.repoPath}" icon="${file.icon.dark}"></file-change-item>
 						</li>
 					`,
 				)
@@ -351,7 +352,15 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			return;
 		}
 
-		if (state.selected.author != null) {
+		if (state.selected?.isStash === true) {
+			$el.innerHTML = `
+				<div class="commit-stashed">
+					<span class="commit-stashed__media"><code-icon class="commit-stashed__icon" icon="inbox"></code-icon></span>
+					<span class="commit-stashed__date">stashed <formatted-date date=${state.selected.author.date} dateFormat="${state.dateFormat}"></formatted-date></span>
+				</div>
+			`;
+			$el.setAttribute('aria-hidden', 'false');
+		} else if (state.selected?.author != null) {
 			$el.innerHTML = `
 				<commit-identity
 					name="${state.selected.author.name}"
