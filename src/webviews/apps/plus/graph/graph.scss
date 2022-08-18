@@ -158,6 +158,9 @@ body {
 }
 
 .graph-app {
+	--fs-2: 1.3rem;
+	--scroll-thumb-bg: var(--vscode-scrollbarSlider-background);
+
 	padding: 0;
 
 	&__container {
@@ -180,5 +183,19 @@ body {
 	&__main {
 		flex: 1 1 auto;
 		overflow: hidden;
+	}
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: var(--vscode-scrollbarSlider-background);
+	border: unset !important;
+	border-radius: unset !important;
+
+	&:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground);
 	}
 }
