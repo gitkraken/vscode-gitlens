@@ -20,6 +20,7 @@ import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
+import { registerCommand } from '../system/command';
 import { sequentialize } from '../system/function';
 import { ViewNode, ViewRefNode } from '../views/nodes/viewNode';
 
@@ -239,17 +240,13 @@ export abstract class Command implements Disposable {
 
 	constructor(command: Commands | Commands[]) {
 		if (typeof command === 'string') {
-			this._disposable = commands.registerCommand(
-				command,
-				(...args: any[]) => this._execute(command, ...args),
-				this,
-			);
+			this._disposable = registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
 
 			return;
 		}
 
 		const subscriptions = command.map(cmd =>
-			commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
+			registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}

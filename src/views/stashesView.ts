@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { commands, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { StashesViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -17,6 +17,7 @@ import { StashNode } from './nodes/stashNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -99,12 +100,12 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('stashes');
@@ -112,17 +113,17 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,

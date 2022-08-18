@@ -8,7 +8,6 @@ import type {
 import {
 	authentication,
 	version as codeVersion,
-	commands,
 	Disposable,
 	env,
 	EventEmitter,
@@ -42,7 +41,7 @@ import {
 	SubscriptionPlanId,
 	SubscriptionState,
 } from '../../subscription';
-import { executeCommand } from '../../system/command';
+import { executeCommand, registerCommand } from '../../system/command';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
@@ -182,27 +181,23 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(Commands.PlusLearn, openToSide => this.learn(openToSide)),
-			commands.registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
-			commands.registerCommand(Commands.PlusLogout, () => this.logout()),
+			registerCommand(Commands.PlusLearn, openToSide => this.learn(openToSide)),
+			registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
+			registerCommand(Commands.PlusLogout, () => this.logout()),
 
-			commands.registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
-			commands.registerCommand(Commands.PlusManage, () => this.manage()),
-			commands.registerCommand(Commands.PlusPurchase, () => this.purchase()),
+			registerCommand(Commands.PlusStartPreviewTrial, () => this.startPreviewTrial()),
+			registerCommand(Commands.PlusManage, () => this.manage()),
+			registerCommand(Commands.PlusPurchase, () => this.purchase()),
 
-			commands.registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
-			commands.registerCommand(Commands.PlusValidate, () => this.validate()),
+			registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
+			registerCommand(Commands.PlusValidate, () => this.validate()),
 
-			commands.registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
+			registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
 
-			commands.registerCommand(Commands.PlusHide, () =>
-				configuration.updateEffective('plusFeatures.enabled', false),
-			),
-			commands.registerCommand(Commands.PlusRestore, () =>
-				configuration.updateEffective('plusFeatures.enabled', true),
-			),
+			registerCommand(Commands.PlusHide, () => configuration.updateEffective('plusFeatures.enabled', false)),
+			registerCommand(Commands.PlusRestore, () => configuration.updateEffective('plusFeatures.enabled', true)),
 
-			commands.registerCommand('gitlens.plus.reset', () => this.logout(true)),
+			registerCommand('gitlens.plus.reset', () => this.logout(true)),
 		];
 	}
 

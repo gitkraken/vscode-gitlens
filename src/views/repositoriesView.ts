@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
-import { commands, EventEmitter, ProgressLocation, window } from 'vscode';
+import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -38,6 +38,7 @@ import { TagsNode } from './nodes/tagsNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
@@ -63,12 +64,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
@@ -76,160 +77,152 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setBranchesLayoutToList'),
 				() => this.setBranchesLayout(ViewBranchesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setBranchesLayoutToTree'),
 				() => this.setBranchesLayout(ViewBranchesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setAutoRefreshToOn'),
 				() => this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'), true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setAutoRefreshToOff'),
 				() => this.setAutoRefresh(configuration.get('views.repositories.autoRefresh'), false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOn'),
 				() => this.setShowBranchComparison(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOff'),
 				() => this.setShowBranchComparison(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setBranchesShowBranchComparisonOn'),
 				() => this.setBranchShowBranchComparison(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setBranchesShowBranchComparisonOff'),
 				() => this.setBranchShowBranchComparison(false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchesOn'),
 				() => this.toggleSection('showBranches', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchesOff'),
 				() => this.toggleSection('showBranches', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowCommitsOn'),
 				() => this.toggleSection('showCommits', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowCommitsOff'),
 				() => this.toggleSection('showCommits', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowContributorsOn'),
 				() => this.toggleSection('showContributors', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowContributorsOff'),
 				() => this.toggleSection('showContributors', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowRemotesOn'),
 				() => this.toggleSection('showRemotes', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowRemotesOff'),
 				() => this.toggleSection('showRemotes', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStashesOn'),
 				() => this.toggleSection('showStashes', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStashesOff'),
 				() => this.toggleSection('showStashes', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowTagsOn'),
 				() => this.toggleSection('showTags', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowTagsOff'),
 				() => this.toggleSection('showTags', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowWorktreesOn'),
 				() => this.toggleSection('showWorktrees', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowWorktreesOff'),
 				() => this.toggleSection('showWorktrees', false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowUpstreamStatusOn'),
 				() => this.toggleSection('showUpstreamStatus', true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowUpstreamStatusOff'),
 				() => this.toggleSection('showUpstreamStatus', false),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowSectionOff'),
 				(
 					node:

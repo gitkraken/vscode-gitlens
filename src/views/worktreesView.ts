@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
-import { commands, ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorktreesViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands } from '../constants';
@@ -11,6 +11,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
 import { RepositoryNode } from './nodes/repositoryNode';
@@ -19,6 +20,7 @@ import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/vie
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
@@ -173,12 +175,12 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
 					// this.container.git.resetCaches('worktrees');
@@ -186,48 +188,40 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
 
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOn'),
 				() => this.setShowBranchComparison(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOff'),
 				() => this.setShowBranchComparison(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOn'),
 				() => this.setShowBranchPullRequest(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOff'),
 				() => this.setShowBranchPullRequest(false),
 				this,

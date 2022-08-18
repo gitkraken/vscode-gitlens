@@ -1,7 +1,8 @@
-import { commands, Disposable } from 'vscode';
+import { Disposable } from 'vscode';
 import { ContextKeys } from './constants';
 import { setContext } from './context';
 import { Logger } from './logger';
+import { registerCommand } from './system/command';
 import { getLogScope, log } from './system/decorators/log';
 
 export declare interface KeyCommand {
@@ -151,9 +152,7 @@ export class Keyboard implements Disposable {
 	private readonly _disposable: Disposable;
 
 	constructor() {
-		const subscriptions = keys.map(key =>
-			commands.registerCommand(`gitlens.key.${key}`, () => this.execute(key), this),
-		);
+		const subscriptions = keys.map(key => registerCommand(`gitlens.key.${key}`, () => this.execute(key), this));
 		this._disposable = Disposable.from(...subscriptions);
 	}
 

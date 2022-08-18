@@ -1,11 +1,11 @@
 import type { Disposable } from 'vscode';
-import { commands, window } from 'vscode';
+import { window } from 'vscode';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { Subscription } from '../../subscription';
-import { executeCoreCommand } from '../../system/command';
+import { executeCoreCommand, registerCommand } from '../../system/command';
 import { WebviewViewBase } from '../webviewViewBase';
 import type { State } from './protocol';
 import { CompletedActions, DidChangeSubscriptionNotificationType } from './protocol';
@@ -40,8 +40,8 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
-			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
-			commands.registerCommand('gitlens.home.toggleWelcome', async () => {
+			registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
+			registerCommand('gitlens.home.toggleWelcome', async () => {
 				const welcomeVisible = !this.welcomeVisible;
 				await this.container.storage.store('views:welcome:visible', welcomeVisible);
 				if (welcomeVisible) {
@@ -51,7 +51,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 				void this.notifyDidChangeData();
 			}),
 
-			commands.registerCommand('gitlens.home.showSCM', async () => {
+			registerCommand('gitlens.home.showSCM', async () => {
 				const completedActions = this.container.storage.get('home:actions:completed', []);
 				if (!completedActions.includes(CompletedActions.OpenedSCM)) {
 					completedActions.push(CompletedActions.OpenedSCM);

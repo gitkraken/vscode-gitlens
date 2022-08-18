@@ -10,6 +10,7 @@ import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { executeCommand, registerCommand } from '../../../system/command';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -91,8 +92,8 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
-			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
-			commands.registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
+			registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
+			registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
 		];
 	}
 
@@ -122,13 +123,11 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
-					const commandArgs: ShowQuickCommitFileCommandArgs = {
+					void executeCommand<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, {
 						revisionUri: this.container.git
 							.getRevisionUri(params.data.id, getBestPath(this._context.uri), repository.uri)
 							.toString(true),
-					};
-
-					void commands.executeCommand(Commands.ShowQuickCommitFile, commandArgs);
+					});
 
 					// const commandArgs: DiffWithPreviousCommandArgs = {
 					// 	line: 0,

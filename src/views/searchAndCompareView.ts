@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { commands, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -23,6 +23,7 @@ import { FilesQueryFilter, ResultsFilesNode } from './nodes/resultsFilesNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
 import { ContextValues, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	protected override splatted = true;
@@ -258,66 +259,54 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('clear'), () => this.clear(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setKeepResultsToOn'),
-				() => this.setKeepResults(true),
-				this,
-			),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setKeepResultsToOff'),
 				() => this.setKeepResults(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 
-			commands.registerCommand(this.getQualifiedCommand('pin'), this.pin, this),
-			commands.registerCommand(this.getQualifiedCommand('unpin'), this.unpin, this),
-			commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
-			commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this),
-			commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
+			registerViewCommand(this.getQualifiedCommand('pin'), this.pin, this),
+			registerViewCommand(this.getQualifiedCommand('unpin'), this.unpin, this),
+			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
+			registerViewCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this),
+			registerViewCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesFilterOnLeft'),
 				n => this.setFilesFilter(n, FilesQueryFilter.Left),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesFilterOnRight'),
 				n => this.setFilesFilter(n, FilesQueryFilter.Right),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesFilterOff'),
 				n => this.setFilesFilter(n, undefined),
 				this,

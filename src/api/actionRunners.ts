@@ -1,10 +1,11 @@
 import type { Event, QuickPickItem } from 'vscode';
-import { commands, Disposable, EventEmitter, window } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../configuration';
 import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
+import { registerCommand } from '../system/command';
 import { sortCompare } from '../system/string';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { Action, ActionContext, ActionRunner } from './gitlens';
@@ -143,9 +144,8 @@ export class ActionRunners implements Disposable {
 
 		for (const action of actions) {
 			subscriptions.push(
-				commands.registerCommand(
-					`${Commands.ActionPrefix}${action}`,
-					(context: ActionContext, runnerId?: number) => this.run(context, runnerId),
+				registerCommand(`${Commands.ActionPrefix}${action}`, (context: ActionContext, runnerId?: number) =>
+					this.run(context, runnerId),
 				),
 			);
 		}

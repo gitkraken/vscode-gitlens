@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { commands, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { TagsViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -17,6 +17,7 @@ import { TagsNode } from './nodes/tagsNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -99,12 +100,12 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('tags');
@@ -112,41 +113,33 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setLayoutToList'),
 				() => this.setLayout(ViewBranchesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setLayoutToTree'),
 				() => this.setLayout(ViewBranchesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 

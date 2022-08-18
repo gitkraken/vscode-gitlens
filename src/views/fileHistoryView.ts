@@ -1,5 +1,4 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { commands } from 'vscode';
 import type { FileHistoryViewConfig } from '../configuration';
 import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -10,6 +9,7 @@ import { executeCommand } from '../system/command';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
@@ -38,63 +38,55 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setCursorFollowingOn'),
 				() => this.setCursorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setCursorFollowingOff'),
 				() => this.setCursorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOn'),
 				() => this.setEditorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setRenameFollowingOn'),
 				() => this.setRenameFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setRenameFollowingOff'),
 				() => this.setRenameFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
 				() => this.setShowAllBranches(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOff'),
 				() => this.setShowAllBranches(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 

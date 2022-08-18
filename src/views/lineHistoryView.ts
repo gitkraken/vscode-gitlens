@@ -1,5 +1,4 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { commands } from 'vscode';
 import type { LineHistoryViewConfig } from '../configuration';
 import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -8,6 +7,7 @@ import { setContext } from '../context';
 import { executeCommand } from '../system/command';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
@@ -32,33 +32,25 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOn'),
 				() => this.setEditorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 

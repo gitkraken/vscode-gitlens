@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { commands, Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Avatars } from '../avatars';
 import type { ContributorsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
@@ -18,6 +18,7 @@ import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -129,12 +130,12 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('contributors');
@@ -142,50 +143,42 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
 				() => this.setShowAllBranches(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOff'),
 				() => this.setShowAllBranches(false),
 				this,
 			),
 
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStatisticsOn'),
 				() => this.setShowStatistics(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStatisticsOff'),
 				() => this.setShowStatistics(false),
 				this,

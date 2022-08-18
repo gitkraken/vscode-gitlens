@@ -17,6 +17,10 @@ export function command(): ClassDecorator {
 	};
 }
 
+export function registerCommand(command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable {
+	return commands.registerCommand(command, callback, thisArg);
+}
+
 export function registerCommands(container: Container): Disposable[] {
 	return registrableCommands.map(c => new c(container));
 }

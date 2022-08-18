@@ -1,6 +1,6 @@
 'use strict';
 import type { Disposable, TextEditor } from 'vscode';
-import { commands, Uri, ViewColumn, window } from 'vscode';
+import { Uri, ViewColumn, window } from 'vscode';
 import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
@@ -10,6 +10,7 @@ import { PlusFeatures } from '../../../features';
 import { GitUri } from '../../../git/gitUri';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { executeCommand, registerCommand } from '../../../system/command';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -106,7 +107,7 @@ export class TimelineWebview extends WebviewBase<State> {
 	}
 
 	protected override registerCommands(): Disposable[] {
-		return [commands.registerCommand(Commands.RefreshTimelinePage, () => this.refresh())];
+		return [registerCommand(Commands.RefreshTimelinePage, () => this.refresh())];
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
@@ -145,13 +146,11 @@ export class TimelineWebview extends WebviewBase<State> {
 					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
-					const commandArgs: ShowQuickCommitFileCommandArgs = {
+					void executeCommand<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, {
 						revisionUri: this.container.git
 							.getRevisionUri(params.data.id, getBestPath(this._context.uri), repository.uri)
 							.toString(true),
-					};
-
-					void commands.executeCommand(Commands.ShowQuickCommitFile, commandArgs);
+					});
 
 					// const commandArgs: DiffWithPreviousCommandArgs = {
 					// 	line: 0,

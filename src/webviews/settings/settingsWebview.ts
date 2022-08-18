@@ -1,7 +1,8 @@
-import { commands, workspace } from 'vscode';
+import { workspace } from 'vscode';
 import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { registerCommand } from '../../system/command';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
 import type { State } from './protocol';
 
@@ -41,7 +42,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 					[, anchor] = match;
 				}
 
-				return commands.registerCommand(c, () => this.onShowCommand(anchor), this);
+				return registerCommand(c, () => this.onShowCommand(anchor), this);
 			}),
 		);
 	}

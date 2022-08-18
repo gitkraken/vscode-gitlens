@@ -1,10 +1,10 @@
 import type { Webview, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
-import { commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
+import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { executeCommand } from '../system/command';
+import { executeCommand, registerCommand } from '../system/command';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
 
@@ -36,7 +36,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		showCommand: Commands,
 	) {
 		this._title = title;
-		this.disposables.push(commands.registerCommand(showCommand, this.onShowCommand, this));
+		this.disposables.push(registerCommand(showCommand, this.onShowCommand, this));
 	}
 
 	dispose() {
