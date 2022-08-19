@@ -18,6 +18,7 @@ const path = require('path');
 const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
 const { WebpackError, webpack, optimize } = require('webpack');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
@@ -390,6 +391,14 @@ function getWebviewsConfig(mode, env) {
 				new ImageMinimizerPlugin({
 					deleteOriginalAssets: true,
 					generator: [imageGeneratorConfig],
+				}),
+				new CssMinimizerPlugin({
+					minimizerOptions: {
+						preset: [
+							'cssnano-preset-advanced',
+							{ discardUnused: false, mergeIdents: false, reduceIdents: false },
+						],
+					},
 				}),
 			],
 		},
