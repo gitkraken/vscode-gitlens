@@ -12,7 +12,6 @@ import type { IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
-	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
 	onIpc,
 	UpdateConfigurationCommandType,
@@ -20,8 +19,6 @@ import {
 import { WebviewBase } from './webviewBase';
 
 export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
-	private _pendingJumpToAnchor: string | undefined;
-
 	constructor(
 		container: Container,
 		id: `gitlens.${string}`,
@@ -53,29 +50,6 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 	protected onConfigurationChanged(_e: ConfigurationChangeEvent) {
 		void this.notifyDidChangeConfiguration();
-	}
-
-	protected override onReady() {
-		if (this._pendingJumpToAnchor != null) {
-			const anchor = this._pendingJumpToAnchor;
-			this._pendingJumpToAnchor = undefined;
-
-			void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'auto' });
-		}
-	}
-
-	protected override onShowCommand(anchor?: string) {
-		if (anchor) {
-			if (this.isReady && this.visible) {
-				queueMicrotask(
-					() => void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'smooth' }),
-				);
-				return;
-			}
-
-			this._pendingJumpToAnchor = anchor;
-		}
-		super.onShowCommand();
 	}
 
 	protected override onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {

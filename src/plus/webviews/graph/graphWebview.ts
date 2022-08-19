@@ -59,9 +59,10 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		this.disposables.push({ dispose: () => void this.repoDisposable?.dispose() });
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
+	override async show(column: ViewColumn = ViewColumn.Active, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
-		return super.show(column);
+
+		return super.show(column, ...args);
 	}
 
 	private _theme: ColorTheme | undefined;

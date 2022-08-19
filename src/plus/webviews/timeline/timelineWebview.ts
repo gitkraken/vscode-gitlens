@@ -62,9 +62,9 @@ export class TimelineWebview extends WebviewBase<State> {
 		};
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
+	override async show(column: ViewColumn = ViewColumn.Beside, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
-		return super.show(column);
+		return super.show(column, ...args);
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {
