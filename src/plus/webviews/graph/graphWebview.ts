@@ -449,7 +449,8 @@ function formatRemotes(
 		name: r.name,
 		url: r.url,
 		avatarUrl:
-			r.provider?.avatarUri?.toString(true) ?? r.provider?.icon != null ? getIconUrl(r.provider.icon) : undefined,
+			r.provider?.avatarUri?.toString(true) ??
+			(r.provider?.icon != null ? getIconUrl(r.provider.icon) : undefined),
 	}));
 }
 
