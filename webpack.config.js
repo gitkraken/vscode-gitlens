@@ -1,6 +1,7 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
+const fs = require('fs');
 const { spawnSync } = require('child_process');
 const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
@@ -8,6 +9,7 @@ const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const esbuild = require('esbuild');
+const FantasticonPlugin = require('fantasticon-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
@@ -80,6 +82,19 @@ function getExtensionConfig(target, mode, env) {
 
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
+	} else {
+		// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
+		const dist = path.join(__dirname, 'dist');
+		if (!fs.existsSync(dist)) {
+			fs.mkdirSync(dist);
+		}
+
+		plugins.push(
+			new FantasticonPlugin({
+				runOnComplete: true,
+				configPath: '.fantasticonrc.js',
+			}),
+		);
 	}
 
 	if (env.analyzeDeps) {
