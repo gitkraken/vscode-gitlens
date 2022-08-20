@@ -180,7 +180,7 @@ body {
 }
 
 .icon--head {
-	&::before{
+	&::before {
 		// codicon-vm
 		font-family: codicon;
 		content: '\ea7a';
@@ -188,7 +188,7 @@ body {
 }
 
 .icon--remote {
-	&::before{
+	&::before {
 		// codicon-cloud
 		font-family: codicon;
 		content: '\ebaa';
@@ -196,7 +196,7 @@ body {
 }
 
 .icon--tag {
-	&::before{
+	&::before {
 		// codicon-tag
 		font-family: codicon;
 		content: '\ea66';
@@ -212,7 +212,7 @@ body {
 }
 
 .icon--check {
-	&::before{
+	&::before {
 		// codicon-check
 		font-family: codicon;
 		content: '\eab2';
@@ -220,59 +220,63 @@ body {
 }
 
 .icon--loading {
-	&::before{
+	&::before {
 		// codicon-loading
 		font-family: codicon;
 		content: '\eb19';
 	}
 	animation: spin 1s infinite linear;
-	animation-delay: .2s;
+	animation-delay: 0.2s;
 
 	@keyframes spin {
-		0% { transform: rotate(0deg); }
-		100% { transform: rotate(360deg); }
+		0% {
+			transform: rotate(0deg);
+		}
+		100% {
+			transform: rotate(360deg);
+		}
 	}
 }
 
 .icon--warning {
-	:before{
+	:before {
 		// codicon-vm
 		font-family: codicon;
 		content: '\ea6c';
 	}
-	color:  #DE9B43;
+	color: #de9b43;
 }
 
 .icon--added {
-	&::before{
+	&::before {
 		// codicon-add
 		font-family: codicon;
 		content: '\ea60';
 	}
 }
 .icon--modified {
-	&::before{
+	&::before {
 		// codicon-edit
 		font-family: codicon;
 		content: '\ea73';
 	}
 }
 .icon--deleted {
-	&::before{
+	&::before {
 		// codicon-dash
 		font-family: codicon;
 		content: '\eacc';
 	}
 }
 .icon--renamed {
-	&::before{
+	&::before {
 		// codicon-file
 		font-family: codicon;
 		content: '\eb60';
 	}
 }
 .icon--resolved {
-	&::before{
+	&::before {
 		// codicon-pass-filled
 		font-family: codicon;
 		content: '\ebb3';

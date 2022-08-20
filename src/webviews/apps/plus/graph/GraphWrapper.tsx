@@ -92,7 +92,7 @@ const getGraphModel = (
 						matchingRemote !== undefined ? branch.name.replace(`${matchingRemote.name}/`, '') : branch.name,
 					url: matchingRemote?.url,
 					avatarUrl: matchingRemote?.avatarUrl ?? undefined,
-					...matchingRemote?.name !== undefined ? { owner: matchingRemote.name } : {},
+					...(matchingRemote?.name !== undefined ? { owner: matchingRemote.name } : {}),
 				};
 			});
 
@@ -162,7 +162,20 @@ const debounceFrame = (func: DebouncableFn): DebouncedFn => {
 };
 
 const createIconElements = (): { [key: string]: ReactElement<any> } => {
-	const iconList = ['head', 'remote', 'tag', 'stash', 'check', 'loading', 'warning', 'added', 'modified', 'deleted', 'renamed', 'resolved'];
+	const iconList = [
+		'head',
+		'remote',
+		'tag',
+		'stash',
+		'check',
+		'loading',
+		'warning',
+		'added',
+		'modified',
+		'deleted',
+		'renamed',
+		'resolved',
+	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon icon--${iconKey}` });
