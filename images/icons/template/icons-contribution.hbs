@@ -1,0 +1,17 @@
+{
+	"icons": {
+		{{#each codepoints}}
+		"gitlens-{{@key}}": {
+			"description": "{{@key}} icon",
+			"default": {
+				"fontPath": "dist/glicons.woff2",
+				"fontCharacter": "\\\{{codepoint this}}"
+			}
+		{{#if @last}}
+		}
+		{{else}}
+		},
+		{{/if}}
+		{{/each}}
+	}
+}
