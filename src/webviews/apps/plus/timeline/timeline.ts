@@ -4,7 +4,7 @@ import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
 import type { State } from '../../../../plus/webviews/timeline/protocol';
 import {
-	DidChangeStateNotificationType,
+	DidChangeNotificationType,
 	OpenDataPointCommandType,
 	UpdatePeriodCommandType,
 } from '../../../../plus/webviews/timeline/protocol';
@@ -47,10 +47,10 @@ export class TimelineApp extends App<State> {
 		const msg = e.data as IpcMessage;
 
 		switch (msg.method) {
-			case DidChangeStateNotificationType.method:
+			case DidChangeNotificationType.method:
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
-				onIpc(DidChangeStateNotificationType, msg, params => {
+				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = params.state;
 					this.updateState();
 				});

@@ -24,7 +24,7 @@ import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { Commit, Period, State } from './protocol';
-import { DidChangeStateNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
+import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 import { generateRandomTimelineDataset } from './timelineWebviewView';
 
 interface Context {
@@ -391,7 +391,7 @@ export class TimelineWebview extends WebviewBase<State> {
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
-			const success = await this.notify(DidChangeStateNotificationType, {
+			const success = await this.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});
 			if (success) {

@@ -3915,7 +3915,7 @@
 			{
 				"command": "gitlens.showTimelinePage",
 				"title": "Open Visual File History of Active File",
-				"category": "GitLens",
+				"category": "GitLens+",
 				"icon": {
 					"dark": "images/dark/icon-history.svg",
 					"light": "images/light/icon-history.svg"
@@ -3995,12 +3995,12 @@
 			{
 				"command": "gitlens.showTimelineView",
 				"title": "Show Visual File History View",
-				"category": "GitLens"
+				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.showWorktreesView",
 				"title": "Show Worktrees View",
-				"category": "GitLens"
+				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.compareWith",
@@ -4266,7 +4266,7 @@
 			{
 				"command": "gitlens.gitCommands.worktree",
 				"title": "Git Worktree...",
-				"category": "GitLens"
+				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.switchMode",
