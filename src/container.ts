@@ -32,6 +32,7 @@ import { memoize } from './system/decorators/memoize';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
+import { UsageTracker } from './usageTracker';
 import { BranchesView } from './views/branchesView';
 import { CommitsView } from './views/commitsView';
 import { ContributorsView } from './views/contributorsView';
@@ -144,6 +145,7 @@ export class Container {
 		this.ensureModeApplied();
 
 		context.subscriptions.push((this._storage = storage));
+		context.subscriptions.push((this._usage = new UsageTracker(storage)));
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
 
@@ -542,6 +544,11 @@ export class Container {
 	private _tracker: GitDocumentTracker;
 	get tracker() {
 		return this._tracker;
+	}
+
+	private readonly _usage: UsageTracker;
+	get usage(): UsageTracker {
+		return this._usage;
 	}
 
 	@memoize()

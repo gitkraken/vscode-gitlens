@@ -62,6 +62,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	override async show(column: ViewColumn = ViewColumn.Active, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
+		void this.container.usage.track('graphWebview:shown');
 		return super.show(column, ...args);
 	}
 

@@ -57,6 +57,8 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+
+		void this.container.usage.track('timelineView:shown');
 		return super.show(options);
 	}
 

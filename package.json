@@ -207,6 +207,7 @@
 		"onCommand:gitlens.externalDiffAll",
 		"onCommand:gitlens.resetAvatarCache",
 		"onCommand:gitlens.resetSuppressedWarnings",
+		"onCommand:gitlens.resetTrackedUsage",
 		"onCommand:gitlens.inviteToLiveShare",
 		"onCommand:gitlens.browseRepoAtRevision",
 		"onCommand:gitlens.browseRepoAtRevisionInNewWindow",
@@ -4720,6 +4721,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.resetTrackedUsage",
+				"title": "Reset Tracked Usage",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.inviteToLiveShare",
 				"title": "Invite to Live Share",
 				"category": "GitLens",
@@ -6757,6 +6763,10 @@
 				},
 				{
 					"command": "gitlens.resetSuppressedWarnings",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.resetTrackedUsage",
 					"when": "gitlens:enabled"
 				},
 				{

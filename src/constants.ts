@@ -155,6 +155,7 @@ export const enum Commands {
 	RefreshHover = 'gitlens.refreshHover',
 	ResetAvatarCache = 'gitlens.resetAvatarCache',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
+	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',

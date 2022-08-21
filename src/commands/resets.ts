@@ -27,3 +27,14 @@ export class ResetSuppressedWarningsCommand extends Command {
 		await configuration.update('advanced.messages', undefined, ConfigurationTarget.Global);
 	}
 }
+
+@command()
+export class ResetTrackedUsageCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.ResetTrackedUsage);
+	}
+
+	async execute() {
+		await this.container.usage.reset();
+	}
+}

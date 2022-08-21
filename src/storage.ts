@@ -3,6 +3,7 @@ import { EventEmitter } from 'vscode';
 import type { GraphColumnConfig, ViewShowBranchComparison } from './config';
 import type { SearchPattern } from './git/search';
 import type { Subscription } from './subscription';
+import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
 import type { CompletedActions } from './webviews/home/protocol';
 
 export type StorageChangeEvent =
@@ -131,6 +132,7 @@ export interface GlobalStorage {
 	synced: {
 		version?: string;
 	};
+	usages?: Record<TrackedUsageKeys, TrackedUsage>;
 	version?: string;
 	views: {
 		welcome: {
