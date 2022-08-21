@@ -6217,6 +6217,104 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f106"
 				}
+			},
+			"gitlens-branches-view": {
+				"description": "branches-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f107"
+				}
+			},
+			"gitlens-commit-view": {
+				"description": "commit-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f108"
+				}
+			},
+			"gitlens-commits-view": {
+				"description": "commits-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f109"
+				}
+			},
+			"gitlens-compare-view": {
+				"description": "compare-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10a"
+				}
+			},
+			"gitlens-contributors-view": {
+				"description": "contributors-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10b"
+				}
+			},
+			"gitlens-history-view": {
+				"description": "history-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10c"
+				}
+			},
+			"gitlens-remotes-view": {
+				"description": "remotes-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10d"
+				}
+			},
+			"gitlens-repositories-view": {
+				"description": "repositories-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10e"
+				}
+			},
+			"gitlens-search-view": {
+				"description": "search-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f10f"
+				}
+			},
+			"gitlens-stashes-view": {
+				"description": "stashes-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f110"
+				}
+			},
+			"gitlens-stashes": {
+				"description": "stashes icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f110"
+				}
+			},
+			"gitlens-tags-view": {
+				"description": "tags-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f111"
+				}
+			},
+			"gitlens-worktrees-view": {
+				"description": "worktrees-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f112"
+				}
+			},
+			"gitlens-gitlens": {
+				"description": "gitlens icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f113"
+				}
 			}
 		},
 		"menus": {
@@ -11033,14 +11131,14 @@
 				{
 					"id": "gitlens",
 					"title": "GitLens",
-					"icon": "images/gitlens-activitybar.svg"
+					"icon": "$(gitlens-gitlens)"
 				}
 			],
 			"panel": [
 				{
 					"id": "gitlensPanel",
 					"title": "GitLens",
-					"icon": "images/views/history.svg"
+					"icon": "$(gitlens-gitlens)"
 				}
 			]
 		},
@@ -11103,7 +11201,7 @@
 					"name": "Home",
 					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/gitlens-activitybar.svg",
+					"icon": "$(gitlens-gitlens)",
 					"visibility": "visible"
 				}
 			],
@@ -11114,7 +11212,7 @@
 					"name": "Visual File History",
 					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg",
+					"icon": "$(gitlens-history-view)",
 					"visibility": "visible"
 				}
 			],
@@ -11125,7 +11223,7 @@
 					"name": "Commit Details",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/commits.svg",
+					"icon": "$(gitlens-commit-view)",
 					"visibility": "visible"
 				},
 				{
@@ -11133,7 +11231,7 @@
 					"name": "Commits",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/commits.svg",
+					"icon": "$(gitlens-commits-view)",
 					"visibility": "visible"
 				},
 				{
@@ -11141,7 +11239,7 @@
 					"name": "Repositories",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/repositories.svg",
+					"icon": "$(gitlens-repositories-view)",
 					"visibility": "hidden"
 				},
 				{
@@ -11149,7 +11247,7 @@
 					"name": "File History",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg",
+					"icon": "$(gitlens-history-view)",
 					"visibility": "visible"
 				},
 				{
@@ -11157,7 +11255,7 @@
 					"name": "Line History",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg",
+					"icon": "$(gitlens-history-view)",
 					"visibility": "hidden"
 				},
 				{
@@ -11165,7 +11263,7 @@
 					"name": "Branches",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/branches.svg",
+					"icon": "$(gitlens-branches-view)",
 					"visibility": "collapsed"
 				},
 				{
@@ -11173,7 +11271,7 @@
 					"name": "Remotes",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/remotes.svg",
+					"icon": "$(gitlens-remotes-view)",
 					"visibility": "collapsed"
 				},
 				{
@@ -11181,7 +11279,7 @@
 					"name": "Stashes",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/stashes.svg",
+					"icon": "$(gitlens-stashes-view)",
 					"visibility": "collapsed"
 				},
 				{
@@ -11189,7 +11287,7 @@
 					"name": "Tags",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/tags.svg",
+					"icon": "$(gitlens-tags-view)",
 					"visibility": "collapsed"
 				},
 				{
@@ -11197,7 +11295,7 @@
 					"name": "Worktrees",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && config.gitlens.plusFeatures.enabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/worktrees.svg",
+					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
 				},
 				{
@@ -11205,7 +11303,7 @@
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/contributors.svg",
+					"icon": "$(gitlens-contributors-view)",
 					"visibility": "hidden"
 				},
 				{
@@ -11213,7 +11311,7 @@
 					"name": "Search & Compare",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/search.svg",
+					"icon": "$(gitlens-search-view)",
 					"visibility": "collapsed"
 				}
 			]

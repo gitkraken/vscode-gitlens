@@ -4,5 +4,19 @@
   "next-commit": 61699,
   "prev-commit-menu": 61700,
   "prev-commit": 61701,
-  "compare-ref-working": 61702
+  "compare-ref-working": 61702,
+  "branches-view": 61703,
+  "commit-view": 61704,
+  "commits-view": 61705,
+  "compare-view": 61706,
+  "contributors-view": 61707,
+  "history-view": 61708,
+  "remotes-view": 61709,
+  "repositories-view": 61710,
+  "search-view": 61711,
+  "stashes-view": 61712,
+  "stashes": 61712,
+  "tags-view": 61713,
+  "worktrees-view": 61714,
+  "gitlens": 61715
 }

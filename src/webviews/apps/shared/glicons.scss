@@ -1,7 +1,7 @@
 @font-face {
 	font-family: 'glicons';
 	font-display: block;
-	src: url("./glicons.woff2?649cd5c77eb3632ea56d58730da557f0") format("woff2");
+	src: url("./glicons.woff2?f01a0268b6a0a553b18a58a2044dacac") format("woff2");
 }
 
 .glicon {
@@ -69,4 +69,46 @@
 }
 .glicons-compare-ref-working:before {
 	content: '\f106';
+}
+.glicons-branches-view:before {
+	content: '\f107';
+}
+.glicons-commit-view:before {
+	content: '\f108';
+}
+.glicons-commits-view:before {
+	content: '\f109';
+}
+.glicons-compare-view:before {
+	content: '\f10a';
+}
+.glicons-contributors-view:before {
+	content: '\f10b';
+}
+.glicons-history-view:before {
+	content: '\f10c';
+}
+.glicons-remotes-view:before {
+	content: '\f10d';
+}
+.glicons-repositories-view:before {
+	content: '\f10e';
+}
+.glicons-search-view:before {
+	content: '\f10f';
+}
+.glicons-stashes-view:before {
+	content: '\f110';
+}
+.glicons-stashes:before {
+	content: '\f110';
+}
+.glicons-tags-view:before {
+	content: '\f111';
+}
+.glicons-worktrees-view:before {
+	content: '\f112';
+}
+.glicons-gitlens:before {
+	content: '\f113';
 }

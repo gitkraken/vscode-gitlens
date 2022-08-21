@@ -7,6 +7,7 @@
 dist/webviews/*.css
 emoji/**
 images/docs/gitlens-preview.gif
+images/icons/**
 images/originals/**
 node_modules/**
 out/**

@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
@@ -42,12 +42,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Stashes;
-
-		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: this.view.container.context.asAbsolutePath('images/light/icon-stash.svg'),
-		};
-
+		item.iconPath = new ThemeIcon('gitlens-stashes');
 		return item;
 	}
 
