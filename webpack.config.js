@@ -124,7 +124,7 @@ function getExtensionConfig(target, mode, env) {
 		},
 		mode: mode,
 		target: target,
-		devtool: 'source-map',
+		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 			libraryTarget: 'commonjs2',
@@ -331,7 +331,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: 'source-map',
+		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist', 'webviews'),
@@ -411,14 +411,14 @@ function getWebviewsConfig(mode, env) {
 						{
 							loader: 'css-loader',
 							options: {
-								sourceMap: true,
+								sourceMap: mode !== 'production',
 								url: false,
 							},
 						},
 						{
 							loader: 'sass-loader',
 							options: {
-								sourceMap: true,
+								sourceMap: mode !== 'production',
 							},
 						},
 					],

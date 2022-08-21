@@ -6,6 +6,7 @@
 .yarn/**
 dist/webviews/*.css
 emoji/**
+images/docs/sponsors/**
 images/docs/gitlens-preview.gif
 images/icons/**
 images/originals/**
@@ -16,11 +17,13 @@ scripts/**
 src/**
 test/**
 **/*.fig
+**/*.map
 **/*.pdn
 **/*.js.LICENSE.txt
 .eslintcache
 .eslintignore
 .eslintrc.json
+.fantasticonrc.js
 .gitattributes
 .gitignore
 .gitignore-revs
@@ -28,10 +31,12 @@ test/**
 .prettierignore
 .prettierrc
 .yarnrc
+BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 esbuild.js
 README.insiders.md
+svgo.config.js
 tsconfig*.json
 tsconfig*.tsbuildinfo
 webpack.config*.js
