@@ -35,13 +35,18 @@ export abstract class WebviewBase<State> implements Disposable {
 		title: string,
 		showCommand: Commands,
 	) {
-		this._title = title;
+		this._originalTitle = this._title = title;
 		this.disposables.push(registerCommand(showCommand, this.onShowCommand, this));
 	}
 
 	dispose() {
 		this.disposables.forEach(d => void d.dispose());
 		this._disposablePanel?.dispose();
+	}
+
+	private _originalTitle: string | undefined;
+	get originalTitle(): string | undefined {
+		return this._originalTitle;
 	}
 
 	private _title: string;

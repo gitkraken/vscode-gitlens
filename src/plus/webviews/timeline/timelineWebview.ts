@@ -42,7 +42,6 @@ export class TimelineWebview extends WebviewBase<State> {
 	private _context: Context;
 	/** The context the webview should have */
 	private _pendingContext: Partial<Context> | undefined;
-	private _originalTitle: string;
 
 	constructor(container: Container) {
 		super(
@@ -53,7 +52,6 @@ export class TimelineWebview extends WebviewBase<State> {
 			'Visual File History',
 			Commands.ShowTimelinePage,
 		);
-		this._originalTitle = this.title;
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,
@@ -235,7 +233,7 @@ export class TimelineWebview extends WebviewBase<State> {
 		const repoPath = gitUri.repoPath!;
 		const title = gitUri.relativePath;
 
-		this.title = `${this._originalTitle}: ${gitUri.fileName}`;
+		this.title = `${this.originalTitle}: ${gitUri.fileName}`;
 
 		const [currentUser, log] = await Promise.all([
 			this.container.git.getCurrentUser(repoPath),

@@ -43,7 +43,6 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 	private selectedRepository?: Repository;
 	private currentLog?: GitLog;
 	private repoDisposable: Disposable | undefined;
-	private defaultTitle?: string;
 	private previewBanner?: boolean;
 
 	constructor(container: Container) {
@@ -55,7 +54,6 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			'Commit Graph',
 			Commands.ShowGraphPage,
 		);
-		this.defaultTitle = this.title;
 		this.disposables.push({ dispose: () => void this.repoDisposable?.dispose() });
 	}
 
@@ -325,7 +323,7 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		}
 
 		if (this.selectedRepository !== undefined) {
-			this.title = `${this.defaultTitle}: ${this.selectedRepository.formattedName}`;
+			this.title = `${this.originalTitle}: ${this.selectedRepository.formattedName}`;
 		}
 
 		const [commitsAndLog, remotes, tags, branches, stashCommits] = await Promise.all([
