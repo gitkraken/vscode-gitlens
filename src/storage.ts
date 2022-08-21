@@ -144,17 +144,13 @@ export interface WorkspaceStorage {
 	branch: {
 		comparisons?: StoredBranchComparisons;
 	};
-	connected: {
-		[key: string]: boolean;
-	};
+	connected: Record<string, boolean>;
 	gitComandPalette: {
-		usage?: Usage;
+		usage?: RecentUsage;
 	};
 	gitPath?: string;
 	graph: {
-		columns?: {
-			[key: string]: GraphColumnConfig;
-		};
+		columns?: Record<string, GraphColumnConfig>;
 		preview?: boolean;
 	};
 	remote: {
@@ -234,18 +230,9 @@ export interface StoredPinnedSearch {
 }
 
 export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
-
-export interface StoredPinnedItems {
-	[id: string]: StoredPinnedItem;
-}
-
-export interface StoredStarred {
-	[id: string]: boolean;
-}
-
-export interface Usage {
-	[id: string]: number;
-}
+export type StoredPinnedItems = Record<string, StoredPinnedItem>;
+export type StoredStarred = Record<string, boolean>;
+export type RecentUsage = Record<string, number>;
 
 interface DeprecatedPinnedComparison {
 	path: string;

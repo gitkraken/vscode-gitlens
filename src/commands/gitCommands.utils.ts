@@ -3,7 +3,7 @@ import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { getContext } from '../context';
-import type { Usage } from '../storage';
+import type { RecentUsage } from '../storage';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';
@@ -140,7 +140,7 @@ export class PickCommandStep implements QuickPickStep {
 	private async updateCommandUsage(id: string, timestamp: number) {
 		let usage = this.container.storage.getWorkspace(`gitComandPalette:usage`);
 		if (usage === undefined) {
-			usage = Object.create(null) as Usage;
+			usage = Object.create(null) as RecentUsage;
 		}
 
 		usage[id] = timestamp;
