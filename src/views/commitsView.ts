@@ -1,5 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
-import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { CommitsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys, GlyphChars } from '../constants';
@@ -16,8 +16,10 @@ import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
+import type { UsageChangeEvent } from '../usageTracker';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { CommandMessageNode } from './nodes/common';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -130,6 +132,19 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			);
 		}
 
+		const commitGraphNode =
+			configuration.get('plusFeatures.enabled') && this.view.container.usage.get('graphWebview:shown') == null
+				? new CommandMessageNode(
+						this.view,
+						this,
+						{ command: Commands.ShowGraphPage, title: 'Show Commit Graph' },
+						'Visualize commits on the all-new Commit Graph',
+						'✨ GitLens+',
+						'Visualize commits on the all-new Commit Graph ✨',
+						new ThemeIcon('gitlens-graph'),
+				  )
+				: undefined;
+
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
@@ -143,10 +158,10 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
 			}
 
-			return child.getChildren();
+			return commitGraphNode == null ? child.getChildren() : [commitGraphNode, ...(await child.getChildren())];
 		}
 
-		return this.children;
+		return commitGraphNode == null ? this.children : [commitGraphNode, ...this.children];
 	}
 
 	getTreeItem(): TreeItem {
@@ -164,6 +179,14 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 
 	constructor(container: Container) {
 		super('gitlens.views.commits', 'Commits', container);
+		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
+	}
+
+	private onUsageChanged(e: UsageChangeEvent | void) {
+		// Refresh the view if the graph usage state has changed, since we render a node for it before the first use
+		if (e == null || e.key === 'graphWebview:shown') {
+			void this.refresh();
+		}
 	}
 
 	override get canReveal(): boolean {
@@ -256,7 +279,8 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'plusFeatures.enabled')
 		) {
 			return false;
 		}

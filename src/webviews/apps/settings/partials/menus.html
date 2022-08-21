@@ -333,14 +333,91 @@
 					<div class="setting" data-enablement="menus.scm">
 						<div class="setting__input">
 							<input
-								id="menus.scm.authors"
-								name="menus.scm.authors"
+								id="menus.scm.graph"
+								name="menus.scm.graph"
 								type="checkbox"
 								data-setting
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scm.authors">Add <i>Add Co-authors</i> command</label>
+							<label for="menus.scm.graph">Add <i>Show Commit Graph</i> command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scmRepositoryInline"
+							name="menus.scmRepositoryInline"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmRepositoryInline">Add to the Source Control repository toolbar</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmRepositoryInline">
+						<div class="setting__input">
+							<input
+								id="menus.scmRepositoryInline.graph"
+								name="menus.scmRepositoryInline.graph"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmRepositoryInline.graph">Add <i>Show Commit Graph</i> command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scmRepository"
+							name="menus.scmRepository"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmRepository">Add to the Source Control repository context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmRepository">
+						<div class="setting__input">
+							<input
+								id="menus.scmRepository.authors"
+								name="menus.scmRepository.authors"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmRepository.authors">Add <i>Add Co-authors</i> command</label>
+						</div>
+					</div>
+					<div class="setting" data-enablement="menus.scmRepository">
+						<div class="setting__input">
+							<input
+								id="menus.scmRepository.graph"
+								name="menus.scmRepository.graph"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmRepository.graph">Add <i>Show Commit Graph</i> command</label>
 						</div>
 					</div>
 				</div>

@@ -2092,19 +2092,26 @@
 				"title": "Commit Graph",
 				"order": 105,
 				"properties": {
+					"gitlens.graph.statusBar.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
+						"scope": "window",
+						"order": 10
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,
 						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 10
+						"order": 50
 					},
 					"gitlens.graph.pageItemLimit": {
 						"type": "number",
 						"default": 200,
 						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 20
+						"order": 60
 					},
 					"gitlens.graph.columnColors": {
 						"type": "array",
@@ -2126,7 +2133,7 @@
 						],
 						"markdownDescription": "Specifies the colors used for the different columns in the _Commit Graph_",
 						"scope": "window",
-						"order": 30,
+						"order": 100,
 						"maxItems": 10,
 						"minItems": 10
 					}
@@ -2719,7 +2726,44 @@
 											{
 												"type": "object",
 												"properties": {
+													"graph": {
+														"type": "boolean"
+													}
+												}
+											}
+										]
+									},
+									"scmRepositoryInline": {
+										"anyOf": [
+											{
+												"enum": [
+													false
+												]
+											},
+											{
+												"type": "object",
+												"properties": {
+													"graph": {
+														"type": "boolean"
+													}
+												}
+											}
+										]
+									},
+									"scmRepository": {
+										"anyOf": [
+											{
+												"enum": [
+													false
+												]
+											},
+											{
+												"type": "object",
+												"properties": {
 													"authors": {
+														"type": "boolean"
+													},
+													"graph": {
 														"type": "boolean"
 													}
 												}
@@ -2824,7 +2868,14 @@
 								"remote": true
 							},
 							"scm": {
-								"authors": true
+								"graph": true
+							},
+							"scmRepositoryInline": {
+								"graph": true
+							},
+							"scmRepository": {
+								"authors": true,
+								"graph": false
 							},
 							"scmGroupInline": {
 								"stash": true
@@ -3827,7 +3878,8 @@
 			{
 				"command": "gitlens.showGraphPage",
 				"title": "Show Commit Graph",
-				"category": "GitLens"
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.showSettingsPage",
@@ -8036,7 +8088,7 @@
 			"git.commit": [
 				{
 					"command": "gitlens.addAuthors",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scm.authors",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 					"group": "4_gitlens@1"
 				}
 			],
@@ -8050,6 +8102,30 @@
 					"command": "gitlens.copyRemoteFileUrlFrom",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
 					"group": "1_gitlens@2"
+				}
+			],
+			"scm/sourceControl": [
+				{
+					"command": "gitlens.showGraphPage",
+					"when": "gitlens:enabled && config.gitlens.menus.scm.graph",
+					"group": "6_gitlens@1"
+				}
+			],
+			"scm/title": [
+				{
+					"command": "gitlens.showGraphPage",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled",
+					"group": "navigation@-1000"
+				},
+				{
+					"command": "gitlens.addAuthors",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
+					"group": "2_z_gitlens@1"
+				},
+				{
+					"command": "gitlens.showGraphPage",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph",
+					"group": "2_z_gitlens@2"
 				}
 			],
 			"scm/resourceGroup/context": [
@@ -8218,6 +8294,11 @@
 					"group": "navigation@10"
 				},
 				{
+					"command": "gitlens.showGraphPage",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.plusFeatures.enabled",
+					"group": "navigation@11"
+				},
+				{
 					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
 					"group": "navigation@50"
@@ -8283,9 +8364,14 @@
 					"group": "5_gitlens@2"
 				},
 				{
+					"command": "gitlens.showGraphPage",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
+					"group": "8_gitlens_toggles@0"
+				},
+				{
 					"command": "gitlens.showRepositoriesView",
 					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.commits/",
-					"group": "8_gitlens_toggles@0"
+					"group": "8_gitlens_toggles@1"
 				},
 				{
 					"command": "gitlens.views.addAuthors",
@@ -9633,6 +9719,11 @@
 					"group": "inline@99"
 				},
 				{
+					"command": "gitlens.showGraphPage",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/ && config.gitlens.plusFeatures.enabled",
+					"group": "inline@100"
+				},
+				{
 					"command": "gitlens.views.fetch",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repo-folder\\b/",
 					"group": "1_gitlens_actions@1"
@@ -9664,9 +9755,14 @@
 					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
-					"command": "gitlens.showCommitSearch",
+					"command": "gitlens.showGraphPage",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/",
 					"group": "3_gitlens_explore@1"
+				},
+				{
+					"command": "gitlens.showCommitSearch",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "3_gitlens_explore@2"
 				},
 				{
 					"command": "gitlens.stashSave",

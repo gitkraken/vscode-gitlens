@@ -1,7 +1,8 @@
 import type { CommitType } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
-import type { ColorTheme, Disposable, Event } from 'vscode';
-import { ColorThemeKind, EventEmitter, Uri, ViewColumn, window } from 'vscode';
+import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
+import { ColorThemeKind, EventEmitter, MarkdownString, StatusBarAlignment, Uri, ViewColumn, window } from 'vscode';
+import { parseCommandContext } from '../../../commands/base';
 import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -14,9 +15,10 @@ import type { GitLog } from '../../../git/models/log';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
+import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import { WebviewWithConfigBase } from '../../../webviews/webviewWithConfigBase';
+import { WebviewBase } from '../../../webviews/webviewBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { GraphCommit, GraphCompositeConfig, GraphRemote, GraphRepository, State } from './protocol';
 import {
@@ -34,15 +36,17 @@ export interface GraphSelectionChangeEvent {
 	readonly selection: GitCommit[];
 }
 
-export class GraphWebview extends WebviewWithConfigBase<State> {
+export class GraphWebview extends WebviewBase<State> {
 	private _onDidChangeSelection = new EventEmitter<GraphSelectionChangeEvent>();
 	get onDidChangeSelection(): Event<GraphSelectionChangeEvent> {
 		return this._onDidChangeSelection.event;
 	}
 
+	private _repositoryEventsDisposable: Disposable | undefined;
+	private _statusBarItem: StatusBarItem | undefined;
+
 	private selectedRepository?: Repository;
 	private currentLog?: GitLog;
-	private repoDisposable: Disposable | undefined;
 	private previewBanner?: boolean;
 
 	constructor(container: Container) {
@@ -54,13 +58,39 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			'Commit Graph',
 			Commands.ShowGraphPage,
 		);
-		this.disposables.push({ dispose: () => void this.repoDisposable?.dispose() });
+		this.disposables.push(configuration.onDidChange(this.onConfigurationChanged, this), {
+			dispose: () => {
+				this._statusBarItem?.dispose();
+				void this._repositoryEventsDisposable?.dispose();
+			},
+		});
+
+		this.onConfigurationChanged();
 	}
 
 	override async show(column: ViewColumn = ViewColumn.Active, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		void this.container.usage.track('graphWebview:shown');
+
+		if (this.container.git.repositoryCount > 1) {
+			const [contexts] = parseCommandContext(Commands.ShowGraphPage, undefined, ...args);
+			const context = Array.isArray(contexts) ? contexts[0] : contexts;
+
+			if (context.type === 'scm' && context.scm.rootUri != null) {
+				const repository = this.container.git.getRepository(context.scm.rootUri);
+				if (repository != null) {
+					this.selectedRepository = repository;
+				}
+			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
+				this.selectedRepository = context.node.repo;
+			}
+
+			if (this.selectedRepository != null) {
+				void this.refresh();
+			}
+		}
+
 		return super.show(column, ...args);
 	}
 
@@ -101,6 +131,38 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 			case DismissPreviewCommandType.method:
 				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
 				break;
+		}
+	}
+
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'graph.statusBar.enabled') || configuration.changed(e, 'plusFeatures.enabled')) {
+			const enabled = configuration.get('graph.statusBar.enabled') && configuration.get('plusFeatures.enabled');
+			if (enabled) {
+				if (this._statusBarItem == null) {
+					this._statusBarItem = window.createStatusBarItem(
+						'gitlens.graph',
+						StatusBarAlignment.Left,
+						10000 - 3,
+					);
+					this._statusBarItem.name = 'GitLens Commit Graph';
+					this._statusBarItem.command = Commands.ShowGraphPage;
+					this._statusBarItem.text = '$(gitlens-graph)';
+					this._statusBarItem.tooltip = new MarkdownString(
+						'Visualize commits on the all-new Commit Graph ✨',
+					);
+					this._statusBarItem.accessibilityInformation = {
+						label: `Show the GitLens Commit Graph`,
+					};
+				}
+				this._statusBarItem.show();
+			} else {
+				this._statusBarItem?.dispose();
+				this._statusBarItem = undefined;
+			}
+		}
+
+		if (e != null && configuration.changed(e, 'graph')) {
+			void this.notifyDidChangeConfig();
 		}
 	}
 
@@ -316,9 +378,9 @@ export class GraphWebview extends WebviewWithConfigBase<State> {
 		if (this.selectedRepository === undefined) {
 			const idealRepo = this.pickRepository(repositories);
 			this.selectedRepository = idealRepo;
-			this.repoDisposable?.dispose();
+			this._repositoryEventsDisposable?.dispose();
 			if (this.selectedRepository != null) {
-				this.repoDisposable = this.selectedRepository.onDidChange(this.onRepositoryChanged, this);
+				this._repositoryEventsDisposable = this.selectedRepository.onDidChange(this.onRepositoryChanged, this);
 			}
 		}
 

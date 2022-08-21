@@ -378,9 +378,12 @@ export interface GraphColumnConfig {
 }
 
 export interface GraphConfig {
+	columnColors: string[];
 	defaultItemLimit: number;
 	pageItemLimit: number;
-	columnColors: string[];
+	statusBar: {
+		enabled: boolean;
+	};
 }
 
 export interface CodeLensConfig {
@@ -441,7 +444,18 @@ export interface MenuConfig {
 	scm:
 		| false
 		| {
+				graph: boolean;
+		  };
+	scmTitleInline:
+		| false
+		| {
+				graph: boolean;
+		  };
+	scmTitle:
+		| false
+		| {
 				authors: boolean;
+				graph: boolean;
 		  };
 	scmGroupInline:
 		| false

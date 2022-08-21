@@ -1,5 +1,6 @@
 import type {
 	GitTimelineItem,
+	SourceControl,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
 	TextEditor,
@@ -43,6 +44,11 @@ export interface CommandGitTimelineItemContext extends CommandBaseContext {
 	readonly type: 'timeline-item:git';
 	readonly item: GitTimelineItem;
 	readonly uri: Uri;
+}
+
+export interface CommandScmContext extends CommandBaseContext {
+	readonly type: 'scm';
+	readonly scm: SourceControl;
 }
 
 export interface CommandScmGroupsContext extends CommandBaseContext {
@@ -183,6 +189,7 @@ export function isCommandContextViewNodeHasTag(
 
 export type CommandContext =
 	| CommandGitTimelineItemContext
+	| CommandScmContext
 	| CommandScmGroupsContext
 	| CommandScmStatesContext
 	| CommandUnknownContext
@@ -191,6 +198,17 @@ export type CommandContext =
 	// | CommandViewContext
 	| CommandViewNodeContext
 	| CommandViewNodesContext;
+
+function isScm(scm: any): scm is SourceControl {
+	if (scm == null) return false;
+
+	return (
+		(scm as SourceControl).id != null &&
+		(scm as SourceControl).rootUri != null &&
+		(scm as SourceControl).inputBox != null &&
+		(scm as SourceControl).statusBarCommands != null
+	);
+}
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
@@ -278,16 +296,16 @@ export abstract class Command implements Disposable {
 	}
 }
 
-function parseCommandContext(
+export function parseCommandContext(
 	command: string,
-	options: CommandContextParsingOptions,
+	options?: CommandContextParsingOptions,
 	...args: any[]
 ): [CommandContext | CommandContext[], any[]] {
 	let editor: TextEditor | undefined = undefined;
 
 	let firstArg = args[0];
 
-	if (options.expectsEditor) {
+	if (options?.expectsEditor) {
 		if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
 			editor = firstArg;
 			args = args.slice(1);
@@ -374,6 +392,11 @@ function parseCommandContext(
 	if (isGitTimelineItem(firstArg)) {
 		const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
 		return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
+	}
+
+	if (isScm(firstArg)) {
+		const [scm, ...rest] = args as [SourceControl, any];
+		return [{ command: command, type: 'scm', scm: scm }, rest];
 	}
 
 	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
