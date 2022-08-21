@@ -1,4 +1,8 @@
 module.exports = {
+	js2svg: {
+		eol: 'lf',
+		finalNewline: true,
+	},
 	plugins: [
 		{
 			name: 'removeAttrs',
