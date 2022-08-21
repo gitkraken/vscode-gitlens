@@ -1,20 +1,21 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-const fs = require('fs');
 const { spawnSync } = require('child_process');
-const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const esbuild = require('esbuild');
-const FantasticonPlugin = require('fantasticon-webpack-plugin');
+const { generateFonts } = require('fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
+const fs = require('fs');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const path = require('path');
+const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
 const { WebpackError, webpack, optimize } = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
@@ -91,8 +92,19 @@ function getExtensionConfig(target, mode, env) {
 
 		plugins.push(
 			new FantasticonPlugin({
-				runOnComplete: true,
 				configPath: '.fantasticonrc.js',
+				onBefore: () =>
+					spawnSync('yarn', ['run', 'icons:svgo'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
+				onComplete: () =>
+					spawnSync('yarn', ['run', 'icons:apply'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
 			}),
 		);
 	}
@@ -627,4 +639,93 @@ function resolveTSConfig(configFile) {
 	const end = data.lastIndexOf('}') + 1;
 	const json = JSON5.parse(data.substring(start, end));
 	return json;
+}
+
+const schema = {
+	type: 'object',
+	properties: {
+		config: {
+			type: 'object',
+		},
+		configPath: {
+			type: 'string',
+		},
+		onBefore: {
+			instanceof: 'Function',
+		},
+		onComplete: {
+			instanceof: 'Function',
+		},
+	},
+};
+
+class FantasticonPlugin {
+	alreadyRun = false;
+
+	constructor(options = {}) {
+		this.pluginName = 'fantasticon';
+		this.options = options;
+
+		validate(
+			// @ts-ignore
+			schema,
+			options,
+			{
+				name: this.pluginName,
+				baseDataPath: 'options',
+			},
+		);
+	}
+
+	/**
+	 * @param {import("webpack").Compiler} compiler
+	 */
+	apply(compiler) {
+		const {
+			config = undefined,
+			configPath = undefined,
+			onBefore = undefined,
+			onComplete = undefined,
+		} = this.options;
+
+		let loadedConfig;
+		if (configPath) {
+			try {
+				loadedConfig = require(path.join(__dirname, configPath));
+			} catch (ex) {
+				console.error(`[${this.pluginName}] Error loading configuration: ${ex}`);
+			}
+		}
+
+		if (!loadedConfig && !config) {
+			console.error(`[${this.pluginName}] Error loading configuration: no configuration found`);
+			return;
+		}
+
+		const fontConfig = { ...(loadedConfig ?? {}), ...(config ?? {}) };
+
+		// TODO@eamodio: Figure out how to add watching for the fontConfig.inputDir
+		// Maybe something like: https://github.com/Fridus/webpack-watch-files-plugin
+
+		/**
+		 * @this {FantasticonPlugin}
+		 * @param {import("webpack").Compiler} compiler
+		 */
+		async function generate(compiler) {
+			if (compiler.watchMode) {
+				if (this.alreadyRun) return;
+				this.alreadyRun = true;
+			}
+
+			const logger = compiler.getInfrastructureLogger(this.pluginName);
+			logger.log(`Generating icon font...`);
+			await onBefore?.(fontConfig);
+			await generateFonts(fontConfig);
+			await onComplete?.(fontConfig);
+			logger.log(`Generated icon font`);
+		}
+
+		compiler.hooks.beforeRun.tapPromise(this.pluginName, generate.bind(this));
+		compiler.hooks.watchRun.tapPromise(this.pluginName, generate.bind(this));
+	}
 }

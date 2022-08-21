@@ -27,17 +27,6 @@ const config = {
 		html: './icons-contribution.json',
 		json: './images/icons/template/mapping.json',
 	},
-	onComplete: _fontConfig => {
-		const fs = require('fs');
-		// Update the icons contribution point in package.json
-		const package = require('./package.json');
-		package.contributes.icons = require('./icons-contribution.json').icons;
-
-		const packageJSON = `${JSON.stringify(package, undefined, '\t')}\n`;
-
-		fs.writeFileSync('./package.json', packageJSON);
-		fs.rmSync('./icons-contribution.json');
-	},
 };
 
 module.exports = config;
