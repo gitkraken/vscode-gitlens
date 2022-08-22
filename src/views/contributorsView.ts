@@ -115,7 +115,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {
-		super('gitlens.views.contributors', 'Contributors', container);
+		super(container, 'gitlens.views.contributors', 'Contributors', 'contributorsView');
 	}
 
 	override get canReveal(): boolean {

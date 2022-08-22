@@ -49,6 +49,7 @@ export class TimelineWebview extends WebviewBase<State> {
 			'timeline.html',
 			'images/gitlens-icon.png',
 			'Visual File History',
+			'timelineWebview',
 			Commands.ShowTimelinePage,
 		);
 		this._context = {
@@ -62,7 +63,6 @@ export class TimelineWebview extends WebviewBase<State> {
 	override async show(column: ViewColumn = ViewColumn.Beside, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		void this.container.usage.track('timelineWebview:shown');
 		return super.show(column, ...args);
 	}
 

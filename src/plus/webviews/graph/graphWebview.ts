@@ -59,6 +59,7 @@ export class GraphWebview extends WebviewBase<State> {
 			'graph.html',
 			'images/gitlens-icon.png',
 			'Commit Graph',
+			'graphWebview',
 			Commands.ShowGraphPage,
 		);
 		this.disposables.push(configuration.onDidChange(this.onConfigurationChanged, this), {
@@ -73,8 +74,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 	override async show(column: ViewColumn = ViewColumn.Active, ...args: any[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
-
-		void this.container.usage.track('graphWebview:shown');
 
 		if (this.container.git.repositoryCount > 1) {
 			const [contexts] = parseCommandContext(Commands.ShowGraphPage, undefined, ...args);

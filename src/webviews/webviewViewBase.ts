@@ -13,6 +13,7 @@ import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
 import { getLogScope, log } from '../system/decorators/log';
+import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
 
@@ -40,6 +41,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		public readonly id: `gitlens.views.${string}`,
 		protected readonly fileName: string,
 		title: string,
+		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
 		this._title = title;
 		this.disposables.push(window.registerWebviewViewProvider(id, this));
@@ -142,6 +144,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
 
 		if (visible) {
+			void this.container.usage.track(`${this.trackingFeature}:shown`);
 			await this.refresh();
 		}
 		this.onVisibilityChanged?.(visible);

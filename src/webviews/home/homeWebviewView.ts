@@ -12,7 +12,7 @@ import { CompletedActions, DidChangeSubscriptionNotificationType } from './proto
 
 export class HomeWebviewView extends WebviewViewBase<State> {
 	constructor(container: Container) {
-		super(container, 'gitlens.views.home', 'home.html', 'Home');
+		super(container, 'gitlens.views.home', 'home.html', 'Home', 'homeView');
 
 		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}

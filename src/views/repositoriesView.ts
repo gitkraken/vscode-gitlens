@@ -44,7 +44,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container) {
-		super('gitlens.views.repositories', 'Repositories', container);
+		super(container, 'gitlens.views.repositories', 'Repositories', 'repositoriesView');
 	}
 
 	private _onDidChangeAutoRefresh = new EventEmitter<void>();

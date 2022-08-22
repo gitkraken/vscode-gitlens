@@ -15,7 +15,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	protected readonly configKey = 'lineHistory';
 
 	constructor(container: Container) {
-		super('gitlens.views.lineHistory', 'Line History', container);
+		super(container, 'gitlens.views.lineHistory', 'Line History', 'lineHistoryView');
 
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}

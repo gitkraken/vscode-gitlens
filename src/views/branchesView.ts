@@ -97,7 +97,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container) {
-		super('gitlens.views.branches', 'Branches', container);
+		super(container, 'gitlens.views.branches', 'Branches', 'branchesView');
 	}
 
 	override get canReveal(): boolean {

@@ -8,6 +8,7 @@ import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';
 import { Logger } from '../logger';
+import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,
@@ -25,9 +26,10 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		fileName: string,
 		iconPath: string,
 		title: string,
+		trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
-		super(container, id, fileName, iconPath, title, showCommand);
+		super(container, id, fileName, iconPath, title, trackingFeature, showCommand);
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),

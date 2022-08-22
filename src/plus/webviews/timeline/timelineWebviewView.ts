@@ -43,7 +43,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private _pendingContext: Partial<Context> | undefined;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History');
+		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History', 'timelineView');
 
 		this._context = {
 			uri: undefined,
@@ -57,7 +57,6 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		void this.container.usage.track('timelineView:shown');
 		return super.show(options);
 	}
 

@@ -96,7 +96,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super('gitlens.views.worktrees', 'Worktrees', container);
+		super(container, 'gitlens.views.worktrees', 'Worktrees', 'workspaceView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({

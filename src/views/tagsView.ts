@@ -85,7 +85,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
 	constructor(container: Container) {
-		super('gitlens.views.tags', 'Tags', container);
+		super(container, 'gitlens.views.tags', 'Tags', 'tagsView');
 	}
 
 	override get canReveal(): boolean {

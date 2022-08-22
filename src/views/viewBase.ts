@@ -33,6 +33,7 @@ import { debug, getLogScope, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { cancellable, isPromise } from '../system/promise';
+import type { TrackedUsageFeatures } from '../usageTracker';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
@@ -109,9 +110,10 @@ export abstract class ViewBase<
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(
+		public readonly container: Container,
 		public readonly id: `gitlens.views.${string}`,
 		public readonly name: string,
-		public readonly container: Container,
+		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
@@ -315,6 +317,10 @@ export abstract class ViewBase<
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		if (e.visible) {
+			void this.container.usage.track(`${this.trackingFeature}:shown`);
+		}
+
 		this._onDidChangeVisibility.fire(e);
 	}
 

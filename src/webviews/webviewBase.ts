@@ -5,6 +5,7 @@ import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand, registerCommand } from '../system/command';
+import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
 
@@ -33,6 +34,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		private readonly fileName: string,
 		private readonly iconPath: string,
 		title: string,
+		private readonly trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
 		this._originalTitle = this._title = title;
@@ -69,6 +71,8 @@ export abstract class WebviewBase<State> implements Disposable {
 	}
 
 	async show(column: ViewColumn = ViewColumn.Beside, ..._args: any[]): Promise<void> {
+		void this.container.usage.track(`${this.trackingFeature}:shown`);
+
 		// Only try to open beside if there is an active tab
 		if (column === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
 			column = ViewColumn.Active;

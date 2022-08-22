@@ -19,6 +19,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 			'settings.html',
 			'images/gitlens-icon.png',
 			'GitLens Settings',
+			'settingsWebview',
 			Commands.ShowSettingsPage,
 		);
 

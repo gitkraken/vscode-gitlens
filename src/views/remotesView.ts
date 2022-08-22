@@ -97,7 +97,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
 	constructor(container: Container) {
-		super('gitlens.views.remotes', 'Remotes', container);
+		super(container, 'gitlens.views.remotes', 'Remotes', 'remotesView');
 	}
 
 	override get canReveal(): boolean {

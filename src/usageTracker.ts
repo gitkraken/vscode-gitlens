@@ -8,7 +8,27 @@ export interface TrackedUsage {
 	firstUsedAt: number;
 	lastUsedAt: number;
 }
-export type TrackedUsageKeys = 'graphWebview:shown' | 'timelineWebview:shown' | 'timelineView:shown';
+
+export type TrackedUsageFeatures =
+	| 'branchesView'
+	| 'commitDetailsView'
+	| 'commitsView'
+	| 'contributorsView'
+	| 'fileHistoryView'
+	| 'graphWebview'
+	| 'homeView'
+	| 'lineHistoryView'
+	| 'remotesView'
+	| 'repositoriesView'
+	| 'stashesView'
+	| 'settingsWebview'
+	| 'searchAndCompareView'
+	| 'tagsView'
+	| 'timelineWebview'
+	| 'timelineView'
+	| 'welcomeWebview'
+	| 'workspaceView';
+export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {
 	/**
