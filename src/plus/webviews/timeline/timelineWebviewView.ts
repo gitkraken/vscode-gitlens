@@ -1,7 +1,7 @@
 'use strict';
 import type { Disposable, TextEditor } from 'vscode';
 import { commands, Uri, window } from 'vscode';
-import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
+import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -10,13 +10,12 @@ import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { executeCommand, registerCommand } from '../../../system/command';
+import { registerCommand } from '../../../system/command';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
-import { getBestPath } from '../../../system/path';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -119,32 +118,16 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenDataPointCommandType.method:
-				onIpc(OpenDataPointCommandType, e, params => {
+				onIpc(OpenDataPointCommandType, e, async params => {
 					if (params.data == null || !params.data.selected || this._context.uri == null) return;
 
 					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
-					void executeCommand<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, {
-						revisionUri: this.container.git
-							.getRevisionUri(params.data.id, getBestPath(this._context.uri), repository.uri)
-							.toString(true),
-					});
+					const commit = await repository.getCommit(params.data.id);
+					if (commit == null) return;
 
-					// const commandArgs: DiffWithPreviousCommandArgs = {
-					// 	line: 0,
-					// 	showOptions: {
-					// 		preserveFocus: true,
-					// 		preview: true,
-					// 		viewColumn: ViewColumn.Beside,
-					// 	},
-					// };
-
-					// void commands.executeCommand(
-					// 	Commands.DiffWithPrevious,
-					// 	new GitUri(gitUri, { repoPath: gitUri.repoPath!, sha: params.data.id }),
-					// 	commandArgs,
-					// );
+					void GitActions.Commit.showDetailsView(commit);
 				});
 
 				break;
