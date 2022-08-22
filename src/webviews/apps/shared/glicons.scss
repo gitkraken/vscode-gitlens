@@ -1,7 +1,7 @@
 @font-face {
 	font-family: 'glicons';
 	font-display: block;
-	src: url("./glicons.woff2?f01a0268b6a0a553b18a58a2044dacac") format("woff2");
+	src: url("./glicons.woff2?17a470ea27808fca3c49c2a17eec545b") format("woff2");
 }
 
 .glicon {
@@ -88,6 +88,9 @@
 .glicons-history-view:before {
 	content: '\f10c';
 }
+.glicons-history:before {
+	content: '\f10c';
+}
 .glicons-remotes-view:before {
 	content: '\f10d';
 }
@@ -111,4 +114,28 @@
 }
 .glicons-gitlens:before {
 	content: '\f113';
+}
+.glicons-stash-pop:before {
+	content: '\f114';
+}
+.glicons-stash-save:before {
+	content: '\f115';
+}
+.glicons-unplug:before {
+	content: '\f116';
+}
+.glicons-open-revision:before {
+	content: '\f117';
+}
+.glicons-switch:before {
+	content: '\f118';
+}
+.glicons-expand:before {
+	content: '\f119';
+}
+.glicons-list-auto:before {
+	content: '\f11a';
+}
+.glicons-arrow-up-force:before {
+	content: '\f11b';
 }
