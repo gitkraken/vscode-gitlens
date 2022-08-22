@@ -5,17 +5,17 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import type { GraphColumnConfig, GraphConfig } from '../../../../config';
 import type { CommitListCallback, GraphCommit, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
 import {
-	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,
-	DidChangeConfigNotificationType,
+	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DismissPreviewCommandType,
-	MoreCommitsCommandType,
-	SelectRepositoryCommandType,
+	GetMoreCommitsCommandType,
+	UpdateColumnCommandType,
+	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
-import { DidChangeConfigurationNotificationType, onIpc } from '../../../../webviews/protocol';
+import { onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
 import { mix, opacity } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';
@@ -68,7 +68,7 @@ export class GraphApp extends App<State> {
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state });
+					this.setState({ ...this.state, ...params.state, mixedColumnColors: undefined });
 					this.refresh(this.state);
 				});
 				break;
@@ -86,20 +86,15 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
-			case DidChangeConfigNotificationType.method:
+			case DidChangeGraphConfigurationNotificationType.method:
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
-				onIpc(DidChangeConfigNotificationType, msg, params => {
-					this.setState({ ...this.state, config: params.config });
-					this.refresh(this.state);
-				});
-				break;
-
-			case DidChangeConfigurationNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
-
-				onIpc(DidChangeConfigurationNotificationType, msg, params => {
-					this.setState({ ...this.state, mixedColumnColors: this.getGraphColors(params.config.graph) });
+				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
+					this.setState({
+						...this.state,
+						config: params.config,
+						mixedColumnColors: undefined,
+					});
 					this.refresh(this.state);
 				});
 				break;
@@ -107,6 +102,18 @@ export class GraphApp extends App<State> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	protected override onThemeUpdated() {
+		this.setState({ ...this.state, mixedColumnColors: undefined });
+		this.refresh(this.state);
+	}
+
+	protected override setState(state: State) {
+		if (state.mixedColumnColors == null) {
+			state.mixedColumnColors = this.getGraphColors(state.config);
+		}
+		super.setState(state);
 	}
 
 	private getGraphColors(config: GraphConfig | undefined): CssVariables {
@@ -132,30 +139,25 @@ export class GraphApp extends App<State> {
 		return mixedGraphColors;
 	}
 
-	protected override onThemeUpdated() {
-		this.setState({ ...this.state, mixedColumnColors: this.getGraphColors(this.state.config) });
-		this.refresh(this.state);
-	}
-
 	private onDismissPreview() {
 		this.sendCommand(DismissPreviewCommandType, undefined);
 	}
 
 	private onColumnChanged(name: string, settings: GraphColumnConfig) {
-		this.sendCommand(ColumnChangeCommandType, {
+		this.sendCommand(UpdateColumnCommandType, {
 			name: name,
 			config: settings,
 		});
 	}
 
 	private onRepositoryChanged(repo: GraphRepository) {
-		this.sendCommand(SelectRepositoryCommandType, {
+		this.sendCommand(UpdateSelectedRepositoryCommandType, {
 			path: repo.path,
 		});
 	}
 
 	private onMoreCommits(limit?: number) {
-		this.sendCommand(MoreCommitsCommandType, {
+		this.sendCommand(GetMoreCommitsCommandType, {
 			limit: limit,
 		});
 	}

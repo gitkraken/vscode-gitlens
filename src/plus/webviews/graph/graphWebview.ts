@@ -14,6 +14,7 @@ import { isStash } from '../../../git/models/commit';
 import type { GitLog } from '../../../git/models/log';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
@@ -22,13 +23,13 @@ import { WebviewBase } from '../../../webviews/webviewBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { GraphCommit, GraphCompositeConfig, GraphRemote, GraphRepository, State } from './protocol';
 import {
-	ColumnChangeCommandType,
 	DidChangeCommitsNotificationType,
-	DidChangeConfigNotificationType,
+	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DismissPreviewCommandType,
-	MoreCommitsCommandType,
-	SelectRepositoryCommandType,
+	GetMoreCommitsCommandType,
+	UpdateColumnCommandType,
+	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
 
@@ -100,36 +101,22 @@ export class GraphWebview extends WebviewBase<State> {
 		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
 	}
 
-	private onThemeChanged(theme: ColorTheme) {
-		if (this._theme != null) {
-			if (
-				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
-				(isLightTheme(theme) && isLightTheme(this._theme))
-			) {
-				return;
-			}
-		}
-
-		this._theme = theme;
-		void this.notifyDidChangeState();
-	}
-
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
-			case ColumnChangeCommandType.method:
-				onIpc(ColumnChangeCommandType, e, params => this.changeColumn(params.name, params.config));
+			case DismissPreviewCommandType.method:
+				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
 				break;
-			case MoreCommitsCommandType.method:
-				onIpc(MoreCommitsCommandType, e, params => this.moreCommits(params.limit));
+			case GetMoreCommitsCommandType.method:
+				onIpc(GetMoreCommitsCommandType, e, params => this.moreCommits(params.limit));
 				break;
-			case SelectRepositoryCommandType.method:
-				onIpc(SelectRepositoryCommandType, e, params => this.changeRepository(params.path));
+			case UpdateColumnCommandType.method:
+				onIpc(UpdateColumnCommandType, e, params => this.changeColumn(params.name, params.config));
+				break;
+			case UpdateSelectedRepositoryCommandType.method:
+				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.changeRepository(params.path));
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
-				break;
-			case DismissPreviewCommandType.method:
-				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
 				break;
 		}
 	}
@@ -164,6 +151,20 @@ export class GraphWebview extends WebviewBase<State> {
 		if (e != null && configuration.changed(e, 'graph')) {
 			void this.notifyDidChangeConfig();
 		}
+	}
+
+	private onThemeChanged(theme: ColorTheme) {
+		if (this._theme != null) {
+			if (
+				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
+				(isLightTheme(theme) && isLightTheme(this._theme))
+			) {
+				return;
+			}
+		}
+
+		this._theme = theme;
+		void this.notifyDidChangeState();
 	}
 
 	private dismissPreview() {
@@ -212,7 +213,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async notifyDidChangeConfig() {
-		return this.notify(DidChangeConfigNotificationType, {
+		return this.notify(DidChangeGraphConfigurationNotificationType, {
 			config: this.getConfig(),
 		});
 	}
@@ -357,8 +358,24 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
-	private onRepositoryChanged(_e: RepositoryChangeEvent) {
-		// TODO: e.changed(RepositoryChange.Heads)
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (
+			!e.changed(
+				RepositoryChange.Config,
+				RepositoryChange.Heads,
+				RepositoryChange.Index,
+				RepositoryChange.Remotes,
+				RepositoryChange.RemoteProviders,
+				RepositoryChange.Stash,
+				RepositoryChange.Status,
+				RepositoryChange.Tags,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
+			return;
+		}
+
 		this.currentLog = undefined;
 		void this.notifyDidChangeState();
 	}

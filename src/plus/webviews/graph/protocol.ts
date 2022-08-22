@@ -12,7 +12,7 @@ export interface State {
 	branches?: GraphBranch[];
 	log?: GraphLog;
 	nonce?: string;
-	mixedColumnColors?: { [variable: string]: string };
+	mixedColumnColors?: Record<string, string>;
 	previewBanner?: boolean;
 }
 
@@ -30,9 +30,7 @@ export type GraphTag = Record<string, any>;
 export type GraphBranch = Record<string, any>;
 
 export interface GraphCompositeConfig extends GraphConfig {
-	columns?: {
-		[key: string]: GraphColumnConfig;
-	};
+	columns?: Record<string, GraphColumnConfig>;
 }
 
 export interface CommitListCallback {
@@ -40,23 +38,25 @@ export interface CommitListCallback {
 }
 
 // Commands
-export interface ColumnChangeParams {
+export const DismissPreviewCommandType = new IpcCommandType<undefined>('graph/dismissPreview');
+
+export interface GetMoreCommitsParams {
+	limit?: number;
+}
+export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
+
+export interface UpdateColumnParams {
 	name: string;
 	config: GraphColumnConfig;
 }
-export const ColumnChangeCommandType = new IpcCommandType<ColumnChangeParams>('graph/column');
+export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/update/column');
 
-export interface MoreCommitsParams {
-	limit?: number;
-}
-export const MoreCommitsCommandType = new IpcCommandType<MoreCommitsParams>('graph/moreCommits');
-
-export interface SelectRepositoryParams {
+export interface UpdateSelectedRepositoryParams {
 	path: string;
 }
-export const SelectRepositoryCommandType = new IpcCommandType<SelectRepositoryParams>('graph/selectRepository');
-
-export const DismissPreviewCommandType = new IpcCommandType<undefined>('graph/dismissPreview');
+export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSelectedRepositoryParams>(
+	'graph/update/selectedRepository',
+);
 
 export interface UpdateSelectionParams {
 	selection: GraphCommit[];
@@ -69,15 +69,17 @@ export interface DidChangeParams {
 }
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange');
 
-export interface DidChangeConfigParams {
+export interface DidChangeGraphConfigurationParams {
 	config: GraphCompositeConfig;
 }
-export const DidChangeConfigNotificationType = new IpcNotificationType<DidChangeConfigParams>('graph/didChangeConfig');
+export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
+	'graph/configuration/didChange',
+);
 
 export interface DidChangeCommitsParams {
 	commits: GraphCommit[];
 	log?: GraphLog;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
-	'graph/didChangeCommits',
+	'graph/commits/didChange',
 );
