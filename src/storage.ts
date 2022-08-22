@@ -152,8 +152,10 @@ export interface WorkspaceStorage {
 	};
 	gitPath?: string;
 	graph: {
+		banners: {
+			dismissed?: Record<string, boolean>;
+		};
 		columns?: Record<string, GraphColumnConfig>;
-		preview?: boolean;
 	};
 	remote: {
 		default?: string;

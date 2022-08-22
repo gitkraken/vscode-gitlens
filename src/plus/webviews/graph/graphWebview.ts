@@ -17,6 +17,7 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
+import { updateRecordValue } from '../../../system/object';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -170,7 +171,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private dismissPreview() {
 		this.previewBanner = false;
-		void this.container.storage.storeWorkspace('graph:preview', false);
+
+		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
+		banners = updateRecordValue(banners, 'preview', true);
+		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
 	private changeColumn(name: string, config: GraphColumnConfig) {
@@ -394,7 +398,8 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (this.previewBanner == null) {
-			this.previewBanner = this.container.storage.getWorkspace('graph:preview') ?? true;
+			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
+			this.previewBanner = !banners?.['preview'];
 		}
 
 		if (this.selectedRepository === undefined) {
