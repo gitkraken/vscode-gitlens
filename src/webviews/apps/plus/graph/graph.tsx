@@ -2,7 +2,7 @@
 import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import type { GraphColumnConfig, GraphConfig } from '../../../../config';
+import type { GraphColumnConfig } from '../../../../config';
 import type { CommitListCallback, GraphCommit, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeCommitsNotificationType,
@@ -20,6 +20,19 @@ import { App } from '../../shared/appBase';
 import { mix, opacity } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
+
+const graphLaneThemeColors = new Map([
+	['--vscode-gitlens-graphLane1Color', '#15a0bf'],
+	['--vscode-gitlens-graphLane2Color', '#0669f7'],
+	['--vscode-gitlens-graphLane3Color', '#8e00c2'],
+	['--vscode-gitlens-graphLane4Color', '#c517b6'],
+	['--vscode-gitlens-graphLane5Color', '#d90171'],
+	['--vscode-gitlens-graphLane6Color', '#cd0101'],
+	['--vscode-gitlens-graphLane7Color', '#f25d2e'],
+	['--vscode-gitlens-graphLane8Color', '#f2ca33'],
+	['--vscode-gitlens-graphLane9Color', '#7bd938'],
+	['--vscode-gitlens-graphLane10Color', '#2ece9d'],
+]);
 
 export class GraphApp extends App<State> {
 	private callback?: CommitListCallback;
@@ -68,7 +81,7 @@ export class GraphApp extends App<State> {
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state, mixedColumnColors: undefined });
+					this.setState({ ...this.state, ...params.state });
 					this.refresh(this.state);
 				});
 				break;
@@ -93,7 +106,6 @@ export class GraphApp extends App<State> {
 					this.setState({
 						...this.state,
 						config: params.config,
-						mixedColumnColors: undefined,
 					});
 					this.refresh(this.state);
 				});
@@ -111,31 +123,36 @@ export class GraphApp extends App<State> {
 
 	protected override setState(state: State) {
 		if (state.mixedColumnColors == null) {
-			state.mixedColumnColors = this.getGraphColors(state.config);
+			state.mixedColumnColors = this.getGraphColors();
 		}
 		super.setState(state);
 	}
 
-	private getGraphColors(config: GraphConfig | undefined): CssVariables {
+	private getGraphColors(): CssVariables {
 		// this will be called on theme updated as well as on config updated since it is dependent on the column colors from config changes and the background color from the theme
-		const body = document.body;
-		const computedStyle = window.getComputedStyle(body);
+		const computedStyle = window.getComputedStyle(document.body);
 		const bgColor = computedStyle.getPropertyValue('--color-background');
-		const columnColors =
-			config?.columnColors != null
-				? config.columnColors
-				: ['#00bcd4', '#ff9800', '#9c27b0', '#2196f3', '#009688', '#ffeb3b', '#ff5722', '#795548'];
+
 		const mixedGraphColors: CssVariables = {};
-		for (let i = 0; i < columnColors.length; i++) {
-			mixedGraphColors[`--graph-color-${i}`] = columnColors[i];
-			mixedGraphColors[`--column-${i}-color`] = columnColors[i];
+
+		let i = 0;
+		let color;
+		for (const [colorVar, colorDefault] of graphLaneThemeColors) {
+			color = computedStyle.getPropertyValue(colorVar) || colorDefault;
+
+			mixedGraphColors[`--column-${i}-color`] = color;
+
+			mixedGraphColors[`--graph-color-${i}`] = color;
 			for (const mixInt of [15, 25, 45, 50]) {
-				mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, columnColors[i], mixInt);
+				mixedGraphColors[`--graph-color-${i}-bg${mixInt}`] = mix(bgColor, color, mixInt);
 			}
 			for (const mixInt of [10, 50]) {
-				mixedGraphColors[`--graph-color-${i}-f${mixInt}`] = opacity(columnColors[i], mixInt);
+				mixedGraphColors[`--graph-color-${i}-f${mixInt}`] = opacity(color, mixInt);
 			}
+
+			i++;
 		}
+
 		return mixedGraphColors;
 	}
 

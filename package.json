@@ -2112,30 +2112,6 @@
 						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
 						"scope": "window",
 						"order": 60
-					},
-					"gitlens.graph.columnColors": {
-						"type": "array",
-						"items": {
-							"type": "string",
-							"pattern": "^#(?:[0-9a-fA-F]{3,4}){1,2}$"
-						},
-						"default": [
-							"#15a0bf",
-							"#0669f7",
-							"#8e00c2",
-							"#c517b6",
-							"#d90171",
-							"#cd0101",
-							"#f25d2e",
-							"#f2ca33",
-							"#7bd938",
-							"#2ece9d"
-						],
-						"markdownDescription": "Specifies the colors used for the different columns in the _Commit Graph_",
-						"scope": "window",
-						"order": 100,
-						"maxItems": 10,
-						"minItems": 10
 					}
 				}
 			},
@@ -3839,6 +3815,96 @@
 					"light": "#895503",
 					"dark": "#E2C08D",
 					"highContrast": "#E2C08D"
+				}
+			},
+			{
+				"id": "gitlens.graphLane1Color",
+				"description": "Specifies the color for the first commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#15a0bf",
+					"dark": "#15a0bf",
+					"highContrast": "#15a0bf"
+				}
+			},
+			{
+				"id": "gitlens.graphLane2Color",
+				"description": "Specifies the color for the second commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#0669f7",
+					"dark": "#0669f7",
+					"highContrast": "#0669f7"
+				}
+			},
+			{
+				"id": "gitlens.graphLane3Color",
+				"description": "Specifies the color for the third commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#8e00c2",
+					"dark": "#8e00c2",
+					"highContrast": "#8e00c2"
+				}
+			},
+			{
+				"id": "gitlens.graphLane4Color",
+				"description": "Specifies the color for the fourth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#c517b6",
+					"dark": "#c517b6",
+					"highContrast": "#c517b6"
+				}
+			},
+			{
+				"id": "gitlens.graphLane5Color",
+				"description": "Specifies the color for the fifth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#d90171",
+					"dark": "#d90171",
+					"highContrast": "#d90171"
+				}
+			},
+			{
+				"id": "gitlens.graphLane6Color",
+				"description": "Specifies the color for the sixth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#cd0101",
+					"dark": "#cd0101",
+					"highContrast": "#cd0101"
+				}
+			},
+			{
+				"id": "gitlens.graphLane7Color",
+				"description": "Specifies the color for the seventh commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#f25d2e",
+					"dark": "#f25d2e",
+					"highContrast": "#f25d2e"
+				}
+			},
+			{
+				"id": "gitlens.graphLane8Color",
+				"description": "Specifies the color for the eighth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#f2ca33",
+					"dark": "#f2ca33",
+					"highContrast": "#f2ca33"
+				}
+			},
+			{
+				"id": "gitlens.graphLane9Color",
+				"description": "Specifies the color for the ninth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#7bd938",
+					"dark": "#7bd938",
+					"highContrast": "#7bd938"
+				}
+			},
+			{
+				"id": "gitlens.graphLane10Color",
+				"description": "Specifies the color for the tenth commit lane of the _Commit Graph_ visualization",
+				"defaults": {
+					"light": "#2ece9d",
+					"dark": "#2ece9d",
+					"highContrast": "#2ece9d"
 				}
 			}
 		],

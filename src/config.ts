@@ -378,7 +378,6 @@ export interface GraphColumnConfig {
 }
 
 export interface GraphConfig {
-	columnColors: string[];
 	defaultItemLimit: number;
 	pageItemLimit: number;
 	statusBar: {
