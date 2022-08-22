@@ -144,6 +144,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		if (editor == null || !this.container.git.isTrackable(editor.document.uri)) return;
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
