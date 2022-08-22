@@ -148,7 +148,7 @@ export class TimelineWebview extends WebviewBase<State> {
 					const commit = await repository.getCommit(params.data.id);
 					if (commit == null) return;
 
-					void GitActions.Commit.showDetailsView(commit);
+					void GitActions.Commit.showDetailsView(commit, { pin: true, preserveFocus: true });
 				});
 
 				break;

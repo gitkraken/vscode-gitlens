@@ -3,6 +3,7 @@ import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkrak
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { ColorThemeKind, EventEmitter, MarkdownString, StatusBarAlignment, Uri, ViewColumn, window } from 'vscode';
 import { parseCommandContext } from '../../../commands/base';
+import { GitActions } from '../../../commands/gitCommands.actions';
 import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -210,6 +211,10 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		this._onDidChangeSelection.fire({ selection: commits ?? [] });
+
+		if (commits == null) return;
+
+		void GitActions.Commit.showDetailsView(commits[0], { pin: true, preserveFocus: true });
 	}
 
 	private async notifyDidChangeConfig() {

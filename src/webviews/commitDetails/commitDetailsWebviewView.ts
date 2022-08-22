@@ -80,15 +80,20 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		};
 	}
 
-	override async show(options?: { commit?: GitCommit; preserveFocus?: boolean | undefined }): Promise<void> {
+	override async show(options?: {
+		commit?: GitCommit;
+		pin?: boolean;
+		preserveFocus?: boolean | undefined;
+	}): Promise<void> {
 		if (options != null) {
 			let commit;
-			({ commit, ...options } = options);
+			let pin;
+			({ commit, pin, ...options } = options);
 			if (commit == null) {
 				commit = this.getBestCommit();
 			}
 			if (commit != null) {
-				this.updateCommit(commit, { pinned: true });
+				this.updateCommit(commit, { pinned: pin ?? true });
 			}
 		}
 
@@ -136,12 +141,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		if (this._pinned || !this.visible) return;
 
-		const { lineTracker, commitsView, graphWebview, stashesView } = this.container;
+		const { lineTracker, commitsView, stashesView } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
 			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
 			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
-			graphWebview.onDidChangeSelection(this.onGraphWebviewSelectionChanged, this),
 			stashesView.onDidChangeSelection(this.onStashesViewSelectionChanged, this),
 		);
 

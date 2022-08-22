@@ -757,8 +757,11 @@ export namespace GitActions {
 			}));
 		}
 
-		export function showDetailsView(commit: GitCommit): Promise<void> {
-			return Container.instance.commitDetailsView.show({ commit: commit });
+		export function showDetailsView(
+			commit: GitCommit,
+			options?: { pin?: boolean; preserveFocus?: boolean },
+		): Promise<void> {
+			return Container.instance.commitDetailsView.show({ ...options, commit: commit });
 		}
 	}
 
