@@ -455,7 +455,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		if ($count == null) return;
 
 		const count = (state.pullRequest != null ? 1 : 0) + (state.autolinkedIssues?.length ?? 0);
-		$count.innerHTML = `${count === 0 ? 'none' : count} found`;
+		$count.innerHTML = `${count} found`;
 	}
 
 	renderPullRequest(state: CommitState) {
