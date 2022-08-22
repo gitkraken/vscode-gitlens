@@ -301,7 +301,7 @@ export function GraphWrapper({
 			{showBanner && (
 				<section className="graph-app__banner">
 					<div className="alert">
-						<span className="alert__icon codicon codicon-search"></span>
+						<span className="alert__icon codicon codicon-eye"></span>
 						<div className="alert__content">
 							<p className="alert__title">Preview Feature</p>
 							<p className="alert__message">
