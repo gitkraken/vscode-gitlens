@@ -469,6 +469,11 @@ export interface MenuConfig {
 				openClose: boolean;
 				stash: boolean;
 		  };
+	scmItemInline:
+		| false
+		| {
+				stash: boolean;
+		  };
 	scmItem:
 		| false
 		| {

@@ -520,6 +520,38 @@
 					<div class="setting__input">
 						<div class="setting__expander"></div>
 						<input
+							id="menus.scmItemInline"
+							name="menus.scmItemInline"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmItemInline">Add to the Source Control items toolbar</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmItemInline">
+						<div class="setting__input">
+							<input
+								id="menus.scmItemInline.stash"
+								name="menus.scmItemInline.stash"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItemInline.stash">Add <i>Stash Changes</i> command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
 							id="menus.scmItem"
 							name="menus.scmItem"
 							type="checkbox"

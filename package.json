@@ -2810,6 +2810,23 @@
 											}
 										]
 									},
+									"scmItemInline": {
+										"anyOf": [
+											{
+												"enum": [
+													false
+												]
+											},
+											{
+												"type": "object",
+												"properties": {
+													"stash": {
+														"type": "boolean"
+													}
+												}
+											}
+										]
+									},
 									"scmItem": {
 										"anyOf": [
 											{
@@ -2885,6 +2902,7 @@
 								"openClose": true,
 								"stash": true
 							},
+							"scmItemInline": {},
 							"scmItem": {
 								"clipboard": true,
 								"compare": true,
@@ -8236,6 +8254,11 @@
 				}
 			],
 			"scm/resourceState/context": [
+				{
+					"command": "gitlens.stashSaveFiles",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItemInline.stash",
+					"group": "inline@1"
+				},
 				{
 					"submenu": "gitlens/scm/resourceState/changes",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
