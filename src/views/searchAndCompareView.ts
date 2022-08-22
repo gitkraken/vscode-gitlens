@@ -16,6 +16,7 @@ import { filterMap } from '../system/array';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
+import { updateRecordValue } from '../system/object';
 import { isPromise } from '../system/promise';
 import { ComparePickerNode } from './nodes/comparePickerNode';
 import { CompareResultsNode } from './nodes/compareResultsNode';
@@ -479,17 +480,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 	async updatePinned(id: string, pin?: StoredPinnedItem) {
 		let pinned = this.container.storage.getWorkspace('views:searchAndCompare:pinned');
-		if (pinned == null) {
-			pinned = Object.create(null) as StoredPinnedItems;
-		}
-
-		if (pin != null) {
-			pinned[id] = { ...pin };
-		} else {
-			const { [id]: _, ...rest } = pinned;
-			pinned = rest;
-		}
-
+		pinned = updateRecordValue(pinned, id, pin);
 		await this.container.storage.storeWorkspace('views:searchAndCompare:pinned', pinned);
 
 		this.triggerNodeChange(this.ensureRoot());

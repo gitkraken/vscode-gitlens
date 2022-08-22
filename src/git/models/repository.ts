@@ -9,7 +9,6 @@ import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
-import type { StoredStarred } from '../../storage';
 import { filterMap, groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
@@ -17,6 +16,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log, logName } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
+import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitProviderDescriptor } from '../gitProvider';
@@ -942,16 +942,7 @@ export class Repository implements Disposable {
 	private async updateStarredCore(key: 'branches' | 'repositories', id: string, star: boolean) {
 		const storageKey = `starred:${key}` as const;
 		let starred = this.container.storage.getWorkspace(storageKey);
-		if (starred === undefined) {
-			starred = Object.create(null) as StoredStarred;
-		}
-
-		if (star) {
-			starred[id] = true;
-		} else {
-			const { [id]: _, ...rest } = starred;
-			starred = rest;
-		}
+		starred = updateRecordValue(starred, id, star);
 		await this.container.storage.storeWorkspace(storageKey, starred);
 
 		this.fireChange(RepositoryChange.Starred);
