@@ -109,7 +109,7 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 	if (!options.quoted) return s;
 
 	// Keep under the same block-quote but with line breaks
-	return s.replace(markdownQuotedRegex, '\t\n>  ');
+	return s.replace(markdownQuotedRegex, '\t\\\n>  ');
 }
 
 export function escapeRegex(s: string) {
