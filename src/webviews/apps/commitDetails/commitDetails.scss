@@ -1,16 +1,10 @@
-// @import '../shared/base';
-// @import '../shared/buttons';
-// @import '../shared/icons';
-
 :root {
 	--gitlens-gutter-width: 20px;
 	--gitlens-scrollbar-gutter-width: 10px;
-	--gitlens-view-background-color: #fafafa;
 }
 
 // generic resets
 html {
-	// height: 100%;
 	font-size: 62.5%;
 	box-sizing: border-box;
 	font-family: var(--font-family);
@@ -25,7 +19,6 @@ html {
 }
 
 body {
-	// height: 100%;
 	font-family: var(--font-family);
 	font-size: var(--font-size);
 	color: var(--color-foreground);
@@ -152,26 +145,21 @@ ul {
 }
 
 .commit-details {
-	&__commit {
-		padding: {
-			// 1.5rem
-			left: var(--gitlens-gutter-width);
-			right: var(--gitlens-scrollbar-gutter-width);
-		}
-		// background-color: var(--color-background--lighten-05);
-		margin-bottom: 1.75rem;
-
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
-	}
-
 	&__top {
+		position: sticky;
+		top: 0;
+		z-index: 1;
 		display: flex;
 		flex-direction: row;
 		align-items: flex-start;
 		justify-content: space-between;
-		// gap: 0.5rem;
+		padding: {
+			top: 1rem;
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+			bottom: 0.5rem;
+		}
+		background-color: var(--vscode-sideBar-background);
 	}
 
 	&__message {
@@ -179,6 +167,12 @@ ul {
 		border: 1px solid var(--vscode-input-border);
 		background: var(--vscode-input-background);
 		padding: 0.5rem;
+		margin: {
+			top: 1rem;
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+			bottom: 1.75rem;
+		}
 	}
 
 	&__message-text {
@@ -190,13 +184,6 @@ ul {
 		overflow-x: hidden;
 		max-height: 9rem;
 
-		// @supports (-webkit-line-clamp: 6) {
-		// 	display: -webkit-box;
-		// 	-webkit-line-clamp: 6;
-		// 	-webkit-box-orient: vertical;
-		// 	overflow: hidden;
-		// }
-
 		strong {
 			font-weight: 600;
 			font-size: 1.4rem;
@@ -207,7 +194,6 @@ ul {
 		display: inline-flex;
 		justify-content: center;
 		align-items: center;
-		// width: 20px;
 		height: 21px;
 		border-radius: 0.25em;
 		color: inherit;
@@ -226,7 +212,6 @@ ul {
 	}
 
 	&__sha {
-		// padding-top: 0.2rem;
 		margin: 0 0.5rem 0 0.25rem;
 	}
 
@@ -258,12 +243,6 @@ ul {
 		}
 	}
 
-	// &__files {
-	//     border-top: 1px solid var(--color-background--lighten-075);
-	//     padding: {
-	//         top: 1.75rem;
-	//     }
-	// }
 	&__file {
 		padding: {
 			left: var(--gitlens-gutter-width);
@@ -302,67 +281,8 @@ ul {
 		}
 	}
 
-	&__header {
-		margin: {
-			top: 1rem;
-			bottom: 1.5rem;
-		}
-	}
-	&__title {
-		font-size: 2.4rem;
-
-		// FIXME: specificity hack
-		&-icon {
-			// color: var(--vscode-banner-iconForeground);
-			font-size: inherit !important;
-		}
-	}
-	&__nav {
-		border: 1px solid var(--color-button-secondary-background);
-		padding: 0.5rem;
-		margin: {
-			top: 1rem;
-			bottom: 1.5rem;
-		}
-	}
-	&__commit-count {
-		margin: {
-			top: 0;
-			bottom: 0.5rem;
-		}
-	}
-	&__commits {
-	}
-	&__commit {
-		& + & {
-			margin-top: 0.5rem;
-		}
-	}
-	&__commit-button {
-		appearance: none;
-		text-decoration: none;
-		border: none;
-		color: var(--color-button-foreground);
-		background-color: var(--color-button-secondary-background);
-		padding: 0.5rem;
-		display: flex;
-		align-items: center;
-		width: 100%;
-		gap: 0.5rem;
-
-		> :last-child {
-			margin-left: auto;
-		}
-
-		&[aria-current='true'] {
-			background-color: var(--color-button-background);
-		}
-	}
 	&__main {
-		padding: {
-			top: 1rem;
-			bottom: 1rem;
-		}
+		padding-bottom: 1rem;
 	}
 }
 

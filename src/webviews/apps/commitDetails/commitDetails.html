@@ -6,8 +6,6 @@
 
 	<body class="preload">
 		<div class="commit-detail-panel">
-			<!-- commitDetails:header -->
-			<!-- commitDetails:choices -->
 			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
 				<!-- <p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p> -->
 				<p>Open a file with commit history or pick a specific commit to see commit details.</p>
@@ -28,47 +26,45 @@
 				</p> -->
 			</div>
 			<main class="commit-details commit-detail-panel__main" id="main" tabindex="-1">
-				<div class="commit-details__commit">
-					<div class="commit-details__top">
-						<ul class="commit-details__authors" aria-label="Authors">
-							<li class="commit-details__author" data-region="author">
-								<skeleton-loader></skeleton-loader>
-							</li>
-						</ul>
-						<a
-							class="commit-details__commit-action"
-							href="#"
-							data-action="commit-actions-pin"
-							aria-label="Pin Commit to View"
-							title="Pin Commit to View"
-							><code-icon icon="pin" data-region="commit-pin"></code-icon
-						></a>
-						<a
-							class="commit-details__commit-action"
-							href="#"
-							data-action="commit-actions-sha"
-							aria-label="Copy SHA
-[⌥] Pick Commit..."
-							title="Copy SHA
-[⌥] Pick Commit..."
-						>
-							<code-icon icon="git-commit"></code-icon>
-							<span class="commit-details__sha" data-region="shortsha"></span
-						></a>
-						<a
-							class="commit-details__commit-action"
-							href="#"
-							data-action="commit-actions-more"
-							aria-label="Show Commit Actions"
-							title="Show Commit Actions"
-							><code-icon icon="kebab-vertical"></code-icon
-						></a>
-					</div>
-					<div class="commit-details__message">
-						<p class="commit-details__message-text" data-region="message">
+				<div class="commit-details__top">
+					<ul class="commit-details__authors" aria-label="Authors">
+						<li class="commit-details__author" data-region="author">
 							<skeleton-loader></skeleton-loader>
-						</p>
-					</div>
+						</li>
+					</ul>
+					<a
+						class="commit-details__commit-action"
+						href="#"
+						data-action="commit-actions-pin"
+						aria-label="Pin Commit to View"
+						title="Pin Commit to View"
+						><code-icon icon="pin" data-region="commit-pin"></code-icon
+					></a>
+					<a
+						class="commit-details__commit-action"
+						href="#"
+						data-action="commit-actions-sha"
+						aria-label="Copy SHA
+[⌥] Pick Commit..."
+						title="Copy SHA
+[⌥] Pick Commit..."
+					>
+						<code-icon icon="git-commit"></code-icon>
+						<span class="commit-details__sha" data-region="shortsha"></span
+					></a>
+					<a
+						class="commit-details__commit-action"
+						href="#"
+						data-action="commit-actions-more"
+						aria-label="Show Commit Actions"
+						title="Show Commit Actions"
+						><code-icon icon="kebab-vertical"></code-icon
+					></a>
+				</div>
+				<div class="commit-details__message">
+					<p class="commit-details__message-text" data-region="message">
+						<skeleton-loader></skeleton-loader>
+					</p>
 				</div>
 
 				<webview-pane collapsable expanded data-region="rich-pane">
