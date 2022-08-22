@@ -7,7 +7,7 @@ export class CommitIdentity extends LitElement {
 	static override styles = css`
 		:host {
 			display: grid;
-			gap: 0.25rem 0.5rem;
+			gap: 0rem 1rem;
 			justify-content: start;
 		}
 		a {
