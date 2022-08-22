@@ -356,30 +356,30 @@ export class GitHubApi implements Disposable {
 
 		try {
 			const query = `query getIssueOrPullRequest(
-		$owner: String!
-		$repo: String!
-		$number: Int!
-	) {
-		repository(name: $repo, owner: $owner) {
-			issueOrPullRequest(number: $number) {
-				__typename
-				... on Issue {
-					createdAt
-					closed
-					closedAt
-					title
-					url
-				}
-				... on PullRequest {
-					createdAt
-					closed
-					closedAt
-					title
-					url
-				}
+	$owner: String!
+	$repo: String!
+	$number: Int!
+) {
+	repository(name: $repo, owner: $owner) {
+		issueOrPullRequest(number: $number) {
+			__typename
+			... on Issue {
+				createdAt
+				closed
+				closedAt
+				title
+				url
+			}
+			... on PullRequest {
+				createdAt
+				closed
+				closedAt
+				title
+				url
 			}
 		}
-	}`;
+	}
+}`;
 
 			const rsp = await this.graphql<QueryResult>(
 				provider,
