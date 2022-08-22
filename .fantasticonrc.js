@@ -3,7 +3,7 @@
 /** @type { import('fantasticon').RunnerOptions} } */
 const config = {
 	name: 'glicons',
-	prefix: 'glicons',
+	prefix: 'glicon',
 	codepoints: require('./images/icons/template/mapping.json'),
 	inputDir: './images/icons',
 	outputDir: './dist',
