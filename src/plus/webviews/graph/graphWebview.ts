@@ -49,6 +49,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _statusBarItem: StatusBarItem | undefined;
 
 	private selectedRepository?: Repository;
+	private selection?: GitCommit[];
 	private currentLog?: GitLog;
 	private previewBanner?: boolean;
 
@@ -119,6 +120,12 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
 				break;
+		}
+	}
+
+	protected override onFocusChanged(focused: boolean): void {
+		if (focused && this.selection != null) {
+			void GitActions.Commit.showDetailsView(this.selection[0], { pin: true, preserveFocus: true });
 		}
 	}
 
@@ -213,6 +220,7 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		}
 
+		this.selection = commits;
 		this._onDidChangeSelection.fire({ selection: commits ?? [] });
 
 		if (commits == null) return;
