@@ -232,6 +232,11 @@ export function GraphWrapper({
 							<p className="alert__message">
 								The Commit Graph is a ✨ GitLens+ feature currently in preview. It is freely available
 								for local and public repos, while a paid account is required for use on private repos.
+								We welcome your feedback in our{' '}
+								<a href="https://github.com/gitkraken/vscode-gitlens/discussions/2158">
+									Commit Graph discussion on GitHub
+								</a>
+								.
 							</p>
 						</div>
 						<button className="alert__action" type="button" onClick={() => handleDismissBanner()}>
