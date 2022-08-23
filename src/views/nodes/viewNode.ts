@@ -434,7 +434,7 @@ export abstract class RepositoryFolderNode<
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
-				const remote = await branch.getRemote();
+				const remote = await branch.getRemoteWithProvider();
 				providerName = remote?.provider?.name;
 			}
 

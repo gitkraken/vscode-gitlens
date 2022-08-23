@@ -5,6 +5,7 @@ import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { sortCompare } from '../../system/string';
+import type { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
 import { GitRevision } from './reference';
@@ -100,7 +101,7 @@ export class GitBranch implements GitBranchReference {
 	}): Promise<PullRequest | undefined> {
 		if (this._pullRequest == null) {
 			async function getCore(this: GitBranch): Promise<PullRequest | undefined> {
-				const remote = await this.getRemote();
+				const remote = await this.getRemoteWithProvider();
 				if (remote == null) return undefined;
 
 				const branch = this.getTrackingWithoutRemote() ?? this.getNameWithoutRemote();
@@ -131,6 +132,17 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getRemote(): Promise<GitRemote | undefined> {
+		const remoteName = this.getRemoteName();
+		if (remoteName == null) return undefined;
+
+		const remotes = await Container.instance.git.getRemotes(this.repoPath);
+		if (remotes.length === 0) return undefined;
+
+		return remotes.find(r => r.name === remoteName);
+	}
+
+	@memoize()
+	async getRemoteWithProvider(): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined> {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
 

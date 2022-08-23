@@ -1527,7 +1527,7 @@ export class GitProviderService implements Disposable {
 
 	async getPullRequestForBranch(
 		branch: string,
-		remote: GitRemote,
+		remote: GitRemote<RemoteProvider | RichRemoteProvider>,
 		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
 	): Promise<PullRequest | undefined>;
 	async getPullRequestForBranch(
