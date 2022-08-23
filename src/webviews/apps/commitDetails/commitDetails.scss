@@ -227,6 +227,7 @@ ul {
 
 		&:hover {
 			color: var(--vscode-foreground);
+			text-decoration: none;
 			.vscode-dark & {
 				background-color: var(--color-background--lighten-15);
 			}
