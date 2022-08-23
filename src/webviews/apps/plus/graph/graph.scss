@@ -366,3 +366,7 @@ a {
 		display: none;
 	}
 }
+
+.graph-container .node.stash-node .graph-icon {
+	transform: translateY(-2px);
+}
