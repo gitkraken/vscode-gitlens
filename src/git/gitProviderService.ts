@@ -28,7 +28,7 @@ import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, map, some } from '../system/iterable';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
-import { cancellable, fastestSettled, isPromise, PromiseCancelledError } from '../system/promise';
+import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
 	GitProvider,
@@ -1204,10 +1204,13 @@ export class GitProviderService implements Disposable {
 	): Promise<
 		(sha: string, options?: { compact?: boolean | undefined; icons?: boolean | undefined }) => string | undefined
 	> {
-		const [{ values: branches }, { values: tags }] = await Promise.all([
+		const [branchesResult, tagsResult] = await Promise.allSettled([
 			this.getBranches(repoPath),
 			this.getTags(repoPath),
 		]);
+
+		const branches = getSettledValue(branchesResult)?.values ?? [];
+		const tags = getSettledValue(tagsResult)?.values ?? [];
 
 		const branchesAndTagsBySha = groupByFilterMap(
 			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
