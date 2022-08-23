@@ -4,21 +4,14 @@ import GraphContainer, {
 	type GraphColumnsSettings as GKGraphColumnsSettings,
 	type GraphRow,
 	type GraphZoneType,
-	type Head,
-	type Remote,
-	type Tag,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
 import type { GraphColumnConfig } from '../../../../config';
 import type {
 	CommitListCallback,
-	GraphBranch,
-	GraphCommit,
 	GraphCompositeConfig,
-	GraphRemote,
 	GraphRepository,
-	GraphTag,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 
@@ -29,7 +22,7 @@ export interface GraphWrapperProps extends State {
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
 	onDismissPreview?: () => void;
-	onSelectionChange?: (selection: GraphCommit[]) => void;
+	onSelectionChange?: (selection: string[]) => void;
 }
 
 // Copied from original pushed code of Miggy E.
@@ -62,71 +55,6 @@ const getStyleProps = (
 		cssVariables: getCssVariables(mixedColumnColors),
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
-};
-
-const getGraphModel = (
-	gitCommits: GraphCommit[] = [],
-	gitRemotes: GraphRemote[] = [],
-	gitTags: GraphTag[] = [],
-	gitBranches: GraphBranch[] = [],
-): GraphRow[] => {
-	const graphRows: GraphRow[] = [];
-
-	// console.log('gitCommits -> ', gitCommits);
-	// console.log('gitRemotes -> ', gitRemotes);
-	// console.log('gitTags -> ', gitTags);
-	// console.log('gitBranches -> ', gitBranches);
-
-	// TODO: review if that code is correct and see if we need to add more data
-	for (const gitCommit of gitCommits) {
-		const graphRemotes: Remote[] = gitBranches
-			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.remote)
-			.map((branch: GraphBranch) => {
-				const matchingRemote: GraphRemote | undefined = gitRemotes.find((remote: GraphRemote) =>
-					branch.name.startsWith(remote.name),
-				);
-
-				return {
-					// If a matching remote is found, remove the remote name and slash from the branch name
-					name:
-						matchingRemote !== undefined ? branch.name.replace(`${matchingRemote.name}/`, '') : branch.name,
-					url: matchingRemote?.url,
-					avatarUrl: matchingRemote?.avatarUrl ?? undefined,
-					...(matchingRemote?.name !== undefined ? { owner: matchingRemote.name } : {}),
-				};
-			});
-
-		const graphHeads: Head[] = gitBranches
-			.filter((branch: GraphBranch) => branch.sha === gitCommit.sha && branch.remote === false)
-			.map((branch: GraphBranch) => {
-				return {
-					name: branch.name,
-					isCurrentHead: branch.current,
-				};
-			});
-
-		const graphTags: Tag[] = gitTags
-			.filter((tag: GraphTag) => tag.sha === gitCommit.sha)
-			.map((tag: GraphTag) => ({
-				name: tag.name,
-				annotated: Boolean(tag.message),
-			}));
-
-		graphRows.push({
-			sha: gitCommit.sha,
-			parents: gitCommit.parents,
-			author: gitCommit.author.name,
-			email: gitCommit.author.email,
-			date: new Date(gitCommit.committer.date).getTime(),
-			message: gitCommit.message,
-			type: gitCommit.type, // TODO: review logic for stash, wip, etc
-			heads: graphHeads,
-			remotes: graphRemotes,
-			tags: graphTags,
-		});
-	}
-
-	return graphRows;
 };
 
 const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
@@ -192,11 +120,8 @@ const getIconElementLibrary = (iconKey: string) => {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
-	commits = [],
 	repositories = [],
-	remotes = [],
-	tags = [],
-	branches = [],
+	rows = [],
 	selectedRepository,
 	config,
 	log,
@@ -209,7 +134,7 @@ export function GraphWrapper({
 	previewBanner = true,
 	onDismissPreview,
 }: GraphWrapperProps) {
-	const [graphList, setGraphList] = useState(getGraphModel(commits, remotes, tags, branches));
+	const [graphList, setGraphList] = useState(rows);
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
 		reposList.find(item => item.path === selectedRepository),
@@ -250,7 +175,7 @@ export function GraphWrapper({
 	}, [mainRef]);
 
 	function transformData(state: State) {
-		setGraphList(getGraphModel(state.commits, state.remotes, state.tags, state.branches));
+		setGraphList(state.rows ?? []);
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setGraphColSettings(getGraphColSettingsModel(state.config));
@@ -288,7 +213,7 @@ export function GraphWrapper({
 	};
 
 	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
-		onSelectionChange?.(graphRows);
+		onSelectionChange?.(graphRows.map(r => r.sha));
 	};
 
 	const handleDismissBanner = () => {
@@ -301,7 +226,7 @@ export function GraphWrapper({
 			{showBanner && (
 				<section className="graph-app__banner">
 					<div className="alert">
-						<span className="alert__icon codicon codicon-eye"></span>
+						<span className="alert__icon codicon codicon-search"></span>
 						<div className="alert__content">
 							<p className="alert__title">Preview Feature</p>
 							<p className="alert__message">

@@ -59,7 +59,7 @@ import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
-import { filterMap, some } from '../../system/iterable';
+import { filterMap, last, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
@@ -1358,6 +1358,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				cursor: moreLog.cursor,
+				pagedCommits: () => {
+					// Remove any duplicates
+					for (const sha of log.commits.keys()) {
+						moreLog.commits.delete(sha);
+					}
+					return moreLog.commits;
+				},
+				previousCursor: last(log.commits)?.[0],
 				query: log.query,
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);

@@ -1,15 +1,12 @@
-import type { Remote } from '@gitkraken/gitkraken-components';
+import type { CommitType, GraphRow, Remote } from '@gitkraken/gitkraken-components';
 import type { GraphColumnConfig, GraphConfig } from '../../../config';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
-	commits?: GraphCommit[];
+	rows?: GraphRow[];
 	config?: GraphCompositeConfig;
-	remotes?: GraphRemote[];
-	tags?: GraphTag[];
-	branches?: GraphBranch[];
 	log?: GraphLog;
 	nonce?: string;
 	mixedColumnColors?: Record<string, string>;
@@ -23,8 +20,28 @@ export interface GraphLog {
 	cursor?: string;
 }
 
-export type GraphRepository = Record<string, any>;
-export type GraphCommit = Record<string, any>;
+export interface GraphRepository {
+	formattedName: string;
+	id: string;
+	name: string;
+	path: string;
+}
+
+export interface GraphCommitIdentity {
+	name: string;
+	email: string | undefined;
+	date: number;
+}
+export interface GraphCommit {
+	sha: string;
+	author: GraphCommitIdentity;
+	message: string;
+	parents: string[];
+	committer: GraphCommitIdentity;
+	type: CommitType;
+
+	avatarUrl: string | undefined;
+}
 export type GraphRemote = Remote;
 export type GraphTag = Record<string, any>;
 export type GraphBranch = Record<string, any>;
@@ -55,11 +72,11 @@ export interface UpdateSelectedRepositoryParams {
 	path: string;
 }
 export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSelectedRepositoryParams>(
-	'graph/update/selectedRepository',
+	'graph/update/repositorySelection',
 );
 
 export interface UpdateSelectionParams {
-	selection: GraphCommit[];
+	selection: string[];
 }
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
 
@@ -77,7 +94,8 @@ export const DidChangeGraphConfigurationNotificationType = new IpcNotificationTy
 );
 
 export interface DidChangeCommitsParams {
-	commits: GraphCommit[];
+	rows: GraphRow[];
+	previousCursor?: string;
 	log?: GraphLog;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(

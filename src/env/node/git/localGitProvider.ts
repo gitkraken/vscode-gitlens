@@ -2242,6 +2242,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
+				pagedCommits: () => {
+					// Remove any duplicates
+					for (const sha of log.commits.keys()) {
+						moreLog.commits.delete(sha);
+					}
+					return moreLog.commits;
+				},
+				previousCursor: last(log.commits)?.[0],
 				query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);

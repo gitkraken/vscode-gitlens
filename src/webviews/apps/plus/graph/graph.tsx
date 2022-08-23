@@ -3,7 +3,7 @@ import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GraphColumnConfig } from '../../../../config';
-import type { CommitListCallback, GraphCommit, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
+import type { CommitListCallback, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
@@ -11,7 +11,7 @@ import {
 	DismissPreviewCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
-	UpdateSelectedRepositoryCommandType,
+	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
@@ -36,7 +36,6 @@ const graphLaneThemeColors = new Map([
 
 export class GraphApp extends App<State> {
 	private callback?: CommitListCallback;
-	private $menu?: HTMLElement;
 
 	constructor() {
 		super('GraphApp');
@@ -56,9 +55,12 @@ export class GraphApp extends App<State> {
 						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
 					)}
-					onSelectRepository={debounce((path: GraphRepository) => this.onRepositoryChanged(path), 250)}
-					onMoreCommits={(...params) => this.onMoreCommits(...params)}
-					onSelectionChange={debounce((selection: GraphCommit[]) => this.onSelectionChanged(selection), 250)}
+					onSelectRepository={debounce(
+						(path: GraphRepository) => this.onRepositorySelectionChanged(path),
+						250,
+					)}
+					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
+					onSelectionChange={debounce((selection: string[]) => this.onSelectionChanged(selection), 250)}
 					onDismissPreview={() => this.onDismissPreview()}
 					{...this.state}
 				/>,
@@ -90,9 +92,50 @@ export class GraphApp extends App<State> {
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeCommitsNotificationType, msg, params => {
+					let rows;
+					if (params?.previousCursor != null && this.state.rows != null) {
+						const previousRows = this.state.rows;
+						const lastSha = previousRows[previousRows.length - 1]?.sha;
+
+						let previousRowsLength = previousRows.length;
+						const newRowsLength = params.rows.length;
+
+						rows = [];
+						// Preallocate the array to avoid reallocations
+						rows.length = previousRowsLength + newRowsLength;
+
+						if (params.previousCursor !== lastSha) {
+							let i = 0;
+							let row;
+							for (row of previousRows) {
+								rows[i++] = row;
+								if (row.sha === params.previousCursor) {
+									previousRowsLength = i;
+
+									if (previousRowsLength !== previousRows.length) {
+										// If we stopped before the end of the array, we need to trim it
+										rows.length = previousRowsLength + newRowsLength;
+									}
+
+									break;
+								}
+							}
+						} else {
+							for (let i = 0; i < previousRowsLength; i++) {
+								rows[i] = previousRows[i];
+							}
+						}
+
+						for (let i = 0; i < newRowsLength; i++) {
+							rows[previousRowsLength + i] = params.rows[i];
+						}
+					} else {
+						rows = params.rows;
+					}
+
 					this.setState({
 						...this.state,
-						commits: params.commits,
+						rows: rows,
 						log: params.log,
 					});
 					this.refresh(this.state);
@@ -167,19 +210,19 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onRepositoryChanged(repo: GraphRepository) {
-		this.sendCommand(UpdateSelectedRepositoryCommandType, {
+	private onRepositorySelectionChanged(repo: GraphRepository) {
+		this.sendCommand(UpdateRepositorySelectionCommandType, {
 			path: repo.path,
 		});
 	}
 
-	private onMoreCommits(limit?: number) {
+	private onGetMoreCommits(limit?: number) {
 		this.sendCommand(GetMoreCommitsCommandType, {
 			limit: limit,
 		});
 	}
 
-	private onSelectionChanged(selection: GraphCommit[]) {
+	private onSelectionChanged(selection: string[]) {
 		this.sendCommand(UpdateSelectionCommandType, {
 			selection: selection,
 		});
@@ -194,9 +237,7 @@ export class GraphApp extends App<State> {
 	}
 
 	private refresh(state: State) {
-		if (this.callback !== undefined) {
-			this.callback(state);
-		}
+		this.callback?.(state);
 	}
 }
 

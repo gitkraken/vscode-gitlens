@@ -1,4 +1,4 @@
-import type { CommitType } from '@gitkraken/gitkraken-components';
+import type { CommitType, GraphRow, Head, Remote, Tag } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { ColorThemeKind, EventEmitter, MarkdownString, StatusBarAlignment, Uri, ViewColumn, window } from 'vscode';
@@ -16,14 +16,20 @@ import type { GitLog } from '../../../git/models/log';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitStash } from '../../../git/models/stash';
 import type { GitTag } from '../../../git/models/tag';
+import { debug } from '../../../system/decorators/log';
+import type { Deferrable } from '../../../system/function';
+import { debounce } from '../../../system/function';
+import { filter, filterMap, union } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
+import { getSettledValue } from '../../../system/promise';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { GraphCommit, GraphCompositeConfig, GraphRemote, GraphRepository, State } from './protocol';
+import type { GraphCompositeConfig, GraphLog, GraphRepository, State } from './protocol';
 import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
@@ -45,12 +51,37 @@ export class GraphWebview extends WebviewBase<State> {
 		return this._onDidChangeSelection.event;
 	}
 
-	private _repositoryEventsDisposable: Disposable | undefined;
-	private _statusBarItem: StatusBarItem | undefined;
+	private _repository?: Repository;
+	get repository(): Repository | undefined {
+		return this._repository;
+	}
 
-	private selectedRepository?: Repository;
-	private selection?: GitCommit[];
-	private currentLog?: GitLog;
+	set repository(value: Repository | undefined) {
+		if (this._repository === value) return;
+
+		this._repositoryEventsDisposable?.dispose();
+		this._repository = value;
+		this._etagRepository = value?.etag;
+		this._repositoryLog = undefined;
+
+		if (value != null) {
+			this._repositoryEventsDisposable = value.onDidChange(this.onRepositoryChanged, this);
+		}
+
+		this.updateState();
+	}
+
+	private _selection: readonly GitCommit[] | undefined;
+	get selection(): readonly GitCommit[] | undefined {
+		return this._selection;
+	}
+
+	private _etagRepository?: number;
+	private _repositoryEventsDisposable: Disposable | undefined;
+	private _repositoryLog?: GitLog;
+	private _statusBarItem: StatusBarItem | undefined;
+	private _theme: ColorTheme | undefined;
+
 	private previewBanner?: boolean;
 
 	constructor(container: Container) {
@@ -83,13 +114,13 @@ export class GraphWebview extends WebviewBase<State> {
 			if (context.type === 'scm' && context.scm.rootUri != null) {
 				const repository = this.container.git.getRepository(context.scm.rootUri);
 				if (repository != null) {
-					this.selectedRepository = repository;
+					this.repository = repository;
 				}
 			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
-				this.selectedRepository = context.node.repo;
+				this.repository = context.node.repo;
 			}
 
-			if (this.selectedRepository != null) {
+			if (this.repository != null) {
 				void this.refresh();
 			}
 		}
@@ -97,7 +128,10 @@ export class GraphWebview extends WebviewBase<State> {
 		return super.show(column, ...args);
 	}
 
-	private _theme: ColorTheme | undefined;
+	protected override async includeBootstrap(): Promise<State> {
+		return this.getState();
+	}
+
 	protected override onInitializing(): Disposable[] | undefined {
 		this._theme = window.activeColorTheme;
 		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
@@ -109,13 +143,13 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
 				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.moreCommits(params.limit));
+				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.limit));
 				break;
 			case UpdateColumnCommandType.method:
-				onIpc(UpdateColumnCommandType, e, params => this.changeColumn(params.name, params.config));
+				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
-				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.changeRepository(params.path));
+				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onRepositorySelectionChanged(params.path));
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
@@ -126,6 +160,13 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override onFocusChanged(focused: boolean): void {
 		if (focused && this.selection != null) {
 			void GitActions.Commit.showDetailsView(this.selection[0], { pin: true, preserveFocus: true });
+		}
+	}
+
+	protected override onVisibilityChanged(visible: boolean): void {
+		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
+			this._repositoryLog = undefined;
+			void this.refresh();
 		}
 	}
 
@@ -157,221 +198,8 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (e != null && configuration.changed(e, 'graph')) {
-			void this.notifyDidChangeConfig();
+			this.updateState();
 		}
-	}
-
-	private onThemeChanged(theme: ColorTheme) {
-		if (this._theme != null) {
-			if (
-				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
-				(isLightTheme(theme) && isLightTheme(this._theme))
-			) {
-				return;
-			}
-		}
-
-		this._theme = theme;
-		void this.notifyDidChangeState();
-	}
-
-	private dismissPreview() {
-		this.previewBanner = false;
-
-		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-		banners = updateRecordValue(banners, 'preview', true);
-		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
-	}
-
-	private changeColumn(name: string, config: GraphColumnConfig) {
-		const columns = this.container.storage.getWorkspace('graph:columns') ?? {};
-		columns[name] = config;
-		void this.container.storage.storeWorkspace('graph:columns', columns);
-		void this.notifyDidChangeConfig();
-	}
-
-	private async moreCommits(limit?: number) {
-		if (this.currentLog?.more !== undefined) {
-			const { defaultItemLimit, pageItemLimit } = this.getConfig();
-			const nextLog = await this.currentLog.more(limit ?? pageItemLimit ?? defaultItemLimit);
-			if (nextLog !== undefined) {
-				this.currentLog = nextLog;
-			}
-		}
-		void this.notifyDidChangeCommits();
-	}
-
-	private changeRepository(path: string) {
-		if (this.selectedRepository?.path !== path) {
-			this.selectedRepository = path ? this.getRepos().find(r => r.path === path) : undefined;
-			this.currentLog = undefined;
-		}
-		void this.notifyDidChangeState();
-	}
-
-	private async onSelectionChanged(selection: GraphCommit[]) {
-		const ref = selection[0]?.sha;
-
-		let commits: GitCommit[] | undefined;
-		if (ref != null) {
-			const commit = await this.selectedRepository?.getCommit(ref);
-			if (commit != null) {
-				commits = [commit];
-			}
-		}
-
-		this.selection = commits;
-		this._onDidChangeSelection.fire({ selection: commits ?? [] });
-
-		if (commits == null) return;
-
-		void GitActions.Commit.showDetailsView(commits[0], { pin: true, preserveFocus: true });
-	}
-
-	private async notifyDidChangeConfig() {
-		return this.notify(DidChangeGraphConfigurationNotificationType, {
-			config: this.getConfig(),
-		});
-	}
-
-	private async notifyDidChangeCommits() {
-		const [commitsAndLog, stashCommits] = await Promise.all([this.getCommits(), this.getStashCommits()]);
-
-		const log = commitsAndLog?.log;
-		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
-			commitsAndLog?.commits,
-			stashCommits,
-			log,
-		);
-
-		return this.notify(DidChangeCommitsNotificationType, {
-			commits: formatCommits(combinedCommitsWithFilteredStashes),
-			log: log != null ? formatLog(log) : undefined,
-		});
-	}
-
-	private async notifyDidChangeState() {
-		return this.notify(DidChangeNotificationType, {
-			state: await this.getState(),
-		});
-		// return window.withProgress({ location: { viewId: this.id } }, async () => {
-		// 	void this.notify(DidChangeNotificationType, {
-		// 		state: await this.getState(),
-		// 	});
-		// });
-	}
-
-	private getRepos(): Repository[] {
-		return this.container.git.openRepositories;
-	}
-
-	private async getLog(repo: string | Repository): Promise<GitLog | undefined> {
-		const repository = typeof repo === 'string' ? this.container.git.getRepository(repo) : repo;
-		if (repository === undefined) {
-			return undefined;
-		}
-
-		const { defaultItemLimit, pageItemLimit } = this.getConfig();
-		return this.container.git.getLog(repository.uri, {
-			all: true,
-			limit: pageItemLimit ?? defaultItemLimit,
-		});
-	}
-
-	private async getCommits(): Promise<{ log: GitLog; commits: GitCommit[] } | undefined> {
-		if (this.selectedRepository === undefined) {
-			return undefined;
-		}
-
-		if (this.currentLog === undefined) {
-			const log = await this.getLog(this.selectedRepository);
-			if (log?.commits === undefined) {
-				return undefined;
-			}
-			this.currentLog = log;
-		}
-
-		if (this.currentLog?.commits === undefined) {
-			return undefined;
-		}
-
-		return {
-			log: this.currentLog,
-			commits: Array.from(this.currentLog.commits.values()),
-		};
-	}
-
-	private async getRemotes(): Promise<GitRemote[] | undefined> {
-		if (this.selectedRepository === undefined) {
-			return undefined;
-		}
-
-		return this.selectedRepository.getRemotes();
-	}
-
-	private async getTags(): Promise<GitTag[] | undefined> {
-		if (this.selectedRepository === undefined) {
-			return undefined;
-		}
-
-		const tags = await this.container.git.getTags(this.selectedRepository.uri);
-		if (tags === undefined) {
-			return undefined;
-		}
-
-		return Array.from(tags.values);
-	}
-
-	private async getBranches(): Promise<GitBranch[] | undefined> {
-		if (this.selectedRepository === undefined) {
-			return undefined;
-		}
-
-		const branches = await this.container.git.getBranches(this.selectedRepository.uri);
-		if (branches === undefined) {
-			return undefined;
-		}
-
-		return Array.from(branches.values);
-	}
-
-	private async getStashCommits(): Promise<GitStashCommit[] | undefined> {
-		if (this.selectedRepository === undefined) {
-			return undefined;
-		}
-
-		const stash = await this.container.git.getStash(this.selectedRepository.uri);
-		if (stash === undefined || stash.commits === undefined) {
-			return undefined;
-		}
-
-		return Array.from(stash?.commits?.values());
-	}
-
-	private pickRepository(repositories: Repository[]): Repository | undefined {
-		if (repositories.length === 0) {
-			return undefined;
-		}
-
-		if (repositories.length === 1) {
-			return repositories[0];
-		}
-
-		const bestRepo = this.container.git.getBestRepository(window.activeTextEditor);
-		if (bestRepo != null) {
-			return bestRepo;
-		}
-
-		return repositories[0];
-	}
-
-	private getConfig(): GraphCompositeConfig {
-		const settings = configuration.get('graph');
-		const config: GraphCompositeConfig = {
-			...settings,
-			columns: this.container.storage.getWorkspace('graph:columns'),
-		};
-		return config;
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
@@ -392,97 +220,382 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		this.currentLog = undefined;
-		void this.notifyDidChangeState();
+		this._repositoryLog = undefined;
+		this.updateState();
+	}
+
+	private onThemeChanged(theme: ColorTheme) {
+		if (this._theme != null) {
+			if (
+				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
+				(isLightTheme(theme) && isLightTheme(this._theme))
+			) {
+				return;
+			}
+		}
+
+		this._theme = theme;
+		this.updateState();
+	}
+
+	private dismissPreview() {
+		this.previewBanner = false;
+
+		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
+		banners = updateRecordValue(banners, 'preview', true);
+		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
+	}
+
+	private onColumnUpdated(name: string, config: GraphColumnConfig) {
+		let columns = this.container.storage.getWorkspace('graph:columns');
+		columns = updateRecordValue(columns, name, config);
+		void this.container.storage.storeWorkspace('graph:columns', columns);
+
+		void this.notifyDidChangeGraphConfiguration();
+	}
+
+	private async onGetMoreCommits(limit?: number) {
+		if (this._repositoryLog?.more != null) {
+			const { defaultItemLimit, pageItemLimit } = this.getConfig();
+			const nextLog = await this._repositoryLog.more(limit ?? pageItemLimit ?? defaultItemLimit);
+			if (nextLog != null) {
+				this._repositoryLog = nextLog;
+			}
+		}
+		void this.notifyDidChangeCommits();
+	}
+
+	private onRepositorySelectionChanged(path: string) {
+		if (this.repository?.path !== path) {
+			this.repository = this.container.git.getRepository(path);
+		}
+	}
+
+	private async onSelectionChanged(selection: string[]) {
+		const ref = selection[0];
+
+		let commits: GitCommit[] | undefined;
+		if (ref != null) {
+			const commit = await this.repository?.getCommit(ref);
+			if (commit != null) {
+				commits = [commit];
+			}
+		}
+
+		this._selection = commits;
+		this._onDidChangeSelection.fire({ selection: commits ?? [] });
+
+		if (commits == null) return;
+
+		void GitActions.Commit.showDetailsView(commits[0], { pin: true, preserveFocus: true });
+	}
+
+	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateState(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		if (immediate) {
+			void this.notifyDidChangeState();
+			return;
+		}
+
+		if (this._notifyDidChangeStateDebounced == null) {
+			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
+		}
+
+		this._notifyDidChangeStateDebounced();
+	}
+
+	@debug()
+	private async notifyDidChangeState() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeNotificationType, {
+			state: await this.getState(),
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeGraphConfiguration() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeGraphConfigurationNotificationType, {
+			config: this.getConfig(),
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeCommits() {
+		if (!this.isReady || !this.visible) return false;
+
+		const data = await this.getGraphData(true);
+		return this.notify(DidChangeCommitsNotificationType, {
+			rows: data.rows,
+			log: formatLog(data.log),
+			previousCursor: data.log?.previousCursor,
+		});
+	}
+
+	private async getGraphData(paging: boolean = false): Promise<{ log: GitLog | undefined; rows: GraphRow[] }> {
+		const [logResult, stashResult, branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
+			this.getLog(),
+			this.getStash(),
+			this.getBranches(),
+			this.getTags(),
+			this.getRemotes(),
+		]);
+
+		const log = getSettledValue(logResult);
+		const combinedCommits = combineLogAndStash(log, getSettledValue(stashResult), paging);
+
+		const rows = await convertToRows(
+			combinedCommits,
+			getSettledValue(branchesResult) ?? [],
+			getSettledValue(tagsResult) ?? [],
+			getSettledValue(remotesResult) ?? [],
+			icon =>
+				this._panel?.webview
+					.asWebviewUri(
+						Uri.joinPath(
+							this.container.context.extensionUri,
+							`images/${isLightTheme(window.activeColorTheme) ? 'light' : 'dark'}/icon-${icon}.svg`,
+						),
+					)
+					.toString(),
+		);
+
+		return {
+			log: log,
+			rows: rows,
+		};
+	}
+
+	private async getLog(): Promise<GitLog | undefined> {
+		if (this.repository == null) return undefined;
+
+		if (this._repositoryLog == null) {
+			const { defaultItemLimit, pageItemLimit } = this.getConfig();
+			const log = await this.container.git.getLog(this.repository.uri, {
+				all: true,
+				limit: defaultItemLimit ?? pageItemLimit,
+			});
+			if (log?.commits == null) return undefined;
+
+			this._repositoryLog = log;
+		}
+
+		if (this._repositoryLog?.commits == null) return undefined;
+
+		return this._repositoryLog;
+	}
+
+	private async getBranches(): Promise<GitBranch[] | undefined> {
+		const branches = await this.repository?.getBranches();
+		if (branches?.paging?.more) {
+			debugger;
+			// TODO@eamodio - implement paging
+		}
+		return branches?.values;
+	}
+
+	private async getTags(): Promise<GitTag[] | undefined> {
+		const tags = await this.repository?.getTags();
+		if (tags?.paging?.more) {
+			debugger;
+			// TODO@eamodio - implement paging
+		}
+		return tags?.values;
+	}
+
+	private async getRemotes(): Promise<GitRemote[] | undefined> {
+		return this.repository?.getRemotes();
+	}
+
+	private async getStash(): Promise<GitStash | undefined> {
+		// TODO@eamodio look into using `git log -g stash` to get stashes with the commits
+		return this.repository?.getStash();
+	}
+
+	private getConfig(): GraphCompositeConfig {
+		const settings = configuration.get('graph');
+		const config: GraphCompositeConfig = {
+			...settings,
+			columns: this.container.storage.getWorkspace('graph:columns'),
+		};
+		return config;
 	}
 
 	private async getState(): Promise<State> {
-		const repositories = this.getRepos();
-		if (repositories.length === 0) {
-			return {
-				repositories: [],
-			};
-		}
+		if (this.container.git.repositoryCount === 0) return { repositories: [] };
 
 		if (this.previewBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
 			this.previewBanner = !banners?.['preview'];
 		}
 
-		if (this.selectedRepository === undefined) {
-			const idealRepo = this.pickRepository(repositories);
-			this.selectedRepository = idealRepo;
-			this._repositoryEventsDisposable?.dispose();
-			if (this.selectedRepository != null) {
-				this._repositoryEventsDisposable = this.selectedRepository.onDidChange(this.onRepositoryChanged, this);
-			}
+		if (this.repository == null) {
+			this.repository = this.container.git.getBestRepositoryOrFirst();
+		}
+		if (this.repository != null) {
+			this.title = `${this.originalTitle}: ${this.repository.formattedName}`;
 		}
 
-		if (this.selectedRepository !== undefined) {
-			this.title = `${this.originalTitle}: ${this.selectedRepository.formattedName}`;
-		}
-
-		const [commitsAndLog, remotes, tags, branches, stashCommits] = await Promise.all([
-			this.getCommits(),
-			this.getRemotes(),
-			this.getTags(),
-			this.getBranches(),
-			this.getStashCommits(),
-		]);
-
-		const log = commitsAndLog?.log;
-		const combinedCommitsWithFilteredStashes = combineAndFilterStashCommits(
-			commitsAndLog?.commits,
-			stashCommits,
-			log,
-		);
-
-		const theme = window.activeColorTheme;
+		const data = await this.getGraphData(false);
 
 		return {
 			previewBanner: this.previewBanner,
-			repositories: formatRepositories(repositories),
-			selectedRepository: this.selectedRepository?.path,
-			commits: formatCommits(combinedCommitsWithFilteredStashes),
-			remotes: formatRemotes(remotes, icon =>
-				this._panel?.webview
-					.asWebviewUri(
-						Uri.joinPath(
-							this.container.context.extensionUri,
-							`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${icon}.svg`,
-						),
-					)
-					.toString(),
-			),
-			branches: branches, // TODO: add a format function
-			tags: tags, // TODO: add a format function
+			repositories: formatRepositories(this.container.git.openRepositories),
+			selectedRepository: this.repository?.path,
+			rows: data.rows,
+			log: formatLog(data.log),
 			config: this.getConfig(),
-			log: log != null ? formatLog(log) : undefined,
 			nonce: this.cspNonce,
 		};
 	}
+}
 
-	protected override async includeBootstrap(): Promise<State> {
-		return this.getState();
+function combineLogAndStash(
+	log: GitLog | undefined,
+	stash: GitStash | undefined,
+	paging = false,
+): Iterable<GitCommit | GitStashCommit> {
+	// let commits = log?.commits;
+	// if (commits == null) return [];
+
+	// if (paging && log?.previousCursor != null) {
+	// 	let pagedCommits = [...commits.values()];
+	// 	const index = pagedCommits.findIndex(c => c.sha === log?.previousCursor);
+	// 	if (index !== -1) {
+	// 		pagedCommits = pagedCommits.slice(index + 1);
+	// 	} else {
+	// 		debugger;
+	// 	}
+
+	// 	commits = new Map(pagedCommits.map(c => [c.sha, c]));
+	// }
+
+	const commits = (paging ? log?.pagedCommits?.() : undefined) ?? log?.commits;
+	if (commits == null) return [];
+	if (stash?.commits == null) return [...commits.values()];
+
+	const stashCommitShaSecondParents = new Set(
+		filterMap(stash.commits.values(), c => (c.parents.length > 1 ? c.parents[1] : undefined)),
+	);
+	const filteredCommits = filter(
+		commits.values(),
+		c => !stash.commits.has(c.sha) && !stashCommitShaSecondParents.has(c.sha),
+	);
+
+	const filteredStashCommits = filter(stash.commits.values(), c => !c.parents?.length || commits.has(c.parents[0]));
+
+	return union(filteredCommits, filteredStashCommits);
+}
+
+async function convertToRows(
+	commits: Iterable<GitCommit>,
+	branches: GitBranch[],
+	tags: GitTag[],
+	remotes: GitRemote[],
+	getRemoteIconUrl: (icon?: string) => string | undefined,
+): Promise<GraphRow[]> {
+	const rows: GraphRow[] = [];
+
+	let graphHeads: Head[];
+	let graphTags: Tag[];
+	let graphRemotes: Remote[];
+	let parents: string[];
+	let stash: boolean;
+
+	const remoteMap = new Map(remotes.map(r => [r.name, r]));
+
+	for (const commit of commits) {
+		graphHeads = [
+			...filterMap(branches, b => {
+				if (b.sha !== commit.sha || b.remote) return undefined;
+
+				return {
+					name: b.name,
+					isCurrentHead: b.current,
+				};
+			}),
+		];
+
+		graphRemotes = [
+			...filterMap(branches, b => {
+				if (b.sha !== commit.sha || !b.remote) return undefined;
+
+				const remoteName = b.getRemoteName();
+				const remote = remoteName != null ? remoteMap.get(remoteName) : undefined;
+
+				return {
+					name: b.getNameWithoutRemote(),
+					url: remote?.url,
+					avatarUrl:
+						remote?.provider?.avatarUri?.toString(true) ??
+						(remote?.provider?.icon != null ? getRemoteIconUrl(remote.provider.icon) : undefined),
+					owner: remote?.name,
+				};
+			}),
+		];
+
+		graphTags = [
+			...filterMap(tags, t => {
+				if (t.sha !== commit.sha) return undefined;
+
+				return {
+					name: t.name,
+					annotated: Boolean(t.message),
+				};
+			}),
+		];
+
+		stash = isStash(commit);
+
+		parents = commit.parents;
+		// Remove the second parent, if existing, from each stash commit as it affects column processing
+		if (parents.length > 1 && stash) {
+			parents = [...parents].splice(1, 1);
+		}
+
+		rows.push({
+			sha: commit.sha,
+			parents: parents,
+			author: commit.author.name,
+			avatarUrl: !stash ? (await commit.getAvatarUri())?.toString(true) : undefined,
+			email: commit.author.email ?? '',
+			date: commit.committer.date.getTime(),
+			message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+			type: getCommitType(commit), // TODO: review logic for stash, wip, etc
+			heads: graphHeads,
+			remotes: graphRemotes,
+			tags: graphTags,
+		});
 	}
+
+	return rows;
 }
 
-function isDarkTheme(theme: ColorTheme): boolean {
-	return theme.kind === ColorThemeKind.Dark || theme.kind === ColorThemeKind.HighContrast;
+function formatLog(log: GitLog | undefined): GraphLog | undefined {
+	if (log == null) return undefined;
+
+	return {
+		count: log.count,
+		limit: log.limit,
+		hasMore: log.hasMore,
+		cursor: log.cursor,
+	};
 }
 
-function isLightTheme(theme: ColorTheme): boolean {
-	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
-}
+function formatRepositories(repositories: Repository[]): GraphRepository[] {
+	if (repositories.length === 0) return repositories;
 
-function formatCommits(commits: (GitCommit | GitStashCommit)[]): GraphCommit[] {
-	return commits.map((commit: GitCommit) => ({
-		sha: commit.sha,
-		author: commit.author,
-		message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
-		parents: commit.parents,
-		committer: commit.committer,
-		type: getCommitType(commit),
+	return repositories.map(r => ({
+		formattedName: r.formattedName,
+		id: r.id,
+		name: r.name,
+		path: r.path,
 	}));
 }
 
@@ -499,75 +612,10 @@ function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
 	return commitNodeType as CommitType;
 }
 
-function combineAndFilterStashCommits(
-	commits: GitCommit[] | undefined,
-	stashCommits: GitStashCommit[] | undefined,
-	log: GitLog | undefined,
-): (GitCommit | GitStashCommit)[] {
-	if (commits === undefined || log === undefined) {
-		return [];
-	}
-
-	if (stashCommits === undefined) {
-		return commits;
-	}
-
-	const stashCommitShas = stashCommits?.map(c => c.sha);
-	const stashCommitShaSecondParents = stashCommits?.map(c => (c.parents.length > 1 ? c.parents[1] : undefined));
-	const filteredCommits = commits.filter(
-		(commit: GitCommit): boolean =>
-			!stashCommitShas.includes(commit.sha) && !stashCommitShaSecondParents.includes(commit.sha),
-	);
-
-	const filteredStashCommits = stashCommits.filter((stashCommit: GitStashCommit): boolean => {
-		if (!stashCommit.parents?.length) {
-			return true;
-		}
-		const parentCommit: GitCommit | undefined = log.commits.get(stashCommit.parents[0]);
-		return parentCommit !== undefined;
-	});
-
-	// Remove the second parent, if existing, from each stash commit as it affects column processing
-	for (const stashCommit of filteredStashCommits) {
-		if (stashCommit.parents.length > 1) {
-			stashCommit.parents.splice(1, 1);
-		}
-	}
-
-	return [...filteredCommits, ...filteredStashCommits];
+function isDarkTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Dark || theme.kind === ColorThemeKind.HighContrast;
 }
 
-function formatRemotes(
-	remotes: GitRemote[] | undefined,
-	getIconUrl: (icon?: string) => string | undefined,
-): GraphRemote[] | undefined {
-	return remotes?.map(r => ({
-		name: r.name,
-		url: r.url,
-		avatarUrl:
-			r.provider?.avatarUri?.toString(true) ??
-			(r.provider?.icon != null ? getIconUrl(r.provider.icon) : undefined),
-	}));
-}
-
-function formatRepositories(repositories: Repository[]): GraphRepository[] {
-	if (repositories.length === 0) {
-		return repositories;
-	}
-
-	return repositories.map(({ formattedName, id, name, path }) => ({
-		formattedName: formattedName,
-		id: id,
-		name: name,
-		path: path,
-	}));
-}
-
-function formatLog(log: GitLog) {
-	return {
-		count: log.count,
-		limit: log.limit,
-		hasMore: log.hasMore,
-		cursor: log.cursor,
-	};
+function isLightTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
