@@ -555,8 +555,10 @@ async function convertToRows(
 
 		parents = commit.parents;
 		// Remove the second parent, if existing, from each stash commit as it affects column processing
-		if (parents.length > 1 && stash) {
-			parents = [...parents].splice(1, 1);
+		if (stash && parents.length > 1) {
+			// Copy the array to avoid mutating the original
+			parents = [...parents];
+			parents.splice(1, 1);
 		}
 
 		rows.push({
