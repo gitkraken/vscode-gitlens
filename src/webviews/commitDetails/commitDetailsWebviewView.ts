@@ -9,7 +9,6 @@ import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
-import type { GraphSelectionChangeEvent } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -235,10 +234,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
 			this.updateCommit(node.commit);
 		}
-	}
-
-	private onGraphWebviewSelectionChanged(e: GraphSelectionChangeEvent) {
-		this.updateCommit(e.selection[0]);
 	}
 
 	private onCommitsViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
