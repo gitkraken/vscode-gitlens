@@ -25,34 +25,25 @@ export interface GraphWrapperProps extends State {
 	onSelectionChange?: (selection: string[]) => void;
 }
 
-// Copied from original pushed code of Miggy E.
-// TODO: review that code as I'm not sure if it is the correct way to do that in Gitlens side.
-// I suppose we need to use the GitLens themes here instead.
-const getCssVariables = (mixedColumnColors: CssVariables | undefined): CssVariables => {
-	const body = document.body;
-	const computedStyle = window.getComputedStyle(body);
-
-	return {
-		'--app__bg0': computedStyle.getPropertyValue('--color-background'),
-		'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
-		'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
-		'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
-		'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
-		'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
-		'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
-		'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
-		'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-		...mixedColumnColors,
-	};
-};
-
 const getStyleProps = (
 	mixedColumnColors: CssVariables | undefined,
 ): { cssVariables: CssVariables; themeOpacityFactor: number } => {
 	const body = document.body;
 	const computedStyle = window.getComputedStyle(body);
+
 	return {
-		cssVariables: getCssVariables(mixedColumnColors),
+		cssVariables: {
+			'--app__bg0': computedStyle.getPropertyValue('--color-background'),
+			'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
+			'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
+			'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
+			'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
+			'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
+			'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
+			'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
+			'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+			...mixedColumnColors,
+		},
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
 };
