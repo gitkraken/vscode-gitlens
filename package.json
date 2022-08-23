@@ -6381,6 +6381,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f11b"
 				}
+			},
+			"gitlens-pinned-filled": {
+				"description": "pinned-filled icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f11c"
+				}
 			}
 		},
 		"menus": {

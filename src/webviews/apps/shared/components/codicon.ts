@@ -1494,6 +1494,12 @@ export class CodeIcon extends LitElement {
 		:host([icon='target']):before {
 			content: '\\ebf8';
 		}
+		:host([icon='pinned-filled']):before {
+			font-family: 'glicons';
+			content: '\\f11c';
+			position: relative;
+			left: 1px;
+		}
 	`;
 
 	@property()

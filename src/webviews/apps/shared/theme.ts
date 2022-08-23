@@ -30,6 +30,8 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		bodyStyle.setProperty('--color-background--darken-05', darken(color, 5));
 		bodyStyle.setProperty('--color-background--lighten-075', lighten(color, 7.5));
 		bodyStyle.setProperty('--color-background--darken-075', darken(color, 7.5));
+		bodyStyle.setProperty('--color-background--lighten-10', lighten(color, 10));
+		bodyStyle.setProperty('--color-background--darken-10', darken(color, 10));
 		bodyStyle.setProperty('--color-background--lighten-15', lighten(color, 15));
 		bodyStyle.setProperty('--color-background--darken-15', darken(color, 15));
 		bodyStyle.setProperty('--color-background--lighten-30', lighten(color, 30));

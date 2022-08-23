@@ -239,7 +239,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		$el.classList.toggle('is-active', state.pinned);
 
 		const $icon = $el.querySelector('[data-region="commit-pin"]');
-		$icon?.setAttribute('icon', state.pinned ? 'pinned' : 'pin');
+		$icon?.setAttribute('icon', state.pinned ? 'pinned-filled' : 'pin');
 	}
 
 	renderSha(state: CommitState) {

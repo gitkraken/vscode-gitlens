@@ -237,12 +237,10 @@ ul {
 
 		&.is-active {
 			.vscode-dark & {
-				color: white;
-				background-color: var(--color-background--lighten-05);
+				background-color: var(--color-background--lighten-10);
 			}
 			.vscode-light & {
-				color: black;
-				background-color: var(--color-background--darken-05);
+				background-color: var(--color-background--darken-10);
 			}
 		}
 	}
@@ -323,3 +321,4 @@ ul {
 }
 
 @import '../shared/codicons';
+@import '../shared/glicons';
