@@ -1846,7 +1846,9 @@ export class GitProviderService implements Disposable {
 	getBestRepository(uri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined;
 	@log<GitProviderService['getBestRepository']>({ exit: r => `returned ${r?.path}` })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
-		if (this.repositoryCount === 0) return undefined;
+		const count = this.repositoryCount;
+		if (count === 0) return undefined;
+		if (count === 1) return this.highlander;
 
 		if (editorOrUri != null && editorOrUri instanceof Uri) {
 			const repo = this.getRepository(editorOrUri);
@@ -1857,6 +1859,29 @@ export class GitProviderService implements Disposable {
 
 		editor = editorOrUri ?? editor ?? window.activeTextEditor;
 		return (editor != null ? this.getRepository(editor.document.uri) : undefined) ?? this.highlander;
+	}
+
+	getBestRepositoryOrFirst(): Repository | undefined;
+	getBestRepositoryOrFirst(uri?: Uri): Repository | undefined;
+	getBestRepositoryOrFirst(editor?: TextEditor): Repository | undefined;
+	getBestRepositoryOrFirst(uri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined;
+	@log<GitProviderService['getBestRepositoryOrFirst']>({ exit: r => `returned ${r?.path}` })
+	getBestRepositoryOrFirst(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
+		const count = this.repositoryCount;
+		if (count === 0) return undefined;
+		if (count === 1) return first(this._repositories.values());
+
+		if (editorOrUri != null && editorOrUri instanceof Uri) {
+			const repo = this.getRepository(editorOrUri);
+			if (repo != null) return repo;
+
+			editorOrUri = undefined;
+		}
+
+		editor = editorOrUri ?? editor ?? window.activeTextEditor;
+		return (
+			(editor != null ? this.getRepository(editor.document.uri) : undefined) ?? first(this._repositories.values())
+		);
 	}
 
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
