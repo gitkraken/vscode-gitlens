@@ -25,10 +25,25 @@ body {
 	padding: 0;
 }
 
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
 ul {
 	list-style: none;
 	margin: 0;
 	padding: 0;
+}
+
+.bulleted {
+	list-style: disc;
+	padding-left: 1.2em;
+	> li + li {
+		margin-top: 0.25em;
+	}
 }
 
 ::-webkit-scrollbar-corner {

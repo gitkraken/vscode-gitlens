@@ -14,6 +14,13 @@ body {
 	}
 }
 
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
 .badge {
 	font-weight: 700;
 	text-transform: uppercase;

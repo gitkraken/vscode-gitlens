@@ -7,23 +7,31 @@
 	<body class="preload">
 		<div class="commit-detail-panel">
 			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
-				<!-- <p><code-icon icon="warning"></code-icon> <span>No commit selected</span></p> -->
-				<p>Open a file with commit history or pick a specific commit to see commit details.</p>
+				<p>
+					Rich details for commits and stashes are shown as you navigate:
+					<ul class="bulleted">
+						<li>lines in the text editor</li>
+						<li>commits in the <a href="command:gitlens.showGraphPage">Commit Graph</a>, <a href="command:gitlens.showTimelineView">Visual File History</a>, or <a href="command:gitlens.showCommitsView">Commits view</a></li>
+						<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
+					</ul>
+				</p>
+
+				<p>Alteratively, search for or choose a commit</p>
+
 				<p class="button-container">
 					<span class="button-group">
 						<button class="button button--full" type="button" data-action="pick-commit">
-							Pick Commit...
+							Choose Commit...
 						</button>
-						<button class="button" type="button" data-action="search-commit">
+						<button class="button" type="button" data-action="search-commit" aria-label="Search for Commit" title="Search for Commit">
 							<code-icon icon="search"></code-icon>
 						</button>
 					</span>
 				</p>
-				<!-- <p class="button-container">
-					<span class="button-group"
-						><button class="button button--full" type="button">Follow Open Files</button></span
-					>
-				</p> -->
+
+				<!-- banner
+				<h2>Best practice</h2>
+				<p>To best take advantage of this view, we highly recommend moving it to the Secondary Side Bar.</p> -->
 			</div>
 			<main class="commit-details commit-detail-panel__main" id="main" tabindex="-1">
 				<div class="commit-details__top">
