@@ -606,12 +606,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const file = await this.getFileFromParams(params);
 		if (file == null) return;
 
+		this.updatePinned(true, true);
 		void GitActions.Commit.showDetailsQuickPick(this._context.commit, file);
-
-		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
-		// void executeCommand(Commands.ShowQuickCommitFile, uri, {
-		// 	sha: this._context.commit.sha,
-		// });
 	}
 
 	private async openFileComparisonWithWorking(params: FileActionParams) {
@@ -620,19 +616,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const file = await this.getFileFromParams(params);
 		if (file == null) return;
 
+		this.updatePinned(true, true);
 		void GitActions.Commit.openChangesWithWorking(file.path, this._context.commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
 		});
-
-		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
-		// void executeCommand<[Uri, DiffWithWorkingCommandArgs]>(Commands.DiffWithWorking, uri, {
-		// 	showOptions: {
-		// 		preserveFocus: true,
-		// 		preview: true,
-		// 	},
-		// });
 	}
 
 	private async openFileComparisonWithPrevious(params: FileActionParams) {
@@ -641,23 +630,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const file = await this.getFileFromParams(params);
 		if (file == null) return;
 
+		this.updatePinned(true, true);
 		void GitActions.Commit.openChanges(file.path, this._context.commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
 		});
-
-		// const uri = GitUri.fromFile(file, this._context.commit.repoPath, this._context.commit.sha);
-		// const line = this._context.commit.lines.length ? this._context.commit.lines[0].line - 1 : 0;
-		// void executeCommand<[Uri, DiffWithPreviousCommandArgs]>(Commands.DiffWithPrevious, uri, {
-		// 	commit: this._context.commit,
-		// 	line: line,
-		// 	showOptions: {
-		// 		preserveFocus: true,
-		// 		preview: true,
-		// 		...params.showOptions,
-		// 	},
-		// });
 	}
 
 	private async openFile(params: FileActionParams) {
@@ -666,14 +644,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const file = await this.getFileFromParams(params);
 		if (file == null) return;
 
+		this.updatePinned(true, true);
 		void GitActions.Commit.openFile(file.path, this._context.commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
 		});
-
-		// const uri = GitUri.fromFile(file, this.commit.repoPath, this.commit.sha);
-		// void executeCoreCommand(CoreCommands.Open, uri, { background: false, preview: false });
 	}
 
 	private async openFileOnRemote(params: FileActionParams) {
@@ -683,12 +659,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (file == null) return;
 
 		void GitActions.Commit.openFileOnRemote(file.path, this._context.commit);
-
-		// const uri = GitUri.fromFile(file, this.commit.repoPath, this.commit.sha);
-
-		// void executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(Commands.OpenFileOnRemote, uri, {
-		// 	sha: this.commit?.sha,
-		// });
 	}
 }
 

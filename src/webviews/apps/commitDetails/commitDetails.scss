@@ -205,9 +205,30 @@ ul {
 			pointer-events: none;
 		}
 
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
 		&:hover {
 			color: var(--vscode-foreground);
-			background-color: var(--color-background--lighten-15);
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-15);
+			}
+			.vscode-light & {
+				background-color: var(--color-background--darken-15);
+			}
+		}
+
+		&.is-active {
+			.vscode-dark & {
+				color: white;
+				background-color: var(--color-background--lighten-05);
+			}
+			.vscode-light & {
+				color: black;
+				background-color: var(--color-background--darken-05);
+			}
 		}
 	}
 

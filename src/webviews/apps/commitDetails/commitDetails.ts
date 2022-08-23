@@ -236,6 +236,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const label = state.pinned ? 'Unpin this Commit' : 'Pin this Commit';
 		$el.setAttribute('aria-label', label);
 		$el.setAttribute('title', label);
+		$el.classList.toggle('is-active', state.pinned);
 
 		const $icon = $el.querySelector('[data-region="commit-pin"]');
 		$icon?.setAttribute('icon', state.pinned ? 'pinned' : 'pin');
