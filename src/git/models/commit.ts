@@ -34,6 +34,7 @@ export class GitCommit implements GitRevisionReference {
 	// TODO@eamodio rename to stashNumber
 	readonly number: string | undefined;
 	readonly stashOnRef: string | undefined;
+	readonly tips: string[] | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -47,11 +48,13 @@ export class GitCommit implements GitRevisionReference {
 		files?: GitFileChange | GitFileChange[] | { file?: GitFileChange; files?: GitFileChange[] } | undefined,
 		stats?: GitCommitStats,
 		lines?: GitCommitLine | GitCommitLine[] | undefined,
+		tips?: string[],
 		stashName?: string | undefined,
 		stashOnRef?: string | undefined,
 	) {
 		this.ref = this.sha;
 		this.shortSha = this.sha.substring(0, this.container.CommitShaFormatting.length);
+		this.tips = tips;
 
 		if (stashName) {
 			this.refType = 'stash';
@@ -562,6 +565,7 @@ export class GitCommit implements GitRevisionReference {
 			files,
 			this.stats,
 			this.getChangedValue(changes.lines, this.lines),
+			this.tips,
 			this.stashName,
 			this.stashOnRef,
 		);

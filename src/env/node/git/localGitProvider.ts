@@ -2123,6 +2123,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit,
 				false,
 				undefined,
+				options?.all,
 			);
 
 			if (log != null) {
@@ -2250,6 +2251,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return moreLog.commits;
 				},
 				previousCursor: last(log.commits)?.[0],
+				supportsTips: log.supportsTips,
 				query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);
@@ -2406,6 +2408,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: (log.limit ?? 0) + limit,
 				hasMore: moreLog.hasMore,
+				supportsTips: log.supportsTips,
 				query: (limit: number | undefined) =>
 					this.getLogForSearch(log.repoPath, search, { ...options, limit: limit }),
 			};
@@ -2620,6 +2623,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				options.limit,
 				options.reverse ?? false,
 				range,
+				options?.all,
 			);
 
 			if (log != null) {
@@ -2694,6 +2698,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
+				supportsTips: log.supportsTips,
 				query: (limit: number | undefined) =>
 					this.getLogForFile(log.repoPath, relativePath, { ...options, limit: limit }),
 			};
@@ -3201,7 +3206,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): Promise<GitReflog | undefined> {
 		const scope = getLogScope();
 
@@ -3229,7 +3240,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private getReflogMoreFn(
 		reflog: GitReflog,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
@@ -3358,6 +3375,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						) ?? [],
 						undefined,
 						[],
+						undefined,
 						s.stashName,
 						onRef,
 					) as GitStashCommit,

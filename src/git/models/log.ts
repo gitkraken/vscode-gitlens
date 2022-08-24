@@ -16,6 +16,8 @@ export interface GitLog {
 	readonly pagedCommits?: () => Map<string, GitCommit>;
 	readonly previousCursor?: string;
 
+	readonly supportsTips?: boolean;
+
 	query?(limit: number | undefined): Promise<GitLog | undefined>;
 	more?(limit: number | { until?: string } | undefined): Promise<GitLog | undefined>;
 }

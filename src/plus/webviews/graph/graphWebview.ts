@@ -1,4 +1,4 @@
-import type { CommitType, GraphRow, Head, Remote, Tag } from '@gitkraken/gitkraken-components';
+import type { GraphRow, Head, Remote, Tag } from '@gitkraken/gitkraken-components';
 import { commitNodeType, mergeNodeType, stashNodeType } from '@gitkraken/gitkraken-components';
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { ColorThemeKind, EventEmitter, MarkdownString, StatusBarAlignment, Uri, ViewColumn, window } from 'vscode';
@@ -9,8 +9,10 @@ import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
+import { Features } from '../../../features';
 import type { GitBranch } from '../../../git/models/branch';
-import type { GitCommit, GitStashCommit } from '../../../git/models/commit';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
+import type { GitCommit } from '../../../git/models/commit';
 import { isStash } from '../../../git/models/commit';
 import type { GitLog } from '../../../git/models/log';
 import type { GitRemote } from '../../../git/models/remote';
@@ -21,7 +23,7 @@ import type { GitTag } from '../../../git/models/tag';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
-import { filter, filterMap, union } from '../../../system/iterable';
+import { filterMap } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
@@ -339,22 +341,24 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async getGraphData(paging: boolean = false): Promise<{ log: GitLog | undefined; rows: GraphRow[] }> {
+		const supportsLogTips = (await this.repository?.supports(Features.LogBranchAndTagTips)) ?? false;
+
 		const [logResult, stashResult, branchesResult, tagsResult, remotesResult] = await Promise.allSettled([
 			this.getLog(),
-			this.getStash(),
-			this.getBranches(),
-			this.getTags(),
+			supportsLogTips ? undefined : this.getStash(),
+			supportsLogTips ? undefined : this.getBranches(),
+			supportsLogTips ? undefined : this.getTags(),
 			this.getRemotes(),
 		]);
 
 		const log = getSettledValue(logResult);
-		const combinedCommits = combineLogAndStash(log, getSettledValue(stashResult), paging);
+		const commits = (paging ? log?.pagedCommits?.() : undefined) ?? log?.commits;
 
 		const rows = await convertToRows(
-			combinedCommits,
-			getSettledValue(branchesResult) ?? [],
-			getSettledValue(tagsResult) ?? [],
-			getSettledValue(remotesResult) ?? [],
+			// combinedCommits,
+			commits?.values(),
+			getSettledValue(stashResult),
+			getSettledValue(remotesResult),
 			icon =>
 				this._panel?.webview
 					.asWebviewUri(
@@ -364,6 +368,9 @@ export class GraphWebview extends WebviewBase<State> {
 						),
 					)
 					.toString(),
+			supportsLogTips,
+			getSettledValue(branchesResult),
+			getSettledValue(tagsResult),
 		);
 
 		return {
@@ -457,120 +464,158 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 }
 
-function combineLogAndStash(
-	log: GitLog | undefined,
-	stash: GitStash | undefined,
-	paging = false,
-): Iterable<GitCommit | GitStashCommit> {
-	// let commits = log?.commits;
-	// if (commits == null) return [];
-
-	// if (paging && log?.previousCursor != null) {
-	// 	let pagedCommits = [...commits.values()];
-	// 	const index = pagedCommits.findIndex(c => c.sha === log?.previousCursor);
-	// 	if (index !== -1) {
-	// 		pagedCommits = pagedCommits.slice(index + 1);
-	// 	} else {
-	// 		debugger;
-	// 	}
-
-	// 	commits = new Map(pagedCommits.map(c => [c.sha, c]));
-	// }
-
-	const commits = (paging ? log?.pagedCommits?.() : undefined) ?? log?.commits;
-	if (commits == null) return [];
-	if (stash?.commits == null) return [...commits.values()];
-
-	const stashCommitShaSecondParents = new Set(
-		filterMap(stash.commits.values(), c => (c.parents.length > 1 ? c.parents[1] : undefined)),
-	);
-	const filteredCommits = filter(
-		commits.values(),
-		c => !stash.commits.has(c.sha) && !stashCommitShaSecondParents.has(c.sha),
-	);
-
-	const filteredStashCommits = filter(stash.commits.values(), c => !c.parents?.length || commits.has(c.parents[0]));
-
-	return union(filteredCommits, filteredStashCommits);
-}
-
 async function convertToRows(
-	commits: Iterable<GitCommit>,
-	branches: GitBranch[],
-	tags: GitTag[],
-	remotes: GitRemote[],
+	commits: Iterable<GitCommit> | undefined,
+	stash: GitStash | undefined,
+	remotes: GitRemote[] | undefined,
 	getRemoteIconUrl: (icon?: string) => string | undefined,
+	supportsLogTips: boolean,
+	branches: GitBranch[] | undefined,
+	tags: GitTag[] | undefined,
 ): Promise<GraphRow[]> {
+	if (commits == null) return [];
+
 	const rows: GraphRow[] = [];
 
+	let current = false;
 	let graphHeads: Head[];
 	let graphTags: Tag[];
 	let graphRemotes: Remote[];
 	let parents: string[];
-	let stash: boolean;
+	let remoteName: string;
+	let isStashCommit: boolean;
 
-	const remoteMap = new Map(remotes.map(r => [r.name, r]));
+	const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
+	const skipStashParents = new Set();
 
 	for (const commit of commits) {
-		graphHeads = [
-			...filterMap(branches, b => {
-				if (b.sha !== commit.sha || b.remote) return undefined;
+		if (skipStashParents.has(commit.sha)) continue;
 
-				return {
-					name: b.name,
-					isCurrentHead: b.current,
-				};
-			}),
-		];
+		if (supportsLogTips) {
+			graphHeads = [];
+			graphRemotes = [];
+			graphTags = [];
 
-		graphRemotes = [
-			...filterMap(branches, b => {
-				if (b.sha !== commit.sha || !b.remote) return undefined;
+			if (commit.tips != null) {
+				for (let tip of commit.tips) {
+					if (tip === 'refs/stash') continue;
 
-				const remoteName = b.getRemoteName();
-				const remote = remoteName != null ? remoteMap.get(remoteName) : undefined;
+					if (tip.startsWith('tag: ')) {
+						graphTags.push({
+							name: tip.substring(5),
+							// Not currently used, so don't bother filling it out
+							annotated: false,
+						});
 
-				return {
-					name: b.getNameWithoutRemote(),
-					url: remote?.url,
-					avatarUrl:
-						remote?.provider?.avatarUri?.toString(true) ??
-						(remote?.provider?.icon != null ? getRemoteIconUrl(remote.provider.icon) : undefined),
-					owner: remote?.name,
-				};
-			}),
-		];
+						continue;
+					}
 
-		graphTags = [
-			...filterMap(tags, t => {
-				if (t.sha !== commit.sha) return undefined;
+					current = tip.startsWith('HEAD -> ');
+					if (current) {
+						tip = tip.substring(8);
+					}
 
-				return {
-					name: t.name,
-					annotated: Boolean(t.message),
-				};
-			}),
-		];
+					remoteName = getRemoteNameFromBranchName(tip);
+					if (remoteName) {
+						const remote = remoteMap.get(remoteName);
+						if (remote != null) {
+							graphRemotes.push({
+								name: getBranchNameWithoutRemote(tip),
+								owner: remote.name,
+								url: remote.url,
+								avatarUrl:
+									remote.provider?.avatarUri?.toString(true) ??
+									(remote?.provider?.icon != null
+										? getRemoteIconUrl(remote.provider.icon)
+										: undefined),
+							});
 
-		stash = isStash(commit);
+							continue;
+						}
+					}
+
+					graphHeads.push({
+						name: tip,
+						isCurrentHead: current,
+					});
+				}
+			}
+		} else {
+			if (branches != null) {
+				graphHeads = [
+					...filterMap(branches, b => {
+						if (b.sha !== commit.sha || b.remote) return undefined;
+
+						return {
+							name: b.name,
+							isCurrentHead: b.current,
+						};
+					}),
+				];
+
+				graphRemotes = [
+					...filterMap(branches, b => {
+						if (b.sha !== commit.sha || !b.remote) return undefined;
+
+						const remoteName = b.getRemoteName();
+						const remote = remoteName != null ? remoteMap.get(remoteName) : undefined;
+
+						return {
+							name: b.getNameWithoutRemote(),
+							url: remote?.url,
+							avatarUrl:
+								remote?.provider?.avatarUri?.toString(true) ??
+								(remote?.provider?.icon != null ? getRemoteIconUrl(remote.provider.icon) : undefined),
+							owner: remote?.name,
+						};
+					}),
+				];
+			} else {
+				graphHeads = [];
+				graphRemotes = [];
+			}
+
+			if (tags != null) {
+				graphTags = [
+					...filterMap(tags, t => {
+						if (t.sha !== commit.sha) return undefined;
+
+						return {
+							name: t.name,
+							annotated: Boolean(t.message),
+						};
+					}),
+				];
+			} else {
+				graphTags = [];
+			}
+		}
+
+		isStashCommit = isStash(commit) || (stash?.commits.has(commit.sha) ?? false);
 
 		parents = commit.parents;
-		// Remove the second parent, if existing, from each stash commit as it affects column processing
-		if (stash && parents.length > 1) {
+		// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
+		if (isStashCommit && parents.length > 1) {
 			// Copy the array to avoid mutating the original
 			parents = [...parents];
-			parents.splice(1, 1);
+
+			// Skip the "index commit" (e.g. contains staged files) of the stash
+			skipStashParents.add(parents[1]);
+			// Skip the "untracked commit" (e.g. contains untracked files) of the stash
+			skipStashParents.add(parents[2]);
+			parents.splice(1, 2);
 		}
 
 		rows.push({
 			sha: commit.sha,
 			parents: parents,
 			author: commit.author.name,
-			avatarUrl: !stash ? (await commit.getAvatarUri())?.toString(true) : undefined,
+			avatarUrl: !isStashCommit ? (await commit.getAvatarUri())?.toString(true) : undefined,
 			email: commit.author.email ?? '',
 			date: commit.committer.date.getTime(),
 			message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
-			type: getCommitType(commit), // TODO: review logic for stash, wip, etc
+			// TODO: review logic for stash, wip, etc
+			type: isStashCommit ? stashNodeType : commit.parents.length > 1 ? mergeNodeType : commitNodeType,
 			heads: graphHeads,
 			remotes: graphRemotes,
 			tags: graphTags,
@@ -600,19 +645,6 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 		name: r.name,
 		path: r.path,
 	}));
-}
-
-function getCommitType(commit: GitCommit | GitStashCommit): CommitType {
-	if (isStash(commit)) {
-		return stashNodeType as CommitType;
-	}
-
-	if (commit.parents.length > 1) {
-		return mergeNodeType as CommitType;
-	}
-
-	// TODO: add other needed commit types for graph
-	return commitNodeType as CommitType;
 }
 
 function isDarkTheme(theme: ColorTheme): boolean {

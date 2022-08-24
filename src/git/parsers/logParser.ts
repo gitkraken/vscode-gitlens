@@ -61,6 +61,7 @@ interface LogEntry {
 	fileStats?: GitFileChangeStats;
 
 	summary?: string;
+	tips?: string[];
 
 	line?: GitCommitLine;
 }
@@ -109,6 +110,23 @@ export class GitLogParser {
 		}
 		return this._defaultParser;
 	}
+
+	static allFormat = [
+		`${lb}${sl}f${rb}`,
+		`${lb}r${rb}${sp}%H`, // ref
+		`${lb}a${rb}${sp}%aN`, // author
+		`${lb}e${rb}${sp}%aE`, // author email
+		`${lb}d${rb}${sp}%at`, // author date
+		`${lb}n${rb}${sp}%cN`, // committer
+		`${lb}m${rb}${sp}%cE`, // committer email
+		`${lb}c${rb}${sp}%ct`, // committer date
+		`${lb}p${rb}${sp}%P`, // parents
+		`${lb}t${rb}${sp}%D`, // tips
+		`${lb}s${rb}`,
+		'%B', // summary
+		`${lb}${sl}s${rb}`,
+		`${lb}f${rb}`,
+	].join('%n');
 
 	static defaultFormat = [
 		`${lb}${sl}f${rb}`,
@@ -277,6 +295,7 @@ export class GitLogParser {
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,
+		supportsTips?: boolean,
 	): GitLog | undefined {
 		if (!data) return undefined;
 
@@ -354,7 +373,14 @@ export class GitLogParser {
 					break;
 
 				case 112: // 'p': // parents
-					entry.parentShas = line.substring(4).split(' ');
+					line = line.substring(4);
+					entry.parentShas = line.length !== 0 ? line.split(' ') : undefined;
+					break;
+
+				case 116: // 't': // tips
+					supportsTips = true;
+					line = line.substring(4);
+					entry.tips = line.length !== 0 ? line.split(', ') : undefined;
 					break;
 
 				case 115: // 's': // summary
@@ -572,6 +598,7 @@ export class GitLogParser {
 			limit: limit,
 			range: range,
 			hasMore: Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
+			supportsTips: supportsTips,
 		};
 		return log;
 	}
@@ -631,6 +658,7 @@ export class GitLogParser {
 				files,
 				undefined,
 				entry.line != null ? [entry.line] : [],
+				entry.tips,
 			);
 
 			commits.set(entry.sha!, commit);

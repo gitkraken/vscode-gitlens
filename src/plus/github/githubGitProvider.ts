@@ -174,6 +174,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// if (supported != null) return supported;
 
 		switch (feature) {
+			case Features.LogBranchAndTagTips:
+			case Features.Stashes:
 			case Features.Worktrees:
 				return false;
 			default:
@@ -1263,6 +1265,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
 				cursor: result.paging?.cursor,
+				supportsTips: false,
 				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
 			};
 
@@ -1366,6 +1369,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					return moreLog.commits;
 				},
 				previousCursor: last(log.commits)?.[0],
+				supportsTips: log.supportsTips,
 				query: log.query,
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);
@@ -1511,6 +1515,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: limit,
 				hasMore: result.pageInfo?.hasNextPage ?? false,
 				cursor: result.pageInfo?.endCursor ?? undefined,
+				supportsTips: false,
 				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
 			};
 
@@ -1555,6 +1560,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: (log.limit ?? 0) + limit,
 				hasMore: moreLog.hasMore,
 				cursor: moreLog.cursor,
+				supportsTips: log.supportsTips,
 				query: log.query,
 			};
 			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
@@ -1909,6 +1915,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
 				cursor: moreLog.cursor,
+				supportsTips: log.supportsTips,
 				query: log.query,
 			};
 
