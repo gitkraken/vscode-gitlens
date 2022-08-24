@@ -358,6 +358,16 @@ a {
 				background-color: var(--vscode-sash-hoverBorder);
 			}
 		}
+
+		&:active:after {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: -100vw;
+			width: 200vw;
+			height: 100vh;
+			z-index: 1000;
+		}
 	}
 }
 
