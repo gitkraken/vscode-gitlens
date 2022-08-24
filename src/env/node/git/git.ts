@@ -755,7 +755,7 @@ export class Git {
 		}
 
 		if (all) {
-			params.push('--all');
+			params.push('--all', '--single-worktree');
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {
@@ -834,7 +834,7 @@ export class Git {
 		}
 
 		if (all) {
-			params.push('--all');
+			params.push('--all', '--single-worktree');
 		}
 
 		// Can't allow rename detection (`--follow`) if `all` or a `startLine` is specified
