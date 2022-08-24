@@ -563,6 +563,7 @@ export class GitCommit implements GitRevisionReference {
 			this.stats,
 			this.getChangedValue(changes.lines, this.lines),
 			this.stashName,
+			this.stashOnRef,
 		);
 	}
 
