@@ -379,6 +379,7 @@ export class GraphWebview extends WebviewBase<State> {
 			const { defaultItemLimit, pageItemLimit } = this.getConfig();
 			const log = await this.container.git.getLog(this.repository.uri, {
 				all: true,
+				ordering: 'date',
 				limit: defaultItemLimit ?? pageItemLimit,
 			});
 			if (log?.commits == null) return undefined;
