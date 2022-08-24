@@ -705,7 +705,7 @@ export class Git {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			similarityThreshold?: number | null;
 			since?: number | string;
 			until?: number | string;
@@ -796,7 +796,7 @@ export class Git {
 			filters?: GitDiffFilter[];
 			firstParent?: boolean;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
@@ -890,7 +890,7 @@ export class Git {
 		repoPath: string,
 		fileName: string,
 		options?: {
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			similarityThreshold?: number | null;
 			cancellation?: CancellationToken;
@@ -929,7 +929,7 @@ export class Git {
 		repoPath: string,
 		objectId: string,
 		ref: string,
-		ordering: string | null,
+		ordering: 'date' | 'author-date' | 'topo' | null,
 		file?: string,
 		cancellation?: CancellationToken,
 	) {
@@ -955,7 +955,7 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async log__recent(repoPath: string, ordering?: string | null) {
+	async log__recent(repoPath: string, ordering?: 'date' | 'author-date' | 'topo' | null) {
 		const params = ['log', '-n1', '--format=%H'];
 
 		if (ordering) {
@@ -971,7 +971,7 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async log__recent_committerdate(repoPath: string, ordering?: string | null) {
+	async log__recent_committerdate(repoPath: string, ordering?: 'date' | 'author-date' | 'topo' | null) {
 		const params = ['log', '-n1', '--format=%ct'];
 
 		if (ordering) {
@@ -995,7 +995,7 @@ export class Git {
 			ordering,
 			skip,
 			useShow,
-		}: { limit?: number; ordering?: string | null; skip?: number; useShow?: boolean } = {},
+		}: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number; useShow?: boolean } = {},
 	) {
 		const params = [
 			useShow ? 'show' : 'log',
@@ -1096,7 +1096,13 @@ export class Git {
 			limit,
 			ordering,
 			skip,
-		}: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number } = {},
+		}: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		} = {},
 	): Promise<string> {
 		const params = ['log', '--walk-reflogs', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
 
@@ -1188,7 +1194,7 @@ export class Git {
 
 	async rev_parse__currentBranch(
 		repoPath: string,
-		ordering: string | null,
+		ordering: 'date' | 'author-date' | 'topo' | null,
 	): Promise<[string, string | undefined] | undefined> {
 		try {
 			const data = await this.git<string>(

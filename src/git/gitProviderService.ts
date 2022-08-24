@@ -1404,7 +1404,7 @@ export class GitProviderService implements Disposable {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
 		},
@@ -1420,7 +1420,7 @@ export class GitProviderService implements Disposable {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
 		},
@@ -1447,7 +1447,7 @@ export class GitProviderService implements Disposable {
 			all?: boolean;
 			force?: boolean;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -1634,7 +1634,13 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string | Uri,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): Promise<GitReflog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getIncomingActivity(path, options);

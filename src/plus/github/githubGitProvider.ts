@@ -1181,7 +1181,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
 		},
@@ -1286,7 +1286,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
 		},
@@ -1304,7 +1304,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
@@ -1572,7 +1572,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			force?: boolean | undefined;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -1732,7 +1732,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -1870,7 +1870,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			all?: boolean;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2133,7 +2133,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		_repoPath: string,
-		_options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
+		_options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): Promise<GitReflog | undefined> {
 		return undefined;
 	}

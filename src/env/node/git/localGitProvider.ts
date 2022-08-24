@@ -2064,7 +2064,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: number | string;
 			until?: number | string;
@@ -2148,7 +2148,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;
 		},
@@ -2186,7 +2186,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
@@ -2423,7 +2423,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			force?: boolean | undefined;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2576,7 +2576,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2657,7 +2657,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options: {
 			all?: boolean;
 			limit?: number;
-			ordering?: string | null;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -3201,7 +3201,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
+		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitReflog | undefined> {
 		const scope = getLogScope();
 
@@ -3229,7 +3229,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private getReflogMoreFn(
 		reflog: GitReflog,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
+		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;

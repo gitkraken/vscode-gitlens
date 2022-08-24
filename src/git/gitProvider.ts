@@ -266,7 +266,7 @@ export interface GitProvider extends Disposable {
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
 			since?: string | undefined;
 		},
@@ -278,7 +278,7 @@ export interface GitProvider extends Disposable {
 			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
 			since?: string | undefined;
 		},
@@ -300,7 +300,7 @@ export interface GitProvider extends Disposable {
 			cursor?: string | undefined;
 			force?: boolean | undefined;
 			limit?: number | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			range?: Range | undefined;
 			ref?: string | undefined;
 			renames?: boolean | undefined;
@@ -343,7 +343,7 @@ export interface GitProvider extends Disposable {
 			all?: boolean | undefined;
 			branch?: string | undefined;
 			limit?: number | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
