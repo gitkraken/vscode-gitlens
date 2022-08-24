@@ -320,6 +320,9 @@ export function GraphWrapper({
 							{graphList.length} commit{graphList.length ? 's' : ''}
 						</span>
 					)}
+					{isLoading && (
+						<span className={'icon--loading'}/>
+					)}
 				</div>
 				<div className="actionbar__group">
 					<span className="badge">Preview</span>

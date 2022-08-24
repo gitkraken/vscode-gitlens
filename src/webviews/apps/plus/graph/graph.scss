@@ -228,13 +228,10 @@ a {
 		font-family: codicon;
 		content: '\eb19';
 	}
-	animation: spin 1s infinite linear;
-	animation-delay: 0.2s;
+	transform-origin: 50% 42%;
+	animation: spin .7s steps(30) infinite;
 
 	@keyframes spin {
-		0% {
-			transform: rotate(0deg);
-		}
 		100% {
 			transform: rotate(360deg);
 		}
