@@ -323,20 +323,20 @@ export function GraphWrapper({
 					</div>
 					{graphList.length > 0 && (
 						<span className="actionbar__details">
-							{graphList.length} item{graphList.length ? 's' : ''}
+							showing {graphList.length} item{graphList.length ? 's' : ''}
 						</span>
 					)}
 					{isLoading && <span className="actionbar__loading icon--loading icon-modifier--spin" />}
 				</div>
 				<div className="actionbar__group">
+					<span className="badge">Preview</span>
 					<a
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
 						title="Commit Graph Feedback"
 						aria-label="Commit Graph Feedback"
 					>
 						<span className="codicon codicon-feedback"></span>
-					</a>{' '}
-					<span className="badge">Preview</span>
+					</a>
 				</div>
 			</footer>
 		</>
