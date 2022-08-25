@@ -46,6 +46,15 @@ a {
 			margin: 0;
 		}
 	}
+
+	a {
+		color: inherit;
+	}
+
+	:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1x;
+	}
 }
 
 .actioncombo {
@@ -105,6 +114,7 @@ a {
 		min-width: 100%;
 		width: max-content;
 		z-index: 100;
+		background-color: var(--actionbar-background-color);
 	}
 
 	&__label:not([aria-expanded='true']) + &__list {

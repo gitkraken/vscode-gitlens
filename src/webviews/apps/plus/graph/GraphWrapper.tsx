@@ -274,7 +274,13 @@ export function GraphWrapper({
 							id="repo-actioncombo-label"
 							className="actioncombo__label"
 							role="combobox"
-							aria-activedescendant=""
+							aria-activedescendant={
+								repoExpanded
+									? `repo-actioncombo-item-${reposList.findIndex(
+											item => item.path === currentRepository?.path,
+									  )}`
+									: undefined
+							}
 							onClick={() => handleToggleRepos()}
 						>
 							<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
@@ -304,14 +310,14 @@ export function GraphWrapper({
 									</button>
 								))
 							) : (
-								<li
+								<span
 									className="actioncombo__item"
 									role="option"
 									id="repo-actioncombo-item-0"
 									aria-selected="true"
 								>
 									None available
-								</li>
+								</span>
 							)}
 						</div>
 					</div>
@@ -320,11 +326,16 @@ export function GraphWrapper({
 							{graphList.length} commit{graphList.length ? 's' : ''}
 						</span>
 					)}
-					{isLoading && (
-						<span className={'icon--loading'}/>
-					)}
+					{isLoading && <span className="icon--loading" />}
 				</div>
 				<div className="actionbar__group">
+					<a
+						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
+						title="Commit Graph Feedback"
+						aria-label="Commit Graph Feedback"
+					>
+						<span className="codicon codicon-feedback"></span>
+					</a>{' '}
 					<span className="badge">Preview</span>
 				</div>
 			</footer>
