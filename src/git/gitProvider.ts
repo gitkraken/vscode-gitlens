@@ -9,6 +9,7 @@ import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
+import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
@@ -217,6 +218,16 @@ export interface GitProvider extends Disposable {
 			range?: Range | undefined;
 		},
 	): Promise<GitCommit | undefined>;
+	getCommitsForGraph(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
+		},
+	): Promise<GitGraph>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,

@@ -44,7 +44,7 @@ export class GraphApp extends App<State> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		this.log('GraphApp onBind log', this.state.log);
+		this.log('GraphApp.onBind paging:', this.state.paging);
 
 		const $root = document.getElementById('root');
 		if ($root != null) {
@@ -93,7 +93,7 @@ export class GraphApp extends App<State> {
 
 				onIpc(DidChangeCommitsNotificationType, msg, params => {
 					let rows;
-					if (params?.previousCursor != null && this.state.rows != null) {
+					if (params?.paging?.startingCursor != null && this.state.rows != null) {
 						const previousRows = this.state.rows;
 						const lastSha = previousRows[previousRows.length - 1]?.sha;
 
@@ -104,12 +104,12 @@ export class GraphApp extends App<State> {
 						// Preallocate the array to avoid reallocations
 						rows.length = previousRowsLength + newRowsLength;
 
-						if (params.previousCursor !== lastSha) {
+						if (params.paging.startingCursor !== lastSha) {
 							let i = 0;
 							let row;
 							for (row of previousRows) {
 								rows[i++] = row;
-								if (row.sha === params.previousCursor) {
+								if (row.sha === params.paging.startingCursor) {
 									previousRowsLength = i;
 
 									if (previousRowsLength !== previousRows.length) {
@@ -136,7 +136,7 @@ export class GraphApp extends App<State> {
 					this.setState({
 						...this.state,
 						rows: rows,
-						log: params.log,
+						paging: params.paging,
 					});
 					this.refresh(this.state);
 				});

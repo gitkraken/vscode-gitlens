@@ -15,6 +15,7 @@ import type {
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
+import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import {
 	StashApplyError,
@@ -42,20 +43,34 @@ import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
-import { GitBranch, isDetachedHead, sortBranches } from '../../../git/models/branch';
+import {
+	getBranchNameWithoutRemote,
+	getRemoteNameFromBranchName,
+	GitBranch,
+	isDetachedHead,
+	sortBranches,
+} from '../../../git/models/branch';
 import type { GitStashCommit } from '../../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
+import { GitCommit, GitCommitIdentity, isStash } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
+import type {
+	GitGraph,
+	GitGraphRow,
+	GitGraphRowHead,
+	GitGraphRowRemoteHead,
+	GitGraphRowTag,
+} from '../../../git/models/graph';
+import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
 import type { GitBranchReference } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
-import { GitRemote } from '../../../git/models/remote';
+import { getRemoteIconUri, GitRemote } from '../../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitStash } from '../../../git/models/stash';
@@ -1584,6 +1599,179 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getCommitsForGraph(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
+		},
+	): Promise<GitGraph> {
+		const [logResult, stashResult, remotesResult] = await Promise.allSettled([
+			this.getLog(repoPath, { all: true, ordering: 'date', limit: options?.limit }),
+			this.getStash(repoPath),
+			this.getRemotes(repoPath),
+		]);
+
+		return this.getCommitsForGraphCore(
+			repoPath,
+			asWebviewUri,
+			getSettledValue(logResult),
+			getSettledValue(stashResult),
+			getSettledValue(remotesResult),
+			options,
+		);
+	}
+
+	private async getCommitsForGraphCore(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		log: GitLog | undefined,
+		stash: GitStash | undefined,
+		remotes: GitRemote[] | undefined,
+		options?: {
+			ref?: string;
+			mode?: 'single' | 'local' | 'all';
+			branch?: string;
+		},
+	): Promise<GitGraph> {
+		if (log == null) {
+			return {
+				repoPath: repoPath,
+				rows: [],
+			};
+		}
+
+		const commits = (log.pagedCommits?.() ?? log.commits)?.values();
+		if (commits == null) {
+			return {
+				repoPath: repoPath,
+				rows: [],
+			};
+		}
+
+		const rows: GitGraphRow[] = [];
+
+		let current = false;
+		let refHeads: GitGraphRowHead[];
+		let refRemoteHeads: GitGraphRowRemoteHead[];
+		let refTags: GitGraphRowTag[];
+		let parents: string[];
+		let remoteName: string;
+		let isStashCommit: boolean;
+
+		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
+
+		const skipStashParents = new Set();
+
+		for (const commit of commits) {
+			if (skipStashParents.has(commit.sha)) continue;
+
+			refHeads = [];
+			refRemoteHeads = [];
+			refTags = [];
+
+			if (commit.tips != null) {
+				for (let tip of commit.tips) {
+					if (tip === 'refs/stash' || tip === 'HEAD') continue;
+
+					if (tip.startsWith('tag: ')) {
+						refTags.push({
+							name: tip.substring(5),
+							// Not currently used, so don't bother filling it out
+							annotated: false,
+						});
+
+						continue;
+					}
+
+					current = tip.startsWith('HEAD -> ');
+					if (current) {
+						tip = tip.substring(8);
+					}
+
+					remoteName = getRemoteNameFromBranchName(tip);
+					if (remoteName) {
+						const remote = remoteMap.get(remoteName);
+						if (remote != null) {
+							const branchName = getBranchNameWithoutRemote(tip);
+							if (branchName === 'HEAD') continue;
+
+							refRemoteHeads.push({
+								name: branchName,
+								owner: remote.name,
+								url: remote.url,
+								avatarUrl: (
+									remote.provider?.avatarUri ?? getRemoteIconUri(this.container, remote, asWebviewUri)
+								)?.toString(true),
+							});
+
+							continue;
+						}
+					}
+
+					refHeads.push({
+						name: tip,
+						isCurrentHead: current,
+					});
+				}
+			}
+
+			isStashCommit = isStash(commit) || (stash?.commits.has(commit.sha) ?? false);
+
+			parents = commit.parents;
+			// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
+			if (isStashCommit && parents.length > 1) {
+				// Copy the array to avoid mutating the original
+				parents = [...parents];
+
+				// Skip the "index commit" (e.g. contains staged files) of the stash
+				skipStashParents.add(parents[1]);
+				// Skip the "untracked commit" (e.g. contains untracked files) of the stash
+				skipStashParents.add(parents[2]);
+				parents.splice(1, 2);
+			}
+
+			rows.push({
+				sha: commit.sha,
+				parents: parents,
+				author: commit.author.name,
+				avatarUrl: !isStashCommit ? (await commit.getAvatarUri())?.toString(true) : undefined,
+				email: commit.author.email ?? '',
+				date: commit.committer.date.getTime(),
+				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+				// TODO: review logic for stash, wip, etc
+				type: isStashCommit
+					? GitGraphRowType.Stash
+					: commit.parents.length > 1
+					? GitGraphRowType.MergeCommit
+					: GitGraphRowType.Commit,
+				heads: refHeads,
+				remotes: refRemoteHeads,
+				tags: refTags,
+			});
+		}
+
+		return {
+			repoPath: repoPath,
+			paging: {
+				limit: log.limit,
+				endingCursor: log.endingCursor,
+				startingCursor: log.startingCursor,
+				more: log.hasMore,
+			},
+			rows: rows,
+
+			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
+				const moreLog = await log.more?.(limit);
+				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, stash, remotes, options);
+			},
+		};
+	}
+
+	@log()
 	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
 		const [relativePath, root] = splitPath(uri, repoPath);
 
@@ -2242,6 +2430,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
+				startingCursor: last(log.commits)?.[0],
+				endingCursor: moreLog.endingCursor,
 				pagedCommits: () => {
 					// Remove any duplicates
 					for (const sha of log.commits.keys()) {
@@ -2249,7 +2439,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 					return moreLog.commits;
 				},
-				previousCursor: last(log.commits)?.[0],
 				query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);
@@ -3201,7 +3390,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		repoPath: string,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): Promise<GitReflog | undefined> {
 		const scope = getLogScope();
 
@@ -3229,7 +3424,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private getReflogMoreFn(
 		reflog: GitReflog,
-		options?: { all?: boolean; branch?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+		options?: {
+			all?: boolean;
+			branch?: string;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+		},
 	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
@@ -3358,6 +3559,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						) ?? [],
 						undefined,
 						[],
+						undefined,
 						s.stashName,
 						onRef,
 					) as GitStashCommit,

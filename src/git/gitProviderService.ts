@@ -49,6 +49,7 @@ import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
+import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { PullRequest, PullRequestState } from './models/pullRequest';
@@ -1310,6 +1311,21 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommitForFile(path, uri, options);
+	}
+
+	@log()
+	getCommitsForGraph(
+		repoPath: string | Uri,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
+		},
+	): Promise<GitGraph> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getCommitsForGraph(path, asWebviewUri, options);
 	}
 
 	@log()

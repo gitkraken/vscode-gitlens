@@ -115,7 +115,7 @@ export function GraphWrapper({
 	rows = [],
 	selectedRepository,
 	config,
-	log,
+	paging,
 	onSelectRepository,
 	onColumnChange,
 	onMoreCommits,
@@ -131,7 +131,7 @@ export function GraphWrapper({
 		reposList.find(item => item.path === selectedRepository),
 	);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
-	const [logState, setLogState] = useState(log);
+	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(false);
 	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
@@ -170,7 +170,7 @@ export function GraphWrapper({
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setGraphColSettings(getGraphColSettingsModel(state.config));
-		setLogState(state.log);
+		setPagingState(state.paging);
 		setIsLoading(false);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 	}
@@ -248,7 +248,7 @@ export function GraphWrapper({
 								getExternalIcon={getIconElementLibrary}
 								graphRows={graphList}
 								height={mainHeight}
-								hasMoreCommits={logState?.hasMore}
+								hasMoreCommits={pagingState?.more}
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}

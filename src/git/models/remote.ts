@@ -1,5 +1,8 @@
+import type { ColorTheme } from 'vscode';
+import { Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { sortCompare } from '../../system/string';
+import { isLightTheme } from '../../system/utils';
 import type { RemoteProvider } from '../remotes/provider';
 import { RichRemoteProvider } from '../remotes/provider';
 
@@ -86,4 +89,19 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		const repository = Container.instance.git.getRepository(this.repoPath);
 		await repository?.setRemoteAsDefault(this, value);
 	}
+}
+
+export function getRemoteIconUri(
+	container: Container,
+	remote: GitRemote,
+	asWebviewUri?: (uri: Uri) => Uri,
+	theme: ColorTheme = window.activeColorTheme,
+): Uri | undefined {
+	if (remote.provider?.icon == null) return undefined;
+
+	const uri = Uri.joinPath(
+		container.context.extensionUri,
+		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
+	);
+	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }

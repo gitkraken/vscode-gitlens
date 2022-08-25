@@ -6,6 +6,7 @@ import { configuration } from '../../configuration';
 import { CharCode, ContextKeys, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
+import { emojify } from '../../emojis';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -35,13 +36,21 @@ import { GitContributor } from '../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
+import type {
+	GitGraph,
+	GitGraphRow,
+	GitGraphRowHead,
+	GitGraphRowRemoteHead,
+	GitGraphRowTag,
+} from '../../git/models/graph';
+import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { GitRevision } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
-import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { getRemoteIconUri, GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
@@ -174,6 +183,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// if (supported != null) return supported;
 
 		switch (feature) {
+			case Features.Stashes:
 			case Features.Worktrees:
 				return false;
 			default:
@@ -1030,6 +1040,142 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getCommitsForGraph(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
+		},
+	): Promise<GitGraph> {
+		const [logResult, branchResult, remotesResult, tagsResult] = await Promise.allSettled([
+			this.getLog(repoPath, { all: true, ordering: 'date', limit: options?.limit }),
+			this.getBranch(repoPath),
+			this.getRemotes(repoPath),
+			this.getTags(repoPath),
+		]);
+
+		return this.getCommitsForGraphCore(
+			repoPath,
+			asWebviewUri,
+			getSettledValue(logResult),
+			getSettledValue(branchResult),
+			getSettledValue(remotesResult)?.[0],
+			getSettledValue(tagsResult)?.values,
+			options,
+		);
+	}
+
+	private async getCommitsForGraphCore(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		log: GitLog | undefined,
+		branch: GitBranch | undefined,
+		remote: GitRemote | undefined,
+		tags: GitTag[] | undefined,
+		options?: {
+			ref?: string;
+			mode?: 'single' | 'local' | 'all';
+			branch?: string;
+		},
+	): Promise<GitGraph> {
+		if (log == null) {
+			return {
+				repoPath: repoPath,
+				rows: [],
+			};
+		}
+
+		const commits = (log.pagedCommits?.() ?? log.commits)?.values();
+		if (commits == null) {
+			return {
+				repoPath: repoPath,
+				rows: [],
+			};
+		}
+
+		const rows: GitGraphRow[] = [];
+
+		let refHeads: GitGraphRowHead[];
+		let refRemoteHeads: GitGraphRowRemoteHead[];
+		let refTags: GitGraphRowTag[];
+
+		const hasHeadShaAndRemote = branch?.sha != null && remote != null;
+
+		for (const commit of commits) {
+			if (hasHeadShaAndRemote && commit.sha === branch.sha) {
+				refHeads = [
+					{
+						name: branch.name,
+						isCurrentHead: true,
+					},
+				];
+				refRemoteHeads = [
+					{
+						name: branch.name,
+						owner: remote.name,
+						url: remote.url,
+						avatarUrl: (
+							remote.provider?.avatarUri ?? getRemoteIconUri(this.container, remote, asWebviewUri)
+						)?.toString(true),
+					},
+				];
+			} else {
+				refHeads = [];
+				refRemoteHeads = [];
+			}
+
+			if (tags != null) {
+				refTags = [
+					...filterMap(tags, t => {
+						if (t.sha !== commit.sha) return undefined;
+
+						return {
+							name: t.name,
+							annotated: Boolean(t.message),
+						};
+					}),
+				];
+			} else {
+				refTags = [];
+			}
+
+			rows.push({
+				sha: commit.sha,
+				parents: commit.parents,
+				author: commit.author.name,
+				avatarUrl: (await commit.getAvatarUri())?.toString(true),
+				email: commit.author.email ?? '',
+				date: commit.committer.date.getTime(),
+				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+				// TODO: review logic for stash, wip, etc
+				type: commit.parents.length > 1 ? GitGraphRowType.MergeCommit : GitGraphRowType.Commit,
+				heads: refHeads,
+				remotes: refRemoteHeads,
+				tags: refTags,
+			});
+		}
+
+		return {
+			repoPath: repoPath,
+			paging: {
+				limit: log.limit,
+				endingCursor: log.endingCursor,
+				startingCursor: log.startingCursor,
+				more: log.hasMore,
+			},
+			rows: rows,
+
+			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
+				const moreLog = await log.more?.(limit);
+				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, branch, remote, tags, options);
+			},
+		};
+	}
+
+	@log()
 	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
 		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
 		return undefined;
@@ -1262,7 +1408,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
-				cursor: result.paging?.cursor,
+				endingCursor: result.paging?.cursor,
 				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
 			};
 
@@ -1342,7 +1488,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreLimit,
-				cursor: log.cursor,
+				cursor: log.endingCursor,
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
@@ -1357,7 +1503,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				cursor: moreLog.cursor,
+				startingCursor: last(log.commits)?.[0],
+				endingCursor: moreLog.endingCursor,
 				pagedCommits: () => {
 					// Remove any duplicates
 					for (const sha of log.commits.keys()) {
@@ -1365,7 +1512,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					}
 					return moreLog.commits;
 				},
-				previousCursor: last(log.commits)?.[0],
 				query: log.query,
 			};
 			mergedLog.more = this.getLogMoreFn(mergedLog, options);
@@ -1510,7 +1656,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: limit,
 				hasMore: result.pageInfo?.hasNextPage ?? false,
-				cursor: result.pageInfo?.endCursor ?? undefined,
+				endingCursor: result.pageInfo?.endCursor ?? undefined,
 				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
 			};
 
@@ -1539,7 +1685,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreLog = await this.getLogForSearch(log.repoPath, search, {
 				...options,
 				limit: limit,
-				cursor: log.cursor,
+				cursor: log.endingCursor,
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false };
@@ -1554,7 +1700,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: (log.limit ?? 0) + limit,
 				hasMore: moreLog.hasMore,
-				cursor: moreLog.cursor,
+				endingCursor: moreLog.endingCursor,
 				query: log.query,
 			};
 			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
@@ -1835,7 +1981,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
-				cursor: result.paging?.cursor,
+				endingCursor: result.paging?.cursor,
 				query: (limit: number | undefined) => this.getLogForFile(repoPath, path, { ...options, limit: limit }),
 			};
 
@@ -1891,7 +2037,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				cursor: log.cursor,
+				cursor: log.endingCursor,
 				// ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
 				// skip: options.all ? log.count : undefined,
 			});
@@ -1908,7 +2054,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				cursor: moreLog.cursor,
+				endingCursor: moreLog.endingCursor,
 				query: log.query,
 			};
 

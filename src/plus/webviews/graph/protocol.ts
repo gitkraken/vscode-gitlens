@@ -6,18 +6,19 @@ export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	rows?: GraphRow[];
+	paging?: GraphPaging;
 	config?: GraphCompositeConfig;
-	log?: GraphLog;
 	nonce?: string;
-	mixedColumnColors?: Record<string, string>;
 	previewBanner?: boolean;
+
+	// Props below are computed in the webview (not passed)
+	mixedColumnColors?: Record<string, string>;
 }
 
-export interface GraphLog {
-	count: number;
-	limit?: number;
-	hasMore: boolean;
-	cursor?: string;
+export interface GraphPaging {
+	startingCursor?: string;
+	endingCursor?: string;
+	more: boolean;
 }
 
 export interface GraphRepository {
@@ -95,8 +96,7 @@ export const DidChangeGraphConfigurationNotificationType = new IpcNotificationTy
 
 export interface DidChangeCommitsParams {
 	rows: GraphRow[];
-	previousCursor?: string;
-	log?: GraphLog;
+	paging?: GraphPaging;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
 	'graph/commits/didChange',

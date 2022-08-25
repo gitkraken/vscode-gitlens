@@ -712,7 +712,7 @@ export class Git {
 		},
 	) {
 		if (argsOrFormat == null) {
-			argsOrFormat = ['--name-status', `--format=${GitLogParser.defaultFormat}`];
+			argsOrFormat = ['--name-status', `--format=${all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`];
 		}
 
 		if (typeof argsOrFormat === 'string') {
@@ -808,7 +808,7 @@ export class Git {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (argsOrFormat == null) {
-			argsOrFormat = [`--format=${GitLogParser.defaultFormat}`];
+			argsOrFormat = [`--format=${all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`];
 		}
 
 		if (typeof argsOrFormat === 'string') {

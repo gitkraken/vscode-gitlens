@@ -1,5 +1,5 @@
-import type { TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ViewColumn, window, workspace } from 'vscode';
+import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { ColorThemeKind, ViewColumn, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
@@ -75,6 +75,14 @@ export function hasVisibleTextEditor(): boolean {
 export function isActiveDocument(document: TextDocument): boolean {
 	const editor = window.activeTextEditor;
 	return editor != null && editor.document === document;
+}
+
+export function isDarkTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Dark || theme.kind === ColorThemeKind.HighContrast;
+}
+
+export function isLightTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
 }
 
 export function isVirtualUri(uri: Uri): boolean {
