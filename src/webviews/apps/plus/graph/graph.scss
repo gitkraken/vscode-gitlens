@@ -389,7 +389,7 @@ a {
 
 	& .graph-adjust-commit-count {
 		display: flex;
-		width: 100vw;
+		width: calc(100vw - var(--scrollable-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
 	}
