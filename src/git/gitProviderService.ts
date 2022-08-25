@@ -16,7 +16,8 @@ import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../const
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
-import type { FeatureAccess, Features, PlusFeatures } from '../features';
+import type { FeatureAccess, Features } from '../features';
+import { PlusFeatures } from '../features';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
@@ -552,18 +553,32 @@ export class GitProviderService implements Disposable {
 					if (visibility !== RepositoryVisibility.Private) {
 						switch (plan) {
 							case SubscriptionPlanId.Free:
+								if (feature === PlusFeatures.Graph) {
+									return {
+										allowed: true,
+										subscription: { current: subscription },
+										visibility: visibility,
+									};
+								}
+
 								return {
 									allowed: false,
 									subscription: { current: subscription, required: SubscriptionPlanId.FreePlus },
+									visibility: visibility,
 								};
 							case SubscriptionPlanId.FreePlus:
-								return { allowed: true, subscription: { current: subscription } };
+								return {
+									allowed: true,
+									subscription: { current: subscription },
+									visibility: visibility,
+								};
 						}
 					}
 
 					return {
 						allowed: false,
 						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+						visibility: visibility,
 					};
 				});
 
