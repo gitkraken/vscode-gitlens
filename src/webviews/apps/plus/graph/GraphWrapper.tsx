@@ -322,11 +322,11 @@ export function GraphWrapper({
 						</div>
 					</div>
 					{graphList.length > 0 && (
-						<span>
-							{graphList.length} commit{graphList.length ? 's' : ''}
+						<span className="actionbar__details">
+							{graphList.length} item{graphList.length ? 's' : ''}
 						</span>
 					)}
-					{isLoading && <span className="icon--loading" />}
+					{isLoading && <span className="actionbar__loading icon--loading icon-modifier--spin" />}
 				</div>
 				<div className="actionbar__group">
 					<a

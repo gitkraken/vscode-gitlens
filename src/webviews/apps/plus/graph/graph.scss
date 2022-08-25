@@ -47,6 +47,15 @@ a {
 		}
 	}
 
+	&__details {}
+
+	&__loading {
+		position: relative;
+		top: 1px;
+		left: 0.5rem;
+		font-size: 1.2rem;
+	}
+
 	a {
 		color: inherit;
 	}
@@ -232,22 +241,6 @@ a {
 	}
 }
 
-.icon--loading {
-	&::before {
-		// codicon-loading
-		font-family: codicon;
-		content: '\eb19';
-	}
-	transform-origin: 50% 42%;
-	animation: spin .7s steps(30) infinite;
-
-	@keyframes spin {
-		100% {
-			transform: rotate(360deg);
-		}
-	}
-}
-
 .icon--warning {
 	:before {
 		// codicon-vm
@@ -382,8 +375,15 @@ a {
 	& .resizable-handle.horizontal {
 		display: none;
 	}
-}
 
-.graph-container .node.stash-node .graph-icon {
-	transform: translateY(-2px);
+	& .node.stash-node .graph-icon {
+		transform: translateY(-2px);
+	}
+
+	& .graph-adjust-commit-count {
+		display: flex;
+		width: 100vw;
+		align-items: center;
+		justify-content: center;
+	}
 }
