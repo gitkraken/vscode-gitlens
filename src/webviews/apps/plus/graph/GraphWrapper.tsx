@@ -349,18 +349,33 @@ export function GraphWrapper({
 			<section className="graph-app__banners">
 				{showPreview && (
 					<div className="alert">
-						<span className="alert__icon codicon codicon-search"></span>
+						<span className="alert__icon codicon codicon-eye"></span>
 						<div className="alert__content">
-							<p className="alert__title">Preview Feature</p>
+							<p className="alert__title">GitLens+ Feature Preview</p>
 							<p className="alert__message">
-								The Commit Graph is a ✨ GitLens+ feature currently in preview. It is freely available
-								for local and public repos, while a paid account is required for use on private repos.
-								We welcome your feedback in our{' '}
-								<a href="https://github.com/gitkraken/vscode-gitlens/discussions/2158">
-									Commit Graph discussion on GitHub
-								</a>
-								.
+								The Commit Graph is freely available for local and public repos, while private repos
+								require a paid plan. While this preview isn't yet fully featured, we are quickly working
+								on the next release, when it will exit preview.
 							</p>
+							<p className="alert__accent">
+								<span className="glicon glicon-clock alert__accent-icon" /> GitLens+ introductory
+								pricing will end with the next release (late Sept, early Oct).
+							</p>
+							<p className="alert__accent">
+								<span className="codicon codicon-feedback alert__accent-icon" /> Join the discussions on
+								GitHub! We'd love to hear from you.
+							</p>
+						</div>
+						<div className="alert__actions">
+							<a className="alert-action" href="command:gitlens.plus.purchase">
+								Get GitLens+
+							</a>
+							<a
+								className="alert-action"
+								href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
+							>
+								Give Feedback
+							</a>
 						</div>
 						<button className="alert__dismiss" type="button" onClick={() => handleDismissPreview()}>
 							<span className="codicon codicon-chrome-close"></span>

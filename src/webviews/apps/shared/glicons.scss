@@ -1,7 +1,7 @@
 @font-face {
 	font-family: 'glicons';
 	font-display: block;
-	src: url("./glicons.woff2?4e20ad02a9897de1654835070707d360") format("woff2");
+	src: url("./glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1") format("woff2");
 }
 
 .glicon {
@@ -141,4 +141,7 @@
 }
 .glicon-pinned-filled:before {
 	content: '\f11c';
+}
+.glicon-clock:before {
+	content: '\f11d';
 }

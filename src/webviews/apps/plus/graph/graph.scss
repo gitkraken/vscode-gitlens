@@ -1,5 +1,6 @@
 @import '../../shared/base';
 @import '../../shared/codicons';
+@import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
 body {
@@ -158,32 +159,48 @@ a {
 	color: var(--alert-foreground);
 
 	&__icon {
+		&,
+		&[class*=codicon-] {
+			font-size: 2rem;
+		}
 	}
 
 	&__content {
 		flex: 1;
-		padding-top: 0.24rem;
-		> :last-child {
+		padding-top: 0.1rem;
+		> *:not(:first-child) {
+			margin-top: 0.75rem;
+		}
+		> * {
 			margin-bottom: 0;
 		}
 	}
 	&__title {
 		font-size: 1.3rem;
 		font-weight: 700;
-		margin: 0;
 		text-transform: uppercase;
+		margin-top: 0;
 	}
 	&__message {
 		font-size: 1.2rem;
-		margin: 0;
 	}
 
-	&__title + &__message {
-		margin-top: 0.25rem;
+	&__accent {
+		&-icon {
+			margin-right: 0.2rem;
+			line-height: 1.4rem;
+			vertical-align: bottom;
+		}
+	}
+	&__accent + &__accent {
+		margin-top: 0.2rem;
 	}
 
 	&__actions {
 		align-self: center;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 
 	&__dismiss {
