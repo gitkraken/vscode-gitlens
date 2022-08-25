@@ -520,11 +520,25 @@ export class GitProviderService implements Disposable {
 			cacheKey = path;
 		}
 
-		let access = this._accessCache.get(cacheKey);
-		if (access == null) {
-			access = this.accessCore(feature, repoPath);
-			this._accessCache.set(cacheKey, access);
+		let accessPromise = this._accessCache.get(cacheKey);
+		if (accessPromise == null) {
+			accessPromise = this.accessCore(feature, repoPath);
+			this._accessCache.set(cacheKey, accessPromise);
 		}
+
+		const access = await accessPromise;
+		if (
+			feature === PlusFeatures.Graph &&
+			access.visibility !== RepositoryVisibility.Private &&
+			access.subscription.current.plan.effective.id === SubscriptionPlanId.Free
+		) {
+			return {
+				allowed: true,
+				subscription: { current: access.subscription.current },
+				visibility: access.visibility,
+			};
+		}
+
 		return access;
 	}
 
@@ -554,14 +568,6 @@ export class GitProviderService implements Disposable {
 					if (visibility !== RepositoryVisibility.Private) {
 						switch (plan) {
 							case SubscriptionPlanId.Free:
-								if (feature === PlusFeatures.Graph) {
-									return {
-										allowed: true,
-										subscription: { current: subscription },
-										visibility: visibility,
-									};
-								}
-
 								return {
 									allowed: false,
 									subscription: { current: subscription, required: SubscriptionPlanId.FreePlus },
