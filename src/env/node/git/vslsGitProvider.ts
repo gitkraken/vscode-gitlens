@@ -34,7 +34,11 @@ export class VslsGit extends Git {
 }
 
 export class VslsGitProvider extends LocalGitProvider {
-	override readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Vsls, name: 'Live Share' };
+	override readonly descriptor: GitProviderDescriptor = {
+		id: GitProviderId.Vsls,
+		name: 'Live Share',
+		virtual: false,
+	};
 	override readonly supportedSchemes: Set<string> = new Set([Schemes.Vsls, Schemes.VslsScc]);
 
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {

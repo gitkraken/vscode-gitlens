@@ -35,6 +35,7 @@ export const enum GitProviderId {
 export interface GitProviderDescriptor {
 	readonly id: GitProviderId;
 	readonly name: string;
+	readonly virtual: boolean;
 }
 
 export interface RepositoryInitWatcher extends Disposable {

@@ -265,6 +265,10 @@ export class Repository implements Disposable {
 		this._disposable.dispose();
 	}
 
+	get virtual(): boolean {
+		return this.provider.virtual;
+	}
+
 	get path(): string {
 		return this.uri.scheme === Schemes.File ? normalizePath(this.uri.fsPath) : this.uri.toString();
 	}

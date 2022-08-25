@@ -144,7 +144,7 @@ interface RepositoryInfo {
 }
 
 export class LocalGitProvider implements GitProvider, Disposable {
-	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git' };
+	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git', virtual: false };
 	readonly supportedSchemes: Set<string> = new Set([
 		Schemes.File,
 		Schemes.Git,

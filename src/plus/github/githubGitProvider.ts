@@ -83,7 +83,7 @@ interface RepositoryInfo {
 }
 
 export class GitHubGitProvider implements GitProvider, Disposable {
-	descriptor = { id: GitProviderId.GitHub, name: 'GitHub' };
+	descriptor = { id: GitProviderId.GitHub, name: 'GitHub', virtual: true };
 	readonly supportedSchemes: Set<string> = new Set([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
