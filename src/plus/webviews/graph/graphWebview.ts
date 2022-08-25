@@ -132,6 +132,10 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.getState();
 	}
 
+	protected override registerCommands(): Disposable[] {
+		return [registerCommand(Commands.RefreshGraphPage, () => this.refresh(true))];
+	}
+
 	protected override onInitializing(): Disposable[] | undefined {
 		this._theme = window.activeColorTheme;
 		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
@@ -158,9 +162,18 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
-		if (focused && this.selection != null) {
-			void GitActions.Commit.showDetailsView(this.selection[0], { pin: true, preserveFocus: true });
+		if (focused) {
+			// If we are becoming focused, delay it a bit to give the UI time to update
+			setTimeout(() => void setContext(ContextKeys.GraphPageFocused, focused), 0);
+
+			if (this.selection != null) {
+				void GitActions.Commit.showDetailsView(this.selection[0], { pin: true, preserveFocus: true });
+			}
+
+			return;
 		}
+
+		void setContext(ContextKeys.GraphPageFocused, focused);
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {

@@ -103,12 +103,7 @@ export abstract class WebviewBase<State> implements Disposable {
 
 			this._panel.webview.html = await this.getHtml(this._panel.webview);
 		} else {
-			const html = await this.getHtml(this._panel.webview);
-
-			// Reset the html to get the webview to reload
-			this._panel.webview.html = '';
-			this._panel.webview.html = html;
-
+			await this.refresh(true);
 			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, false);
 		}
 	}
@@ -131,10 +126,15 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
 
-	protected async refresh(): Promise<void> {
+	protected async refresh(force?: boolean): Promise<void> {
 		if (this._panel == null) return;
 
-		this._panel.webview.html = await this.getHtml(this._panel.webview);
+		const html = await this.getHtml(this._panel.webview);
+		if (force) {
+			// Reset the html to get the webview to reload
+			this._panel.webview.html = '';
+		}
+		this._panel.webview.html = html;
 	}
 
 	private onPanelDisposed() {

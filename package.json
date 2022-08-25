@@ -3966,6 +3966,12 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.refreshGraphPage",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -6425,6 +6431,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.refreshGraphPage",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showSettingsPage#views",
 					"when": "false"
 				},
@@ -8158,6 +8168,11 @@
 				{
 					"command": "gitlens.refreshTimelinePage",
 					"when": "gitlens:timelinePage:focused",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.refreshGraphPage",
+					"when": "gitlens:graphPage:focused",
 					"group": "navigation@-99"
 				}
 			],

@@ -106,7 +106,7 @@ export class TimelineWebview extends WebviewBase<State> {
 	}
 
 	protected override registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshTimelinePage, () => this.refresh())];
+		return [registerCommand(Commands.RefreshTimelinePage, () => this.refresh(true))];
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
