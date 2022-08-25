@@ -14,6 +14,9 @@ import type {
 	GraphRepository,
 	State,
 } from '../../../../plus/webviews/graph/protocol';
+import type { Subscription } from '../../../../subscription';
+import { SubscriptionState } from '../../../../subscription';
+import { fromNow } from '../../shared/date';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
@@ -114,6 +117,8 @@ export function GraphWrapper({
 	repositories = [],
 	rows = [],
 	selectedRepository,
+	subscription,
+	allowed,
 	config,
 	paging,
 	onSelectRepository,
@@ -139,7 +144,12 @@ export function GraphWrapper({
 	const [mainWidth, setMainWidth] = useState<number>();
 	const [mainHeight, setMainHeight] = useState<number>();
 	const mainRef = useRef<HTMLElement>(null);
-	const [showBanner, setShowBanner] = useState(previewBanner);
+	// banner
+	const [showPreview, setShowPreview] = useState(previewBanner);
+	// account
+	const [showAccount, setShowAccount] = useState(true);
+	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
+	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
 
@@ -173,6 +183,8 @@ export function GraphWrapper({
 		setPagingState(state.paging);
 		setIsLoading(false);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
+		setIsAllowed(state.allowed ?? false);
+		setSubscriptionSnapshot(state.subscription);
 	}
 
 	useEffect(() => {
@@ -207,15 +219,135 @@ export function GraphWrapper({
 		onSelectionChange?.(graphRows.map(r => r.sha));
 	};
 
-	const handleDismissBanner = () => {
-		setShowBanner(false);
+	const handleDismissPreview = () => {
+		setShowPreview(false);
 		onDismissPreview?.();
+	};
+
+	const handleDismissAccount = () => {
+		setShowAccount(false);
+	};
+
+	const renderAlertContent = () => {
+		if (subscriptionSnapshot == null) return;
+
+		let icon = 'account';
+		let modifier = '';
+		let content;
+		let actions;
+		switch (subscriptionSnapshot.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.Paid:
+				return;
+			case SubscriptionState.FreeInPreview:
+				icon = 'calendar';
+				modifier = 'neutral';
+				content = (
+					<>
+						<p className="alert__title">Trial Preview</p>
+						<p className="alert__message">
+							You're able to view the Commit Graph with any repository until your preview expires
+							{subscriptionSnapshot.previewTrial
+								? ` ${fromNow(new Date(subscriptionSnapshot.previewTrial.expiresOn))}`
+								: ''}
+							.
+						</p>
+					</>
+				);
+				break;
+			case SubscriptionState.FreePreviewExpired:
+				icon = 'warning';
+				modifier = 'warning';
+				content = (
+					<>
+						<p className="alert__title">Extend Your Trial</p>
+						<p className="alert__message">Sign in to extend your free trial an additional 7-days.</p>
+					</>
+				);
+				actions = (
+					<>
+						<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
+							Try for 7-days
+						</a>{' '}
+						<a className="alert-action" href="command:gitlens.plus.purchase">
+							View Plans
+						</a>
+					</>
+				);
+				break;
+			case SubscriptionState.FreePlusInTrial:
+				icon = 'calendar';
+				modifier = 'neutral';
+				content = (
+					<>
+						<p className="alert__title">Extended Trial</p>
+						<p className="alert__message">
+							You're able to view the Commit Graph with any repository until your trial expires
+							{subscriptionSnapshot.previewTrial
+								? ` ${fromNow(new Date(subscriptionSnapshot.previewTrial.expiresOn))}`
+								: ''}
+							.
+						</p>
+					</>
+				);
+				break;
+			case SubscriptionState.FreePlusTrialExpired:
+				icon = 'warning';
+				modifier = 'warning';
+				content = (
+					<>
+						<p className="alert__title">Trial Expired</p>
+						<p className="alert__message">
+							Upgrade your account to use the Commit Graph and other GitLens+ features on private repos.
+						</p>
+						<p>
+							<a className="alert-action" href="command:gitlens.plus.purchase">
+								Upgrade Your Account
+							</a>
+						</p>
+					</>
+				);
+				break;
+			case SubscriptionState.VerificationRequired:
+				icon = 'unverified';
+				modifier = 'warning';
+				content = (
+					<>
+						<p className="alert__title">Please verify your email</p>
+						<p className="alert__message">Please verify the email for the account you created.</p>
+					</>
+				);
+				actions = (
+					<>
+						<a className="alert-action" href="command:gitlens.plus.resendVerification">
+							Resend Verification Email
+						</a>
+						<a className="alert-action" href="command:gitlens.plus.validate">
+							Refresh Verification Status
+						</a>
+					</>
+				);
+				break;
+		}
+
+		return (
+			<div className={`alert${modifier !== '' ? ` alert--${modifier}` : ''}`}>
+				<span className={`alert__icon codicon codicon-${icon}`}></span>
+				<div className="alert__content">{content}</div>
+				{actions && <div className="alert__actions">{actions}</div>}
+				{isAllowed && (
+					<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
+						<span className="codicon codicon-chrome-close"></span>
+					</button>
+				)}
+			</div>
+		);
 	};
 
 	return (
 		<>
-			{showBanner && (
-				<section className="graph-app__banner">
+			<section className="graph-app__banners">
+				{showPreview && (
 					<div className="alert">
 						<span className="alert__icon codicon codicon-search"></span>
 						<div className="alert__content">
@@ -230,13 +362,20 @@ export function GraphWrapper({
 								.
 							</p>
 						</div>
-						<button className="alert__action" type="button" onClick={() => handleDismissBanner()}>
+						<button className="alert__dismiss" type="button" onClick={() => handleDismissPreview()}>
 							<span className="codicon codicon-chrome-close"></span>
 						</button>
 					</div>
-				</section>
-			)}
-			<main ref={mainRef} id="main" className="graph-app__main">
+				)}
+				{showAccount && renderAlertContent()}
+			</section>
+			<main
+				ref={mainRef}
+				id="main"
+				className={`graph-app__main${!isAllowed ? ' is-gated' : ''}`}
+				aria-hidden={!isAllowed}
+			>
+				{!isAllowed && <div className="graph-app__cover"></div>}
 				{currentRepository !== undefined ? (
 					<>
 						{mainWidth !== undefined && mainHeight !== undefined && (
@@ -263,7 +402,7 @@ export function GraphWrapper({
 					<p>No repository is selected</p>
 				)}
 			</main>
-			<footer className="actionbar graph-app__footer">
+			<footer className={`actionbar graph-app__footer${!isAllowed ? ' is-gated' : ''}`} aria-hidden={!isAllowed}>
 				<div className="actionbar__group">
 					<div className="actioncombo">
 						<button
@@ -321,7 +460,7 @@ export function GraphWrapper({
 							)}
 						</div>
 					</div>
-					{graphList.length > 0 && (
+					{isAllowed && graphList.length > 0 && (
 						<span className="actionbar__details">
 							showing {graphList.length} item{graphList.length ? 's' : ''}
 						</span>

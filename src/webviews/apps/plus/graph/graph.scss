@@ -142,9 +142,10 @@ a {
 }
 
 .alert {
-	--alert-foreground: var(--vscode-input-foreground);
-	--alert-background: var(--vscode-inputValidation-infoBackground);
-	--alert-border-color: var(--vscode-inputValidation-infoBorder);
+	--alert-foreground: var(--color-alert-foreground);
+	--alert-background: var(--color-alert-infoBackground);
+	--alert-border-color: var(--color-alert-infoBorder);
+	--alert-hover-background: var(--color-alert-infoHoverBackground);
 	display: flex;
 	flex-direction: row;
 	justify-content: flex-start;
@@ -160,7 +161,11 @@ a {
 	}
 
 	&__content {
+		flex: 1;
 		padding-top: 0.24rem;
+		> :last-child {
+			margin-bottom: 0;
+		}
 	}
 	&__title {
 		font-size: 1.3rem;
@@ -177,7 +182,11 @@ a {
 		margin-top: 0.25rem;
 	}
 
-	&__action {
+	&__actions {
+		align-self: center;
+	}
+
+	&__dismiss {
 		border: 1px solid transparent;
 		background-color: transparent;
 		color: inherit;
@@ -185,8 +194,44 @@ a {
 		width: 2rem;
 		height: 2rem;
 		padding: 0;
-		cursor: pointer;
-		margin-left: auto;
+	}
+
+	&--warning {
+		--alert-background: var(--color-alert-warningBackground);
+		--alert-border-color: var(--color-alert-warningBorder);
+		--alert-hover-background: var(--color-alert-warningHoverBackground);
+	}
+	&--error {
+		--alert-background: var(--color-alert-errorBackground);
+		--alert-border-color: var(--color-alert-errorBorder);
+		--alert-hover-background: var(--color-alert-errorHoverBackground);
+	}
+	&--neutral {
+		--alert-background: var(--color-alert-neutralBackground);
+		--alert-border-color: var(--color-alert-neutralBorder);
+		--alert-hover-background: var(--color-alert-neutralHoverBackground);
+	}
+}
+
+.alert-action {
+	display: inline-block;
+	padding: 0.4rem 0.8rem;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	text-align: center;
+	text-decoration: none;
+	user-select: none;
+	background: transparent;
+	color: var(--alert-foreground);
+	cursor: pointer;
+	border: 1px solid var(--alert-border-color);
+	border-radius: 0.2rem;
+
+	&:hover {
+		text-decoration: none;
+		color: var(--alert-foreground);
+		background-color: var(--alert-hover-background);
 	}
 }
 
@@ -307,9 +352,23 @@ a {
 		padding: 0 2px;
 	}
 
-	&__banner {
+	&__banners {
 		flex: none;
 		padding: 0.5rem;
+		z-index: 2000;
+
+		> *:not(:first-child) {
+			margin-top: 0.5rem;
+		}
+	}
+	&__cover {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 1999;
+		backdrop-filter: blur(4px) saturate(0.8);
 	}
 
 	&__footer {
@@ -319,6 +378,11 @@ a {
 	&__main {
 		flex: 1 1 auto;
 		overflow: hidden;
+	}
+
+	&__main.is-gated {
+		position: relative;
+		pointer-events: none;
 	}
 }
 

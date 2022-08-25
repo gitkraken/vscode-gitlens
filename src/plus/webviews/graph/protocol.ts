@@ -1,10 +1,15 @@
 import type { CommitType, GraphRow, Remote } from '@gitkraken/gitkraken-components';
 import type { GraphColumnConfig, GraphConfig } from '../../../config';
+import type { RepositoryVisibility } from '../../../git/gitProvider';
+import type { Subscription } from '../../../subscription';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
+	selectedVisibility?: RepositoryVisibility;
+	subscription?: Subscription;
+	allowed?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	config?: GraphCompositeConfig;
@@ -92,6 +97,14 @@ export interface DidChangeGraphConfigurationParams {
 }
 export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
 	'graph/configuration/didChange',
+);
+
+export interface DidChangeSubscriptionParams {
+	subscription: Subscription;
+	allowed: boolean;
+}
+export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
+	'graph/subscription/didChange',
 );
 
 export interface DidChangeCommitsParams {

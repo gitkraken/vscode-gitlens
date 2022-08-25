@@ -8,6 +8,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeSubscriptionNotificationType,
 	DismissPreviewCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
@@ -149,6 +150,19 @@ export class GraphApp extends App<State> {
 					this.setState({
 						...this.state,
 						config: params.config,
+					});
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeSubscriptionNotificationType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
+					this.setState({
+						...this.state,
+						subscription: params.subscription,
+						allowed: params.allowed,
 					});
 					this.refresh(this.state);
 				});

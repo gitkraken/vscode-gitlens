@@ -6,6 +6,10 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
 
+		const isLightTheme =
+			body.classList.contains('vscode-light') || body.classList.contains('vscode-high-contrast-light');
+		const isHighContrastTheme = body.classList.contains('vscode-high-contrast');
+
 		const bodyStyle = body.style;
 
 		bodyStyle.setProperty('--font-family', computedStyle.getPropertyValue('--vscode-font-family').trim());
@@ -42,16 +46,14 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		color = computedStyle.getPropertyValue('--vscode-button-background').trim();
 		bodyStyle.setProperty('--color-button-background', color);
 		bodyStyle.setProperty('--color-button-background--darken-30', darken(color, 30));
-
-		color = computedStyle.getPropertyValue('--vscode-button-secondaryBackground').trim();
-		bodyStyle.setProperty('--color-button-secondary-background', color);
-		bodyStyle.setProperty('--color-button-secondary-background--darken-30', darken(color, 30));
-
-		color = computedStyle.getPropertyValue('--vscode-button-background').trim();
 		bodyStyle.setProperty('--color-highlight', color);
 		bodyStyle.setProperty('--color-highlight--75', opacity(color, 75));
 		bodyStyle.setProperty('--color-highlight--50', opacity(color, 50));
 		bodyStyle.setProperty('--color-highlight--25', opacity(color, 25));
+
+		color = computedStyle.getPropertyValue('--vscode-button-secondaryBackground').trim();
+		bodyStyle.setProperty('--color-button-secondary-background', color);
+		bodyStyle.setProperty('--color-button-secondary-background--darken-30', darken(color, 30));
 
 		color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
 		bodyStyle.setProperty('--color-button-foreground', color);
@@ -97,11 +99,39 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
 
 		// graph-specific colors
-		const isLightTheme =
-			body.className.includes('vscode-light') || body.className.includes('vscode-high-contrast-light');
-		color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
-		bodyStyle.setProperty('--graph-panel-bg', isLightTheme ? darken(color, 5) : lighten(color, 5));
+		bodyStyle.setProperty(
+			'--graph-panel-bg',
+			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
+		);
 		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
+
+		// alert colors
+		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
+		bodyStyle.setProperty('--color-alert-infoHoverBackground', isLightTheme ? darken(color, 5) : lighten(color, 5));
+		bodyStyle.setProperty('--color-alert-infoBackground', color);
+		color = computedStyle.getPropertyValue('--vscode-inputValidation-warningBackground').trim();
+		bodyStyle.setProperty(
+			'--color-alert-warningHoverBackground',
+			isLightTheme ? darken(color, 5) : lighten(color, 5),
+		);
+		bodyStyle.setProperty('--color-alert-warningBackground', color);
+		color = computedStyle.getPropertyValue('--vscode-inputValidation-errorBackground').trim();
+		bodyStyle.setProperty(
+			'--color-alert-errorHoverBackground',
+			isLightTheme ? darken(color, 5) : lighten(color, 5),
+		);
+		bodyStyle.setProperty('--color-alert-errorBackground', color);
+		color = computedStyle.getPropertyValue('--vscode-input-background').trim();
+		bodyStyle.setProperty(
+			'--color-alert-neutralHoverBackground',
+			isLightTheme ? darken(color, 5) : lighten(color, 5),
+		);
+		bodyStyle.setProperty('--color-alert-neutralBackground', color);
+		bodyStyle.setProperty('--color-alert-infoBorder', 'var(--vscode-inputValidation-infoBorder)');
+		bodyStyle.setProperty('--color-alert-warningBorder', 'var(--vscode-inputValidation-warningBorder)');
+		bodyStyle.setProperty('--color-alert-errorBorder', 'var(--vscode-inputValidation-errorBorder)');
+		bodyStyle.setProperty('--color-alert-neutralBorder', 'var(--vscode-input-foreground)');
+		bodyStyle.setProperty('--color-alert-foreground', 'var(--vscode-input-foreground)');
 
 		callback?.();
 	};

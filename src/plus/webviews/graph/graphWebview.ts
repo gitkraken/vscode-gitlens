@@ -7,6 +7,7 @@ import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
+import { PlusFeatures } from '../../../features';
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
@@ -22,12 +23,14 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
+import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { GraphCompositeConfig, GraphRepository, State } from './protocol';
 import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeSubscriptionNotificationType,
 	DismissPreviewCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
@@ -69,6 +72,7 @@ export class GraphWebview extends WebviewBase<State> {
 		return this._selection;
 	}
 
+	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _repositoryGraph?: GitGraph;
@@ -88,12 +92,16 @@ export class GraphWebview extends WebviewBase<State> {
 			'graphWebview',
 			Commands.ShowGraphPage,
 		);
-		this.disposables.push(configuration.onDidChange(this.onConfigurationChanged, this), {
-			dispose: () => {
-				this._statusBarItem?.dispose();
-				void this._repositoryEventsDisposable?.dispose();
+		this.disposables.push(
+			configuration.onDidChange(this.onConfigurationChanged, this),
+			{
+				dispose: () => {
+					this._statusBarItem?.dispose();
+					void this._repositoryEventsDisposable?.dispose();
+				},
 			},
-		});
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+		);
 
 		this.onConfigurationChanged();
 	}
@@ -232,6 +240,13 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		if (e.etag === this._etagSubscription) return;
+
+		this._etagSubscription = e.etag;
+		void this.notifyDidChangeSubscription();
+	}
+
 	private onThemeChanged(theme: ColorTheme) {
 		if (this._theme != null) {
 			if (
@@ -341,6 +356,17 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async notifyDidChangeSubscription() {
+		if (!this.isReady || !this.visible) return false;
+
+		const access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		return this.notify(DidChangeSubscriptionNotificationType, {
+			subscription: access.subscription.current,
+			allowed: access.allowed,
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeCommits() {
 		if (!this.isReady || !this.visible) return false;
 
@@ -385,6 +411,13 @@ export class GraphWebview extends WebviewBase<State> {
 		// If we have a set of data refresh to the same set
 		const limit = this._repositoryGraph?.paging?.limit ?? config.defaultItemLimit;
 
+		// only check on private
+		const access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		// TODO: probably not the right place to set this
+		if (this._etagSubscription == null) {
+			this._etagSubscription = this.container.subscription.etag;
+		}
+
 		const data = await this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri,
@@ -396,6 +429,9 @@ export class GraphWebview extends WebviewBase<State> {
 			previewBanner: this.previewBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
+			selectedVisibility: access.visibility,
+			subscription: access.subscription.current,
+			allowed: access.allowed,
 			rows: data.rows,
 			paging: {
 				startingCursor: data.paging?.startingCursor,
