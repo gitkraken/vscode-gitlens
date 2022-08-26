@@ -39,6 +39,7 @@ import {
 } from './protocol';
 
 export interface ShowCommitInGraphCommandArgs {
+	repoPath: string;
 	sha: string;
 }
 
@@ -107,7 +108,9 @@ export class GraphWebview extends WebviewBase<State> {
 			},
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
+				this.repository = this.container.git.getRepository(args.repoPath);
 				this._selectedSha = args.sha;
+
 				if (this._panel == null) {
 					void this.show();
 				} else {

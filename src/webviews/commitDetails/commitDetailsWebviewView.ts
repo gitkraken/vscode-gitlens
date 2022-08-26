@@ -185,6 +185,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 							if (this._context.commit == null) return;
 
 							void executeCommand<ShowCommitInGraphCommandArgs>(Commands.ShowCommitInGraph, {
+								repoPath: this._context.commit.repoPath,
 								sha: this._context.commit.sha,
 							});
 							break;
