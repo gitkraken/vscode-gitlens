@@ -6,11 +6,11 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 [Learn more about GitLens+](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links 'Learn more')
 
-The first new GitLens+ features are the Visual File History and Worktrees.
+GitLens+ features include the Commit Graph, Visual File History and Worktrees.
 
 <p align="center">
-  <img src="../../images/docs/visual-file-history-hover.png" alt="Visual File History View"/>
-  <br/>New Visual File History GitLens+ Feature
+  <img src="../../images/docs/commit-graph-illustrated.png" alt="Commit Graph Illustration"/>
+  <br/>New Commit Graph GitLens+ Feature
 </p>
 
 ## Does this affect existing features?
@@ -19,4 +19,4 @@ No, the introduction of GitLens+ has no impact on existing GitLens features, so 
 
 ## More GitLens+ features coming soon
 
-Additional features like a visual commit graph and rich integrations with hosting services like GitHub Enterprise are coming soon.
+Additional features like rich integration with GitHub Enterprise are coming soon.

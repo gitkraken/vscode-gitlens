@@ -11565,6 +11565,14 @@
 						"when": "gitlens:plus:state > 2"
 					},
 					{
+						"id": "gitlens.plus.commitGraph",
+						"title": "Commit Graph (new)",
+						"description": "The Commit Graph helps you easily visualize branch structure and commit history.\n\n[Open Commit Graph](command:gitlens.showGraphPage)",
+						"media": {
+							"markdown": "walkthroughs/plus/commit-graph.md"
+						}
+					},
+					{
 						"id": "gitlens.plus.visualFileHistory",
 						"title": "Visualize file history",
 						"description": "A more visual way to analyze and explore changes made to a file.\n\n[Open Visual File History view](command:gitlens.showTimelineView)",
@@ -11585,14 +11593,6 @@
 						"title": "Rich self-hosted Git integrations",
 						"media": {
 							"markdown": "walkthroughs/plus/rich-integrations.md"
-						}
-					},
-					{
-						"id": "gitlens.plus.comingSoon",
-						"title": "More coming soon",
-						"description": "Stay tuned!",
-						"media": {
-							"markdown": "walkthroughs/plus/4-coming-soon.md"
 						}
 					},
 					{
