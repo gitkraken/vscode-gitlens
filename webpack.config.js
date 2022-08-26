@@ -315,10 +315,6 @@ function getWebviewsConfig(mode, env) {
 					),
 					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 				},
-				{
-					from: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'glicons.woff2'),
-					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
-				},
 			],
 		}),
 	];

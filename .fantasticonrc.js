@@ -7,6 +7,7 @@ const config = {
 	codepoints: require('./images/icons/template/mapping.json'),
 	inputDir: './images/icons',
 	outputDir: './dist',
+	fontsUrl: '#{root}/dist',
 	// @ts-ignore
 	fontTypes: ['woff2'],
 	normalize: true,

@@ -1,8 +1,15 @@
-@font-face {
-	font-family: 'glicons';
-	font-display: block;
-	src: url("./glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1") format("woff2");
-}
+/*
+
+Must be placed at the end of body in the HTML file of any webview that needs it (because of CSP)
+
+<style nonce="#{cspNonce}">
+	@font-face {
+		font-family: 'glicons';
+		font-display: block;
+		src: url("#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1") format("woff2");
+	}
+</style>
+*/
 
 .glicon {
 	font: normal normal normal 16px/1 glicons;
