@@ -6,7 +6,7 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 [Learn more about GitLens+](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links 'Learn more')
 
-GitLens+ features include the Commit Graph, Visual File History and Worktrees.
+GitLens+ features include the Commit Graph, Visual File History, Worktrees, and more.
 
 <p align="center">
   <img src="../../images/docs/commit-graph-illustrated.png" alt="Commit Graph Illustration"/>
@@ -16,7 +16,3 @@ GitLens+ features include the Commit Graph, Visual File History and Worktrees.
 ## Does this affect existing features?
 
 No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
-
-## More GitLens+ features coming soon
-
-Additional features like rich integration with GitHub Enterprise are coming soon.

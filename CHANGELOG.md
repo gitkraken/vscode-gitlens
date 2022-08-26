@@ -237,13 +237,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
     - The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them
 
-      ![Visual File History view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-hover.png)
+      ![Visual File History view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-illustrated.png)
 
   - Worktrees &mdash; allow multiple branches to be checked-out at once
 
     - Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace
 
-      ![Worktrees view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-view.png)
+      ![Worktrees view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-illustrated.png)
 
 - Adds a new GitLens Home view &mdash; see welcome content, help resources, and subscription information
 - Adds a _Get Started with GitLens_ walkthrough to introduce new (and existing) users to many of the powerful features of GitLens &mdash; try it via _GitLens: Get Started_ from the Command Palette
@@ -778,7 +778,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
   - Integrates line history into the [**_File History_ view**](https://github.com/gitkraken/vscode-gitlens#file-history-view-)
 
-    ![File History view view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png)
+    ![File History view](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/file-history-view.png)
 
     - Adds a new _Toggle History Mode_ command to toggle between showing file or line history
     - Adds an indicator icon (up arrow) to unpublished (unpushed) commits

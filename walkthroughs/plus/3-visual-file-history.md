@@ -1,7 +1,7 @@
 ## Visual File History
 
 <p align="center">
-  <img src="../../images/docs/file-history-illustrated.png" alt="Visual File History View"/>
+  <img src="../../images/docs/visual-file-history-illustrated.png" alt="Visual File History View"/>
 </p>
 
 The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.

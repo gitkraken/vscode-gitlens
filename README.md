@@ -81,7 +81,7 @@ No, the introduction of GitLens+ has no impact on existing GitLens features, so 
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-hover.png" alt="Visual File History view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-illustrated.png" alt="Visual File History view" />
 </p>
 
 The Visual File History view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
@@ -93,7 +93,7 @@ Additionally, each commit's additions and deletions are visualized as color-code
 ## Worktrees view [#](#worktrees-view- 'Worktrees view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-view.png" alt="Worktrees view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-illustrated.png" alt="Worktrees view" />
 </p>
 
 Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.
