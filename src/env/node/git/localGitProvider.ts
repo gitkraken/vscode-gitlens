@@ -110,7 +110,7 @@ import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../../system/decorators/log';
-import { filterMap as filterMapIterable, find, first, last, some } from '../../../system/iterable';
+import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
 import {
 	commonBaseIndex,
 	dirname,
@@ -1611,6 +1611,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitGraph> {
 		const scope = getLogScope();
 
+		let stdin: string | undefined;
+
+		// // TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+		const stash = await this.getStash(repoPath);
+		if (stash != null) {
+			stdin = join(
+				map(stash.commits.values(), c => c.sha.substring(0, 7)),
+				'\n',
+			);
+		}
+
 		let getLogForRefFn;
 		if (options?.ref != null) {
 			async function getLogForRef(this: LocalGitProvider): Promise<GitLog | undefined> {
@@ -1626,6 +1637,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						ordering: 'date',
 						limit: 0,
 						extraArgs: [`--since="${Number(commit.date)}"`, '--boundary'],
+						stdin: stdin,
 					});
 
 					let found = log?.commits.has(commit.sha) ?? false;
@@ -1668,17 +1680,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 				return (
 					log ??
-					this.getLog(repoPath, { all: options?.mode !== 'single', ordering: 'date', limit: options?.limit })
+					this.getLog(repoPath, {
+						all: options?.mode !== 'single',
+						ordering: 'date',
+						limit: options?.limit,
+						stdin: stdin,
+					})
 				);
 			}
 
 			getLogForRefFn = getLogForRef;
 		}
 
-		const [logResult, stashResult, remotesResult] = await Promise.allSettled([
+		const [logResult, remotesResult] = await Promise.allSettled([
 			getLogForRefFn?.call(this) ??
-				this.getLog(repoPath, { all: options?.mode !== 'single', ordering: 'date', limit: options?.limit }),
-			this.getStash(repoPath),
+				this.getLog(repoPath, {
+					all: options?.mode !== 'single',
+					ordering: 'date',
+					limit: options?.limit,
+					stdin: stdin,
+				}),
 			this.getRemotes(repoPath),
 		]);
 
@@ -1686,7 +1707,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			repoPath,
 			asWebviewUri,
 			getSettledValue(logResult),
-			getSettledValue(stashResult),
+			stash,
 			getSettledValue(remotesResult),
 			options,
 		);
@@ -2326,6 +2347,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			since?: number | string;
 			until?: number | string;
 			extraArgs?: string[];
+			stdin?: string;
 		},
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
@@ -2386,7 +2408,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`-n${limit + 1}`);
 			}
 
-			const data = await this.git.log2(repoPath, options?.ref, ...args);
+			const data = await this.git.log2(repoPath, options?.ref, options?.stdin, ...args);
 
 			// const parser = GitLogParser.defaultParser;
 
