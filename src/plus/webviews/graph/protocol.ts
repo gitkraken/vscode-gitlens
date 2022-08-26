@@ -1,6 +1,7 @@
-import type { CommitType, GraphRow, Remote } from '@gitkraken/gitkraken-components';
+import type { GraphRow, Remote } from '@gitkraken/gitkraken-components';
 import type { GraphColumnConfig, GraphConfig } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
+import type { GitGraphRowType } from '../../../git/models/graph';
 import type { Subscription } from '../../../subscription';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
@@ -45,7 +46,7 @@ export interface GraphCommit {
 	message: string;
 	parents: string[];
 	committer: GraphCommitIdentity;
-	type: CommitType;
+	type: GitGraphRowType;
 
 	avatarUrl: string | undefined;
 }
@@ -83,7 +84,7 @@ export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSele
 );
 
 export interface UpdateSelectionParams {
-	selection: string[];
+	selection: { id: string; type: GitGraphRowType }[];
 }
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
 

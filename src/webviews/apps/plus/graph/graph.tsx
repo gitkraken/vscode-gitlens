@@ -2,6 +2,7 @@
 import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
+import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
 import type { CommitListCallback, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
 import {
@@ -61,7 +62,10 @@ export class GraphApp extends App<State> {
 						250,
 					)}
 					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
-					onSelectionChange={debounce((selection: string[]) => this.onSelectionChanged(selection), 250)}
+					onSelectionChange={debounce(
+						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
+						250,
+					)}
 					onDismissPreview={() => this.onDismissPreview()}
 					{...this.state}
 				/>,
@@ -236,7 +240,7 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onSelectionChanged(selection: string[]) {
+	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
 		this.sendCommand(UpdateSelectionCommandType, {
 			selection: selection,
 		});

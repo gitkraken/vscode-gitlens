@@ -7,6 +7,7 @@ import GraphContainer, {
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
+import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
 import type {
 	CommitListCallback,
@@ -25,7 +26,7 @@ export interface GraphWrapperProps extends State {
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
 	onDismissPreview?: () => void;
-	onSelectionChange?: (selection: string[]) => void;
+	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 }
 
 const getStyleProps = (
@@ -219,7 +220,7 @@ export function GraphWrapper({
 	};
 
 	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
-		onSelectionChange?.(graphRows.map(r => r.sha));
+		onSelectionChange?.(graphRows.map(r => ({ id: r.sha, type: r.type as GitGraphRowType })));
 	};
 
 	const handleDismissPreview = () => {

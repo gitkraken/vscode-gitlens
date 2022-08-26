@@ -9,6 +9,7 @@ import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import type { GitCommit } from '../../../git/models/commit';
+import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
@@ -316,13 +317,19 @@ export class GraphWebview extends WebviewBase<State> {
 		this.repository = this.container.git.getRepository(path);
 	}
 
-	private async onSelectionChanged(selection: string[]) {
-		const sha = selection[0];
-		this._selectedSha = sha;
+	private async onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
+		const item = selection[0];
+		this._selectedSha = item?.id;
 
 		let commits: GitCommit[] | undefined;
-		if (sha != null) {
-			const commit = await this.repository?.getCommit(sha);
+		if (item?.id != null) {
+			let commit;
+			if (item.type === GitGraphRowType.Stash) {
+				const stash = await this.repository?.getStash();
+				commit = stash?.commits.get(item.id);
+			} else {
+				commit = await this.repository?.getCommit(item?.id);
+			}
 			if (commit != null) {
 				commits = [commit];
 			}
