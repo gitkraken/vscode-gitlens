@@ -1471,7 +1471,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 		limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
 			// 	});
 			// 	// If we can't find any more, assume we have everything
-			// 	if (moreLog == null) return { ...log, hasMore: false };
+			// 	if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			// 	return moreLog;
 			// }
@@ -1483,7 +1483,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
 			// });
 			// // If we can't find any more, assume we have everything
-			// if (moreLog == null) return { ...log, hasMore: false };
+			// if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
@@ -1491,7 +1491,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				cursor: log.endingCursor,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -1514,7 +1514,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				},
 				query: log.query,
 			};
-			mergedLog.more = this.getLogMoreFn(mergedLog, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogMoreFn(mergedLog, options);
+			}
 
 			return mergedLog;
 		};
@@ -1688,7 +1690,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				cursor: log.endingCursor,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -1703,7 +1705,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				endingCursor: moreLog.endingCursor,
 				query: log.query,
 			};
-			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
+			}
 
 			return mergedLog;
 		};
@@ -1984,7 +1988,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				endingCursor: result.paging?.cursor,
 				query: (limit: number | undefined) => this.getLogForFile(repoPath, path, { ...options, limit: limit }),
 			};
-
 			if (log.hasMore) {
 				log.more = this.getLogForFileMoreFn(log, path, options);
 			}
@@ -2042,7 +2045,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				// skip: options.all ? log.count : undefined,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -2066,7 +2069,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	fileName = renamed?.file?.originalPath ?? fileName;
 			// }
 
-			mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+			}
 
 			return mergedLog;
 		};

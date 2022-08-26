@@ -2395,7 +2395,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
 				});
 				// If we can't find any more, assume we have everything
-				if (moreLog == null) return { ...log, hasMore: false };
+				if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 				return moreLog;
 			}
@@ -2418,7 +2418,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -2441,7 +2441,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				},
 				query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
 			};
-			mergedLog.more = this.getLogMoreFn(mergedLog, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogMoreFn(mergedLog, options);
+			}
 
 			return mergedLog;
 		};
@@ -2583,7 +2585,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				skip: log.count,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -2598,7 +2600,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				query: (limit: number | undefined) =>
 					this.getLogForSearch(log.repoPath, search, { ...options, limit: limit }),
 			};
-			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
+			}
 
 			return mergedLog;
 		};
@@ -2871,7 +2875,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				skip: options.all ? log.count : undefined,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false };
+			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -2895,7 +2899,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				relativePath = renamed?.file?.originalPath ?? relativePath;
 			}
 
-			mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
+			}
 
 			return mergedLog;
 		};
@@ -3442,7 +3448,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (moreLog == null) {
 				// If we can't find any more, assume we have everything
-				return { ...reflog, hasMore: false };
+				return { ...reflog, hasMore: false, more: undefined };
 			}
 
 			const mergedLog: GitReflog = {
@@ -3453,7 +3459,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit: (reflog.limit ?? 0) + limit,
 				hasMore: moreLog.hasMore,
 			};
-			mergedLog.more = this.getReflogMoreFn(mergedLog, options);
+			if (mergedLog.hasMore) {
+				mergedLog.more = this.getReflogMoreFn(mergedLog, options);
+			}
 
 			return mergedLog;
 		};
