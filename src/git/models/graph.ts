@@ -22,6 +22,7 @@ export interface GitGraphRow extends GraphRow {
 export interface GitGraph {
 	readonly repoPath: string;
 	readonly rows: GitGraphRow[];
+	readonly sha?: string;
 
 	readonly paging?: {
 		readonly limit: number | undefined;

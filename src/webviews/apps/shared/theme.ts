@@ -8,7 +8,7 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 
 		const isLightTheme =
 			body.classList.contains('vscode-light') || body.classList.contains('vscode-high-contrast-light');
-		const isHighContrastTheme = body.classList.contains('vscode-high-contrast');
+		// const isHighContrastTheme = body.classList.contains('vscode-high-contrast');
 
 		const bodyStyle = body.style;
 

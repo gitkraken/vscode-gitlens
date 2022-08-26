@@ -38,6 +38,10 @@ import {
 	UpdateSelectionCommandType,
 } from './protocol';
 
+export interface ShowCommitInGraphCommandArgs {
+	sha: string;
+}
+
 export interface GraphSelectionChangeEvent {
 	readonly selection: GitCommit[];
 }
@@ -74,6 +78,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
+	private _selectedSha?: string;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _repositoryGraph?: GitGraph;
 
@@ -101,6 +106,15 @@ export class GraphWebview extends WebviewBase<State> {
 				},
 			},
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
+				this._selectedSha = args.sha;
+				if (this._panel == null) {
+					void this.show();
+				} else {
+					// TODO@eamodio we should be smarter here an look for the commit in the saved data before refreshing and only send the selectedSha
+					this.updateState();
+				}
+			}),
 		);
 
 		this.onConfigurationChanged();
@@ -123,7 +137,6 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 
 			if (this.repository != null) {
-				this.resetRepositoryState();
 				this.updateState();
 			}
 		}
@@ -301,11 +314,12 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async onSelectionChanged(selection: string[]) {
-		const ref = selection[0];
+		const sha = selection[0];
+		this._selectedSha = sha;
 
 		let commits: GitCommit[] | undefined;
-		if (ref != null) {
-			const commit = await this.repository?.getCommit(ref);
+		if (sha != null) {
+			const commit = await this.repository?.getCommit(sha);
 			if (commit != null) {
 				commits = [commit];
 			}
@@ -421,14 +435,16 @@ export class GraphWebview extends WebviewBase<State> {
 		const data = await this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri,
-			{ limit: limit },
+			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
 		this._repositoryGraph = data;
+		this._selectedSha = data.sha;
 
 		return {
 			previewBanner: this.previewBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
+			selectedSha: this._selectedSha,
 			selectedVisibility: access.visibility,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
@@ -445,6 +461,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private resetRepositoryState() {
 		this._repositoryGraph = undefined;
+		this._selectedSha = undefined;
 	}
 }
 

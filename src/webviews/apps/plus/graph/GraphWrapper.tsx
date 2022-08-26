@@ -117,6 +117,7 @@ export function GraphWrapper({
 	repositories = [],
 	rows = [],
 	selectedRepository,
+	selectedSha,
 	subscription,
 	allowed,
 	config,
@@ -135,6 +136,7 @@ export function GraphWrapper({
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
 		reposList.find(item => item.path === selectedRepository),
 	);
+	const [currentSha, setSelectedSha] = useState(selectedSha);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(false);
@@ -179,6 +181,7 @@ export function GraphWrapper({
 		setGraphList(state.rows ?? []);
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
+		setSelectedSha(state.selectedSha);
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
 		setIsLoading(false);
@@ -402,6 +405,7 @@ export function GraphWrapper({
 								getExternalIcon={getIconElementLibrary}
 								graphRows={graphList}
 								height={mainHeight}
+								isSelectedBySha={currentSha ? { [currentSha]: true } : undefined}
 								hasMoreCommits={pagingState?.more}
 								isLoadingRows={isLoading}
 								nonce={nonce}

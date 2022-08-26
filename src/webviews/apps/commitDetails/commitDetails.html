@@ -43,7 +43,7 @@
 					<a
 						class="commit-details__commit-action"
 						href="#"
-						data-action="commit-actions-pin"
+						data-action="pin"
 						aria-label="Pin Commit to View"
 						title="Pin Commit to View"
 						><code-icon icon="pin" data-region="commit-pin"></code-icon
@@ -51,7 +51,8 @@
 					<a
 						class="commit-details__commit-action"
 						href="#"
-						data-action="commit-actions-sha"
+						data-action="commit-actions"
+						data-action-type="sha"
 						aria-label="Copy SHA
 [⌥] Pick Commit..."
 						title="Copy SHA
@@ -63,7 +64,17 @@
 					<a
 						class="commit-details__commit-action"
 						href="#"
-						data-action="commit-actions-more"
+						data-action="commit-actions"
+						data-action-type="graph"
+						aria-label="Show Commit on Commit Graph"
+						title="Show Commit on Commit Graph"
+						><code-icon icon="graph"></code-icon
+					></a>
+					<a
+						class="commit-details__commit-action"
+						href="#"
+						data-action="commit-actions"
+						data-action-type="more"
 						aria-label="Show Commit Actions"
 						title="Show Commit Actions"
 						><code-icon icon="kebab-vertical"></code-icon

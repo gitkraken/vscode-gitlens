@@ -9,6 +9,7 @@ import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -180,6 +181,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			case CommitActionsCommandType.method:
 				onIpc(CommitActionsCommandType, e, params => {
 					switch (params.action) {
+						case 'graph':
+							if (this._context.commit == null) return;
+
+							void executeCommand<ShowCommitInGraphCommandArgs>(Commands.ShowCommitInGraph, {
+								sha: this._context.commit.sha,
+							});
+							break;
 						case 'more':
 							this.showCommitActions();
 							break;

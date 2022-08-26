@@ -769,6 +769,20 @@ export class Git {
 		);
 	}
 
+	log2(repoPath: string, ref: string | undefined, ...args: unknown[]) {
+		const params = ['log', ...args];
+
+		if (ref && !GitRevision.isUncommittedStaged(ref)) {
+			params.push(ref);
+		}
+
+		return this.git<string>(
+			{ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'] },
+			...params,
+			'--',
+		);
+	}
+
 	log__file(
 		repoPath: string,
 		fileName: string,

@@ -2,7 +2,7 @@
 import type { Serialized } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { State } from '../../commitDetails/protocol';
+import type { CommitActionsParams, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
@@ -64,8 +64,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
-			DOM.on('[data-action="commit-actions-sha"]', 'click', e => this.onCommitShaActions(e)),
-			DOM.on('[data-action="commit-actions-more"]', 'click', e => this.onCommitMoreActions(e)),
+			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
@@ -82,7 +81,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 					$next?.focus();
 				}
 			}),
-			DOM.on('[data-action="commit-actions-pin"]', 'click', e => this.onTogglePin(e)),
+			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
@@ -173,24 +172,17 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(FileActionsCommandType, e);
 	}
 
-	private onCommitMoreActions(e: MouseEvent) {
+	private onCommitActions(e: MouseEvent) {
 		e.preventDefault();
 		if (this.state.selected === undefined) {
 			e.stopPropagation();
 			return;
 		}
 
-		this.sendCommand(CommitActionsCommandType, { action: 'more' });
-	}
+		const action = (e.target as HTMLElement)?.getAttribute('data-action-type');
+		if (action == null) return;
 
-	private onCommitShaActions(e: MouseEvent) {
-		e.preventDefault();
-		if (this.state.selected === undefined) {
-			e.stopPropagation();
-			return;
-		}
-
-		this.sendCommand(CommitActionsCommandType, { action: 'sha', alt: e.altKey });
+		this.sendCommand(CommitActionsCommandType, { action: action as CommitActionsParams['action'], alt: e.altKey });
 	}
 
 	renderCommit(state: Serialized<State>): state is CommitState {
@@ -228,7 +220,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	renderPin(state: CommitState) {
-		const $el = document.querySelector<HTMLElement>('[data-action="commit-actions-pin"]');
+		const $el = document.querySelector<HTMLElement>('[data-action="pin"]');
 		if ($el == null) {
 			return;
 		}

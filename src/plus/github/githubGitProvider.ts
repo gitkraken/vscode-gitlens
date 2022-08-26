@@ -1076,9 +1076,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		remote: GitRemote | undefined,
 		tags: GitTag[] | undefined,
 		options?: {
-			ref?: string;
-			mode?: 'single' | 'local' | 'all';
 			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
 		},
 	): Promise<GitGraph> {
 		if (log == null) {

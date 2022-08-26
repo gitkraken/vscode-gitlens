@@ -295,6 +295,7 @@ export class GitLogParser {
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,
+		hasMoreOverride?: boolean,
 	): GitLog | undefined {
 		if (!data) return undefined;
 
@@ -595,7 +596,7 @@ export class GitLogParser {
 			count: i,
 			limit: limit,
 			range: range,
-			hasMore: Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
+			hasMore: hasMoreOverride ?? Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
 		};
 		return log;
 	}

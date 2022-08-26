@@ -7,6 +7,7 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
+	selectedSha?: string;
 	selectedVisibility?: RepositoryVisibility;
 	subscription?: Subscription;
 	allowed?: boolean;

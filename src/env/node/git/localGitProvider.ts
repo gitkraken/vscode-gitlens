@@ -1609,8 +1609,75 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph> {
+		const scope = getLogScope();
+
+		let getLogForRefFn;
+		if (options?.ref != null) {
+			async function getLogForRef(this: LocalGitProvider): Promise<GitLog | undefined> {
+				let log;
+
+				const parser = GitLogParser.create<{ sha: string; date: string }>({ sha: '%H', date: '%ct' });
+				const data = await this.git.log(repoPath, options?.ref, { argsOrFormat: parser.arguments, limit: 0 });
+
+				let commit = first(parser.parse(data));
+				if (commit != null) {
+					log = await this.getLog(repoPath, {
+						all: options!.mode !== 'single',
+						ordering: 'date',
+						limit: 0,
+						extraArgs: [`--since="${Number(commit.date)}"`, '--boundary'],
+					});
+
+					let found = log?.commits.has(commit.sha) ?? false;
+					if (!found) {
+						Logger.debug(scope, `Could not find commit ${options!.ref}`);
+
+						debugger;
+					}
+
+					if (log?.more != null) {
+						const defaultItemLimit = configuration.get('graph.defaultItemLimit');
+						if (!found || log.commits.size < defaultItemLimit) {
+							Logger.debug(scope, 'Loading next page...');
+
+							log = await log.more(
+								(log.commits.size < defaultItemLimit
+									? defaultItemLimit
+									: configuration.get('graph.pageItemLimit')) ?? options?.limit,
+							);
+							// We need to clear the "pagedCommits", since we want to return the entire set
+							if (log != null) {
+								(log as Mutable<typeof log>).pagedCommits = undefined;
+							}
+
+							found = log?.commits.has(commit.sha) ?? false;
+							if (!found) {
+								Logger.debug(scope, `Still could not find commit ${options!.ref}`);
+								commit = undefined;
+
+								debugger;
+							}
+						}
+					}
+
+					if (!found) {
+						commit = undefined;
+					}
+
+					options!.ref = commit?.sha;
+				}
+				return (
+					log ??
+					this.getLog(repoPath, { all: options?.mode !== 'single', ordering: 'date', limit: options?.limit })
+				);
+			}
+
+			getLogForRefFn = getLogForRef;
+		}
+
 		const [logResult, stashResult, remotesResult] = await Promise.allSettled([
-			this.getLog(repoPath, { all: true, ordering: 'date', limit: options?.limit }),
+			getLogForRefFn?.call(this) ??
+				this.getLog(repoPath, { all: options?.mode !== 'single', ordering: 'date', limit: options?.limit }),
 			this.getStash(repoPath),
 			this.getRemotes(repoPath),
 		]);
@@ -1632,9 +1699,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		stash: GitStash | undefined,
 		remotes: GitRemote[] | undefined,
 		options?: {
-			ref?: string;
-			mode?: 'single' | 'local' | 'all';
 			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
 		},
 	): Promise<GitGraph> {
 		if (log == null) {
@@ -1763,6 +1831,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				more: log.hasMore,
 			},
 			rows: rows,
+			sha: options?.ref,
 
 			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
@@ -2256,23 +2325,79 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 			since?: number | string;
 			until?: number | string;
+			extraArgs?: string[];
 		},
 	): Promise<GitLog | undefined> {
 		const scope = getLogScope();
 
-		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-
 		try {
+			const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
+			const merges = options?.merges == null ? true : options.merges;
+			const ordering = options?.ordering ?? configuration.get('advanced.commitOrdering');
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+
+			const args = [
+				`--format=${options?.all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`,
+				'--name-status',
+				'--full-history',
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'-m',
+			];
+			if (options?.all) {
+				args.push('--all');
+			}
+			if (!merges) {
+				args.push('--first-parent');
+			}
+			if (ordering) {
+				args.push(`--${ordering}-order`);
+			}
+			if (options?.authors?.length) {
+				args.push(
+					'--use-mailmap',
+					'--author',
+					...options.authors.map(a => `--author=^${a.name} <${a.email}>$`),
+				);
+			}
+
+			let hasMoreOverride;
+
+			if (options?.since) {
+				hasMoreOverride = true;
+				args.push(`--since="${options.since}"`);
+			}
+			if (options?.until) {
+				hasMoreOverride = true;
+				args.push(`--until="${options.until}"`);
+			}
+			if (options?.extraArgs?.length) {
+				if (
+					options.extraArgs.some(
+						arg => arg.startsWith('-n') || arg.startsWith('--until=') || arg.startsWith('--since='),
+					)
+				) {
+					hasMoreOverride = true;
+				}
+				args.push(...options.extraArgs);
+			}
+
+			if (limit) {
+				hasMoreOverride = undefined;
+				args.push(`-n${limit + 1}`);
+			}
+
+			const data = await this.git.log2(repoPath, options?.ref, ...args);
+
 			// const parser = GitLogParser.defaultParser;
 
-			const data = await this.git.log(repoPath, options?.ref, {
-				...options,
-				// args: parser.arguments,
-				limit: limit,
-				merges: options?.merges == null ? true : options.merges,
-				ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
-				similarityThreshold: configuration.get('advanced.similarityThreshold'),
-			});
+			// const data = await this.git.log2(repoPath, options?.ref, {
+			// 	...options,
+			// 	// args: parser.arguments,
+			// 	limit: limit,
+			// 	merges: options?.merges == null ? true : options.merges,
+			// 	ordering: options?.ordering ?? configuration.get('advanced.commitOrdering'),
+			// 	similarityThreshold: configuration.get('advanced.similarityThreshold'),
+			// });
 
 			// const commits = [];
 			// const entries = parser.parse(data);
@@ -2311,12 +2436,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit,
 				false,
 				undefined,
+				hasMoreOverride,
 			);
 
 			if (log != null) {
 				log.query = (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit });
 				if (log.hasMore) {
-					log.more = this.getLogMoreFn(log, options);
+					let opts;
+					if (options != null) {
+						let extraArgs;
+						({ extraArgs, ...opts } = options);
+					}
+					log.more = this.getLogMoreFn(log, opts);
 				}
 			}
 
@@ -2414,11 +2545,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
 				...(timestamp
-					? { until: timestamp }
+					? {
+							until: timestamp,
+							extraArgs: ['--boundary'],
+					  }
 					: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
 			});
 			// If we can't find any more, assume we have everything
 			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+
+			if (timestamp != null && ref != null && !moreLog.commits.has(ref)) {
+				debugger;
+			}
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 

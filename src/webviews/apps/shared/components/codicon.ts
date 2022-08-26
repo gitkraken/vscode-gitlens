@@ -1500,6 +1500,10 @@ export class CodeIcon extends LitElement {
 			position: relative;
 			left: 1px;
 		}
+		:host([icon='graph']):before {
+			font-family: 'glicons';
+			content: '\\f102';
+		}
 	`;
 
 	@property()

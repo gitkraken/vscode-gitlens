@@ -45,7 +45,7 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 // COMMANDS
 
 export interface CommitActionsParams {
-	action: 'sha' | 'more';
+	action: 'graph' | 'more' | 'sha';
 	alt?: boolean;
 }
 export const CommitActionsCommandType = new IpcCommandType<CommitActionsParams>('commit/actions');

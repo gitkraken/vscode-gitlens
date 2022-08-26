@@ -163,6 +163,7 @@ export const enum Commands {
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
 	SetViewsLayout = 'gitlens.setViewsLayout',
 	ShowBranchesView = 'gitlens.showBranchesView',
+	ShowCommitInGraph = 'gitlens.showCommitInGraph',
 	ShowCommitInView = 'gitlens.showCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowCommitsView = 'gitlens.showCommitsView',
