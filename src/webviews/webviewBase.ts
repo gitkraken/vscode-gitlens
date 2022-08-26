@@ -70,7 +70,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		this._panel?.dispose();
 	}
 
-	async show(column: ViewColumn = ViewColumn.Beside, ..._args: any[]): Promise<void> {
+	async show(column: ViewColumn = ViewColumn.Beside, ..._args: unknown[]): Promise<void> {
 		void this.container.usage.track(`${this.trackingFeature}:shown`);
 
 		// Only try to open beside if there is an active tab
@@ -146,7 +146,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		this._panel = undefined;
 	}
 
-	protected onShowCommand(...args: any[]): void {
+	protected onShowCommand(...args: unknown[]): void {
 		void this.show(undefined, ...args);
 	}
 

@@ -106,7 +106,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this.onConfigurationChanged();
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Active, ...args: any[]): Promise<void> {
+	override async show(column: ViewColumn = ViewColumn.Active, ...args: unknown[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.git.repositoryCount > 1) {
