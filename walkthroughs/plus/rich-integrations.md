@@ -7,7 +7,7 @@ GitLens+ users with a paid plan can access rich integrations for self-hosted pro
 GitHub Enterprise users can see GitHub avatars for commit authors, richer details for auto-linked issues and pull requests, as well as pull requests associated with commits and branches.
 
 <p align="center">
-  <img src="../../images/docs/hovers-gitlab-integration.png" alt="Commit Hover with GitHub Rich Integration"/>
+  <img src="../../images/docs/hovers-github-integration.png" alt="Commit Hover with GitHub Rich Integration"/>
 </p>
 
 ### GitLab Self-Managed
