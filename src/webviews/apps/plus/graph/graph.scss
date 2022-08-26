@@ -364,7 +364,7 @@ a {
 	&__container {
 		display: flex;
 		flex-direction: column;
-		height: calc(100vh - 1px); // shoot me -- the 1px is to stop the vertical scrollbar from showing up
+		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
 		gap: 0;
 		padding: 0 2px;
 	}
