@@ -191,7 +191,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				sha = commitLine?.sha;
 			}
 		} else {
-			sha = first(blame.commits.values()).sha;
+			sha = first(blame.commits.values())?.sha;
 		}
 
 		if (!sha) {

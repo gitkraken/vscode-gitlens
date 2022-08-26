@@ -480,9 +480,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame === undefined) return lens;
+		if (blame == null) return lens;
 
 		const recentCommit = first(blame.commits.values());
+		if (recentCommit == null) return lens;
+
 		// TODO@eamodio This is FAR too expensive, but this accounts for commits that delete lines -- is there another way?
 		// if (lens.uri != null) {
 		// 	const commit = await this.container.git.getCommitForFile(lens.uri.repoPath, lens.uri.fsPath, {
@@ -564,11 +566,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame === undefined) return lens;
+		if (blame == null) return lens;
 
 		const count = blame.authors.size;
-
-		const author = first(blame.authors.values()).name;
+		const author = first(blame.authors.values())?.name ?? 'Unknown';
 
 		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
 		if (configuration.get('debug')) {
@@ -589,6 +590,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		const commit = find(blame.commits.values(), c => c.author.name === author) ?? first(blame.commits.values());
+		if (commit == null) return lens;
 
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.CopyRemoteCommitUrl:

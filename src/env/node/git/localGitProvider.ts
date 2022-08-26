@@ -1279,8 +1279,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (blame == null) return undefined;
 
 			return {
-				author: first(blame.authors.values()),
-				commit: first(blame.commits.values()),
+				author: first(blame.authors.values())!,
+				commit: first(blame.commits.values())!,
 				line: blame.lines[editorLine],
 			};
 		} catch {
@@ -1330,8 +1330,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (blame == null) return undefined;
 
 			return {
-				author: first(blame.authors.values()),
-				commit: first(blame.commits.values()),
+				author: first(blame.authors.values())!,
+				commit: first(blame.commits.values())!,
 				line: blame.lines[editorLine],
 			};
 		} catch {

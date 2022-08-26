@@ -107,8 +107,8 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
-	return source[Symbol.iterator]().next().value as T;
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
+	return source[Symbol.iterator]().next().value as T | undefined;
 }
 
 export function* flatMap<T, TMapped>(

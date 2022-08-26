@@ -62,7 +62,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return false;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = first(repos);
+				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(
@@ -153,7 +153,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return undefined;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = first(repos);
+				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(

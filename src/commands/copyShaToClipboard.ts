@@ -65,7 +65,8 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 					const log = await this.container.git.getLog(repoPath, { limit: 1 });
 					if (log == null) return;
 
-					args.sha = first(log.commits.values()).sha;
+					args.sha = first(log.commits.values())?.sha;
+					if (args.sha == null) return;
 				} else if (args.sha == null) {
 					const blameline = editor?.selection.active.line ?? 0;
 					if (blameline < 0) return;

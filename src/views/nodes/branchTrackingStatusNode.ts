@@ -92,7 +92,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					ref: commit.sha,
 				});
 				if (previousLog != null) {
-					commits[commits.length - 1] = first(previousLog.commits.values());
+					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
 			}
 		} else {
