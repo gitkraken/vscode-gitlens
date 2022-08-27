@@ -11,14 +11,16 @@ import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { Logger } from '../../logger';
 import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
-import { debug } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
+import { Stopwatch } from '../../system/stopwatch';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import { CommitFileNode } from '../../views/nodes/commitFileNode';
 import { CommitNode } from '../../views/nodes/commitNode';
@@ -488,9 +490,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._notifyDidChangeStateDebounced();
 	}
 
+	private _counter = 0;
+
 	@debug()
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
+
+		const scope = getLogScope();
 
 		this._notifyDidChangeStateDebounced?.cancel();
 		if (this._pendingContext == null) return false;
@@ -498,9 +504,18 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
+			this._counter++;
+
+			const sw = new Stopwatch(scope);
+
+			Logger.warn(scope, `notifyDidChangeState(${this._counter}) starting...`);
 			const success = await this.notify(DidChangeStateNotificationType, {
 				state: await this.getState(context),
 			});
+
+			sw.stop();
+
+			Logger.warn(scope, `notifyDidChangeState(${this._counter}) ended after ${sw.elapsed()}ms`);
 			if (success) {
 				this._context = context;
 				this._pendingContext = undefined;
@@ -626,10 +641,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (this._context.commit == null || this._context.commit.isUncommitted) return;
 
 		void GitActions.Commit.showDetailsQuickPick(this._context.commit);
-
-		// void executeCommand(Commands.ShowQuickCommit, {
-		// 	commit: this._context.commit,
-		// });
 	}
 
 	private async showFileActions(params: FileActionParams) {
