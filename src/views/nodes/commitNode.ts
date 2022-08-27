@@ -13,7 +13,8 @@ import type { RichRemoteProvider } from '../../git/remotes/provider';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { joinPaths, normalizePath } from '../../system/path';
-import { getSettledValue } from '../../system/promise';
+import type { Deferred } from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
@@ -74,6 +75,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			const pullRequest = this.getState('pullRequest');
 
 			let children: (PullRequestNode | FileNode)[] = [];
+			let onCompleted: Deferred<void> | undefined;
 
 			if (
 				!(this.view instanceof TagsView) &&
@@ -82,22 +84,32 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				this.view.config.pullRequests.showForCommits
 			) {
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
-					void this.getAssociatedPullRequest(commit).then(pr => {
-						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								0,
-								0,
-								new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
-							);
-						}
-						// Refresh this node to show a spinner while the pull request is loading
-						this.view.triggerNodeChange(this);
-					});
+					onCompleted = defer<void>();
 
-					// Refresh this node to show a spinner while the pull request is loading
-					queueMicrotask(() => this.view.triggerNodeChange(this));
-					return [];
+					queueMicrotask(() => {
+						void this.getAssociatedPullRequest(commit).then(pr => {
+							onCompleted?.cancel();
+
+							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+							if (pr != null && this._children != null) {
+								this._children.splice(
+									0,
+									0,
+									new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
+								);
+							}
+							// Refresh this node to show a spinner while the pull request is loading
+							this.view.triggerNodeChange(this);
+						});
+
+						// Refresh this node to show a spinner while the pull request is loading
+						void onCompleted?.promise.then(
+							() => this.view.triggerNodeChange(this),
+							() => {},
+						);
+
+						queueMicrotask(() => this.view.triggerNodeChange(this));
+					});
 				}
 			}
 
@@ -124,6 +136,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				children.splice(0, 0, new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
 			}
 
+			onCompleted?.fulfill();
 			this._children = children;
 		}
 
