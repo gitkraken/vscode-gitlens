@@ -14,7 +14,7 @@ import type { FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import type { GitCommit } from '../git/models/commit';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
@@ -758,7 +758,7 @@ export namespace GitActions {
 		}
 
 		export function showDetailsView(
-			commit: GitCommit,
+			commit: GitRevisionReference | GitCommit,
 			options?: { pin?: boolean; preserveFocus?: boolean },
 		): Promise<void> {
 			return Container.instance.commitDetailsView.show({ ...options, commit: commit });
@@ -920,6 +920,13 @@ export namespace GitActions {
 				? await view.revealStash(stash, options)
 				: await Container.instance.repositoriesView.revealStash(stash, options);
 			return node;
+		}
+
+		export function showDetailsView(
+			stash: GitStashReference | GitStashCommit,
+			options?: { pin?: boolean; preserveFocus?: boolean },
+		): Promise<void> {
+			return Container.instance.commitDetailsView.show({ ...options, commit: stash });
 		}
 	}
 

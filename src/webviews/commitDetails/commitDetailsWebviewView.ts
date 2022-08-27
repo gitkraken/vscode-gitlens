@@ -5,10 +5,12 @@ import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
+import { isCommit } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitRevisionReference } from '../../git/models/reference';
 import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
@@ -81,7 +83,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	override async show(options?: {
-		commit?: GitCommit;
+		commit?: GitRevisionReference | GitCommit;
 		pin?: boolean;
 		preserveFocus?: boolean | undefined;
 	}): Promise<void> {
@@ -90,9 +92,17 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			let pin;
 			({ commit, pin, ...options } = options);
 			if (commit == null) {
-				commit = this.getBestCommit();
+				commit = this.getBestCommitOrStash();
 			}
 			if (commit != null) {
+				if (!isCommit(commit)) {
+					if (commit.refType === 'stash') {
+						const stash = await this.container.git.getStash(commit.repoPath);
+						commit = stash?.commits.get(commit.ref);
+					} else {
+						commit = await this.container.git.getCommit(commit.repoPath, commit.ref);
+					}
+				}
 				this.updateCommit(commit, { pinned: pin ?? true });
 			}
 		}
@@ -111,7 +121,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 	protected override onInitializing(): Disposable[] | undefined {
 		if (this._context.commit == null) {
-			const commit = this.getBestCommit();
+			const commit = this.getBestCommitOrStash();
 			if (commit != null) {
 				this.updateCommit(commit, { immediate: false });
 			}
@@ -144,12 +154,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const { lineTracker, commitsView, stashesView } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
-			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
 			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
+			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
 			stashesView.onDidChangeSelection(this.onStashesViewSelectionChanged, this),
+			stashesView.onDidChangeVisibility(this.onStashesViewVisibilityChanged, this),
 		);
 
-		const commit = this.getBestCommit();
+		const commit = this.getBestCommitOrStash();
 		this.updateCommit(commit, { immediate: false });
 	}
 
@@ -238,13 +249,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		}
 	}
 
-	private onStashesViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
-		const node = e.selection?.[0];
-		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
-			this.updateCommit(node.commit);
-		}
-	}
-
 	private onCommitsViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
 		if (!e.visible) return;
 
@@ -253,6 +257,22 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			node != null &&
 			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
 		) {
+			this.updateCommit(node.commit);
+		}
+	}
+
+	private onStashesViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		const node = e.selection?.[0];
+		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
+			this.updateCommit(node.commit);
+		}
+	}
+
+	private onStashesViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		if (!e.visible) return;
+
+		const node = this.container.stashesView.activeSelection;
+		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
 			this.updateCommit(node.commit);
 		}
 	}
@@ -497,7 +517,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	// 	}
 	// }
 
-	private getBestCommit(): GitCommit | undefined {
+	private getBestCommitOrStash(): GitCommit | undefined {
 		if (this._pinned) return undefined;
 
 		let commit;
@@ -517,6 +537,14 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 					node instanceof FileRevisionAsCommitNode ||
 					node instanceof CommitFileNode)
 			) {
+				commit = node.commit;
+			}
+		}
+
+		if (commit == null) {
+			const { stashesView } = this.container;
+			const node = stashesView.activeSelection;
+			if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
 				commit = node.commit;
 			}
 		}
