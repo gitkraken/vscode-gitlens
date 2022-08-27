@@ -10,7 +10,7 @@ import type {
 import { GitActions } from '../commands/gitCommands.actions';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import type { GitStashReference } from '../git/models/reference';
@@ -775,7 +775,7 @@ export class ViewCommands {
 	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return;
 
-		const repo = await Container.instance.git.getOrOpenScmRepository(node.repoPath);
+		const repo = await this.container.git.getOrOpenScmRepository(node.repoPath);
 		const commit = await repo?.getCommit('HEAD');
 
 		if (commit?.hash !== node.ref.ref) {
@@ -1194,16 +1194,16 @@ export class ViewCommands {
 		let uri = options.revisionUri;
 		if (uri == null) {
 			if (node instanceof ResultsFileNode || node instanceof MergeConflictFileNode) {
-				uri = Container.instance.git.getRevisionUri(node.uri);
+				uri = this.container.git.getRevisionUri(node.uri);
 			} else {
 				uri =
 					node.commit.file?.status === 'D'
-						? Container.instance.git.getRevisionUri(
+						? this.container.git.getRevisionUri(
 								(await node.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
 								node.commit.file.path,
 								node.commit.repoPath,
 						  )
-						: Container.instance.git.getRevisionUri(node.uri);
+						: this.container.git.getRevisionUri(node.uri);
 			}
 		}
 

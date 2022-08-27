@@ -3,7 +3,7 @@ import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleS
 import type { CommitsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys, GlyphChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
@@ -295,7 +295,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		const branches = await Container.instance.git.getCommitBranches(commit.repoPath, commit.ref, {
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, {
 			branch: branch.name,
 			commitDate: isCommit(commit) ? commit.committer.date : undefined,
 		});

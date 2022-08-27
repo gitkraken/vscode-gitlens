@@ -2,7 +2,6 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import type { ViewShowBranchComparison } from '../../configuration';
 import { ViewBranchesLayout } from '../../configuration';
 import { Colors, GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -434,7 +433,7 @@ export class BranchNode
 			}`;
 
 			tooltip += `\n\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
-				Container.instance.BranchDateFormatting.dateFormat,
+				this.view.container.BranchDateFormatting.dateFormat,
 			)})`;
 		}
 

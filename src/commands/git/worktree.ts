@@ -1,7 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
 import {
 	WorktreeCreateError,
@@ -168,8 +168,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.worktreesView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.worktreesView,
 			showTags: false,
 			title: this.title,
 		};

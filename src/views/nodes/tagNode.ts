@@ -1,7 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
@@ -85,13 +84,13 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		})}${
 			this.tag.date != null
 				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
-						Container.instance.TagDateFormatting.dateFormat,
+						this.view.container.TagDateFormatting.dateFormat,
 				  )})`
 				: ''
 		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
-						Container.instance.TagDateFormatting.dateFormat,
+						this.view.container.TagDateFormatting.dateFormat,
 				  )})`
 				: ''
 		}`;
