@@ -54,6 +54,11 @@ export class Stopwatch {
 		}
 	}
 
+	elapsed(): number {
+		const [secs, nanosecs] = hrtime(this.time);
+		return secs * 1000 + Math.floor(nanosecs / 1000000);
+	}
+
 	log(options?: StopwatchLogOptions): void {
 		this.logCore(this.scope, options, false);
 	}
