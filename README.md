@@ -43,6 +43,7 @@ Here are just some of the **features** that GitLens provides,
   - [**changes**](#file-changes- 'Jump to File Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
   - [**heatmap**](#file-heatmap- 'Jump to File Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - many rich **Side Bar views**
+  - a [**_Commit Details_ view**](#commits-details-view- 'Jump to the Commits Details view') to provides rich details for commits and stashes
   - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
   - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
   - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
@@ -68,7 +69,7 @@ Here are just some of the **features** that GitLens provides,
 - user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
-# Introducing GitLens+ [#](#introducing-gitlens+-features- 'GitLens+ features')
+# GitLens+ [#](#gitlens+- 'GitLens+')
 
 GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links).
 
@@ -78,13 +79,13 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
 
-## Commit Graph view [#](#commit-graph-view- 'Commit Graph view')
+## Commit Graph [#](#commit-graph- 'Commit Graph')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph view" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph" />
 </p>
 
-The Commit Graph helps you easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
+The _Commit Graph_ helps you to easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
 
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
@@ -92,7 +93,7 @@ The Commit Graph helps you easily visualize branch structure and commit history.
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/visual-file-history-illustrated.png" alt="Visual File History view" />
 </p>
 
-The Visual File History view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
+The _Visual File History_ view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
 
 Authors who have contributed changes to the file are on the left y-axis to create a swim-lane of their commits over time (the x-axis). Commit are plotted as color-coded (per-author) bubbles, whose size represents the relative magnitude of the changes.
 
@@ -291,17 +292,17 @@ GitLens adds many side bar views to provide additional rich functionality. The d
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-details-view.png" alt="Commits Details view" />
 </p>
 
-The Commit Details View provides rich details for commits and stashes: author, commit ID, links to Pull Requests and Issues, autolinks, changed files, and more.
+The _Commit Details_ view provides rich details for commits and stashes: author, commit ID, links to Pull Requests and Issues, autolinks, changed files, and more.
 
 These will show contextually as you navigate:
 
 - lines in the text editor
-- commits in the [Commit Graph](#commit-graph-view-), [Visual File History](#visual-file-history-view-), or [Commits view](#commits-view-)
+- commits in the [Commit Graph](#commit-graph-), [Visual File History](#visual-file-history-view-), or [Commits view](#commits-view-)
 - stashes in the [Stashes view](#stashes-view-)
 
-Alteratively, search for or choose a commit directly from the view.
+Alteratively, you can search for or choose a commit directly from the view.
 
-**For optimal usage, we highly recommended dragging this view to the secondary sidebar.**
+**For optimal usage, we highly recommended dragging this view to the Secondary Side Bar.**
 
 ### Commits View [#](#commits-view- 'Commits view')
 

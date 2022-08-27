@@ -11567,7 +11567,7 @@
 					{
 						"id": "gitlens.plus.commitGraph",
 						"title": "Commit Graph (new)",
-						"description": "The Commit Graph helps you easily visualize branch structure and commit history.\n\n[Open Commit Graph](command:gitlens.showGraphPage)",
+						"description": "The Commit Graph helps you to easily visualize branch structure and commit history.\n\n[Open Commit Graph](command:gitlens.showGraphPage)",
 						"media": {
 							"markdown": "walkthroughs/plus/commit-graph.md"
 						}
