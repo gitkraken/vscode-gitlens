@@ -7,7 +7,6 @@ import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
-import { isStash } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { GitStatusFile } from '../../git/models/status';
@@ -47,9 +46,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
 				picked: options?.picked ?? true,
-				buttons: isStash(commit)
-					? [QuickCommandButtons.RevealInSideBar]
-					: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+				buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 			},
 			undefined,
 			undefined,
@@ -258,11 +255,11 @@ export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends C
 
 export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
-		super(item ?? '$(files) Open in Commit Details');
+		super(item ?? '$(eye) Show Details');
 	}
 
-	override execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return GitActions.Commit.showDetailsView(this.commit);
+	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.showDetailsView(this.commit, { preserveFocus: options?.preserveFocus });
 	}
 }
 

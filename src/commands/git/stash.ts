@@ -364,9 +364,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.RevealInSideBar) {
+					if (button === QuickCommandButtons.ShowDetailsView) {
+						void GitActions.Stash.showDetailsView(state.reference, {
+							pin: false,
+							preserveFocus: true,
+						});
+					} else if (button === QuickCommandButtons.RevealInSideBar) {
 						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,
@@ -423,9 +428,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.RevealInSideBar) {
+					if (button === QuickCommandButtons.ShowDetailsView) {
+						void GitActions.Stash.showDetailsView(state.reference, {
+							pin: false,
+							preserveFocus: true,
+						});
+					} else if (button === QuickCommandButtons.RevealInSideBar) {
 						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,

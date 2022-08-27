@@ -139,7 +139,10 @@ export namespace ReferencePicker {
 							} else if (GitReference.isTag(item)) {
 								void GitActions.Tag.reveal(item, { select: true, expand: true });
 							} else if (GitReference.isRevision(item)) {
-								void GitActions.Commit.reveal(item, { select: true, expand: true });
+								void GitActions.Commit.showDetailsView(item, {
+									pin: false,
+									preserveFocus: true,
+								});
 							}
 						}
 					}),

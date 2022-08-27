@@ -113,14 +113,14 @@ export namespace QuickCommandButtons {
 		tooltip: 'Open in New Window',
 	};
 
-	export const RevealInSideBar: QuickInputButton = {
+	export const ShowDetailsView: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
-		tooltip: 'Reveal in Side Bar',
+		tooltip: 'Show Details',
 	};
 
-	export const SearchInSideBar: QuickInputButton = {
+	export const RevealInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('search'),
-		tooltip: 'Search in Side Bar',
+		tooltip: 'Reveal in Side Bar',
 	};
 
 	export const ShowResultsInSideBar: QuickInputButton = {

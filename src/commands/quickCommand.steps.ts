@@ -20,7 +20,6 @@ import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
 import { RemoteResourceType } from '../git/remotes/provider';
-import { SearchPattern } from '../git/search';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -706,7 +705,7 @@ export async function* pickBranchOrTagStep<
 				} else if (GitReference.isTag(item)) {
 					void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
+					void GitActions.Commit.showDetailsView(item, { pin: false, preserveFocus: true });
 				}
 			}
 			return false;
@@ -744,7 +743,7 @@ export async function* pickBranchOrTagStep<
 			} else if (GitReference.isTag(item)) {
 				void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isRevision(item)) {
-				void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
+				void GitActions.Commit.showDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
@@ -816,7 +815,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 				} else if (GitReference.isTag(item)) {
 					void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
+					void GitActions.Commit.showDetailsView(item, { pin: false, preserveFocus: true });
 				}
 			}
 		},
@@ -859,7 +858,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			} else if (GitReference.isTag(item)) {
 				void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isRevision(item)) {
-				void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
+				void GitActions.Commit.showDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repos),
@@ -908,7 +907,7 @@ export async function* pickCommitStep<
 							picked != null &&
 								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
 							{
-								buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+								buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 								compact: true,
 								icon: true,
 							},
@@ -944,29 +943,16 @@ export async function* pickCommitStep<
 			if (CommandQuickPickItem.is(item)) return;
 
 			switch (button) {
+				case QuickCommandButtons.ShowDetailsView:
+					void GitActions.Commit.showDetailsView(item.item, { pin: false, preserveFocus: true });
+					break;
+
 				case QuickCommandButtons.RevealInSideBar:
 					void GitActions.Commit.reveal(item.item, {
 						select: true,
 						focus: false,
 						expand: true,
 					});
-					break;
-
-				case QuickCommandButtons.SearchInSideBar:
-					void Container.instance.searchAndCompareView.search(
-						state.repo.path,
-						{ pattern: SearchPattern.fromCommit(item.item.ref) },
-						{
-							label: {
-								label: `for ${GitReference.toString(item.item, { icon: false })}`,
-							},
-							reveal: {
-								select: true,
-								focus: false,
-								expand: true,
-							},
-						},
-					);
 					break;
 			}
 		},
@@ -990,29 +976,17 @@ export async function* pickCommitStep<
 			);
 
 			if (key === 'ctrl+right') {
+				void GitActions.Commit.showDetailsView(items[0].item, { pin: false, preserveFocus: true });
+			} else {
 				await GitActions.Commit.reveal(items[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
 				});
-			} else {
-				const commit = items[0].item;
-				await Container.instance.searchAndCompareView.search(
-					commit.repoPath,
-					{ pattern: SearchPattern.fromCommit(commit) },
-					{
-						label: { label: `for ${GitReference.toString(commit, { icon: false })}` },
-						reveal: {
-							select: true,
-							focus: false,
-							expand: true,
-						},
-					},
-				);
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo, {
-			buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+			buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 		}),
 	});
 	const selection: StepSelection<typeof step> = yield step;
@@ -1058,7 +1032,7 @@ export function* pickCommitsStep<
 							picked != null &&
 								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
 							{
-								buttons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+								buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 								compact: true,
 								icon: true,
 							},
@@ -1088,29 +1062,16 @@ export function* pickCommitsStep<
 		additionalButtons: [...(log?.hasMore ? [QuickCommandButtons.LoadMore] : [])],
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
+				case QuickCommandButtons.ShowDetailsView:
+					void GitActions.Commit.showDetailsView(item, { pin: false, preserveFocus: true });
+					break;
+
 				case QuickCommandButtons.RevealInSideBar:
 					void GitActions.Commit.reveal(item, {
 						select: true,
 						focus: false,
 						expand: true,
 					});
-					break;
-
-				case QuickCommandButtons.SearchInSideBar:
-					void Container.instance.searchAndCompareView.search(
-						state.repo.path,
-						{ pattern: SearchPattern.fromCommit(item.ref) },
-						{
-							label: {
-								label: `for ${GitReference.toString(item, { icon: false })}`,
-							},
-							reveal: {
-								select: true,
-								focus: false,
-								expand: true,
-							},
-						},
-					);
 					break;
 			}
 		},
@@ -1119,25 +1080,16 @@ export function* pickCommitsStep<
 			if (quickpick.activeItems.length === 0) return;
 
 			if (key === 'ctrl+right') {
+				void GitActions.Commit.showDetailsView(quickpick.activeItems[0].item, {
+					pin: false,
+					preserveFocus: true,
+				});
+			} else {
 				await GitActions.Commit.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
 				});
-			} else {
-				const commit = quickpick.activeItems[0].item;
-				await Container.instance.searchAndCompareView.search(
-					commit.repoPath,
-					{ pattern: SearchPattern.fromCommit(commit) },
-					{
-						label: { label: `for ${GitReference.toString(commit, { icon: false })}` },
-						reveal: {
-							select: true,
-							focus: false,
-							expand: true,
-						},
-					},
-				);
 			}
 		},
 	});
@@ -1342,7 +1294,7 @@ export function* pickStashStep<
 								picked != null &&
 									(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
 								{
-									buttons: [QuickCommandButtons.RevealInSideBar],
+									buttons: [QuickCommandButtons.ShowDetailsView],
 									compact: true,
 									icon: true,
 								},
@@ -1350,23 +1302,15 @@ export function* pickStashStep<
 						),
 				  ],
 		onDidClickItemButton: (_quickpick, button, { item }) => {
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Stash.reveal(item, {
-					select: true,
-					focus: false,
-					expand: true,
-				});
+			if (button === QuickCommandButtons.ShowDetailsView) {
+				void GitActions.Stash.showDetailsView(item, { pin: false, preserveFocus: true });
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			await GitActions.Stash.reveal(quickpick.activeItems[0].item, {
-				select: true,
-				focus: false,
-				expand: true,
-			});
+			await GitActions.Stash.showDetailsView(quickpick.activeItems[0].item, { pin: false, preserveFocus: true });
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
@@ -1571,41 +1515,34 @@ export async function* showCommitOrStashStep<
 			placeholder: GitReference.toString(state.reference, { capitalize: true, icon: false }),
 			ignoreFocusOut: true,
 			items: await getShowCommitOrStashStepItems(state),
-			// additionalButtons: GitReference.isStash(state.reference)
-			// 	? [QuickCommandButtons.RevealInSideBar]
-			// 	: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+			// additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 			onDidClickItemButton: (quickpick, button, _item) => {
-				if (button === QuickCommandButtons.SearchInSideBar) {
-					void Container.instance.searchAndCompareView.search(
-						state.repo.path,
-						{ pattern: SearchPattern.fromCommit(state.reference.ref) },
-						{
-							label: { label: `for ${GitReference.toString(state.reference, { icon: false })}` },
-							reveal: {
+				switch (button) {
+					case QuickCommandButtons.ShowDetailsView:
+						if (GitReference.isStash(state.reference)) {
+							void GitActions.Stash.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+						} else {
+							void GitActions.Commit.showDetailsView(state.reference, {
+								pin: false,
+								preserveFocus: true,
+							});
+						}
+						break;
+					case QuickCommandButtons.RevealInSideBar:
+						if (GitReference.isStash(state.reference)) {
+							void GitActions.Stash.reveal(state.reference, {
 								select: true,
 								focus: false,
 								expand: true,
-							},
-						},
-					);
-
-					return;
-				}
-
-				if (button === QuickCommandButtons.RevealInSideBar) {
-					if (GitReference.isStash(state.reference)) {
-						void GitActions.Stash.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
-					} else {
-						void GitActions.Commit.reveal(state.reference, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
-					}
+							});
+						} else {
+							void GitActions.Commit.reveal(state.reference, {
+								select: true,
+								focus: false,
+								expand: true,
+							});
+						}
+						break;
 				}
 			},
 			keys: ['right', 'alt+right', 'ctrl+right'],
@@ -1622,7 +1559,9 @@ export async function* showCommitOrStashStep<
 async function getShowCommitOrStashStepItems<
 	State extends PartialStepState & { repo: Repository; reference: GitCommit | GitStashCommit },
 >(state: State): Promise<CommandQuickPickItem[]> {
-	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [];
+	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
+		new CommitOpenDetailsCommandQuickPickItem(state.reference),
+	];
 
 	let unpublished: boolean | undefined;
 
@@ -1780,7 +1719,6 @@ async function getShowCommitOrStashStepItems<
 		new CommitOpenAllChangesWithWorkingCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithDiffToolCommandQuickPickItem(state.reference),
 		QuickPickSeparator.create(),
-		new CommitOpenDetailsCommandQuickPickItem(state.reference),
 		new CommitOpenFilesCommandQuickPickItem(state.reference),
 		new CommitOpenRevisionsCommandQuickPickItem(state.reference),
 	);
@@ -1860,39 +1798,31 @@ export function* showCommitOrStashFilesStep<
 			) ?? []),
 		] as (CommitFilesQuickPickItem | CommitFileQuickPickItem)[],
 		matchOnDescription: true,
-		// additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+		// additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 		onDidClickItemButton: (quickpick, button, _item) => {
-			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.instance.searchAndCompareView.search(
-					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(state.reference.ref) },
-					{
-						label: { label: `for ${GitReference.toString(state.reference, { icon: false })}` },
-						reveal: {
+			switch (button) {
+				case QuickCommandButtons.ShowDetailsView:
+					if (GitReference.isStash(state.reference)) {
+						void GitActions.Stash.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+					} else {
+						void GitActions.Commit.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+					}
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					if (GitReference.isStash(state.reference)) {
+						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							focus: false,
 							expand: true,
-						},
-					},
-				);
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (GitReference.isStash(state.reference)) {
-					void GitActions.Stash.reveal(state.reference, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
-				} else {
-					void GitActions.Commit.reveal(state.reference, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
-				}
+						});
+					} else {
+						void GitActions.Commit.reveal(state.reference, {
+							select: true,
+							focus: false,
+							expand: true,
+						});
+					}
+					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -1932,39 +1862,31 @@ export async function* showCommitOrStashFileStep<
 		ignoreFocusOut: true,
 		items: await getShowCommitOrStashFileStepItems(state),
 		matchOnDescription: true,
-		// additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+		// additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 		onDidClickItemButton: (quickpick, button, _item) => {
-			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.instance.searchAndCompareView.search(
-					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(state.reference.ref) },
-					{
-						label: { label: `for ${GitReference.toString(state.reference, { icon: false })}` },
-						reveal: {
+			switch (button) {
+				case QuickCommandButtons.ShowDetailsView:
+					if (GitReference.isStash(state.reference)) {
+						void GitActions.Stash.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+					} else {
+						void GitActions.Commit.showDetailsView(state.reference, { pin: false, preserveFocus: true });
+					}
+					break;
+				case QuickCommandButtons.RevealInSideBar:
+					if (GitReference.isStash(state.reference)) {
+						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							focus: false,
 							expand: true,
-						},
-					},
-				);
-
-				return;
-			}
-
-			if (button === QuickCommandButtons.RevealInSideBar) {
-				if (GitReference.isStash(state.reference)) {
-					void GitActions.Stash.reveal(state.reference, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
-				} else {
-					void GitActions.Commit.reveal(state.reference, {
-						select: true,
-						focus: false,
-						expand: true,
-					});
-				}
+						});
+					} else {
+						void GitActions.Commit.reveal(state.reference, {
+							select: true,
+							focus: false,
+							expand: true,
+						});
+					}
+					break;
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
@@ -1988,7 +1910,9 @@ async function getShowCommitOrStashFileStepItems<
 	const file = await state.reference.findFile(state.fileName);
 	if (file == null) return [];
 
-	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [];
+	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
+		new CommitOpenDetailsCommandQuickPickItem(state.reference),
+	];
 
 	if (isStash(state.reference)) {
 		items.push(

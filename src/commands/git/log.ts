@@ -191,7 +191,10 @@ export class LogGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void GitActions.Commit.showDetailsView(state.reference as GitCommit);
+				void GitActions.Commit.showDetailsView(state.reference as GitCommit, {
+					pin: false,
+					preserveFocus: false,
+				});
 				result = StepResult.Break;
 			} else {
 				result = yield* getSteps(
