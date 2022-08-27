@@ -78,6 +78,14 @@ GitLens+ adds all-new, completely optional, features that enhance your current G
 
 No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
 
+## Commit Graph view [#](#commit-graph-view- 'Commit Graph view')
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph view" />
+</p>
+
+The Commit Graph helps you easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
+
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
 <p align="center">
@@ -276,6 +284,24 @@ GitLens adds many side bar views to provide additional rich functionality. The d
   <img src="images/docs/views-layout-scm.png" alt="Views Layout: Source Control" />
   <img src="images/docs/views-layout-gitlens.png" alt="Views Layout: GitLens" />
 </p>
+
+### Commit Details View [#](#commit-details-view- 'Commits Details view')
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-details-view.png" alt="Commits Details view" />
+</p>
+
+The Commit Details View provides rich details for commits and stashes: author, commit ID, links to Pull Requests and Issues, autolinks, changed files, and more.
+
+These will show contextually as you navigate:
+
+- lines in the text editor
+- commits in the [Commit Graph](#commit-graph-view-), [Visual File History](#visual-file-history-view-), or [Commits view](#commits-view-)
+- stashes in the [Stashes view](#stashes-view-)
+
+Alteratively, search for or choose a commit directly from the view.
+
+**For optimal usage, we highly recommended dragging this view to the secondary sidebar.**
 
 ### Commits View [#](#commits-view- 'Commits view')
 
