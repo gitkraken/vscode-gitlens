@@ -4,7 +4,7 @@ import type { AutolinkReference } from '../../config';
 import { AutolinkType } from '../../config';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;

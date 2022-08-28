@@ -23,8 +23,9 @@ import type { GitTag, TagSortOptions } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
-import type { RemoteProviders } from './remotes/factory';
-import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
+import type { RemoteProvider } from './remotes/remoteProvider';
+import type { RemoteProviders } from './remotes/remoteProviders';
+import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { SearchPattern } from './search';
 
 export const enum GitProviderId {

@@ -18,7 +18,7 @@ import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
-import type { RichRemoteProvider } from '../../git/remotes/provider';
+import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { LogScope } from '../../logger';
 import { Logger, LogLevel } from '../../logger';
 import {

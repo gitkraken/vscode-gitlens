@@ -4,7 +4,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage } from '../messages';
 import { command, executeCommand } from '../system/command';

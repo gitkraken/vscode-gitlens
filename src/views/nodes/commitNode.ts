@@ -9,7 +9,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import type { RichRemoteProvider } from '../../git/remotes/provider';
+import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { joinPaths, normalizePath } from '../../system/path';

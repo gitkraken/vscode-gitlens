@@ -31,7 +31,7 @@ import type { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
-import type { RemoteProvider } from '../remotes/provider';
+import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
 

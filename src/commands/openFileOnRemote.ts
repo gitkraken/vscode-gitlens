@@ -7,7 +7,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
 import { GitRevision } from '../git/models/reference';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';

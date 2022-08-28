@@ -11,7 +11,7 @@ import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
-import type { RichRemoteProvider } from '../remotes/provider';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { GitFile } from './file';
 import { GitFileChange, GitFileWorkingTreeStatus } from './file';
 import type { PullRequest } from './pullRequest';

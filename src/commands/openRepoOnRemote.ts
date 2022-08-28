@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';

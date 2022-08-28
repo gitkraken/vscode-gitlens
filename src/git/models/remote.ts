@@ -3,8 +3,8 @@ import { Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
-import type { RemoteProvider } from '../remotes/provider';
-import { RichRemoteProvider } from '../remotes/provider';
+import type { RemoteProvider } from '../remotes/remoteProvider';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
 export const enum GitRemoteType {
 	Fetch = 'fetch',
@@ -82,7 +82,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
-		return RichRemoteProvider.is(this.provider);
+		return this.provider?.hasRichIntegration() ?? false;
 	}
 
 	async setAsDefault(value: boolean = true) {

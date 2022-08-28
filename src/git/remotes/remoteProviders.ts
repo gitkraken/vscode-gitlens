@@ -11,7 +11,7 @@ import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
 import { GoogleSourceRemote } from './google-source';
-import type { RemoteProvider } from './provider';
+import type { RemoteProvider } from './remoteProvider';
 
 export type RemoteProviders = {
 	custom: boolean;

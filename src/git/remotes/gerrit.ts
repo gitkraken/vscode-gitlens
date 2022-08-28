@@ -3,7 +3,7 @@ import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;

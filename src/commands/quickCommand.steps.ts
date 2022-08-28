@@ -13,13 +13,13 @@ import type { GitLog } from '../git/models/log';
 import type { GitBranchReference, GitRevisionReference, GitTagReference } from '../git/models/reference';
 import { GitReference, GitRevision } from '../git/models/reference';
 import { GitRemote } from '../git/models/remote';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Repository } from '../git/models/repository';
 import type { GitStash } from '../git/models/stash';
 import type { GitStatus } from '../git/models/status';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
-import { RemoteResourceType } from '../git/remotes/provider';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,

@@ -20,9 +20,9 @@ import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitProviderDescriptor } from '../gitProvider';
-import type { RemoteProviders } from '../remotes/factory';
-import { loadRemoteProviders } from '../remotes/factory';
-import { RichRemoteProvider } from '../remotes/provider';
+import { loadRemoteProviders } from '../remotes/remoteProviders';
+import type { RemoteProviders } from '../remotes/remoteProviders';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { SearchPattern } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
@@ -598,7 +598,7 @@ export class Repository implements Disposable {
 
 		this._remotesDisposable = Disposable.from(
 			...filterMap(await remotes, r => {
-				if (!RichRemoteProvider.is(r.provider)) return undefined;
+				if (!r.provider?.hasRichIntegration()) return undefined;
 
 				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.RemoteProviders));
 			}),

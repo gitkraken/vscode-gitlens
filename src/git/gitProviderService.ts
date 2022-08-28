@@ -18,6 +18,7 @@ import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features } from '../features';
 import { PlusFeatures } from '../features';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
@@ -66,9 +67,9 @@ import type { GitTag, TagSortOptions } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
-import type { RemoteProviders } from './remotes/factory';
-import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
 import { RichRemoteProviders } from './remotes/remoteProviderConnections';
+import type { RemoteProviders } from './remotes/remoteProviders';
+import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { SearchPattern } from './search';
 
 const maxDefaultBranchWeight = 100;
@@ -1590,7 +1591,7 @@ export class GitProviderService implements Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichApi()) return undefined;
+			if (!provider?.hasRichIntegration()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -1645,7 +1646,7 @@ export class GitProviderService implements Disposable {
 		let provider;
 		if (GitRemote.is(remoteOrProvider)) {
 			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichApi()) return undefined;
+			if (!provider?.hasRichIntegration()) return undefined;
 		} else {
 			provider = remoteOrProvider;
 		}
@@ -1880,7 +1881,11 @@ export class GitProviderService implements Disposable {
 			? repository.getRemotes(options)
 			: this.getRemotes(repoPath, options));
 
-		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider | RichRemoteProvider>[];
+		return remotes.filter(
+			(
+				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
+		);
 	}
 
 	getBestRepository(): Repository | undefined;

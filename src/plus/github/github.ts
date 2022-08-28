@@ -25,7 +25,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import { GitRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
-import type { RichRemoteProvider } from '../../git/remotes/provider';
+import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { LogScope } from '../../logger';
 import { Logger, LogLevel } from '../../logger';
 import {

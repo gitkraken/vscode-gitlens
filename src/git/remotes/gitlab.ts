@@ -17,7 +17,7 @@ import type { IssueOrPullRequest } from '../models/issue';
 import type { PullRequest, PullRequestState } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
-import { RichRemoteProvider } from './provider';
+import { RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const autolinkFullMergeRequestsRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)!(?<num>[0-9]+)\b(?!]\()/g;

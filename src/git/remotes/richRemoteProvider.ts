@@ -1,9 +1,7 @@
-import type { AuthenticationSession, AuthenticationSessionsChangeEvent, Event, MessageItem, Range } from 'vscode';
-import { authentication, env, EventEmitter, Uri, window } from 'vscode';
+import { authentication, EventEmitter, window } from 'vscode';
+import type { AuthenticationSession, AuthenticationSessionsChangeEvent, Event, MessageItem } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
@@ -12,247 +10,18 @@ import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
-import { encodeUrl } from '../../system/encoding';
 import { isPromise } from '../../system/promise';
 import type { Account } from '../models/author';
-import type { GitCommit } from '../models/commit';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest } from '../models/issue';
 import type { PullRequest, PullRequestState } from '../models/pullRequest';
-import type { RemoteProviderReference } from '../models/remoteProvider';
-import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 import { RichRemoteProviders } from './remoteProviderConnections';
-
-export const enum RemoteResourceType {
-	Branch = 'branch',
-	Branches = 'branches',
-	Commit = 'commit',
-	Comparison = 'comparison',
-	CreatePullRequest = 'createPullRequest',
-	File = 'file',
-	Repo = 'repo',
-	Revision = 'revision',
-}
-
-export type RemoteResource =
-	| {
-			type: RemoteResourceType.Branch;
-			branch: string;
-	  }
-	| {
-			type: RemoteResourceType.Branches;
-	  }
-	| {
-			type: RemoteResourceType.Commit;
-			sha: string;
-	  }
-	| {
-			type: RemoteResourceType.Comparison;
-			base: string;
-			compare: string;
-			notation?: '..' | '...';
-	  }
-	| {
-			type: RemoteResourceType.CreatePullRequest;
-			base: {
-				branch?: string;
-				remote: { path: string; url: string };
-			};
-			compare: {
-				branch: string;
-				remote: { path: string; url: string };
-			};
-	  }
-	| {
-			type: RemoteResourceType.File;
-			branchOrTag?: string;
-			fileName: string;
-			range?: Range;
-	  }
-	| {
-			type: RemoteResourceType.Repo;
-	  }
-	| {
-			type: RemoteResourceType.Revision;
-			branchOrTag?: string;
-			commit?: GitCommit;
-			fileName: string;
-			range?: Range;
-			sha?: string;
-	  };
-
-export function getNameFromRemoteResource(resource: RemoteResource) {
-	switch (resource.type) {
-		case RemoteResourceType.Branch:
-			return 'Branch';
-		case RemoteResourceType.Branches:
-			return 'Branches';
-		case RemoteResourceType.Commit:
-			return 'Commit';
-		case RemoteResourceType.Comparison:
-			return 'Comparison';
-		case RemoteResourceType.CreatePullRequest:
-			return 'Create Pull Request';
-		case RemoteResourceType.File:
-			return 'File';
-		case RemoteResourceType.Repo:
-			return 'Repository';
-		case RemoteResourceType.Revision:
-			return 'File';
-		default:
-			return '';
-	}
-}
-
-export abstract class RemoteProvider implements RemoteProviderReference {
-	readonly type: 'simple' | 'rich' = 'simple';
-	protected readonly _name: string | undefined;
-
-	constructor(
-		public readonly domain: string,
-		public readonly path: string,
-		public readonly protocol: string = 'https',
-		name?: string,
-		public readonly custom: boolean = false,
-	) {
-		this._name = name;
-	}
-
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
-		return [];
-	}
-
-	get avatarUri(): Uri | undefined {
-		return undefined;
-	}
-
-	get displayPath(): string {
-		return this.path;
-	}
-
-	get icon(): string {
-		return 'remote';
-	}
-
-	abstract get id(): string;
-	abstract get name(): string;
-
-	async copy(resource: RemoteResource): Promise<void> {
-		const url = this.url(resource);
-		if (url == null) return;
-
-		await env.clipboard.writeText(url);
-	}
-
-	hasRichApi(): this is RichRemoteProvider {
-		return RichRemoteProvider.is(this);
-	}
-
-	abstract getLocalInfoFromRemoteUri(
-		repository: Repository,
-		uri: Uri,
-		options?: { validate?: boolean },
-	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
-
-	open(resource: RemoteResource): Promise<boolean | undefined> {
-		return this.openUrl(this.url(resource));
-	}
-
-	url(resource: RemoteResource): string | undefined {
-		switch (resource.type) {
-			case RemoteResourceType.Branch:
-				return this.getUrlForBranch(resource.branch);
-			case RemoteResourceType.Branches:
-				return this.getUrlForBranches();
-			case RemoteResourceType.Commit:
-				return this.getUrlForCommit(resource.sha);
-			case RemoteResourceType.Comparison: {
-				return this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
-			}
-			case RemoteResourceType.CreatePullRequest: {
-				return this.getUrlForCreatePullRequest?.(resource.base, resource.compare);
-			}
-			case RemoteResourceType.File:
-				return this.getUrlForFile(
-					resource.fileName,
-					resource.branchOrTag != null ? resource.branchOrTag : undefined,
-					undefined,
-					resource.range,
-				);
-			case RemoteResourceType.Repo:
-				return this.getUrlForRepository();
-			case RemoteResourceType.Revision:
-				return this.getUrlForFile(
-					resource.fileName,
-					resource.branchOrTag != null ? resource.branchOrTag : undefined,
-					resource.sha != null ? resource.sha : undefined,
-					resource.range,
-				);
-			default:
-				return undefined;
-		}
-	}
-
-	protected get baseUrl(): string {
-		return `${this.protocol}://${this.domain}/${this.path}`;
-	}
-
-	protected formatName(name: string) {
-		if (this._name != null) return this._name;
-		return `${name}${this.custom ? ` (${this.domain})` : ''}`;
-	}
-
-	protected splitPath(): [string, string] {
-		const index = this.path.indexOf('/');
-		return [this.path.substring(0, index), this.path.substring(index + 1)];
-	}
-
-	protected abstract getUrlForBranch(branch: string): string;
-
-	protected abstract getUrlForBranches(): string;
-
-	protected abstract getUrlForCommit(sha: string): string;
-
-	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
-
-	protected getUrlForCreatePullRequest?(
-		base: { branch?: string; remote: { path: string; url: string } },
-		compare: { branch: string; remote: { path: string; url: string } },
-	): string | undefined;
-
-	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
-
-	protected getUrlForRepository(): string {
-		return this.baseUrl;
-	}
-
-	private async openUrl(url?: string): Promise<boolean | undefined> {
-		if (url == null) return undefined;
-
-		const uri = Uri.parse(url);
-		// Pass a string to openExternal to avoid double encoding issues: https://github.com/microsoft/vscode/issues/85930
-		if (uri.path.includes('#')) {
-			// .d.ts currently says it only supports a Uri, but it actually accepts a string too
-			return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(uri.toString());
-		}
-		return env.openExternal(uri);
-	}
-
-	protected encodeUrl(url: string): string;
-	protected encodeUrl(url: string | undefined): string | undefined;
-	protected encodeUrl(url: string | undefined): string | undefined {
-		return encodeUrl(url)?.replace(/#/g, '%23');
-	}
-}
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RichRemoteProvider extends RemoteProvider {
 	override readonly type: 'simple' | 'rich' = 'rich';
-
-	static is(provider: RemoteProvider | undefined): provider is RichRemoteProvider {
-		return provider?.type === 'rich';
-	}
 
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
@@ -269,7 +38,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	) {
 		super(domain, path, protocol, name, custom);
 
-		this.container.context.subscriptions.push(
+		container.context.subscriptions.push(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
 					this._ignoreSSLErrors.clear();
@@ -304,9 +73,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	}
 
 	get maybeConnected(): boolean | undefined {
-		if (this._session === undefined) return undefined;
-
-		return this._session !== null;
+		return this._session === undefined ? undefined : this._session !== null;
 	}
 
 	protected _session: AuthenticationSession | null | undefined;

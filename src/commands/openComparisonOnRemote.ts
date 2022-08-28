@@ -1,7 +1,7 @@
 import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { command, executeCommand } from '../system/command';
 import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';

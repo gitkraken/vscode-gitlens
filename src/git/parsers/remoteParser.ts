@@ -1,7 +1,7 @@
 import { debug } from '../../system/decorators/log';
 import type { GitRemoteType } from '../models/remote';
 import { GitRemote } from '../models/remote';
-import type { RemoteProvider } from '../remotes/provider';
+import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
 
 const emptyStr = '';
 
@@ -53,7 +53,7 @@ export class GitRemoteParser {
 	static parse(
 		data: string,
 		repoPath: string,
-		providerFactory: (url: string, domain: string, path: string) => RemoteProvider | undefined,
+		remoteProviderMatcher: ReturnType<typeof getRemoteProviderMatcher>,
 	): GitRemote[] | undefined {
 		if (!data) return undefined;
 
@@ -86,7 +86,7 @@ export class GitRemoteParser {
 			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
 			remote = groups[uniqueness];
 			if (remote === undefined) {
-				const provider = providerFactory(url, domain, path);
+				const provider = remoteProviderMatcher(url, domain, path);
 
 				remote = new GitRemote(
 					repoPath,

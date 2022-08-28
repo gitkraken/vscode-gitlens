@@ -2,7 +2,7 @@ import type { Range, Uri } from 'vscode';
 import type { RemotesUrlsConfig } from '../../configuration';
 import { interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import { RemoteProvider } from './remoteProvider';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;

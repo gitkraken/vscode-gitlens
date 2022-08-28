@@ -25,7 +25,7 @@ import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { asCommand, executeCoreCommand } from '../system/command';
 import { is, once } from '../system/function';

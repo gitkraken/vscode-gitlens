@@ -3,7 +3,7 @@ import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { AutolinkType } from '../../config';
 import type { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
