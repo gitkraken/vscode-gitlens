@@ -2,12 +2,23 @@ name: Bug report
 description: Create a report to help GitLens improve
 labels: ['potential-bug', 'triage']
 body:
+    - type: textarea
+      attributes:
+          label: Description
+          description: Please provide a concise description of what you're experiencing, what you expected to happen, and any steps to reproduce the behavior.
+          placeholder: |
+              1. In this environment...
+              2. With this config...
+              3. Run '...'
+              4. See error...
+      validations:
+          required: true
     - type: input
       id: gitlens
       attributes:
           label: GitLens Version
           description: What version of GitLens are you using?
-          placeholder: v12.0.0
+          placeholder: 12.0.0
       validations:
           required: true
     - type: textarea
@@ -25,7 +36,7 @@ body:
               V8: 10.0.139.17-electron.0
               OS: Windows_NT x64 10.0.22622
       validations:
-          required: true
+          required: false
     - type: input
       id: git
       attributes:
@@ -33,18 +44,7 @@ body:
           description: 'What version of Git are you using? Use `git --version`'
           placeholder: 'git version 2.37.0.windows.1'
       validations:
-          required: true
-    - type: textarea
-      attributes:
-          label: Description
-          description: Please provide a concise description of what you're experiencing, what you expected to happen, and any steps to reproduce the behavior.
-          placeholder: |
-              1. In this environment...
-              2. With this config...
-              3. Run '...'
-              4. See error...
-      validations:
-          required: true
+          required: false
     - type: textarea
       attributes:
           label: Logs, Screenshots, Screen Captures, etc
