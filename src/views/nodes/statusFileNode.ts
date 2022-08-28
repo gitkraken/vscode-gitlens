@@ -19,10 +19,18 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	public readonly file: GitFile;
 	public readonly repoPath: string;
 
+	private readonly _direction: 'ahead' | 'behind';
 	private readonly _hasStagedChanges: boolean;
 	private readonly _hasUnstagedChanges: boolean;
 
-	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile, commits: GitCommit[]) {
+	constructor(
+		view: ViewsWithCommits,
+		parent: ViewNode,
+		repoPath: string,
+		file: GitFile,
+		commits: GitCommit[],
+		direction: 'ahead' | 'behind' = 'ahead',
+	) {
 		let hasStagedChanges = false;
 		let hasUnstagedChanges = false;
 		let ref = undefined;
@@ -53,6 +61,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		this.file = file;
 		this.commits = commits;
 
+		this._direction = direction;
 		this._hasStagedChanges = hasStagedChanges;
 		this._hasUnstagedChanges = hasUnstagedChanges;
 	}
@@ -244,11 +253,11 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			};
 		}
 
-		const commit = this.commits[this.commits.length - 1];
+		const commit = this._direction === 'behind' ? this.commits[0] : this.commits[this.commits.length - 1];
 		const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
-				sha: `${commit.sha}^`,
+				sha: this._direction === 'behind' ? commit.sha : `${commit.sha}^`,
 				uri: GitUri.fromFile(file, this.repoPath, undefined, true),
 			},
 			rhs: {

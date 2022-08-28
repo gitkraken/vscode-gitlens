@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2167](https://github.com/gitkraken/vscode-gitlens/issues/2167) - Rollup diff between working tree and fetched remote doesn't show changes
 - Fixes [#2166](https://github.com/gitkraken/vscode-gitlens/issues/2166) - Don't always prompt for GitHub authentication on virtual repositories
 - Fixes [#2156](https://github.com/gitkraken/vscode-gitlens/issues/2156) - Reduce extension package size
 - Fixes [#2136](https://github.com/gitkraken/vscode-gitlens/issues/2136) - Search & Compare quickpick shouldn't select the mode text when opening

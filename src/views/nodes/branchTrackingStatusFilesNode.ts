@@ -89,6 +89,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 					this.repoPath,
 					files[files.length - 1],
 					files.map(s => s.commit),
+					this.direction,
 				),
 		);
 
