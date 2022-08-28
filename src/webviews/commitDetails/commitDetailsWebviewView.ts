@@ -22,7 +22,6 @@ import { debounce } from '../../system/function';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
-import { Stopwatch } from '../../system/stopwatch';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import { CommitFileNode } from '../../views/nodes/commitFileNode';
 import { CommitNode } from '../../views/nodes/commitNode';
@@ -475,7 +474,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
-	@debug()
 	private updateState(immediate: boolean = false) {
 		if (!this.isReady || !this.visible) return;
 
@@ -491,9 +489,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._notifyDidChangeStateDebounced();
 	}
 
-	private _counter = 0;
-
-	@debug()
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
 
@@ -505,11 +500,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
-			this._counter++;
-
-			const sw = new Stopwatch(scope);
-
-			Logger.warn(scope, `(${this._counter}) starting...`);
 			try {
 				const success = await this.notify(DidChangeStateNotificationType, {
 					state: await this.getState(context),
@@ -522,10 +512,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				Logger.error(scope, ex);
 				debugger;
 			}
-
-			sw.stop();
-
-			Logger.warn(scope, `(${this._counter}) completed after ${sw.elapsed()} ms`);
 		});
 	}
 

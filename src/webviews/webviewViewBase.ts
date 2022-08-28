@@ -12,10 +12,12 @@ import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
-import { getLogScope, log } from '../system/decorators/log';
+import { debug, getLogScope, log, logName } from '../system/decorators/log';
+import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
+import type { WebviewBase } from './webviewBase';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -30,6 +32,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
+@logName<WebviewViewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewViewBase<State, SerializedState = State> implements WebviewViewProvider, Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
@@ -100,6 +103,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
 
+	@debug({ args: false })
 	async resolveWebviewView(
 		webviewView: WebviewView,
 		_context: WebviewViewResolveContext,
@@ -127,6 +131,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		this.onVisibilityChanged?.(true);
 	}
 
+	@debug()
 	protected async refresh(): Promise<void> {
 		if (this._view == null) return;
 
@@ -154,10 +159,11 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		this.onWindowFocusChanged?.(e.focused);
 	}
 
+	@debug<WebviewViewBase<State>['onMessageReceivedCore']>({
+		args: { 0: e => (e != null ? `${e.id}: method=${e.method}` : '<undefined>') },
+	})
 	private onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
-
-		Logger.debug(`WebviewView(${this.id}).onMessageReceived: method=${e.method}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:
@@ -241,9 +247,15 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
 	}
 
+	@serialize()
+	@debug<WebviewBase<State>['postMessage']>({ args: { 0: m => `(id=${m.id}, method=${m.method})` } })
 	protected postMessage(message: IpcMessage) {
 		if (this._view == null) return Promise.resolve(false);
 
-		return this._view.webview.postMessage(message);
+		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
+		return Promise.race<boolean>([
+			this._view.webview.postMessage(message),
+			new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000)),
+		]);
 	}
 }

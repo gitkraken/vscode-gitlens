@@ -5,6 +5,8 @@ import type { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { executeCommand, registerCommand } from '../system/command';
+import { debug, log, logName } from '../system/decorators/log';
+import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
@@ -22,6 +24,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
+@logName<WebviewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewBase<State> implements Disposable {
 	protected readonly disposables: Disposable[] = [];
 	protected isReady: boolean = false;
@@ -66,10 +69,12 @@ export abstract class WebviewBase<State> implements Disposable {
 		return this._panel?.visible ?? false;
 	}
 
+	@log()
 	hide() {
 		this._panel?.dispose();
 	}
 
+	@log({ args: false })
 	async show(column: ViewColumn = ViewColumn.Beside, ..._args: unknown[]): Promise<void> {
 		void this.container.usage.track(`${this.trackingFeature}:shown`);
 
@@ -126,6 +131,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
 
+	@debug()
 	protected async refresh(force?: boolean): Promise<void> {
 		if (this._panel == null) return;
 
@@ -159,10 +165,11 @@ export abstract class WebviewBase<State> implements Disposable {
 		this.onFocusChanged?.(e.webviewPanel.active);
 	}
 
+	@debug<WebviewBase<State>['onMessageReceivedCore']>({
+		args: { 0: e => (e != null ? `${e.id}: method=${e.method}` : '<undefined>') },
+	})
 	protected onMessageReceivedCore(e: IpcMessage) {
 		if (e == null) return;
-
-		Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
 
 		switch (e.method) {
 			case WebviewReadyCommandType.method:
@@ -245,10 +252,15 @@ export abstract class WebviewBase<State> implements Disposable {
 		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
 	}
 
-	private postMessage(message: IpcMessage) {
+	@serialize()
+	@debug<WebviewBase<State>['postMessage']>({ args: { 0: m => `(id=${m.id}, method=${m.method})` } })
+	private postMessage(message: IpcMessage): Promise<boolean> {
 		if (this._panel == null) return Promise.resolve(false);
 
-		Logger.debug(`Webview(${this.id}).postMessage: method=${message.method}`);
-		return this._panel.webview.postMessage(message);
+		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
+		return Promise.race<boolean>([
+			this._panel.webview.postMessage(message),
+			new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000)),
+		]);
 	}
 }
