@@ -5,7 +5,7 @@ import { isWeb } from '@env/platform';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { configuration } from '../../configuration';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
@@ -21,6 +21,7 @@ import type { IssueOrPullRequest } from '../models/issue';
 import type { PullRequest, PullRequestState } from '../models/pullRequest';
 import type { RemoteProviderReference } from '../models/remoteProvider';
 import type { Repository } from '../models/repository';
+import { RichRemoteProviders } from './remoteProviderConnections';
 
 export const enum RemoteResourceType {
 	Branch = 'branch',
@@ -244,28 +245,6 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	}
 }
 
-const _connectedCache = new Set<string>();
-const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
-function fireAuthenticationChanged(key: string, reason: 'connected' | 'disconnected') {
-	// Only fire events if the key is being connected for the first time (we could probably do the same for disconnected, but better safe on those imo)
-	if (_connectedCache.has(key)) {
-		if (reason === 'connected') return;
-
-		_connectedCache.delete(key);
-	} else if (reason === 'connected') {
-		_connectedCache.add(key);
-	}
-
-	_onDidChangeAuthentication.fire({ key: key, reason: reason });
-}
-
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class Authentication {
-	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
-		return _onDidChangeAuthentication.event;
-	}
-}
-
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RichRemoteProvider extends RemoteProvider {
@@ -280,17 +259,24 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this._onDidChange.event;
 	}
 
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
+	constructor(
+		protected readonly container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom?: boolean,
+	) {
 		super(domain, path, protocol, name, custom);
 
-		Container.instance.context.subscriptions.push(
+		this.container.context.subscriptions.push(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
 					this._ignoreSSLErrors.clear();
 				}
 			}),
 			// TODO@eamodio revisit how connections are linked or not
-			Authentication.onDidChange(e => {
+			RichRemoteProviders.onDidChangeConnectionState(e => {
 				if (e.key !== this.key) return;
 
 				if (e.reason === 'disconnected') {
@@ -354,8 +340,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		const connected = this._session != null;
 
-		const container = Container.instance;
-
 		if (connected && !options?.silent) {
 			if (options?.currentSessionOnly) {
 				void showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(this.name);
@@ -365,7 +349,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				const cancel = { title: 'Cancel', isCloseAffordance: true };
 
 				let result: MessageItem | undefined;
-				if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+				if (this.container.integrationAuthentication.hasProvider(this.authProvider.id)) {
 					result = await window.showWarningMessage(
 						`Are you sure you want to disable the rich integration with ${this.name}?\n\nNote: signing out clears the saved authentication.`,
 						{ modal: true },
@@ -384,7 +368,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 				if (result == null || result === cancel) return;
 				if (result === signout) {
-					void container.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
+					void this.container.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
 				}
 			}
 		}
@@ -396,12 +380,12 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (connected) {
 			// Don't store the disconnected flag if this only for this current VS Code session (will be re-connected on next restart)
 			if (!options?.currentSessionOnly) {
-				void container.storage.storeWorkspace(this.connectedKey, false);
+				void this.container.storage.storeWorkspace(this.connectedKey, false);
 			}
 
 			this._onDidChange.fire();
 			if (!options?.silent && !options?.currentSessionOnly) {
-				fireAuthenticationChanged(this.key, 'disconnected');
+				RichRemoteProviders.disconnected(this.key);
 			}
 		}
 	}
@@ -663,18 +647,16 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (this._session != null) return this._session;
 		if (!configuration.get('integrations.enabled')) return undefined;
 
-		const { instance: container } = Container;
-
 		if (createIfNeeded) {
-			await container.storage.deleteWorkspace(this.connectedKey);
-		} else if (container.storage.getWorkspace(this.connectedKey) === false) {
+			await this.container.storage.deleteWorkspace(this.connectedKey);
+		} else if (this.container.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
 		}
 
 		let session: AuthenticationSession | undefined | null;
 		try {
-			if (container.integrationAuthentication.hasProvider(this.authProvider.id)) {
-				session = await container.integrationAuthentication.getSession(
+			if (this.container.integrationAuthentication.hasProvider(this.authProvider.id)) {
+				session = await this.container.integrationAuthentication.getSession(
 					this.authProvider.id,
 					this.authProviderDescriptor,
 					{ createIfNeeded: createIfNeeded, forceNewSession: forceNewSession },
@@ -689,7 +671,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				);
 			}
 		} catch (ex) {
-			await container.storage.deleteWorkspace(this.connectedKey);
+			await this.container.storage.deleteWorkspace(this.connectedKey);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -699,18 +681,18 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await container.storage.deleteWorkspace(this.connectedKey);
+			await this.container.storage.deleteWorkspace(this.connectedKey);
 		}
 
 		this._session = session ?? null;
 		this.resetRequestExceptionCount();
 
 		if (session != null) {
-			await container.storage.storeWorkspace(this.connectedKey, true);
+			await this.container.storage.storeWorkspace(this.connectedKey, true);
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				fireAuthenticationChanged(this.key, 'connected');
+				RichRemoteProviders.connected(this.key);
 			});
 		}
 

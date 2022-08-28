@@ -3,7 +3,7 @@ import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { AutolinkType } from '../../config';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
@@ -31,8 +31,15 @@ export class GitLabRemote extends RichRemoteProvider {
 		return authProvider;
 	}
 
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(
+		container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
+		super(container, domain, path, protocol, name, custom);
 	}
 
 	get apiBaseUrl() {
@@ -139,12 +146,11 @@ export class GitLabRemote extends RichRemoteProvider {
 	@log()
 	override async connect(): Promise<boolean> {
 		if (!equalsIgnoreCase(this.domain, 'gitlab.com')) {
-			const container = Container.instance;
 			const title =
 				'Connecting to a GitLab self-managed instance for rich integration features requires a paid GitLens+ account.';
 
 			while (true) {
-				const subscription = await container.subscription.getSubscription();
+				const subscription = await this.container.subscription.getSubscription();
 				if (subscription.account?.verified === false) {
 					const resend = { title: 'Resend Verification' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
@@ -156,7 +162,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					);
 
 					if (result === resend) {
-						if (await container.subscription.resendVerification()) {
+						if (await this.container.subscription.resendVerification()) {
 							continue;
 						}
 					}
@@ -179,7 +185,7 @@ export class GitLabRemote extends RichRemoteProvider {
 
 					if (result !== startTrial) return false;
 
-					void container.subscription.startPreviewTrial();
+					void this.container.subscription.startPreviewTrial();
 					break;
 				} else if (subscription.account == null) {
 					const signIn = { title: 'Sign In to GitLens+' };
@@ -192,7 +198,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					);
 
 					if (result === signIn) {
-						if (await container.subscription.loginOrSignUp()) {
+						if (await this.container.subscription.loginOrSignUp()) {
 							continue;
 						}
 					}
@@ -207,7 +213,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					);
 
 					if (result === upgrade) {
-						void container.subscription.purchase();
+						void this.container.subscription.purchase();
 					}
 				}
 
@@ -324,7 +330,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
+		return (await this.container.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -338,7 +344,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
+		return (await this.container.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -348,7 +354,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
+		return (await this.container.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -358,7 +364,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
+		return (await this.container.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -376,7 +382,7 @@ export class GitLabRemote extends RichRemoteProvider {
 
 		const GitLabMergeRequest = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
 			.GitLabMergeRequest;
-		return (await Container.instance.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
+		return (await this.container.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitLabMergeRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
@@ -388,7 +394,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
+		return (await this.container.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}

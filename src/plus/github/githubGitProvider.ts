@@ -61,7 +61,7 @@ import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
 import type { RemoteProviders } from '../../git/remotes/factory';
-import { RemoteProviderFactory } from '../../git/remotes/factory';
+import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
 import { SearchPattern } from '../../git/search';
 import type { LogScope } from '../../logger';
@@ -2303,7 +2303,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
 		if (repoPath == null) return [];
 
-		const providers = options?.providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
+		const providers = options?.providers ?? loadRemoteProviders(configuration.get('remotes', null));
 
 		const uri = Uri.parse(repoPath, true);
 		const [, owner, repo] = uri.path.split('/', 3);
@@ -2320,7 +2320,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				'https',
 				domain,
 				path,
-				RemoteProviderFactory.factory(providers)(url, domain, path),
+				getRemoteProviderMatcher(this.container, providers)(url, domain, path),
 				[
 					{ type: GitRemoteType.Fetch, url: url },
 					{ type: GitRemoteType.Push, url: url },

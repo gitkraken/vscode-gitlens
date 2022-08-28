@@ -12,7 +12,7 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
-import { Authentication } from '../git/remotes/provider';
+import { RichRemoteProviders } from '../git/remotes/remoteProviderConnections';
 import type { LogScope } from '../logger';
 import { Logger } from '../logger';
 import { debug, getLogScope, log } from '../system/decorators/log';
@@ -44,7 +44,7 @@ export class LineAnnotationController implements Disposable {
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
-			Authentication.onDidChange(() => void this.refresh(window.activeTextEditor)),
+			RichRemoteProviders.onDidChangeConnectionState(() => void this.refresh(window.activeTextEditor)),
 		);
 	}
 

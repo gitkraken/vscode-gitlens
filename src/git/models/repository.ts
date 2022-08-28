@@ -21,7 +21,7 @@ import { basename, normalizePath } from '../../system/path';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitProviderDescriptor } from '../gitProvider';
 import type { RemoteProviders } from '../remotes/factory';
-import { RemoteProviderFactory } from '../remotes/factory';
+import { loadRemoteProviders } from '../remotes/factory';
 import { RichRemoteProvider } from '../remotes/provider';
 import type { SearchPattern } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
@@ -284,9 +284,7 @@ export class Repository implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'remotes', this.folder?.uri)) {
-			this._providers = RemoteProviderFactory.loadProviders(
-				configuration.get('remotes', this.folder?.uri ?? null),
-			);
+			this._providers = loadRemoteProviders(configuration.get('remotes', this.folder?.uri ?? null));
 
 			if (e != null) {
 				this.resetCaches('remotes');
@@ -577,7 +575,7 @@ export class Repository implements Disposable {
 		if (this._remotes == null) {
 			if (this._providers == null) {
 				const remotesCfg = configuration.get('remotes', this.folder?.uri ?? null);
-				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
+				this._providers = loadRemoteProviders(remotesCfg);
 			}
 
 			// Since we are caching the results, always sort

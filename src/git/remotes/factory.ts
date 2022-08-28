@@ -1,5 +1,6 @@
 import type { RemotesConfig } from '../../configuration';
 import { CustomRemoteType } from '../../configuration';
+import type { Container } from '../../container';
 import { Logger } from '../../logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
@@ -12,156 +13,165 @@ import { GitLabRemote } from './gitlab';
 import { GoogleSourceRemote } from './google-source';
 import type { RemoteProvider } from './provider';
 
-// export { RemoteProvider, RichRemoteProvider };
 export type RemoteProviders = {
 	custom: boolean;
 	matcher: string | RegExp;
-	creator: (domain: string, path: string) => RemoteProvider;
+	creator: (container: Container, domain: string, path: string) => RemoteProvider;
 }[];
 
 const builtInProviders: RemoteProviders = [
 	{
 		custom: false,
 		matcher: 'bitbucket.org',
-		creator: (domain: string, path: string) => new BitbucketRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new BitbucketRemote(domain, path),
 	},
 	{
 		custom: false,
 		matcher: 'github.com',
-		creator: (domain: string, path: string) => new GitHubRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitHubRemote(container, domain, path),
 	},
 	{
 		custom: false,
 		matcher: 'gitlab.com',
-		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
 	},
 	{
 		custom: false,
 		matcher: /\bdev\.azure\.com$/i,
-		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new AzureDevOpsRemote(domain, path),
 	},
 	{
 		custom: true,
 		matcher: /^(.+\/(?:bitbucket|stash))\/scm\/(.+)$/i,
-		creator: (domain: string, path: string) => new BitbucketServerRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new BitbucketServerRemote(domain, path),
 	},
 	{
 		custom: false,
 		matcher: /\bgitlab\b/i,
-		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+		creator: (container: Container, domain: string, path: string) => new GitLabRemote(container, domain, path),
 	},
 	{
 		custom: false,
 		matcher: /\bvisualstudio\.com$/i,
-		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
+		creator: (_container: Container, domain: string, path: string) =>
+			new AzureDevOpsRemote(domain, path, undefined, undefined, true),
 	},
 	{
 		custom: false,
 		matcher: /\bgitea\b/i,
-		creator: (domain: string, path: string) => new GiteaRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new GiteaRemote(domain, path),
 	},
 	{
 		custom: false,
 		matcher: /\bgerrithub\.io$/i,
-		creator: (domain: string, path: string) => new GerritRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new GerritRemote(domain, path),
 	},
 	{
 		custom: false,
 		matcher: /\bgooglesource\.com$/i,
-		creator: (domain: string, path: string) => new GoogleSourceRemote(domain, path),
+		creator: (_container: Container, domain: string, path: string) => new GoogleSourceRemote(domain, path),
 	},
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class RemoteProviderFactory {
-	static factory(
-		providers: RemoteProviders,
-	): (url: string, domain: string, path: string) => RemoteProvider | undefined {
-		return (url: string, domain: string, path: string) => this.create(providers, url, domain, path);
-	}
+export function loadRemoteProviders(cfg: RemotesConfig[] | null | undefined): RemoteProviders {
+	const providers: RemoteProviders = [];
 
-	static create(providers: RemoteProviders, url: string, domain: string, path: string): RemoteProvider | undefined {
-		try {
-			const key = domain.toLowerCase();
-			for (const { custom, matcher, creator } of providers) {
-				if (typeof matcher === 'string') {
-					if (matcher === key) return creator(domain, path);
+	if (cfg?.length) {
+		for (const rc of cfg) {
+			const providerCreator = getCustomProviderCreator(rc);
+			if (providerCreator == null) continue;
 
-					continue;
-				}
-
-				if (matcher.test(key)) return creator(domain, path);
-				if (!custom) continue;
-
-				const match = matcher.exec(url);
-				if (match != null) {
-					return creator(match[1], match[2]);
-				}
+			let matcher: string | RegExp | undefined;
+			try {
+				matcher = rc.regex ? new RegExp(rc.regex, 'i') : rc.domain?.toLowerCase();
+				if (matcher == null) throw new Error('No matcher found');
+			} catch (ex) {
+				Logger.error(ex, `Loading remote provider '${rc.name ?? ''}' failed`);
 			}
 
-			return undefined;
-		} catch (ex) {
-			Logger.error(ex, 'RemoteProviderFactory');
-			return undefined;
+			providers.push({
+				custom: true,
+				matcher: matcher!,
+				creator: providerCreator,
+			});
 		}
 	}
 
-	static loadProviders(cfg: RemotesConfig[] | null | undefined): RemoteProviders {
-		const providers: RemoteProviders = [];
+	providers.push(...builtInProviders);
 
-		if (cfg != null && cfg.length > 0) {
-			for (const rc of cfg) {
-				const provider = this.getCustomProvider(rc);
-				if (provider == null) continue;
+	return providers;
+}
 
-				let matcher: string | RegExp | undefined;
-				try {
-					matcher = rc.regex ? new RegExp(rc.regex, 'i') : rc.domain?.toLowerCase();
-					if (matcher == null) throw new Error('No matcher found');
-				} catch (ex) {
-					Logger.error(ex, `Loading remote provider '${rc.name ?? ''}' failed`);
-				}
+function getCustomProviderCreator(cfg: RemotesConfig) {
+	switch (cfg.type) {
+		case CustomRemoteType.AzureDevOps:
+			return (_container: Container, domain: string, path: string) =>
+				new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.Bitbucket:
+			return (_container: Container, domain: string, path: string) =>
+				new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.BitbucketServer:
+			return (_container: Container, domain: string, path: string) =>
+				new BitbucketServerRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.Custom:
+			return (_container: Container, domain: string, path: string) =>
+				new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
+		case CustomRemoteType.Gerrit:
+			return (_container: Container, domain: string, path: string) =>
+				new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.GoogleSource:
+			return (_container: Container, domain: string, path: string) =>
+				new GoogleSourceRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.Gitea:
+			return (_container: Container, domain: string, path: string) =>
+				new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.GitHub:
+			return (container: Container, domain: string, path: string) =>
+				new GitHubRemote(container, domain, path, cfg.protocol, cfg.name, true);
+		case CustomRemoteType.GitLab:
+			return (container: Container, domain: string, path: string) =>
+				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);
+		default:
+			return undefined;
+	}
+}
 
-				providers.push({
-					custom: true,
-					matcher: matcher!,
-					creator: provider,
-				});
+export function getRemoteProviderMatcher(
+	container: Container,
+	providers: RemoteProviders,
+): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+	return (url: string, domain: string, path: string) =>
+		createBestRemoteProvider(container, providers, url, domain, path);
+}
+
+function createBestRemoteProvider(
+	container: Container,
+	providers: RemoteProviders,
+	url: string,
+	domain: string,
+	path: string,
+): RemoteProvider | undefined {
+	try {
+		const key = domain.toLowerCase();
+		for (const { custom, matcher, creator } of providers) {
+			if (typeof matcher === 'string') {
+				if (matcher === key) return creator(container, domain, path);
+
+				continue;
+			}
+
+			if (matcher.test(key)) return creator(container, domain, path);
+			if (!custom) continue;
+
+			const match = matcher.exec(url);
+			if (match != null) {
+				return creator(container, match[1], match[2]);
 			}
 		}
 
-		providers.push(...builtInProviders);
-
-		return providers;
-	}
-
-	private static getCustomProvider(cfg: RemotesConfig) {
-		switch (cfg.type) {
-			case CustomRemoteType.AzureDevOps:
-				return (domain: string, path: string) =>
-					new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.Bitbucket:
-				return (domain: string, path: string) =>
-					new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.BitbucketServer:
-				return (domain: string, path: string) =>
-					new BitbucketServerRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.Custom:
-				return (domain: string, path: string) =>
-					new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
-			case CustomRemoteType.Gerrit:
-				return (domain: string, path: string) => new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.GoogleSource:
-				return (domain: string, path: string) =>
-					new GoogleSourceRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.Gitea:
-				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.GitHub:
-				return (domain: string, path: string) => new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
-			case CustomRemoteType.GitLab:
-				return (domain: string, path: string) => new GitLabRemote(domain, path, cfg.protocol, cfg.name, true);
-			default:
-				return undefined;
-		}
+		return undefined;
+	} catch (ex) {
+		Logger.error(ex, 'createRemoteProvider');
+		return undefined;
 	}
 }

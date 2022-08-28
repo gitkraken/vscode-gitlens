@@ -68,7 +68,7 @@ import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
 import type { RemoteProviders } from './remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from './remotes/provider';
-import { Authentication } from './remotes/provider';
+import { RichRemoteProviders } from './remotes/remoteProviderConnections';
 import type { SearchPattern } from './search';
 
 const maxDefaultBranchWeight = 100;
@@ -154,7 +154,7 @@ export class GitProviderService implements Disposable {
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			Authentication.onDidChange(e => {
+			RichRemoteProviders.onDidChangeConnectionState(e => {
 				if (e.reason === 'connected') {
 					resetAvatarCache('failed');
 				}

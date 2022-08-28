@@ -93,7 +93,7 @@ import { GitTagParser } from '../../../git/parsers/tagParser';
 import { GitTreeParser } from '../../../git/parsers/treeParser';
 import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
 import type { RemoteProviders } from '../../../git/remotes/factory';
-import { RemoteProviderFactory } from '../../../git/remotes/factory';
+import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/factory';
 import type { RemoteProvider, RichRemoteProvider } from '../../../git/remotes/provider';
 import { RemoteResourceType } from '../../../git/remotes/provider';
 import { SearchPattern } from '../../../git/search';
@@ -3634,11 +3634,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
 		if (repoPath == null) return [];
 
-		const providers = options?.providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
+		const providers = options?.providers ?? loadRemoteProviders(configuration.get('remotes', null));
 
 		try {
 			const data = await this.git.remote(repoPath);
-			const remotes = GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
+			const remotes = GitRemoteParser.parse(data, repoPath, getRemoteProviderMatcher(this.container, providers));
 			if (remotes == null) return [];
 
 			if (options?.sort) {

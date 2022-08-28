@@ -2,7 +2,7 @@ import type { AuthenticationSession, Range } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
@@ -28,8 +28,15 @@ export class GitHubRemote extends RichRemoteProvider {
 		return equalsIgnoreCase(this.domain, 'github.com') ? authProvider : enterpriseAuthProvider;
 	}
 
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(
+		container: Container,
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+	) {
+		super(container, domain, path, protocol, name, custom);
 	}
 
 	get apiBaseUrl() {
@@ -109,12 +116,11 @@ export class GitHubRemote extends RichRemoteProvider {
 	@log()
 	override async connect(): Promise<boolean> {
 		if (!equalsIgnoreCase(this.domain, 'github.com')) {
-			const container = Container.instance;
 			const title =
 				'Connecting to a GitHub Enterprise instance for rich integration features requires a paid GitLens+ account.';
 
 			while (true) {
-				const subscription = await container.subscription.getSubscription();
+				const subscription = await this.container.subscription.getSubscription();
 				if (subscription.account?.verified === false) {
 					const resend = { title: 'Resend Verification' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
@@ -126,7 +132,7 @@ export class GitHubRemote extends RichRemoteProvider {
 					);
 
 					if (result === resend) {
-						if (await container.subscription.resendVerification()) {
+						if (await this.container.subscription.resendVerification()) {
 							continue;
 						}
 					}
@@ -149,7 +155,7 @@ export class GitHubRemote extends RichRemoteProvider {
 
 					if (result !== startTrial) return false;
 
-					void container.subscription.startPreviewTrial();
+					void this.container.subscription.startPreviewTrial();
 					break;
 				} else if (subscription.account == null) {
 					const signIn = { title: 'Sign In to GitLens+' };
@@ -162,7 +168,7 @@ export class GitHubRemote extends RichRemoteProvider {
 					);
 
 					if (result === signIn) {
-						if (await container.subscription.loginOrSignUp()) {
+						if (await this.container.subscription.loginOrSignUp()) {
 							continue;
 						}
 					}
@@ -177,7 +183,7 @@ export class GitHubRemote extends RichRemoteProvider {
 					);
 
 					if (result === upgrade) {
-						void container.subscription.purchase();
+						void this.container.subscription.purchase();
 					}
 				}
 
@@ -306,7 +312,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
+		return (await this.container.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -320,7 +326,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
+		return (await this.container.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -330,7 +336,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.github)?.getDefaultBranch(this, accessToken, owner, repo, {
+		return (await this.container.github)?.getDefaultBranch(this, accessToken, owner, repo, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -340,7 +346,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
+		return (await this.container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -358,7 +364,7 @@ export class GitHubRemote extends RichRemoteProvider {
 
 		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
 			.GitHubPullRequest;
-		return (await Container.instance.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
+		return (await this.container.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
@@ -370,7 +376,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.instance.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
+		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
