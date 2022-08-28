@@ -10,6 +10,7 @@ import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
+import { toPullRequestShape } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
@@ -306,7 +307,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				const cancellation = this._cancellationTokenSource.token;
 				setTimeout(() => {
 					if (cancellation.isCancellationRequested) return;
-					void this.updateRichState(cancellation);
+					void this.updateRichState(current, cancellation);
 				}, 100);
 			}
 		}
@@ -320,15 +321,14 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			preferences: current.preferences,
 			selected: details,
 			autolinkedIssues: current.autolinkedIssues,
-			pullRequest: current.pullRequest,
-
+			pullRequest: current.pullRequest != null ? toPullRequestShape(current.pullRequest) : undefined,
 			dateFormat: dateFormat,
 		});
 		return state;
 	}
 
-	private async updateRichState(cancellation: CancellationToken): Promise<void> {
-		const commit = this._context.commit;
+	private async updateRichState(current: Context, cancellation: CancellationToken): Promise<void> {
+		const commit = current.commit;
 		if (commit == null) return;
 
 		const remotes = await this.container.git.getRemotesWithProviders(commit.repoPath, { sort: true });
@@ -508,18 +508,23 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 			const sw = new Stopwatch(scope);
 
-			Logger.warn(scope, `notifyDidChangeState(${this._counter}) starting...`);
-			const success = await this.notify(DidChangeStateNotificationType, {
-				state: await this.getState(context),
-			});
+			Logger.warn(scope, `(${this._counter}) starting...`);
+			try {
+				const success = await this.notify(DidChangeStateNotificationType, {
+					state: await this.getState(context),
+				});
+				if (success) {
+					this._context = context;
+					this._pendingContext = undefined;
+				}
+			} catch (ex) {
+				Logger.error(scope, ex);
+				debugger;
+			}
 
 			sw.stop();
 
-			Logger.warn(scope, `notifyDidChangeState(${this._counter}) ended after ${sw.elapsed()}ms`);
-			if (success) {
-				this._context = context;
-				this._pendingContext = undefined;
-			}
+			Logger.warn(scope, `(${this._counter}) completed after ${sw.elapsed()} ms`);
 		});
 	}
 

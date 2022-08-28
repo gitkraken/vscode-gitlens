@@ -24,6 +24,32 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly mergedDate?: Date;
 }
 
+export function toPullRequestShape(value: PullRequest): PullRequestShape {
+	const shape: PullRequestShape = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+		author: {
+			name: value.author.name,
+			avatarUrl: value.author.avatarUrl,
+			url: value.author.url,
+		},
+		state: value.state,
+		mergedDate: value.mergedDate,
+	};
+	return shape;
+}
+
 export class PullRequest implements PullRequestShape {
 	static is(pr: any): pr is PullRequest {
 		return pr instanceof PullRequest;

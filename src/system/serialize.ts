@@ -9,9 +9,19 @@ export type Serialized<T> = T extends Function
 	: T;
 
 export function serialize<T extends object>(obj: T): Serialized<T> {
-	function replacer(this: any, key: string, value: unknown) {
-		const original = this[key];
-		return original instanceof Date ? original.getTime() : value;
+	try {
+		function replacer(this: any, key: string, value: unknown) {
+			if (value instanceof Date) return value.getTime();
+			if (value instanceof Map || value instanceof Set) return [...value.entries()];
+			if (value instanceof Function || value instanceof Error) return undefined;
+			if (value instanceof RegExp) return value.toString();
+
+			const original = this[key];
+			return original instanceof Date ? original.getTime() : value;
+		}
+		return JSON.parse(JSON.stringify(obj, replacer)) as Serialized<T>;
+	} catch (ex) {
+		debugger;
+		throw ex;
 	}
-	return JSON.parse(JSON.stringify(obj, replacer)) as Serialized<T>;
 }

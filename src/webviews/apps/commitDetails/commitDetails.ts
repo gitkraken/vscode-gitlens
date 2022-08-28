@@ -6,7 +6,6 @@ import type { CommitActionsParams, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	DidChangeRichStateNotificationType,
 	DidChangeStateNotificationType,
 	FileActionsCommandType,
 	OpenFileCommandType,
@@ -95,27 +94,27 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 		switch (msg.method) {
-			case DidChangeRichStateNotificationType.method:
-				onIpc(DidChangeRichStateNotificationType, msg, params => {
-					if (this.state.selected == null) return;
+			// case DidChangeRichStateNotificationType.method:
+			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
+			// 		if (this.state.selected == null) return;
 
-					assertsSerialized<typeof params>(params);
+			// 		assertsSerialized<typeof params>(params);
 
-					const newState = { ...this.state };
-					if (params.formattedMessage != null) {
-						newState.selected!.message = params.formattedMessage;
-					}
-					// if (params.pullRequest != null) {
-					newState.pullRequest = params.pullRequest;
-					// }
-					// if (params.formattedMessage != null) {
-					newState.autolinkedIssues = params.autolinkedIssues;
-					// }
+			// 		const newState = { ...this.state };
+			// 		if (params.formattedMessage != null) {
+			// 			newState.selected!.message = params.formattedMessage;
+			// 		}
+			// 		// if (params.pullRequest != null) {
+			// 		newState.pullRequest = params.pullRequest;
+			// 		// }
+			// 		// if (params.formattedMessage != null) {
+			// 		newState.autolinkedIssues = params.autolinkedIssues;
+			// 		// }
 
-					this.state = newState;
-					this.renderRichContent();
-				});
-				break;
+			// 		this.state = newState;
+			// 		this.renderRichContent();
+			// 	});
+			// 	break;
 			case DidChangeStateNotificationType.method:
 				onIpc(DidChangeStateNotificationType, msg, params => {
 					assertsSerialized<typeof params.state>(params.state);
