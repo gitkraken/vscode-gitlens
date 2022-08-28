@@ -22,10 +22,14 @@ const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
 const enterpriseAuthProvider = Object.freeze({ id: 'github-enterprise', scopes: ['repo', 'read:user', 'user:email'] });
 
+function isGitHubDotCom(domain: string): boolean {
+	return equalsIgnoreCase(domain, 'github.com');
+}
+
 export class GitHubRemote extends RichRemoteProvider {
 	@memoize()
 	protected get authProvider() {
-		return equalsIgnoreCase(this.domain, 'github.com') ? authProvider : enterpriseAuthProvider;
+		return isGitHubDotCom(this.domain) ? authProvider : enterpriseAuthProvider;
 	}
 
 	constructor(
@@ -115,7 +119,7 @@ export class GitHubRemote extends RichRemoteProvider {
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!equalsIgnoreCase(this.domain, 'github.com')) {
+		if (!isGitHubDotCom(this.domain)) {
 			const title =
 				'Connecting to a GitHub Enterprise instance for rich integration features requires a paid GitLens+ account.';
 

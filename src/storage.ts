@@ -115,6 +115,11 @@ export const enum SyncedStorageKeys {
 
 export interface GlobalStorage {
 	avatars?: [string, StoredAvatar][];
+	provider: {
+		authentication: {
+			skip: Record<string, boolean>;
+		};
+	};
 	home: {
 		actions: {
 			completed?: CompletedActions[];

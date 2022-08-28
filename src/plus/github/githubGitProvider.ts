@@ -1,5 +1,13 @@
 /* eslint-disable @typescript-eslint/require-await */
-import type { AuthenticationSession, Disposable, Event, Range, TextDocument, WorkspaceFolder } from 'vscode';
+import type {
+	AuthenticationSession,
+	AuthenticationSessionsChangeEvent,
+	Disposable,
+	Event,
+	Range,
+	TextDocument,
+	WorkspaceFolder,
+} from 'vscode';
 import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
@@ -117,10 +125,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private readonly _disposables: Disposable[] = [];
 
-	constructor(private readonly container: Container) {}
+	constructor(private readonly container: Container) {
+		this._disposables.push(authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this));
+	}
 
 	dispose() {
 		this._disposables.forEach(d => void d.dispose());
+	}
+
+	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
+		if (e.provider.id === 'github') {
+			this._sessionPromise = undefined;
+			void this.ensureSession(false, true);
+		}
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
@@ -2699,12 +2716,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (this._github == null) {
 			const github = await this.container.github;
 			if (github != null) {
-				this._disposables.push(
-					github.onDidReauthenticate(() => {
-						this._sessionPromise = undefined;
-						void this.ensureSession(true);
-					}),
-				);
+				this._disposables.push(github.onDidReauthenticate(() => void this.ensureSession(true)));
 			}
 			this._github = github;
 		}
@@ -2737,21 +2749,61 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private _sessionPromise: Promise<AuthenticationSession> | undefined;
-	private async ensureSession(force: boolean = false): Promise<AuthenticationSession> {
-		if (this._sessionPromise == null) {
-			async function getSession(): Promise<AuthenticationSession> {
+	private async ensureSession(force: boolean = false, silent: boolean = false): Promise<AuthenticationSession> {
+		if (force || this._sessionPromise == null) {
+			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
+				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
+
 				try {
 					if (force) {
+						skip = false;
+						void this.container.storage.delete(`provider:authentication:skip:${this.descriptor.id}`);
+
 						return await authentication.getSession('github', githubAuthenticationScopes, {
 							forceNewSession: true,
 						});
 					}
 
-					return await authentication.getSession('github', githubAuthenticationScopes, {
-						createIfNone: true,
+					if (!skip && !silent) {
+						return await authentication.getSession('github', githubAuthenticationScopes, {
+							createIfNone: true,
+						});
+					}
+
+					const session = await authentication.getSession('github', githubAuthenticationScopes, {
+						createIfNone: false,
+						silent: silent,
 					});
+					if (session != null) return session;
+
+					throw new Error('User did not consent');
 				} catch (ex) {
 					if (ex instanceof Error && ex.message.includes('User did not consent')) {
+						if (!silent) {
+							await this.container.storage.store(
+								`provider:authentication:skip:${this.descriptor.id}`,
+								true,
+							);
+							if (!skip) {
+								if (!force) {
+									queueMicrotask(async () => {
+										const enable = 'Re-enable';
+										const result = await window.showInformationMessage(
+											'GitLens has been disabled. Authentication is required for GitLens to work with remote GitHub repositories.',
+											enable,
+										);
+
+										if (result === enable) {
+											void this.ensureSession(true);
+										}
+									});
+								}
+
+								force = false;
+								return getSession.call(this);
+							}
+						}
+
 						throw new AuthenticationError('github', AuthenticationErrorReason.UserDidNotConsent);
 					}
 
@@ -2761,7 +2813,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			this._sessionPromise = getSession();
+			this._sessionPromise = getSession.call(this);
 		}
 
 		return this._sessionPromise;
