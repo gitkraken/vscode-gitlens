@@ -18,6 +18,25 @@ export interface IssueOrPullRequest {
 	readonly closed: boolean;
 }
 
+export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrPullRequest {
+	const serialized: IssueOrPullRequest = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+	};
+	return serialized;
+}
+
 export namespace IssueOrPullRequest {
 	export function getMarkdownIcon(issue: IssueOrPullRequest): string {
 		if (issue.type === IssueOrPullRequestType.PullRequest) {

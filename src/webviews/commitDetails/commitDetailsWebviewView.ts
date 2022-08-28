@@ -9,8 +9,9 @@ import { isCommit } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
 import { GitFile } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
+import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
-import { toPullRequestShape } from '../../git/models/pullRequest';
+import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
@@ -320,8 +321,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			// commits: commitChoices,
 			preferences: current.preferences,
 			selected: details,
-			autolinkedIssues: current.autolinkedIssues,
-			pullRequest: current.pullRequest != null ? toPullRequestShape(current.pullRequest) : undefined,
+			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
+			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			dateFormat: dateFormat,
 		});
 		return state;

@@ -24,8 +24,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly mergedDate?: Date;
 }
 
-export function toPullRequestShape(value: PullRequest): PullRequestShape {
-	const shape: PullRequestShape = {
+export function serializePullRequest(value: PullRequest): PullRequestShape {
+	const serialized: PullRequestShape = {
 		type: value.type,
 		provider: {
 			id: value.provider.id,
@@ -47,7 +47,7 @@ export function toPullRequestShape(value: PullRequest): PullRequestShape {
 		state: value.state,
 		mergedDate: value.mergedDate,
 	};
-	return shape;
+	return serialized;
 }
 
 export class PullRequest implements PullRequestShape {
