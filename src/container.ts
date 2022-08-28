@@ -13,6 +13,7 @@ import { AnnotationsToggleMode, configuration, DateSource, DateStyle } from './c
 import { Commands } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
+import { GitHubAuthenticationProvider } from './git/remotes/github';
 import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
@@ -411,6 +412,7 @@ export class Container {
 			this._context.subscriptions.push(
 				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
 				// Register any integration authentication providers
+				new GitHubAuthenticationProvider(this),
 				new GitLabAuthenticationProvider(this),
 			);
 		}
