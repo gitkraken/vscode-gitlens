@@ -357,29 +357,32 @@ export function GraphWrapper({
 						<div className="alert__content">
 							<p className="alert__title">GitLens+ Feature Preview</p>
 							<p className="alert__message">
-								The Commit Graph is freely available for local and public repos, while private repos
-								require a paid plan. While this preview isn't yet fully featured, we are quickly working
-								on the next release, when it will exit preview.
+								The Commit Graph is currently in preview. It will always be freely available for local
+								and public repos, while private repos require a paid plan.
 							</p>
 							<p className="alert__accent">
-								<span className="glicon glicon-clock alert__accent-icon" /> GitLens+ introductory
-								pricing will end with the next release (late Sept, early Oct).
+								<span className="codicon codicon-feedback alert__accent-icon" /> Join the{' '}
+								<a href="https://github.com/gitkraken/vscode-gitlens/discussions/2158">
+									discussion on GitHub
+								</a>
+								! We'd love to hear from you.
 							</p>
 							<p className="alert__accent">
-								<span className="codicon codicon-feedback alert__accent-icon" /> Join the discussions on
-								GitHub! We'd love to hear from you.
+								<span className="glicon glicon-clock alert__accent-icon" /> GitLens+{' '}
+								<a href="command:gitlens.plus.purchase">introductory pricing</a> will end with the next
+								release (late Sept, early Oct).
 							</p>
 						</div>
 						<div className="alert__actions">
 							<a className="alert-action" href="command:gitlens.plus.purchase">
-								Get GitLens+
+								Try GitLens+
 							</a>
-							<a
+							{/* <a
 								className="alert-action"
 								href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
 							>
 								Give Feedback
-							</a>
+							</a> */}
 						</div>
 						<button className="alert__dismiss" type="button" onClick={() => handleDismissPreview()}>
 							<span className="codicon codicon-chrome-close"></span>

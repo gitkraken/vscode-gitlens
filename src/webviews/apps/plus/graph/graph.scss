@@ -157,6 +157,7 @@ a {
 	border: 1px solid var(--alert-border-color);
 	background-color: var(--alert-background);
 	color: var(--alert-foreground);
+	font-size: 1.2rem;
 
 	&__icon {
 		&,
@@ -168,24 +169,32 @@ a {
 	&__content {
 		flex: 1;
 		padding-top: 0.1rem;
+
 		> *:not(:first-child) {
 			margin-top: 0.75rem;
 		}
+
 		> * {
 			margin-bottom: 0;
 		}
+
+		& a {
+			color: currentColor;
+			font-weight: 600;
+			text-decoration: underline;
+		}
 	}
+
 	&__title {
 		font-size: 1.3rem;
-		font-weight: 700;
+		font-weight: 600;
 		text-transform: uppercase;
 		margin-top: 0;
 	}
-	&__message {
-		font-size: 1.2rem;
-	}
 
 	&__accent {
+		font-size: 1.1rem;
+
 		&-icon {
 			margin-right: 0.2rem;
 			line-height: 1.4rem;
@@ -201,6 +210,7 @@ a {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		font-size: 1.1rem;
 	}
 
 	&__dismiss {
@@ -218,11 +228,13 @@ a {
 		--alert-border-color: var(--color-alert-warningBorder);
 		--alert-hover-background: var(--color-alert-warningHoverBackground);
 	}
+
 	&--error {
 		--alert-background: var(--color-alert-errorBackground);
 		--alert-border-color: var(--color-alert-errorBorder);
 		--alert-hover-background: var(--color-alert-errorHoverBackground);
 	}
+
 	&--neutral {
 		--alert-background: var(--color-alert-neutralBackground);
 		--alert-border-color: var(--color-alert-neutralBorder);
