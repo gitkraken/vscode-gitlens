@@ -9,6 +9,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissPreviewCommandType,
 	GetMoreCommitsCommandType,
@@ -17,6 +18,7 @@ import {
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
+import type { IpcMessage } from '../../../../webviews/protocol';
 import { onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
 import { mix, opacity } from '../../shared/colors';
@@ -80,13 +82,11 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
-		this.log('onMessageReceived', e);
+		const msg = e.data as IpcMessage;
+		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
-		const msg = e.data;
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.setState({ ...this.state, ...params.state });
 					this.refresh(this.state);
@@ -94,8 +94,6 @@ export class GraphApp extends App<State> {
 				break;
 
 			case DidChangeCommitsNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeCommitsNotificationType, msg, params => {
 					let rows;
 					if (params?.paging?.startingCursor != null && this.state.rows != null) {
@@ -147,9 +145,14 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
-			case DidChangeGraphConfigurationNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+			case DidChangeSelectionNotificationType.method:
+				onIpc(DidChangeSelectionNotificationType, msg, params => {
+					this.setState({ ...this.state, selectedSha: params.selection[0] });
+					this.refresh(this.state);
+				});
+				break;
 
+			case DidChangeGraphConfigurationNotificationType.method:
 				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
 					this.setState({
 						...this.state,
@@ -160,8 +163,6 @@ export class GraphApp extends App<State> {
 				break;
 
 			case DidChangeSubscriptionNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
-
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.setState({
 						...this.state,

@@ -116,3 +116,10 @@ export interface DidChangeCommitsParams {
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
 	'graph/commits/didChange',
 );
+
+export interface DidChangeSelectionParams {
+	selection: string[];
+}
+export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
+	'graph/selection/didChange',
+);

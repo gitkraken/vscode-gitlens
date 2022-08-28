@@ -31,6 +31,7 @@ import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissPreviewCommandType,
 	GetMoreCommitsCommandType,
@@ -80,9 +81,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
+	private _graph?: GitGraph;
+	private _ids: Set<string> = new Set();
 	private _selectedSha?: string;
 	private _repositoryEventsDisposable: Disposable | undefined;
-	private _repositoryGraph?: GitGraph;
 
 	private _statusBarItem: StatusBarItem | undefined;
 	private _theme: ColorTheme | undefined;
@@ -115,7 +117,11 @@ export class GraphWebview extends WebviewBase<State> {
 				if (this._panel == null) {
 					void this.show();
 				} else {
-					// TODO@eamodio we should be smarter here an look for the commit in the saved data before refreshing and only send the selectedSha
+					if (this._ids.has(args.sha)) {
+						void this.notifyDidChangeSelection();
+						return;
+					}
+
 					this.updateState();
 				}
 			}),
@@ -296,16 +302,16 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@gate()
 	private async onGetMoreCommits(limit?: number) {
-		if (this._repositoryGraph?.more == null || this._repository?.etag !== this._etagRepository) {
+		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
 			return;
 		}
 
 		const { defaultItemLimit, pageItemLimit } = this.getConfig();
-		const newGraph = await this._repositoryGraph.more(limit ?? pageItemLimit ?? defaultItemLimit);
+		const newGraph = await this._graph.more(limit ?? pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
-			this._repositoryGraph = newGraph;
+			this.setGraph(newGraph);
 		} else {
 			debugger;
 		}
@@ -380,6 +386,15 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async notifyDidChangeSelection() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeSelectionNotificationType, {
+			selection: this._selectedSha != null ? [this._selectedSha] : [],
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeSubscription() {
 		if (!this.isReady || !this.visible) return false;
 
@@ -394,7 +409,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private async notifyDidChangeCommits() {
 		if (!this.isReady || !this.visible) return false;
 
-		const data = this._repositoryGraph!;
+		const data = this._graph!;
 		return this.notify(DidChangeCommitsNotificationType, {
 			rows: data.rows,
 			paging: {
@@ -433,7 +448,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const config = this.getConfig();
 
 		// If we have a set of data refresh to the same set
-		const limit = this._repositoryGraph?.paging?.limit ?? config.defaultItemLimit;
+		const limit = this._graph?.paging?.limit ?? config.defaultItemLimit;
 
 		// only check on private
 		const access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
@@ -447,7 +462,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this._panel!.webview.asWebviewUri,
 			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
-		this._repositoryGraph = data;
+		this.setGraph(data);
 		this._selectedSha = data.sha;
 
 		return {
@@ -470,8 +485,22 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private resetRepositoryState() {
-		this._repositoryGraph = undefined;
+		this.setGraph(undefined);
 		this._selectedSha = undefined;
+	}
+
+	private setGraph(graph: GitGraph | undefined) {
+		this._graph = graph;
+
+		if (graph == null) {
+			this._ids.clear();
+			return;
+		}
+
+		// TODO@eamodio see if we can ask the graph if it can select the sha, so we don't have to maintain a set of ids
+		for (const row of graph.rows) {
+			this._ids.add(row.sha);
+		}
 	}
 }
 
