@@ -23,6 +23,7 @@ import {
 	DisableCommandType,
 	MoveEntryCommandType,
 	ReorderCommandType,
+	SearchCommandType,
 	StartCommandType,
 	SwitchCommandType,
 } from './protocol';
@@ -273,6 +274,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 			case DisableCommandType.method:
 				onIpc(DisableCommandType, e, () => this.disable(context));
+				break;
+
+			case SearchCommandType.method:
+				onIpc(SearchCommandType, e, () => executeCoreCommand(CoreCommands.CustomEditorShowFindWidget));
 				break;
 
 			case StartCommandType.method:

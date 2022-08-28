@@ -10,6 +10,7 @@ import {
 	DisableCommandType,
 	MoveEntryCommandType,
 	ReorderCommandType,
+	SearchCommandType,
 	StartCommandType,
 	SwitchCommandType,
 } from '../../rebase/protocol';
@@ -122,6 +123,11 @@ class RebaseEditor extends App<State> {
 
 						this.onAbortClicked();
 					}
+				} else if (e.key === '/') {
+					e.preventDefault();
+					e.stopPropagation();
+
+					this.onSearch();
 				}
 			}),
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
@@ -266,6 +272,10 @@ class RebaseEditor extends App<State> {
 
 	private onDisableClicked() {
 		this.sendCommand(DisableCommandType, undefined);
+	}
+
+	private onSearch() {
+		this.sendCommand(SearchCommandType, undefined);
 	}
 
 	private onSelectChanged($el: HTMLSelectElement) {

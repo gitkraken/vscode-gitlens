@@ -277,6 +277,7 @@ export const enum CoreCommands {
 	CloseActiveEditor = 'workbench.action.closeActiveEditor',
 	CloseAllEditors = 'workbench.action.closeAllEditors',
 	CursorMove = 'cursorMove',
+	CustomEditorShowFindWidget = 'editor.action.webvieweditor.showFind',
 	Diff = 'vscode.diff',
 	EditorScroll = 'editorScroll',
 	EditorShowHover = 'editor.action.showHover',
