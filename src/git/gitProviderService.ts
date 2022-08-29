@@ -528,16 +528,21 @@ export class GitProviderService implements Disposable {
 		}
 
 		const access = await accessPromise;
-		if (
-			feature === PlusFeatures.Graph &&
-			access.visibility !== RepositoryVisibility.Private &&
-			access.subscription.current.plan.effective.id === SubscriptionPlanId.Free
-		) {
-			return {
-				allowed: true,
-				subscription: { current: access.subscription.current },
-				visibility: access.visibility,
-			};
+		if (feature === PlusFeatures.Graph) {
+			if (access.visibility == null && repoPath != null) {
+				access.visibility = await this.visibility(repoPath);
+			}
+
+			if (
+				access.visibility !== RepositoryVisibility.Private &&
+				access.subscription.current.plan.effective.id === SubscriptionPlanId.Free
+			) {
+				return {
+					allowed: true,
+					subscription: { current: access.subscription.current },
+					visibility: access.visibility,
+				};
+			}
 		}
 
 		return access;
