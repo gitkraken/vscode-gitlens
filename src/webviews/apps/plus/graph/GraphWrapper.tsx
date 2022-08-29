@@ -18,7 +18,7 @@ import type {
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
-import { getTimeRemaining, SubscriptionState } from '../../../../subscription';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 
 export interface GraphWrapperProps extends State {
@@ -240,6 +240,22 @@ export function GraphWrapper({
 		onDismissBanner?.('trial');
 	};
 
+	const renderTrialDays = () => {
+		if (
+			!subscriptionSnapshot ||
+			![SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)
+		) {
+			return;
+		}
+
+		const days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
+		return (
+			<span className="mr-loose">
+				<span className="badge">GitLens+ Trial</span> ({days < 1 ? '< 1 day' : pluralize('day', days)} left)
+			</span>
+		);
+	};
+
 	const renderAlertContent = () => {
 		if (subscriptionSnapshot == null || !isPrivateRepo) return;
 
@@ -248,11 +264,8 @@ export function GraphWrapper({
 		let content;
 		let actions;
 		let days = 0;
-		if (
-			[SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state) &&
-			subscriptionSnapshot.previewTrial != null
-		) {
-			days = getTimeRemaining(subscriptionSnapshot.previewTrial.expiresOn, 'days') ?? 0;
+		if ([SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)) {
+			days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
 		}
 
 		switch (subscriptionSnapshot.state) {
@@ -271,8 +284,8 @@ export function GraphWrapper({
 							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
 								GitLens+ trial
 							</a>
-							. Once your trial ends, you'll need a paid plan to continue to use the Commit Graph on this
-							and other private repos.
+							. Once your trial ends, you'll need a paid plan to continue to use GitLens+ features,
+							including the Commit Graph, on this and other private repos.
 						</p>
 					</>
 				);
@@ -283,18 +296,16 @@ export function GraphWrapper({
 				content = (
 					<>
 						<p className="alert__title">Extend Your GitLens+ Trial</p>
-						<p className="alert__message">Sign in to extend your free trial by an additional 7-days.</p>
+						<p className="alert__message">
+							Your free trial has ended, please sign in to extend your trial of GitLens+ features on
+							private repos by an additional 7-days.
+						</p>
 					</>
 				);
 				actions = (
-					<>
-						<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
-							Extend Trial
-						</a>{' '}
-						<a className="alert-action" href="command:gitlens.plus.purchase">
-							View Plans
-						</a>
-					</>
+					<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
+						Extend Trial
+					</a>
 				);
 				break;
 			case SubscriptionState.FreePlusTrialExpired:
@@ -304,7 +315,8 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">GitLens+ Trial Expired</p>
 						<p className="alert__message">
-							Upgrade your account to use the Commit Graph and other GitLens+ features on private repos.
+							Your free trial has ended, please upgrade your account to continue to use GitLens+ features,
+							including the Commit Graph, on this and other private repos.
 						</p>
 					</>
 				);
@@ -488,6 +500,7 @@ export function GraphWrapper({
 					)}
 				</div>
 				<div className="actionbar__group">
+					{renderTrialDays()}
 					<span className="badge">Preview</span>
 					<a
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
