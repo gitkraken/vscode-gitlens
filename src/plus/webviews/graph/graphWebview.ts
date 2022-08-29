@@ -1,5 +1,5 @@
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
-import { EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import { EventEmitter, MarkdownString, ProgressLocation, StatusBarAlignment, ViewColumn, window } from 'vscode';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import type { GraphColumnConfig } from '../../../configuration';
@@ -160,7 +160,9 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
-		return this.getState();
+		return window.withProgress({ location: ProgressLocation.Window, title: 'Loading Commit Graph...' }, async () =>
+			this.getState(),
+		);
 	}
 
 	protected override registerCommands(): Disposable[] {
@@ -371,9 +373,11 @@ export class GraphWebview extends WebviewBase<State> {
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
 
-		return this.notify(DidChangeNotificationType, {
-			state: await this.getState(),
-		});
+		return window.withProgress({ location: ProgressLocation.Window, title: 'Loading Commit Graph...' }, async () =>
+			this.notify(DidChangeNotificationType, {
+				state: await this.getState(),
+			}),
+		);
 	}
 
 	@debug()
