@@ -17,8 +17,8 @@ import type {
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
-import { SubscriptionState } from '../../../../subscription';
-import { fromNow } from '../../shared/date';
+import { getTimeRemaining, SubscriptionState } from '../../../../subscription';
+import { pluralize } from '../../../../system/string';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
@@ -244,6 +244,14 @@ export function GraphWrapper({
 		let modifier = '';
 		let content;
 		let actions;
+		let days = 0;
+		if (
+			[SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state) &&
+			subscriptionSnapshot.previewTrial != null
+		) {
+			days = getTimeRemaining(subscriptionSnapshot.previewTrial.expiresOn, 'days') ?? 0;
+		}
+
 		switch (subscriptionSnapshot.state) {
 			case SubscriptionState.Free:
 			case SubscriptionState.Paid:
@@ -256,12 +264,12 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">GitLens+ Trial</p>
 						<p className="alert__message">
-							You can always use the Commit Graph on local and public repos, while private repos will
-							required a paid plan once your trial ends
-							{subscriptionSnapshot.previewTrial
-								? ` ${fromNow(new Date(subscriptionSnapshot.previewTrial.expiresOn))}`
-								: ''}
-							.
+							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your{' '}
+							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
+								GitLens+
+							</a>{' '}
+							trial. Once your trial ends, you'll need a paid plan to use the Commit Graph on this private
+							repository.
 						</p>
 					</>
 				);
