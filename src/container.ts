@@ -70,10 +70,16 @@ export class Container {
 		},
 	});
 
-	static create(context: ExtensionContext, storage: Storage, insiders: boolean) {
+	static create(
+		context: ExtensionContext,
+		storage: Storage,
+		insiders: boolean,
+		version: string,
+		previousVersion: string | undefined,
+	) {
 		if (Container.#instance != null) throw new Error('Container is already initialized');
 
-		Container.#instance = new Container(context, storage, insiders);
+		Container.#instance = new Container(context, storage, insiders, version, previousVersion);
 		return Container.#instance;
 	}
 
@@ -140,9 +146,16 @@ export class Container {
 	private _configAffectedByModeRegex: RegExp | undefined;
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
-	private constructor(context: ExtensionContext, storage: Storage, insiders: boolean) {
+	private constructor(
+		context: ExtensionContext,
+		storage: Storage,
+		insiders: boolean,
+		version: string,
+		previousVersion: string | undefined,
+	) {
 		this._context = context;
 		this._insiders = insiders;
+		this._version = version;
 		this.ensureModeApplied();
 
 		context.subscriptions.push((this._storage = storage));
@@ -155,7 +168,7 @@ export class Container {
 		context.subscriptions.push(
 			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
 		);
-		context.subscriptions.push((this._subscription = new SubscriptionService(this)));
+		context.subscriptions.push((this._subscription = new SubscriptionService(this, previousVersion)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
@@ -553,9 +566,9 @@ export class Container {
 		return this._usage;
 	}
 
-	@memoize()
+	private readonly _version: string;
 	get version(): string {
-		return this.context.extension.packageJSON.version as string;
+		return this._version;
 	}
 
 	private _viewCommands: ViewCommands | undefined;

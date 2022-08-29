@@ -28,7 +28,7 @@ import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
-	const gitlensVersion = context.extension.packageJSON.version;
+	const gitlensVersion: string = context.extension.packageJSON.version;
 	const insiders = context.extension.id === 'eamodio.gitlens-insiders' || satisfies(gitlensVersion, '> 2020.0.0');
 
 	const outputLevel = configuration.get('outputLevel');
@@ -131,7 +131,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	// await migrateSettings(context, previousVersion);
 
-	const container = Container.create(context, storage, insiders);
+	const container = Container.create(context, storage, insiders, gitlensVersion, previousVersion);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);

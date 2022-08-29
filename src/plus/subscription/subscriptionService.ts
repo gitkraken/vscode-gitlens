@@ -49,6 +49,7 @@ import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
+import { satisfies } from '../../system/version';
 import { ensurePlusFeaturesEnabled } from './utils';
 
 // TODO: What user-agent should we use?
@@ -74,7 +75,7 @@ export class SubscriptionService implements Disposable {
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
-	constructor(private readonly container: Container) {
+	constructor(private readonly container: Container, previousVersion: string | undefined) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
 			this.container.subscriptionAuthentication.onDidChangeSessions(
@@ -83,7 +84,13 @@ export class SubscriptionService implements Disposable {
 			),
 		);
 
-		this.changeSubscription(this.getStoredSubscription(), true);
+		const subscription = this.getStoredSubscription();
+		// Resets the preview trial state on the upgrade to 12.2
+		if (subscription != null && satisfies(previousVersion, '< 12.2')) {
+			subscription.previewTrial = undefined;
+		}
+
+		this.changeSubscription(subscription, true);
 		setTimeout(() => void this.ensureSession(false), 10000);
 	}
 
@@ -398,7 +405,7 @@ export class SubscriptionService implements Disposable {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		let { plan, previewTrial } = this._subscription;
-		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
+		if (previewTrial != null) {
 			void this.showHomeView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
@@ -767,12 +774,8 @@ export class SubscriptionService implements Disposable {
 			};
 		}
 
-		// If the effective plan is Free, then check if the preview has expired, if not apply it
-		if (
-			subscription.plan.effective.id === SubscriptionPlanId.Free &&
-			subscription.previewTrial != null &&
-			(getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0
-		) {
+		// Check if the preview has expired, if not apply it
+		if (subscription.previewTrial != null && (getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0) {
 			(subscription.plan as PickMutable<Subscription['plan'], 'effective'>).effective = getSubscriptionPlan(
 				SubscriptionPlanId.Pro,
 				new Date(subscription.previewTrial.startedOn),
