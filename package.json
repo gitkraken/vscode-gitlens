@@ -11323,13 +11323,12 @@
 			],
 			"scm": [
 				{
-					"type": "webview",
-					"id": "gitlens.views.commitDetails",
-					"name": "Commit Details",
-					"when": "!gitlens:disabled",
+					"id": "gitlens.views.repositories",
+					"name": "Repositories",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-commit-view)",
-					"visibility": "visible"
+					"icon": "$(gitlens-repositories-view)",
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.commits",
@@ -11340,12 +11339,13 @@
 					"visibility": "visible"
 				},
 				{
-					"id": "gitlens.views.repositories",
-					"name": "Repositories",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
+					"type": "webview",
+					"id": "gitlens.views.commitDetails",
+					"name": "Commit Details",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-repositories-view)",
-					"visibility": "hidden"
+					"icon": "$(gitlens-commit-view)",
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.fileHistory",
