@@ -407,7 +407,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private async notifyDidChangeSubscription() {
 		if (!this.isReady || !this.visible) return false;
 
-		const access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		const access = await this.getGraphAccess();
 		return this.notify(DidChangeSubscriptionNotificationType, {
 			subscription: access.subscription.current,
 			allowed: access.allowed,
@@ -465,14 +465,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const limit = this._graph?.paging?.limit ?? config.defaultItemLimit;
 
 		// Check for GitLens+ access
-		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
-		this._etagSubscription = this.container.subscription.etag;
-
-		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
-		if (!access.allowed && access.subscription.current.previewTrial == null) {
-			await this.container.subscription.startPreviewTrial(true);
-			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
-		}
+		const access = await this.getGraphAccess();
 
 		const visibility = access.visibility ?? (await this.container.git.visibility(this.repository.path));
 
@@ -502,6 +495,18 @@ export class GraphWebview extends WebviewBase<State> {
 			config: config,
 			nonce: this.cspNonce,
 		};
+	}
+
+	private async getGraphAccess() {
+		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		this._etagSubscription = this.container.subscription.etag;
+
+		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
+		if (!access.allowed && access.subscription.current.previewTrial == null) {
+			await this.container.subscription.startPreviewTrial(true);
+			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		}
+		return access;
 	}
 
 	private resetRepositoryState() {

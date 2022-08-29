@@ -534,11 +534,15 @@ export class GitProviderService implements Disposable {
 			}
 
 			if (
-				access.visibility !== RepositoryVisibility.Private &&
-				access.subscription.current.plan.effective.id === SubscriptionPlanId.Free
+				(access.visibility !== RepositoryVisibility.Private &&
+					access.subscription.current.plan.effective.id === SubscriptionPlanId.Free) ||
+				(access.visibility === RepositoryVisibility.Private && access.subscription.current.previewTrial == null)
 			) {
 				return {
-					allowed: true,
+					allowed: !(
+						access.visibility === RepositoryVisibility.Private &&
+						access.subscription.current.previewTrial == null
+					),
 					subscription: { current: access.subscription.current },
 					visibility: access.visibility,
 				};
