@@ -29,13 +29,13 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	protected override onVisibilityChanged(visible: boolean): void {
 		if (!visible) return;
 
-		void this.validateSubscription();
+		queueMicrotask(() => void this.validateSubscription());
 	}
 
 	protected override onWindowFocusChanged(focused: boolean): void {
 		if (!focused) return;
 
-		void this.validateSubscription();
+		queueMicrotask(() => void this.validateSubscription());
 	}
 
 	protected override registerCommands(): Disposable[] {

@@ -676,6 +676,7 @@ export class SubscriptionService implements Disposable {
 			session = null;
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
+				Logger.debug(scope, 'User declined authentication; logging out...');
 				await this.logout();
 				return null;
 			}
@@ -689,6 +690,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (session == null) {
+			Logger.debug(scope, 'No valid session was found; logging out...');
 			await this.logout();
 			return session ?? null;
 		}
@@ -699,11 +701,19 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			debugger;
 
-			const name = session.account.label;
-			session = null;
-
 			if (ex instanceof AccountValidationError) {
-				if (ex.statusCode == null || ex.statusCode < 500) {
+				const name = session.account.label;
+
+				if (
+					(ex.statusCode != null && ex.statusCode < 500) ||
+					(ex.statusCode == null && (ex.original as any)?.code !== 'ENOTFOUND')
+				) {
+					session = null;
+
+					Logger.debug(
+						scope,
+						`Account validation failed (${ex.statusCode ?? (ex.original as any)?.code}); logging out...`,
+					);
 					await this.logout();
 
 					if (createIfNeeded) {
@@ -723,10 +733,14 @@ export class SubscriptionService implements Disposable {
 						});
 					}
 				} else {
-					void window.showErrorMessage(
-						`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
-						'OK',
-					);
+					session = session ?? null;
+
+					if ((ex.original as any)?.code !== 'ENOTFOUND') {
+						void window.showErrorMessage(
+							`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
+							'OK',
+						);
+					}
 				}
 			}
 		}

@@ -51,6 +51,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2017](https://github.com/gitkraken/vscode-gitlens/issues/2017) - Gitlens+ pro keeps signing out
 - Fixes [#1935](https://github.com/gitkraken/vscode-gitlens/issues/1935) - Constant prompt "Your github credentials do not have the required access"
 - Fixes [#2067](https://github.com/gitkraken/vscode-gitlens/issues/2067) - Your 'github' credentials are either invalid or expired
 - Fixes [#2167](https://github.com/gitkraken/vscode-gitlens/issues/2167) - Rollup diff between working tree and fetched remote doesn't show changes
