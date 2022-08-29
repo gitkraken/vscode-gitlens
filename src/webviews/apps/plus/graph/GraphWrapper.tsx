@@ -12,6 +12,7 @@ import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
 	CommitListCallback,
+	DismissBannerParams,
 	GraphCompositeConfig,
 	GraphRepository,
 	State,
@@ -26,7 +27,7 @@ export interface GraphWrapperProps extends State {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMoreCommits?: (limit?: number) => void;
-	onDismissPreview?: () => void;
+	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 }
 
@@ -132,7 +133,8 @@ export function GraphWrapper({
 	nonce,
 	mixedColumnColors,
 	previewBanner = true,
-	onDismissPreview,
+	trialBanner = true,
+	onDismissBanner,
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(rows);
 	const [reposList, setReposList] = useState(repositories);
@@ -152,7 +154,7 @@ export function GraphWrapper({
 	// banner
 	const [showPreview, setShowPreview] = useState(previewBanner);
 	// account
-	const [showAccount, setShowAccount] = useState(true);
+	const [showAccount, setShowAccount] = useState(trialBanner);
 	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
 	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedVisibility === RepositoryVisibility.Private);
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
@@ -230,11 +232,12 @@ export function GraphWrapper({
 
 	const handleDismissPreview = () => {
 		setShowPreview(false);
-		onDismissPreview?.();
+		onDismissBanner?.('preview');
 	};
 
 	const handleDismissAccount = () => {
 		setShowAccount(false);
+		onDismissBanner?.('trial');
 	};
 
 	const renderAlertContent = () => {
@@ -303,12 +306,12 @@ export function GraphWrapper({
 						<p className="alert__message">
 							Upgrade your account to use the Commit Graph and other GitLens+ features on private repos.
 						</p>
-						<p>
-							<a className="alert-action" href="command:gitlens.plus.purchase">
-								Upgrade Your Account
-							</a>
-						</p>
 					</>
+				);
+				actions = (
+					<a className="alert-action" href="command:gitlens.plus.purchase">
+						Upgrade Your Account
+					</a>
 				);
 				break;
 			case SubscriptionState.VerificationRequired:

@@ -4,14 +4,19 @@ import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
-import type { CommitListCallback, GraphRepository, State } from '../../../../plus/webviews/graph/protocol';
+import type {
+	CommitListCallback,
+	DismissBannerParams,
+	GraphRepository,
+	State,
+} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
-	DismissPreviewCommandType,
+	DismissBannerCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
@@ -68,7 +73,7 @@ export class GraphApp extends App<State> {
 						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
 						250,
 					)}
-					onDismissPreview={() => this.onDismissPreview()}
+					onDismissBanner={key => this.onDismissBanner(key)}
 					{...this.state}
 				/>,
 				$root,
@@ -218,8 +223,8 @@ export class GraphApp extends App<State> {
 		return mixedGraphColors;
 	}
 
-	private onDismissPreview() {
-		this.sendCommand(DismissPreviewCommandType, undefined);
+	private onDismissBanner(key: DismissBannerParams['key']) {
+		this.sendCommand(DismissBannerCommandType, { key: key });
 	}
 
 	private onColumnChanged(name: string, settings: GraphColumnConfig) {

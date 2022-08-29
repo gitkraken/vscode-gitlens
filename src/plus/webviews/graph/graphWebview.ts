@@ -26,14 +26,14 @@ import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { GraphCompositeConfig, GraphRepository, State } from './protocol';
+import type { DismissBannerParams, GraphCompositeConfig, GraphRepository, State } from './protocol';
 import {
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
-	DismissPreviewCommandType,
+	DismissBannerCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -90,6 +90,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _theme: ColorTheme | undefined;
 
 	private previewBanner?: boolean;
+	private trialBanner?: boolean;
 
 	constructor(container: Container) {
 		super(
@@ -176,8 +177,8 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
-			case DismissPreviewCommandType.method:
-				onIpc(DismissPreviewCommandType, e, () => this.dismissPreview());
+			case DismissBannerCommandType.method:
+				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params.key));
 				break;
 			case GetMoreCommitsCommandType.method:
 				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.limit));
@@ -286,11 +287,15 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
-	private dismissPreview() {
-		this.previewBanner = false;
+	private dismissBanner(key: DismissBannerParams['key']) {
+		if (key === 'preview') {
+			this.previewBanner = false;
+		} else if (key === 'trial') {
+			this.trialBanner = false;
+		}
 
 		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-		banners = updateRecordValue(banners, 'preview', true);
+		banners = updateRecordValue(banners, key, true);
 		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
@@ -436,9 +441,14 @@ export class GraphWebview extends WebviewBase<State> {
 	private async getState(): Promise<State> {
 		if (this.container.git.repositoryCount === 0) return { repositories: [] };
 
-		if (this.previewBanner == null) {
+		if (this.previewBanner == null || this.trialBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-			this.previewBanner = !banners?.['preview'];
+			if (this.previewBanner == null) {
+				this.previewBanner = !banners?.['preview'];
+			}
+			if (this.trialBanner == null) {
+				this.trialBanner = !banners?.['trial'];
+			}
 		}
 
 		if (this.repository == null) {
@@ -476,6 +486,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return {
 			previewBanner: this.previewBanner,
+			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
 			selectedSha: this._selectedSha,

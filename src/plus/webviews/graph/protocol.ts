@@ -17,6 +17,7 @@ export interface State {
 	config?: GraphCompositeConfig;
 	nonce?: string;
 	previewBanner?: boolean;
+	trialBanner?: boolean;
 
 	// Props below are computed in the webview (not passed)
 	mixedColumnColors?: Record<string, string>;
@@ -63,7 +64,10 @@ export interface CommitListCallback {
 }
 
 // Commands
-export const DismissPreviewCommandType = new IpcCommandType<undefined>('graph/dismissPreview');
+export interface DismissBannerParams {
+	key: 'preview' | 'trial';
+}
+export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
 export interface GetMoreCommitsParams {
 	limit?: number;
