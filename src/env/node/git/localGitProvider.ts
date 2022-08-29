@@ -1618,7 +1618,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const stash = await this.getStash(repoPath);
 		if (stash != null) {
 			stdin = join(
-				map(stash.commits.values(), c => c.sha.substring(0, 7)),
+				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
 			);
 		}
