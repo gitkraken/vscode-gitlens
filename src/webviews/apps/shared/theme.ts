@@ -121,7 +121,7 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 			isLightTheme ? darken(color, 5) : lighten(color, 5),
 		);
 		bodyStyle.setProperty('--color-alert-errorBackground', color);
-		color = computedStyle.getPropertyValue('--vscode-input-background').trim();
+		color = isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5);
 		bodyStyle.setProperty(
 			'--color-alert-neutralHoverBackground',
 			isLightTheme ? darken(color, 5) : lighten(color, 5),
