@@ -178,7 +178,7 @@ a {
 			margin-bottom: 0;
 		}
 
-		& a {
+		& a:not([class]) {
 			color: currentColor;
 			font-weight: 600;
 			text-decoration: underline;
@@ -206,9 +206,9 @@ a {
 	}
 
 	&__actions {
-		align-self: center;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		justify-content: flex-start;
 		gap: 0.75rem;
 		font-size: 1.1rem;
 	}

@@ -464,6 +464,8 @@ export class GraphWebview extends WebviewBase<State> {
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
 
+		const visibility = access.visibility ?? (await this.container.git.visibility(this.repository.path));
+
 		const data = await this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri,
@@ -477,7 +479,7 @@ export class GraphWebview extends WebviewBase<State> {
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
 			selectedSha: this._selectedSha,
-			selectedVisibility: access.visibility,
+			selectedVisibility: visibility,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
 			rows: data.rows,

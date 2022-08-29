@@ -7,8 +7,9 @@ import GraphContainer, {
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
-import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
+import { RepositoryVisibility } from '../../../../git/gitProvider';
+import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
 	CommitListCallback,
 	GraphCompositeConfig,
@@ -120,6 +121,7 @@ export function GraphWrapper({
 	selectedRepository,
 	selectedSha,
 	subscription,
+	selectedVisibility,
 	allowed,
 	config,
 	paging,
@@ -152,6 +154,7 @@ export function GraphWrapper({
 	// account
 	const [showAccount, setShowAccount] = useState(true);
 	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
+	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedVisibility === RepositoryVisibility.Private);
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
@@ -189,6 +192,7 @@ export function GraphWrapper({
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
 		setSubscriptionSnapshot(state.subscription);
+		setIsPrivateRepo(state.selectedVisibility === RepositoryVisibility.Private);
 	}
 
 	useEffect(() => {
@@ -234,7 +238,7 @@ export function GraphWrapper({
 	};
 
 	const renderAlertContent = () => {
-		if (subscriptionSnapshot == null) return;
+		if (subscriptionSnapshot == null || !isPrivateRepo) return;
 
 		let icon = 'account';
 		let modifier = '';
@@ -324,8 +328,10 @@ export function GraphWrapper({
 		return (
 			<div className={`alert${modifier !== '' ? ` alert--${modifier}` : ''}`}>
 				<span className={`alert__icon codicon codicon-${icon}`}></span>
-				<div className="alert__content">{content}</div>
-				{actions && <div className="alert__actions">{actions}</div>}
+				<div className="alert__content">
+					{content}
+					{actions && <div className="alert__actions">{actions}</div>}
+				</div>
 				{isAllowed && (
 					<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
 						<span className="codicon codicon-chrome-close"></span>
@@ -359,17 +365,6 @@ export function GraphWrapper({
 								<a href="command:gitlens.plus.purchase">introductory pricing</a> will end with the next
 								release (late Sept, early Oct).
 							</p>
-						</div>
-						<div className="alert__actions">
-							<a className="alert-action" href="command:gitlens.plus.purchase">
-								Try GitLens+
-							</a>
-							{/* <a
-								className="alert-action"
-								href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
-							>
-								Give Feedback
-							</a> */}
 						</div>
 						<button className="alert__dismiss" type="button" onClick={() => handleDismissPreview()}>
 							<span className="codicon codicon-chrome-close"></span>
