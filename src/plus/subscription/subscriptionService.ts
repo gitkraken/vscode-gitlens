@@ -776,16 +776,28 @@ export class SubscriptionService implements Disposable {
 
 		// Check if the preview has expired, if not apply it
 		if (subscription.previewTrial != null && (getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0) {
-			(subscription.plan as PickMutable<Subscription['plan'], 'effective'>).effective = getSubscriptionPlan(
-				SubscriptionPlanId.Pro,
-				new Date(subscription.previewTrial.startedOn),
-				new Date(subscription.previewTrial.expiresOn),
-			);
+			subscription = {
+				...subscription,
+				plan: {
+					...subscription.plan,
+					effective: getSubscriptionPlan(
+						SubscriptionPlanId.Pro,
+						new Date(subscription.previewTrial.startedOn),
+						new Date(subscription.previewTrial.expiresOn),
+					),
+				},
+			};
 		}
 
 		// If the effective plan has expired, then replace it with the actual plan
 		if (isSubscriptionExpired(subscription)) {
-			(subscription.plan as PickMutable<Subscription['plan'], 'effective'>).effective = subscription.plan.actual;
+			subscription = {
+				...subscription,
+				plan: {
+					...subscription.plan,
+					effective: subscription.plan.actual,
+				},
+			};
 		}
 
 		subscription.state = computeSubscriptionState(subscription);

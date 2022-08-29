@@ -24,7 +24,12 @@ import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionS
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
 import type { FreeSubscriptionPlans, RequiredSubscriptionPlans, Subscription } from '../subscription';
-import { getSubscriptionPlanPriority, isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
+import {
+	getSubscriptionPlan,
+	getSubscriptionPlanPriority,
+	isSubscriptionPaidPlan,
+	SubscriptionPlanId,
+} from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
@@ -543,7 +548,15 @@ export class GitProviderService implements Disposable {
 						access.visibility === RepositoryVisibility.Private &&
 						access.subscription.current.previewTrial == null
 					),
-					subscription: { current: access.subscription.current },
+					subscription: {
+						current: {
+							...access.subscription.current,
+							plan: {
+								...access.subscription.current.plan,
+								effective: getSubscriptionPlan(SubscriptionPlanId.Pro, undefined),
+							},
+						},
+					},
 					visibility: access.visibility,
 				};
 			}
