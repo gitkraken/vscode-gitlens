@@ -245,13 +245,15 @@ export function GraphWrapper({
 			case SubscriptionState.Paid:
 				return;
 			case SubscriptionState.FreeInPreview:
+			case SubscriptionState.FreePlusInTrial:
 				icon = 'calendar';
 				modifier = 'neutral';
 				content = (
 					<>
-						<p className="alert__title">Trial Preview</p>
+						<p className="alert__title">GitLens+ Trial</p>
 						<p className="alert__message">
-							You're able to view the Commit Graph with any repository until your preview expires
+							You can always use the Commit Graph on local and public repos, while private repos will
+							required a paid plan once your trial ends
 							{subscriptionSnapshot.previewTrial
 								? ` ${fromNow(new Date(subscriptionSnapshot.previewTrial.expiresOn))}`
 								: ''}
@@ -265,34 +267,18 @@ export function GraphWrapper({
 				modifier = 'warning';
 				content = (
 					<>
-						<p className="alert__title">Extend Your Trial</p>
-						<p className="alert__message">Sign in to extend your free trial an additional 7-days.</p>
+						<p className="alert__title">Extend Your GitLens+ Trial</p>
+						<p className="alert__message">Sign in to extend your free trial by an additional 7-days.</p>
 					</>
 				);
 				actions = (
 					<>
 						<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
-							Try for 7-days
+							Extend Trial
 						</a>{' '}
 						<a className="alert-action" href="command:gitlens.plus.purchase">
 							View Plans
 						</a>
-					</>
-				);
-				break;
-			case SubscriptionState.FreePlusInTrial:
-				icon = 'calendar';
-				modifier = 'neutral';
-				content = (
-					<>
-						<p className="alert__title">Extended Trial</p>
-						<p className="alert__message">
-							You're able to view the Commit Graph with any repository until your trial expires
-							{subscriptionSnapshot.previewTrial
-								? ` ${fromNow(new Date(subscriptionSnapshot.previewTrial.expiresOn))}`
-								: ''}
-							.
-						</p>
 					</>
 				);
 				break;
@@ -301,7 +287,7 @@ export function GraphWrapper({
 				modifier = 'warning';
 				content = (
 					<>
-						<p className="alert__title">Trial Expired</p>
+						<p className="alert__title">GitLens+ Trial Expired</p>
 						<p className="alert__message">
 							Upgrade your account to use the Commit Graph and other GitLens+ features on private repos.
 						</p>
