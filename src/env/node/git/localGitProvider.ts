@@ -1629,47 +1629,61 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				let log;
 
 				const parser = GitLogParser.create<{ sha: string; date: string }>({ sha: '%H', date: '%ct' });
-				const data = await this.git.log(repoPath, options?.ref, { argsOrFormat: parser.arguments, limit: 0 });
+				const data = await this.git.log(repoPath, options?.ref, { argsOrFormat: parser.arguments, limit: 1 });
 
 				let commit = first(parser.parse(data));
 				if (commit != null) {
-					log = await this.getLog(repoPath, {
-						all: options!.mode !== 'single',
-						ordering: 'date',
-						limit: 0,
-						extraArgs: [`--since="${Number(commit.date)}"`, '--boundary'],
-						stdin: stdin,
-					});
+					const defaultItemLimit = configuration.get('graph.defaultItemLimit');
 
-					let found = log?.commits.has(commit.sha) ?? false;
+					let found = false;
+					// If we are looking for the HEAD assume that it might be in the first page (so we can avoid extra queries)
+					if (options!.ref === 'HEAD') {
+						log = await this.getLog(repoPath, {
+							all: options!.mode !== 'single',
+							ordering: 'date',
+							limit: defaultItemLimit,
+							stdin: stdin,
+						});
+						found = log?.commits.has(commit.sha) ?? false;
+					}
+
+					if (!found) {
+						// Get the log up to (and including) the specified commit
+						log = await this.getLog(repoPath, {
+							all: options!.mode !== 'single',
+							ordering: 'date',
+							limit: 0,
+							extraArgs: [`--since="${Number(commit.date)}"`, '--boundary'],
+							stdin: stdin,
+						});
+					}
+
+					found = log?.commits.has(commit.sha) ?? false;
 					if (!found) {
 						Logger.debug(scope, `Could not find commit ${options!.ref}`);
 
 						debugger;
 					}
 
-					if (log?.more != null) {
-						const defaultItemLimit = configuration.get('graph.defaultItemLimit');
-						if (!found || log.commits.size < defaultItemLimit) {
-							Logger.debug(scope, 'Loading next page...');
+					if (log?.more != null && (!found || log.commits.size < defaultItemLimit)) {
+						Logger.debug(scope, 'Loading next page...');
 
-							log = await log.more(
-								(log.commits.size < defaultItemLimit
-									? defaultItemLimit
-									: configuration.get('graph.pageItemLimit')) ?? options?.limit,
-							);
-							// We need to clear the "pagedCommits", since we want to return the entire set
-							if (log != null) {
-								(log as Mutable<typeof log>).pagedCommits = undefined;
-							}
+						log = await log.more(
+							(log.commits.size < defaultItemLimit
+								? defaultItemLimit
+								: configuration.get('graph.pageItemLimit')) ?? options?.limit,
+						);
+						// We need to clear the "pagedCommits", since we want to return the entire set
+						if (log != null) {
+							(log as Mutable<typeof log>).pagedCommits = undefined;
+						}
 
-							found = log?.commits.has(commit.sha) ?? false;
-							if (!found) {
-								Logger.debug(scope, `Still could not find commit ${options!.ref}`);
-								commit = undefined;
+						found = log?.commits.has(commit.sha) ?? false;
+						if (!found) {
+							Logger.debug(scope, `Still could not find commit ${options!.ref}`);
+							commit = undefined;
 
-								debugger;
-							}
+							debugger;
 						}
 					}
 
