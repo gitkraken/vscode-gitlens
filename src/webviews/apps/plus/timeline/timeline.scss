@@ -220,8 +220,18 @@ span.button-subaction {
 
 @import './chart';
 @import '../../shared/codicons.scss';
+@import '../../shared/glicons.scss';
 
+.glicon {
+	vertical-align: middle;
+}
+
+.glicon,
 .codicon {
 	position: relative;
 	top: -1px;
+}
+
+.mt-tight {
+	margin-top: 0.3rem;
 }
