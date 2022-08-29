@@ -394,14 +394,14 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async startPreviewTrial(): Promise<void> {
+	async startPreviewTrial(silent?: boolean): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null || plan.effective.id !== SubscriptionPlanId.Free) {
 			void this.showHomeView();
 
-			if (plan.effective.id === SubscriptionPlanId.Free) {
+			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
 				const confirm: MessageItem = { title: 'Sign in to GitLens+', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
@@ -415,6 +415,7 @@ export class SubscriptionService implements Disposable {
 					void this.loginOrSignUp();
 				}
 			}
+
 			return;
 		}
 
@@ -446,17 +447,19 @@ export class SubscriptionService implements Disposable {
 			previewTrial: previewTrial,
 		});
 
-		const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-		const learn: MessageItem = { title: 'Learn More' };
-		const result = await window.showInformationMessage(
-			`You have started a ${days} day trial of GitLens+ features for both public and private repos.`,
-			{ modal: true },
-			confirm,
-			learn,
-		);
+		if (!silent) {
+			const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+			const learn: MessageItem = { title: 'Learn More' };
+			const result = await window.showInformationMessage(
+				`You have started a ${days} day trial of GitLens+ features for both public and private repos.`,
+				{ modal: true },
+				confirm,
+				learn,
+			);
 
-		if (result === learn) {
-			this.learn();
+			if (result === learn) {
+				this.learn();
+			}
 		}
 	}
 

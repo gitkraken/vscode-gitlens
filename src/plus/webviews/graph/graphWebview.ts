@@ -450,11 +450,14 @@ export class GraphWebview extends WebviewBase<State> {
 		// If we have a set of data refresh to the same set
 		const limit = this._graph?.paging?.limit ?? config.defaultItemLimit;
 
-		// only check on private
-		const access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
-		// TODO: probably not the right place to set this
-		if (this._etagSubscription == null) {
-			this._etagSubscription = this.container.subscription.etag;
+		// Check for GitLens+ access
+		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		this._etagSubscription = this.container.subscription.etag;
+
+		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
+		if (!access.allowed && access.subscription.current.previewTrial == null) {
+			await this.container.subscription.startPreviewTrial(true);
+			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
 
 		const data = await this.container.git.getCommitsForGraph(
