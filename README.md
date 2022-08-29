@@ -19,9 +19,9 @@
 </p>
 
 <p align="center">
-  <a title="What's New in GitLens 12" href="https://gitkraken.com/blog/gitlens-12-1"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
+  <a title="What's New in GitLens 12" href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/whats-new-button.png" alt="Open What's New in GitLens 12" /></a>
   <br/>
-  or read the <a href="https://github.com/gitkraken/vscode-gitlens/releases/latest">release notes</a>
+  or read the <a href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md">change log</a>
 </p>
 
 # GitLens
