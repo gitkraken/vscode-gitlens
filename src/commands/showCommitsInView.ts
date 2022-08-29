@@ -8,7 +8,8 @@ import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];
@@ -19,6 +20,18 @@ export interface ShowCommitsInViewCommandArgs {
 export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super([Commands.ShowCommitInView, Commands.ShowCommitsInView]);
+	}
+
+	protected override preExecute(context: CommandContext, args?: ShowCommitsInViewCommandArgs) {
+		if (context.type === 'viewItem') {
+			args = { ...args };
+			if (isCommandContextViewNodeHasCommit(context)) {
+				args.refs = [context.node.commit.sha];
+				args.repoPath = context.node.commit.repoPath;
+			}
+		}
+
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs) {
@@ -56,6 +69,12 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 
 				args.refs = [gitUri.sha];
 			}
+		}
+
+		if (args.refs.length === 1) {
+			return this.container.commitDetailsView.show({
+				commit: { ref: args.refs[0], refType: 'revision', repoPath: args.repoPath!, name: '' },
+			});
 		}
 
 		return executeGitCommand({

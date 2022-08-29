@@ -381,7 +381,7 @@
 							"Toggles file changes from the commit",
 							"Compares the current committed file with the previous commit",
 							"Reveals the commit in the Side Bar",
-							"Searches for the commit",
+							"Shows the commit details",
 							"Shows a commit details quick pick menu",
 							"Shows a commit file details quick pick menu",
 							"Shows a file history quick pick menu",
@@ -548,7 +548,7 @@
 							"Compares the current line commit with the previous",
 							"Compares the current line commit with the working tree",
 							"Reveals the commit in the Side Bar",
-							"Searches for the commit",
+							"Shows the commit details",
 							"Shows a commit details quick pick menu",
 							"Shows a commit file details quick pick menu",
 							"Shows a file history quick pick menu",
@@ -4446,8 +4446,9 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Search for Commit in Side Bar",
-				"category": "GitLens"
+				"title": "Show Commit Details",
+				"category": "GitLens",
+				"icon": "$(eye)"
 			},
 			{
 				"command": "gitlens.showCommitsInView",
@@ -9462,10 +9463,9 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.openCommitOnRemote",
-					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
-					"group": "3_gitlens_explore@0",
-					"alt": "gitlens.copyRemoteCommitUrl"
+					"command": "gitlens.showCommitInView",
+					"when": "viewItem =~ /gitlens:commit\\b/",
+					"group": "3_gitlens_explore@0"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
@@ -9473,9 +9473,10 @@
 					"group": "3_gitlens_explore@1"
 				},
 				{
-					"command": "gitlens.showCommitInView",
-					"when": "viewItem =~ /gitlens:commit\\b/",
-					"group": "3_gitlens_explore@2"
+					"command": "gitlens.openCommitOnRemote",
+					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
+					"group": "3_gitlens_explore@2",
+					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"submenu": "gitlens/commit/copy",
