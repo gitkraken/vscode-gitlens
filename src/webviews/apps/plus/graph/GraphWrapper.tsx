@@ -481,7 +481,11 @@ export function GraphWrapper({
 							showing {graphList.length} item{graphList.length ? 's' : ''}
 						</span>
 					)}
-					{isLoading && <span className="actionbar__loading icon--loading icon-modifier--spin" />}
+					{isLoading && (
+						<span className="actionbar__loading">
+							<span className="icon--loading icon-modifier--spin" />
+						</span>
+					)}
 				</div>
 				<div className="actionbar__group">
 					<span className="badge">Preview</span>

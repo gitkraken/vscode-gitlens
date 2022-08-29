@@ -52,11 +52,11 @@ a {
 	&__details {}
 
 	&__loading {
-		position: relative;
-		top: 1px;
-		left: 0.5rem;
 		font-size: 1.2rem;
-		margin-right: 1rem; // adds "padding" to stop the overflow from clipping the spin
+
+		> * {
+			display: inline-block;
+		}
 	}
 
 	a {
@@ -376,7 +376,8 @@ a {
 	&__container {
 		display: flex;
 		flex-direction: column;
-		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
+		// height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
+		height: 100vh; // shoot me -- the 2px is to stop the vertical scrollbar from showing up
 		gap: 0;
 		padding: 0 2px;
 	}
