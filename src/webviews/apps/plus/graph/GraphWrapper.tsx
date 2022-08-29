@@ -269,10 +269,10 @@ export function GraphWrapper({
 						<p className="alert__message">
 							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your{' '}
 							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
-								GitLens+
-							</a>{' '}
-							trial. Once your trial ends, you'll need a paid plan to use the Commit Graph on this private
-							repository.
+								GitLens+ trial
+							</a>
+							. Once your trial ends, you'll need a paid plan to continue to use the Commit Graph on this
+							and other private repos.
 						</p>
 					</>
 				);
