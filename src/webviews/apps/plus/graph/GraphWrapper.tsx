@@ -200,6 +200,7 @@ export function GraphWrapper({
 
 	const handleSelectRepository = (item: GraphRepository) => {
 		if (item != null && item !== currentRepository) {
+			setIsLoading(true);
 			onSelectRepository?.(item);
 		}
 		setRepoExpanded(false);
