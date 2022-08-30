@@ -98,6 +98,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 									new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
 								);
 							}
+
 							// Refresh this node to show a spinner while the pull request is loading
 							this.view.triggerNodeChange(this);
 						});
@@ -107,8 +108,6 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 							() => this.view.triggerNodeChange(this),
 							() => {},
 						);
-
-						queueMicrotask(() => this.view.triggerNodeChange(this));
 					});
 				}
 			}
