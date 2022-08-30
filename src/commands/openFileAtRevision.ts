@@ -1,17 +1,20 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor } from 'vscode';
+import { Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
-import { GitActions } from './gitCommands';
-import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
+import { CommitPicker } from '../quickpicks/commitPicker';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command } from '../system/command';
+import { pad } from '../system/string';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import { GitActions } from './gitCommands.actions';
+import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -46,7 +49,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		return super.getMarkdownCommandArgsCore<OpenFileAtRevisionCommandArgs>(Commands.OpenFileAtRevision, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenFileAtRevision, Commands.OpenBlamePriorToChange]);
 	}
 
@@ -54,16 +57,39 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 		if (context.command === Commands.OpenBlamePriorToChange) {
 			args = { ...args, annotationType: FileAnnotationType.Blame };
 			if (args.revisionUri == null && context.editor != null) {
-				const blameline = context.editor.selection.active.line;
-				if (blameline >= 0) {
+				const editorLine = context.editor.selection.active.line;
+				if (editorLine >= 0) {
 					try {
 						const gitUri = await GitUri.fromUri(context.editor.document.uri);
-						const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
-						if (blame != null && !blame.commit.isUncommitted && blame.commit.previousSha != null) {
-							args.revisionUri = GitUri.toRevisionUri(GitUri.fromCommit(blame.commit, true));
+						const blame = await this.container.git.getBlameForLine(gitUri, editorLine);
+						if (blame != null) {
+							if (blame.commit.isUncommitted) {
+								const comparisonUris = await blame.commit.getPreviousComparisonUrisForLine(editorLine);
+								if (comparisonUris?.previous != null) {
+									args.revisionUri = this.container.git.getRevisionUri(comparisonUris.previous);
+								} else {
+									void showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									return undefined;
+								}
+							} else {
+								const previousSha = blame != null ? await blame?.commit.getPreviousSha() : undefined;
+								if (previousSha != null) {
+									args.revisionUri = this.container.git.getRevisionUri(blame.commit.getGitUri(true));
+								} else {
+									void showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									return undefined;
+								}
+							}
 						}
-					} catch {}
+					} catch (ex) {
+						Logger.error(ex, 'OpenBlamePriorToChangeCommand');
+					}
 				}
+			}
+
+			if (args.revisionUri == null) {
+				void showGenericErrorMessage('Unable to open blame');
+				return undefined;
 			}
 		}
 
@@ -83,11 +109,11 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.revisionUri == null) {
-				const log = Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
+				const log = this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath).then(
 					log =>
 						log ??
 						(gitUri.sha
-							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
 									ref: gitUri.sha,
 							  })
 							: undefined),
@@ -95,7 +121,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 				const title = `Open ${
 					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
-				} at Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+				} at Revision${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await CommitPicker.show(
 					log,
 					`${title}${gitUri.getFormattedFileName({
@@ -109,12 +135,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
 						onDidPressKey: async (key, item) => {
-							void (await GitActions.Commit.openFileAtRevision(item.item.uri.fsPath, item.item, {
+							await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
 								annotationType: args!.annotationType,
 								line: args!.line,
 								preserveFocus: true,
 								preview: false,
-							}));
+							});
 						},
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand(
@@ -129,25 +155,25 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						],
 					},
 				);
-				if (pick == null) return;
+				if (pick?.file == null) return;
 
-				void (await GitActions.Commit.openFileAtRevision(pick.fileName, pick, {
+				await GitActions.Commit.openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
 					line: args.line,
 					...args.showOptions,
-				}));
+				});
 
 				return;
 			}
 
-			void (await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,
-			}));
+			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileAtRevisionCommand');
-			void Messages.showGenericErrorMessage('Unable to open file at revision');
+			void showGenericErrorMessage('Unable to open file at revision');
 		}
 	}
 }

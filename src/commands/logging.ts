@@ -1,10 +1,12 @@
-'use strict';
 import { configuration, OutputLevel } from '../configuration';
-import { command, Command, Commands } from './common';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
+import { Command } from './base';
 
 @command()
 export class EnableDebugLoggingCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.EnableDebugLogging);
 	}
 
@@ -15,7 +17,7 @@ export class EnableDebugLoggingCommand extends Command {
 
 @command()
 export class DisableDebugLoggingCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DisableDebugLogging);
 	}
 

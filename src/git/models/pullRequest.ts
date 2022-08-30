@@ -1,19 +1,12 @@
-'use strict';
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import { configuration, DateStyle } from '../../configuration';
+import { DateStyle } from '../../configuration';
 import { Colors } from '../../constants';
-import { Dates, memoize } from '../../system';
-import { RemoteProviderReference } from './remoteProvider';
-
-export const PullRequestDateFormatting = {
-	dateFormat: undefined! as string | null,
-	dateStyle: undefined! as DateStyle,
-
-	reset: () => {
-		PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
-		PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	},
-};
+import { Container } from '../../container';
+import { formatDate, fromNow } from '../../system/date';
+import { memoize } from '../../system/decorators/memoize';
+import type { IssueOrPullRequest } from './issue';
+import { IssueOrPullRequestType } from './issue';
+import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum PullRequestState {
 	Open = 'Open',
@@ -21,7 +14,43 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
-export class PullRequest {
+export interface PullRequestShape extends IssueOrPullRequest {
+	readonly author: {
+		readonly name: string;
+		readonly avatarUrl: string;
+		readonly url: string;
+	};
+	readonly state: PullRequestState;
+	readonly mergedDate?: Date;
+}
+
+export function serializePullRequest(value: PullRequest): PullRequestShape {
+	const serialized: PullRequestShape = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+		author: {
+			name: value.author.name,
+			avatarUrl: value.author.avatarUrl,
+			url: value.author.url,
+		},
+		state: value.state,
+		mergedDate: value.mergedDate,
+	};
+	return serialized;
+}
+
+export class PullRequest implements PullRequestShape {
 	static is(pr: any): pr is PullRequest {
 		return pr instanceof PullRequest;
 	}
@@ -58,6 +87,8 @@ export class PullRequest {
 		}
 	}
 
+	readonly type = IssueOrPullRequestType.PullRequest;
+
 	constructor(
 		public readonly provider: RemoteProviderReference,
 		public readonly author: {
@@ -74,81 +105,53 @@ export class PullRequest {
 		public readonly mergedDate?: Date,
 	) {}
 
+	get closed(): boolean {
+		return this.state === PullRequestState.Closed;
+	}
+
 	get formattedDate(): string {
-		return PullRequestDateFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(PullRequestDateFormatting.dateFormat)
+		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(Container.instance.PullRequestDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
-	@memoize()
-	private get dateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.mergedDate ?? this.closedDate ?? this.date);
-	}
-
-	@memoize<PullRequest['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.dateFormatter.format(format);
+		return formatDate(this.mergedDate ?? this.closedDate ?? this.date, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatDateFromNow() {
-		return this.dateFormatter.fromNow();
+		return fromNow(this.mergedDate ?? this.closedDate ?? this.date);
 	}
 
-	@memoize()
-	private get closedDateFormatter(): Dates.DateFormatter | undefined {
-		return this.closedDate === undefined ? undefined : Dates.getFormatter(this.closedDate);
-	}
-
-	@memoize<PullRequest['formatClosedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatClosedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatClosedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.closedDateFormatter?.format(format) ?? '';
+		if (this.closedDate == null) return '';
+		return formatDate(this.closedDate, format ?? 'MMMM Do, YYYY h:mma');
 	}
 
 	formatClosedDateFromNow() {
-		return this.closedDateFormatter?.fromNow() ?? '';
+		if (this.closedDate == null) return '';
+		return fromNow(this.closedDate);
 	}
 
-	@memoize()
-	private get mergedDateFormatter(): Dates.DateFormatter | undefined {
-		return this.mergedDate === undefined ? undefined : Dates.getFormatter(this.mergedDate);
-	}
-
-	@memoize<PullRequest['formatMergedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatMergedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatMergedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.mergedDateFormatter?.format(format) ?? '';
+		if (this.mergedDate == null) return '';
+		return formatDate(this.mergedDate, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
 	formatMergedDateFromNow() {
-		return this.mergedDateFormatter?.fromNow() ?? '';
+		if (this.mergedDate == null) return '';
+		return fromNow(this.mergedDate);
 	}
 
-	@memoize()
-	private get updatedDateFormatter(): Dates.DateFormatter {
-		return Dates.getFormatter(this.date);
-	}
-
-	@memoize<PullRequest['formatUpdatedDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	@memoize<PullRequest['formatUpdatedDate']>(format => format ?? 'MMMM Do, YYYY h:mma')
 	formatUpdatedDate(format?: string | null) {
-		if (format == null) {
-			format = 'MMMM Do, YYYY h:mma';
-		}
-
-		return this.updatedDateFormatter.format(format);
+		return formatDate(this.date, format ?? 'MMMM Do, YYYY h:mma') ?? '';
 	}
 
 	formatUpdatedDateFromNow() {
-		return this.updatedDateFormatter.fromNow();
+		return fromNow(this.date);
 	}
 }

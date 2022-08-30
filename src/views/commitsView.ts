@@ -1,37 +1,30 @@
-'use strict';
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { ContextKeys, GlyphChars, setContext } from '../constants';
-import { Container } from '../container';
+import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { CommitsViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import { Commands, ContextKeys, GlyphChars } from '../constants';
+import type { Container } from '../container';
+import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import {
-	GitLogCommit,
-	GitReference,
-	GitRevisionReference,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/models';
-import { debug, Functions, gate, Strings } from '../system';
-import {
-	BranchNode,
-	BranchTrackingStatusNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import type { GitRevisionReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
+import { disposableInterval } from '../system/function';
+import type { UsageChangeEvent } from '../usageTracker';
+import { BranchNode } from './nodes/branchNode';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { CommandMessageNode } from './nodes/common';
+import { RepositoryNode } from './nodes/repositoryNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -49,7 +42,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			if (this.view.state.myCommitsOnly) {
 				const user = await this.view.container.git.getCurrentUser(this.repo.path);
 				if (user != null) {
-					authors = [`^${user.name} <${user.email}>$`];
+					authors = [{ name: user.name, email: user.email, username: user.username, id: user.id }];
 				}
 			}
 
@@ -86,16 +79,16 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		if (lastFetched !== 0 && interval > 0) {
 			return Disposable.from(
 				await super.subscribe(),
-				Functions.interval(() => {
+				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
 
 					if (this.splatted) {
-						void this.view.triggerNodeChange(this.parent ?? this);
+						this.view.triggerNodeChange(this.parent ?? this);
 					} else {
-						void this.view.triggerNodeChange(this);
+						this.view.triggerNodeChange(this);
 					}
 				}, interval),
 			);
@@ -139,6 +132,19 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 			);
 		}
 
+		const commitGraphNode =
+			configuration.get('plusFeatures.enabled') && this.view.container.usage.get('graphWebview:shown') == null
+				? new CommandMessageNode(
+						this.view,
+						this,
+						{ command: Commands.ShowGraphPage, title: 'Show Commit Graph' },
+						'Visualize commits on the all-new Commit Graph',
+						'✨ GitLens+',
+						'Visualize commits on the all-new Commit Graph ✨',
+						new ThemeIcon('gitlens-graph'),
+				  )
+				: undefined;
+
 		if (this.children.length === 1) {
 			const [child] = this.children;
 
@@ -149,21 +155,13 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
 					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}${
-					child.repo.supportsChangeEvents
-						? ''
-						: `${Strings.pad(GlyphChars.Warning, 3, 2)}Auto-refresh unavailable`
-				}`;
-			} else {
-				this.view.description = child.repo.supportsChangeEvents
-					? undefined
-					: `${Strings.pad(GlyphChars.Warning, 1, 2)}Auto-refresh unavailable`;
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
 			}
 
-			return child.getChildren();
+			return commitGraphNode == null ? child.getChildren() : [commitGraphNode, ...(await child.getChildren())];
 		}
 
-		return this.children;
+		return commitGraphNode == null ? this.children : [commitGraphNode, ...this.children];
 	}
 
 	getTreeItem(): TreeItem {
@@ -180,7 +178,15 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
 	constructor(container: Container) {
-		super('gitlens.views.commits', 'Commits', container);
+		super(container, 'gitlens.views.commits', 'Commits', 'commitsView');
+		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
+	}
+
+	private onUsageChanged(e: UsageChangeEvent | void) {
+		// Refresh the view if the graph usage state has changed, since we render a node for it before the first use
+		if (e == null || e.key === 'graphWebview:shown') {
+			void this.refresh();
+		}
 	}
 
 	override get canReveal(): boolean {
@@ -200,12 +206,12 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('branches', 'status', 'tags');
@@ -213,57 +219,49 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setMyCommitsOnlyOn'),
 				() => this.setMyCommitsOnly(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setMyCommitsOnlyOff'),
 				() => this.setMyCommitsOnly(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOn'),
 				() => this.setShowBranchComparison(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOff'),
 				() => this.setShowBranchComparison(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOn'),
 				() => this.setShowBranchPullRequest(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOff'),
 				() => this.setShowBranchPullRequest(false),
 				this,
@@ -276,11 +274,13 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'plusFeatures.enabled')
 		) {
 			return false;
 		}
@@ -288,16 +288,18 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return true;
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		const branch = await this.container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		if (!(await this.container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) {
-			return undefined;
-		}
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, {
+			branch: branch.name,
+			commitDate: isCommit(commit) ? commit.committer.date : undefined,
+		});
+		if (!branches.length) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,

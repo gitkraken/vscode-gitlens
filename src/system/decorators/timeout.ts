@@ -1,5 +1,5 @@
-'use strict';
-import { cancellable, is as isPromise } from '../promise';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { cancellable, isPromise } from '../promise';
 
 export function timeout(timeout: number): any;
 export function timeout(timeoutFromLastArg: true, defaultTimeout?: number): any;

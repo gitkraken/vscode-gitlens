@@ -1,8 +1,9 @@
-'use strict';
 import { join as joinPaths } from 'path';
+import * as process from 'process';
 import { GlyphChars } from '../../../constants';
 import { LogLevel } from '../../../logger';
-import { Stopwatch } from '../../../system';
+import { any } from '../../../system/promise';
+import { Stopwatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';
 
 export class UnableToFindGitError extends Error {
@@ -26,10 +27,6 @@ export interface GitLocation {
 	version: string;
 }
 
-function parseVersion(raw: string): string {
-	return raw?.replace(/^git version /, '');
-}
-
 async function findSpecificGit(path: string): Promise<GitLocation> {
 	const sw = new Stopwatch(`findSpecificGit(${path})`, { logLevel: LogLevel.Debug });
 
@@ -37,7 +34,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 	try {
 		version = await run<string>(path, ['--version'], 'utf8');
 	} catch (ex) {
-		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+		sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 		throw ex;
@@ -51,7 +48,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		try {
 			version = await run<string>(foundPath, ['--version'], 'utf8');
 		} catch (ex) {
-			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git` });
+			sw.stop({ message: ` ${GlyphChars.Dot} Unable to find git: ${ex}` });
 
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
 			throw ex;
@@ -60,11 +57,16 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		path = foundPath;
 	}
 
-	sw.stop({ message: ` ${GlyphChars.Dot} Found git @ ${path}` });
+	const parsed = version
+		.trim()
+		.replace(/^git version /, '')
+		.trim();
+
+	sw.stop({ message: ` ${GlyphChars.Dot} Found ${parsed} in ${path}; ${version}` });
 
 	return {
 		path: path,
-		version: parseVersion(version.trim()),
+		version: parsed,
 	};
 }
 
@@ -103,20 +105,29 @@ function findGitWin32(): Promise<GitLocation> {
 		.then(null, () => findSpecificGit('git'));
 }
 
-export async function findGitPath(paths?: string | string[]): Promise<GitLocation> {
+export async function findGitPath(
+	paths: string | string[] | null | undefined,
+	search: boolean = true,
+): Promise<GitLocation> {
 	try {
 		if (paths == null || typeof paths === 'string') {
 			return await findSpecificGit(paths ?? 'git');
 		}
 
-		for (const path of paths) {
-			try {
-				return await findSpecificGit(path);
-			} catch {}
+		try {
+			return any(...paths.map(p => findSpecificGit(p)));
+		} catch (ex) {
+			throw new UnableToFindGitError(ex);
+		}
+	} catch (ex) {
+		if (!search) {
+			return Promise.reject(
+				ex instanceof InvalidGitConfigError || ex instanceof UnableToFindGitError
+					? ex
+					: new UnableToFindGitError(ex),
+			);
 		}
 
-		throw new UnableToFindGitError();
-	} catch {
 		try {
 			switch (process.platform) {
 				case 'darwin':

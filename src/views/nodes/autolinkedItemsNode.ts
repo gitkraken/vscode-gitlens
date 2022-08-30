@@ -1,39 +1,37 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Autolink } from '../../annotations/autolinks';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitLog, GitRemote, IssueOrPullRequest, PullRequest } from '../../git/models';
-import { RichRemoteProvider } from '../../git/remotes/provider';
-import { debug, gate, Promises } from '../../system';
-import { ViewsWithCommits } from '../viewBase';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { GitLog } from '../../git/models/log';
+import { PullRequest } from '../../git/models/pullRequest';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { union } from '../../system/iterable';
+import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
-import { MessageNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	filtered?: {
-		filter: 'left' | 'right';
-		files: GitFile[];
-	};
-}
+let instanceId = 0;
 
 export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 	private _children: ViewNode[] | undefined;
+	private _instanceId: number;
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
-		public readonly remote: GitRemote<RichRemoteProvider>,
 		public readonly log: GitLog,
+		private expand: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+		this._instanceId = instanceId++;
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:autolinked`;
+		return `${this.parent.id}:results:autolinked:${this._instanceId}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -44,26 +42,38 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 			if (commits.length) {
 				const combineMessages = commits.map(c => c.message).join('\n');
 
-				const [autolinkedMapResult, ...prsResults] = await Promise.allSettled([
-					this.view.container.autolinks.getIssueOrPullRequestLinks(combineMessages, this.remote),
-					...commits.map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
-				]);
+				let items: Map<string, Autolink | IssueOrPullRequest | PullRequest>;
 
-				const items = new Map<string, IssueOrPullRequest | PullRequest>();
+				const customAutolinks = this.view.container.autolinks.getAutolinks(combineMessages);
 
-				if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
-					for (const [id, issue] of autolinkedMapResult.value) {
-						if (issue == null || issue instanceof Promises.CancellationErrorWithId) continue;
+				const remote = await this.view.container.git.getBestRemoteWithProvider(this.repoPath);
+				if (remote != null) {
+					const providerAutolinks = this.view.container.autolinks.getAutolinks(combineMessages, remote);
 
-						items.set(id, issue);
+					items = new Map(union(customAutolinks, providerAutolinks));
+
+					const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
+						this.view.container.autolinks.getLinkedIssuesAndPullRequests(combineMessages, remote, {
+							autolinks: providerAutolinks,
+						}),
+						// Only get PRs from the first 100 commits to attempt to avoid hitting the api limits
+						// ...commits.slice(0, 100).map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
+					]);
+
+					if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
+						for (const [id, issue] of autolinkedMapResult.value) {
+							items.set(id, issue);
+						}
 					}
+				} else {
+					items = customAutolinks;
 				}
 
-				for (const result of prsResults) {
-					if (result.status !== 'fulfilled' || result.value == null) continue;
+				// for (const result of prsResults) {
+				// 	if (result.status !== 'fulfilled' || result.value == null) continue;
 
-					items.set(result.value.id, result.value);
-				}
+				// 	items.set(result.value.id, result.value);
+				// }
 
 				children = [...items.values()].map(item =>
 					PullRequest.is(item)
@@ -76,13 +86,25 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 				children = [new MessageNode(this.view, this, 'No autolinked issues or pull requests could be found.')];
 			}
 
+			if (this.log.hasMore) {
+				children.push(
+					new LoadMoreNode(this.view, this.parent as any, children[children.length - 1], {
+						context: { expandAutolinks: true },
+						message: 'Load more commits to search for autolinks',
+					}),
+				);
+			}
+
 			this._children = children;
 		}
 		return this._children;
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Autolinked Issues and Pull Requests', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			'Autolinked Issues and Pull Requests',
+			this.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.contextValue = ContextValues.AutolinkedItems;
 

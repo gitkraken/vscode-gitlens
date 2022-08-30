@@ -1,164 +1,87 @@
-'use strict';
-import { Config } from '../config';
+import type { Config } from '../config';
 
 export interface IpcMessage {
 	id: string;
 	method: string;
-	params?: any;
+	params?: unknown;
 }
 
-export type IpcNotificationParamsOf<NT> = NT extends IpcNotificationType<infer P> ? P : never;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class IpcNotificationType<P = any> {
+abstract class IpcMessageType<Params = void> {
+	_?: Params; // Required for type inferencing to work properly
 	constructor(public readonly method: string) {}
 }
+export type IpcMessageParams<T> = T extends IpcMessageType<infer P> ? P : never;
 
-export type IpcCommandParamsOf<CT> = CT extends IpcCommandType<infer P> ? P : never;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export class IpcCommandType<P = any> {
-	constructor(public readonly method: string) {}
-}
+/**
+ * Commands are sent from the webview to the extension
+ */
+export class IpcCommandType<Params = void> extends IpcMessageType<Params> {}
+/**
+ * Notifications are sent from the extension to the webview
+ */
+export class IpcNotificationType<Params = void> extends IpcMessageType<Params> {}
 
-export function onIpcCommand<CT extends IpcCommandType>(
-	type: CT,
-	command: IpcMessage,
-	fn: (params: IpcCommandParamsOf<CT>) => unknown,
+export function onIpc<T extends IpcMessageType<any>>(
+	type: T,
+	msg: IpcMessage,
+	fn: (params: IpcMessageParams<T>) => unknown,
 ) {
-	fn(command.params);
+	if (type.method !== msg.method) return;
+
+	fn(msg.params as IpcMessageParams<T>);
 }
 
-export function onIpcNotification<NT extends IpcNotificationType>(
-	type: NT,
-	notification: IpcMessage,
-	fn: (params: IpcNotificationParamsOf<NT>) => void,
-) {
-	fn(notification.params);
+// COMMANDS
+
+export const WebviewReadyCommandType = new IpcCommandType('webview/ready');
+
+export interface ExecuteCommandParams {
+	command: string;
+	args?: [];
+}
+export const ExecuteCommandType = new IpcCommandType<ExecuteCommandParams>('command/execute');
+
+export interface GenerateCommitPreviewParams {
+	key: string;
+	type: 'commit' | 'commit-uncommitted';
+	format: string;
 }
 
-export interface DidChangeConfigurationNotificationParams {
-	config: Config;
-	customSettings: Record<string, boolean>;
-}
-export const DidChangeConfigurationNotificationType = new IpcNotificationType<DidChangeConfigurationNotificationParams>(
-	'configuration/didChange',
+type GenerateConfigurationPreviewParams = GenerateCommitPreviewParams;
+export const GenerateConfigurationPreviewCommandType = new IpcCommandType<GenerateConfigurationPreviewParams>(
+	'configuration/preview',
 );
 
-export const ReadyCommandType = new IpcCommandType('webview/ready');
-
-export interface UpdateConfigurationCommandParams {
+export interface UpdateConfigurationParams {
 	changes: {
 		[key: string]: any;
 	};
 	removes: string[];
-	scope: 'user' | 'workspace';
+	scope?: 'user' | 'workspace';
 	uri?: string;
 }
-export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationCommandParams>(
-	'configuration/update',
-);
+export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationParams>('configuration/update');
 
-export interface CommitPreviewConfigurationCommandParams {
-	key: string;
-	id: string;
-	type: 'commit';
+// NOTIFICATIONS
 
-	format: string;
+export interface DidChangeConfigurationParams {
+	config: Config;
+	customSettings: Record<string, boolean>;
 }
-
-type PreviewConfigurationCommandParams = CommitPreviewConfigurationCommandParams;
-export const PreviewConfigurationCommandType = new IpcCommandType<PreviewConfigurationCommandParams>(
-	'configuration/preview',
+export const DidChangeConfigurationNotificationType = new IpcNotificationType<DidChangeConfigurationParams>(
+	'configuration/didChange',
 );
 
-export interface DidPreviewConfigurationNotificationParams {
-	id: string;
+export interface DidGenerateConfigurationPreviewParams {
+	completionId: string;
 	preview: string;
 }
-export const DidPreviewConfigurationNotificationType =
-	new IpcNotificationType<DidPreviewConfigurationNotificationParams>('configuration/didPreview');
 
-export interface SettingsDidRequestJumpToNotificationParams {
+export const DidGenerateConfigurationPreviewNotificationType =
+	new IpcNotificationType<DidGenerateConfigurationPreviewParams>('configuration/didPreview');
+
+export interface DidOpenAnchorParams {
 	anchor: string;
+	scrollBehavior: 'auto' | 'smooth';
 }
-export const SettingsDidRequestJumpToNotificationType =
-	new IpcNotificationType<SettingsDidRequestJumpToNotificationParams>('settings/jumpTo');
-
-export interface AppStateWithConfig {
-	config: Config;
-	customSettings?: Record<string, boolean>;
-}
-
-export interface SettingsState extends AppStateWithConfig {
-	scope: 'user' | 'workspace';
-	scopes: ['user' | 'workspace', string][];
-}
-
-export type WelcomeState = AppStateWithConfig;
-
-export interface Author {
-	readonly author: string;
-	readonly avatarUrl: string;
-	readonly email: string | undefined;
-}
-
-export interface Commit {
-	readonly ref: string;
-	readonly author: string;
-	// readonly avatarUrl: string;
-	readonly date: string;
-	readonly dateFromNow: string;
-	// readonly email: string | undefined;
-	readonly message: string;
-	// readonly command: string;
-}
-
-export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop';
-
-export interface RebaseEntry {
-	readonly action: RebaseEntryAction;
-	readonly ref: string;
-	readonly message: string;
-	readonly index: number;
-}
-
-export interface RebaseDidChangeNotificationParams {
-	state: RebaseState;
-}
-export const RebaseDidChangeNotificationType = new IpcNotificationType<RebaseDidChangeNotificationParams>(
-	'rebase/change',
-);
-
-export const RebaseDidAbortCommandType = new IpcCommandType('rebase/abort');
-
-export const RebaseDidDisableCommandType = new IpcCommandType('rebase/disable');
-
-export const RebaseDidStartCommandType = new IpcCommandType('rebase/start');
-
-export const RebaseDidSwitchCommandType = new IpcCommandType('rebase/switch');
-
-export interface RebaseDidChangeEntryCommandParams {
-	ref: string;
-	action: RebaseEntryAction;
-}
-export const RebaseDidChangeEntryCommandType = new IpcCommandType<RebaseDidChangeEntryCommandParams>(
-	'rebase/change/entry',
-);
-
-export interface RebaseDidMoveEntryCommandParams {
-	ref: string;
-	to: number;
-	relative: boolean;
-}
-export const RebaseDidMoveEntryCommandType = new IpcCommandType<RebaseDidMoveEntryCommandParams>('rebase/move/entry');
-
-export interface RebaseState {
-	branch: string;
-	onto: string;
-
-	entries: RebaseEntry[];
-	authors: Author[];
-	commits: Commit[];
-	commands: {
-		commit: string;
-	};
-}
+export const DidOpenAnchorNotificationType = new IpcNotificationType<DidOpenAnchorParams>('webview/didOpenAnchor');

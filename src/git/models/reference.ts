@@ -1,9 +1,6 @@
-'use strict';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranch } from './branch';
-
-const emptyStr = '';
+import { getBranchNameWithoutRemote } from './branch';
 
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
@@ -14,7 +11,7 @@ const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
 const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 
 function isMatch(regex: RegExp, ref: string | undefined) {
-	return ref == null || ref.length === 0 ? false : regex.test(ref);
+	return !ref ? false : regex.test(ref);
 }
 
 export namespace GitRevision {
@@ -46,38 +43,35 @@ export namespace GitRevision {
 		return isMatch(shaParentRegex, ref);
 	}
 
-	export function isUncommitted(ref: string | undefined) {
-		return isMatch(uncommittedRegex, ref);
+	export function isUncommitted(ref: string | undefined, exact: boolean = false) {
+		return ref === uncommitted || ref === uncommittedStaged || (!exact && isMatch(uncommittedRegex, ref));
 	}
 
-	export function isUncommittedStaged(ref: string | undefined): boolean {
-		return isMatch(uncommittedStagedRegex, ref);
+	export function isUncommittedStaged(ref: string | undefined, exact: boolean = false): boolean {
+		return ref === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, ref));
 	}
 
 	export function shorten(
 		ref: string | undefined,
-		{
-			force,
-			strings = {},
-		}: {
+		options?: {
 			force?: boolean;
 			strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
-		} = {},
+		},
 	) {
 		if (ref === deletedOrMissing) return '(deleted)';
 
-		if (ref == null || ref.length === 0) return strings.working ?? emptyStr;
+		if (!ref) return options?.strings?.working ?? '';
 		if (isUncommitted(ref)) {
 			return isUncommittedStaged(ref)
-				? strings.uncommittedStaged ?? 'Index'
-				: strings.uncommitted ?? 'Working Tree';
+				? options?.strings?.uncommittedStaged ?? 'Index'
+				: options?.strings?.uncommitted ?? 'Working Tree';
 		}
 
 		if (GitRevision.isRange(ref)) return ref;
-		if (!force && !isShaLike(ref)) return ref;
+		if (!options?.force && !isShaLike(ref)) return ref;
 
 		// Don't allow shas to be shortened to less than 5 characters
-		const len = Math.max(5, Container.instance.config.advanced.abbreviatedShaLength);
+		const len = Math.max(5, configuration.get('advanced.abbreviatedShaLength'));
 
 		// If we have a suffix, append it
 		const match = shaShortenRegex.exec(ref);
@@ -121,7 +115,7 @@ export interface GitRevisionReference {
 	repoPath: string;
 
 	number?: string | undefined;
-	message?: string;
+	message?: string | undefined;
 }
 
 export interface GitStashReference {
@@ -131,7 +125,7 @@ export interface GitStashReference {
 	repoPath: string;
 	number: string | undefined;
 
-	message?: string;
+	message?: string | undefined;
 }
 
 export interface GitTagReference {
@@ -224,7 +218,7 @@ export namespace GitReference {
 
 	export function getNameWithoutRemote(ref: GitReference) {
 		if (ref.refType === 'branch') {
-			return ref.remote ? GitBranch.getNameWithoutRemote(ref.name) : ref.name;
+			return ref.remote ? getBranchNameWithoutRemote(ref.name) : ref.name;
 		}
 		return ref.name;
 	}
@@ -242,7 +236,7 @@ export namespace GitReference {
 	}
 
 	export function isStash(ref: GitReference | undefined): ref is GitStashReference {
-		return ref?.refType === 'stash' || (ref?.refType === 'revision' && (ref as any)?.stashName);
+		return ref?.refType === 'stash' || (ref?.refType === 'revision' && Boolean((ref as any)?.stashName));
 	}
 
 	export function isTag(ref: GitReference | undefined): ref is GitTagReference {
@@ -267,12 +261,12 @@ export namespace GitReference {
 			switch (ref.refType) {
 				case 'branch':
 					result = `${options.label ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
-						options.icon ? `$(git-branch)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
+						options.icon ? `$(git-branch)${GlyphChars.Space}${refName}` : refName
 					}`;
 					break;
 				case 'tag':
 					result = `${options.label ? 'tag ' : ''}${
-						options.icon ? `$(tag)${GlyphChars.Space}${refName}${GlyphChars.Space}` : refName
+						options.icon ? `$(tag)${GlyphChars.Space}${refName}` : refName
 					}`;
 					break;
 				default: {
@@ -288,7 +282,7 @@ export namespace GitReference {
 
 						result = `${options.label ? 'stash ' : ''}${
 							options.icon
-								? `$(archive)${GlyphChars.Space}${message ?? ref.name}${GlyphChars.Space}`
+								? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
 								: `${message ?? ref.number ?? ref.name}`
 						}`;
 					} else if (GitRevision.isRange(ref.ref)) {
@@ -315,7 +309,7 @@ export namespace GitReference {
 
 						result = `${options.label ? `${prefix}commit ` : ''}${
 							options.icon
-								? `$(git-commit)${GlyphChars.Space}${refName}${message ?? ''}${GlyphChars.Space}`
+								? `$(git-commit)${GlyphChars.Space}${refName}${message ?? ''}`
 								: `${refName}${message ?? ''}`
 						}`;
 					}

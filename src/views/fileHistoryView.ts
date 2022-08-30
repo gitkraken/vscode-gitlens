@@ -1,11 +1,15 @@
-'use strict';
-import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { configuration, FileHistoryViewConfig } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
-import { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import type { FileHistoryViewConfig } from '../configuration';
+import { configuration } from '../configuration';
+import { Commands, ContextKeys } from '../constants';
+import type { Container } from '../container';
+import { setContext } from '../context';
+import type { GitUri } from '../git/gitUri';
+import { executeCommand } from '../system/command';
+import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
@@ -16,7 +20,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followEditor: boolean = true;
 
 	constructor(container: Container) {
-		super('gitlens.views.fileHistory', 'File History', container);
+		super(container, 'gitlens.views.fileHistory', 'File History', 'fileHistoryView');
 
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
@@ -34,63 +38,55 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setCursorFollowingOn'),
 				() => this.setCursorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setCursorFollowingOff'),
 				() => this.setCursorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOn'),
 				() => this.setEditorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setRenameFollowingOn'),
 				() => this.setRenameFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setRenameFollowingOff'),
 				() => this.setRenameFollowing(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
 				() => this.setShowAllBranches(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOff'),
 				() => this.setShowAllBranches(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 
@@ -99,6 +95,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&

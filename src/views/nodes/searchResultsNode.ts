@@ -1,14 +1,18 @@
-'use strict';
-import { ThemeIcon, TreeItem } from 'vscode';
-import { executeGitCommand } from '../../commands';
+import type { TreeItem } from 'vscode';
+import { ThemeIcon } from 'vscode';
+import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
-import { GitLog } from '../../git/models';
+import type { GitLog } from '../../git/models/log';
 import { SearchPattern } from '../../git/search';
-import { debug, gate, log, Strings } from '../../system';
-import { SearchAndCompareView } from '../searchAndCompareView';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { md5, pluralize } from '../../system/string';
+import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { CommitsQueryResults } from './resultsCommitsNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
@@ -28,11 +32,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return Strings.md5(`${repoPath}|${SearchPattern.toKey(search)}`);
-	}
-
-	static override is(node: any): node is SearchResultsNode {
-		return node instanceof SearchResultsNode;
+		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
 	}
 
 	private _instanceId: number;
@@ -133,7 +133,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		item.id = this.id;
 		item.contextValue = `${ContextValues.SearchResults}${this._pinned ? '+pinned' : ''}`;
 		if (this.view.container.git.repositoryCount > 1) {
-			const repo = await this.view.container.git.getRepository(this.repoPath);
+			const repo = this.view.container.git.getRepository(this.repoPath);
 			item.description = repo?.formattedName ?? this.repoPath;
 		}
 		if (this._pinned) {
@@ -166,7 +166,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		log: Promise<GitLog | undefined> | GitLog | undefined;
 	}) {
 		if (search == null) {
-			void (await executeGitCommand({
+			await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
 				state: {
@@ -174,7 +174,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 					...this.search,
 					showResultsInSideBar: this,
 				},
-			}));
+			});
 
 			return;
 		}
@@ -243,7 +243,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		const resultsType =
 			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
 
-		return `${Strings.pluralize(resultsType.singular, count, {
+		return `${pluralize(resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : undefined),
 			plural: resultsType.plural,
 			zero: 'No',

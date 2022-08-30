@@ -1,47 +1,43 @@
-import { Disposable, Event, Range, TextEditor, Uri, WorkspaceFolder } from 'vscode';
-import { Commit, InputBox } from '../@types/vscode.git';
-import { GitUri } from './gitUri';
-import {
-	BranchSortOptions,
-	GitBlame,
-	GitBlameLine,
-	GitBlameLines,
-	GitBranch,
-	GitBranchReference,
-	GitContributor,
-	GitDiff,
-	GitDiffFilter,
-	GitDiffHunkLine,
-	GitDiffShortStat,
-	GitFile,
-	GitLog,
-	GitLogCommit,
-	GitMergeStatus,
-	GitRebaseStatus,
-	GitReflog,
-	GitRemote,
-	GitStash,
-	GitStatus,
-	GitStatusFile,
-	GitTag,
-	GitTree,
-	GitUser,
-	Repository,
-	RepositoryChangeEvent,
-	TagSortOptions,
-} from './models';
-import { RemoteProviders } from './remotes/factory';
-import { RemoteProvider, RichRemoteProvider } from './remotes/provider';
-import { SearchPattern } from './search';
+import type { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
+import type { Commit, InputBox } from '../@types/vscode.git';
+import type { ForcePushMode } from '../@types/vscode.git.enums';
+import type { Features } from '../features';
+import type { GitUri } from './gitUri';
+import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
+import type { BranchSortOptions, GitBranch } from './models/branch';
+import type { GitCommit } from './models/commit';
+import type { GitContributor } from './models/contributor';
+import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitFile } from './models/file';
+import type { GitGraph } from './models/graph';
+import type { GitLog } from './models/log';
+import type { GitMergeStatus } from './models/merge';
+import type { GitRebaseStatus } from './models/rebase';
+import type { GitBranchReference } from './models/reference';
+import type { GitReflog } from './models/reflog';
+import type { GitRemote } from './models/remote';
+import type { Repository, RepositoryChangeEvent } from './models/repository';
+import type { GitStash } from './models/stash';
+import type { GitStatus, GitStatusFile } from './models/status';
+import type { GitTag, TagSortOptions } from './models/tag';
+import type { GitTreeEntry } from './models/tree';
+import type { GitUser } from './models/user';
+import type { GitWorktree } from './models/worktree';
+import type { RemoteProvider } from './remotes/remoteProvider';
+import type { RemoteProviders } from './remotes/remoteProviders';
+import type { RichRemoteProvider } from './remotes/richRemoteProvider';
+import type { SearchPattern } from './search';
 
 export const enum GitProviderId {
 	Git = 'git',
 	GitHub = 'github',
+	Vsls = 'vsls',
 }
 
 export interface GitProviderDescriptor {
 	readonly id: GitProviderId;
 	readonly name: string;
+	readonly virtual: boolean;
 }
 
 export interface RepositoryInitWatcher extends Disposable {
@@ -53,7 +49,7 @@ export interface ScmRepository {
 	readonly inputBox: InputBox;
 
 	getCommit(ref: string): Promise<Commit>;
-	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
+	push(remoteName?: string, branchName?: string, setUpstream?: boolean, force?: ForcePushMode): Promise<void>;
 }
 
 export interface PagedResult<T> {
@@ -64,34 +60,79 @@ export interface PagedResult<T> {
 	readonly values: NonNullable<T>[];
 }
 
-export interface GitProvider {
+export interface NextComparisonUrisResult {
+	current: GitUri;
+	next: GitUri | undefined;
+	deleted?: boolean | undefined;
+}
+
+export interface PreviousComparisonUrisResult {
+	current: GitUri;
+	previous: GitUri | undefined;
+}
+
+export interface PreviousLineComparisonUrisResult extends PreviousComparisonUrisResult {
+	line: number;
+}
+
+export interface RepositoryCloseEvent {
+	readonly uri: Uri;
+}
+
+export interface RepositoryOpenEvent {
+	readonly uri: Uri;
+}
+
+export const enum RepositoryVisibility {
+	Private = 'private',
+	Public = 'public',
+	Local = 'local',
+}
+
+export interface GitProvider extends Disposable {
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
+	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
+	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
 
 	readonly descriptor: GitProviderDescriptor;
+	readonly supportedSchemes: Set<string>;
 
 	discoverRepositories(uri: Uri): Promise<Repository[]>;
-	createRepository(
-		folder: WorkspaceFolder,
-		path: string,
+	updateContext?(): void;
+	openRepository(
+		folder: WorkspaceFolder | undefined,
+		uri: Uri,
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
-	): Repository;
-	createRepositoryInitWatcher?(): RepositoryInitWatcher;
+	): Repository[];
+	openRepositoryInitWatcher?(): RepositoryInitWatcher;
+
+	supports(feature: Features): Promise<boolean>;
+	visibility(repoPath: string): Promise<RepositoryVisibility>;
+
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
+	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
+
+	canHandlePathOrUri(scheme: string, pathOrUri: string | Uri): string | undefined;
+	getAbsoluteUri(pathOrUri: string | Uri, base: string | Uri): Uri;
+	getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined>;
+	getRelativePath(pathOrUri: string | Uri, base: string | Uri): string;
+	getRevisionUri(repoPath: string, path: string, ref: string): Uri;
+	// getRootUri(pathOrUri: string | Uri): Uri;
+	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
 	addRemote(repoPath: string, name: string, url: string): Promise<void>;
 	pruneRemote(repoPath: string, remoteName: string): Promise<void>;
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
-	branchContainsCommit(repoPath: string, name: string, ref: string): Promise<boolean>;
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined } | { fileName?: string | undefined },
+		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
 	resetCaches(
-		...cache: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	fetch(
@@ -104,27 +145,31 @@ export interface GitProvider {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
 	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 */
-	getBlameForFile(uri: GitUri): Promise<GitBlame | undefined>;
+	getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a file, using the editor contents (for dirty editors)
 	 * @param uri Uri of the file to blame
 	 * @param contents Contents from the editor to use
 	 */
-	getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
+	getBlameContents(uri: GitUri, contents: string): Promise<GitBlame | undefined>;
 	/**
 	 * Returns the blame of a single line
 	 * @param uri Uri of the file to blame
 	 * @param editorLine Editor line number (0-based) to blame (Git is 1-based)
+	 * @param document Optional TextDocument to blame the contents of if dirty
 	 * @param options.forceSingleLine Forces blame to be for the single line (rather than the whole file)
 	 */
 	getBlameForLine(
 		uri: GitUri,
 		editorLine: number,
+		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined>;
 	/**
@@ -141,18 +186,28 @@ export interface GitProvider {
 	): Promise<GitBlameLine | undefined>;
 	getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined>;
 	getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined>;
-	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
+	getBlameRange(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined;
 	getBranch(repoPath: string): Promise<GitBranch | undefined>;
 	getBranches(
 		repoPath: string,
-		options?: { filter?: ((b: GitBranch) => boolean) | undefined; sort?: boolean | BranchSortOptions | undefined },
+		options?: {
+			cursor?: string;
+			filter?: ((b: GitBranch) => boolean) | undefined;
+			sort?: boolean | BranchSortOptions | undefined;
+		},
 	): Promise<PagedResult<GitBranch>>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
-	getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined>;
+	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
 	getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: { mode?: 'contains' | 'pointsAt' | undefined; remotes?: boolean | undefined },
+		options?: {
+			branch?: string | undefined;
+			commitDate?: Date | undefined;
+			mode?: 'contains' | 'pointsAt' | undefined;
+			name?: string | undefined;
+			remotes?: boolean | undefined;
+		},
 	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(
@@ -162,9 +217,18 @@ export interface GitProvider {
 			ref?: string | undefined;
 			firstIfNotFound?: boolean | undefined;
 			range?: Range | undefined;
-			reverse?: boolean | undefined;
 		},
-	): Promise<GitLogCommit | undefined>;
+	): Promise<GitCommit | undefined>;
+	getCommitsForGraph(
+		repoPath: string,
+		asWebviewUri: (uri: Uri) => Uri,
+		options?: {
+			branch?: string;
+			limit?: number;
+			mode?: 'single' | 'local' | 'all';
+			ref?: string;
+		},
+	): Promise<GitGraph>;
 	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,
@@ -206,43 +270,50 @@ export interface GitProvider {
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	getLog(
 		repoPath: string,
 		options?: {
 			all?: boolean | undefined;
-			authors?: string[] | undefined;
+			authors?: GitUser[] | undefined;
+			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
-			reverse?: boolean | undefined;
 			since?: string | undefined;
 		},
 	): Promise<GitLog | undefined>;
 	getLogRefsOnly(
 		repoPath: string,
 		options?: {
-			authors?: string[] | undefined;
+			authors?: GitUser[] | undefined;
+			cursor?: string | undefined;
 			limit?: number | undefined;
 			merges?: boolean | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
-			reverse?: boolean | undefined;
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
 	getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
-		options?: { limit?: number | undefined; ordering?: string | null | undefined; skip?: number | undefined },
+		options?: {
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			skip?: number | undefined;
+		},
 	): Promise<GitLog | undefined>;
 	getLogForFile(
 		repoPath: string,
-		fileName: string,
+		pathOrUri: string | Uri,
 		options?: {
 			all?: boolean | undefined;
+			cursor?: string | undefined;
+			force?: boolean | undefined;
 			limit?: number | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			range?: Range | undefined;
 			ref?: string | undefined;
 			renames?: boolean | undefined;
@@ -259,80 +330,55 @@ export interface GitProvider {
 	): Promise<string | undefined>;
 	getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined>;
 	getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined>;
-	getNextDiffUris(
+	getNextComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean | undefined } | undefined>;
-	getNextUri(repoPath: string, uri: Uri, ref?: string, skip?: number): Promise<GitUri | undefined>;
-	getPreviousDiffUris(
+	): Promise<NextComparisonUrisResult | undefined>;
+	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
 		firstParent?: boolean,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined>;
-	getPreviousLineDiffUris(
+	): Promise<PreviousComparisonUrisResult | undefined>;
+	getPreviousComparisonUrisForLine(
 		repoPath: string,
 		uri: Uri,
 		editorLine: number,
 		ref: string | undefined,
 		skip?: number,
-	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined>;
-	getPreviousUri(
-		repoPath: string,
-		uri: Uri,
-		ref?: string,
-		skip?: number,
-		editorLine?: number,
-		firstParent?: boolean,
-	): Promise<GitUri | undefined>;
+	): Promise<PreviousLineComparisonUrisResult | undefined>;
 	getIncomingActivity(
 		repoPath: string,
 		options?: {
 			all?: boolean | undefined;
 			branch?: string | undefined;
 			limit?: number | undefined;
-			ordering?: string | null | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
-	getRichRemoteProvider(
-		repoPath: string | undefined,
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	getRichRemoteProvider(
-		remotes: GitRemote<RemoteProvider | RichRemoteProvider | undefined>[],
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	getRichRemoteProvider(
-		remotesOrRepoPath: string | GitRemote<RemoteProvider | RichRemoteProvider | undefined>[] | undefined,
-		options?: { includeDisconnected?: boolean | undefined },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
 	getRemotes(
 		repoPath: string | undefined,
-		options?: { sort?: boolean | undefined },
-	): Promise<GitRemote<RemoteProvider>[]>;
-	getRemotesCore(
-		repoPath: string | undefined,
-		providers?: RemoteProviders,
-		options?: { sort?: boolean | undefined },
+		options?: { providers?: RemoteProviders; sort?: boolean },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]>;
-	getRepoPath(filePath: string, isDirectory?: boolean): Promise<string | undefined>;
+	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
-	getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined>;
-	getStatusForFiles(repoPath: string, pathOrGlob: string): Promise<GitStatusFile[] | undefined>;
+	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
+	getStatusForFiles(repoPath: string, pathOrGlob: Uri): Promise<GitStatusFile[] | undefined>;
 	getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined>;
 	getTags(
 		repoPath: string | undefined,
-		options?: { filter?: ((t: GitTag) => boolean) | undefined; sort?: boolean | TagSortOptions | undefined },
+		options?: {
+			cursor?: string;
+			filter?: ((t: GitTag) => boolean) | undefined;
+			sort?: boolean | TagSortOptions | undefined;
+		},
 	): Promise<PagedResult<GitTag>>;
-	getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined>;
-	getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]>;
-	getVersionedFileBuffer(repoPath: string, fileName: string, ref: string): Promise<Buffer | undefined>;
-	getVersionedUri(repoPath: string | undefined, fileName: string, ref: string | undefined): Promise<Uri | undefined>;
-	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
+	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
+	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
 
 	hasBranchOrTag(
 		repoPath: string | undefined,
@@ -342,11 +388,10 @@ export interface GitProvider {
 				| undefined;
 		},
 	): Promise<boolean>;
-	hasRemotes(repoPath: string | undefined): Promise<boolean>;
-	hasTrackingBranch(repoPath: string | undefined): Promise<boolean>;
-	isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean>;
 
+	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
 	isTrackable(uri: Uri): boolean;
+	isTracked(uri: Uri): Promise<boolean>;
 
 	getDiffTool(repoPath?: string): Promise<string | undefined>;
 	openDiffTool(
@@ -364,35 +409,15 @@ export interface GitProvider {
 	resolveReference(
 		repoPath: string,
 		ref: string,
-		fileName?: string,
-		options?: { timeout?: number | undefined },
-	): Promise<string>;
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		uri?: Uri,
-		options?: { timeout?: number | undefined },
-	): Promise<string>;
-	resolveReference(
-		repoPath: string,
-		ref: string,
-		fileNameOrUri?: string | Uri,
+		pathOrUri?: string | Uri,
 		options?: { timeout?: number | undefined },
 	): Promise<string>;
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 
-	stageFile(repoPath: string, fileName: string): Promise<void>;
-	stageFile(repoPath: string, uri: Uri): Promise<void>;
-	stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<void>;
-	stageDirectory(repoPath: string, directory: string): Promise<void>;
-	stageDirectory(repoPath: string, uri: Uri): Promise<void>;
+	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
-	unStageFile(repoPath: string, fileName: string): Promise<void>;
-	unStageFile(repoPath: string, uri: Uri): Promise<void>;
-	unStageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<void>;
-	unStageDirectory(repoPath: string, directory: string): Promise<void>;
-	unStageDirectory(repoPath: string, uri: Uri): Promise<void>;
+	unStageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
 	stashApply(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
@@ -403,4 +428,18 @@ export interface GitProvider {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined },
 	): Promise<void>;
+
+	createWorktree?(
+		repoPath: string,
+		path: string,
+		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+	): Promise<void>;
+	getWorktrees?(repoPath: string): Promise<GitWorktree[]>;
+	getWorktreesDefaultUri?(repoPath: string): Promise<Uri | undefined>;
+	deleteWorktree?(repoPath: string, path: string, options?: { force?: boolean }): Promise<void>;
+}
+
+export interface RevisionUriData {
+	ref?: string;
+	repoPath: string;
 }

@@ -6,7 +6,7 @@
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/eamodio/vscode-gitlens/#git-codelens-"
+				href="https://github.com/gitkraken/vscode-gitlens/#git-codelens-"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -80,12 +80,12 @@
 										<option value="gitlens.revealCommitInView">
 											reveals the commit in the Side Bar
 										</option>
-										<option value="gitlens.showCommitsInView">searches for the commit</option>
+										<option value="gitlens.showCommitsInView">shows details of the commit</option>
 										<option value="gitlens.showQuickCommitDetails">
-											shows details of the commit
+											shows quick pick details of the commit
 										</option>
 										<option value="gitlens.showQuickCommitFileDetails">
-											shows file details of the commit
+											shows quick pick file details of the commit (default)
 										</option>
 										<option value="gitlens.showQuickFileHistory">
 											shows the current file history
@@ -146,7 +146,9 @@
 										data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
 										disabled
 									>
-										<option value="gitlens.toggleFileBlame">toggles the file blame</option>
+										<option value="gitlens.toggleFileBlame">
+											toggles the file blame (default)
+										</option>
 										<option value="gitlens.toggleFileHeatmap">toggles the file heatmap</option>
 										<option value="gitlens.toggleFileChanges">
 											toggles the file changes since before the commit
@@ -164,10 +166,10 @@
 											searches for commits within the range
 										</option>
 										<option value="gitlens.showQuickCommitDetails">
-											shows details of the commit
+											shows quick pick details of the commit
 										</option>
 										<option value="gitlens.showQuickCommitFileDetails">
-											show file details of the commit
+											show quick pick file details of the commit
 										</option>
 										<option value="gitlens.showQuickFileHistory">
 											shows the current file history
@@ -252,53 +254,86 @@
 			</div>
 
 			<div class="section__preview">
-				<img class="image__preview" src="#{root}/images/settings/code-lens.webp" />
+				<img
+					class="image__preview"
+					src="#{webroot}/media/code-lens.webp"
+					loading="lazy"
+					width="600"
+					height="206"
+				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-file-recent+authors.webp"
+					src="#{webroot}/media/code-lens-file-recent+authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-file-recent.webp"
+					src="#{webroot}/media/code-lens-file-recent.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-file-authors.webp"
+					src="#{webroot}/media/code-lens-file-authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-containers-recent+authors.webp"
+					src="#{webroot}/media/code-lens-containers-recent+authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-containers-recent.webp"
+					src="#{webroot}/media/code-lens-containers-recent.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-containers-authors.webp"
+					src="#{webroot}/media/code-lens-containers-authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-blocks-recent+authors.webp"
+					src="#{webroot}/media/code-lens-blocks-recent+authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-blocks-recent.webp"
+					src="#{webroot}/media/code-lens-blocks-recent.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/code-lens-blocks-authors.webp"
+					src="#{webroot}/media/code-lens-blocks-authors.webp"
 					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 			</div>
 		</div>

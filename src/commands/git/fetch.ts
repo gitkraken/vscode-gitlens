@@ -1,22 +1,22 @@
-'use strict';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks';
-import { Arrays, Dates, Strings } from '../../system';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type { Container } from '../../container';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { isStringArray } from '../../system/array';
+import { fromNow } from '../../system/date';
+import { pad } from '../../system/string';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
-	pickRepositoriesStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { appendReposToTitle, pickRepositoriesStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -41,8 +41,8 @@ export interface FetchGitCommandArgs {
 type FetchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
 export class FetchGitCommand extends QuickCommand<State> {
-	constructor(args?: FetchGitCommandArgs) {
-		super('fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
+	constructor(container: Container, args?: FetchGitCommandArgs) {
+		super(container, 'fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
 
 		let counter = 0;
 		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
@@ -61,7 +61,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			return state.repos[0].fetch({ branch: state.reference });
 		}
 
-		return Container.instance.git.fetchAll(state.repos, {
+		return this.container.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
 		});
@@ -69,8 +69,8 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 
@@ -87,12 +87,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
@@ -138,9 +133,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		if (state.repos.length === 1) {
 			const lastFetched = await state.repos[0].getLastFetched();
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-					new Date(lastFetched),
-				).fromNow()}`;
+				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
 			}
 		}
 

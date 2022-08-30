@@ -1,7 +1,10 @@
-'use strict';
 import { env, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
 import { AutolinkedItemNode } from '../views/nodes/autolinkedItemNode';
-import { Command, command, CommandContext, Commands } from './common';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 export interface OpenIssueOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -10,16 +13,22 @@ export interface OpenIssueOnRemoteCommandArgs {
 
 @command()
 export class OpenIssueOnRemoteCommand extends Command {
-	constructor() {
-		super([Commands.OpenIssueOnRemote, Commands.CopyRemoteIssueUrl]);
+	constructor(private readonly container: Container) {
+		super([
+			Commands.OpenIssueOnRemote,
+			Commands.CopyRemoteIssueUrl,
+			Commands.OpenAutolinkUrl,
+			Commands.CopyAutolinkUrl,
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args: OpenIssueOnRemoteCommandArgs) {
 		if (context.type === 'viewItem' && context.node instanceof AutolinkedItemNode) {
 			args = {
 				...args,
-				issue: { url: context.node.issue.url },
-				clipboard: context.command === Commands.CopyRemotePullRequestUrl,
+				issue: { url: context.node.item.url },
+				clipboard:
+					context.command === Commands.CopyRemoteIssueUrl || context.command === Commands.CopyAutolinkUrl,
 			};
 		}
 
@@ -28,7 +37,7 @@ export class OpenIssueOnRemoteCommand extends Command {
 
 	async execute(args: OpenIssueOnRemoteCommandArgs) {
 		if (args.clipboard) {
-			void (await env.clipboard.writeText(args.issue.url));
+			await env.clipboard.writeText(args.issue.url);
 		} else {
 			void env.openExternal(Uri.parse(args.issue.url));
 		}

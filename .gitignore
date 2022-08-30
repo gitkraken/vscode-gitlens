@@ -3,7 +3,9 @@
 .vscode-test/**
 .vscode-test-web/**
 dist
+out
 node_modules
 images/settings
 gitlens-*.vsix
 tsconfig*.tsbuildinfo
+.DS_Store

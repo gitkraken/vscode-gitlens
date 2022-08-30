@@ -1,13 +1,16 @@
-'use strict';
-import { env, TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { TextEditor, Uri } from 'vscode';
+import { env, window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/command';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 @command()
 export class CopyCurrentBranchCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CopyCurrentBranch);
 	}
 
@@ -16,11 +19,11 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, 'Copy Current Branch Name');
-		if (!repoPath) return;
+		const repository = await RepositoryPicker.getBestRepositoryOrShow(gitUri, editor, 'Copy Current Branch Name');
+		if (repository == null) return;
 
 		try {
-			const branch = await Container.instance.git.getBranch(repoPath);
+			const branch = await repository.getBranch();
 			if (branch?.name) {
 				await env.clipboard.writeText(branch.name);
 			}

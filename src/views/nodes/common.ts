@@ -1,9 +1,11 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, ThemeIcon, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitUri } from '../../git/gitUri';
-import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import { unknownGitUri } from '../../git/gitUri';
+import type { View } from '../viewBase';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
@@ -22,7 +24,7 @@ export class MessageNode extends ViewNode {
 			| ThemeIcon,
 		private readonly _contextValue?: string,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -91,7 +93,7 @@ export class UpdateableMessageNode extends ViewNode {
 			  }
 			| ThemeIcon,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 		this.id = id;
 	}
 
@@ -146,26 +148,31 @@ export abstract class PagerNode extends ViewNode {
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
 		protected readonly previousNode?: ViewNode,
-		protected readonly pageSize: number = Container.instance.config.views.pageItemLimit,
-		protected readonly countFn?: () => Promise<number | undefined>,
+		protected readonly options?: {
+			context?: Record<string, unknown>;
+			pageSize?: number;
+			getCount?: () => Promise<number | undefined>;
+		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	async loadAll() {
-		const count = (await this.countFn?.()) ?? 0;
+		const count = (await this.options?.getCount?.()) ?? 0;
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			count > 5000 ? 5000 : 0,
 			this.previousNode,
+			this.options?.context,
 		);
 	}
 
 	loadMore() {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
-			this.pageSize,
+			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),
 			this.previousNode,
+			this.options?.context,
 		);
 	}
 
@@ -194,18 +201,22 @@ export class LoadMoreNode extends PagerNode {
 		view: View,
 		parent: ViewNode & PageableViewNode,
 		previousNode: ViewNode,
-		pageSize?: number,
-		countFn?: () => Promise<number | undefined>,
+		options?: {
+			context?: Record<string, unknown>;
+			getCount?: () => Promise<number | undefined>;
+			message?: string;
+			pageSize?: number;
+		},
 	) {
 		super(
 			view,
 			parent,
-			pageSize === 0
-				? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-				: 'Load more',
+			options?.message ??
+				(options?.pageSize === 0
+					? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
+					: 'Load more'),
 			previousNode,
-			pageSize,
-			countFn,
+			options,
 		);
 	}
 }

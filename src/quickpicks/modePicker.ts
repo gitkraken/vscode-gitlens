@@ -1,7 +1,7 @@
-'use strict';
-import { QuickPickItem, window } from 'vscode';
+import type { QuickPickItem } from 'vscode';
+import { window } from 'vscode';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
 
 export interface ModesQuickPickItem extends QuickPickItem {
 	key: string | undefined;
@@ -9,13 +9,13 @@ export interface ModesQuickPickItem extends QuickPickItem {
 
 export namespace ModePicker {
 	export async function show(): Promise<ModesQuickPickItem | undefined> {
-		if (Container.instance.config.modes == null) return undefined;
+		const modes = configuration.get('modes');
+		if (modes == null) return undefined;
 
-		const modes = Container.instance.config.modes;
 		const modeKeys = Object.keys(modes);
 		if (modeKeys.length === 0) return undefined;
 
-		const mode = Container.instance.config.mode.active;
+		const mode = configuration.get('mode.active');
 
 		const items = modeKeys.map(key => {
 			const modeCfg = modes[key];
@@ -29,7 +29,7 @@ export namespace ModePicker {
 			return item;
 		});
 
-		if (mode) {
+		if (mode && modes[mode] != null) {
 			items.splice(0, 0, {
 				label: `Exit ${modes[mode].name} mode`,
 				key: undefined,

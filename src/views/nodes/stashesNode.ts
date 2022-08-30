@@ -1,10 +1,11 @@
-'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
-import { debug, gate, Iterables } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
-import { StashesView } from '../stashesView';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitUri } from '../../git/gitUri';
+import type { Repository } from '../../git/models/repository';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
+import type { RepositoriesView } from '../repositoriesView';
+import type { StashesView } from '../stashesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { StashNode } from './stashNode';
@@ -31,7 +32,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 			const stash = await this.repo.getStash();
 			if (stash == null) return [new MessageNode(this.view, this, 'No stashes could be found.')];
 
-			this._children = [...Iterables.map(stash.commits.values(), c => new StashNode(this.view, this, c))];
+			this._children = [...map(stash.commits.values(), c => new StashNode(this.view, this, c))];
 		}
 
 		return this._children;
@@ -41,12 +42,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Stashes;
-
-		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: this.view.container.context.asAbsolutePath('images/light/icon-stash.svg'),
-		};
-
+		item.iconPath = new ThemeIcon('gitlens-stashes');
 		return item;
 	}
 

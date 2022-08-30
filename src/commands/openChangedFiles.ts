@@ -1,10 +1,14 @@
-'use strict';
-import { Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { Uri } from 'vscode';
+import { window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Arrays } from '../system';
-import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
+import { showGenericErrorMessage } from '../messages';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { filterMap } from '../system/array';
+import { command } from '../system/command';
+import { findOrOpenEditors } from '../system/utils';
+import { Command } from './base';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -12,7 +16,7 @@ export interface OpenChangedFilesCommandArgs {
 
 @command()
 export class OpenChangedFilesCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.OpenChangedFiles);
 	}
 
@@ -21,23 +25,23 @@ export class OpenChangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repoPath = await getRepoPathOrPrompt('Open All Changed Files');
-				if (!repoPath) return;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changed Files');
+				if (repository == null) return;
 
-				const status = await Container.instance.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					void window.showWarningMessage('Unable to open changed files');
 
 					return;
 				}
 
-				args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
+				args.uris = filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
 			}
 
 			findOrOpenEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			void Messages.showGenericErrorMessage('Unable to open all changed files');
+			void showGenericErrorMessage('Unable to open all changed files');
 		}
 	}
 }

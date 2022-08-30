@@ -1,42 +1,31 @@
-'use strict';
-import {
-	Disposable,
-	Event,
-	EventEmitter,
-	FileChangeEvent,
-	FileStat,
-	FileSystemError,
-	FileSystemProvider,
-	FileType,
-	Uri,
-	workspace,
-} from 'vscode';
-import { DocumentSchemes } from '../constants';
-import { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { debug, Iterables, TernarySearchTree } from '../system';
+import type { Event, FileChangeEvent, FileStat, FileSystemProvider, Uri } from 'vscode';
+import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from 'vscode';
+import { isLinux } from '@env/platform';
+import { Schemes } from '../constants';
+import type { Container } from '../container';
+import { GitUri, isGitUri } from '../git/gitUri';
+import { debug } from '../system/decorators/log';
+import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
-import { GitRevision, GitTree } from './models';
+import { TernarySearchTree } from '../system/searchTree';
+import { GitRevision } from './models/reference';
+import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
-	const gitUri = GitUri.is(uri) ? uri : GitUri.fromRevisionUri(uri);
+	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
 	return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
-}
-
-export function toGitLensFSUri(ref: string, repoPath: string): Uri {
-	return GitUri.toRevisionUri(ref, repoPath, repoPath);
 }
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	private readonly _disposable: Disposable;
-	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTree>>>();
+	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTreeEntry>>>();
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
-			workspace.registerFileSystemProvider(DocumentSchemes.GitLens, this, {
-				isCaseSensitive: true,
+			workspace.registerFileSystemProvider(Schemes.GitLens, this, {
+				isCaseSensitive: isLinux,
 				isReadonly: true,
 			}),
 		);
@@ -51,14 +40,14 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return this._onDidChangeFile.event;
 	}
 
-	copy?(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	copy?(source: Uri, _destination: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(source);
 	}
-	createDirectory(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	createDirectory(uri: Uri): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
-	delete(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	delete(uri: Uri, _options: { readonly recursive: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
 
 	@debug()
@@ -69,7 +58,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		if (tree === undefined) throw FileSystemError.FileNotFound(uri);
 
 		const items = [
-			...Iterables.map<GitTree, [string, FileType]>(tree, t => [
+			...map<GitTreeEntry, [string, FileType]>(tree, t => [
 				path != null && path.length !== 0 ? normalizePath(relative(path, t.path)) : t.path,
 				typeToFileType(t.type),
 			]),
@@ -83,14 +72,12 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
 		if (ref === GitRevision.deletedOrMissing) return emptyArray;
 
-		const buffer = await this.container.git.getVersionedFileBuffer(repoPath, path, ref);
-		if (buffer === undefined) return emptyArray;
-
-		return buffer;
+		const data = await this.container.git.getRevisionContent(repoPath, path, ref);
+		return data != null ? data : emptyArray;
 	}
 
-	rename(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	rename(oldUri: Uri, _newUri: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(oldUri);
 	}
 
 	@debug()
@@ -125,7 +112,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 				};
 			}
 
-			treeItem = await this.container.git.getTreeFileForRevision(repoPath, path, ref);
+			treeItem = await this.container.git.getTreeEntryForRevision(repoPath, path, ref);
 		}
 
 		if (treeItem === undefined) {
@@ -148,12 +135,12 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		};
 	}
 
-	writeFile(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	writeFile(uri: Uri): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
 
 	private async createSearchTree(ref: string, repoPath: string) {
-		const searchTree = TernarySearchTree.forPaths<GitTree>();
+		const searchTree = TernarySearchTree.forPaths<GitTreeEntry>();
 		const trees = await this.container.git.getTreeForRevision(repoPath, ref);
 
 		// Add a fake root folder so that searches will work

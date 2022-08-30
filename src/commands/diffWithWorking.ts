@@ -1,12 +1,14 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { DiffWithCommandArgs } from './diffWith';
+import { showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/command';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithWorkingCommandArgs {
 	inDiffRightEditor?: boolean;
@@ -17,7 +19,7 @@ export interface DiffWithWorkingCommandArgs {
 
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiffLeft, Commands.DiffWithWorkingInDiffRight]);
 	}
 
@@ -38,11 +40,10 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		if (args.inDiffRightEditor) {
 			try {
-				const diffUris = await Container.instance.git.getPreviousDiffUris(
+				const diffUris = await this.container.git.getPreviousComparisonUris(
 					gitUri.repoPath!,
 					gitUri,
 					gitUri.sha,
-					0,
 				);
 				gitUri = diffUris?.previous ?? gitUri;
 			} catch (ex) {
@@ -51,7 +52,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				void Messages.showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}
@@ -71,7 +72,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
-			const status = await Container.instance.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+			const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
 			if (status?.indexStatus != null) {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: gitUri.repoPath,
@@ -93,7 +94,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		uri = gitUri.toFileUri();
 
-		const workingUri = await Container.instance.git.getWorkingUri(gitUri.repoPath!, uri);
+		const workingUri = await this.container.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
 			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 

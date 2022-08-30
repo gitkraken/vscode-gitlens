@@ -60,7 +60,8 @@ async function generateThirdpartyNotices(packages) {
 			name = key;
 		}
 
-		if (name === 'gitlens') continue;
+		if (name === 'gitlens' || name.startsWith('@gitkraken')) continue;
+		if (data.licenseFile == null) continue;
 
 		let license;
 		if (data.licenseFile.startsWith('https://')) {
@@ -69,6 +70,7 @@ async function generateThirdpartyNotices(packages) {
 		} else {
 			license = fs.readFileSync(data.licenseFile, 'utf8');
 		}
+		license = license.replace(/\r\n/g, '\n');
 
 		packageOutputs.push(`${++count}. ${name}${version ? ` version ${version}` : ''} (${data.repository})`);
 		licenseOutputs.push(

@@ -1,25 +1,36 @@
-'use strict';
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
+import type { Command } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
+import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitLogCommit } from '../../git/models';
-import { Strings } from '../../system';
-import { dirname, joinPaths } from '../../system/path';
-import { ViewsWithCommits } from '../viewBase';
+import type { GitCommit } from '../../git/models/commit';
+import { GitFile } from '../../git/models/file';
+import { joinPaths, relativeDir } from '../../system/path';
+import { pluralize } from '../../system/string';
+import type { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
-import { FileNode } from './folderNode';
+import type { FileNode } from './folderNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
-	public readonly commits: GitLogCommit[];
+	public readonly commits: GitCommit[];
 	public readonly file: GitFile;
 	public readonly repoPath: string;
 
+	private readonly _direction: 'ahead' | 'behind';
 	private readonly _hasStagedChanges: boolean;
 	private readonly _hasUnstagedChanges: boolean;
 
-	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile, commits: GitLogCommit[]) {
+	constructor(
+		view: ViewsWithCommits,
+		parent: ViewNode,
+		repoPath: string,
+		file: GitFile,
+		commits: GitCommit[],
+		direction: 'ahead' | 'behind' = 'ahead',
+	) {
 		let hasStagedChanges = false;
 		let hasUnstagedChanges = false;
 		let ref = undefined;
@@ -50,6 +61,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		this.file = file;
 		this.commits = commits;
 
+		this._direction = direction;
 		this._hasStagedChanges = hasStagedChanges;
 		this._hasUnstagedChanges = hasUnstagedChanges;
 	}
@@ -59,7 +71,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	getChildren(): ViewNode[] {
@@ -87,7 +99,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			}
 
 			// Use the file icon and decorations
-			item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+			item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 			item.iconPath = ThemeIcon.File;
 
 			item.command = this.getCommand();
@@ -104,7 +116,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 				}
 
 				// Use the file icon and decorations
-				item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+				item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 				item.iconPath = ThemeIcon.File;
 			} else {
 				item.contextValue = ContextValues.StatusFileCommits;
@@ -151,7 +163,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}
@@ -214,7 +226,7 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 		}
 
 		if (commits > 0) {
-			changedIn.push(Strings.pluralize('commit', commits));
+			changedIn.push(pluralize('commit', commits));
 		}
 
 		if (changedIn.length > 2) {
@@ -241,11 +253,11 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			};
 		}
 
-		const commit = this.commits[this.commits.length - 1];
-		const file = commit.findFile(this.file.fileName)!;
+		const commit = this._direction === 'behind' ? this.commits[0] : this.commits[this.commits.length - 1];
+		const file = commit.files?.find(f => f.path === this.file.path) ?? this.file;
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
-				sha: `${commit.sha}^`,
+				sha: this._direction === 'behind' ? commit.sha : `${commit.sha}^`,
 				uri: GitUri.fromFile(file, this.repoPath, undefined, true),
 			},
 			rhs: {

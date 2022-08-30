@@ -1,20 +1,21 @@
-'use strict';
-import { env, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Iterables } from '../system';
+import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/command';
+import { first } from '../system/iterable';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './common';
+} from './base';
+import { GitActions } from './gitCommands.actions';
 
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
@@ -23,15 +24,23 @@ export interface CopyMessageToClipboardCommandArgs {
 
 @command()
 export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CopyMessageToClipboard);
 	}
 
-	protected override preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
-			return this.execute(context.editor, context.node.commit.uri, args);
+			if (context.node.commit.message != null) {
+				await context.node.commit.ensureFullDetails();
+			}
+			args.message = context.node.commit.message;
+			return this.execute(
+				context.editor,
+				context.node.commit.file?.uri ?? context.node.commit.getRepository()?.uri,
+				args,
+			);
 		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };
 			args.sha = context.node.branch.sha;
@@ -50,59 +59,52 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			let repoPath;
-			// If we don't have an editor then get the message of the last commit to the branch
-			if (uri == null) {
-				repoPath = await Container.instance.git.getActiveRepoPath(editor);
-				if (!repoPath) return;
+			if (!args.message) {
+				let repoPath;
 
-				const log = await Container.instance.git.getLog(repoPath, { limit: 1 });
-				if (log == null) return;
+				// If we don't have an editor then get the message of the last commit to the branch
+				if (uri == null) {
+					repoPath = this.container.git.getBestRepository(editor)?.path;
+					if (!repoPath) return;
 
-				args.message = Iterables.first(log.commits.values()).message;
-			} else if (args.message == null) {
-				const gitUri = await GitUri.fromUri(uri);
-				repoPath = gitUri.repoPath;
+					const log = await this.container.git.getLog(repoPath, { limit: 1 });
+					if (log == null) return;
 
-				if (args.sha == null) {
-					const blameline = editor?.selection.active.line ?? 0;
-					if (blameline < 0) return;
+					const commit = first(log.commits.values());
+					if (commit?.message == null) return;
 
-					try {
-						const blame = editor?.document.isDirty
-							? await Container.instance.git.getBlameForLineContents(
-									gitUri,
-									blameline,
-									editor.document.getText(),
-							  )
-							: await Container.instance.git.getBlameForLine(gitUri, blameline);
-						if (blame == null) return;
+					args.message = commit.message;
+				} else if (args.message == null) {
+					const gitUri = await GitUri.fromUri(uri);
+					repoPath = gitUri.repoPath;
 
-						if (blame.commit.isUncommitted) return;
+					if (args.sha == null) {
+						const blameline = editor?.selection.active.line ?? 0;
+						if (blameline < 0) return;
 
-						args.sha = blame.commit.sha;
-						if (!repoPath) {
-							repoPath = blame.commit.repoPath;
+						try {
+							const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
+							if (blame == null || blame.commit.isUncommitted) return;
+
+							await GitActions.Commit.copyMessageToClipboard(blame.commit);
+							return;
+						} catch (ex) {
+							Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
+							void showGenericErrorMessage('Unable to copy message');
+
+							return;
 						}
-					} catch (ex) {
-						Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-						void Messages.showGenericErrorMessage('Unable to copy message');
-
+					} else {
+						await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! });
 						return;
 					}
 				}
-
-				// Get the full commit message -- since blame only returns the summary
-				const commit = await Container.instance.git.getCommit(repoPath!, args.sha);
-				if (commit == null) return;
-
-				args.message = commit.message;
 			}
 
-			void (await env.clipboard.writeText(args.message));
+			await env.clipboard.writeText(args.message);
 		} catch (ex) {
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			void Messages.showGenericErrorMessage('Unable to copy message');
+			void showGenericErrorMessage('Unable to copy message');
 		}
 	}
 }

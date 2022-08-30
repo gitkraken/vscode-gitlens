@@ -2,12 +2,6 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
-			}
-		</style>
 	</head>
 
 	<body class="preload">
@@ -20,18 +14,12 @@
 		/> -->
 
 		<div class="container">
-			<div class="banner">
-				<a
-					title="Learn more about GitKraken and GitLens joining forces!"
-					href="https://www.gitkraken.com/blog/gitkraken-acquires-gitlens-for-visual-studio-code"
-					target="_blank"
-					alt="Learn more about GitKraken and GitLens joining forces!"
-				>
-					<img src="#{root}/images/gk+gl-banner.png" alt="GitKraken and GitLens are joining forces!" />
-				</a>
-			</div>
 			<header>
-				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
+				<a
+					class="header__link"
+					title="Learn more about GitLens"
+					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+				>
 					<div class="header__logo">
 						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
 						<div>
@@ -41,52 +29,63 @@
 					</div>
 				</a>
 				<p class="header__blurb">
-					GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
-					<b>visualize code authorship</b> at a glance via Git blame annotations and CodeLens,
-					<b>seamlessly navigate and explore</b> Git repositories, <b>gain valuable insights</b> via powerful
-					comparison commands, and so much more.
+					GitLens <b>supercharges</b> Git inside VS Code and unlocks the <b>untapped knowledge</b> within each
+					repository. It helps you to <b>visualize code authorship</b> at a glance via Git blame annotations
+					and CodeLens, <b>seamlessly navigate and explore</b> Git repositories,
+					<b>gain valuable insights</b> via rich visualizations and powerful comparison commands, and so much
+					more.
 				</p>
 			</header>
-
-			<div class="hero__area">
-				<p>
-					<a class="bold" title="Learn more about GitLens" href="https://gitlens.amod.io">GitLens</a> is an
-					<a class="bold" title="Open GitLens on GitHub" href="https://github.com/eamodio/vscode-gitlens"
-						>open-source</a
-					>
-					extension for Visual Studio Code.
-				</p>
-				<p>
-					GitLens simply helps you <b>better understand code</b>. Quickly glimpse into whom, why, and when a
-					line or code block was changed. Jump back through history to <b>gain further insights</b> as to how
-					and why the code evolved. Effortlessly explore the history and evolution of a codebase. Dive right
-					in and see how GitLens can help!
-				</p>
-			</div>
 
 			<div class="content__area">
 				<section id="welcome" class="section--full">
 					<h2 class="section__title section__title--primary">
-						Welcome to <span class="highlight">GitLens 11</span>
+						Welcome to <span class="highlight">GitLens 12</span>
 					</h2>
-					<div class="center mt-1">
-						<a class="button button--flat" title="See What's New" href="https://gitlens.amod.io/#whats-new"
-							>See What's New in GitLens 11</a
+					<div class="section__whatsnew">
+						<a
+							title="Watch the GitLens Getting Started video"
+							href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
+						>
+							<img
+								src="#{webroot}/media/gitlens-tutorial-banner.webp"
+								alt="Watch the GitLens Getting Started video"
+							/>
+						</a>
+						<a
+							class="button button--flat"
+							title="See What's New"
+							href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+							>See What's New in GitLens 12</a
+						>
+						<span class="button__subaction"
+							>or read the
+							<a href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+								>change log</a
+							></span
+						>
+						<a
+							class="button button--flat"
+							title="Open the Get Started with GitLens walkthrough"
+							href="command:gitlens.getStarted"
+							>Get Started Walkthrough</a
+						>
+						<span class="button__subaction"
+							>or <a href="command:gitlens.plus.learn">learn about GitLens+ features</a></span
 						>
 					</div>
-					<p class="blurb ml-0 mr-0">
+
+					<h2 id="quick-setup" class="section__title section__title--break">Quick Setup</h2>
+					<p class="blurb ml-2 mr-2">
 						GitLens is <b>powerful</b>, <b>feature rich</b>, and highly <b>customizable</b> to meet your
 						needs. Do you find CodeLens intrusive or the current line blame annotation distracting &mdash;
 						no problem, quickly turn them off or change how they behave using the options below.
 					</p>
-
-					<h2 class="section__title section__title--break">Quick Setup</h2>
-					<p class="section__hint mt-0 center">
+					<p class="blurb mt-0 mb-0 center">
 						<i class="icon icon__info"></i> For more options, use the interactive
 						<a class="command" title="Open GitLens Settings" href="command:gitlens.showSettingsPage"
-							>GitLens Settings</a
+							>GitLens settings editor</a
 						>
-						editor
 					</p>
 				</section>
 
@@ -116,21 +115,36 @@
 						</div>
 					</div>
 					<div class="section__preview">
-						<img class="image__preview" src="#{root}/images/settings/current-line-blame.webp" />
+						<img
+							class="image__preview"
+							src="#{webroot}/media/current-line-blame.webp"
+							loading="lazy"
+							width="600"
+							height="206"
+						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/current-line-blame-on.webp"
+							src="#{webroot}/media/current-line-blame-on.webp"
 							data-visibility="currentLine.enabled"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/current-line-blame-on+pr.webp"
+							src="#{webroot}/media/current-line-blame-on+pr.webp"
 							data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/current-line-blame-on-scrollable.webp"
+							src="#{webroot}/media/current-line-blame-on-scrollable.webp"
 							data-visibility="currentLine.enabled &amp; currentLine.scrollable"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 					</div>
 				</section>
@@ -155,53 +169,84 @@
 						</div>
 					</div>
 					<div class="section__preview">
-						<img class="image__preview" src="#{root}/images/settings/code-lens.webp" />
+						<img
+							class="image__preview"
+							src="#{webroot}/media/code-lens.webp"
+							loading="lazy"
+							width="600"
+							height="206"
+						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-file-recent+authors.webp"
+							src="#{webroot}/media/code-lens-file-recent+authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-file-recent.webp"
+							src="#{webroot}/media/code-lens-file-recent.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-file-authors.webp"
+							src="#{webroot}/media/code-lens-file-authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-containers-recent+authors.webp"
+							src="#{webroot}/media/code-lens-containers-recent+authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-containers-recent.webp"
+							src="#{webroot}/media/code-lens-containers-recent.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-containers-authors.webp"
+							src="#{webroot}/media/code-lens-containers-authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-blocks-recent+authors.webp"
+							src="#{webroot}/media/code-lens-blocks-recent+authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-blocks-recent.webp"
+							src="#{webroot}/media/code-lens-blocks-recent.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+							loading="lazy"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/code-lens-blocks-authors.webp"
+							src="#{webroot}/media/code-lens-blocks-authors.webp"
 							data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 					</div>
 				</section>
@@ -226,16 +271,28 @@
 						</div>
 					</div>
 					<div class="section__preview">
-						<img class="image__preview" src="#{root}/images/settings/status-bar.webp" />
 						<img
-							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/status-bar-left.webp"
-							data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
+							class="image__preview"
+							src="#{webroot}/media/status-bar.webp"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 						<img
 							class="image__preview--overlay hidden"
-							src="#{root}/images/settings/status-bar-right.webp"
+							src="#{webroot}/media/status-bar-left.webp"
+							data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
+							loading="lazy"
+							width="600"
+							height="206"
+						/>
+						<img
+							class="image__preview--overlay hidden"
+							src="#{webroot}/media/status-bar-right.webp"
 							data-visibility="statusBar.enabled &amp; statusBar.alignment =right"
+							loading="lazy"
+							width="600"
+							height="206"
 						/>
 					</div>
 				</section>
@@ -269,6 +326,13 @@
 									>Source Control Layout (default)</a
 								>
 								<p>Shows all the views together on the Source Control side bar</p>
+								<img
+									class="image__preview"
+									src="#{webroot}/media/views-layout-scm.webp"
+									loading="lazy"
+									width="357"
+									height="410"
+								/>
 							</div>
 							<div class="preset">
 								<a
@@ -278,6 +342,13 @@
 									>GitLens Layout</a
 								>
 								<p>Shows all the views together on the GitLens side bar</p>
+								<img
+									class="image__preview"
+									src="#{webroot}/media/views-layout-gitlens.webp"
+									loading="lazy"
+									width="357"
+									height="410"
+								/>
 							</div>
 						</div>
 
@@ -331,6 +402,40 @@
 						<div class="settings">
 							<div class="setting">
 								<div class="setting__input">
+									<label for="defaultDateLocale">Date&nbsp;locale</label>
+									<input
+										id="defaultDateLocale"
+										name="defaultDateLocale"
+										type="text"
+										placeholder="defaults to VS Code locale"
+										data-setting
+										data-setting-preview
+									/>
+									<a
+										class="link__learn-more"
+										title="See possible BCP 47 language tag for supported locale values"
+										href="https://en.wikipedia.org/wiki/IETF_language_tag#List_of_major_primary_language_subtags"
+									>
+										<i class="icon icon__info"></i>
+									</a>
+								</div>
+								<span class="setting__hint">
+									<span style="line-height: 2rem">
+										<i class="icon icon--sm icon__info"></i> Use <code>system</code> for the system
+										locale, or a locale language tag, e.g. en-US
+									</span>
+									<br />
+									Example date:
+									<span
+										data-setting-preview="defaultDateLocale"
+										data-setting-preview-type="date-locale"
+										data-setting-preview-default="defaultDateFormat"
+									></span>
+								</span>
+							</div>
+
+							<div class="setting">
+								<div class="setting__input">
 									<label for="defaultDateFormat">Date&nbsp;format</label>
 									<input
 										id="defaultDateFormat"
@@ -342,7 +447,7 @@
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
@@ -365,13 +470,13 @@
 										id="defaultDateShortFormat"
 										name="defaultDateShortFormat"
 										type="text"
-										placeholder="defaults to MMM D, YYYY"
+										placeholder="defaults to system short date format"
 										data-setting
 										data-setting-preview
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
@@ -382,7 +487,7 @@
 									<span
 										data-setting-preview="defaultDateShortFormat"
 										data-setting-preview-type="date"
-										data-setting-preview-default="MMM D, YYYY"
+										data-setting-preview-default="short"
 									></span>
 								</span>
 							</div>
@@ -400,14 +505,14 @@
 									/>
 									<a
 										class="link__learn-more"
-										title="See Moment.js docs for valid date formats"
+										title="See Moment.js docs for supported date formats"
 										href="https://momentjs.com/docs/#/displaying/format/"
 									>
 										<i class="icon icon__info"></i>
 									</a>
 								</div>
 								<span class="setting__hint"
-									>Example date:
+									>Example time:
 									<span
 										data-setting-preview="defaultTimeFormat"
 										data-setting-preview-type="date"
@@ -419,40 +524,14 @@
 					</div>
 				</section>
 			</div>
-
-			<div class="sidebar">
-				<div class="sidebar__group">
-					<h2>Help</h2>
-					<ul>
-						<li>
-							<a href="https://github.com/eamodio/vscode-gitlens#readme">Documentation</a>
-						</li>
-						<li>
-							<a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
-						</li>
-						<li>
-							<a href="https://vscode-slack.amod.io">Slack</a>
-							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
-						</li>
-						<li><a href="https://twitter.com/gitlens">Twitter</a></li>
-					</ul>
-				</div>
-				<div class="sidebar__group">
-					<h2>Resources</h2>
-					<ul>
-						<li><a href="https://gitlens.amod.io">Website</a></li>
-						<li><a href="https://gitlens.amod.io/#whats-new">What's New</a></li>
-						<li>
-							<a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens"
-								>Marketplace</a
-							>
-						</li>
-						<li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
-						<li><a href="https://github.com/eamodio/vscode-gitlens/blob/main/LICENSE">License</a></li>
-					</ul>
-				</div>
-			</div>
 		</div>
 		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+		</style>
 	</body>
 </html>

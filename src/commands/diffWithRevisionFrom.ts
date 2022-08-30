@@ -1,15 +1,16 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
-import { Messages } from '../messages';
-import { ReferencePicker, StashPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { basename, normalizePath, relative } from '../system/path';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { DiffWithCommandArgs } from './diffWith';
+import { GitReference, GitRevision } from '../git/models/reference';
+import { showNoRepositoryWarningMessage } from '../messages';
+import { StashPicker } from '../quickpicks/commitPicker';
+import { ReferencePicker } from '../quickpicks/referencePicker';
+import { command, executeCommand } from '../system/command';
+import { basename } from '../system/path';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
@@ -19,7 +20,7 @@ export interface DiffWithRevisionFromCommandArgs {
 
 @command()
 export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffWithRevisionFrom);
 	}
 
@@ -29,7 +30,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void Messages.showNoRepositoryWarningMessage('Unable to open file compare');
+			void showNoRepositoryWarningMessage('Unable to open file compare');
 
 			return;
 		}
@@ -39,19 +40,20 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		const path = this.container.git.getRelativePath(gitUri, gitUri.repoPath);
+
 		let ref;
 		let sha;
 		if (args?.stash) {
-			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
-
-			const title = `Open Changes with Stash${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await StashPicker.show(
-				Container.instance.git.getStash(gitUri.repoPath),
+				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a stash to compare with',
 				{
 					empty: `No stashes with '${gitUri.getFormattedFileName()}' found`,
-					filter: c => c.files.some(f => f.fileName === fileName || f.originalFileName === fileName),
+					// Stashes should always come with files, so this should be fine (but protect it just in case)
+					filter: c => c.files?.some(f => f.path === path || f.originalPath === path) ?? true,
 				},
 			);
 			if (pick == null) return;
@@ -59,7 +61,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			ref = pick.ref;
 			sha = ref;
 		} else {
-			const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await ReferencePicker.show(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
@@ -81,13 +83,12 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let renamedTitle: string | undefined;
 
 		// Check to see if this file has been renamed
-		const files = await Container.instance.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
+		const files = await this.container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filters: ['R', 'C'] });
 		if (files != null) {
-			const fileName = normalizePath(relative(gitUri.repoPath, gitUri.fsPath));
-			const rename = files.find(s => s.fileName === fileName);
-			if (rename?.originalFileName != null) {
-				renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
-				renamedTitle = `${basename(rename.originalFileName)} (${GitRevision.shorten(ref)})`;
+			const rename = files.find(s => s.path === path);
+			if (rename?.originalPath != null) {
+				renamedUri = this.container.git.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
+				renamedTitle = `${basename(rename.originalPath)} (${GitRevision.shorten(ref)})`;
 			}
 		}
 

@@ -1,22 +1,19 @@
-'use strict';
-import { env, SourceControlResourceState, Uri, window } from 'vscode';
-import { ScmResource } from '../@types/vscode.git.resources';
+import type { SourceControlResourceState } from 'vscode';
+import { env, Uri, window } from 'vscode';
+import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { Container } from '../container';
+import { configuration } from '../configuration';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Arrays } from '../system';
-import {
-	command,
-	Command,
-	CommandContext,
-	Commands,
-	getRepoPathOrPrompt,
-	isCommandContextViewNodeHasFileCommit,
-	isCommandContextViewNodeHasFileRefs,
-} from './common';
+import { showGenericErrorMessage } from '../messages';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { filterMap } from '../system/array';
+import { command } from '../system/command';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
 
 interface ExternalDiffFile {
 	uri: Uri;
@@ -31,7 +28,7 @@ export interface ExternalDiffCommandArgs {
 
 @command()
 export class ExternalDiffCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
 	}
 
@@ -39,9 +36,8 @@ export class ExternalDiffCommand extends Command {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
-			const ref1 = GitRevision.isUncommitted(context.node.commit.previousFileSha)
-				? ''
-				: context.node.commit.previousFileSha;
+			const previousSha = await context.node.commit.getPreviousSha();
+			const ref1 = GitRevision.isUncommitted(previousSha) ? '' : previousSha;
 			const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 
 			args.files = [
@@ -76,7 +72,7 @@ export class ExternalDiffCommand extends Command {
 					staged: (r as ScmResource).resourceGroupType === ScmResourceGroupType.Index,
 				}));
 			} else if (context.type === 'scm-groups') {
-				args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
+				args.files = filterMap(context.scmResourceGroups[0].resourceStates, r =>
 					this.isModified(r)
 						? {
 								uri: r.resourceUri,
@@ -89,10 +85,10 @@ export class ExternalDiffCommand extends Command {
 
 		if (context.command === Commands.ExternalDiffAll) {
 			if (args.files == null) {
-				const repoPath = await getRepoPathOrPrompt('Open All Changes (difftool)');
-				if (!repoPath) return undefined;
+				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changes (difftool)');
+				if (repository == null) return undefined;
 
-				const status = await Container.instance.git.getStatusForRepo(repoPath);
+				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}
@@ -130,11 +126,11 @@ export class ExternalDiffCommand extends Command {
 				const editor = window.activeTextEditor;
 				if (editor == null) return;
 
-				repoPath = await Container.instance.git.getRepoPathOrActive(undefined, editor);
+				repoPath = this.container.git.getBestRepository(editor)?.path;
 				if (!repoPath) return;
 
 				const uri = editor.document.uri;
-				const status = await Container.instance.git.getStatusForFile(repoPath, uri.fsPath);
+				const status = await this.container.git.getStatusForFile(repoPath, uri);
 				if (status == null) {
 					void window.showInformationMessage("The current file doesn't have any changes");
 
@@ -150,13 +146,12 @@ export class ExternalDiffCommand extends Command {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repoPath = await Container.instance.git.getRepoPath(args.files[0].uri.fsPath);
+				repoPath = (await this.container.git.getOrOpenRepository(args.files[0].uri))?.path;
 				if (!repoPath) return;
 			}
 
 			const tool =
-				Container.instance.config.advanced.externalDiffTool ||
-				(await Container.instance.git.getDiffTool(repoPath));
+				configuration.get('advanced.externalDiffTool') || (await this.container.git.getDiffTool(repoPath));
 			if (!tool) {
 				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
@@ -173,7 +168,7 @@ export class ExternalDiffCommand extends Command {
 			}
 
 			for (const file of args.files) {
-				void Container.instance.git.openDiffTool(repoPath, file.uri, {
+				void this.container.git.openDiffTool(repoPath, file.uri, {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,
@@ -182,7 +177,7 @@ export class ExternalDiffCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			void Messages.showGenericErrorMessage('Unable to open changes in diff tool');
+			void showGenericErrorMessage('Unable to open changes in diff tool');
 		}
 	}
 }

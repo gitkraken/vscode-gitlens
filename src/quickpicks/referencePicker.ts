@@ -1,12 +1,16 @@
-'use strict';
-import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
-import { GitActions } from '../commands';
+import type { Disposable, QuickPick } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
+import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { BranchSortOptions, GitBranch, GitReference, GitTag, TagSortOptions } from '../git/models';
-import { KeyboardScope, Keys } from '../keyboard';
-import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
+import type { BranchSortOptions, GitBranch } from '../git/models/branch';
+import { GitReference } from '../git/models/reference';
+import type { GitTag, TagSortOptions } from '../git/models/tag';
+import type { KeyboardScope, Keys } from '../keyboard';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import type { BranchQuickPickItem, TagQuickPickItem } from './items/gitCommands';
+import { RefQuickPickItem } from './items/gitCommands';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -16,6 +20,7 @@ export const enum ReferencesQuickPickIncludes {
 	WorkingTree = 1 << 2,
 	HEAD = 1 << 3,
 
+	// eslint-disable-next-line @typescript-eslint/prefer-literal-enum-member
 	BranchesAndTags = Branches | Tags,
 }
 
@@ -88,17 +93,13 @@ export namespace ReferencePicker {
 
 		quickpick.show();
 
-		const getValidateGitReference = getValidateGitReferenceFn(
-			(await Container.instance.git.getRepository(repoPath))!,
-			{
-				buttons: [QuickCommandButtons.RevealInSideBar],
-				ranges:
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-					options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
-						? options.allowEnteringRefs.ranges
-						: undefined,
-			},
-		);
+		const getValidateGitReference = getValidateGitReferenceFn(Container.instance.git.getRepository(repoPath), {
+			buttons: [QuickCommandButtons.RevealInSideBar],
+			ranges:
+				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
+					? options.allowEnteringRefs.ranges
+					: undefined,
+		});
 
 		quickpick.items = await items;
 
@@ -116,7 +117,6 @@ export namespace ReferencePicker {
 						resolve(quickpick.activeItems[0]);
 					}),
 					quickpick.onDidChangeValue(async e => {
-						// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 						if (options.allowEnteringRefs) {
 							if (!(await getValidateGitReference(quickpick, e))) {
 								quickpick.items = await items;
@@ -139,7 +139,10 @@ export namespace ReferencePicker {
 							} else if (GitReference.isTag(item)) {
 								void GitActions.Tag.reveal(item, { select: true, expand: true });
 							} else if (GitReference.isRevision(item)) {
-								void GitActions.Commit.reveal(item, { select: true, expand: true });
+								void GitActions.Commit.showDetailsView(item, {
+									pin: false,
+									preserveFocus: true,
+								});
 							}
 						}
 					}),
@@ -153,7 +156,7 @@ export namespace ReferencePicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -164,7 +167,7 @@ export namespace ReferencePicker {
 		include = include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
 		const items: ReferencesQuickPickItem[] = await getBranchesAndOrTags(
-			(await Container.instance.git.getRepository(repoPath))!,
+			Container.instance.git.getRepository(repoPath),
 			include && ReferencesQuickPickIncludes.BranchesAndTags
 				? ['branches', 'tags']
 				: include && ReferencesQuickPickIncludes.Branches

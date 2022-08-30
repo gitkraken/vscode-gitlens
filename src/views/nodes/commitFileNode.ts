@@ -1,20 +1,25 @@
-'use strict';
-import { Command, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { StatusFileFormatter } from '../../git/formatters';
+import type { Command, Selection } from 'vscode';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
+import { Commands } from '../../constants';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitFile, GitLogCommit, GitRevisionReference } from '../../git/models';
-import { dirname, joinPaths } from '../../system/path';
-import { FileHistoryView } from '../fileHistoryView';
-import { View, ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import { GitFile } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { joinPaths, relativeDir } from '../../system/path';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { View, ViewsWithCommits } from '../viewBase';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
 	constructor(
 		view: TView,
 		parent: ViewNode,
 		public readonly file: GitFile,
-		public commit: GitLogCommit,
+		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
 			selection?: Selection;
@@ -25,11 +30,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	override toClipboard(): string {
-		return this.fileName;
-	}
-
-	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get priority(): number {
@@ -45,11 +46,11 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		if (!this.commit.isFile) {
+		if (this.commit.file == null) {
 			// Try to get the commit directly from the multi-file commit
-			const commit = this.commit.toFileCommit(this.file);
+			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -100,7 +101,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}
@@ -125,15 +126,24 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	}
 
 	private get tooltip() {
-		return StatusFileFormatter.fromTemplate(`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`, this.file);
+		const tooltip = StatusFileFormatter.fromTemplate(
+			`\${file}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;\\\n'directory}&nbsp;\n\n\${status}\${ (originalPath)}`,
+			this.file,
+		);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 
 	override getCommand(): Command | undefined {
 		let line;
-		if (this.commit.line !== undefined) {
-			line = this.commit.line.to.line - 1;
+		if (this.commit.lines.length) {
+			line = this.commit.lines[0].line - 1;
 		} else {
-			line = this._options.selection !== undefined ? this._options.selection.active.line : 0;
+			line = this._options.selection?.active.line ?? 0;
 		}
 
 		const commandArgs: DiffWithPreviousCommandArgs = {

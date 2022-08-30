@@ -1,10 +1,10 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import { GitRevision } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;
@@ -22,11 +22,18 @@ export class BitbucketServerRemote extends RemoteProvider {
 					prefix: 'issue #',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Issue #<num> on ${this.name}`,
 				},
 				{
 					prefix: 'pull request #',
+					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
-					title: `Open PR #<num> on ${this.name}`,
+					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `Pull Request #<num> on ${this.name}`,
 				},
 			];
 		}

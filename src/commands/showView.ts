@@ -1,14 +1,15 @@
-'use strict';
-import { commands } from 'vscode';
-import { ContextKeys, setContext, SyncedState } from '../constants';
-import { Container } from '../container';
-import { command, Command, CommandContext, Commands } from './common';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 @command()
 export class ShowViewCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.ShowBranchesView,
+			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
 			Commands.ShowContributorsView,
 			Commands.ShowFileHistoryView,
@@ -18,7 +19,9 @@ export class ShowViewCommand extends Command {
 			Commands.ShowSearchAndCompareView,
 			Commands.ShowStashesView,
 			Commands.ShowTagsView,
-			Commands.ShowWelcomeView,
+			Commands.ShowTimelineView,
+			Commands.ShowWorktreesView,
+			Commands.ShowHomeView,
 		]);
 	}
 
@@ -29,29 +32,33 @@ export class ShowViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.ShowBranchesView:
-				return Container.instance.branchesView.show();
+				return this.container.branchesView.show();
+			case Commands.ShowCommitDetailsView:
+				return this.container.commitDetailsView.show();
 			case Commands.ShowCommitsView:
-				return Container.instance.commitsView.show();
+				return this.container.commitsView.show();
 			case Commands.ShowContributorsView:
-				return Container.instance.contributorsView.show();
+				return this.container.contributorsView.show();
 			case Commands.ShowFileHistoryView:
-				return Container.instance.fileHistoryView.show();
+				return this.container.fileHistoryView.show();
+			case Commands.ShowHomeView:
+				return this.container.homeView.show();
 			case Commands.ShowLineHistoryView:
-				return Container.instance.lineHistoryView.show();
+				return this.container.lineHistoryView.show();
 			case Commands.ShowRemotesView:
-				return Container.instance.remotesView.show();
+				return this.container.remotesView.show();
 			case Commands.ShowRepositoriesView:
-				return Container.instance.repositoriesView.show();
+				return this.container.repositoriesView.show();
 			case Commands.ShowSearchAndCompareView:
-				return Container.instance.searchAndCompareView.show();
+				return this.container.searchAndCompareView.show();
 			case Commands.ShowStashesView:
-				return Container.instance.stashesView.show();
+				return this.container.stashesView.show();
 			case Commands.ShowTagsView:
-				return Container.instance.tagsView.show();
-			case Commands.ShowWelcomeView:
-				await setContext(ContextKeys.ViewsWelcomeVisible, true);
-				void Container.instance.context.globalState.update(SyncedState.WelcomeViewVisible, true);
-				void (await commands.executeCommand('gitlens.views.welcome.focus'));
+				return this.container.tagsView.show();
+			case Commands.ShowTimelineView:
+				return this.container.timelineView.show();
+			case Commands.ShowWorktreesView:
+				return this.container.worktreesView.show();
 		}
 
 		return Promise.resolve(undefined);

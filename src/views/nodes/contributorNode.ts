@@ -1,23 +1,33 @@
-'use strict';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import { GitContributor, GitLog } from '../../git/models';
-import { debug, gate, Iterables, Strings } from '../../system';
-import { ContactPresence } from '../../vsls/vsls';
-import { ContributorsView } from '../contributorsView';
-import { RepositoriesView } from '../repositoriesView';
+import type { GitUri } from '../../git/gitUri';
+import type { GitContributor } from '../../git/models/contributor';
+import type { GitLog } from '../../git/models/log';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
+import { pluralize } from '../../system/string';
+import type { ContactPresence } from '../../vsls/vsls';
+import type { ContributorsView } from '../contributorsView';
+import type { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
-	static getId(repoPath: string, name: string, email: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
+	static getId(
+		repoPath: string,
+		name: string | undefined,
+		email: string | undefined,
+		username: string | undefined,
+	): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email}|${username})`;
 	}
 
 	constructor(
@@ -39,7 +49,12 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	override get id(): string {
-		return ContributorNode.getId(this.contributor.repoPath, this.contributor.name, this.contributor.email);
+		return ContributorNode.getId(
+			this.contributor.repoPath,
+			this.contributor.name,
+			this.contributor.email,
+			this.contributor.username,
+		);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -49,7 +64,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
-				Iterables.map(
+				map(
 					log.commits.values(),
 					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
 				),
@@ -64,10 +79,10 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const presence = this._options?.presence?.get(this.contributor.email);
+		const presence = this._options?.presence?.get(this.contributor.email!);
 
 		const item = new TreeItem(
-			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
+			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
@@ -78,19 +93,22 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.email}`;
+		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
+			'commit',
+			this.contributor.count,
+		)}`;
 
 		let avatarUri;
 		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			const size = this.view.container.config.hovers.avatarSize;
+			const size = configuration.get('hovers.avatarSize');
 			avatarUri = await this.contributor.getAvatarUri({
-				defaultStyle: this.view.container.config.defaultGravatarsStyle,
+				defaultStyle: configuration.get('defaultGravatarsStyle'),
 				size: size,
 			});
 
 			if (presence != null) {
-				const title = `${this.contributor.count ? 'You are' : `${this.contributor.name} is`} ${
+				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
 					presence.status === 'dnd' ? 'in ' : ''
 				}${presence.statusText.toLocaleLowerCase()}`;
 
@@ -100,9 +118,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 					presence.status,
 				)} "${title}")`;
 			} else {
-				avatarMarkdown = `![${this.contributor.name}](${avatarUri.toString(
+				avatarMarkdown = `![${this.contributor.label}](${avatarUri.toString(
 					true,
-				)}|width=${size},height=${size} "${this.contributor.name}")`;
+				)}|width=${size},height=${size} "${this.contributor.label}")`;
 			}
 		}
 
@@ -110,21 +128,26 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 		const stats =
 			this.contributor.stats != null
-				? `\\\n${Strings.pluralize('file', this.contributor.stats.files, {
+				? `\\\n${pluralize('file', this.contributor.stats.files, {
 						format: numberFormatter.format,
-				  })} changed, ${Strings.pluralize('addition', this.contributor.stats.additions, {
+				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
 						format: numberFormatter.format,
-				  })}, ${Strings.pluralize('deletion', this.contributor.stats.deletions, {
+				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
 						format: numberFormatter.format,
 				  })}`
 				: '';
 
+		const link = this.contributor.email
+			? `__[${this.contributor.name}](mailto:${this.contributor.email} "Email ${this.contributor.label} (${this.contributor.email})")__`
+			: `__${this.contributor.label}__`;
+
+		const lastCommitted =
+			this.contributor.date != null
+				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
+				: '';
+
 		const markdown = new MarkdownString(
-			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;__[${this.contributor.name}](mailto:${
-				this.contributor.email
-			} "Email ${this.contributor.name} (${
-				this.contributor.email
-			})")__ \\\nLast commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\n\n${Strings.pluralize(
+			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
 				'commit',
 				this.contributor.count,
 				{ format: numberFormatter.format },
@@ -154,7 +177,14 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 				all: this._options?.all,
 				ref: this._options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
+				authors: [
+					{
+						name: this.contributor.name,
+						email: this.contributor.email,
+						username: this.contributor.username,
+						id: this.contributor.id,
+					},
+				],
 			});
 		}
 

@@ -1,19 +1,18 @@
-'use strict';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitRemote,
-	GitStatus,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/models';
-import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
+import { Features } from '../../features';
+import type { GitUri } from '../../git/gitUri';
+import { GitBranch } from '../../git/models/branch';
+import { GitRemote } from '../../git/models/remote';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
+import { findLastIndex } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug, log } from '../../system/decorators/log';
+import { disposableInterval } from '../../system/function';
+import { pad } from '../../system/string';
+import type { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -27,7 +26,9 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
+import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	static key = ':repository';
@@ -148,12 +149,16 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showStashes) {
+			if (this.view.config.showStashes && (await this.repo.supports(Features.Stashes))) {
 				children.push(new StashesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showTags) {
 				children.push(new TagsNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showWorktrees && (await this.repo.supports(Features.Worktrees))) {
+				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showContributors) {
@@ -177,10 +182,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		let description;
 		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 			lastFetched
-				? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-						lastFetched,
-						false,
-				  )}`
+				? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched, false)}`
 				: ''
 		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
 		let iconSuffix = '';
@@ -198,12 +200,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = status.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 1, 1),
+					prefix: pad(GlyphChars.Dot, 1, 1),
 				});
 			}
 
 			const upstreamStatus = status.getUpstreamStatus({
-				suffix: Strings.pad(GlyphChars.Dot, 1, 1),
+				suffix: pad(GlyphChars.Dot, 1, 1),
 			});
 
 			description = `${upstreamStatus}${status.branch}${status.rebasing ? ' (Rebasing)' : ''}${workingStatus}`;
@@ -211,7 +213,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			let providerName;
 			if (status.upstream != null) {
 				const providers = GitRemote.getHighlanderProviders(
-					await this.view.container.git.getRemotes(status.repoPath),
+					await this.view.container.git.getRemotesWithProviders(status.repoPath),
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
@@ -250,20 +252,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			}
 		}
 
-		if (!this.repo.supportsChangeEvents) {
-			description = `${Strings.pad(GlyphChars.Warning, 1, 0)}${
-				description ? Strings.pad(description, 2, 0) : ''
-			}`;
-			tooltip += `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`;
-		}
-
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
-			lastFetched
-				? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
-				: ''
+			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 		}`;
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
@@ -327,16 +320,16 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
 			disposables.push(
-				Functions.interval(() => {
+				disposableInterval(() => {
 					// Check if the interval should change, and if so, reset it
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
 
 					if (this.splatted) {
-						void this.view.triggerNodeChange(this.parent ?? this);
+						this.view.triggerNodeChange(this.parent ?? this);
 					} else {
-						void this.view.triggerNodeChange(this);
+						this.view.triggerNodeChange(this);
 					}
 				}, interval),
 			);
@@ -375,7 +368,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
 				let deleteCount = 1;
 				if (index === -1) {
-					index = Arrays.findLastIndex(
+					index = findLastIndex(
 						this._children,
 						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode,
 					);
@@ -420,21 +413,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof StashesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof TagsNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 	}

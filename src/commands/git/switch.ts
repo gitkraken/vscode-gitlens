@@ -1,23 +1,26 @@
-'use strict';
-import { ProgressLocation, QuickPickItem, window } from 'vscode';
+import type { QuickPickItem } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import { BranchSorting } from '../../config';
-import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/models';
-import { Arrays } from '../../system';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
-	inputBranchNameStep,
+import type { Container } from '../../container';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import { isStringArray } from '../../system/array';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	PartialStepState,
-	pickBranchOrTagStepMultiRepo,
-	pickRepositoriesStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
+	inputBranchNameStep,
+	pickBranchOrTagStepMultiRepo,
+	pickRepositoriesStep,
+	QuickCommand,
+	StepResult,
 } from '../quickCommand';
 
 interface Context {
@@ -42,8 +45,8 @@ export interface SwitchGitCommandArgs {
 }
 
 export class SwitchGitCommand extends QuickCommand<State> {
-	constructor(args?: SwitchGitCommandArgs) {
-		super('switch', 'switch', 'Switch', {
+	constructor(container: Container, args?: SwitchGitCommandArgs) {
+		super(container, 'switch', 'switch', 'Switch', {
 			description: 'aka checkout, switches the current branch to a specified branch',
 		});
 
@@ -90,8 +93,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.commitsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			showTags: false,
 			title: this.title,
 		};
@@ -105,12 +108,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repos == null ||
-				state.repos.length === 0 ||
-				Arrays.isStringArray(state.repos)
-			) {
+			if (state.counter < 1 || state.repos == null || state.repos.length === 0 || isStringArray(state.repos)) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
@@ -149,7 +147,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			if (GitReference.isBranch(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
-				const { values: branches } = await Container.instance.git.getBranches(state.reference.repoPath, {
+				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
 					sort: { orderBy: BranchSorting.DateDesc },
 				});

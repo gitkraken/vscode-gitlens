@@ -1,0 +1,159 @@
+* {
+	box-sizing: border-box;
+}
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+}
+
+body {
+	background-color: var(--color-view-background);
+	color: var(--color-view-foreground);
+	font-family: var(--font-family);
+	height: 100%;
+	line-height: 1.4;
+	font-size: 100% !important;
+}
+
+.container {
+	display: grid;
+	font-size: 1.3em;
+	grid-template-rows: auto min-content;
+	min-height: 100%;
+}
+
+.content {
+	--slots: 3;
+	display: grid;
+	// repeat needs to match the number of slots
+	grid-template-rows: repeat(var(--slots), min-content);
+}
+
+.notice {
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--divider-background);
+    padding-bottom: 1rem;
+    text-align: center;
+}
+
+section {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+}
+
+h3 {
+	border: none;
+	color: var(--color-view-header-foreground);
+	font-size: 1.5rem;
+	font-weight: 600;
+	margin-bottom: 0;
+	white-space: nowrap;
+}
+
+h4 {
+	font-size: 1.5rem;
+	font-weight: 400;
+	margin: 1rem 0;
+}
+
+a {
+	text-decoration: none;
+
+	&:focus {
+		outline-color: var(--focus-border);
+	}
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+b {
+	font-weight: 600;
+}
+
+p {
+	margin-bottom: 0;
+}
+
+.feature-desc {
+	margin-bottom: 1rem;
+}
+
+.image--preview {
+	border-radius: 8px;
+	box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
+	margin: 1rem 2rem 1rem 1rem;
+}
+
+.link--preview {
+	align-self: center;
+	max-width: 400px;
+	margin: 1rem 2rem 0 0;
+}
+
+.divider {
+	border-top: 1px solid var(--divider-background);
+	margin-top: 2rem;
+}
+
+.links {
+	display: grid;
+	grid-template-columns: repeat(3, auto);
+	grid-gap: 2rem;
+	justify-content: space-between;
+	margin: 1rem;
+
+	h4 {
+		margin: 0.5rem 0 1rem 0;
+	}
+
+	ul {
+		list-style: none;
+		margin: 0.5rem 0 0 0;
+		padding: 0;
+		white-space: nowrap;
+	}
+
+	@media screen and (max-width: 450px) {
+		grid-template-columns: repeat(2, auto);
+	}
+
+	@media screen and (max-width: 350px) {
+		grid-template-columns: 1fr;
+	}
+}
+
+vscode-button {
+	align-self: center;
+	margin-top: 1.5rem;
+	max-width: 300px;
+	width: 100%;
+}
+
+span.button-subaction {
+	align-self: center;
+	margin-top: 0.75rem;
+}
+
+@media (min-width: 640px) {
+	vscode-button {
+		align-self: flex-start;
+	}
+	span.button-subaction {
+		align-self: flex-start;
+	}
+}
+
+vscode-divider {
+	margin-top: 2rem;
+}
+
+@import '../shared/codicons';
+
+.codicon {
+	position: relative;
+	top: -2px;
+}

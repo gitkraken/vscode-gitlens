@@ -2,21 +2,28 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
-			}
-		</style>
 	</head>
 
 	<body class="preload">
-		<!-- <canvas class="snow"></canvas> -->
-
 		<div class="container">
 			<header>
 				<h2>GitLens Interactive Rebase</h2>
 				<h4 id="subhead"></h4>
+				<div class="toggle">
+					<input
+						class="toggle__input sr-only"
+						tabindex="1"
+						data-action="reorder"
+						id="ordering"
+						name="ordering"
+						type="checkbox"
+					/>
+					<span aria-hidden="true" class="toggle__indicator"></span>
+					<label class="toggle__label" for="ordering" aria-label="Change order to oldest first"
+						>Oldest first</label
+					>
+					<!-- should have an <div aria-live="polite" /> to notify order change -->
+				</div>
 			</header>
 			<ul id="entries" class="entries"></ul>
 			<div class="shortcuts">
@@ -27,6 +34,7 @@
 				<span class="shortcut"><kbd>d</kbd><span>Drop</span></span>
 				<span class="shortcut"><kbd>alt ↑</kbd><span>Move Up</span></span>
 				<span class="shortcut"><kbd>alt ↓</kbd><span>Move Down</span></span>
+				<span class="shortcut"><kbd>/</kbd><span>Search</span></span>
 			</div>
 			<div class="actions">
 				<div class="actions--left">
@@ -36,16 +44,6 @@
 					<button name="switch" class="button button--flat-subtle" data-action="switch" tabindex="-1">
 						Switch to Text
 					</button>
-					<!--
-					<div class="snow__trigger-container">
-						<img
-							class="snow__trigger snow__trigger--centered"
-							title="Let it snow — Happy Holidays!"
-							alt="Let it snow — Happy Holidays!"
-							src="#{root}/images/snowman.png"
-						/>
-					</div>
-					-->
 				</div>
 				<div class="actions--right">
 					<button name="start" class="button button--flat-primary" data-action="start">
@@ -58,5 +56,12 @@
 			</div>
 		</div>
 		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+		</style>
 	</body>
 </html>

@@ -1,10 +1,22 @@
 {
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
-		"allowSyntheticDefaultImports": true,
+		"jsx": "react",
 		"lib": ["dom", "dom.iterable", "es2020"],
-		"outDir": "../../"
+		"outDir": "../../",
+		"paths": {
+			"@env/*": ["src/env/browser/*"]
+		},
+		"useDefineForClassFields": false
 	},
-	"include": ["**/*", "../../../system/date.ts", "../../config.ts", "../protocol.ts"],
+	"include": [
+		"**/*",
+		"../../@types/**/*",
+		"../protocol.ts",
+		"../../config.ts",
+		"../../features.ts",
+		"../../subscription.ts",
+		"../../system/date.ts"
+	],
 	"exclude": ["node_modules", "test"]
 }

@@ -1,12 +1,17 @@
-'use strict';
-import { Disposable, env, QuickInputButton, ThemeIcon, Uri, window } from 'vscode';
-import { Commands, OpenOnRemoteCommandArgs } from '../commands';
-import { GlyphChars } from '../constants';
+import type { Disposable, QuickInputButton } from 'vscode';
+import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { OpenOnRemoteCommandArgs } from '../commands';
+import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitRemote } from '../git/models';
-import { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
-import { Keys } from '../keyboard';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
+import { GitRemote } from '../git/models/remote';
+import type { RemoteResource } from '../git/models/remoteResource';
+import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import type { Keys } from '../keyboard';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { getSettledValue } from '../system/promise';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
@@ -15,7 +20,7 @@ export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQu
 
 	override async execute(): Promise<void> {
 		await env.openExternal(
-			Uri.parse('https://github.com/eamodio/vscode-gitlens#remote-provider-integration-settings-'),
+			Uri.parse('https://github.com/gitkraken/vscode-gitlens#remote-provider-integration-settings-'),
 		);
 	}
 }
@@ -37,12 +42,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	override async execute(): Promise<void> {
 		let resource = this.resource;
 		if (resource.type === RemoteResourceType.Comparison) {
-			if (GitBranch.getRemote(resource.base) === this.remote.name) {
-				resource = { ...resource, base: GitBranch.getNameWithoutRemote(resource.base) };
+			if (getRemoteNameFromBranchName(resource.base) === this.remote.name) {
+				resource = { ...resource, base: getBranchNameWithoutRemote(resource.base) };
 			}
 
-			if (GitBranch.getRemote(resource.compare) === this.remote.name) {
-				resource = { ...resource, compare: GitBranch.getNameWithoutRemote(resource.compare) };
+			if (getRemoteNameFromBranchName(resource.compare) === this.remote.name) {
+				resource = { ...resource, compare: getBranchNameWithoutRemote(resource.compare) };
 			}
 		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
 			let branch = resource.base.branch;
@@ -74,9 +79,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 				Container.instance.git.getTags(this.remote.repoPath, { filter: t => t.name === branchOrTag }),
 			]);
 
-			const sha =
-				(branches.status === 'fulfilled' ? branches.value.values[0]?.sha : undefined) ??
-				(tags.status === 'fulfilled' ? tags.value.values[0]?.sha : undefined);
+			const sha = getSettledValue(branches)?.values[0]?.sha ?? getSettledValue(tags)?.values[0]?.sha;
 			if (sha) {
 				resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
 			}
@@ -99,7 +102,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			clipboard: true,
 		};
 		super(
-			`$(clippy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
+			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
 			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
 			Commands.OpenOnRemote,
@@ -174,7 +177,6 @@ export namespace RemoteProviderPicker {
 			);
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (autoPick && remotes.length === 1) return items[0];
 
 		const quickpick = window.createQuickPick<
@@ -200,7 +202,7 @@ export namespace RemoteProviderPicker {
 							e.button === QuickCommandButtons.SetRemoteAsDefault &&
 							e.item instanceof CopyOrOpenRemoteCommandQuickPickItem
 						) {
-							void (await e.item.setAsDefault());
+							await e.item.setAsDefault();
 							resolve(e.item);
 						}
 					}),
@@ -218,7 +220,7 @@ export namespace RemoteProviderPicker {
 			return pick;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

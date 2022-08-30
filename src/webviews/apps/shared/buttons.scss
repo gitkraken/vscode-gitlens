@@ -1,0 +1,183 @@
+.button {
+	background: none;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	display: inline-block;
+	font-size: 1.1rem;
+	letter-spacing: 0.25em;
+	margin: 1em 0.5em;
+	padding: 1em 1.75em;
+	text-decoration: none;
+	text-transform: uppercase;
+	user-select: none;
+	white-space: nowrap;
+
+	&:focus {
+		outline: none;
+	}
+
+	&[disabled] {
+		cursor: default !important;
+		opacity: 0.25 !important;
+	}
+
+	.shortcut {
+		display: block;
+		font-size: 0.8rem;
+		margin: 5px 0 0 0;
+		font-weight: 200;
+		opacity: 0.6;
+	}
+
+	&:hover {
+		.shortcut {
+			opacity: 1;
+		}
+	}
+}
+
+.button--compact {
+	padding: 0.6em 1em;
+}
+
+.button--big {
+	font-size: 1.5rem;
+}
+
+.button--flat {
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.6);
+		color: black;
+	}
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.6);
+		color: white;
+	}
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-light & {
+			background-color: var(--color-button-background--darken-30);
+			border-color: var(--color-button-background--darken-30);
+			color: white;
+		}
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-inverse {
+	background-color: white;
+	border: 1px solid white;
+	color: black;
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		background: rgba(0, 0, 0, 0.2);
+		border-color: rgba(255, 255, 255, 0.6);
+		color: white;
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-primary {
+	background-color: var(--color-button-background);
+	border: 1px solid var(--color-button-background);
+	color: var(--color-button-foreground);
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+
+		.vscode-light & {
+			background-color: var(--color-button-background--darken-30);
+			border-color: var(--color-button-background--darken-30);
+			color: white;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-secondary {
+	background-color: var(--color-button-secondary-background);
+	border: 1px solid var(--color-button-secondary-background);
+	color: var(--color-button-foreground);
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+
+		.vscode-light & {
+			background-color: var(--color-button-secondary-background--darken-30);
+			border-color: var(--color-button-secondary-background--darken-30);
+			color: white;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-subtle {
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		color: rgba(0, 0, 0, 0.6);
+	}
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		color: rgba(255, 255, 255, 0.6);
+	}
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-light & {
+			background-color: var(--color-button-secondary-background--darken-30);
+			border-color: var(--color-button-secondary-background--darken-30);
+			color: white;
+		}
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--right {
+	margin-left: auto;
+}

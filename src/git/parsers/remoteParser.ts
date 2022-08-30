@@ -1,8 +1,7 @@
-'use strict';
-import { debug } from '../../system';
-import { GitRemote } from '../models';
-import { GitRemoteType } from '../models/remote';
-import { RemoteProvider } from '../remotes/provider';
+import { debug } from '../../system/decorators/log';
+import type { GitRemoteType } from '../models/remote';
+import { GitRemote } from '../models/remote';
+import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
 
 const emptyStr = '';
 
@@ -48,12 +47,13 @@ user:password@host.xz:/path/to/repo.git
 user:password@host.xz:/path/to/repo.git/
 */
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitRemoteParser {
 	@debug({ args: false, singleLine: true })
 	static parse(
 		data: string,
 		repoPath: string,
-		providerFactory: (url: string, domain: string, path: string) => RemoteProvider | undefined,
+		remoteProviderMatcher: ReturnType<typeof getRemoteProviderMatcher>,
 	): GitRemote[] | undefined {
 		if (!data) return undefined;
 
@@ -86,7 +86,7 @@ export class GitRemoteParser {
 			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
 			remote = groups[uniqueness];
 			if (remote === undefined) {
-				const provider = providerFactory(url, domain, path);
+				const provider = remoteProviderMatcher(url, domain, path);
 
 				remote = new GitRemote(
 					repoPath,

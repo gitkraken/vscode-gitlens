@@ -1,12 +1,14 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitRemote, GitRemoteType, Repository } from '../../git/models';
-import { Arrays, log } from '../../system';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
+import type { GitRemote } from '../../git/models/remote';
+import { GitRemoteType } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
+import { makeHierarchical } from '../../system/array';
+import { log } from '../../system/decorators/log';
+import type { RemotesView } from '../remotesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
@@ -55,7 +57,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		);
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
-		const hierarchy = Arrays.makeHierarchical(
+		const hierarchy = makeHierarchical(
 			branchNodes,
 			n => n.treeHierarchy,
 			(...paths) => paths.join('/'),
@@ -114,14 +116,16 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
 			item.iconPath =
-				provider.icon === 'remote'
+				provider.avatarUri != null && this.view.config.avatars
+					? provider.avatarUri
+					: provider.icon === 'remote'
 					? new ThemeIcon('cloud')
 					: {
 							dark: this.view.container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
 							light: this.view.container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 					  };
 
-			if (provider.hasRichApi()) {
+			if (provider.hasRichIntegration()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
@@ -157,7 +161,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@log()
 	async setAsDefault(state: boolean = true) {
-		void (await this.remote.setAsDefault(state));
+		await this.remote.setAsDefault(state);
 		void this.triggerChange();
 	}
 }

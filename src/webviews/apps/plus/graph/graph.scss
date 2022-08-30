@@ -1,0 +1,499 @@
+@import '../../shared/base';
+@import '../../shared/codicons';
+@import '../../shared/glicons';
+@import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
+
+body {
+	&.vscode-dark {
+		--actionbar-background-color: var(--color-background--lighten-05);
+		--actionbar-hover-background-color: var(--color-background--lighten-075);
+	}
+
+	&.vscode-light {
+		--actionbar-background-color: var(--color-background--darken-05);
+		--actionbar-hover-background-color: var(--color-background--darken-075);
+	}
+}
+
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+.badge {
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+.actionbar {
+	--actionbar-height: 22px;
+
+	background-color: var(--actionbar-background-color);
+	color: var(--color-foreground);
+	padding: 0 1rem;
+	height: var(--actionbar-height);
+
+	&,
+	&__group {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.75rem;
+		// overflow: hidden;
+
+		> * {
+			margin: 0;
+		}
+	}
+
+	&__details {}
+
+	&__loading {
+		font-size: 1.2rem;
+
+		> * {
+			display: inline-block;
+		}
+	}
+
+	a {
+		color: inherit;
+
+		.codicon.codicon-feedback {
+			position: relative;
+			top: -2px;
+		}
+	}
+
+	:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1x;
+	}
+}
+
+.actioncombo {
+	$block: &;
+	$block-expanded: #{$block}--expanded;
+
+	--actioncombo-height: 2.2rem;
+	--actioncombo-items: 1;
+
+	position: relative;
+	display: inline-flex;
+	flex-direction: row;
+	align-items: stretch;
+	font-size: 1.2rem;
+	gap: 0.25rem;
+	height: var(--actioncombo-height);
+	line-height: var(--actioncombo-height);
+
+	&__label,
+	&__item {
+		appearance: none;
+		font-family: inherit;
+		background-color: transparent;
+		border: none;
+		color: inherit;
+		padding: 0 0.75rem;
+		height: var(--actioncombo-height);
+		line-height: var(--actioncombo-height);
+		cursor: pointer;
+		background-color: var(--actionbar-background-color);
+		text-align: left;
+
+		&:hover {
+			background-color: var(--actionbar-hover-background-color);
+		}
+
+		&[disabled] {
+			pointer-events: none;
+			opacity: 0.5;
+		}
+	}
+
+	&__label {
+	}
+
+	&__icon.codicon[class*='codicon-'] {
+		margin-right: 0.25rem;
+	}
+
+	&__list {
+		position: absolute;
+		left: 0;
+		bottom: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: stretch;
+		min-width: 100%;
+		width: max-content;
+		z-index: 100;
+		background-color: var(--actionbar-background-color);
+	}
+
+	&__label:not([aria-expanded='true']) + &__list {
+		display: none;
+	}
+
+	&__item {
+	}
+}
+
+.alert {
+	--alert-foreground: var(--color-alert-foreground);
+	--alert-background: var(--color-alert-infoBackground);
+	--alert-border-color: var(--color-alert-infoBorder);
+	--alert-hover-background: var(--color-alert-infoHoverBackground);
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+	align-items: flex-start;
+	gap: 1rem;
+	padding: 1rem;
+	border-radius: 0.25rem;
+	border: 1px solid var(--alert-border-color);
+	background-color: var(--alert-background);
+	color: var(--alert-foreground);
+	font-size: 1.2rem;
+	// remove max-width and margin when converting to a web component or make it a variant/property
+	max-width: 100rem;
+	margin: {
+		left: auto;
+		right: auto;
+	}
+
+	&__icon {
+		&,
+		&[class*=codicon-] {
+			font-size: 2rem;
+		}
+	}
+
+	&__content {
+		flex: 1;
+		padding-top: 0.1rem;
+
+		> *:not(:first-child) {
+			margin-top: 0.75rem;
+		}
+
+		> * {
+			margin-bottom: 0;
+		}
+
+		& a:not([class]) {
+			color: currentColor;
+			font-weight: 600;
+			text-decoration: underline;
+		}
+	}
+
+	&__title {
+		font-size: 1.3rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		margin-top: 0;
+	}
+
+	&__accent {
+		font-size: 1.1rem;
+
+		&-icon {
+			margin-right: 0.2rem;
+			line-height: 1.4rem;
+			vertical-align: bottom;
+		}
+	}
+	&__accent + &__accent {
+		margin-top: 0.2rem;
+	}
+
+	&__actions {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		gap: 0.75rem;
+		font-size: 1.1rem;
+	}
+
+	&__dismiss {
+		border: 1px solid transparent;
+		background-color: transparent;
+		color: inherit;
+		appearance: none;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+	}
+
+	&--warning {
+		--alert-background: var(--color-alert-warningBackground);
+		--alert-border-color: var(--color-alert-warningBorder);
+		--alert-hover-background: var(--color-alert-warningHoverBackground);
+	}
+
+	&--error {
+		--alert-background: var(--color-alert-errorBackground);
+		--alert-border-color: var(--color-alert-errorBorder);
+		--alert-hover-background: var(--color-alert-errorHoverBackground);
+	}
+
+	&--neutral {
+		--alert-background: var(--color-alert-neutralBackground);
+		--alert-border-color: var(--color-alert-neutralBorder);
+		--alert-hover-background: var(--color-alert-neutralHoverBackground);
+	}
+}
+
+.alert-action {
+	display: inline-block;
+	padding: 0.4rem 0.8rem;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	text-align: center;
+	text-decoration: none;
+	user-select: none;
+	background: transparent;
+	color: var(--alert-foreground);
+	cursor: pointer;
+	border: 1px solid var(--alert-border-color);
+	border-radius: 0.2rem;
+
+	&:hover {
+		text-decoration: none;
+		color: var(--alert-foreground);
+		background-color: var(--alert-hover-background);
+	}
+}
+
+// TODO: move this to host-side
+.graph-icon {
+	font: normal normal normal 14px/1 codicon;
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+
+	vertical-align: middle;
+	line-height: 2rem;
+	letter-spacing: normal;
+}
+
+.icon--head {
+	&::before {
+		// codicon-vm
+		font-family: codicon;
+		content: '\ea7a';
+	}
+}
+
+.icon--remote {
+	&::before {
+		// codicon-cloud
+		font-family: codicon;
+		content: '\ebaa';
+	}
+}
+
+.icon--tag {
+	&::before {
+		// codicon-tag
+		font-family: codicon;
+		content: '\ea66';
+	}
+}
+
+.icon--stash {
+	&::before {
+		// codicon-inbox
+		font-family: codicon;
+		content: '\eb09';
+	}
+}
+
+.icon--check {
+	&::before {
+		// codicon-check
+		font-family: codicon;
+		content: '\eab2';
+	}
+}
+
+.icon--warning {
+	:before {
+		// codicon-vm
+		font-family: codicon;
+		content: '\ea6c';
+	}
+	color: #de9b43;
+}
+
+.icon--added {
+	&::before {
+		// codicon-add
+		font-family: codicon;
+		content: '\ea60';
+	}
+}
+.icon--modified {
+	&::before {
+		// codicon-edit
+		font-family: codicon;
+		content: '\ea73';
+	}
+}
+.icon--deleted {
+	&::before {
+		// codicon-dash
+		font-family: codicon;
+		content: '\eacc';
+	}
+}
+.icon--renamed {
+	&::before {
+		// codicon-file
+		font-family: codicon;
+		content: '\eb60';
+	}
+}
+.icon--resolved {
+	&::before {
+		// codicon-pass-filled
+		font-family: codicon;
+		content: '\ebb3';
+	}
+}
+
+.graph-app {
+	--fs-2: 1.3rem;
+	--scroll-thumb-bg: var(--vscode-scrollbarSlider-background);
+
+	padding: 0;
+
+	&__container {
+		display: flex;
+		flex-direction: column;
+		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
+		gap: 0;
+		padding: 0 2px;
+	}
+
+	&__banners {
+		flex: none;
+		padding: 0.5rem;
+		z-index: 2000;
+
+		> *:not(:first-child) {
+			margin-top: 0.5rem;
+		}
+	}
+	&__cover {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 1999;
+		backdrop-filter: blur(4px) saturate(0.8);
+	}
+
+	&__footer {
+		flex: none;
+	}
+
+	&__main {
+		flex: 1 1 auto;
+		overflow: hidden;
+	}
+
+	&__main.is-gated {
+		position: relative;
+		pointer-events: none;
+	}
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: var(--vscode-scrollbarSlider-background);
+	border: unset !important;
+	border-radius: unset !important;
+
+	&:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
+.graph-header {
+	& .resizable-handle.horizontal {
+		--sash-size: 4px;
+		--sash-hover-size: 4px;
+
+		border-right: none !important;
+		width: var(--sash-size) !important;
+		height: 100vh !important;
+		z-index: 1000;
+
+		&:before {
+			content: "";
+			pointer-events: none;
+			position: absolute;
+			width: 100%;
+			height: 100vh;
+			transition: background-color .1s ease-out;
+			background: transparent;
+
+			width: var(--sash-hover-size);
+			left: calc(50% - var(--sash-hover-size)/2);
+		}
+
+		&:hover, &:active {
+			&:before {
+				transition-delay: 0.2s;
+				background-color: var(--vscode-sash-hoverBorder);
+			}
+		}
+
+		&:active:after {
+			content: "";
+			position: absolute;
+			top: 0;
+			left: -100vw;
+			width: 200vw;
+			height: 100vh;
+			z-index: 1000;
+		}
+	}
+}
+
+.graph-container {
+	& .resizable-handle.horizontal {
+		display: none;
+	}
+
+	& .node.stash-node .graph-icon {
+		transform: translateY(-2px);
+	}
+
+	& .graph-adjust-commit-count {
+		display: flex;
+		width: calc(100vw - var(--scrollable-scrollbar-thickness));
+		align-items: center;
+		justify-content: center;
+	}
+}
+
+.mr-loose {
+	margin-right: 0.5rem;
+}

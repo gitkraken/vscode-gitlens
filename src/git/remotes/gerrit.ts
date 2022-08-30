@@ -1,16 +1,34 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { GitRevision } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;
 
 export class GerritRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+		trimPath: boolean = true,
+	) {
+		/*
+		 * Git remote URLs differs when cloned by HTTPS with or without authentication.
+		 * An anonymous clone looks like:
+		 * 	 $ git clone "https://review.gerrithub.io/jenkinsci/gerrit-code-review-plugin"
+		 * An authenticated clone looks like:
+		 * 	 $ git clone "https://felipecrs@review.gerrithub.io/a/jenkinsci/gerrit-code-review-plugin"
+		 *   Where username may be omitted, but the "a/" prefix is always present.
+		 */
+		if (trimPath && protocol !== 'ssh') {
+			path = path.replace(/^a\//, '');
+		}
+
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -23,6 +41,8 @@ export class GerritRemote extends RemoteProvider {
 					url: `${this.baseReviewUrl}/q/<num>`,
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
+
+					description: `Change #<num> on ${this.name}`,
 				},
 			];
 		}
@@ -41,13 +61,12 @@ export class GerritRemote extends RemoteProvider {
 		return this.formatName('Gerrit');
 	}
 
-	private get reviewDomain(): string {
-		const [subdomain, secondLevelDomain, topLevelDomain] = this.domain.split('.');
-		return [`${subdomain}-review`, secondLevelDomain, topLevelDomain].join('.');
+	protected override get baseUrl(): string {
+		return `${this.protocol}://${this.domain}/plugins/gitiles/${this.path}`;
 	}
 
-	private get baseReviewUrl(): string {
-		return `${this.protocol}://${this.reviewDomain}`;
+	protected get baseReviewUrl(): string {
+		return `${this.protocol}://${this.domain}`;
 	}
 
 	async getLocalInfoFromRemoteUri(

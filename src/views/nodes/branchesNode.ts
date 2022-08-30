@@ -1,10 +1,11 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
-import { Arrays, debug, gate } from '../../system';
-import { BranchesView } from '../branchesView';
+import type { Repository } from '../../git/models/repository';
+import { makeHierarchical } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import type { BranchesView } from '../branchesView';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -58,7 +59,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
-			const hierarchy = Arrays.makeHierarchical(
+			const hierarchy = makeHierarchical(
 				branchNodes,
 				n => n.treeHierarchy,
 				(...paths) => paths.join('/'),

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<body class="preload">
+		<div id="container" class="container">
+			<div class="notice">
+				<span
+					><span class="glicon glicon-clock"></span> GitLens+
+					<a href="command:gitlens.plus.purchase">introductory pricing</a> will end with the next release
+					(late Sept, early Oct).
+				</span>
+			</div>
+			<div class="content">
+				<section id="slot1"></section>
+				<section id="slot2"></section>
+				<section id="slot3"></section>
+			</div>
+			<div>
+				<section id="slot-footer"></section>
+			</div>
+		</div>
+		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+		</style>
+	</body>
+
+	<!-- prettier-ignore -->
+	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.paid.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
+</html>

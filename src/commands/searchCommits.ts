@@ -1,9 +1,12 @@
-'use strict';
-import { executeGitCommand } from '../commands';
-import { Container } from '../container';
-import { SearchPattern } from '../git/search';
-import { SearchResultsNode } from '../views/nodes';
-import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
+import { executeGitCommand } from '../commands/gitCommands.actions';
+import { configuration } from '../configuration';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import type { SearchPattern } from '../git/search';
+import { command } from '../system/command';
+import { SearchResultsNode } from '../views/nodes/searchResultsNode';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;
@@ -11,12 +14,13 @@ export interface SearchCommitsCommandArgs {
 
 	prefillOnly?: boolean;
 
+	openPickInView?: boolean;
 	showResultsInSideBar?: boolean;
 }
 
 @command()
 export class SearchCommitsCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
 	}
 
@@ -43,15 +47,16 @@ export class SearchCommitsCommand extends Command {
 	}
 
 	async execute(args?: SearchCommitsCommandArgs) {
-		void (await executeGitCommand({
+		await executeGitCommand({
 			command: 'search',
 			prefillOnly: args?.prefillOnly,
 			state: {
 				repo: args?.repoPath,
 				...args?.search,
 				showResultsInSideBar:
-					Container.instance.config.gitCommands.search.showResultsInSideBar ?? args?.showResultsInSideBar,
+					configuration.get('gitCommands.search.showResultsInSideBar') ?? args?.showResultsInSideBar,
+				openPickInView: args?.openPickInView ?? false,
 			},
-		}));
+		});
 	}
 }

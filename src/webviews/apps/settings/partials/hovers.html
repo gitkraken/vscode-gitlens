@@ -3,7 +3,7 @@
 		<div class="setting__input setting__input--big">
 			<input id="hovers.enabled" name="hovers.enabled" type="checkbox" data-setting />
 			<label for="hovers.enabled">Hovers</label>
-			<a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#hovers-">
+			<a class="link__learn-more" title="Learn more" href="https://github.com/gitkraken/vscode-gitlens/#hovers-">
 				<i class="icon icon__info"></i>
 			</a>
 		</div>
@@ -152,41 +152,68 @@
 			</div>
 
 			<div class="section__preview" data-visibility="hovers.enabled">
-				<img class="image__preview" src="#{root}/images/settings/hovers-currentLine.webp" />
+				<img
+					class="image__preview"
+					src="#{webroot}/media/hovers-currentLine.webp"
+					loading="lazy"
+					width="600"
+					height="206"
+				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-on.webp"
+					src="#{webroot}/media/hovers-currentLine-on.webp"
 					data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-on+pr.webp"
+					src="#{webroot}/media/hovers-currentLine-on+pr.webp"
 					data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+pr+changes.webp"
+					src="#{webroot}/media/hovers-details+pr+changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+changes.webp"
+					src="#{webroot}/media/hovers-details+changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+pr.webp"
+					src="#{webroot}/media/hovers-details+pr.webp"
 					data-visibility="hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details.webp"
+					src="#{webroot}/media/hovers-details.webp"
 					data-visibility="hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-changes.webp"
+					src="#{webroot}/media/hovers-changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 			</div>
 		</div>
@@ -259,43 +286,67 @@
 			<div class="section__preview" data-visibility="hovers.enabled">
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/hovers-annotations.webp"
+					src="#{webroot}/media/hovers-annotations.webp"
 					data-visibility="blame.compact =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/hovers-annotations-compact.webp"
+					src="#{webroot}/media/hovers-annotations-compact.webp"
 					data-visibility="blame.compact"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-annotations-currentLine-on.webp"
+					src="#{webroot}/media/hovers-annotations-currentLine-on.webp"
 					data-visibility="currentLine.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+pr+changes.webp"
+					src="#{webroot}/media/hovers-details+pr+changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+changes.webp"
+					src="#{webroot}/media/hovers-details+changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details+pr.webp"
+					src="#{webroot}/media/hovers-details+pr.webp"
 					data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-details.webp"
+					src="#{webroot}/media/hovers-details.webp"
 					data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-changes.webp"
+					src="#{webroot}/media/hovers-changes.webp"
 					data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details =false &amp; hovers.annotations.changes"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 			</div>
 		</div>

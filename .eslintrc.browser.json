@@ -3,7 +3,7 @@
 	"env": {
 		"worker": true
 	},
-	"ignorePatterns": ["src/webviews/apps/**/*", "src/env/node/**/*"],
+	"ignorePatterns": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/node/**/*"],
 	"parserOptions": {
 		"project": "tsconfig.browser.json"
 	}

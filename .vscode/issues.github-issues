@@ -2,7 +2,7 @@
   {
     "kind": 2,
     "language": "github-issues",
-    "value": "$issues=repo:eamodio/vscode-gitlens is:open\n$prs=repo:eamodio/vscode-gitlens is:open is:pr"
+    "value": "$issues=repo:gitkraken/vscode-gitlens is:open\n$prs=repo:gitkraken/vscode-gitlens is:open is:pr"
   },
   {
     "kind": 1,

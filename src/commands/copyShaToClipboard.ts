@@ -1,20 +1,21 @@
-'use strict';
-import { env, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
+import { configuration } from '../configuration';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Iterables } from '../system';
+import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/command';
+import { first } from '../system/iterable';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
-} from './common';
+} from './base';
 
 export interface CopyShaToClipboardCommandArgs {
 	sha?: string;
@@ -22,17 +23,21 @@ export interface CopyShaToClipboardCommandArgs {
 
 @command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CopyShaToClipboard);
 	}
 
 	protected override preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
-			args.sha = Container.instance.config.advanced.abbreviateShaOnCopy
+			args.sha = configuration.get('advanced.abbreviateShaOnCopy')
 				? context.node.commit.shortSha
 				: context.node.commit.sha;
-			return this.execute(context.editor, context.node.commit.uri, args);
+			return this.execute(
+				context.editor,
+				context.node.commit.file?.uri ?? context.node.commit.getRepository()?.uri,
+				args,
+			);
 		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };
 			args.sha = context.node.branch.sha;
@@ -51,43 +56,40 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			// If we don't have an editor then get the sha of the last commit to the branch
-			if (uri == null) {
-				const repoPath = await Container.instance.git.getActiveRepoPath(editor);
-				if (!repoPath) return;
+			if (!args.sha) {
+				// If we don't have an editor then get the sha of the last commit to the branch
+				if (uri == null) {
+					const repoPath = this.container.git.getBestRepository(editor)?.path;
+					if (!repoPath) return;
 
-				const log = await Container.instance.git.getLog(repoPath, { limit: 1 });
-				if (log == null) return;
+					const log = await this.container.git.getLog(repoPath, { limit: 1 });
+					if (log == null) return;
 
-				args.sha = Iterables.first(log.commits.values()).sha;
-			} else if (args.sha == null) {
-				const blameline = editor?.selection.active.line ?? 0;
-				if (blameline < 0) return;
+					args.sha = first(log.commits.values())?.sha;
+					if (args.sha == null) return;
+				} else if (args.sha == null) {
+					const blameline = editor?.selection.active.line ?? 0;
+					if (blameline < 0) return;
 
-				try {
-					const gitUri = await GitUri.fromUri(uri);
-					const blame = editor?.document.isDirty
-						? await Container.instance.git.getBlameForLineContents(
-								gitUri,
-								blameline,
-								editor.document.getText(),
-						  )
-						: await Container.instance.git.getBlameForLine(gitUri, blameline);
-					if (blame == null) return;
+					try {
+						const gitUri = await GitUri.fromUri(uri);
+						const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
+						if (blame == null) return;
 
-					args.sha = blame.commit.sha;
-				} catch (ex) {
-					Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-					void Messages.showGenericErrorMessage('Unable to copy commit SHA');
+						args.sha = blame.commit.sha;
+					} catch (ex) {
+						Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
+						void showGenericErrorMessage('Unable to copy commit SHA');
 
-					return;
+						return;
+					}
 				}
 			}
 
-			void (await env.clipboard.writeText(args.sha));
+			await env.clipboard.writeText(args.sha);
 		} catch (ex) {
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			void Messages.showGenericErrorMessage('Unable to copy commit SHA');
+			void showGenericErrorMessage('Unable to copy commit SHA');
 		}
 	}
 }

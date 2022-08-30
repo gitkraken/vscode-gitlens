@@ -1,26 +1,30 @@
-'use strict';
 import { QuickInputButtons } from 'vscode';
-import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { Container } from '../../container';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { pluralize } from '../../system/string';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	AsyncStepResultGenerator,
 	inputBranchNameStep,
-	PartialStepState,
 	pickBranchesStep,
 	pickBranchOrTagStep,
 	pickBranchStep,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -61,9 +65,39 @@ interface RenameState {
 
 type State = CreateState | DeleteState | RenameState;
 type BranchStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+
 type CreateStepState<T extends CreateState = CreateState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepCreate(state: PartialStepState<State>): asserts state is CreateStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'create') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 type DeleteStepState<T extends DeleteState = DeleteState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepDelete(state: PartialStepState<State>): asserts state is DeleteStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'delete') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 type RenameStepState<T extends RenameState = RenameState> = BranchStepState<ExcludeSome<T, 'repo', string>>;
+function assertStateStepRename(state: PartialStepState<State>): asserts state is RenameStepState {
+	if (state.repo instanceof Repository && state.subcommand === 'rename') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
+function assertStateStepDeleteBranches(
+	state: DeleteStepState,
+): asserts state is ExcludeSome<typeof state, 'references', GitBranchReference> {
+	if (Array.isArray(state.references)) return;
+
+	debugger;
+	throw new Error('Missing branches');
+}
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
@@ -83,8 +117,8 @@ export interface BranchGitCommandArgs {
 export class BranchGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
-	constructor(args?: BranchGitCommandArgs) {
-		super('branch', 'branch', 'Branch', {
+	constructor(container: Container, args?: BranchGitCommandArgs) {
+		super(container, 'branch', 'branch', 'Branch', {
 			description: 'create, rename, or delete branches',
 		});
 
@@ -150,8 +184,8 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			associatedView: Container.instance.branchesView,
-			repos: Container.instance.git.openRepositories,
+			associatedView: this.container.branchesView,
+			repos: this.container.git.openRepositories,
 			showTags: false,
 			title: this.title,
 		};
@@ -192,17 +226,20 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			switch (state.subcommand) {
 				case 'create':
-					yield* this.createCommandSteps(state as CreateStepState, context);
+					assertStateStepCreate(state);
+					yield* this.createCommandSteps(state, context);
 					// Clear any chosen name, since we are exiting this subcommand
-					state.name = undefined;
+					state.name = undefined!;
 					break;
 				case 'delete':
-					yield* this.deleteCommandSteps(state as DeleteStepState, context);
+					assertStateStepDelete(state);
+					yield* this.deleteCommandSteps(state, context);
 					break;
 				case 'rename':
-					yield* this.renameCommandSteps(state as RenameStepState, context);
+					assertStateStepRename(state);
+					yield* this.renameCommandSteps(state, context);
 					// Clear any chosen name, since we are exiting this subcommand
-					state.name = undefined;
+					state.name = undefined!;
 					break;
 				default:
 					QuickCommand.endSteps(state);
@@ -292,9 +329,9 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			QuickCommand.endSteps(state);
 			if (state.flags.includes('--switch')) {
-				void (await state.repo.switch(state.reference.ref, { createBranch: state.name }));
+				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
-				void state.repo.branch(...state.flags, state.name, state.reference.ref);
+				state.repo.branch(...state.flags, state.name, state.reference.ref);
 			}
 		}
 	}
@@ -356,20 +393,18 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 
 			context.title = getTitle(
-				Strings.pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
+				pluralize('Branch', state.references.length, { only: true, plural: 'Branches' }),
 				state.subcommand,
 			);
 
-			const result = yield* this.deleteCommandConfirmStep(
-				state as ExcludeSome<typeof state, 'references', GitBranchReference>,
-				context,
-			);
+			assertStateStepDeleteBranches(state);
+			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
 
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			void state.repo.branchDelete(state.references, {
+			state.repo.branchDelete(state.references, {
 				force: state.flags.includes('--force'),
 				remote: state.flags.includes('--remotes'),
 			});
@@ -465,7 +500,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			void state.repo.branch(...state.flags, state.reference.ref, state.name);
+			state.repo.branch(...state.flags, state.reference.ref, state.name);
 		}
 	}
 

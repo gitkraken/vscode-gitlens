@@ -1,25 +1,30 @@
-'use strict';
-import { QuickInputButtons, QuickPickItem } from 'vscode';
-import { Container } from '../../container';
-import { GitReference, GitTagReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { QuickPickItem } from 'vscode';
+import { QuickInputButtons } from 'vscode';
+import type { Container } from '../../container';
+import type { GitTagReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { pluralize } from '../../system/string';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	AsyncStepResultGenerator,
 	inputTagNameStep,
-	PartialStepState,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickTagsStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -68,8 +73,8 @@ export interface TagGitCommandArgs {
 export class TagGitCommand extends QuickCommand<State> {
 	private subcommand: State['subcommand'] | undefined;
 
-	constructor(args?: TagGitCommandArgs) {
-		super('tag', 'tag', 'Tag', {
+	constructor(container: Container, args?: TagGitCommandArgs) {
+		super(container, 'tag', 'tag', 'Tag', {
 			description: 'create, or delete tags',
 		});
 
@@ -129,8 +134,8 @@ export class TagGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.tagsView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.tagsView,
 			showTags: false,
 			title: this.title,
 		};
@@ -267,7 +272,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			void state.repo.tag(
+			state.repo.tag(
 				...state.flags,
 				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
 				state.name,
@@ -352,16 +357,13 @@ export class TagGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			context.title = getTitle(
-				Strings.pluralize('Tag', state.references.length, { only: true }),
-				state.subcommand,
-			);
+			context.title = getTitle(pluralize('Tag', state.references.length, { only: true }), state.subcommand);
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
 
 			QuickCommand.endSteps(state);
-			void state.repo.tagDelete(state.references);
+			state.repo.tagDelete(state.references);
 		}
 	}
 

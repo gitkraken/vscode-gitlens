@@ -1,10 +1,13 @@
-'use strict';
 import { window } from 'vscode';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
-import { ResultsCommitsNode } from '../views/nodes';
-import { Command, command, CommandContext, Commands, executeCommand } from './common';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { command, executeCommand } from '../system/command';
+import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
+import type { CommandContext } from './base';
+import { Command } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -16,7 +19,7 @@ export interface OpenComparisonOnRemoteCommandArgs {
 
 @command()
 export class OpenComparisonOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
 	}
 

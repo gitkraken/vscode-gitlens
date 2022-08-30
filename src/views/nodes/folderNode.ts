@@ -1,11 +1,12 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
+import type { ViewsFilesConfig } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { Arrays, Strings } from '../../system';
-import { FileHistoryView } from '../fileHistoryView';
-import { StashesView } from '../stashesView';
-import { ViewsWithCommits } from '../viewBase';
+import type { HierarchicalItem } from '../../system/array';
+import { sortCompare } from '../../system/string';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { StashesView } from '../stashesView';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {
@@ -13,7 +14,7 @@ export interface FileNode extends ViewNode {
 	label?: string;
 	priority: number;
 	relativePath?: string;
-	root?: Arrays.HierarchicalItem<FileNode>;
+	root?: HierarchicalItem<FileNode>;
 }
 
 export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | StashesView> {
@@ -24,7 +25,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 		parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly folderName: string,
-		public readonly root: Arrays.HierarchicalItem<FileNode>,
+		public readonly root: HierarchicalItem<FileNode>,
 		private readonly containsWorkingFiles?: boolean,
 		public readonly relativePath?: string,
 	) {
@@ -77,7 +78,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 			return (
 				(a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
 				a.priority - b.priority ||
-				Strings.sortCompare(a.label!, b.label!)
+				sortCompare(a.label!, b.label!)
 			);
 		});
 

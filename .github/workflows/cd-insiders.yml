@@ -9,11 +9,13 @@ jobs:
     check:
         name: Check for updates
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         outputs:
             status: ${{ steps.earlyexit.outputs.status }}
         steps:
             - name: Checkout code
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
               with:
                   fetch-depth: 0
             - id: earlyexit
@@ -51,9 +53,9 @@ jobs:
         if: needs.check.outputs.status == 'changed'
         steps:
             - name: Checkout code
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
             - name: Setup node
-              uses: actions/setup-node@v2
+              uses: actions/setup-node@v3
               with:
                   node-version: '14'
             - name: Install
@@ -67,7 +69,7 @@ jobs:
             - name: Publish extension
               run: yarn vsce publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.GITLENS_VSCODE_MARKETPLACE_PAT }}
             - name: Publish artifact
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               with:
                   name: ${{ env.PACKAGE_NAME }}.vsix
                   path: ./${{ env.PACKAGE_NAME }}.vsix

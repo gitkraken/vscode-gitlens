@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-    - name: Question
-      url: https://github.com/eamodio/vscode-gitlens/discussions?discussions_q=category%3AQ%26A
+    - name: Q & A
+      url: https://github.com/gitkraken/vscode-gitlens/discussions?discussions_q=category%3AQ%26A
       about: Ask and answer questions about GitLens
+    - name: Documentation
+      url: https://help.gitkraken.com/gitlens
+      about: Read the GitLens support documentation
+    - name: GitLens+ Support
+      url: https://gitkraken.com/gitlens-support
+      about: Get email support for GitLens+ issues and questions

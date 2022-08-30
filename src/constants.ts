@@ -1,74 +1,29 @@
-'use strict';
-import { commands, TextDocument, TextEditor, window } from 'vscode';
-import { ViewShowBranchComparison } from './config';
-import { SearchPattern } from './git/search';
-
 export const quickPickTitleMaxChars = 80;
+export const ImageMimetypes: Record<string, string> = {
+	'.png': 'image/png',
+	'.gif': 'image/gif',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.jpe': 'image/jpeg',
+	'.webp': 'image/webp',
+	'.tif': 'image/tiff',
+	'.tiff': 'image/tiff',
+	'.bmp': 'image/bmp',
+};
 
-export const enum BuiltInCommands {
-	CloseActiveEditor = 'workbench.action.closeActiveEditor',
-	CloseAllEditors = 'workbench.action.closeAllEditors',
-	CursorMove = 'cursorMove',
-	Diff = 'vscode.diff',
-	EditorScroll = 'editorScroll',
-	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
-	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
-	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
-	InstallExtension = 'workbench.extensions.installExtension',
-	Open = 'vscode.open',
-	OpenFolder = 'vscode.openFolder',
-	OpenInTerminal = 'openInTerminal',
-	OpenWith = 'vscode.openWith',
-	NextEditor = 'workbench.action.nextEditor',
-	PreviewHtml = 'vscode.previewHtml',
-	RevealLine = 'revealLine',
-	SetContext = 'setContext',
-	ShowExplorerActivity = 'workbench.view.explorer',
-	ShowReferences = 'editor.action.showReferences',
-}
-
-export const enum BuiltInGitCommands {
-	Publish = 'git.publish',
-	Pull = 'git.pull',
-	PullRebase = 'git.pullRebase',
-	Push = 'git.push',
-	PushForce = 'git.pushForce',
-	UndoCommit = 'git.undoCommit',
-}
-
-export const enum BuiltInGitConfiguration {
-	AutoRepositoryDetection = 'git.autoRepositoryDetection',
-	FetchOnPull = 'git.fetchOnPull',
-	UseForcePushWithLease = 'git.useForcePushWithLease',
-}
-
-export const enum ContextKeys {
-	ActionPrefix = 'gitlens:action:',
-	ActiveFileStatus = 'gitlens:activeFileStatus',
-	AnnotationStatus = 'gitlens:annotationStatus',
-	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
-	Disabled = 'gitlens:disabled',
-	Enabled = 'gitlens:enabled',
-	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
-	HasRemotes = 'gitlens:hasRemotes',
-	HasRichRemotes = 'gitlens:hasRichRemotes',
-	Key = 'gitlens:key',
-	Readonly = 'gitlens:readonly',
-	ViewsCanCompare = 'gitlens:views:canCompare',
-	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
-	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
-	ViewsFileHistoryCanPin = 'gitlens:views:fileHistory:canPin',
-	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
-	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
-	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
-	Vsls = 'gitlens:vsls',
-}
-
-export function setContext(key: ContextKeys | string, value: any) {
-	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
+export const enum CharCode {
+	/**
+	 * The `/` character.
+	 */
+	Slash = 47,
+	/**
+	 * The `\` character.
+	 */
+	Backslash = 92,
+	A = 65,
+	Z = 90,
+	a = 97,
+	z = 122,
 }
 
 export const enum Colors {
@@ -84,47 +39,284 @@ export const enum Colors {
 	OpenAutolinkedIssueIconColor = 'gitlens.openAutolinkedIssueIconColor',
 	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
 	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
-	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
+	UnpublishedChangesIconColor = 'gitlens.unpublishedChangesIconColor',
 	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
 	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
 }
 
-export const enum DocumentSchemes {
-	DebugConsole = 'debug',
-	File = 'file',
-	Git = 'git',
-	GitLens = 'gitlens',
-	Output = 'output',
-	PRs = 'pr',
-	Vsls = 'vsls',
-	VirtualFS = 'vscode-vfs',
+export const enum Commands {
+	ActionPrefix = 'gitlens.action.',
+
+	AddAuthors = 'gitlens.addAuthors',
+	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
+	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
+	BrowseRepoBeforeRevision = 'gitlens.browseRepoBeforeRevision',
+	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
+	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
+	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
+	CloseWelcomeView = 'gitlens.closeWelcomeView',
+	CompareWith = 'gitlens.compareWith',
+	CompareHeadWith = 'gitlens.compareHeadWith',
+	CompareWorkingWith = 'gitlens.compareWorkingWith',
+	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
+	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
+	CopyAutolinkUrl = 'gitlens.copyAutolinkUrl',
+	CopyCurrentBranch = 'gitlens.copyCurrentBranch',
+	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
+	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
+	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
+	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteComparisonUrl = 'gitlens.copyRemoteComparisonUrl',
+	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrlToClipboard',
+	CopyRemoteFileUrlWithoutRange = 'gitlens.copyRemoteFileUrlWithoutRange',
+	CopyRemoteFileUrlFrom = 'gitlens.copyRemoteFileUrlFrom',
+	CopyRemoteIssueUrl = 'gitlens.copyRemoteIssueUrl',
+	CopyRemotePullRequestUrl = 'gitlens.copyRemotePullRequestUrl',
+	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
+	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
+	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
+	DiffDirectory = 'gitlens.diffDirectory',
+	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
+	DiffWith = 'gitlens.diffWith',
+	DiffWithNext = 'gitlens.diffWithNext',
+	DiffWithNextInDiffLeft = 'gitlens.diffWithNextInDiffLeft',
+	DiffWithNextInDiffRight = 'gitlens.diffWithNextInDiffRight',
+	DiffWithPrevious = 'gitlens.diffWithPrevious',
+	DiffWithPreviousInDiffLeft = 'gitlens.diffWithPreviousInDiffLeft',
+	DiffWithPreviousInDiffRight = 'gitlens.diffWithPreviousInDiffRight',
+	DiffLineWithPrevious = 'gitlens.diffLineWithPrevious',
+	DiffWithRevision = 'gitlens.diffWithRevision',
+	DiffWithRevisionFrom = 'gitlens.diffWithRevisionFrom',
+	DiffWithWorking = 'gitlens.diffWithWorking',
+	DiffWithWorkingInDiffLeft = 'gitlens.diffWithWorkingInDiffLeft',
+	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
+	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
+	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
+	DisableDebugLogging = 'gitlens.disableDebugLogging',
+	EnableDebugLogging = 'gitlens.enableDebugLogging',
+	DisableRebaseEditor = 'gitlens.disableRebaseEditor',
+	EnableRebaseEditor = 'gitlens.enableRebaseEditor',
+	ExternalDiff = 'gitlens.externalDiff',
+	ExternalDiffAll = 'gitlens.externalDiffAll',
+	FetchRepositories = 'gitlens.fetchRepositories',
+	GetStarted = 'gitlens.getStarted',
+	InviteToLiveShare = 'gitlens.inviteToLiveShare',
+	OpenAutolinkUrl = 'gitlens.openAutolinkUrl',
+	OpenBlamePriorToChange = 'gitlens.openBlamePriorToChange',
+	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',
+	OpenBranchOnRemote = 'gitlens.openBranchOnRemote',
+	OpenCurrentBranchOnRemote = 'gitlens.openCurrentBranchOnRemote',
+	OpenChangedFiles = 'gitlens.openChangedFiles',
+	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenComparisonOnRemote = 'gitlens.openComparisonOnRemote',
+	OpenFileHistory = 'gitlens.openFileHistory',
+	OpenFileFromRemote = 'gitlens.openFileFromRemote',
+	OpenFileOnRemote = 'gitlens.openFileOnRemote',
+	OpenFileOnRemoteFrom = 'gitlens.openFileOnRemoteFrom',
+	OpenFileAtRevision = 'gitlens.openFileRevision',
+	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
+	OpenFolderHistory = 'gitlens.openFolderHistory',
+	OpenOnRemote = 'gitlens.openOnRemote',
+	OpenIssueOnRemote = 'gitlens.openIssueOnRemote',
+	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
+	OpenAssociatedPullRequestOnRemote = 'gitlens.openAssociatedPullRequestOnRemote',
+	OpenRepoOnRemote = 'gitlens.openRepoOnRemote',
+	OpenRevisionFile = 'gitlens.openRevisionFile',
+	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
+	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
+	OpenWalkthrough = 'gitlens.openWalkthrough',
+	OpenWorkingFile = 'gitlens.openWorkingFile',
+	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
+	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
+	PullRepositories = 'gitlens.pullRepositories',
+	PushRepositories = 'gitlens.pushRepositories',
+	GitCommands = 'gitlens.gitCommands',
+	GitCommandsBranch = 'gitlens.gitCommands.branch',
+	GitCommandsCherryPick = 'gitlens.gitCommands.cherryPick',
+	GitCommandsMerge = 'gitlens.gitCommands.merge',
+	GitCommandsRebase = 'gitlens.gitCommands.rebase',
+	GitCommandsReset = 'gitlens.gitCommands.reset',
+	GitCommandsRevert = 'gitlens.gitCommands.revert',
+	GitCommandsSwitch = 'gitlens.gitCommands.switch',
+	GitCommandsTag = 'gitlens.gitCommands.tag',
+	GitCommandsWorktree = 'gitlens.gitCommands.worktree',
+	PlusHide = 'gitlens.plus.hide',
+	PlusLearn = 'gitlens.plus.learn',
+	PlusLoginOrSignUp = 'gitlens.plus.loginOrSignUp',
+	PlusLogout = 'gitlens.plus.logout',
+	PlusManage = 'gitlens.plus.manage',
+	PlusPurchase = 'gitlens.plus.purchase',
+	PlusResendVerification = 'gitlens.plus.resendVerification',
+	PlusRestore = 'gitlens.plus.restore',
+	PlusShowPlans = 'gitlens.plus.showPlans',
+	PlusStartPreviewTrial = 'gitlens.plus.startPreviewTrial',
+	PlusValidate = 'gitlens.plus.validate',
+	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
+	RefreshGraphPage = 'gitlens.refreshGraphPage',
+	RefreshHover = 'gitlens.refreshHover',
+	RefreshTimelinePage = 'gitlens.refreshTimelinePage',
+	ResetAvatarCache = 'gitlens.resetAvatarCache',
+	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
+	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
+	RevealCommitInView = 'gitlens.revealCommitInView',
+	SearchCommits = 'gitlens.showCommitSearch',
+	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
+	SetViewsLayout = 'gitlens.setViewsLayout',
+	ShowBranchesView = 'gitlens.showBranchesView',
+	ShowCommitInGraph = 'gitlens.showCommitInGraph',
+	ShowCommitInView = 'gitlens.showCommitInView',
+	ShowCommitsInView = 'gitlens.showCommitsInView',
+	ShowCommitsView = 'gitlens.showCommitsView',
+	ShowContributorsView = 'gitlens.showContributorsView',
+	ShowHomeView = 'gitlens.showHomeView',
+	ShowFileHistoryView = 'gitlens.showFileHistoryView',
+	ShowLastQuickPick = 'gitlens.showLastQuickPick',
+	ShowLineHistoryView = 'gitlens.showLineHistoryView',
+	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
+	ShowQuickCommit = 'gitlens.showQuickCommitDetails',
+	ShowQuickCommitFile = 'gitlens.showQuickCommitFileDetails',
+	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
+	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
+	ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
+	ShowQuickCommitRevision = 'gitlens.showQuickRevisionDetails',
+	ShowQuickCommitRevisionInDiffLeft = 'gitlens.showQuickRevisionDetailsInDiffLeft',
+	ShowQuickCommitRevisionInDiffRight = 'gitlens.showQuickRevisionDetailsInDiffRight',
+	ShowQuickStashList = 'gitlens.showQuickStashList',
+	ShowRemotesView = 'gitlens.showRemotesView',
+	ShowRepositoriesView = 'gitlens.showRepositoriesView',
+	ShowSearchAndCompareView = 'gitlens.showSearchAndCompareView',
+	ShowSettingsPage = 'gitlens.showSettingsPage',
+	ShowSettingsPageAndJumpToBranchesView = 'gitlens.showSettingsPage#branches-view',
+	ShowSettingsPageAndJumpToCommitsView = 'gitlens.showSettingsPage#commits-view',
+	ShowSettingsPageAndJumpToContributorsView = 'gitlens.showSettingsPage#contributors-view',
+	ShowSettingsPageAndJumpToFileHistoryView = 'gitlens.showSettingsPage#file-history-view',
+	ShowSettingsPageAndJumpToLineHistoryView = 'gitlens.showSettingsPage#line-history-view',
+	ShowSettingsPageAndJumpToRemotesView = 'gitlens.showSettingsPage#remotes-view',
+	ShowSettingsPageAndJumpToRepositoriesView = 'gitlens.showSettingsPage#repositories-view',
+	ShowSettingsPageAndJumpToSearchAndCompareView = 'gitlens.showSettingsPage#search-compare-view',
+	ShowSettingsPageAndJumpToStashesView = 'gitlens.showSettingsPage#stashes-view',
+	ShowSettingsPageAndJumpToTagsView = 'gitlens.showSettingsPage#tags-view',
+	ShowSettingsPageAndJumpToWorkTreesView = 'gitlens.showSettingsPage#worktrees-view',
+	ShowSettingsPageAndJumpToViews = 'gitlens.showSettingsPage#views',
+	ShowSettingsPageAndJumpToAutolinks = 'gitlens.showSettingsPage#autolinks',
+	ShowStashesView = 'gitlens.showStashesView',
+	ShowTagsView = 'gitlens.showTagsView',
+	ShowWorktreesView = 'gitlens.showWorktreesView',
+	ShowCommitDetailsView = 'gitlens.showCommitDetailsView',
+	ShowTimelinePage = 'gitlens.showTimelinePage',
+	ShowTimelineView = 'gitlens.showTimelineView',
+	ShowGraphPage = 'gitlens.showGraphPage',
+	ShowWelcomePage = 'gitlens.showWelcomePage',
+	StashApply = 'gitlens.stashApply',
+	StashSave = 'gitlens.stashSave',
+	StashSaveFiles = 'gitlens.stashSaveFiles',
+	SwitchMode = 'gitlens.switchMode',
+	ToggleCodeLens = 'gitlens.toggleCodeLens',
+	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileBlameInDiffLeft = 'gitlens.toggleFileBlameInDiffLeft',
+	ToggleFileBlameInDiffRight = 'gitlens.toggleFileBlameInDiffRight',
+	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
+	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
+	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
+	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
+	ToggleLineBlame = 'gitlens.toggleLineBlame',
+	ToggleReviewMode = 'gitlens.toggleReviewMode',
+	ToggleZenMode = 'gitlens.toggleZenMode',
+	ViewsCopy = 'gitlens.views.copy',
+	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
+	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
+
+	Deprecated_DiffHeadWith = 'gitlens.diffHeadWith',
+	Deprecated_DiffWorkingWith = 'gitlens.diffWorkingWith',
+	Deprecated_OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
+	Deprecated_OpenBranchInRemote = 'gitlens.openBranchInRemote',
+	Deprecated_OpenCommitInRemote = 'gitlens.openCommitInRemote',
+	Deprecated_OpenFileInRemote = 'gitlens.openFileInRemote',
+	Deprecated_OpenInRemote = 'gitlens.openInRemote',
+	Deprecated_OpenRepoInRemote = 'gitlens.openRepoInRemote',
+	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
-export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
-	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document ? editor : undefined;
+export const enum ContextKeys {
+	ActionPrefix = 'gitlens:action:',
+	KeyPrefix = 'gitlens:key:',
+
+	ActiveFileStatus = 'gitlens:activeFileStatus',
+	AnnotationStatus = 'gitlens:annotationStatus',
+	Debugging = 'gitlens:debugging',
+	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
+	Disabled = 'gitlens:disabled',
+	Enabled = 'gitlens:enabled',
+	GraphPageFocused = 'gitlens:graphPage:focused',
+	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
+	HasRemotes = 'gitlens:hasRemotes',
+	HasRichRemotes = 'gitlens:hasRichRemotes',
+	HasVirtualFolders = 'gitlens:hasVirtualFolders',
+	Readonly = 'gitlens:readonly',
+	TimelinePageFocused = 'gitlens:timelinePage:focused',
+	Untrusted = 'gitlens:untrusted',
+	ViewsCanCompare = 'gitlens:views:canCompare',
+	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
+	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
+	ViewsFileHistoryCanPin = 'gitlens:views:fileHistory:canPin',
+	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
+	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
+	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
+	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
+	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
+	Vsls = 'gitlens:vsls',
+
+	Plus = 'gitlens:plus',
+	PlusAllowed = 'gitlens:plus:allowed',
+	PlusRequired = 'gitlens:plus:required',
+	PlusState = 'gitlens:plus:state',
 }
 
-export function isActiveDocument(document: TextDocument): boolean {
-	const editor = window.activeTextEditor;
-	return editor != null && editor.document === document;
+export const enum CoreCommands {
+	CloseActiveEditor = 'workbench.action.closeActiveEditor',
+	CloseAllEditors = 'workbench.action.closeAllEditors',
+	CursorMove = 'cursorMove',
+	CustomEditorShowFindWidget = 'editor.action.webvieweditor.showFind',
+	Diff = 'vscode.diff',
+	EditorScroll = 'editorScroll',
+	EditorShowHover = 'editor.action.showHover',
+	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
+	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
+	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
+	InstallExtension = 'workbench.extensions.installExtension',
+	MoveViews = 'vscode.moveViews',
+	Open = 'vscode.open',
+	OpenFolder = 'vscode.openFolder',
+	OpenInTerminal = 'openInTerminal',
+	OpenWalkthrough = 'workbench.action.openWalkthrough',
+	OpenWith = 'vscode.openWith',
+	NextEditor = 'workbench.action.nextEditor',
+	PreviewHtml = 'vscode.previewHtml',
+	RevealLine = 'revealLine',
+	RevealInExplorer = 'revealInExplorer',
+	RevealInFileExplorer = 'revealFileInOS',
+	SetContext = 'setContext',
+	ShowExplorer = 'workbench.view.explorer',
+	ShowReferences = 'editor.action.showReferences',
+	ShowSCM = 'workbench.view.scm',
+	UninstallExtension = 'workbench.extensions.uninstallExtension',
 }
 
-export function isVisibleDocument(document: TextDocument): boolean {
-	if (window.visibleTextEditors.length === 0) return false;
-
-	return window.visibleTextEditors.some(e => e.document === document);
+export const enum CoreGitCommands {
+	Publish = 'git.publish',
+	Pull = 'git.pull',
+	PullRebase = 'git.pullRebase',
+	Push = 'git.push',
+	PushForce = 'git.pushForce',
+	UndoCommit = 'git.undoCommit',
 }
 
-export function isTextEditor(editor: TextEditor): boolean {
-	const scheme = editor.document.uri.scheme;
-	return scheme !== DocumentSchemes.Output && scheme !== DocumentSchemes.DebugConsole;
-}
-
-export function hasVisibleTextEditor(): boolean {
-	if (window.visibleTextEditors.length === 0) return false;
-
-	return window.visibleTextEditors.some(e => isTextEditor(e));
+export const enum CoreGitConfiguration {
+	AutoRepositoryDetection = 'git.autoRepositoryDetection',
+	RepositoryScanMaxDepth = 'git.repositoryScanMaxDepth',
+	FetchOnPull = 'git.fetchOnPull',
+	UseForcePushWithLease = 'git.useForcePushWithLease',
 }
 
 export const enum GlyphChars {
@@ -174,101 +366,15 @@ export const enum GlyphChars {
 	ZeroWidthSpace = '\u200b',
 }
 
-export const enum SyncedState {
-	Version = 'gitlens:synced:version',
-	WelcomeViewVisible = 'gitlens:views:welcome:visible',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-}
-
-export const enum GlobalState {
-	Avatars = 'gitlens:avatars',
-	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
-	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
-	Version = 'gitlens:version',
-
-	Deprecated_Version = 'gitlensVersion',
-}
-
-export const ImageMimetypes: Record<string, string> = {
-	'.png': 'image/png',
-	'.gif': 'image/gif',
-	'.jpg': 'image/jpeg',
-	'.jpeg': 'image/jpeg',
-	'.jpe': 'image/jpeg',
-	'.webp': 'image/webp',
-	'.tif': 'image/tiff',
-	'.tiff': 'image/tiff',
-	'.bmp': 'image/bmp',
-};
-
-export interface BranchComparison {
-	ref: string;
-	notation: '..' | '...' | undefined;
-	type: Exclude<ViewShowBranchComparison, false> | undefined;
-}
-
-export interface BranchComparisons {
-	[id: string]: string | BranchComparison;
-}
-
-export interface NamedRef {
-	label?: string;
-	ref: string;
-}
-
-export interface PinnedComparison {
-	type: 'comparison';
-	timestamp: number;
-	path: string;
-	ref1: NamedRef;
-	ref2: NamedRef;
-	notation?: '..' | '...';
-}
-
-export interface PinnedSearch {
-	type: 'search';
-	timestamp: number;
-	path: string;
-	labels: {
-		label: string;
-		queryLabel:
-			| string
-			| {
-					label: string;
-					resultsType?: { singular: string; plural: string };
-			  };
-	};
-	search: SearchPattern;
-}
-
-export type PinnedItem = PinnedComparison | PinnedSearch;
-
-export interface PinnedItems {
-	[id: string]: PinnedItem;
-}
-
-export interface Starred {
-	[id: string]: boolean;
-}
-
-export interface Usage {
-	[id: string]: number;
-}
-
-export const enum WorkspaceState {
-	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
-
-	BranchComparisons = 'gitlens:branch:comparisons',
-	ConnectedPrefix = 'gitlens:connected:',
-	DefaultRemote = 'gitlens:remote:default',
-	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
-	StarredBranches = 'gitlens:starred:branches',
-	StarredRepositories = 'gitlens:starred:repositories',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
+export const enum Schemes {
+	DebugConsole = 'debug',
+	File = 'file',
+	Git = 'git',
+	GitHub = 'github',
+	GitLens = 'gitlens',
+	Output = 'output',
+	PRs = 'pr',
+	Vsls = 'vsls',
+	VslsScc = 'vsls-scc',
+	Virtual = 'vscode-vfs',
 }

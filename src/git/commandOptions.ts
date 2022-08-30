@@ -1,4 +1,4 @@
-'use strict';
+import type { CancellationToken } from 'vscode';
 
 export const enum GitErrorHandling {
 	Throw = 0,
@@ -14,6 +14,7 @@ export interface GitCommandOptions {
 	local?: boolean;
 
 	// Below options comes from RunOptions<BufferEncoding | 'buffer' | string>
+	cancellation?: CancellationToken;
 	cwd?: string;
 	readonly env?: Record<string, any>;
 	readonly encoding?: BufferEncoding | 'buffer' | string;

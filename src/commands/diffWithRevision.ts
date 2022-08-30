@@ -1,16 +1,17 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { GlyphChars, quickPickTitleMaxChars } from '../constants';
-import { Container } from '../container';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
-import { Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { DiffWithCommandArgs } from './diffWith';
-import { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
+import { showGenericErrorMessage } from '../messages';
+import { CommitPicker } from '../quickpicks/commitPicker';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { command, executeCommand } from '../system/command';
+import { pad } from '../system/string';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
 
 export interface DiffWithRevisionCommandArgs {
 	line?: number;
@@ -19,7 +20,7 @@ export interface DiffWithRevisionCommandArgs {
 
 @command()
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffWithRevision);
 	}
 
@@ -35,17 +36,17 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const log = Container.instance.git
+			const log = this.container.git
 				.getLogForFile(gitUri.repoPath, gitUri.fsPath)
 				.then(
 					log =>
 						log ??
 						(gitUri.sha
-							? Container.instance.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
+							? this.container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, { ref: gitUri.sha })
 							: undefined),
 				);
 
-			const title = `Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await CommitPicker.show(
 				log,
 				`${title}${gitUri.getFormattedFileName({
@@ -98,7 +99,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithRevisionCommand');
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

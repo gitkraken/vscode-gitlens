@@ -1,23 +1,26 @@
-'use strict';
-import { TextEditor, Uri, window } from 'vscode';
-import { Container } from '../container';
+import type { TextEditor } from 'vscode';
+import { Uri, window } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBlameCommit, GitCommit, GitLog, GitLogCommit } from '../git/models';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import type { GitLog } from '../git/models/log';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
 import {
-	ActiveEditorCachedCommand,
-	command,
-	CommandContext,
-	Commands,
-	getCommandUri,
-	isCommandContextViewNodeHasCommit,
-} from './common';
-import { executeGitCommand } from './gitCommands';
+	showCommitNotFoundWarningMessage,
+	showFileNotUnderSourceControlWarningMessage,
+	showGenericErrorMessage,
+	showLineUncommittedWarningMessage,
+} from '../messages';
+import { command } from '../system/command';
+import type { CommandContext } from './base';
+import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickCommitFileCommandArgs {
 	sha?: string;
-	commit?: GitCommit | GitLogCommit;
+	commit?: GitCommit | GitStashCommit;
 	fileLog?: GitLog;
 	revisionUri?: string;
 }
@@ -28,7 +31,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		return super.getMarkdownCommandArgsCore<ShowQuickCommitFileCommandArgs>(Commands.ShowQuickCommitFile, args);
 	}
 
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.ShowQuickCommitFile,
 			Commands.ShowQuickCommitRevision,
@@ -64,30 +67,30 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		args = { ...args };
 
 		let gitUri;
-		if (args.revisionUri !== undefined) {
-			gitUri = GitUri.fromRevisionUri(Uri.parse(args.revisionUri));
+		if (args.revisionUri != null) {
+			gitUri = GitUri.fromRevisionUri(Uri.parse(args.revisionUri, true));
 			args.sha = gitUri.sha;
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}
 
-		if (args.sha === undefined) {
+		if (args.sha == null) {
 			if (editor == null) return;
 
-			const blameline = editor.selection.active.line;
-			if (blameline < 0) return;
+			const blameLine = editor.selection.active.line;
+			if (blameLine < 0) return;
 
 			try {
-				const blame = await Container.instance.git.getBlameForLine(gitUri, blameline);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameLine);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
+					void showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void Messages.showLineUncommittedWarningMessage('Unable to show commit file details');
+					void showLineUncommittedWarningMessage('Unable to show commit file details');
 
 					return;
 				}
@@ -96,7 +99,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 
 				args.commit = blame.commit;
 			} catch (ex) {
-				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
+				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameLine})`);
 				void window.showErrorMessage('Unable to show commit file details. See output channel for more details');
 
 				return;
@@ -104,49 +107,55 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 		}
 
 		try {
-			if (args.commit === undefined || !args.commit.isFile) {
-				if (args.fileLog !== undefined) {
+			if (args.commit == null /*|| args.commit.file != null*/) {
+				if (args.fileLog != null) {
 					args.commit = args.fileLog.commits.get(args.sha);
 					// If we can't find the commit, kill the fileLog
-					if (args.commit === undefined) {
+					if (args.commit == null) {
 						args.fileLog = undefined;
 					}
 				}
 
-				if (args.fileLog === undefined) {
-					const repoPath = args.commit === undefined ? gitUri.repoPath : args.commit.repoPath;
-					args.commit = await Container.instance.git.getCommitForFile(repoPath, gitUri, {
+				if (args.fileLog == null) {
+					const repoPath = args.commit?.repoPath ?? gitUri.repoPath;
+					args.commit = await this.container.git.getCommitForFile(repoPath, gitUri, {
 						ref: args.sha,
 					});
-					if (args.commit === undefined) {
-						void Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
+					if (args.commit == null) {
+						void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
 						return;
 					}
 				}
 			}
 
-			if (args.commit === undefined) {
-				void Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
+			if (args.commit == null) {
+				void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
 				return;
 			}
 
-			// const shortSha = GitRevision.shorten(args.sha);
-
-			const fileName = args.commit.fileName;
-			if (args.commit instanceof GitBlameCommit) {
-				args.commit = (await Container.instance.git.getCommit(args.commit.repoPath, args.commit.ref))!;
+			const path = args.commit?.file?.path ?? gitUri.fsPath;
+			if (isCommit(args.commit)) {
+				if (args.commit.files == null) {
+					await args.commit.ensureFullDetails();
+				}
 			}
 
-			void (await executeGitCommand({
+			// const shortSha = GitRevision.shorten(args.sha);
+
+			// if (args.commit instanceof GitBlameCommit) {
+			// 	args.commit = (await this.container.git.getCommit(args.commit.repoPath, args.commit.ref))!;
+			// }
+
+			await executeGitCommand({
 				command: 'show',
 				state: {
 					repo: args.commit.repoPath,
-					reference: args.commit as GitLogCommit,
-					fileName: fileName,
+					reference: args.commit,
+					fileName: path,
 				},
-			}));
+			});
 
 			// if (args.goBackCommand === undefined) {
 			// 	const commandArgs: ShowQuickCommitCommandArgs = {
@@ -177,7 +186,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// 	[args.commit.toGitUri(), args],
 			// );
 
-			// const pick = await CommitFileQuickPick.show(args.commit as GitLogCommit, uri, {
+			// const pick = await CommitFileQuickPick.show(args.commit as GitCommit, uri, {
 			// 	goBackCommand: args.goBackCommand,
 			// 	currentCommand: currentCommand,
 			// 	fileLog: args.fileLog,
@@ -189,7 +198,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// return undefined;
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
-			void Messages.showGenericErrorMessage('Unable to show commit file details');
+			void showGenericErrorMessage('Unable to show commit file details');
 		}
 	}
 }

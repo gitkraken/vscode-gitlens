@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style>
+			.hidden {
+				display: none !important;
+			}
+		</style>
+	</head>
+
+	<body class="preload" data-placement="#{placement}">
+		<div class="container">
+			<section class="header">
+				<h2 data-bind="title"></h2>
+				<h2 data-bind="description"></h2>
+				<div class="toolbox">
+					<div class="select-container">
+						<label for="periods">Timeframe</label>
+						<vscode-dropdown id="periods" name="periods" position="below">
+							<vscode-option value="7|D">1 week</vscode-option>
+							<vscode-option value="1|M">1 month</vscode-option>
+							<vscode-option value="3|M" selected="true">3 months</vscode-option>
+							<vscode-option value="6|M">6 months</vscode-option>
+							<vscode-option value="9|M">9 months</vscode-option>
+							<vscode-option value="1|Y">1 year</vscode-option>
+							<vscode-option value="2|Y">2 years</vscode-option>
+							<vscode-option value="4|Y">4 years</vscode-option>
+						</vscode-dropdown>
+					</div>
+				</div>
+			</section>
+			<section id="content">
+				<div id="chart"></div>
+				<div id="chart-empty-overlay" class="hidden">
+					<h1 data-bind="empty"></h1>
+				</div>
+			</section>
+			<section id="footer"></section>
+		</div>
+		<div id="overlay" class="hidden">
+			<div class="modal">
+				<p>
+					The Visual File History allows you to quickly see the evolution of a file, including when changes
+					were made, how large they were, and who made them.
+				</p>
+				<div id="overlay-slot"></div>
+			</div>
+		</div>
+		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+		</style>
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1') format('woff2');
+			}
+		</style>
+	</body>
+
+	<!-- prettier-ignore -->
+	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
+</html>

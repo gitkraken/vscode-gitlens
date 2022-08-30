@@ -1,29 +1,27 @@
-'use strict';
-import {
+import type {
 	DecorationInstanceRenderOptions,
 	DecorationOptions,
-	OverviewRulerLane,
 	Range,
 	TextEditorDecorationType,
 	ThemableDecorationAttachmentRenderOptions,
 	ThemableDecorationRenderOptions,
-	ThemeColor,
-	Uri,
-	window,
 } from 'vscode';
+import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import { HeatmapLocations } from '../config';
-import { Config, configuration } from '../configuration';
+import type { Config } from '../configuration';
+import { configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
-import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter } from '../git/formatters';
-import { GitCommit } from '../git/models';
-import { Strings } from '../system';
+import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
+import type { GitCommit } from '../git/models/commit';
+import { getWidth, interpolate, pad } from '../system/string';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
 	colors: { hot: string[]; cold: string[] };
 	computeRelativeAge(date: Date): number;
+	computeOpacity(date: Date): number;
 }
 
 interface RenderOptions
@@ -62,19 +60,14 @@ const defaultHeatmapColors = [
 let heatmapColors: { hot: string[]; cold: string[] } | undefined;
 export async function getHeatmapColors() {
 	if (heatmapColors == null) {
+		const { coldColor, hotColor } = configuration.get('heatmap');
+
 		let colors;
-		if (
-			Container.instance.config.heatmap.coldColor === defaultHeatmapColdColor &&
-			Container.instance.config.heatmap.hotColor === defaultHeatmapHotColor
-		) {
+		if (coldColor === defaultHeatmapColdColor && hotColor === defaultHeatmapHotColor) {
 			colors = defaultHeatmapColors;
 		} else {
 			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
-			colors = chroma
-				.scale([Container.instance.config.heatmap.hotColor, Container.instance.config.heatmap.coldColor])
-				.mode('lrgb')
-				.classes(20)
-				.colors(20);
+			colors = chroma.scale([hotColor, coldColor]).mode('lrgb').classes(20).colors(20);
 		}
 
 		heatmapColors = {
@@ -83,11 +76,7 @@ export async function getHeatmapColors() {
 		};
 
 		const disposable = configuration.onDidChange(e => {
-			if (
-				configuration.changed(e, 'heatmap.ageThreshold') ||
-				configuration.changed(e, 'heatmap.hotColor') ||
-				configuration.changed(e, 'heatmap.coldColor')
-			) {
+			if (configuration.changed(e, ['heatmap.ageThreshold', 'heatmap.hotColor', 'heatmap.coldColor'])) {
 				disposable.dispose();
 				heatmapColors = undefined;
 			}
@@ -97,178 +86,180 @@ export async function getHeatmapColors() {
 	return heatmapColors;
 }
 
-export class Annotations {
-	static applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
-		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
-		decoration.renderOptions!.before!.borderColor = `rgba(${r},${g},${b},${a})`;
+export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
+	const [r, g, b, a] = getHeatmapColor(date, heatmap);
+	decoration.renderOptions!.before!.borderColor = `rgba(${r},${g},${b},${a})`;
+}
+
+export function addOrUpdateGutterHeatmapDecoration(
+	date: Date,
+	heatmap: ComputedHeatmap,
+	range: Range,
+	map: Map<string, { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }>,
+) {
+	const [r, g, b, a] = getHeatmapColor(date, heatmap);
+
+	const { fadeLines, locations } = configuration.get('heatmap');
+	const gutter = locations.includes(HeatmapLocations.Gutter);
+	const line = locations.includes(HeatmapLocations.Line);
+	const scrollbar = locations.includes(HeatmapLocations.Scrollbar);
+
+	const key = `${r},${g},${b},${a}`;
+	let colorDecoration = map.get(key);
+	if (colorDecoration == null) {
+		colorDecoration = {
+			decorationType: window.createTextEditorDecorationType({
+				backgroundColor: line ? `rgba(${r},${g},${b},${a * 0.15})` : undefined,
+				opacity: fadeLines ? `${heatmap.computeOpacity(date).toFixed(2)} !important` : undefined,
+				isWholeLine: line || fadeLines ? true : undefined,
+				gutterIconPath: gutter
+					? Uri.parse(
+							`data:image/svg+xml,${encodeURIComponent(
+								`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='15' y='0' width='3' height='18'/></svg>`,
+							)}`,
+					  )
+					: undefined,
+				gutterIconSize: gutter ? 'contain' : undefined,
+				overviewRulerLane: scrollbar ? OverviewRulerLane.Center : undefined,
+				overviewRulerColor: scrollbar ? `rgba(${r},${g},${b},${a * 0.7})` : undefined,
+			}),
+			rangesOrOptions: [range],
+		};
+		map.set(key, colorDecoration);
+	} else {
+		colorDecoration.rangesOrOptions.push(range);
 	}
 
-	static addOrUpdateGutterHeatmapDecoration(
-		date: Date,
-		heatmap: ComputedHeatmap,
-		range: Range,
-		map: Map<string, { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }>,
-	) {
-		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
+	return colorDecoration.decorationType;
+}
 
-		const { locations } = Container.instance.config.heatmap;
-		const gutter = locations.includes(HeatmapLocations.Gutter);
-		const overview = locations.includes(HeatmapLocations.Overview);
+export function getGutterDecoration(
+	commit: GitCommit,
+	format: string,
+	dateFormatOrFormatOptions: string | null | CommitFormatOptions,
+	renderOptions: RenderOptions,
+): Partial<DecorationOptions> {
+	const decoration: Partial<DecorationOptions> = {
+		renderOptions: {
+			before: { ...renderOptions },
+		},
+	};
 
-		const key = `${r},${g},${b},${a}`;
-		let colorDecoration = map.get(key);
-		if (colorDecoration == null) {
-			colorDecoration = {
-				decorationType: window.createTextEditorDecorationType({
-					gutterIconPath: gutter
-						? Uri.parse(
-								`data:image/svg+xml,${encodeURIComponent(
-									`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
-								)}`,
-						  )
-						: undefined,
-					gutterIconSize: gutter ? 'contain' : undefined,
-					overviewRulerLane: overview ? OverviewRulerLane.Center : undefined,
-					overviewRulerColor: overview ? `rgba(${r},${g},${b},${a})` : undefined,
-				}),
-				rangesOrOptions: [range],
-			};
-			map.set(key, colorDecoration);
+	if (commit.isUncommitted) {
+		decoration.renderOptions!.before!.color = renderOptions.uncommittedColor;
+	}
+
+	const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
+	decoration.renderOptions!.before!.contentText = pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
+
+	return decoration;
+}
+
+export function getGutterRenderOptions(
+	separateLines: boolean,
+	heatmap: Config['blame']['heatmap'],
+	avatars: boolean,
+	format: string,
+	options: CommitFormatOptions,
+): RenderOptions {
+	// Get the character count of all the tokens, assuming there there is a cap (bail if not)
+	let chars = 0;
+	for (const token of Object.values(options.tokenOptions!)) {
+		if (token === undefined) continue;
+
+		// If any token is uncapped, kick out and set no max
+		if (token.truncateTo == null) {
+			chars = -1;
+			break;
+		}
+
+		chars += token.truncateTo;
+	}
+
+	if (chars >= 0) {
+		// Add the chars of the template string (without tokens)
+		chars += getWidth(interpolate(format, undefined));
+		// If we have chars, add a bit of padding
+		if (chars > 0) {
+			chars += 3;
+		}
+	}
+
+	let borderStyle = undefined;
+	let borderWidth = undefined;
+	if (heatmap.enabled) {
+		borderStyle = 'solid';
+		borderWidth = heatmap.location === 'left' ? '0 0 0 2px' : '0 2px 0 0';
+	}
+
+	let width;
+	if (chars >= 0) {
+		const spacing = configuration.getAny<number>('editor.letterSpacing');
+		if (spacing != null && spacing !== 0) {
+			width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
 		} else {
-			colorDecoration.rangesOrOptions.push(range);
+			width = `calc(${chars}ch ${avatars ? '+ 13px' : '- 6px'})`;
 		}
-
-		return colorDecoration.decorationType;
 	}
 
-	static gutter(
-		commit: GitCommit,
-		format: string,
-		dateFormatOrFormatOptions: string | null | CommitFormatOptions,
-		renderOptions: RenderOptions,
-	): Partial<DecorationOptions> {
-		const decoration: Partial<DecorationOptions> = {
-			renderOptions: {
-				before: { ...renderOptions },
+	return {
+		backgroundColor: new ThemeColor(Colors.GutterBackgroundColor),
+		borderStyle: borderStyle,
+		borderWidth: borderWidth,
+		color: new ThemeColor(Colors.GutterForegroundColor),
+		fontWeight: 'normal',
+		fontStyle: 'normal',
+		height: '100%',
+		margin: '0 26px -1px 0',
+		textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
+			avatars ? ';padding: 0 0 0 18px' : ''
+		}`,
+		width: width,
+		uncommittedColor: new ThemeColor(Colors.GutterUncommittedForegroundColor),
+	};
+}
+
+export function getInlineDecoration(
+	commit: GitCommit,
+	// uri: GitUri,
+	// editorLine: number,
+	format: string,
+	formatOptions?: CommitFormatOptions,
+	scrollable: boolean = true,
+): Partial<DecorationOptions> {
+	// TODO: Enable this once there is better caching
+	// let diffUris;
+	// if (commit.isUncommitted) {
+	//     diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, uri.sha);
+	// }
+
+	const message = CommitFormatter.fromTemplate(format, commit, {
+		...formatOptions,
+		// previousLineDiffUris: diffUris,
+		messageTruncateAtNewLine: true,
+	});
+
+	return {
+		renderOptions: {
+			after: {
+				backgroundColor: new ThemeColor(Colors.TrailingLineBackgroundColor),
+				color: new ThemeColor(Colors.TrailingLineForegroundColor),
+				contentText: pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
+				fontWeight: 'normal',
+				fontStyle: 'normal',
+				// Pull the decoration out of the document flow if we want to be scrollable
+				textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`,
 			},
-		};
+		},
+	};
+}
 
-		if (commit.isUncommitted) {
-			decoration.renderOptions!.before!.color = renderOptions.uncommittedColor;
-		}
+function getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
+	const age = heatmap.computeRelativeAge(date);
+	const colors = date.getTime() < heatmap.coldThresholdTimestamp ? heatmap.colors.cold : heatmap.colors.hot;
 
-		const message = CommitFormatter.fromTemplate(format, commit, dateFormatOrFormatOptions);
-		decoration.renderOptions!.before!.contentText = Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1);
+	const color = toRgba(colors[age]);
+	const a = color == null ? 0 : age === 0 ? 1 : age <= 5 ? 0.8 : 0.6;
 
-		return decoration;
-	}
-
-	static gutterRenderOptions(
-		separateLines: boolean,
-		heatmap: Config['blame']['heatmap'],
-		avatars: boolean,
-		format: string,
-		options: CommitFormatOptions,
-	): RenderOptions {
-		// Get the character count of all the tokens, assuming there there is a cap (bail if not)
-		let chars = 0;
-		for (const token of Object.values(options.tokenOptions!)) {
-			if (token === undefined) continue;
-
-			// If any token is uncapped, kick out and set no max
-			if (token.truncateTo == null) {
-				chars = -1;
-				break;
-			}
-
-			chars += token.truncateTo;
-		}
-
-		if (chars >= 0) {
-			// Add the chars of the template string (without tokens)
-			chars += Strings.getWidth(Strings.interpolate(format, undefined));
-			// If we have chars, add a bit of padding
-			if (chars > 0) {
-				chars += 3;
-			}
-		}
-
-		let borderStyle = undefined;
-		let borderWidth = undefined;
-		if (heatmap.enabled) {
-			borderStyle = 'solid';
-			borderWidth = heatmap.location === 'left' ? '0 0 0 2px' : '0 2px 0 0';
-		}
-
-		let width;
-		if (chars >= 0) {
-			const spacing = configuration.getAny<number>('editor.letterSpacing');
-			if (spacing != null && spacing !== 0) {
-				width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
-			} else {
-				width = `calc(${chars}ch ${avatars ? '+ 13px' : '- 6px'})`;
-			}
-		}
-
-		return {
-			backgroundColor: new ThemeColor(Colors.GutterBackgroundColor),
-			borderStyle: borderStyle,
-			borderWidth: borderWidth,
-			color: new ThemeColor(Colors.GutterForegroundColor),
-			fontWeight: 'normal',
-			fontStyle: 'normal',
-			height: '100%',
-			margin: '0 26px -1px 0',
-			textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
-				avatars ? ';padding: 0 0 0 18px' : ''
-			}`,
-			width: width,
-			uncommittedColor: new ThemeColor(Colors.GutterUncommittedForegroundColor),
-		};
-	}
-
-	static trailing(
-		commit: GitCommit,
-		// uri: GitUri,
-		// editorLine: number,
-		format: string,
-		formatOptions?: CommitFormatOptions,
-		scrollable: boolean = true,
-	): Partial<DecorationOptions> {
-		// TODO: Enable this once there is better caching
-		// let diffUris;
-		// if (commit.isUncommitted) {
-		//     diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, uri.sha);
-		// }
-
-		const message = CommitFormatter.fromTemplate(format, commit, {
-			...formatOptions,
-			// previousLineDiffUris: diffUris,
-			messageTruncateAtNewLine: true,
-		});
-
-		return {
-			renderOptions: {
-				after: {
-					backgroundColor: new ThemeColor(Colors.TrailingLineBackgroundColor),
-					color: new ThemeColor(Colors.TrailingLineForegroundColor),
-					contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
-					fontWeight: 'normal',
-					fontStyle: 'normal',
-					// Pull the decoration out of the document flow if we want to be scrollable
-					textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`,
-				},
-			},
-		};
-	}
-
-	private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
-		const age = heatmap.computeRelativeAge(date);
-		const colors = date.getTime() < heatmap.coldThresholdTimestamp ? heatmap.colors.cold : heatmap.colors.hot;
-
-		const color = toRgba(colors[age]);
-		const a = color == null ? 0 : age === 0 ? 1 : age <= 5 ? 0.8 : 0.6;
-
-		return [...(color ?? [0, 0, 0]), a];
-	}
+	return [...(color ?? [0, 0, 0]), a];
 }

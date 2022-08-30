@@ -1,15 +1,6 @@
-'use strict';
-import { Command } from 'vscode';
-
-export function command<T extends unknown[]>(command: Omit<Command, 'arguments'> & { arguments: [...T] }): Command {
-	return command;
-}
-
 export * from './commands/addAuthors';
 export * from './commands/browseRepoAtRevision';
 export * from './commands/closeUnchangedFiles';
-export * from './commands/closeView';
-export * from './commands/common';
 export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
 export * from './commands/copyMessageToClipboard';
@@ -31,6 +22,7 @@ export * from './commands/logging';
 export * from './commands/openAssociatedPullRequestOnRemote';
 export * from './commands/openBranchesOnRemote';
 export * from './commands/openBranchOnRemote';
+export * from './commands/openCurrentBranchOnRemote';
 export * from './commands/openChangedFiles';
 export * from './commands/openCommitOnRemote';
 export * from './commands/openComparisonOnRemote';
@@ -48,8 +40,7 @@ export * from './commands/rebaseEditor';
 export * from './commands/refreshHover';
 export * from './commands/remoteProviders';
 export * from './commands/repositories';
-export * from './commands/resetAvatarCache';
-export * from './commands/resetSuppressedWarnings';
+export * from './commands/resets';
 export * from './commands/setViewsLayout';
 export * from './commands/searchCommits';
 export * from './commands/showCommitsInView';
@@ -67,3 +58,4 @@ export * from './commands/switchMode';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileAnnotations';
 export * from './commands/toggleLineBlame';
+export * from './commands/walkthroughs';

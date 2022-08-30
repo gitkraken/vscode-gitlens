@@ -1,8 +1,10 @@
-'use strict';
-import { WorkspaceState } from '../../constants';
+import type { ColorTheme } from 'vscode';
+import { Uri, window } from 'vscode';
 import { Container } from '../../container';
-import { Strings } from '../../system';
-import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
+import { sortCompare } from '../../system/string';
+import { isLightTheme } from '../../system/utils';
+import type { RemoteProvider } from '../remotes/remoteProvider';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
 export const enum GitRemoteType {
 	Fetch = 'fetch',
@@ -10,7 +12,7 @@ export const enum GitRemoteType {
 }
 
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | RichRemoteProvider | undefined> {
-	static getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
+	static getHighlanderProviders(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
@@ -22,7 +24,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return undefined;
 	}
 
-	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
+	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
 		if (remotes.length === 0) return undefined;
 
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
@@ -44,7 +46,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
 				(a.name === 'origin' ? -1 : 1) - (b.name === 'origin' ? -1 : 1) ||
-				Strings.sortCompare(a.name, b.name),
+				sortCompare(a.name, b.name),
 		);
 	}
 
@@ -60,7 +62,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.instance.context.workspaceState.get<string>(WorkspaceState.DefaultRemote);
+		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
 		return this.id === defaultRemote;
 	}
 
@@ -80,19 +82,26 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
-		return RichRemoteProvider.is(this.provider);
+		return this.provider?.hasRichIntegration() ?? false;
 	}
 
-	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.instance.context.workspaceState.update(
-			WorkspaceState.DefaultRemote,
-			state ? this.id : undefined,
-		));
-
-		// TODO@eamodio this is UGLY
-		if (updateViews) {
-			void (await Container.instance.remotesView.refresh());
-			void (await Container.instance.repositoriesView.refresh());
-		}
+	async setAsDefault(value: boolean = true) {
+		const repository = Container.instance.git.getRepository(this.repoPath);
+		await repository?.setRemoteAsDefault(this, value);
 	}
+}
+
+export function getRemoteIconUri(
+	container: Container,
+	remote: GitRemote,
+	asWebviewUri?: (uri: Uri) => Uri,
+	theme: ColorTheme = window.activeColorTheme,
+): Uri | undefined {
+	if (remote.provider?.icon == null) return undefined;
+
+	const uri = Uri.joinPath(
+		container.context.extensionUri,
+		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
+	);
+	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }

@@ -4,15 +4,16 @@
 	"configurations": [
 		{
 			"name": "Run",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -20,48 +21,74 @@
 				"group": "2_run",
 				"order": 1
 			},
+			"pauseForSourceMap": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
 			"name": "Run (sandboxed)",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"presentation": {
 				"group": "2_run",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
+			"name": "Run Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--disable-extensions",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_run_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true
+		},
+		{
 			"name": "Watch & Run",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -69,32 +96,87 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
+			"name": "Watch & Run (web)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
+				"--disable-extension=eamodio.gitlens-insiders",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web"
+			],
+			"debugWebWorkerHost": true,
+			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
+			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
+			"pauseForSourceMap": true,
+			"preLaunchTask": "${defaultBuildTask}",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
 			"name": "Watch & Run (sandboxed)",
-			"type": "pwa-extensionHost",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
-			"preLaunchTask": "npm: watch",
+			"pauseForSourceMap": true,
+			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
+		},
+		{
+			"name": "Watch & Run Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--disable-extensions",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "npm: watch:tests",
+			"presentation": {
+				"group": "1_watch_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true
 		}
 	]
 }

@@ -1,17 +1,17 @@
-'use strict';
-import { Disposable, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { window } from 'vscode';
+import type { GitCommit, GitStashCommit } from 'src/git/models/commit';
+import type { GitLog } from 'src/git/models/log';
+import type { GitStash } from 'src/git/models/stash';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStash, GitStashCommit } from '../git/models';
-import { KeyboardScope, Keys } from '../keyboard';
-import {
-	CommandQuickPickItem,
-	CommitQuickPickItem,
-	Directive,
-	DirectiveQuickPickItem,
-	getQuickPickIgnoreFocusOut,
-} from '../quickpicks';
-import { Iterables, Promises } from '../system';
+import type { KeyboardScope, Keys } from '../keyboard';
+import { CommandQuickPickItem } from '../quickpicks/items/common';
+import { filter, map } from '../system/iterable';
+import { isPromise } from '../system/promise';
+import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { Directive, DirectiveQuickPickItem } from './items/directive';
+import { CommitQuickPickItem } from './items/gitCommands';
 
 export namespace CommitPicker {
 	export async function show(
@@ -24,7 +24,7 @@ export namespace CommitPicker {
 			onDidPressKey?(key: Keys, item: CommitQuickPickItem): void | Promise<void>;
 			showOtherReferences?: CommandQuickPickItem[];
 		},
-	): Promise<GitLogCommit | undefined> {
+	): Promise<GitCommit | undefined> {
 		const quickpick = window.createQuickPick<CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
@@ -33,7 +33,7 @@ export namespace CommitPicker {
 		quickpick.matchOnDescription = true;
 		quickpick.matchOnDetail = true;
 
-		if (Promises.is(log)) {
+		if (isPromise(log)) {
 			quickpick.busy = true;
 			quickpick.enabled = false;
 			quickpick.show();
@@ -56,7 +56,7 @@ export namespace CommitPicker {
 				? [DirectiveQuickPickItem.create(Directive.Cancel)]
 				: [
 						...(options?.showOtherReferences ?? []),
-						...Iterables.map(log.commits.values(), commit =>
+						...map(log.commits.values(), commit =>
 							CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
 								compact: true,
 								icon: true,
@@ -177,7 +177,7 @@ export namespace CommitPicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }
@@ -206,7 +206,7 @@ export namespace StashPicker {
 		quickpick.matchOnDescription = true;
 		quickpick.matchOnDetail = true;
 
-		if (Promises.is(stash)) {
+		if (isPromise(stash)) {
 			quickpick.busy = true;
 			quickpick.enabled = false;
 			quickpick.show();
@@ -217,10 +217,8 @@ export namespace StashPicker {
 		if (stash != null) {
 			quickpick.items = [
 				...(options?.showOtherReferences ?? []),
-				...Iterables.map(
-					options?.filter != null
-						? Iterables.filter(stash.commits.values(), options.filter)
-						: stash.commits.values(),
+				...map(
+					options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
 					commit =>
 						CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
 							compact: true,
@@ -313,7 +311,7 @@ export namespace StashPicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

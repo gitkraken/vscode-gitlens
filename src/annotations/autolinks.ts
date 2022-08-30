@@ -1,13 +1,35 @@
-'use strict';
-import { ConfigurationChangeEvent, Disposable } from 'vscode';
-import { AutolinkReference, configuration } from '../configuration';
+import type { ConfigurationChangeEvent } from 'vscode';
+import { Disposable } from 'vscode';
+import type { AutolinkReference, AutolinkType } from '../configuration';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitRemote, IssueOrPullRequest } from '../git/models';
+import type { Container } from '../container';
+import { IssueOrPullRequest } from '../git/models/issue';
+import type { GitRemote } from '../git/models/remote';
+import type { RemoteProviderReference } from '../git/models/remoteProvider';
 import { Logger } from '../logger';
-import { Dates, debug, Encoding, Iterables, Promises, Strings } from '../system';
+import { fromNow } from '../system/date';
+import { debug } from '../system/decorators/log';
+import { encodeUrl } from '../system/encoding';
+import { join, map } from '../system/iterable';
+import type { PromiseCancelledErrorWithId } from '../system/promise';
+import { PromiseCancelledError, raceAll } from '../system/promise';
+import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+
+const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
 const numRegex = /<num>/g;
+
+export interface Autolink {
+	provider?: RemoteProviderReference;
+	id: string;
+	prefix: string;
+	title?: string;
+	url: string;
+
+	type?: AutolinkType;
+	description?: string;
+}
 
 export interface CacheableAutolinkReference extends AutolinkReference {
 	linkify?: ((text: string, markdown: boolean, footnotes?: Map<number, string>) => string) | null;
@@ -17,14 +39,15 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 
 export interface DynamicAutolinkReference {
 	linkify: (text: string, markdown: boolean, footnotes?: Map<number, string>) => string;
+	parse: (text: string, autolinks: Map<string, Autolink>) => void;
 }
 
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
-	return (ref as AutolinkReference).prefix === undefined && (ref as AutolinkReference).url === undefined;
+	return !('prefix' in ref) && !('url' in ref);
 }
 
 function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is CacheableAutolinkReference {
-	return (ref as AutolinkReference).prefix !== undefined && (ref as AutolinkReference).url !== undefined;
+	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
 }
 
 export class Autolinks implements Disposable {
@@ -43,36 +66,52 @@ export class Autolinks implements Disposable {
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'autolinks')) {
-			this._references = this.container.config.autolinks ?? [];
+			const autolinks = configuration.get('autolinks');
+			// Since VS Code's configuration objects are live we need to copy them to avoid writing back to the configuration
+			this._references =
+				autolinks
+					?.filter(a => a.prefix && a.url)
+					/**
+					 * Only allow properties defined by {@link AutolinkReference}
+					 */
+					?.map(a => ({
+						prefix: a.prefix,
+						url: a.url,
+						title: a.title,
+						alphanumeric: a.alphanumeric,
+						ignoreCase: a.ignoreCase,
+						type: a.type,
+						description: a.description,
+					})) ?? [];
 		}
 	}
 
-	@debug<Autolinks['getIssueOrPullRequestLinks']>({
+	@debug<Autolinks['getAutolinks']>({
 		args: {
 			0: '<message>',
 			1: false,
-			2: options => options?.timeout,
 		},
 	})
-	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
-		if (!remote.hasRichProvider()) return undefined;
+	getAutolinks(message: string, remote?: GitRemote): Map<string, Autolink> {
+		const provider = remote?.provider;
+		// If a remote is provided but there is no provider return an empty set
+		if (remote != null && remote.provider == null) return emptyAutolinkMap;
 
-		const { provider } = remote;
-		const connected = provider.maybeConnected ?? (await provider.isConnected());
-		if (!connected) return undefined;
-
-		const ids = new Set<string>();
+		const autolinks = new Map<string, Autolink>();
 
 		let match;
 		let num;
-		for (const ref of provider.autolinks) {
-			if (!isCacheable(ref)) continue;
+		for (const ref of provider?.autolinks ?? this._references) {
+			if (!isCacheable(ref)) {
+				if (isDynamic(ref)) {
+					ref.parse(message, autolinks);
+				}
+				continue;
+			}
 
-			if (ref.messageRegex === undefined) {
+			if (ref.messageRegex == null) {
 				ref.messageRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(ref.prefix)}([${
-						ref.alphanumeric ? '\\w' : '0-9'
-					}]+))\\b`,
+					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
 				);
 			}
@@ -83,22 +122,74 @@ export class Autolinks implements Disposable {
 
 				[, , num] = match;
 
-				ids.add(num);
+				autolinks.set(num, {
+					provider: provider,
+					id: num,
+					prefix: ref.prefix,
+					url: ref.url?.replace(numRegex, num),
+					title: ref.title?.replace(numRegex, num),
+
+					type: ref.type,
+					description: ref.description?.replace(numRegex, num),
+				});
 			} while (true);
 		}
 
-		if (ids.size === 0) return undefined;
+		return autolinks;
+	}
 
-		const issuesOrPullRequests = await Promises.raceAll(
-			ids.values(),
-			id => provider.getIssueOrPullRequest(id),
-			timeout,
-		);
-		if (issuesOrPullRequests.size === 0 || Iterables.every(issuesOrPullRequests.values(), pr => pr === undefined)) {
-			return undefined;
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options?: { autolinks?: Map<string, Autolink>; timeout?: never },
+	): Promise<Map<string, IssueOrPullRequest> | undefined>;
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options: { autolinks?: Map<string, Autolink>; timeout: number },
+	): Promise<
+		| Map<string, IssueOrPullRequest | PromiseCancelledErrorWithId<string, Promise<IssueOrPullRequest | undefined>>>
+		| undefined
+	>;
+	@debug<Autolinks['getLinkedIssuesAndPullRequests']>({
+		args: {
+			0: '<message>',
+			1: false,
+			2: options => `autolinks=${options?.autolinks != null}, timeout=${options?.timeout}`,
+		},
+	})
+	async getLinkedIssuesAndPullRequests(
+		message: string,
+		remote: GitRemote,
+		options?: { autolinks?: Map<string, Autolink>; timeout?: number },
+	) {
+		if (!remote.hasRichProvider()) return undefined;
+
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (!connected) return undefined;
+
+		let autolinks = options?.autolinks;
+		if (autolinks == null) {
+			autolinks = this.getAutolinks(message, remote);
 		}
 
-		return issuesOrPullRequests;
+		if (autolinks.size === 0) return undefined;
+
+		const issuesOrPullRequests = await raceAll(
+			autolinks.keys(),
+			id => provider.getIssueOrPullRequest(id),
+			options?.timeout,
+		);
+
+		// Remove any issues or pull requests that were not found
+		for (const [id, issueOrPullRequest] of issuesOrPullRequests) {
+			if (issueOrPullRequest == null) {
+				issuesOrPullRequests.delete(id);
+			}
+		}
+
+		return issuesOrPullRequests.size !== 0 ? issuesOrPullRequests : undefined;
 	}
 
 	@debug<Autolinks['linkify']>({
@@ -113,7 +204,7 @@ export class Autolinks implements Disposable {
 		text: string,
 		markdown: boolean,
 		remotes?: GitRemote[],
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 		footnotes?: Map<number, string>,
 	) {
 		for (const ref of this._references) {
@@ -126,7 +217,7 @@ export class Autolinks implements Disposable {
 
 		if (remotes != null && remotes.length !== 0) {
 			for (const r of remotes) {
-				if (r.provider === undefined) continue;
+				if (r.provider == null) continue;
 
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
@@ -143,14 +234,15 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
+		if (!ref.prefix || !ref.url) return false;
 
 		try {
-			if (ref.messageMarkdownRegex === undefined) {
+			if (ref.messageMarkdownRegex == null) {
 				ref.messageMarkdownRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(Strings.escapeMarkdown(ref.prefix))}([${
+					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
 						ref.alphanumeric ? '\\w' : '0-9'
 					}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
@@ -158,7 +250,7 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${Encoding.encodeUrl(ref.url.replace(numRegex, '$2'))}${
+				const replacement = `[$1](${encodeUrl(ref.url.replace(numRegex, '$2'))}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
@@ -175,14 +267,14 @@ export class Autolinks implements Disposable {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
 
-						const issueUrl = Encoding.encodeUrl(ref.url.replace(numRegex, num));
+						const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
 
 						let title = '';
 						if (ref.title) {
 							title = ` "${ref.title.replace(numRegex, num)}`;
 
 							if (issue != null) {
-								if (issue instanceof Promises.CancellationError) {
+								if (issue instanceof PromiseCancelledError) {
 									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 								} else {
 									const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
@@ -195,15 +287,15 @@ export class Autolinks implements Disposable {
 												issue,
 											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
 												5,
-											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${Dates.getFormatter(
+											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
 												issue.closedDate ?? issue.date,
-											).fromNow()}`,
+											)}`,
 										);
 									}
 
 									title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
 										issue.closed ? 'Closed' : 'Opened'
-									}, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`;
+									}, ${fromNow(issue.closedDate ?? issue.date)}`;
 								}
 							}
 							title += '"';
@@ -213,7 +305,7 @@ export class Autolinks implements Disposable {
 					});
 				}
 
-				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
+				text = text.replace(ref.messageRegex!, (_substring, linkText: string, num) => {
 					const issue = issuesOrPullRequests?.get(num);
 					if (issue == null) return linkText;
 
@@ -225,19 +317,19 @@ export class Autolinks implements Disposable {
 					footnotes.set(
 						index,
 						`${linkText}: ${
-							issue instanceof Promises.CancellationError
+							issue instanceof PromiseCancelledError
 								? 'Details timed out'
-								: `${issue.title}  ${GlyphChars.Dot}  ${
-										issue.closed ? 'Closed' : 'Opened'
-								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
+								: `${issue.title}  ${GlyphChars.Dot}  ${issue.closed ? 'Closed' : 'Opened'}, ${fromNow(
+										issue.closedDate ?? issue.date,
+								  )}`
 						}`,
 					);
-					return `${linkText}${Strings.getSuperscript(index)}`;
+					return `${linkText}${getSuperscript(index)}`;
 				});
 
 				return includeFootnotes && footnotes != null && footnotes.size !== 0
-					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${Iterables.join(
-							Iterables.map(footnotes, ([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`),
+					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${join(
+							map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
 							'\n',
 					  )}`
 					: text;

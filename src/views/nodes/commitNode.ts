@@ -1,41 +1,61 @@
-'use strict';
-import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../configuration';
-import { Colors, GlyphChars } from '../../constants';
-import { CommitFormatter } from '../../git/formatters';
-import { GitBranch, GitLogCommit, GitRevisionReference } from '../../git/models';
-import { Arrays, Strings } from '../../system';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
+import { configuration, ViewFilesLayout } from '../../configuration';
+import { Colors, Commands } from '../../constants';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { PullRequest } from '../../git/models/pullRequest';
+import type { GitRevisionReference } from '../../git/models/reference';
+import type { GitRemote } from '../../git/models/remote';
+import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+import { makeHierarchical } from '../../system/array';
+import { gate } from '../../system/decorators/gate';
 import { joinPaths, normalizePath } from '../../system/path';
+import type { Deferred } from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
+import { sortCompare } from '../../system/string';
 import { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
-export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference> {
+type State = {
+	pullRequest: PullRequest | null | undefined;
+	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
+};
+
+export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
+	static key = ':commit';
+	static getId(parent: ViewNode, repoPath: string, sha: string): string {
+		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${sha})`;
+	}
+
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
-		parent: ViewNode,
-		public readonly commit: GitLogCommit,
+		protected override readonly parent: ViewNode,
+		public readonly commit: GitCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
 		private readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
 		private readonly _options: { expand?: boolean } = {},
 	) {
-		super(commit.toGitUri(), view, parent);
+		super(commit.getGitUri(), view, parent);
 	}
 
 	override toClipboard(): string {
-		let message = this.commit.message;
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-		}
+		return `${this.commit.shortSha}: ${this.commit.summary}`;
+	}
 
-		return `${this.commit.shortSha}: ${message}`;
+	override get id(): string {
+		return CommitNode.getId(this.parent, this.commit.repoPath, this.commit.sha);
 	}
 
 	get isTip(): boolean {
@@ -46,42 +66,85 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		return this.commit;
 	}
 
+	private _children: (PullRequestNode | FileNode)[] | undefined;
+
 	async getChildren(): Promise<ViewNode[]> {
-		const commit = this.commit;
+		if (this._children == null) {
+			const commit = this.commit;
 
-		let children: (PullRequestNode | FileNode)[] = commit.files.map(
-			s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!),
-		);
+			const pullRequest = this.getState('pullRequest');
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
-			const hierarchy = Arrays.makeHierarchical(
-				children as FileNode[],
-				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => normalizePath(joinPaths(...parts)),
-				this.view.config.files.compact,
-			);
+			let children: (PullRequestNode | FileNode)[] = [];
+			let onCompleted: Deferred<void> | undefined;
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
-			children = root.getChildren() as FileNode[];
-		} else {
-			(children as FileNode[]).sort((a, b) => Strings.sortCompare(a.label!, b.label!));
-		}
+			if (
+				!(this.view instanceof TagsView) &&
+				!(this.view instanceof FileHistoryView) &&
+				this.view.config.pullRequests.enabled &&
+				this.view.config.pullRequests.showForCommits
+			) {
+				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
+					onCompleted = defer<void>();
 
-		if (!(this.view instanceof TagsView) && !(this.view instanceof FileHistoryView)) {
-			if (this.view.config.pullRequests.enabled && this.view.config.pullRequests.showForCommits) {
-				const pr = await commit.getAssociatedPullRequest();
-				if (pr != null) {
-					children.splice(0, 0, new PullRequestNode(this.view, this, pr, commit));
+					queueMicrotask(() => {
+						void this.getAssociatedPullRequest(commit).then(pr => {
+							onCompleted?.cancel();
+
+							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+							if (pr != null && this._children != null) {
+								this._children.splice(
+									0,
+									0,
+									new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
+								);
+							}
+
+							// Refresh this node to show a spinner while the pull request is loading
+							this.view.triggerNodeChange(this);
+						});
+
+						// Refresh this node to show a spinner while the pull request is loading
+						void onCompleted?.promise.then(
+							() => this.view.triggerNodeChange(this),
+							() => {},
+						);
+					});
 				}
 			}
+
+			const commits = await commit.getCommitsForFiles();
+			for (const c of commits) {
+				children.push(new CommitFileNode(this.view, this, c.file!, c));
+			}
+
+			if (this.view.config.files.layout !== ViewFilesLayout.List) {
+				const hierarchy = makeHierarchical(
+					children as FileNode[],
+					n => n.uri.relativePath.split('/'),
+					(...parts: string[]) => normalizePath(joinPaths(...parts)),
+					this.view.config.files.compact,
+				);
+
+				const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+				children = root.getChildren() as FileNode[];
+			} else {
+				(children as FileNode[]).sort((a, b) => sortCompare(a.label!, b.label!));
+			}
+
+			if (pullRequest != null) {
+				children.splice(0, 0, new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
+			}
+
+			this._children = children;
+			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
-		return children;
+		return this._children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -90,21 +153,27 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			label,
 			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
-
+		item.id = this.id;
 		item.contextValue = `${ContextValues.Commit}${this.branch?.current ? '+current' : ''}${
 			this.isTip ? '+HEAD' : ''
 		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
-		item.iconPath = this.unpublished
-			? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
-			: this.view.config.avatars
-			? await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })
-			: new ThemeIcon('git-commit');
+
+		const pendingPullRequest = this.getState('pendingPullRequest');
+
+		item.iconPath =
+			pendingPullRequest != null
+				? new ThemeIcon('loading~spin')
+				: this.unpublished
+				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
+				: this.view.config.avatars
+				? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
+				: new ThemeIcon('git-commit');
 		// item.tooltip = this.tooltip;
 
 		return item;
@@ -127,6 +196,14 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		};
 	}
 
+	@gate()
+	override refresh(reset?: boolean) {
+		this._children = undefined;
+		if (reset) {
+			this.deleteState();
+		}
+	}
+
 	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
 		if (item.tooltip == null) {
 			item.tooltip = await this.getTooltip();
@@ -134,26 +211,63 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		return item;
 	}
 
+	private async getAssociatedPullRequest(
+		commit: GitCommit,
+		remote?: GitRemote<RichRemoteProvider>,
+	): Promise<PullRequest | undefined> {
+		let pullRequest = this.getState('pullRequest');
+		if (pullRequest !== undefined) return Promise.resolve(pullRequest ?? undefined);
+
+		let pendingPullRequest = this.getState('pendingPullRequest');
+		if (pendingPullRequest == null) {
+			pendingPullRequest = commit.getAssociatedPullRequest({ remote: remote });
+			this.storeState('pendingPullRequest', pendingPullRequest);
+
+			pullRequest = await pendingPullRequest;
+			this.storeState('pullRequest', pullRequest ?? null);
+			this.deleteState('pendingPullRequest');
+
+			return pullRequest;
+		}
+
+		return pendingPullRequest;
+	}
+
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getRemotes(this.commit.repoPath);
-		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath, { sort: true });
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
+
+		if (this.commit.message == null) {
+			await this.commit.ensureFullDetails();
+		}
 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
 		if (remote?.provider != null) {
-			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(this.commit.message, remote),
-				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
+					this.commit.message ?? this.commit.summary,
+					remote,
+				),
+				this.getAssociatedPullRequest(this.commit, remote),
 			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${'\`$(git-commit) 'id\`}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			`\${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this.getBranchAndTagTips,
 				markdown: true,
 				messageAutolinks: true,

@@ -1,12 +1,14 @@
-'use strict';
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { BuiltInCommands } from '../../constants';
-import { StatusFileFormatter } from '../../git/formatters';
+import type { Command, Uri } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CoreCommands } from '../../constants';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitMergeStatus, GitRebaseStatus } from '../../git/models';
-import { dirname } from '../../system/path';
-import { ViewsWithCommits } from '../viewBase';
-import { FileNode } from './folderNode';
+import type { GitFile } from '../../git/models/file';
+import type { GitMergeStatus } from '../../git/models/merge';
+import type { GitRebaseStatus } from '../../git/models/rebase';
+import { relativeDir } from '../../system/path';
+import type { ViewsWithCommits } from '../viewBase';
+import type { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -30,7 +32,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	}
 
 	get fileName(): string {
-		return this.file.fileName;
+		return this.file.path;
 	}
 
 	get repoPath(): string {
@@ -48,12 +50,19 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.description = this.description;
 		item.contextValue = `${ContextValues.File}+conflicted`;
-		item.tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in Index (staged)`,
+
+		const tooltip = StatusFileFormatter.fromTemplate(
+			`\${file}\${ \u2022 changesDetail}\${\\\\\ndirectory}\${\n\nstatus}\${ (originalPath)} in Index (staged)`,
 			this.file,
 		);
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.isTrusted = true;
+		markdown.supportHtml = true;
+
+		item.tooltip = markdown;
+
 		// Use the file icon and decorations
-		item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
+		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 		item.iconPath = ThemeIcon.File;
 		item.command = this.getCommand();
 
@@ -81,7 +90,7 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName == null) {
-			this._folderName = dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}
@@ -113,9 +122,9 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 	override getCommand(): Command | undefined {
 		return {
 			title: 'Open File',
-			command: BuiltInCommands.Open,
+			command: CoreCommands.Open,
 			arguments: [
-				GitUri.resolveToUri(this.file.fileName, this.repoPath),
+				this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath),
 				{
 					preserveFocus: true,
 					preview: true,

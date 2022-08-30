@@ -3,115 +3,29 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @octokit/endpoint version 6.0.12 (https://github.com/octokit/endpoint.js)
-2. @octokit/graphql version 4.8.0 (https://github.com/octokit/graphql.js)
-3. @octokit/openapi-types version 11.2.0 (https://github.com/octokit/openapi-types.ts)
-4. @octokit/request-error version 2.1.0 (https://github.com/octokit/request-error.js)
-5. @octokit/request version 5.6.2 (https://github.com/octokit/request.js)
-6. @octokit/types version 6.34.0 (https://github.com/octokit/types.ts)
-7. @vscode/codicons version 0.0.27 (https://github.com/microsoft/vscode-codicons)
-8. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-9. chroma-js version 2.1.2 (https://github.com/gka/chroma.js)
-10. cross-env version 6.0.3 (https://github.com/kentcdodds/cross-env)
-11. cross-spawn version 7.0.3 (https://github.com/moxystudio/node-cross-spawn)
-12. data-uri-to-buffer version 3.0.1 (https://github.com/TooTallNate/node-data-uri-to-buffer)
-13. deprecation version 2.3.1 (https://github.com/gr2m/deprecation)
-14. fetch-blob version 3.1.3 (https://github.com/node-fetch/fetch-blob)
-15. hash-base version 3.1.0 (https://github.com/crypto-browserify/hash-base)
-16. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-17. inherits version 2.0.4 (https://github.com/isaacs/inherits)
-18. is-plain-object version 5.0.0 (https://github.com/jonschlinkert/is-plain-object)
-19. isexe version 2.0.0 (https://github.com/isaacs/isexe)
-20. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
-21. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
-22. microsoft/vscode (https://github.com/microsoft/vscode)
-23. node-fetch version 2.6.1 (https://github.com/bitinn/node-fetch)
-24. node-fetch version 3.0.0 (https://github.com/node-fetch/node-fetch)
-25. once version 1.4.0 (https://github.com/isaacs/once)
-26. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-27. path-key version 3.1.1 (https://github.com/sindresorhus/path-key)
-28. readable-stream version 3.6.0 (https://github.com/nodejs/readable-stream)
-29. safe-buffer version 5.2.1 (https://github.com/feross/safe-buffer)
-30. safer-buffer version 2.1.2 (https://github.com/ChALkeR/safer-buffer)
-31. shebang-command version 2.0.0 (https://github.com/kevva/shebang-command)
-32. shebang-regex version 3.0.0 (https://github.com/sindresorhus/shebang-regex)
-33. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-34. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-35. sortablejs version 1.14.0 (https://github.com/SortableJS/Sortable)
-36. string_decoder version 1.3.0 (https://github.com/nodejs/string_decoder)
-37. universal-user-agent version 6.0.0 (https://github.com/gr2m/universal-user-agent)
-38. util-deprecate version 1.0.2 (https://github.com/TooTallNate/util-deprecate)
-39. web-streams-polyfill version 3.2.0 (https://github.com/MattiasBuelens/web-streams-polyfill)
-40. which version 2.0.2 (https://github.com/isaacs/node-which)
-41. wrappy version 1.0.2 (https://github.com/npm/wrappy)
+1. @octokit/core version 4.0.5 (https://github.com/octokit/core.js)
+2. @vscode/codicons version 0.0.32 (https://github.com/microsoft/vscode-codicons)
+3. @vscode/webview-ui-toolkit version 1.0.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+4. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
+5. billboard.js version 3.5.1 (https://github.com/naver/billboard.js)
+6. chroma-js version 2.4.2 (https://github.com/gka/chroma.js)
+7. crypto-browserify version 3.12.0 (https://github.com/crypto-browserify/crypto-browserify)
+8. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+9. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+10. lit version 2.3.1 (https://github.com/lit/lit)
+11. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
+12. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
+13. microsoft/vscode (https://github.com/microsoft/vscode)
+14. node-fetch version 2.6.7 (https://github.com/bitinn/node-fetch)
+15. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+16. react-dom version 16.8.4 (https://github.com/facebook/react)
+17. react version 16.8.4 (https://github.com/facebook/react)
+18. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+19. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+20. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+21. stream-browserify version 3.0.0 (https://github.com/browserify/stream-browserify)
 
-%% @octokit/endpoint NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License
-
-Copyright (c) 2018 Octokit contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  @octokit/endpoint NOTICES AND INFORMATION
-
-%% @octokit/graphql NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License
-
-Copyright (c) 2018 Octokit contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  @octokit/graphql NOTICES AND INFORMATION
-
-%% @octokit/openapi-types NOTICES AND INFORMATION BEGIN HERE
-=========================================
-Copyright 2020 Gregor Martynus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-=========================================
-END OF  @octokit/openapi-types NOTICES AND INFORMATION
-
-%% @octokit/request-error NOTICES AND INFORMATION BEGIN HERE
+%% @octokit/core NOTICES AND INFORMATION BEGIN HERE
 =========================================
 The MIT License
 
@@ -136,47 +50,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 =========================================
-END OF  @octokit/request-error NOTICES AND INFORMATION
-
-%% @octokit/request NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License
-
-Copyright (c) 2018 Octokit contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  @octokit/request NOTICES AND INFORMATION
-
-%% @octokit/types NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License Copyright (c) 2019 Octokit contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  @octokit/types NOTICES AND INFORMATION
+END OF  @octokit/core NOTICES AND INFORMATION
 
 %% @vscode/codicons NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -578,6 +452,32 @@ Creative Commons may be contacted at creativecommons.org.
 =========================================
 END OF  @vscode/codicons NOTICES AND INFORMATION
 
+%% @vscode/webview-ui-toolkit NOTICES AND INFORMATION BEGIN HERE
+=========================================
+Copyright (c) Microsoft Corporation.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+=========================================
+END OF  @vscode/webview-ui-toolkit NOTICES AND INFORMATION
+
 %% ansi-regex NOTICES AND INFORMATION BEGIN HERE
 =========================================
 MIT License
@@ -592,6 +492,33 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 =========================================
 END OF  ansi-regex NOTICES AND INFORMATION
+
+%% billboard.js NOTICES AND INFORMATION BEGIN HERE
+=========================================
+The MIT License (MIT)
+
+Copyright (c) 2017 ~ present NAVER Corp.
+Copyright (c) 2013 Masayuki Tanaka
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=========================================
+END OF  billboard.js NOTICES AND INFORMATION
 
 %% chroma-js NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -653,68 +580,52 @@ http://www.w3.org/TR/css3-color/#svg-color
 =========================================
 END OF  chroma-js NOTICES AND INFORMATION
 
-%% cross-env NOTICES AND INFORMATION BEGIN HERE
+%% crypto-browserify NOTICES AND INFORMATION BEGIN HERE
 =========================================
-The MIT License (MIT)
-Copyright (c) 2017 Kent C. Dodds
+The MIT License
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Copyright (c) 2013 Dominic Tarr
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Permission is hereby granted, free of charge, 
+to any person obtaining a copy of this software and 
+associated documentation files (the "Software"), to 
+deal in the Software without restriction, including 
+without limitation the rights to use, copy, modify, 
+merge, publish, distribute, sublicense, and/or sell 
+copies of the Software, and to permit persons to whom 
+the Software is furnished to do so, 
+subject to the following conditions:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+The above copyright notice and this permission notice 
+shall be included in all copies or substantial portions of the Software.
 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
+ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =========================================
-END OF  cross-env NOTICES AND INFORMATION
+END OF  crypto-browserify NOTICES AND INFORMATION
 
-%% cross-spawn NOTICES AND INFORMATION BEGIN HERE
+%% https-proxy-agent NOTICES AND INFORMATION BEGIN HERE
 =========================================
-The MIT License (MIT)
+https-proxy-agent
+================
+### An HTTP(s) proxy `http.Agent` implementation for HTTPS
+[![Build Status](https://github.com/TooTallNate/node-https-proxy-agent/workflows/Node%20CI/badge.svg)](https://github.com/TooTallNate/node-https-proxy-agent/actions?workflow=Node+CI)
 
-Copyright (c) 2018 Made With MOXY Lda <hello@moxy.studio>
+This module provides an `http.Agent` implementation that connects to a specified
+HTTP or HTTPS proxy server, and can be used with the built-in `https` module.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Specifically, this `Agent` implementation connects to an intermediary "proxy"
+server and issues the [CONNECT HTTP method][CONNECT], which tells the proxy to
+open a direct TCP connection to the destination server.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  cross-spawn NOTICES AND INFORMATION
-
-%% data-uri-to-buffer NOTICES AND INFORMATION BEGIN HERE
-=========================================
-data-uri-to-buffer
-==================
-### Generate a Buffer instance from a [Data URI][rfc] string
-[![Build Status](https://travis-ci.org/TooTallNate/node-data-uri-to-buffer.svg?branch=master)](https://travis-ci.org/TooTallNate/node-data-uri-to-buffer)
-
-This module accepts a ["data" URI][rfc] String of data, and returns a
-node.js `Buffer` instance with the decoded data.
+Since this agent implements the CONNECT HTTP method, it also works with other
+protocols that use this method when connecting over proxies (i.e. WebSockets).
+See the "Examples" section below for more.
 
 
 Installation
@@ -723,50 +634,91 @@ Installation
 Install with `npm`:
 
 ``` bash
-$ npm install data-uri-to-buffer
+$ npm install https-proxy-agent
 ```
 
 
-Example
--------
+Examples
+--------
+
+#### `https` module example
 
 ``` js
-var dataUriToBuffer = require('data-uri-to-buffer');
+var url = require('url');
+var https = require('https');
+var HttpsProxyAgent = require('https-proxy-agent');
 
-// plain-text data is supported
-var uri = 'data:,Hello%2C%20World!';
-var decoded = dataUriToBuffer(uri);
-console.log(decoded.toString());
-// 'Hello, World!'
+// HTTP/HTTPS proxy to connect to
+var proxy = process.env.http_proxy || 'http://168.63.76.32:3128';
+console.log('using proxy server %j', proxy);
 
-// base64-encoded data is supported
-uri = 'data:text/plain;base64,SGVsbG8sIFdvcmxkIQ%3D%3D';
-decoded = dataUriToBuffer(uri);
-console.log(decoded.toString());
-// 'Hello, World!'
+// HTTPS endpoint for the proxy to connect to
+var endpoint = process.argv[2] || 'https://graph.facebook.com/tootallnate';
+console.log('attempting to GET %j', endpoint);
+var options = url.parse(endpoint);
+
+// create an instance of the `HttpsProxyAgent` class with the proxy server information
+var agent = new HttpsProxyAgent(proxy);
+options.agent = agent;
+
+https.get(options, function (res) {
+  console.log('"response" event!', res.headers);
+  res.pipe(process.stdout);
+});
 ```
 
+#### `ws` WebSocket connection example
+
+``` js
+var url = require('url');
+var WebSocket = require('ws');
+var HttpsProxyAgent = require('https-proxy-agent');
+
+// HTTP/HTTPS proxy to connect to
+var proxy = process.env.http_proxy || 'http://168.63.76.32:3128';
+console.log('using proxy server %j', proxy);
+
+// WebSocket endpoint for the proxy to connect to
+var endpoint = process.argv[2] || 'ws://echo.websocket.org';
+var parsed = url.parse(endpoint);
+console.log('attempting to connect to WebSocket %j', endpoint);
+
+// create an instance of the `HttpsProxyAgent` class with the proxy server information
+var options = url.parse(proxy);
+
+var agent = new HttpsProxyAgent(options);
+
+// finally, initiate the WebSocket connection
+var socket = new WebSocket(endpoint, { agent: agent });
+
+socket.on('open', function () {
+  console.log('"open" event!');
+  socket.send('hello world');
+});
+
+socket.on('message', function (data, flags) {
+  console.log('"message" event! %j %j', data, flags);
+  socket.close();
+});
+```
 
 API
 ---
 
-### dataUriToBuffer(String uri) → Buffer
+### new HttpsProxyAgent(Object options)
 
-The `type` property on the Buffer instance gets set to the main type portion of
-the "mediatype" portion of the "data" URI, or defaults to `"text/plain"` if not
-specified.
+The `HttpsProxyAgent` class implements an `http.Agent` subclass that connects
+to the specified "HTTP(s) proxy server" in order to proxy HTTPS and/or WebSocket
+requests. This is achieved by using the [HTTP `CONNECT` method][CONNECT].
 
-The `typeFull` property on the Buffer instance gets set to the entire
-"mediatype" portion of the "data" URI (including all parameters), or defaults
-to `"text/plain;charset=US-ASCII"` if not specified.
+The `options` argument may either be a string URI of the proxy server to use, or an
+"options" object with more specific properties:
 
-The `charset` property on the Buffer instance gets set to the Charset portion of
-the "mediatype" portion of the "data" URI, or defaults to `"US-ASCII"` if the
-entire type is not specified, or defaults to `""` otherwise.
-
-*Note*: If the only the main type is specified but not the charset, e.g.
-`"data:text/plain,abc"`, the charset is set to the empty string. The spec only
-defaults to US-ASCII as charset if the entire type is not specified.
+  * `host` - String - Proxy host to connect to (may use `hostname` as well). Required.
+  * `port` - Number - Proxy port to connect to. Required.
+  * `protocol` - String - If `https:`, then use TLS to connect to the proxy.
+  * `headers` - Object - Additional HTTP headers to be sent on the HTTP CONNECT method.
+  * Any other options given are passed to the `net.connect()`/`tls.connect()` functions.
 
 
 License
@@ -774,7 +726,7 @@ License
 
 (The MIT License)
 
-Copyright (c) 2014 Nathan Rajlich &lt;nathan@tootallnate.net&gt;
+Copyright (c) 2013 Nathan Rajlich &lt;nathan@tootallnate.net&gt;
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -795,85 +747,10 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-[rfc]: http://tools.ietf.org/html/rfc2397
+[CONNECT]: http://en.wikipedia.org/wiki/HTTP_tunnel#HTTP_CONNECT_Tunneling
 
 =========================================
-END OF  data-uri-to-buffer NOTICES AND INFORMATION
-
-%% deprecation NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The ISC License
-
-Copyright (c) Gregor Martynus and contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  deprecation NOTICES AND INFORMATION
-
-%% fetch-blob NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) 2019 David Frank
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-=========================================
-END OF  fetch-blob NOTICES AND INFORMATION
-
-%% hash-base NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2016 Kirill Fomichev
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  hash-base NOTICES AND INFORMATION
+END OF  https-proxy-agent NOTICES AND INFORMATION
 
 %% iconv-lite NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -902,75 +779,38 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =========================================
 END OF  iconv-lite NOTICES AND INFORMATION
 
-%% inherits NOTICES AND INFORMATION BEGIN HERE
+%% lit NOTICES AND INFORMATION BEGIN HERE
 =========================================
-The ISC License
+BSD 3-Clause License
 
-Copyright (c) Isaac Z. Schlueter
+Copyright (c) 2017 Google LLC. All rights reserved.
 
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
 
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
-FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
 
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
 
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 =========================================
-END OF  inherits NOTICES AND INFORMATION
-
-%% is-plain-object NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2014-2017, Jon Schlinkert.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  is-plain-object NOTICES AND INFORMATION
-
-%% isexe NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  isexe NOTICES AND INFORMATION
+END OF  lit NOTICES AND INFORMATION
 
 %% lodash-es NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1107,55 +947,6 @@ SOFTWARE.
 =========================================
 END OF  node-fetch NOTICES AND INFORMATION
 
-%% node-fetch NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2016 - 2020 Node Fetch Team
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-
-=========================================
-END OF  node-fetch NOTICES AND INFORMATION
-
-%% once NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  once NOTICES AND INFORMATION
-
 %% path-browserify NOTICES AND INFORMATION BEGIN HERE
 =========================================
 MIT License
@@ -1182,106 +973,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =========================================
 END OF  path-browserify NOTICES AND INFORMATION
 
-%% path-key NOTICES AND INFORMATION BEGIN HERE
+%% react-dom NOTICES AND INFORMATION BEGIN HERE
 =========================================
 MIT License
 
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  path-key NOTICES AND INFORMATION
-
-%% readable-stream NOTICES AND INFORMATION BEGIN HERE
-=========================================
-Node.js is licensed for use as follows:
-
-"""
-Copyright Node.js contributors. All rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-"""
-
-This license applies to parts of Node.js originating from the
-https://github.com/joyent/node repository:
-
-"""
-Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-"""
-
-=========================================
-END OF  readable-stream NOTICES AND INFORMATION
-
-%% safe-buffer NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) Feross Aboukhadijeh
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  safe-buffer NOTICES AND INFORMATION
-
-%% safer-buffer NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) 2018 Nikita Skovoroda <chalkerx@gmail.com>
+Copyright (c) Facebook, Inc. and its affiliates.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1302,37 +998,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 =========================================
-END OF  safer-buffer NOTICES AND INFORMATION
+END OF  react-dom NOTICES AND INFORMATION
 
-%% shebang-command NOTICES AND INFORMATION BEGIN HERE
+%% react NOTICES AND INFORMATION BEGIN HERE
 =========================================
 MIT License
 
-Copyright (c) Kevin Mårtensson <kevinmartensson@gmail.com> (github.com/kevva)
+Copyright (c) Facebook, Inc. and its affiliates.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  shebang-command NOTICES AND INFORMATION
-
-%% shebang-regex NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (sindresorhus.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 =========================================
-END OF  shebang-regex NOTICES AND INFORMATION
+END OF  react NOTICES AND INFORMATION
 
 %% sindresorhus/is-fullwidth-code-point NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1391,169 +1084,28 @@ SOFTWARE.
 =========================================
 END OF  sortablejs NOTICES AND INFORMATION
 
-%% string_decoder NOTICES AND INFORMATION BEGIN HERE
+%% stream-browserify NOTICES AND INFORMATION BEGIN HERE
 =========================================
-Node.js is licensed for use as follows:
+MIT License
 
-"""
-Copyright Node.js contributors. All rights reserved.
+Copyright (c) James Halliday
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-"""
-
-This license applies to parts of Node.js originating from the
-https://github.com/joyent/node repository:
-
-"""
-Copyright Joyent, Inc. and other Node contributors. All rights reserved.
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to
-deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-IN THE SOFTWARE.
-"""
-
-
-=========================================
-END OF  string_decoder NOTICES AND INFORMATION
-
-%% universal-user-agent NOTICES AND INFORMATION BEGIN HERE
-=========================================
-# [ISC License](https://spdx.org/licenses/ISC)
-
-Copyright (c) 2018, Gregor Martynus (https://github.com/gr2m)
-
-Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  universal-user-agent NOTICES AND INFORMATION
-
-%% util-deprecate NOTICES AND INFORMATION BEGIN HERE
-=========================================
-(The MIT License)
-
-Copyright (c) 2014 Nathan Rajlich <nathan@tootallnate.net>
-
-Permission is hereby granted, free of charge, to any person
-obtaining a copy of this software and associated documentation
-files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use,
-copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  util-deprecate NOTICES AND INFORMATION
-
-%% web-streams-polyfill NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2020 Mattias Buelens
-Copyright (c) 2016 Diwank Singh Tomer
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =========================================
-END OF  web-streams-polyfill NOTICES AND INFORMATION
-
-%% which NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  which NOTICES AND INFORMATION
-
-%% wrappy NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The ISC License
-
-Copyright (c) Isaac Z. Schlueter and Contributors
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-=========================================
-END OF  wrappy NOTICES AND INFORMATION
+END OF  stream-browserify NOTICES AND INFORMATION
