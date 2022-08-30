@@ -30,6 +30,13 @@ body {
 	grid-template-rows: repeat(var(--slots), min-content);
 }
 
+.notice {
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--divider-background);
+    padding-bottom: 1rem;
+    text-align: center;
+}
+
 section {
 	display: flex;
 	flex-direction: column;

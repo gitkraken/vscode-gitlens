@@ -11295,7 +11295,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "✨ Worktrees are a [GitLens+ feature](command:gitlens.plus.learn) which can be used on public repos with a [free account](command:gitlens.plus.loginOrSignUp) and private repos with a [paid account](command:gitlens.plus.purchase).\n\n🛈 All other GitLens features can always be used on any repo, without an account.",
+				"contents": "✨ Worktrees are a [GitLens+ feature](command:gitlens.plus.learn) which can be used on public repos with a [free account](command:gitlens.plus.loginOrSignUp) and private repos with a [paid account](command:gitlens.plus.purchase).\n\n🛈 All other GitLens features can always be used on any repo, without an account.\n◴ GitLens+ [introductory pricing](command:gitlens.plus.purchase) will end with the next release (late Sept, early Oct).",
 				"when": "gitlens:plus:state > -1"
 			}
 		],
