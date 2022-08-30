@@ -11,7 +11,8 @@ import type { GitWorktree } from '../../git/models/worktree';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
+import type { Deferred} from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { RepositoriesView } from '../repositoriesView';
 import type { WorktreesView } from '../worktreesView';
@@ -64,7 +65,9 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 		if (this._children == null) {
 			const branch = this._branch;
 
-			const pullRequest = this.getState('pullRequest');
+			let pullRequest;
+
+			let onCompleted: Deferred<void> | undefined;
 
 			if (
 				branch != null &&
@@ -72,26 +75,37 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 				this.view.config.pullRequests.showForBranches &&
 				(branch.upstream != null || branch.remote)
 			) {
+				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
-					void this.getAssociatedPullRequest(branch, {
-						include: [PullRequestState.Open, PullRequestState.Merged],
-					}).then(pr => {
-						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
-								0,
-								new PullRequestNode(this.view, this, pr, branch),
+					onCompleted = defer<void>();
+
+					queueMicrotask(() => {
+						void this.getAssociatedPullRequest(branch, {
+							include: [PullRequestState.Open, PullRequestState.Merged],
+						}).then(pr => {
+							onCompleted?.cancel();
+
+							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+							if (pr != null && this._children != null) {
+								this._children.splice(
+									this._children[0] instanceof CompareBranchNode ? 1 : 0,
+									0,
+									new PullRequestNode(this.view, this, pr, branch),
+								);
+							}
+
+							// Refresh this node to show a spinner while the pull request is loading
+							this.view.triggerNodeChange(this);
+						});
+
+						// If we are showing the node, then refresh this node to show a spinner while the pull request is loading
+						if (!this.splatted) {
+							void onCompleted?.promise.then(
+								() => this.view.triggerNodeChange(this),
+								() => {},
 							);
 						}
-						this.view.triggerNodeChange(this);
 					});
-
-					// If we are showing the node, then refresh this node to show a spinner while the pull request is loading
-					if (!this.splatted) {
-						queueMicrotask(() => this.view.triggerNodeChange(this));
-						return [];
-					}
 				}
 			}
 
@@ -165,6 +179,7 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			}
 
 			this._children = children;
+			setTimeout(() => onCompleted?.fulfill(), 0);
 		}
 
 		return this._children;

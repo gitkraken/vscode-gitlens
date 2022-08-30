@@ -13,7 +13,8 @@ import type { GitUser } from '../../git/models/user';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { getSettledValue } from '../../system/promise';
+import type { Deferred } from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { BranchesView } from '../branchesView';
 import type { CommitsView } from '../commitsView';
@@ -141,6 +142,8 @@ export class BranchNode
 
 			let pullRequest;
 
+			let onCompleted: Deferred<void> | undefined;
+
 			if (
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
@@ -148,26 +151,36 @@ export class BranchNode
 			) {
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
-					void this.getAssociatedPullRequest(
-						branch,
-						this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
-					).then(pr => {
-						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
-								0,
-								new PullRequestNode(this.view, this, pr, branch),
+					onCompleted = defer<void>();
+
+					queueMicrotask(() => {
+						void this.getAssociatedPullRequest(
+							branch,
+							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+						).then(pr => {
+							onCompleted?.cancel();
+
+							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+							if (pr != null && this._children != null) {
+								this._children.splice(
+									this._children[0] instanceof CompareBranchNode ? 1 : 0,
+									0,
+									new PullRequestNode(this.view, this, pr, branch),
+								);
+							}
+
+							// Refresh this node to show a spinner while the pull request is loading
+							this.view.triggerNodeChange(this);
+						});
+
+						// If we are showing the node, then refresh this node to show a spinner while the pull request is loading
+						if (!this.splatted) {
+							void onCompleted?.promise.then(
+								() => this.view.triggerNodeChange(this),
+								() => {},
 							);
 						}
-						this.view.triggerNodeChange(this);
 					});
-
-					// If we are showing the node, then refresh this node to show a spinner while the pull request is loading
-					if (!this.splatted) {
-						queueMicrotask(() => this.view.triggerNodeChange(this));
-						return [];
-					}
 				}
 			}
 
@@ -314,6 +327,7 @@ export class BranchNode
 			}
 
 			this._children = children;
+			setTimeout(() => onCompleted?.fulfill(), 0);
 		}
 
 		return this._children;

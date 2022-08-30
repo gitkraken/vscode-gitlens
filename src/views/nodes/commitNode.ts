@@ -135,8 +135,8 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				children.splice(0, 0, new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
 			}
 
-			onCompleted?.fulfill();
 			this._children = children;
+			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
 		return this._children;
