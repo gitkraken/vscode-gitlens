@@ -77,7 +77,7 @@ import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
-import { filterMap, last, some } from '../../system/iterable';
+import { filterMap, first, last, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
@@ -1177,6 +1177,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			});
 		}
 
+		if (options?.ref === 'HEAD') {
+			options.ref = first(log.commits.values())?.sha;
+		} else if (options?.ref != null) {
+			options.ref = undefined;
+		}
+
 		return {
 			repoPath: repoPath,
 			paging: {
@@ -1186,6 +1192,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				more: log.hasMore,
 			},
 			rows: rows,
+			sha: options?.ref,
 
 			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
