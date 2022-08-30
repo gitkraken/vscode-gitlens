@@ -2578,49 +2578,66 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// Git only allows 1-second precision, so round up to the nearest second
 				timestamp = date != null ? Math.ceil(date.getTime() / 1000) + 1 : undefined;
 			}
-			const moreLog = await this.getLog(log.repoPath, {
-				...options,
-				limit: moreUntil == null ? moreLimit : 0,
-				...(timestamp
-					? {
-							until: timestamp,
-							extraArgs: ['--boundary'],
-					  }
-					: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
-			});
-			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
-			if (timestamp != null && ref != null && !moreLog.commits.has(ref)) {
-				debugger;
-			}
+			let moreLogCount;
+			let queryLimit = moreUntil == null ? moreLimit : 0;
+			do {
+				const moreLog = await this.getLog(log.repoPath, {
+					...options,
+					limit: queryLimit,
+					...(timestamp
+						? {
+								until: timestamp,
+								extraArgs: ['--boundary'],
+						  }
+						: { ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^` }),
+				});
+				// If we can't find any more, assume we have everything
+				if (moreLog == null) return { ...log, hasMore: false, more: undefined };
 
-			const commits = new Map([...log.commits, ...moreLog.commits]);
+				const currentCount = log.commits.size;
+				const commits = new Map([...log.commits, ...moreLog.commits]);
 
-			const mergedLog: GitLog = {
-				repoPath: log.repoPath,
-				commits: commits,
-				sha: log.sha,
-				range: undefined,
-				count: commits.size,
-				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
-				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				startingCursor: last(log.commits)?.[0],
-				endingCursor: moreLog.endingCursor,
-				pagedCommits: () => {
-					// Remove any duplicates
-					for (const sha of log.commits.keys()) {
-						moreLog.commits.delete(sha);
+				if (currentCount === commits.size && queryLimit !== 0) {
+					// If we didn't find any new commits, we must have them all so return that we have everything
+					if (moreLogCount === moreLog.commits.size) {
+						return { ...log, hasMore: false, more: undefined };
 					}
-					return moreLog.commits;
-				},
-				query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
-			};
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogMoreFn(mergedLog, options);
-			}
 
-			return mergedLog;
+					moreLogCount = moreLog.commits.size;
+					queryLimit = queryLimit * 2;
+					continue;
+				}
+
+				if (timestamp != null && ref != null && !moreLog.commits.has(ref)) {
+					debugger;
+				}
+
+				const mergedLog: GitLog = {
+					repoPath: log.repoPath,
+					commits: commits,
+					sha: log.sha,
+					range: undefined,
+					count: commits.size,
+					limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
+					hasMore: moreUntil == null ? moreLog.hasMore : true,
+					startingCursor: last(log.commits)?.[0],
+					endingCursor: moreLog.endingCursor,
+					pagedCommits: () => {
+						// Remove any duplicates
+						for (const sha of log.commits.keys()) {
+							moreLog.commits.delete(sha);
+						}
+						return moreLog.commits;
+					},
+					query: (limit: number | undefined) => this.getLog(log.repoPath, { ...options, limit: limit }),
+				};
+				if (mergedLog.hasMore) {
+					mergedLog.more = this.getLogMoreFn(mergedLog, options);
+				}
+
+				return mergedLog;
+			} while (true);
 		};
 	}
 
