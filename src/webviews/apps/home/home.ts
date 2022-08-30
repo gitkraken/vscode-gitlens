@@ -101,7 +101,13 @@ export class HomeApp extends App<State> {
 					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 					DOM.insertTemplate('state:free-preview', this.$slots[index++], {
 						bindings: {
-							previewDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+							previewDays: `${
+								remaining < 1
+									? 'less than one day'
+									: remaining === 1
+									? `${remaining} day`
+									: `${remaining} days`
+							}`,
 						},
 					});
 
@@ -124,7 +130,13 @@ export class HomeApp extends App<State> {
 					DOM.insertTemplate('state:plus-trial', this.$slots[index++], {
 						bindings: {
 							plan: subscription.plan.effective.name,
-							trialDays: `${remaining === 1 ? `${remaining} day` : `${remaining} days`}`,
+							trialDays: `${
+								remaining < 1
+									? 'less than one day'
+									: remaining === 1
+									? `${remaining} day`
+									: `${remaining} days`
+							}`,
 						},
 					});
 
