@@ -158,6 +158,12 @@ a {
 	background-color: var(--alert-background);
 	color: var(--alert-foreground);
 	font-size: 1.2rem;
+	// remove max-width and margin when converting to a web component or make it a variant/property
+	max-width: 100rem;
+	margin: {
+		left: auto;
+		right: auto;
+	}
 
 	&__icon {
 		&,
