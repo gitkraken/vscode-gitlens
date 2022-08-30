@@ -54,7 +54,6 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 		let match;
 		do {
-			console.log(context.line);
 			match = commandsRegex.exec(context.line);
 			if (match != null) {
 				const [_, git, command] = match;
