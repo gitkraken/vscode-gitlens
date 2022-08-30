@@ -108,16 +108,28 @@ export class GraphApp extends App<State> {
 						let previousRowsLength = previousRows.length;
 						const newRowsLength = params.rows.length;
 
+						this.log(
+							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastSha})`,
+						);
+
 						rows = [];
 						// Preallocate the array to avoid reallocations
 						rows.length = previousRowsLength + newRowsLength;
 
 						if (params.paging.startingCursor !== lastSha) {
+							this.log(
+								`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): searching for ${params.paging.startingCursor} in existing rows`,
+							);
+
 							let i = 0;
 							let row;
 							for (row of previousRows) {
 								rows[i++] = row;
 								if (row.sha === params.paging.startingCursor) {
+									this.log(
+										`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): found ${params.paging.startingCursor} in existing rows`,
+									);
+
 									previousRowsLength = i;
 
 									if (previousRowsLength !== previousRows.length) {
@@ -138,7 +150,16 @@ export class GraphApp extends App<State> {
 							rows[previousRowsLength + i] = params.rows[i];
 						}
 					} else {
-						rows = params.rows;
+						this.log(
+							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): setting to ${params.rows.length} rows`,
+						);
+
+						if (params.rows.length === 0) {
+							rows = this.state.rows;
+						} else {
+							// TODO@eamodio I'm not sure there is a case for this, but didn't wan't to remove it yet
+							rows = params.rows;
+						}
 					}
 
 					this.setState({
