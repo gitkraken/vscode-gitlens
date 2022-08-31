@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes regression with _Contributors_ view not working
+
 ## [12.2.0] - 2022-08-30
 
 ### Added

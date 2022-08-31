@@ -2390,11 +2390,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`--${ordering}-order`);
 			}
 			if (options?.authors?.length) {
-				args.push(
-					'--use-mailmap',
-					'--author',
-					...options.authors.map(a => `--author=^${a.name} <${a.email}>$`),
-				);
+				args.push('--use-mailmap', ...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
 			}
 
 			let hasMoreOverride;
