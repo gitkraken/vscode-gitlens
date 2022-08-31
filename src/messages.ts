@@ -111,10 +111,10 @@ export function showInsidersErrorMessage() {
 	);
 }
 
-export function showInsidersExpiredErrorMessage(version: string) {
+export function showPreReleaseExpiredErrorMessage(version: string) {
 	return showMessage(
 		'error',
-		`GitLens (Insiders) version (${version}) has expired. Please install a more recent version.`,
+		`This GitLens pre-release version (${version}) has expired. Please upgrade to a more recent version.`,
 	);
 }
 

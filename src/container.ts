@@ -73,13 +73,13 @@ export class Container {
 	static create(
 		context: ExtensionContext,
 		storage: Storage,
-		insiders: boolean,
+		prerelease: boolean,
 		version: string,
 		previousVersion: string | undefined,
 	) {
 		if (Container.#instance != null) throw new Error('Container is already initialized');
 
-		Container.#instance = new Container(context, storage, insiders, version, previousVersion);
+		Container.#instance = new Container(context, storage, prerelease, version, previousVersion);
 		return Container.#instance;
 	}
 
@@ -149,12 +149,12 @@ export class Container {
 	private constructor(
 		context: ExtensionContext,
 		storage: Storage,
-		insiders: boolean,
+		prerelease: boolean,
 		version: string,
 		previousVersion: string | undefined,
 	) {
 		this._context = context;
-		this._insiders = insiders;
+		this._prerelease = prerelease;
 		this._version = version;
 		this.ensureModeApplied();
 
@@ -332,7 +332,7 @@ export class Container {
 
 	@memoize()
 	get env(): 'dev' | 'staging' | 'production' {
-		if (this.insidersOrDebugging) {
+		if (this.prereleaseOrDebugging) {
 			const env = configuration.getAny('gitkraken.env');
 			if (env === 'dev') return 'dev';
 			if (env === 'staging') return 'staging';
@@ -409,16 +409,6 @@ export class Container {
 		return this._homeView;
 	}
 
-	private readonly _insiders;
-	get insiders() {
-		return this._insiders;
-	}
-
-	@memoize()
-	get insidersOrDebugging() {
-		return this._insiders || this.debugging;
-	}
-
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
@@ -460,6 +450,16 @@ export class Container {
 	private _lineTracker: GitLineTracker;
 	get lineTracker() {
 		return this._lineTracker;
+	}
+
+	private readonly _prerelease;
+	get prerelease() {
+		return this._prerelease;
+	}
+
+	@memoize()
+	get prereleaseOrDebugging() {
+		return this._prerelease || this.debugging;
 	}
 
 	private _rebaseEditor: RebaseEditorProvider | undefined;

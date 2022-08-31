@@ -43,9 +43,9 @@ export function preview() {
 
 		descriptor.value = function (this: any, ...args: any[]) {
 			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-			if (Container.instance.insidersOrDebugging) return fn!.apply(this, args);
+			if (Container.instance.prereleaseOrDebugging) return fn!.apply(this, args);
 
-			console.error('GitLens preview APIs are only available in the Insiders edition');
+			console.error('GitLens preview APIs are only available in the pre-release edition');
 			return emptyDisposable;
 		};
 	};
