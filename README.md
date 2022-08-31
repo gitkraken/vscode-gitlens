@@ -43,7 +43,7 @@ Here are just some of the **features** that GitLens provides,
   - [**changes**](#file-changes- 'Jump to File Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
   - [**heatmap**](#file-heatmap- 'Jump to File Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - many rich **Side Bar views**
-  - a [**_Commit Details_ view**](#commits-details-view- 'Jump to the Commits Details view') to provides rich details for commits and stashes
+  - a [**_Commit Details_ view**](#commits-details-view- 'Jump to the Commits Details view') to provide rich details for commits and stashes
   - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
   - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
   - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
@@ -300,7 +300,7 @@ These will show contextually as you navigate:
 - commits in the [Commit Graph](#commit-graph-), [Visual File History](#visual-file-history-view-), or [Commits view](#commits-view-)
 - stashes in the [Stashes view](#stashes-view-)
 
-Alteratively, you can search for or choose a commit directly from the view.
+Alternatively, you can search for or choose a commit directly from the view.
 
 **For optimal usage, we highly recommended dragging this view to the Secondary Side Bar.**
 
