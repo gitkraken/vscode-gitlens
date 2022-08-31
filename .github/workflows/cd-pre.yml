@@ -1,4 +1,4 @@
-name: Publish Insiders
+name: Publish pre-release
 
 on:
     schedule:
@@ -47,7 +47,7 @@ jobs:
                   echo "::set-output name=status::changed"
 
     publish:
-        name: Publish insiders
+        name: Publish pre-release
         needs: check
         runs-on: ubuntu-latest
         if: needs.check.outputs.status == 'changed'
@@ -60,8 +60,8 @@ jobs:
                   node-version: '14'
             - name: Install
               run: yarn
-            - name: Apply insiders patch
-              run: yarn run patch-insiders
+            - name: Apply pre-release patch
+              run: yarn run patch-pre
             - name: Setup Environment
               run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version + '\nPACKAGE_NAME=' + require('./package.json').name + '-' + require('./package.json').version)" >> $GITHUB_ENV
             - name: Package extension

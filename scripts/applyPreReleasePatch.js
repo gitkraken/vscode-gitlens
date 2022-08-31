@@ -2,7 +2,7 @@
 const fs = require('fs');
 
 // Patch README
-const insert = fs.readFileSync('./README.insiders.md', { encoding: 'utf8' });
+const insert = fs.readFileSync('./README.pre.md', { encoding: 'utf8' });
 const data = fs.readFileSync('./README.md', { encoding: 'utf8' });
 fs.writeFileSync('./README.md', `${insert}\n${data}`);
 
