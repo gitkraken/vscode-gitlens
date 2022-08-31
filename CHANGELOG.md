@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - lines in the text editor
     - commits in the _Commit Graph_, _Visual File History_, or _Commits_ view
     - stashes in the _Stashes_ view
-  - Alteratively, you can search for or choose a commit directly from the view
+  - Alternatively, you can search for or choose a commit directly from the view
 - ✨ Adds [**rich integration**](https://github.com/gitkraken/vscode-gitlens#remote-provider-integrations-) with GitHub Enterprise &mdash; closes [#1210](https://github.com/gitkraken/vscode-gitlens/issues/1210)
   - Adds associated pull request to line annotations and hovers
     ![Pull requests on line annotation and hovers](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/hovers-current-line-details.png)
