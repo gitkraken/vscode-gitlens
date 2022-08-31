@@ -73,7 +73,7 @@ Here are just some of the **features** that GitLens provides,
 
 GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links).
 
-🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
+> **Note**: All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
 
 ## Does this affect existing features?
 
