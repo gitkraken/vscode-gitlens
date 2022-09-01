@@ -12,6 +12,7 @@ import type {
 	Repository as BuiltInGitRepository,
 	GitExtension,
 } from '../../../@types/vscode.git';
+import { getAvatarUri } from '../../../avatars';
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
@@ -1735,7 +1736,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	private async getCommitsForGraphCore(
+	private getCommitsForGraphCore(
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
 		log: GitLog | undefined,
@@ -1747,7 +1748,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
-	): Promise<GitGraph> {
+	): GitGraph {
 		if (log == null) {
 			return {
 				repoPath: repoPath,
@@ -1849,7 +1850,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				sha: commit.sha,
 				parents: parents,
 				author: commit.author.name,
-				avatarUrl: !isStashCommit ? (await commit.getAvatarUri())?.toString(true) : undefined,
+				avatarUrl: !isStashCommit ? getAvatarUri(commit.author.email, undefined).toString(true) : undefined,
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
 				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
