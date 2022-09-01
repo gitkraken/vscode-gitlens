@@ -140,9 +140,8 @@ export class BranchNode
 		if (this._children == null) {
 			const branch = this.branch;
 
-			let pullRequest;
-
 			let onCompleted: Deferred<void> | undefined;
+			let pullRequest;
 
 			if (
 				this.view.config.pullRequests.enabled &&
@@ -152,35 +151,35 @@ export class BranchNode
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
+					const prPromise = this.getAssociatedPullRequest(
+						branch,
+						this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+					);
 
-					queueMicrotask(() => {
-						void this.getAssociatedPullRequest(
-							branch,
-							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
-						).then(pr => {
-							onCompleted?.cancel();
+					queueMicrotask(async () => {
+						const [prResult] = await Promise.allSettled([prPromise, onCompleted?.promise]);
 
-							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-							if (pr != null && this._children != null) {
-								this._children.splice(
-									this._children[0] instanceof CompareBranchNode ? 1 : 0,
-									0,
-									new PullRequestNode(this.view, this, pr, branch),
-								);
-							}
-
-							// Refresh this node to show a spinner while the pull request is loading
-							this.view.triggerNodeChange(this);
-						});
-
-						// If we are showing the node, then refresh this node to show a spinner while the pull request is loading
-						if (!this.splatted) {
-							void onCompleted?.promise.then(
-								() => this.view.triggerNodeChange(this),
-								() => {},
+						const pr = getSettledValue(prResult);
+						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+						if (pr != null && this._children != null) {
+							this._children.splice(
+								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+								0,
+								new PullRequestNode(this.view, this, pr, branch),
 							);
 						}
+
+						// Refresh this node to add or remove the pull request node
+						this.view.triggerNodeChange(this);
 					});
+
+					// // If we are showing the node, then refresh this node to show a spinner while the pull request is loading
+					// if (!this.splatted) {
+					// 	void onCompleted?.promise.then(
+					// 		() => this.view.triggerNodeChange(this),
+					// 		() => {},
+					// 	);
+					// }
 				}
 			}
 
@@ -327,7 +326,7 @@ export class BranchNode
 			}
 
 			this._children = children;
-			setTimeout(() => onCompleted?.fulfill(), 0);
+			onCompleted?.fulfill();
 		}
 
 		return this._children;

@@ -72,10 +72,9 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		if (this._children == null) {
 			const commit = this.commit;
 
-			const pullRequest = this.getState('pullRequest');
-
 			let children: (PullRequestNode | FileNode)[] = [];
 			let onCompleted: Deferred<void> | undefined;
+			let pullRequest;
 
 			if (
 				!(this.view instanceof TagsView) &&
@@ -83,32 +82,33 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForCommits
 			) {
+				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
+					const prPromise = this.getAssociatedPullRequest(commit);
 
-					queueMicrotask(() => {
-						void this.getAssociatedPullRequest(commit).then(pr => {
-							onCompleted?.cancel();
+					queueMicrotask(async () => {
+						const [prResult] = await Promise.allSettled([prPromise, onCompleted?.promise]);
 
-							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-							if (pr != null && this._children != null) {
-								this._children.splice(
-									0,
-									0,
-									new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
-								);
-							}
+						const pr = getSettledValue(prResult);
+						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+						if (pr != null && this._children != null) {
+							this._children.splice(
+								0,
+								0,
+								new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
+							);
+						}
 
-							// Refresh this node to show a spinner while the pull request is loading
-							this.view.triggerNodeChange(this);
-						});
-
-						// Refresh this node to show a spinner while the pull request is loading
-						void onCompleted?.promise.then(
-							() => this.view.triggerNodeChange(this),
-							() => {},
-						);
+						// Refresh this node to add or remove the pull request node
+						this.view.triggerNodeChange(this);
 					});
+
+					// // Refresh this node to show a spinner while the pull request is loading
+					// void onCompleted?.promise.then(
+					// 	() => this.view.triggerNodeChange(this),
+					// 	() => {},
+					// );
 				}
 			}
 
@@ -136,7 +136,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			}
 
 			this._children = children;
-			setTimeout(() => onCompleted?.fulfill(), 1);
+			onCompleted?.fulfill();
 		}
 
 		return this._children;

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2185](https://github.com/gitkraken/vscode-gitlens/issues/2185) - Commits view files are sometimes not shown when expanding folders
+- Fixes [#2180](https://github.com/gitkraken/vscode-gitlens/issues/2180) - Tree files view of commits is broken
 - Fixes [#2179](https://github.com/gitkraken/vscode-gitlens/issues/2179) - Commit Graph content not displayed
 - Fixes regression with _Contributors_ view not working
 
