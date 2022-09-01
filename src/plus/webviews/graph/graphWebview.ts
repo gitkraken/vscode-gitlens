@@ -471,7 +471,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const data = await this.container.git.getCommitsForGraph(
 			this.repository.path,
-			this._panel!.webview.asWebviewUri,
+			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
 		this.setGraph(data);
