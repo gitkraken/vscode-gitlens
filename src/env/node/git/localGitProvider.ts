@@ -1614,8 +1614,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let stdin: string | undefined;
 
-		// // TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-		const stash = await this.getStash(repoPath);
+		const [stashResult, headResult] = await Promise.allSettled([
+			this.getStash(repoPath),
+			options?.ref != null && options.ref !== 'HEAD' ? this.git.rev_parse(repoPath, 'HEAD') : undefined,
+		]);
+
+		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+		const stash = getSettledValue(stashResult);
 		if (stash != null) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
@@ -1625,6 +1630,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let getLogForRefFn;
 		if (options?.ref != null) {
+			const head = getSettledValue(headResult);
+
 			async function getLogForRef(this: LocalGitProvider): Promise<GitLog | undefined> {
 				let log;
 
@@ -1637,7 +1644,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					let found = false;
 					// If we are looking for the HEAD assume that it might be in the first page (so we can avoid extra queries)
-					if (options!.ref === 'HEAD') {
+					if (options!.ref === 'HEAD' || options!.ref === head) {
 						log = await this.getLog(repoPath, {
 							all: options!.mode !== 'single',
 							ordering: 'date',
@@ -1665,11 +1672,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						debugger;
 					}
 
-					if (log?.more != null && (!found || log.commits.size < defaultItemLimit)) {
+					if (log?.more != null && (!found || log.commits.size < defaultItemLimit / 2)) {
 						Logger.debug(scope, 'Loading next page...');
 
 						log = await log.more(
-							(log.commits.size < defaultItemLimit
+							(found && log.commits.size < defaultItemLimit / 2
 								? defaultItemLimit
 								: configuration.get('graph.pageItemLimit')) ?? options?.limit,
 						);
