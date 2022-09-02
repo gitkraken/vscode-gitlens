@@ -8307,17 +8307,17 @@
 			"scm/title": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
 					"group": "navigation@-1000"
 				},
 				{
 					"command": "gitlens.addAuthors",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors && scmProvider == git",
 					"group": "2_z_gitlens@1"
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && scmProvider == git",
 					"group": "2_z_gitlens@2"
 				}
 			],
