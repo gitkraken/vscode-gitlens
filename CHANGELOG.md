@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+- Fixes [#2187](https://github.com/gitkraken/vscode-gitlens/issues/2187) - scm/title commands shown against non-Git SCM providers
+
 ## [12.2.1] - 2022-09-01
 
 ### Fixed
