@@ -11667,7 +11667,6 @@
 		"ansi-regex": "6.0.1",
 		"billboard.js": "3.5.1",
 		"chroma-js": "2.4.2",
-		"crypto-browserify": "3.12.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "2.3.1",
@@ -11677,8 +11676,7 @@
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
 		"react-dom": "16.8.4",
-		"sortablejs": "1.15.0",
-		"stream-browserify": "3.0.0"
+		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
