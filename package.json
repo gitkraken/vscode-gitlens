@@ -8300,7 +8300,7 @@
 			"scm/sourceControl": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scm.graph",
+					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && scmProvider == git",
 					"group": "6_gitlens@1"
 				}
 			],
