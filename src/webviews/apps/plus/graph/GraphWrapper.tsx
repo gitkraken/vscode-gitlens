@@ -2,11 +2,13 @@ import GraphContainer, {
 	type CssVariables,
 	type GraphColumnSetting as GKGraphColumnSetting,
 	type GraphColumnsSettings as GKGraphColumnsSettings,
+	type GraphPlatform,
 	type GraphRow,
 	type GraphZoneType,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
+import { getPlatform } from '@env/platform';
 import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
@@ -113,6 +115,20 @@ const iconElementLibrary = createIconElements();
 const getIconElementLibrary = (iconKey: string) => {
 	return iconElementLibrary[iconKey];
 };
+
+const getClientPlatform = (): GraphPlatform => {
+	switch (getPlatform()) {
+		case 'web-macOS':
+			return 'darwin';
+		case 'web-windows':
+			return 'win32';
+		case 'web-linux':
+		default:
+			return 'linux';
+	}
+};
+
+const clientPlatform = getClientPlatform();
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
@@ -421,6 +437,7 @@ export function GraphWrapper({
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
 								onShowMoreCommits={handleMoreCommits}
+								platform={clientPlatform}
 								width={mainWidth}
 								themeOpacityFactor={styleProps.themeOpacityFactor}
 							/>
