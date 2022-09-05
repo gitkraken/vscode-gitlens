@@ -814,7 +814,7 @@ export class GitProviderService implements Disposable {
 				}
 			}
 
-			await Promise.all([
+			await Promise.allSettled([
 				setContext(ContextKeys.HasRemotes, hasRemotes),
 				setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
 				setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
