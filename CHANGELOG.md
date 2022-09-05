@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2177](https://github.com/gitkraken/vscode-gitlens/issues/2177) - Open Changes action unresponsive in Source Control view
+- Fixes [#2185](https://github.com/gitkraken/vscode-gitlens/issues/2185) - Commits view files are sometimes not shown when expanding folders
+- Fixes [#2180](https://github.com/gitkraken/vscode-gitlens/issues/2180) - Tree files view of commits is broken
+- Fixes [#2179](https://github.com/gitkraken/vscode-gitlens/issues/2179) - Commit Graph content not displayed
 - Fixes [#2187](https://github.com/gitkraken/vscode-gitlens/issues/2187) - scm/title commands shown against non-Git SCM providers &mdash; thanks to [PR #2186](https://github.com/gitkraken/vscode-gitlens/pull/2186) by Matt Seddon ([@mattseddon](https://github.com/mattseddon))
 
 ## [12.2.1] - 2022-09-01

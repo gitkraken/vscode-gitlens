@@ -1,7 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../configuration';
 import { ViewBranchesLayout } from '../../configuration';
-import { Colors, GlyphChars } from '../../constants';
+import { Colors, ContextKeys, GlyphChars } from '../../constants';
+import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -146,7 +147,8 @@ export class BranchNode
 			if (
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
-				(branch.upstream != null || branch.remote)
+				(branch.upstream != null || branch.remote) &&
+				getContext(ContextKeys.HasConnectedRemotes)
 			) {
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
@@ -157,9 +159,18 @@ export class BranchNode
 					);
 
 					queueMicrotask(async () => {
-						const [prResult] = await Promise.allSettled([prPromise, onCompleted?.promise]);
+						await onCompleted?.promise;
 
-						const pr = getSettledValue(prResult);
+						// If we are waiting too long, refresh this node to show a spinner while the pull request is loading
+						let spinner = false;
+						const timeout = setTimeout(() => {
+							spinner = true;
+							this.view.triggerNodeChange(this);
+						}, 250);
+
+						const pr = await prPromise;
+						clearTimeout(timeout);
+
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this._children != null) {
 							this._children.splice(
@@ -169,17 +180,11 @@ export class BranchNode
 							);
 						}
 
-						// Refresh this node to add or remove the pull request node
-						this.view.triggerNodeChange(this);
+						// Refresh this node to add the pull request node or remove the spinner
+						if (spinner || pr != null) {
+							this.view.triggerNodeChange(this);
+						}
 					});
-
-					// // If we are showing the node, then refresh this node to show a spinner while the pull request is loading
-					// if (!this.splatted) {
-					// 	void onCompleted?.promise.then(
-					// 		() => this.view.triggerNodeChange(this),
-					// 		() => {},
-					// 	);
-					// }
 				}
 			}
 
@@ -326,7 +331,7 @@ export class BranchNode
 			}
 
 			this._children = children;
-			onCompleted?.fulfill();
+			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
 		return this._children;

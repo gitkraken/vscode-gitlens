@@ -2,7 +2,8 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
-import { Colors, Commands } from '../../constants';
+import { Colors, Commands, ContextKeys } from '../../constants';
+import { getContext } from '../../context';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -23,7 +24,6 @@ import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
-import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
 
@@ -34,8 +34,8 @@ type State = {
 
 export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
 	static key = ':commit';
-	static getId(parent: ViewNode, repoPath: string, sha: string): string {
-		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${sha})`;
+	static getId(parent: ViewNode, sha: string): string {
+		return `${parent.id}${this.key}(${sha})`;
 	}
 
 	constructor(
@@ -55,7 +55,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	override get id(): string {
-		return CommitNode.getId(this.parent, this.commit.repoPath, this.commit.sha);
+		return CommitNode.getId(this.parent, this.commit.sha);
 	}
 
 	get isTip(): boolean {
@@ -79,6 +79,8 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			if (
 				!(this.view instanceof TagsView) &&
 				!(this.view instanceof FileHistoryView) &&
+				!this.unpublished &&
+				getContext(ContextKeys.HasConnectedRemotes) &&
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForCommits
 			) {
@@ -88,9 +90,18 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 					const prPromise = this.getAssociatedPullRequest(commit);
 
 					queueMicrotask(async () => {
-						const [prResult] = await Promise.allSettled([prPromise, onCompleted?.promise]);
+						await onCompleted?.promise;
 
-						const pr = getSettledValue(prResult);
+						// If we are waiting too long, refresh this node to show a spinner while the pull request is loading
+						let spinner = false;
+						const timeout = setTimeout(() => {
+							spinner = true;
+							this.view.triggerNodeChange(this);
+						}, 250);
+
+						const pr = await prPromise;
+						clearTimeout(timeout);
+
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this._children != null) {
 							this._children.splice(
@@ -100,15 +111,11 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 							);
 						}
 
-						// Refresh this node to add or remove the pull request node
-						this.view.triggerNodeChange(this);
+						// Refresh this node to add the pull request node or remove the spinner
+						if (spinner || pr != null) {
+							this.view.triggerNodeChange(this);
+						}
 					});
-
-					// // Refresh this node to show a spinner while the pull request is loading
-					// void onCompleted?.promise.then(
-					// 	() => this.view.triggerNodeChange(this),
-					// 	() => {},
-					// );
 				}
 			}
 
@@ -136,7 +143,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			}
 
 			this._children = children;
-			onCompleted?.fulfill();
+			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
 		return this._children;

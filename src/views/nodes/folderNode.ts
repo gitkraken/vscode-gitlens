@@ -21,6 +21,11 @@ export interface FileNode extends ViewFileNode {
 }
 
 export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | StashesView> {
+	static key = ':folder';
+	static getId(parent: ViewNode, path: string): string {
+		return `${parent.id}${this.key}(${path})`;
+	}
+
 	readonly priority: number = 1;
 
 	constructor(
@@ -37,6 +42,10 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 
 	override toClipboard(): string {
 		return this.folderName;
+	}
+
+	override get id(): string {
+		return FolderNode.getId(this.parent, this.folderName);
 	}
 
 	getChildren(): (FolderNode | FileNode)[] {
@@ -90,6 +99,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
+		item.id = this.id;
 		item.contextValue = ContextValues.Folder;
 		if (this.containsWorkingFiles) {
 			item.contextValue += '+working';
