@@ -18,12 +18,12 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		view: View,
 		parent: ViewNode,
 		repoPath: string,
-		public readonly file: GitFile,
+		file: GitFile,
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
-		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
+		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
 	}
 
 	override toClipboard(): string {

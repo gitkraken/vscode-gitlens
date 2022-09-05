@@ -45,7 +45,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		if (this.status?.hasConflicts !== true) return [];
 
 		let children: FileNode[] = this.status.conflicts.map(
-			f => new MergeConflictFileNode(this.view, this, this.mergeStatus, f),
+			f => new MergeConflictFileNode(this.view, this, f, this.mergeStatus),
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {

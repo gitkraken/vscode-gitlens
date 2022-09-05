@@ -24,7 +24,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		parent: ViewNode,
-		public readonly file: GitFile,
+		file: GitFile,
 		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
@@ -33,7 +33,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {

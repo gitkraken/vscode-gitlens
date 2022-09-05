@@ -11,16 +11,17 @@ import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ContextValues, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewFileNode } from './viewNode';
 
-export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
+export class MergeConflictFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
 	constructor(
 		view: ViewsWithCommits,
 		parent: ViewNode,
+		file: GitFile,
 		public readonly status: GitMergeStatus | GitRebaseStatus,
-		public readonly file: GitFile,
 	) {
-		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
+		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent, file);
 	}
 
 	override toClipboard(): string {
@@ -33,10 +34,6 @@ export class MergeConflictFileNode extends ViewNode<ViewsWithCommits> implements
 
 	get fileName(): string {
 		return this.file.path;
-	}
-
-	get repoPath(): string {
-		return this.status.repoPath;
 	}
 
 	getChildren(): ViewNode[] {

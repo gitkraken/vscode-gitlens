@@ -18,7 +18,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 	constructor(
 		view: TView,
 		parent: ViewNode,
-		public readonly file: GitFile,
+		file: GitFile,
 		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
@@ -26,7 +26,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {
