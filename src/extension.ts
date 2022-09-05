@@ -49,12 +49,15 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		return undefined;
 	});
 
-	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
-		log: {
-			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
-			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+	const sw = new Stopwatch(
+		`GitLens${prerelease ? (insiders ? ' (Insiders)' : ' (pre-release)') : ''} v${gitlensVersion}`,
+		{
+			log: {
+				message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
+				//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+			},
 		},
-	});
+	);
 
 	// If we are using the separate insiders extension, ensure that stable isn't also installed
 	if (insiders) {
@@ -78,11 +81,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		// If the build date is older than 14 days then show the expired error message
 		if (date.getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) {
 			sw.stop({
-				message: ` was NOT activated because this pre-release version (${gitlensVersion}) has expired`,
+				message: ` was NOT activated because this ${
+					insiders ? 'insiders' : 'pre-release'
+				} version (${gitlensVersion}) has expired`,
 			});
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(() => void showPreReleaseExpiredErrorMessage(gitlensVersion), 0);
+			setTimeout(() => void showPreReleaseExpiredErrorMessage(gitlensVersion, insiders), 0);
 
 			return undefined;
 		}
@@ -98,8 +103,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	setKeysForSync(context);
 
 	const storage = new Storage(context);
-	const syncedVersion = storage.get(prerelease ? 'synced:preVersion' : 'synced:version');
-	const localVersion = storage.get(prerelease ? 'preVersion' : 'version');
+	const syncedVersion = storage.get(prerelease && !insiders ? 'synced:preVersion' : 'synced:version');
+	const localVersion = storage.get(prerelease && !insiders ? 'preVersion' : 'version');
 
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
@@ -142,11 +147,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
-		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion);
+		void storage.store(prerelease && !insiders ? 'preVersion' : 'version', gitlensVersion);
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion);
+			void storage.store(prerelease && !insiders ? 'synced:preVersion' : 'synced:version', gitlensVersion);
 		}
 
 		if (outputLevel === OutputLevel.Debug) {
