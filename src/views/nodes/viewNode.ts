@@ -95,7 +95,8 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 	toClipboard?(): string;
 
 	toString(): string {
-		return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
+		const id = this.id;
+		return `${Logger.toLoggableName(this)}${id != null ? `(${id})` : ''}`;
 	}
 
 	protected _uri: GitUri;
