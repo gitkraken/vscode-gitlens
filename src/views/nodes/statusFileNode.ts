@@ -12,12 +12,11 @@ import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import type { FileNode } from './folderNode';
-import { ContextValues, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewFileNode } from './viewNode';
 
-export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
+export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
 	public readonly commits: GitCommit[];
-	public readonly file: GitFile;
-	public readonly repoPath: string;
 
 	private readonly _direction: 'ahead' | 'behind';
 	private readonly _hasStagedChanges: boolean;
@@ -26,8 +25,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 	constructor(
 		view: ViewsWithCommits,
 		parent: ViewNode,
-		repoPath: string,
 		file: GitFile,
+		repoPath: string,
 		commits: GitCommit[],
 		direction: 'ahead' | 'behind' = 'ahead',
 	) {
@@ -55,10 +54,8 @@ export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNo
 			}
 		}
 
-		super(GitUri.fromFile(file, repoPath, ref), view, parent);
+		super(GitUri.fromFile(file, repoPath, ref), view, parent, file);
 
-		this.repoPath = repoPath;
-		this.file = file;
 		this.commits = commits;
 
 		this._direction = direction;

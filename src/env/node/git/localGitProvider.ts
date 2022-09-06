@@ -12,6 +12,7 @@ import type {
 	Repository as BuiltInGitRepository,
 	GitExtension,
 } from '../../../@types/vscode.git';
+import { getAvatarUri } from '../../../avatars';
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
@@ -1614,8 +1615,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let stdin: string | undefined;
 
-		// // TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-		const stash = await this.getStash(repoPath);
+		const [stashResult, headResult] = await Promise.allSettled([
+			this.getStash(repoPath),
+			options?.ref != null && options.ref !== 'HEAD' ? this.git.rev_parse(repoPath, 'HEAD') : undefined,
+		]);
+
+		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+		const stash = getSettledValue(stashResult);
 		if (stash != null) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
@@ -1625,6 +1631,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let getLogForRefFn;
 		if (options?.ref != null) {
+			const head = getSettledValue(headResult);
+
 			async function getLogForRef(this: LocalGitProvider): Promise<GitLog | undefined> {
 				let log;
 
@@ -1637,7 +1645,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 					let found = false;
 					// If we are looking for the HEAD assume that it might be in the first page (so we can avoid extra queries)
-					if (options!.ref === 'HEAD') {
+					if (options!.ref === 'HEAD' || options!.ref === head) {
 						log = await this.getLog(repoPath, {
 							all: options!.mode !== 'single',
 							ordering: 'date',
@@ -1665,11 +1673,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						debugger;
 					}
 
-					if (log?.more != null && (!found || log.commits.size < defaultItemLimit)) {
+					if (log?.more != null && (!found || log.commits.size < defaultItemLimit / 2)) {
 						Logger.debug(scope, 'Loading next page...');
 
 						log = await log.more(
-							(log.commits.size < defaultItemLimit
+							(found && log.commits.size < defaultItemLimit / 2
 								? defaultItemLimit
 								: configuration.get('graph.pageItemLimit')) ?? options?.limit,
 						);
@@ -1728,7 +1736,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 	}
 
-	private async getCommitsForGraphCore(
+	private getCommitsForGraphCore(
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
 		log: GitLog | undefined,
@@ -1740,7 +1748,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
-	): Promise<GitGraph> {
+	): GitGraph {
 		if (log == null) {
 			return {
 				repoPath: repoPath,
@@ -1842,7 +1850,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				sha: commit.sha,
 				parents: parents,
 				author: commit.author.name,
-				avatarUrl: !isStashCommit ? (await commit.getAvatarUri())?.toString(true) : undefined,
+				avatarUrl: !isStashCommit ? getAvatarUri(commit.author.email, undefined).toString(true) : undefined,
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
 				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
@@ -2390,11 +2398,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`--${ordering}-order`);
 			}
 			if (options?.authors?.length) {
-				args.push(
-					'--use-mailmap',
-					'--author',
-					...options.authors.map(a => `--author=^${a.name} <${a.email}>$`),
-				);
+				args.push('--use-mailmap', ...options.authors.map(a => `--author=^${a.name} <${a.email}>$`));
 			}
 
 			let hasMoreOverride;

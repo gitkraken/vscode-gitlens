@@ -36,6 +36,7 @@ CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 esbuild.js
 README.insiders.md
+README.pre.md
 svgo.config.js
 tsconfig*.json
 tsconfig*.tsbuildinfo

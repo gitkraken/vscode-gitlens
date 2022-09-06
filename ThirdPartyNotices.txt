@@ -5,25 +5,23 @@ This project incorporates components from the projects listed below.
 
 1. @octokit/core version 4.0.5 (https://github.com/octokit/core.js)
 2. @vscode/codicons version 0.0.32 (https://github.com/microsoft/vscode-codicons)
-3. @vscode/webview-ui-toolkit version 1.0.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+3. @vscode/webview-ui-toolkit version 1.0.1 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 4. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
 5. billboard.js version 3.5.1 (https://github.com/naver/billboard.js)
 6. chroma-js version 2.4.2 (https://github.com/gka/chroma.js)
-7. crypto-browserify version 3.12.0 (https://github.com/crypto-browserify/crypto-browserify)
-8. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-9. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-10. lit version 2.3.1 (https://github.com/lit/lit)
-11. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
-12. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
-13. microsoft/vscode (https://github.com/microsoft/vscode)
-14. node-fetch version 2.6.7 (https://github.com/bitinn/node-fetch)
-15. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-16. react-dom version 16.8.4 (https://github.com/facebook/react)
-17. react version 16.8.4 (https://github.com/facebook/react)
-18. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-19. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-20. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
-21. stream-browserify version 3.0.0 (https://github.com/browserify/stream-browserify)
+7. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+8. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+9. lit version 2.3.1 (https://github.com/lit/lit)
+10. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
+11. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
+12. microsoft/vscode (https://github.com/microsoft/vscode)
+13. node-fetch version 2.6.7 (https://github.com/bitinn/node-fetch)
+14. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+15. react-dom version 16.8.4 (https://github.com/facebook/react)
+16. react version 16.8.4 (https://github.com/facebook/react)
+17. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+18. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+19. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
 
 %% @octokit/core NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -580,35 +578,6 @@ http://www.w3.org/TR/css3-color/#svg-color
 =========================================
 END OF  chroma-js NOTICES AND INFORMATION
 
-%% crypto-browserify NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License
-
-Copyright (c) 2013 Dominic Tarr
-
-Permission is hereby granted, free of charge, 
-to any person obtaining a copy of this software and 
-associated documentation files (the "Software"), to 
-deal in the Software without restriction, including 
-without limitation the rights to use, copy, modify, 
-merge, publish, distribute, sublicense, and/or sell 
-copies of the Software, and to permit persons to whom 
-the Software is furnished to do so, 
-subject to the following conditions:
-
-The above copyright notice and this permission notice 
-shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR 
-ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-=========================================
-END OF  crypto-browserify NOTICES AND INFORMATION
-
 %% https-proxy-agent NOTICES AND INFORMATION BEGIN HERE
 =========================================
 https-proxy-agent
@@ -1083,29 +1052,3 @@ SOFTWARE.
 
 =========================================
 END OF  sortablejs NOTICES AND INFORMATION
-
-%% stream-browserify NOTICES AND INFORMATION BEGIN HERE
-=========================================
-MIT License
-
-Copyright (c) James Halliday
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  stream-browserify NOTICES AND INFORMATION

@@ -102,14 +102,13 @@ export class Storage implements Disposable {
 export type SecretKeys = string;
 
 export const enum DeprecatedStorageKeys {
-	/** @deprecated use `gitlens:version` */
-	Version = 'gitlensVersion',
 	/** @deprecated */
 	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
+	PreReleaseVersion = 'gitlens:synced:preVersion',
 	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
 }
 
@@ -136,9 +135,13 @@ export interface GlobalStorage {
 	};
 	synced: {
 		version?: string;
+		// Keep the pre-release version separate from the released version
+		preVersion?: string;
 	};
 	usages?: Record<TrackedUsageKeys, TrackedUsage>;
 	version?: string;
+	// Keep the pre-release version separate from the released version
+	preVersion?: string;
 	views: {
 		welcome: {
 			visible?: boolean;

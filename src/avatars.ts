@@ -69,13 +69,23 @@ const retryDecay = [
 
 export function getAvatarUri(
 	email: string | undefined,
+	repoPathOrCommit: undefined,
+	options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
+): Uri;
+export function getAvatarUri(
+	email: string | undefined,
+	repoPathOrCommit: string | GitRevisionReference,
+	options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
+): Uri | Promise<Uri>;
+export function getAvatarUri(
+	email: string | undefined,
 	repoPathOrCommit: string | GitRevisionReference | undefined,
-	{ defaultStyle, size = 16 }: { defaultStyle?: GravatarDefaultStyle; size?: number } = {},
+	options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
 ): Uri | Promise<Uri> {
 	ensureAvatarCache(avatarCache);
 
 	// Double the size to avoid blurring on the retina screen
-	size *= 2;
+	const size = (options?.size ?? 16) * 2;
 
 	if (!email) {
 		const avatar = createOrUpdateAvatar(
@@ -83,7 +93,7 @@ export function getAvatarUri(
 			undefined,
 			size,
 			missingGravatarHash,
-			defaultStyle,
+			options?.defaultStyle,
 		);
 		return avatar.uri ?? avatar.fallback!;
 	}
@@ -91,7 +101,7 @@ export function getAvatarUri(
 	const hash = md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
 
-	const avatar = createOrUpdateAvatar(key, email, size, hash, defaultStyle);
+	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
 	let query = avatarQueue.get(key);

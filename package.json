@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "12.1.2",
+	"version": "12.2.1",
 	"engines": {
 		"vscode": "^1.69.0"
 	},
@@ -8301,24 +8301,24 @@
 			"scm/sourceControl": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scm.graph",
+					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && scmProvider == git",
 					"group": "6_gitlens@1"
 				}
 			],
 			"scm/title": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
 					"group": "navigation@-1000"
 				},
 				{
 					"command": "gitlens.addAuthors",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors && scmProvider == git",
 					"group": "2_z_gitlens@1"
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && scmProvider == git",
 					"group": "2_z_gitlens@2"
 				}
 			],
@@ -11638,9 +11638,12 @@
 		"lint:webviews": "eslint \"src/webviews/apps/**/*.ts?(x)\" --fix",
 		"package": "vsce package --yarn",
 		"package-insiders": "yarn run patch-insiders && yarn run package",
-		"patch-insiders": "node ./scripts/applyPatchForInsiders.js",
+		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
+		"patch-insiders": "node ./scripts/applyInsidersPatch.js",
+		"patch-pre": "node ./scripts/applyPreReleasePatch.js",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"pub": "vsce publish --yarn",
+		"pub-pre": "vsce publish --yarn --pre-release",
 		"rebuild": "yarn run reset && yarn run build",
 		"reset": "yarn run clean && yarn --frozen-lockfile",
 		"test": "node ./out/test/runTest.js",
@@ -11660,14 +11663,13 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "1.0.0-rc.12",
+		"@gitkraken/gitkraken-components": "1.0.0-rc.13",
 		"@octokit/core": "4.0.5",
 		"@vscode/codicons": "0.0.32",
-		"@vscode/webview-ui-toolkit": "1.0.0",
+		"@vscode/webview-ui-toolkit": "1.0.1",
 		"ansi-regex": "6.0.1",
 		"billboard.js": "3.5.1",
 		"chroma-js": "2.4.2",
-		"crypto-browserify": "3.12.0",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "2.3.1",
@@ -11677,8 +11679,7 @@
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
 		"react-dom": "16.8.4",
-		"sortablejs": "1.15.0",
-		"stream-browserify": "3.0.0"
+		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
@@ -11692,8 +11693,8 @@
 		"@types/sortablejs": "1.13.0",
 		"@types/uuid": "8.3.4",
 		"@types/vscode": "1.69.0",
-		"@typescript-eslint/eslint-plugin": "5.33.1",
-		"@typescript-eslint/parser": "5.33.1",
+		"@typescript-eslint/eslint-plugin": "5.36.1",
+		"@typescript-eslint/parser": "5.36.1",
 		"@vscode/test-electron": "2.1.5",
 		"@vscode/test-web": "0.0.29",
 		"circular-dependency-plugin": "5.2.2",
@@ -11704,12 +11705,12 @@
 		"css-loader": "6.7.1",
 		"css-minimizer-webpack-plugin": "^4.0.0",
 		"cssnano-preset-advanced": "^5.3.8",
-		"esbuild": "0.15.5",
+		"esbuild": "0.15.6",
 		"esbuild-loader": "2.19.0",
-		"eslint": "8.22.0",
+		"eslint": "8.23.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.5.0",
-		"eslint-import-resolver-typescript": "3.4.2",
+		"eslint-import-resolver-typescript": "3.5.0",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.26.0",
 		"eslint-plugin-lit": "1.6.1",
@@ -11724,17 +11725,17 @@
 		"mini-css-extract-plugin": "2.6.1",
 		"mocha": "10.0.0",
 		"prettier": "2.7.1",
-		"sass": "1.54.5",
+		"sass": "1.54.7",
 		"sass-loader": "13.0.2",
 		"schema-utils": "4.0.0",
 		"svgo": "2.8.0",
-		"terser-webpack-plugin": "5.3.5",
+		"terser-webpack-plugin": "5.3.6",
 		"ts-loader": "9.3.1",
 		"tsc-alias": "1.7.0",
-		"typescript": "4.7.4",
-		"vsce": "2.10.2",
+		"typescript": "4.8.2",
+		"vsce": "2.11.0",
 		"webpack": "5.74.0",
-		"webpack-bundle-analyzer": "4.6.0",
+		"webpack-bundle-analyzer": "4.6.1",
 		"webpack-cli": "4.10.0",
 		"webpack-node-externals": "3.0.0"
 	},

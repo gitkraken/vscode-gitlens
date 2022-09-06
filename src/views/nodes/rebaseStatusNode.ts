@@ -52,7 +52,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		let children: FileNode[] =
-			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, this.rebaseStatus, f)) ?? [];
+			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, f, this.rebaseStatus)) ?? [];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = makeHierarchical(

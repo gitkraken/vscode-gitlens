@@ -32,7 +32,7 @@ export interface FilesQueryResults {
 export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
-		protected override readonly parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly ref1: string,
 		public readonly ref2: string,

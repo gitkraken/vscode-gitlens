@@ -8,17 +8,12 @@ import { GitFile } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
-import { ContextValues, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewFileNode } from './viewNode';
 
-export class UncommittedFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
-	public readonly file: GitFile;
-	public readonly repoPath: string;
-
+export class UncommittedFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
 	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile) {
-		super(GitUri.fromFile(file, repoPath), view, parent);
-
-		this.repoPath = repoPath;
-		this.file = file;
+		super(GitUri.fromFile(file, repoPath), view, parent, file);
 	}
 
 	override toClipboard(): string {

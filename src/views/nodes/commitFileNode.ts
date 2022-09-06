@@ -15,10 +15,15 @@ import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
+	static key = ':file';
+	static getId(parent: ViewNode, path: string): string {
+		return `${parent.id}${this.key}(${path})`;
+	}
+
 	constructor(
 		view: TView,
 		parent: ViewNode,
-		public readonly file: GitFile,
+		file: GitFile,
 		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
@@ -26,11 +31,15 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {
 		return this.file.path;
+	}
+
+	override get id(): string {
+		return CommitFileNode.getId(this.parent, this.file.path);
 	}
 
 	get priority(): number {
@@ -63,6 +72,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		}
 
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
+		item.id = this.id;
 		item.contextValue = this.contextValue;
 		item.description = this.description;
 		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);

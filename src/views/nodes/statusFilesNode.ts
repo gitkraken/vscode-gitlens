@@ -94,8 +94,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView | WorktreesView> 
 				new StatusFileNode(
 					this.view,
 					this,
-					repoPath,
 					files[files.length - 1],
+					repoPath,
 					files.map(s => s.commit),
 				),
 		);

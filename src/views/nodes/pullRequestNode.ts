@@ -5,13 +5,12 @@ import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { ViewsWithCommits } from '../viewBase';
-import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	static key = ':pullrequest';
-	static getId(parent: ViewNode, repoPath: string, id: string, ref?: string): string {
-		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${id}):${ref}`;
+	static getId(parent: ViewNode, id: string, ref?: string): string {
+		return `${parent.id}${this.key}(${id}):${ref}`;
 	}
 
 	public readonly pullRequest: PullRequest;
@@ -45,7 +44,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return PullRequestNode.getId(this.parent, this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref);
+		return PullRequestNode.getId(this.parent, this.pullRequest.id, this.branchOrCommit?.ref);
 	}
 
 	getChildren(): ViewNode[] {

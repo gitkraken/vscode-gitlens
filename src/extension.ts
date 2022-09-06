@@ -15,11 +15,11 @@ import { Logger, LogLevel } from './logger';
 import {
 	showDebugLoggingWarningMessage,
 	showInsidersErrorMessage,
-	showInsidersExpiredErrorMessage,
+	showPreReleaseExpiredErrorMessage,
 	showWhatsNewMessage,
 } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { DeprecatedStorageKeys, Storage, SyncedStorageKeys } from './storage';
+import { Storage, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
@@ -29,7 +29,8 @@ import { isViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion: string = context.extension.packageJSON.version;
-	const insiders = context.extension.id === 'eamodio.gitlens-insiders' || satisfies(gitlensVersion, '> 2020.0.0');
+	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
+	const prerelease = insiders || satisfies(gitlensVersion, '> 2020.0.0');
 
 	const outputLevel = configuration.get('outputLevel');
 	Logger.configure(context, configuration.get('outputLevel'), o => {
@@ -48,15 +49,18 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		return undefined;
 	});
 
-	const sw = new Stopwatch(`GitLens${insiders ? ' (Insiders)' : ''} v${gitlensVersion}`, {
-		log: {
-			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
-			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+	const sw = new Stopwatch(
+		`GitLens${prerelease ? (insiders ? ' (Insiders)' : ' (pre-release)') : ''} v${gitlensVersion}`,
+		{
+			log: {
+				message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
+				//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
+			},
 		},
-	});
+	);
 
 	// If we are using the separate insiders extension, ensure that stable isn't also installed
-	if (context.extension.id === 'eamodio.gitlens-insiders') {
+	if (insiders) {
 		const stable = extensions.getExtension('eamodio.gitlens');
 		if (stable != null) {
 			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
@@ -68,18 +72,22 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 	}
 
-	// Ensure that this insiders version hasn't expired
-	if (insiders) {
+	// Ensure that this pre-release or insiders version hasn't expired
+	if (prerelease) {
 		const v = fromString(gitlensVersion);
 		// Get the build date from the version number
 		const date = new Date(v.major, v.minor - 1, Number(v.patch.toString().substring(0, 2)));
 
 		// If the build date is older than 14 days then show the expired error message
 		if (date.getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) {
-			sw.stop({ message: ` was NOT activated because the insiders version (${gitlensVersion}) has expired` });
+			sw.stop({
+				message: ` was NOT activated because this ${
+					insiders ? 'insiders' : 'pre-release'
+				} version (${gitlensVersion}) has expired`,
+			});
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(() => void showInsidersExpiredErrorMessage(gitlensVersion), 0);
+			setTimeout(() => void showPreReleaseExpiredErrorMessage(gitlensVersion, insiders), 0);
 
 			return undefined;
 		}
@@ -95,8 +103,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	setKeysForSync(context);
 
 	const storage = new Storage(context);
-	const syncedVersion = storage.get('synced:version');
-	const localVersion = storage.get('version') ?? context.globalState.get<string>(DeprecatedStorageKeys.Version);
+	const syncedVersion = storage.get(prerelease && !insiders ? 'synced:preVersion' : 'synced:version');
+	const localVersion = storage.get(prerelease && !insiders ? 'preVersion' : 'version');
 
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
@@ -131,7 +139,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	// await migrateSettings(context, previousVersion);
 
-	const container = Container.create(context, storage, insiders, gitlensVersion, previousVersion);
+	const container = Container.create(context, storage, prerelease, gitlensVersion, previousVersion);
 	once(container.onReady)(() => {
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
@@ -139,18 +147,18 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
-		void storage.store('version', gitlensVersion);
+		void storage.store(prerelease && !insiders ? 'preVersion' : 'version', gitlensVersion);
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void storage.store('synced:version', gitlensVersion);
+			void storage.store(prerelease && !insiders ? 'synced:preVersion' : 'synced:version', gitlensVersion);
 		}
 
 		if (outputLevel === OutputLevel.Debug) {
 			setTimeout(async () => {
 				if (configuration.get('outputLevel') !== OutputLevel.Debug) return;
 
-				if (!container.insidersOrDebugging) {
+				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {
 						void executeCommand(Commands.DisableDebugLogging);
 					}

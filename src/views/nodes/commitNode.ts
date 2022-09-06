@@ -2,7 +2,8 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration, ViewFilesLayout } from '../../configuration';
-import { Colors, Commands } from '../../constants';
+import { Colors, Commands, ContextKeys } from '../../constants';
+import { getContext } from '../../context';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
@@ -23,7 +24,6 @@ import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
-import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
 
@@ -34,8 +34,8 @@ type State = {
 
 export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
 	static key = ':commit';
-	static getId(parent: ViewNode, repoPath: string, sha: string): string {
-		return `${parent.id}|${RepositoryNode.getId(repoPath)}${this.key}(${sha})`;
+	static getId(parent: ViewNode, sha: string): string {
+		return `${parent.id}${this.key}(${sha})`;
 	}
 
 	constructor(
@@ -55,7 +55,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	override get id(): string {
-		return CommitNode.getId(this.parent, this.commit.repoPath, this.commit.sha);
+		return CommitNode.getId(this.parent, this.commit.sha);
 	}
 
 	get isTip(): boolean {
@@ -72,42 +72,49 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		if (this._children == null) {
 			const commit = this.commit;
 
-			const pullRequest = this.getState('pullRequest');
-
 			let children: (PullRequestNode | FileNode)[] = [];
 			let onCompleted: Deferred<void> | undefined;
+			let pullRequest;
 
 			if (
 				!(this.view instanceof TagsView) &&
 				!(this.view instanceof FileHistoryView) &&
+				!this.unpublished &&
+				getContext(ContextKeys.HasConnectedRemotes) &&
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForCommits
 			) {
+				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
+					const prPromise = this.getAssociatedPullRequest(commit);
 
-					queueMicrotask(() => {
-						void this.getAssociatedPullRequest(commit).then(pr => {
-							onCompleted?.cancel();
+					queueMicrotask(async () => {
+						await onCompleted?.promise;
 
-							// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-							if (pr != null && this._children != null) {
-								this._children.splice(
-									0,
-									0,
-									new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
-								);
-							}
-
-							// Refresh this node to show a spinner while the pull request is loading
+						// If we are waiting too long, refresh this node to show a spinner while the pull request is loading
+						let spinner = false;
+						const timeout = setTimeout(() => {
+							spinner = true;
 							this.view.triggerNodeChange(this);
-						});
+						}, 250);
 
-						// Refresh this node to show a spinner while the pull request is loading
-						void onCompleted?.promise.then(
-							() => this.view.triggerNodeChange(this),
-							() => {},
-						);
+						const pr = await prPromise;
+						clearTimeout(timeout);
+
+						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+						if (pr != null && this._children != null) {
+							this._children.splice(
+								0,
+								0,
+								new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
+							);
+						}
+
+						// Refresh this node to add the pull request node or remove the spinner
+						if (spinner || pr != null) {
+							this.view.triggerNodeChange(this);
+						}
 					});
 				}
 			}

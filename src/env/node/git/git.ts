@@ -1210,6 +1210,11 @@ export class Git {
 		return result;
 	}
 
+	async rev_parse(repoPath: string, ref: string): Promise<string | undefined> {
+		const data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
+		return data.length === 0 ? undefined : data.trim();
+	}
+
 	async rev_parse__currentBranch(
 		repoPath: string,
 		ordering: 'date' | 'author-date' | 'topo' | null,

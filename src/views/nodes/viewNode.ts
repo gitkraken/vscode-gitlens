@@ -88,18 +88,19 @@ export interface ViewNode {
 export abstract class ViewNode<TView extends View = View, State extends object = any> {
 	protected splatted = false;
 
-	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
+	constructor(uri: GitUri, public readonly view: TView, protected parent?: ViewNode) {
 		this._uri = uri;
 	}
 
 	toClipboard?(): string;
 
 	toString(): string {
-		return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
+		const id = this.id;
+		return `${Logger.toLoggableName(this)}${id != null ? `(${id})` : ''}`;
 	}
 
 	protected _uri: GitUri;
-	get uri() {
+	get uri(): GitUri {
 		return this._uri;
 	}
 
@@ -167,6 +168,23 @@ export function isViewNode(node: any): node is ViewNode {
 type StateKey<T> = keyof T;
 type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
 
+export abstract class ViewFileNode<TView extends View = View, State extends object = any> extends ViewNode<
+	TView,
+	State
+> {
+	constructor(uri: GitUri, view: TView, public override parent: ViewNode, public readonly file: GitFile) {
+		super(uri, view, parent);
+	}
+
+	get repoPath(): string {
+		return this.uri.repoPath!;
+	}
+
+	override toString(): string {
+		return `${super.toString()}:${this.file.path}`;
+	}
+}
+
 export abstract class ViewRefNode<
 	TView extends View = View,
 	TReference extends GitReference = GitReference,
@@ -183,12 +201,15 @@ export abstract class ViewRefNode<
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewRefNode<
+export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewFileNode<
 	TView,
-	GitRevisionReference,
 	State
 > {
-	abstract get file(): GitFile;
+	constructor(uri: GitUri, view: TView, parent: ViewNode, file: GitFile) {
+		super(uri, view, parent, file);
+	}
+
+	abstract get ref(): GitRevisionReference;
 
 	override toString(): string {
 		return `${super.toString()}:${this.file.path}`;
