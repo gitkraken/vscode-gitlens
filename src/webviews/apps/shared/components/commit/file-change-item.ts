@@ -159,6 +159,9 @@ export class FileChangeItem extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	stash = false;
 
+	@property({ type: Boolean, reflect: true })
+	uncommitted = false;
+
 	private renderIcon() {
 		if (this.icon !== '') {
 			return html`<img class="change-list__status-icon" src="${this.icon}" />`;
@@ -197,14 +200,14 @@ export class FileChangeItem extends LitElement {
 					title="Open file"
 					aria-label="Open file"
 					><code-icon icon="go-to-file"></code-icon></a
-				><a
+				>${!this.uncommitted ? html`<a
 					class="change-list__action"
 					@click=${this.onCompareWorking}
 					href="#"
 					title="Open Changes with Working File"
 					aria-label="Open Changes with Working File"
 					><code-icon icon="git-compare"></code-icon></a
-				>${!this.stash
+				>` : nothing}${!this.stash && !this.uncommitted
 					? html`<a
 								class="change-list__action"
 								@click=${this.onOpenFileOnRemote}

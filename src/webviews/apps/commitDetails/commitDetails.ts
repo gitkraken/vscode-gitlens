@@ -206,6 +206,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			return;
 		}
 
+		this.renderActions(this.state);
 		this.renderPin(this.state);
 		this.renderSha(this.state);
 		this.renderMessage(this.state);
@@ -216,6 +217,11 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// if (this.state.includeRichContent) {
 		this.renderPullRequestAndAutolinks(this.state);
 		// }
+	}
+
+	renderActions(state: CommitState) {
+		const isHidden = state.selected?.sha === uncommittedSha ? 'true' : 'false';
+		[...document.querySelectorAll('[data-action-type="graph"],[data-action-type="more"]')].forEach($el => $el.setAttribute('aria-hidden', isHidden));
 	}
 
 	renderPin(state: CommitState) {
@@ -322,7 +328,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		if (state.selected.files?.length) {
-			const stashAttr = state.selected.isStash ? 'stash ' : '';
+			const stashAttr = state.selected.isStash ? 'stash ' : state.selected.sha === uncommittedSha ? 'uncommitted ' : '';
 			$el.innerHTML = state.selected.files
 				.map(
 					(file: Record<string, any>) => `

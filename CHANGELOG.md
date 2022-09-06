@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Commit Details showing incorrect actions for uncommitted changes
+
 ## [12.2.2] - 2022-09-06
 
 ### Fixed
