@@ -344,14 +344,14 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: mode === 'production' ? false : 'source-map',
+		devtool: mode === 'production' ? false : 'inline-source-map',
 		output: {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
 		},
 		optimization: {
-			minimizer: [
+			minimizer: mode === 'production' ? [
 				new TerserPlugin(
 					env.esbuild
 						? {
@@ -396,7 +396,7 @@ function getWebviewsConfig(mode, env) {
 						],
 					},
 				}),
-			],
+			] : [],
 		},
 		module: {
 			rules: [
