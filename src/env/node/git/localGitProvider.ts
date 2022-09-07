@@ -1756,7 +1756,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (commit.tips) {
 					for (let tip of commit.tips.split(', ')) {
-						if (tip === 'refs/stash' || tip === 'HEAD') continue;
+						if (tip === 'refs/stash') continue;
 
 						if (tip.startsWith('tag: ')) {
 							refTags.push({
@@ -1768,8 +1768,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							continue;
 						}
 
-						current = tip.startsWith('HEAD -> ');
-						if (current) {
+						current = tip.startsWith('HEAD');
+						if (current && tip !== 'HEAD') {
 							tip = tip.substring(8);
 						}
 
