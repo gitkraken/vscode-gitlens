@@ -318,7 +318,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const { defaultItemLimit, pageItemLimit } = this.getConfig();
 		const newGraph = await this._graph.more(limit ?? pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
-			this.setGraph(newGraph);
+			this.setGraph(newGraph, true);
 		} else {
 			debugger;
 		}
@@ -514,12 +514,13 @@ export class GraphWebview extends WebviewBase<State> {
 		this._selectedSha = undefined;
 	}
 
-	private setGraph(graph: GitGraph | undefined) {
+	private setGraph(graph: GitGraph | undefined, incremental?: boolean) {
 		this._graph = graph;
 
-		if (graph == null) {
+		if (graph == null || !incremental) {
 			this._ids.clear();
-			return;
+
+			if (graph == null) return;
 		}
 
 		// TODO@eamodio see if we can ask the graph if it can select the sha, so we don't have to maintain a set of ids

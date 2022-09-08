@@ -52,7 +52,7 @@ import {
 	sortBranches,
 } from '../../../git/models/branch';
 import type { GitStashCommit } from '../../../git/models/commit';
-import { GitCommit, GitCommitIdentity, isStash } from '../../../git/models/commit';
+import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
@@ -87,7 +87,15 @@ import type { GitWorktree } from '../../../git/models/worktree';
 import { GitBlameParser } from '../../../git/parsers/blameParser';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
 import { GitDiffParser } from '../../../git/parsers/diffParser';
-import { GitLogParser, LogType } from '../../../git/parsers/logParser';
+import {
+	createLogParser,
+	createLogParserSingle,
+	createLogParserWithFiles,
+	getGraphParser,
+	getGraphRefParser,
+	GitLogParser,
+	LogType,
+} from '../../../git/parsers/logParser';
 import { GitReflogParser } from '../../../git/parsers/reflogParser';
 import { GitRemoteParser } from '../../../git/parsers/remoteParser';
 import { GitStatusParser } from '../../../git/parsers/statusParser';
@@ -1611,15 +1619,41 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph> {
-		const scope = getLogScope();
+		const parser = getGraphParser();
+		const refParser = getGraphRefParser();
 
-		let stdin: string | undefined;
+		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
+		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
+		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 
-		const [stashResult, headResult] = await Promise.allSettled([
+		const [headResult, refResult, stashResult, remotesResult] = await Promise.allSettled([
+			this.git.rev_parse(repoPath, 'HEAD'),
+			options?.ref != null && options?.ref !== 'HEAD'
+				? this.git.log2(repoPath, options.ref, undefined, ...refParser.arguments, '-n1')
+				: undefined,
 			this.getStash(repoPath),
-			options?.ref != null && options.ref !== 'HEAD' ? this.git.rev_parse(repoPath, 'HEAD') : undefined,
+			this.getRemotes(repoPath),
 		]);
 
+		let limit = defaultLimit;
+		let selectSha: string | undefined;
+		let since: string | undefined;
+
+		const commit = first(refParser.parse(getSettledValue(refResult) ?? ''));
+		const head = getSettledValue(headResult);
+		if (commit != null && commit.sha !== head) {
+			since = ordering === 'author-date' ? commit.authorDate : commit.committerDate;
+			selectSha = commit.sha;
+			limit = 0;
+		} else if (options?.ref != null && (options.ref === 'HEAD' || options.ref === head)) {
+			selectSha = head;
+		}
+
+		const remotes = getSettledValue(remotesResult);
+		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
+		const skipStashParents = new Set();
+
+		let stdin: string | undefined;
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const stash = getSettledValue(stashResult);
 		if (stash != null) {
@@ -1629,259 +1663,206 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
-		let getLogForRefFn;
-		if (options?.ref != null) {
-			const head = getSettledValue(headResult);
-
-			async function getLogForRef(this: LocalGitProvider): Promise<GitLog | undefined> {
-				let log;
-
-				const parser = GitLogParser.create<{ sha: string; date: string }>({ sha: '%H', date: '%ct' });
-				const data = await this.git.log(repoPath, options?.ref, { argsOrFormat: parser.arguments, limit: 1 });
-
-				let commit = first(parser.parse(data));
-				if (commit != null) {
-					const defaultItemLimit = configuration.get('graph.defaultItemLimit');
-
-					let found = false;
-					// If we are looking for the HEAD assume that it might be in the first page (so we can avoid extra queries)
-					if (options!.ref === 'HEAD' || options!.ref === head) {
-						log = await this.getLog(repoPath, {
-							all: options!.mode !== 'single',
-							ordering: 'date',
-							limit: defaultItemLimit,
-							stdin: stdin,
-						});
-						found = log?.commits.has(commit.sha) ?? false;
-					}
-
-					if (!found) {
-						// Get the log up to (and including) the specified commit
-						log = await this.getLog(repoPath, {
-							all: options!.mode !== 'single',
-							ordering: 'date',
-							limit: 0,
-							extraArgs: [`--since="${Number(commit.date)}"`, '--boundary'],
-							stdin: stdin,
-						});
-					}
-
-					found = log?.commits.has(commit.sha) ?? false;
-					if (!found) {
-						Logger.debug(scope, `Could not find commit ${options!.ref}`);
-
-						debugger;
-					}
-
-					if (log?.more != null && (!found || log.commits.size < defaultItemLimit / 2)) {
-						Logger.debug(scope, 'Loading next page...');
-
-						log = await log.more(
-							(found && log.commits.size < defaultItemLimit / 2
-								? defaultItemLimit
-								: configuration.get('graph.pageItemLimit')) ?? options?.limit,
-						);
-						// We need to clear the "pagedCommits", since we want to return the entire set
-						if (log != null) {
-							(log as Mutable<typeof log>).pagedCommits = undefined;
-						}
-
-						found = log?.commits.has(commit.sha) ?? false;
-						if (!found) {
-							Logger.debug(scope, `Still could not find commit ${options!.ref}`);
-							commit = undefined;
-
-							debugger;
-						}
-					}
-
-					if (!found) {
-						commit = undefined;
-					}
-
-					options!.ref = commit?.sha;
+		async function getCommitsForGraphCore(
+			this: LocalGitProvider,
+			limit: number,
+			shaOrCursor?: string | { sha: string; timestamp: string },
+		): Promise<GitGraph> {
+			let cursor: { sha: string; timestamp: string } | undefined;
+			let sha: string | undefined;
+			if (shaOrCursor != null) {
+				if (typeof shaOrCursor === 'string') {
+					sha = shaOrCursor;
+				} else {
+					cursor = shaOrCursor;
 				}
-				return (
-					log ??
-					this.getLog(repoPath, {
-						all: options?.mode !== 'single',
-						ordering: 'date',
-						limit: options?.limit,
-						stdin: stdin,
-					})
-				);
 			}
 
-			getLogForRefFn = getLogForRef;
-		}
+			let log: string | undefined;
+			let nextPageLimit = limit;
+			let size;
 
-		const [logResult, remotesResult] = await Promise.allSettled([
-			getLogForRefFn?.call(this) ??
-				this.getLog(repoPath, {
-					all: options?.mode !== 'single',
-					ordering: 'date',
-					limit: options?.limit,
-					stdin: stdin,
-				}),
-			this.getRemotes(repoPath),
-		]);
+			do {
+				const args = [...parser.arguments, '-m', `--${ordering}-order`, '--all'];
 
-		return this.getCommitsForGraphCore(
-			repoPath,
-			asWebviewUri,
-			getSettledValue(logResult),
-			stash,
-			getSettledValue(remotesResult),
-			options,
-		);
-	}
+				if (since) {
+					args.push(`--since=${since}`, '--boundary');
+					// Only allow `since` once
+					since = undefined;
+				} else {
+					args.push(`-n${nextPageLimit + 1}`);
+					if (cursor) {
+						args.push(`--until=${cursor.timestamp}`, '--boundary');
+					}
+				}
 
-	private getCommitsForGraphCore(
-		repoPath: string,
-		asWebviewUri: (uri: Uri) => Uri,
-		log: GitLog | undefined,
-		stash: GitStash | undefined,
-		remotes: GitRemote[] | undefined,
-		options?: {
-			branch?: string;
-			limit?: number;
-			mode?: 'single' | 'local' | 'all';
-			ref?: string;
-		},
-	): GitGraph {
-		if (log == null) {
-			return {
-				repoPath: repoPath,
-				rows: [],
-			};
-		}
+				let data = await this.git.log2(repoPath, undefined, stdin, ...args);
+				if (cursor || sha) {
+					const cursorIndex = data.startsWith(`${cursor?.sha ?? sha}\0`)
+						? 0
+						: data.indexOf(`\0\0${cursor?.sha ?? sha}\0`);
+					if (cursorIndex === -1) {
+						// If we didn't find any new commits, we must have them all so return that we have everything
+						if (size === data.length) return { repoPath: repoPath, rows: [] };
 
-		const commits = (log.pagedCommits?.() ?? log.commits)?.values();
-		if (commits == null) {
-			return {
-				repoPath: repoPath,
-				rows: [],
-			};
-		}
-
-		const rows: GitGraphRow[] = [];
-
-		let current = false;
-		let refHeads: GitGraphRowHead[];
-		let refRemoteHeads: GitGraphRowRemoteHead[];
-		let refTags: GitGraphRowTag[];
-		let parents: string[];
-		let remoteName: string;
-		let isStashCommit: boolean;
-
-		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
-
-		const skipStashParents = new Set();
-
-		for (const commit of commits) {
-			if (skipStashParents.has(commit.sha)) continue;
-
-			refHeads = [];
-			refRemoteHeads = [];
-			refTags = [];
-
-			if (commit.tips != null) {
-				for (let tip of commit.tips) {
-					if (tip === 'refs/stash' || tip === 'HEAD') continue;
-
-					if (tip.startsWith('tag: ')) {
-						refTags.push({
-							name: tip.substring(5),
-							// Not currently used, so don't bother filling it out
-							annotated: false,
-						});
-
+						size = data.length;
+						nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
 						continue;
 					}
 
-					current = tip.startsWith('HEAD -> ');
-					if (current) {
-						tip = tip.substring(8);
+					if (cursorIndex > 0 && cursor != null) {
+						const duplicates = data.substring(0, cursorIndex);
+						if (data.length - duplicates.length < (size ?? data.length) / 4) {
+							size = data.length;
+							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
+							continue;
+						}
+
+						// Substract out any duplicate commits (regex is faster than parsing and counting)
+						nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
+
+						data = data.substring(cursorIndex + 2);
 					}
+				}
 
-					remoteName = getRemoteNameFromBranchName(tip);
-					if (remoteName) {
-						const remote = remoteMap.get(remoteName);
-						if (remote != null) {
-							const branchName = getBranchNameWithoutRemote(tip);
-							if (branchName === 'HEAD') continue;
+				if (!data) return { repoPath: repoPath, rows: [] };
 
-							refRemoteHeads.push({
-								name: branchName,
-								owner: remote.name,
-								url: remote.url,
-								avatarUrl: (
-									remote.provider?.avatarUri ?? getRemoteIconUri(this.container, remote, asWebviewUri)
-								)?.toString(true),
+				log = data;
+				if (limit !== 0) {
+					limit = nextPageLimit;
+				}
+
+				break;
+			} while (true);
+
+			const rows: GitGraphRow[] = [];
+
+			let current = false;
+			let refHeads: GitGraphRowHead[];
+			let refRemoteHeads: GitGraphRowRemoteHead[];
+			let refTags: GitGraphRowTag[];
+			let parents: string[];
+			let remoteName: string;
+			let isStashCommit: boolean;
+
+			let commitCount = 0;
+			const startingCursor = cursor?.sha;
+
+			const commits = parser.parse(log);
+			for (const commit of commits) {
+				commitCount++;
+				// If we are paging, skip the first commit since its a duplicate of the last commit from the previous page
+				if (startingCursor === commit.sha || skipStashParents.has(commit.sha)) continue;
+
+				refHeads = [];
+				refRemoteHeads = [];
+				refTags = [];
+
+				if (commit.tips) {
+					for (let tip of commit.tips.split(', ')) {
+						if (tip === 'refs/stash' || tip === 'HEAD') continue;
+
+						if (tip.startsWith('tag: ')) {
+							refTags.push({
+								name: tip.substring(5),
+								// Not currently used, so don't bother looking it up
+								annotated: true,
 							});
 
 							continue;
 						}
+
+						current = tip.startsWith('HEAD -> ');
+						if (current) {
+							tip = tip.substring(8);
+						}
+
+						remoteName = getRemoteNameFromBranchName(tip);
+						if (remoteName) {
+							const remote = remoteMap.get(remoteName);
+							if (remote != null) {
+								const branchName = getBranchNameWithoutRemote(tip);
+								if (branchName === 'HEAD') continue;
+
+								refRemoteHeads.push({
+									name: branchName,
+									owner: remote.name,
+									url: remote.url,
+									avatarUrl: (
+										remote.provider?.avatarUri ??
+										getRemoteIconUri(this.container, remote, asWebviewUri)
+									)?.toString(true),
+								});
+
+								continue;
+							}
+						}
+
+						refHeads.push({
+							name: tip,
+							isCurrentHead: current,
+						});
 					}
-
-					refHeads.push({
-						name: tip,
-						isCurrentHead: current,
-					});
 				}
+
+				isStashCommit = stash?.commits.has(commit.sha) ?? false;
+
+				parents = commit.parents ? commit.parents.split(' ') : [];
+				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
+				if (isStashCommit && parents.length > 1) {
+					// Skip the "index commit" (e.g. contains staged files) of the stash
+					skipStashParents.add(parents[1]);
+					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
+					skipStashParents.add(parents[2]);
+					parents.splice(1, 2);
+				}
+
+				rows.push({
+					sha: commit.sha,
+					parents: parents,
+					author: commit.author,
+					avatarUrl: !isStashCommit ? getAvatarUri(commit.authorEmail, undefined).toString(true) : undefined,
+					email: commit.authorEmail ?? '',
+					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
+					message: emojify(commit.message),
+					// TODO: review logic for stash, wip, etc
+					type: isStashCommit
+						? GitGraphRowType.Stash
+						: commit.parents.length > 1
+						? GitGraphRowType.MergeCommit
+						: GitGraphRowType.Commit,
+					heads: refHeads,
+					remotes: refRemoteHeads,
+					tags: refTags,
+				});
 			}
 
-			isStashCommit = isStash(commit) || (stash?.commits.has(commit.sha) ?? false);
+			const last = rows[rows.length - 1];
+			cursor =
+				last != null
+					? {
+							sha: last.sha,
+							timestamp: String(Math.floor(last.date / 1000)),
+					  }
+					: undefined;
 
-			parents = commit.parents;
-			// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-			if (isStashCommit && parents.length > 1) {
-				// Copy the array to avoid mutating the original
-				parents = [...parents];
+			return {
+				repoPath: repoPath,
+				paging: {
+					limit: limit,
+					endingCursor: cursor?.timestamp,
+					startingCursor: startingCursor,
+					more: commitCount > limit,
+				},
+				rows: rows,
+				sha: sha ?? head,
 
-				// Skip the "index commit" (e.g. contains staged files) of the stash
-				skipStashParents.add(parents[1]);
-				// Skip the "untracked commit" (e.g. contains untracked files) of the stash
-				skipStashParents.add(parents[2]);
-				parents.splice(1, 2);
-			}
-
-			rows.push({
-				sha: commit.sha,
-				parents: parents,
-				author: commit.author.name,
-				avatarUrl: !isStashCommit ? getAvatarUri(commit.author.email, undefined).toString(true) : undefined,
-				email: commit.author.email ?? '',
-				date: commit.committer.date.getTime(),
-				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
-				// TODO: review logic for stash, wip, etc
-				type: isStashCommit
-					? GitGraphRowType.Stash
-					: commit.parents.length > 1
-					? GitGraphRowType.MergeCommit
-					: GitGraphRowType.Commit,
-				heads: refHeads,
-				remotes: refRemoteHeads,
-				tags: refTags,
-			});
+				more: async (limit: number): Promise<GitGraph | undefined> =>
+					getCommitsForGraphCore.call(this, limit, cursor),
+			};
 		}
 
-		return {
-			repoPath: repoPath,
-			paging: {
-				limit: log.limit,
-				endingCursor: log.endingCursor,
-				startingCursor: log.startingCursor,
-				more: log.hasMore,
-			},
-			rows: rows,
-			sha: options?.ref,
-
-			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
-				const moreLog = await log.more?.(limit);
-				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, stash, remotes, options);
-			},
-		};
+		return getCommitsForGraphCore.call(this, limit, selectSha);
 	}
 
 	@log()
@@ -1917,7 +1898,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					repoPath = normalizePath(repoPath);
 					const currentUser = await this.getCurrentUser(repoPath);
 
-					const parser = GitLogParser.create<{
+					const parser = createLogParser<{
 						sha: string;
 						author: string;
 						email: string;
@@ -2367,6 +2348,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			merges?: boolean;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
+			status?: null | 'name-status' | 'numstat' | 'stat';
 			since?: number | string;
 			until?: number | string;
 			extraArgs?: string[];
@@ -2383,11 +2365,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const args = [
 				`--format=${options?.all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`,
-				'--name-status',
-				'--full-history',
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'-m',
 			];
+
+			if (options?.status !== null) {
+				args.push(`--${options?.status ?? 'name-status'}`, '--full-history');
+			}
 			if (options?.all) {
 				args.push('--all');
 			}
@@ -2518,7 +2502,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const limit = options?.limit ?? configuration.get('advanced.maxListItems') ?? 0;
 
 		try {
-			const parser = GitLogParser.createSingle('%H');
+			const parser = createLogParserSingle('%H');
 
 			const data = await this.git.log(repoPath, options?.ref, {
 				authors: options?.authors,
@@ -3703,7 +3687,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let stash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
 		if (stash === undefined) {
-			const parser = GitLogParser.createWithFiles<{
+			const parser = createLogParserWithFiles<{
 				sha: string;
 				date: string;
 				committedDate: string;
