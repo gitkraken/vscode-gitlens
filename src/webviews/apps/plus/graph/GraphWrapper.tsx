@@ -77,6 +77,7 @@ const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumns
 		for (const column of Object.keys(config.columns)) {
 			columnsSettings[column] = {
 				width: config.columns[column].width,
+				isHidden: config.columns[column].isHidden,
 			};
 		}
 	}
@@ -141,6 +142,33 @@ const getClientPlatform = (): GraphPlatform => {
 
 const clientPlatform = getClientPlatform();
 
+const graphColumns: {[Key in GraphZoneType]: {name: string; hideable: boolean}} = {
+	refZone: {
+		name: 'Branch / Tag',
+		hideable: false,
+	},
+	commitZone: {
+		name: 'Graph',
+		hideable: false,
+	},
+	commitMessageZone: {
+		name: 'Commit Message',
+		hideable: false,
+	},
+	commitAuthorZone: {
+		name: 'Author',
+		hideable: false,
+	},
+	commitDateTimeZone: {
+		name: 'Commit Date / Time',
+		hideable: false,
+	},
+	commitShaZone: {
+		name: 'Sha',
+		hideable: false,
+	},
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -193,6 +221,8 @@ export function GraphWrapper({
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
+	// column setting UI
+	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 
 	useEffect(() => {
 		if (mainRef.current === null) return;
@@ -247,13 +277,26 @@ export function GraphWrapper({
 		onMissingAvatars?.(emails);
 	};
 
+	const handleSelectColumn = (graphZoneType: GraphZoneType) => {
+		onColumnChange?.(graphZoneType, {
+			...graphColSettings[graphZoneType],
+			isHidden: !graphColSettings[graphZoneType]?.isHidden,
+		});
+	};
+
+	const handleToggleColumnSettings = () => {
+		setColumnSettingsExpanded(!columnSettingsExpanded);
+	};
+
 	const handleMoreCommits = () => {
 		setIsLoading(true);
 		onMoreCommits?.();
 	};
 
 	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
-		onColumnChange?.(graphZoneType, { width: columnSettings.width });
+		if (columnSettings.width) {
+			onColumnChange?.(graphZoneType, { width: columnSettings.width });
+		}
 	};
 
 	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
@@ -535,6 +578,51 @@ export function GraphWrapper({
 							showing {graphRows.length} item{graphRows.length ? 's' : ''}
 						</span>
 					)}
+					<div className="actioncombo">
+						<button
+							type="button"
+							aria-controls="repo-columnsettings-list"
+							aria-expanded={columnSettingsExpanded}
+							aria-haspopup="listbox"
+							id="repo-actioncombo-label"
+							className="actioncombo__label"
+							role="combobox"
+							aria-activedescendant={
+								columnSettingsExpanded
+									? `repo-actioncombo-item-${reposList.findIndex(
+											item => item.path === currentRepository?.path,
+									  )}`
+									: undefined
+							}
+							onClick={() => handleToggleColumnSettings()}
+						>
+							<span className="codicon codicon-settings-gear columnsettings__icon" aria-label="Column Settings"></span>
+						</button>
+						<div
+							className="actioncombo__list"
+							id="repo-actioncombo-list"
+							role="listbox"
+							tabIndex={-1}
+							aria-labelledby="repo-actioncombo-label"
+						>
+							{
+								Object.entries(graphColumns).map(([index, item]) => (
+									<span
+										// type="button"
+										className="actioncombo__item"
+										role="option"
+										data-value={index}
+										id={`repo-actioncombo-item-${index}`}
+										key={`repo-actioncombo-item-${index}`}
+										aria-checked={false}
+										onClick={() => handleSelectColumn(index as GraphZoneType)}
+									>
+										{item.name} {!graphColSettings[index]?.isHidden && <span className='icon--check' />}
+									</span>
+								))
+							}
+						</div>
+					</div>
 					{isLoading && (
 						<span className="actionbar__loading">
 							<span className="icon--loading icon-modifier--spin" />
