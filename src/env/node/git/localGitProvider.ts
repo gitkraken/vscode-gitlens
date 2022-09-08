@@ -1828,7 +1828,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					// TODO: review logic for stash, wip, etc
 					type: isStashCommit
 						? GitGraphRowType.Stash
-						: commit.parents.length > 1
+						: parents.length > 1
 						? GitGraphRowType.MergeCommit
 						: GitGraphRowType.Commit,
 					heads: refHeads,
