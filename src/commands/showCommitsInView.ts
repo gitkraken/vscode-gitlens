@@ -18,6 +18,13 @@ export interface ShowCommitsInViewCommandArgs {
 
 @command()
 export class ShowCommitsInViewCommand extends ActiveEditorCommand {
+	static getMarkdownCommandArgs(sha: string, repoPath: string): string;
+	static getMarkdownCommandArgs(args: ShowCommitsInViewCommandArgs): string;
+	static getMarkdownCommandArgs(argsOrSha: ShowCommitsInViewCommandArgs | string, repoPath?: string): string {
+		const args = typeof argsOrSha === 'string' ? { refs: [argsOrSha], repoPath: repoPath } : argsOrSha;
+		return super.getMarkdownCommandArgsCore<ShowCommitsInViewCommandArgs>(Commands.ShowCommitInView, args);
+	}
+
 	constructor(private readonly container: Container) {
 		super([Commands.ShowCommitInView, Commands.ShowCommitsInView]);
 	}

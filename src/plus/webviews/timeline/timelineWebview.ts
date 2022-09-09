@@ -1,6 +1,6 @@
 'use strict';
-import type { Disposable, TextEditor } from 'vscode';
-import { Uri, ViewColumn, window } from 'vscode';
+import type { Disposable, TextEditor, ViewColumn } from 'vscode';
+import { Uri, window } from 'vscode';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
@@ -60,10 +60,10 @@ export class TimelineWebview extends WebviewBase<State> {
 		};
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Beside, ...args: unknown[]): Promise<void> {
+	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
-		return super.show(column, ...args);
+		return super.show(options, ...args);
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {

@@ -51,7 +51,7 @@ import { RepositoryVisibility } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
-import type { GitCommit } from './models/commit';
+import { GitCommit, GitCommitIdentity } from './models/commit';
 import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
@@ -1309,8 +1309,27 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
+
+		if (ref === GitRevision.uncommitted || ref === GitRevision.uncommittedStaged) {
+			const now = new Date();
+			const user = await this.getCurrentUser(repoPath);
+			return new GitCommit(
+				this.container,
+				path,
+				ref,
+				new GitCommitIdentity('You', user?.email ?? undefined, now),
+				new GitCommitIdentity('You', user?.email ?? undefined, now),
+				'Uncommitted changes',
+				[],
+				'Uncommitted changes',
+				undefined,
+				undefined,
+				[],
+			);
+		}
+
 		return provider.getCommit(path, ref);
 	}
 

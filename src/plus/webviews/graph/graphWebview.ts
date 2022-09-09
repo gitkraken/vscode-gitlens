@@ -43,6 +43,7 @@ import {
 export interface ShowCommitInGraphCommandArgs {
 	repoPath: string;
 	sha: string;
+	preserveFocus?: boolean;
 }
 
 export interface GraphSelectionChangeEvent {
@@ -116,7 +117,7 @@ export class GraphWebview extends WebviewBase<State> {
 				this._selectedSha = args.sha;
 
 				if (this._panel == null) {
-					void this.show();
+					void this.show({ preserveFocus: args.preserveFocus });
 				} else {
 					if (this._ids.has(args.sha)) {
 						void this.notifyDidChangeSelection();
@@ -131,7 +132,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this.onConfigurationChanged();
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Active, ...args: unknown[]): Promise<void> {
+	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.git.repositoryCount > 1) {
@@ -152,7 +153,7 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		}
 
-		return super.show(column, ...args);
+		return super.show({ column: ViewColumn.Active, ...options }, ...args);
 	}
 
 	protected override refresh(force?: boolean): Promise<void> {

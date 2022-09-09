@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a `Show in Commit Graph` action to the hovers
+
+### Changed
+
+- Changes the `Show Commit` action in the hovers to `Show Details` and opens the _Commit Details_ view
+
 ### Fixed
 
 - Fixes Commit Details showing incorrect actions for uncommitted changes
