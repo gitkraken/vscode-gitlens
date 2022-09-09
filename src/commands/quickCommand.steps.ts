@@ -40,6 +40,7 @@ import {
 	CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem,
 	CommitOpenFileCommandQuickPickItem,
 	CommitOpenFilesCommandQuickPickItem,
+	CommitOpenInGraphCommandQuickPickItem,
 	CommitOpenRevisionCommandQuickPickItem,
 	CommitOpenRevisionsCommandQuickPickItem,
 	CommitRestoreFileChangesCommandQuickPickItem,
@@ -1561,6 +1562,7 @@ async function getShowCommitOrStashStepItems<
 >(state: State): Promise<CommandQuickPickItem[]> {
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
 		new CommitOpenDetailsCommandQuickPickItem(state.reference),
+		new CommitOpenInGraphCommandQuickPickItem(state.reference),
 	];
 
 	let unpublished: boolean | undefined;
@@ -1912,6 +1914,7 @@ async function getShowCommitOrStashFileStepItems<
 
 	const items: (CommandQuickPickItem | QuickPickSeparator)[] = [
 		new CommitOpenDetailsCommandQuickPickItem(state.reference),
+		new CommitOpenInGraphCommandQuickPickItem(state.reference),
 	];
 
 	if (isStash(state.reference)) {

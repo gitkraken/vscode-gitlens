@@ -263,6 +263,16 @@ export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem 
 	}
 }
 
+export class CommitOpenInGraphCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
+		super(item ?? '$(gitlens-graph) Show in Commit Graph');
+	}
+
+	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.showInCommitGraph(this.commit, { preserveFocus: options?.preserveFocus });
+	}
+}
+
 export class CommitOpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
 		super(item ?? '$(files) Open Files');
