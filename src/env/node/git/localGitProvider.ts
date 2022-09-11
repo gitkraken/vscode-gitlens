@@ -1632,7 +1632,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this.getRemotes(repoPath),
 		]);
 
-		const limit = defaultLimit;
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
 		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
@@ -1655,11 +1654,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		async function getCommitsForGraphCore(
 			this: LocalGitProvider,
 			limit: number,
-			shaOrCursor?: string | { sha: string; skip?: number },
+			shaOrCursor?: string | { sha: string; skip: number },
 		): Promise<GitGraph> {
 			iterations++;
 
-			let cursor: { sha: string; skip?: number } | undefined;
+			let cursor: { sha: string; skip: number } | undefined;
 			let sha: string | undefined;
 			if (shaOrCursor != null) {
 				if (typeof shaOrCursor === 'string') {
@@ -1669,7 +1668,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			let log: string | undefined;
+			let log: string | string[] | undefined;
 			let nextPageLimit = limit;
 			let size;
 
@@ -1678,7 +1677,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				let data;
 				if (sha) {
-					[data, limit] = await this.git.logStream(
+					[data, limit] = await this.git.logStreamTo(
 						repoPath,
 						sha,
 						limit,
@@ -1692,38 +1691,36 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 
 					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
-				}
 
-				if (cursor || sha) {
-					const cursorIndex = data.startsWith(`${cursor?.sha ?? sha}\x00`)
-						? 0
-						: data.indexOf(`\x00\x00${cursor?.sha ?? sha}\x00`);
-					if (cursorIndex === -1) {
-						// If we didn't find any new commits, we must have them all so return that we have everything
-						if (size === data.length) return { repoPath: repoPath, ids: ids, rows: [] };
+					if (cursor) {
+						const cursorIndex = data.startsWith(`${cursor.sha}\x00`)
+							? 0
+							: data.indexOf(`\x00\x00${cursor.sha}\x00`);
+						if (cursorIndex === -1) {
+							// If we didn't find any new commits, we must have them all so return that we have everything
+							if (size === data.length) return { repoPath: repoPath, ids: ids, rows: [] };
 
-						size = data.length;
-						nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-						if (cursor?.skip) {
+							size = data.length;
+							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
 							cursor.skip -= Math.floor(cursor.skip * 0.1);
+
+							continue;
 						}
 
-						continue;
+						// if (cursorIndex > 0 && cursor != null) {
+						// 	const duplicates = data.substring(0, cursorIndex);
+						// 	if (data.length - duplicates.length < (size ?? data.length) / 4) {
+						// 		size = data.length;
+						// 		nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
+						// 		continue;
+						// 	}
+
+						// 	// Substract out any duplicate commits (regex is faster than parsing and counting)
+						// 	nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
+
+						// 	data = data.substring(cursorIndex + 2);
+						// }
 					}
-
-					// if (cursorIndex > 0 && cursor != null) {
-					// 	const duplicates = data.substring(0, cursorIndex);
-					// 	if (data.length - duplicates.length < (size ?? data.length) / 4) {
-					// 		size = data.length;
-					// 		nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-					// 		continue;
-					// 	}
-
-					// 	// Substract out any duplicate commits (regex is faster than parsing and counting)
-					// 	nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
-
-					// 	data = data.substring(cursorIndex + 2);
-					// }
 				}
 
 				if (!data) return { repoPath: repoPath, ids: ids, rows: [] };
@@ -1867,7 +1864,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			};
 		}
 
-		return getCommitsForGraphCore.call(this, limit, selectSha);
+		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
 	}
 
 	@log()

@@ -68,7 +68,7 @@ interface LogEntry {
 
 export type Parser<T> = {
 	arguments: string[];
-	parse: (data: string) => Generator<T>;
+	parse: (data: string | string[]) => Generator<T>;
 };
 
 type ParsedEntryFile = { status: string; path: string; originalPath?: string };
@@ -142,7 +142,7 @@ export function createLogParser<T extends Record<string, unknown>>(
 		args.push(...options.additionalArgs);
 	}
 
-	function* parse(data: string): Generator<T> {
+	function* parse(data: string | string[]): Generator<T> {
 		let entry: T = {} as any;
 		let fieldCount = 0;
 		let field;
@@ -179,7 +179,7 @@ export function createLogParserSingle(field: string): Parser<string> {
 	const format = field;
 	const args = ['-z', `--format=${format}`];
 
-	function* parse(data: string): Generator<string> {
+	function* parse(data: string | string[]): Generator<string> {
 		let field;
 
 		const fields = getLines(data, '\0');

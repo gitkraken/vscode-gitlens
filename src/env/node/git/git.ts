@@ -874,18 +874,17 @@ export class Git {
 		);
 	}
 
-	async logStream(
+	async logStreamTo(
 		repoPath: string,
 		sha: string,
 		limit: number,
 		options?: { configs?: readonly string[]; stdin?: string },
 		...args: string[]
-	): Promise<[data: string, count: number]> {
-		const params = ['log'];
+	): Promise<[data: string[], count: number]> {
+		const params = ['log', ...args];
 		if (options?.stdin) {
 			params.push('--stdin');
 		}
-		params.push(...args);
 
 		const proc = await this.gitSpawn(
 			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
@@ -893,12 +892,12 @@ export class Git {
 			'--',
 		);
 
-		const shaRegex = new RegExp(`(^${sha}\x00)|(\x00\x00${sha}\x00)`);
+		const shaRegex = new RegExp(`(?:^|\x00\x00)${sha}\x00`);
 
 		let found = false;
 		let count = 0;
 
-		return new Promise<[data: string, count: number]>((resolve, reject) => {
+		return new Promise<[data: string[], count: number]>((resolve, reject) => {
 			const errData: string[] = [];
 			const data: string[] = [];
 
@@ -915,13 +914,13 @@ export class Git {
 					reject(new Error(errData.join('')));
 				}
 
-				resolve([data.join(''), count]);
+				resolve([data, count]);
 			}
 
 			function onData(s: string) {
 				data.push(s);
 				// eslint-disable-next-line no-control-regex
-				count += (s.match(/\x00\x00[0-9a-f]{40}\x00/g)?.length ?? 0) + 1;
+				count += s.match(/(?:^|\x00\x00)[0-9a-f]{40}\x00/g)?.length ?? 0;
 
 				if (!found && shaRegex.test(s)) {
 					found = true;
@@ -939,7 +938,7 @@ export class Git {
 				proc.stderr!.removeListener('data', onErrData);
 				proc.kill();
 
-				resolve([data.join(''), count]);
+				resolve([data, count]);
 			}
 
 			proc.on('error', onError);
