@@ -7,7 +7,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"pauseForSourceMap": true,
@@ -33,7 +33,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--profile-temp", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"pauseForSourceMap": true,
@@ -59,7 +59,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--disable-extensions",
+				"--profile-temp",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
 			],
@@ -78,7 +78,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"pauseForSourceMap": true,
@@ -107,7 +107,7 @@
 			"runtimeExecutable": "${execPath}",
 			"args": [
 				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
-				"--disable-extension=eamodio.gitlens-insiders",
+				"--profile=Debugging (GitLens)",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionDevelopmentKind=web"
 			],
@@ -136,7 +136,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--profile-temp", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
 				"pauseForSourceMap": true,
@@ -163,7 +163,7 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--disable-extensions",
+				"--profile-temp",
 				"--extensionDevelopmentPath=${workspaceFolder}",
 				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
 			],
