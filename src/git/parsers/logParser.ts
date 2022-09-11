@@ -106,20 +106,12 @@ export function getGraphParser(): GraphParser {
 	return _graphParser;
 }
 
-type GraphRefParser = Parser<{
-	sha: string;
-	authorDate: string;
-	committerDate: string;
-}>;
+type GraphRefParser = Parser<string>;
 
 let _graphRefParser: GraphRefParser | undefined;
 export function getGraphRefParser(): GraphRefParser {
 	if (_graphRefParser == null) {
-		_graphRefParser = createLogParser({
-			sha: '%H',
-			authorDate: '%at',
-			committerDate: '%ct',
-		});
+		_graphRefParser = createLogParserSingle('%H');
 	}
 	return _graphRefParser;
 }

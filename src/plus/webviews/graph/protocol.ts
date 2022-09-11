@@ -25,7 +25,6 @@ export interface State {
 
 export interface GraphPaging {
 	startingCursor?: string;
-	endingCursor?: string;
 	more: boolean;
 }
 

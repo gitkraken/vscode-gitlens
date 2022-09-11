@@ -83,7 +83,6 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
-	private _ids: Set<string> = new Set();
 	private _selectedSha?: string;
 	private _repositoryEventsDisposable: Disposable | undefined;
 
@@ -119,7 +118,7 @@ export class GraphWebview extends WebviewBase<State> {
 				if (this._panel == null) {
 					void this.show({ preserveFocus: args.preserveFocus });
 				} else {
-					if (this._ids.has(args.sha)) {
+					if (this._graph?.ids.has(args.sha)) {
 						void this.notifyDidChangeSelection();
 						return;
 					}
@@ -319,7 +318,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const { defaultItemLimit, pageItemLimit } = this.getConfig();
 		const newGraph = await this._graph.more(limit ?? pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
-			this.setGraph(newGraph, true);
+			this.setGraph(newGraph);
 		} else {
 			debugger;
 		}
@@ -424,7 +423,6 @@ export class GraphWebview extends WebviewBase<State> {
 			rows: data.rows,
 			paging: {
 				startingCursor: data.paging?.startingCursor,
-				endingCursor: data.paging?.endingCursor,
 				more: data.paging?.more ?? false,
 			},
 		});
@@ -463,7 +461,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const config = this.getConfig();
 
 		// If we have a set of data refresh to the same set
-		const limit = this._graph?.paging?.limit ?? config.defaultItemLimit;
+		const limit = Math.max(config.defaultItemLimit, this._graph?.ids.size ?? config.defaultItemLimit);
 
 		// Check for GitLens+ access
 		const access = await this.getGraphAccess();
@@ -490,7 +488,6 @@ export class GraphWebview extends WebviewBase<State> {
 			rows: data.rows,
 			paging: {
 				startingCursor: data.paging?.startingCursor,
-				endingCursor: data.paging?.endingCursor,
 				more: data.paging?.more ?? false,
 			},
 			config: config,
@@ -515,19 +512,8 @@ export class GraphWebview extends WebviewBase<State> {
 		this._selectedSha = undefined;
 	}
 
-	private setGraph(graph: GitGraph | undefined, incremental?: boolean) {
+	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
-
-		if (graph == null || !incremental) {
-			this._ids.clear();
-
-			if (graph == null) return;
-		}
-
-		// TODO@eamodio see if we can ask the graph if it can select the sha, so we don't have to maintain a set of ids
-		for (const row of graph.rows) {
-			this._ids.add(row.sha);
-		}
 	}
 }
 

@@ -141,7 +141,7 @@ import { compare, fromString } from '../../../system/version';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { Git } from './git';
-import { GitErrors, maxGitCliLength } from './git';
+import { GitErrors, gitLogDefaultConfigsWithFiles, maxGitCliLength } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { fsExists, RunError } from './shell';
@@ -1626,31 +1626,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 
-		const [headResult, refResult, stashResult, remotesResult] = await Promise.allSettled([
-			this.git.rev_parse(repoPath, 'HEAD'),
-			options?.ref != null && options?.ref !== 'HEAD'
-				? this.git.log2(repoPath, options.ref, undefined, ...refParser.arguments, '-n1')
-				: undefined,
+		const [refResult, stashResult, remotesResult] = await Promise.allSettled([
+			this.git.log2(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 			this.getStash(repoPath),
 			this.getRemotes(repoPath),
 		]);
 
-		let limit = defaultLimit;
-		let selectSha: string | undefined;
-		let since: string | undefined;
-
-		const commit = first(refParser.parse(getSettledValue(refResult) ?? ''));
-		const head = getSettledValue(headResult);
-		if (commit != null && commit.sha !== head) {
-			since = ordering === 'author-date' ? commit.authorDate : commit.committerDate;
-			selectSha = commit.sha;
-			limit = 0;
-		} else if (options?.ref != null && (options.ref === 'HEAD' || options.ref === head)) {
-			selectSha = head;
-		}
-
+		const limit = defaultLimit;
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
+		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
 		const skipStashParents = new Set();
 
 		let stdin: string | undefined;
@@ -1663,12 +1648,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
+		const ids = new Set<string>();
+		let total = 0;
+		let iterations = 0;
+
 		async function getCommitsForGraphCore(
 			this: LocalGitProvider,
 			limit: number,
-			shaOrCursor?: string | { sha: string; timestamp: string },
+			shaOrCursor?: string | { sha: string; skip?: number },
 		): Promise<GitGraph> {
-			let cursor: { sha: string; timestamp: string } | undefined;
+			iterations++;
+
+			let cursor: { sha: string; skip?: number } | undefined;
 			let sha: string | undefined;
 			if (shaOrCursor != null) {
 				if (typeof shaOrCursor === 'string') {
@@ -1683,49 +1674,59 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let size;
 
 			do {
-				const args = [...parser.arguments, '-m', `--${ordering}-order`, '--all'];
+				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
 
-				if (since) {
-					args.push(`--since=${since}`, '--boundary');
-					// Only allow `since` once
-					since = undefined;
+				let data;
+				if (sha) {
+					[data, limit] = await this.git.logStream(
+						repoPath,
+						sha,
+						limit,
+						stdin ? { stdin: stdin } : undefined,
+						...args,
+					);
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
-					if (cursor) {
-						args.push(`--until=${cursor.timestamp}`, '--boundary');
+					if (cursor?.skip) {
+						args.push(`--skip=${cursor.skip}`);
 					}
+
+					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 				}
 
-				let data = await this.git.log2(repoPath, undefined, stdin, ...args);
 				if (cursor || sha) {
-					const cursorIndex = data.startsWith(`${cursor?.sha ?? sha}\0`)
+					const cursorIndex = data.startsWith(`${cursor?.sha ?? sha}\x00`)
 						? 0
-						: data.indexOf(`\0\0${cursor?.sha ?? sha}\0`);
+						: data.indexOf(`\x00\x00${cursor?.sha ?? sha}\x00`);
 					if (cursorIndex === -1) {
 						// If we didn't find any new commits, we must have them all so return that we have everything
-						if (size === data.length) return { repoPath: repoPath, rows: [] };
+						if (size === data.length) return { repoPath: repoPath, ids: ids, rows: [] };
 
 						size = data.length;
 						nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
+						if (cursor?.skip) {
+							cursor.skip -= Math.floor(cursor.skip * 0.1);
+						}
+
 						continue;
 					}
 
-					if (cursorIndex > 0 && cursor != null) {
-						const duplicates = data.substring(0, cursorIndex);
-						if (data.length - duplicates.length < (size ?? data.length) / 4) {
-							size = data.length;
-							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-							continue;
-						}
+					// if (cursorIndex > 0 && cursor != null) {
+					// 	const duplicates = data.substring(0, cursorIndex);
+					// 	if (data.length - duplicates.length < (size ?? data.length) / 4) {
+					// 		size = data.length;
+					// 		nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
+					// 		continue;
+					// 	}
 
-						// Substract out any duplicate commits (regex is faster than parsing and counting)
-						nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
+					// 	// Substract out any duplicate commits (regex is faster than parsing and counting)
+					// 	nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
 
-						data = data.substring(cursorIndex + 2);
-					}
+					// 	data = data.substring(cursorIndex + 2);
+					// }
 				}
 
-				if (!data) return { repoPath: repoPath, rows: [] };
+				if (!data) return { repoPath: repoPath, ids: ids, rows: [] };
 
 				log = data;
 				if (limit !== 0) {
@@ -1745,14 +1746,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let remoteName: string;
 			let isStashCommit: boolean;
 
-			let commitCount = 0;
-			const startingCursor = cursor?.sha;
+			let count = 0;
 
 			const commits = parser.parse(log);
 			for (const commit of commits) {
-				commitCount++;
-				// If we are paging, skip the first commit since its a duplicate of the last commit from the previous page
-				if (startingCursor === commit.sha || skipStashParents.has(commit.sha)) continue;
+				count++;
+				if (ids.has(commit.sha)) continue;
+
+				total++;
+				if (skipStashParents.has(commit.sha)) continue;
+
+				ids.add(commit.sha);
 
 				refHeads = [];
 				refRemoteHeads = [];
@@ -1838,25 +1842,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			const last = rows[rows.length - 1];
+			const startingCursor = cursor?.sha;
 			cursor =
 				last != null
 					? {
 							sha: last.sha,
-							timestamp: String(Math.floor(last.date / 1000)),
+							skip: total - iterations,
 					  }
 					: undefined;
 
 			return {
 				repoPath: repoPath,
-				paging: {
-					limit: limit,
-					endingCursor: cursor?.timestamp,
-					startingCursor: startingCursor,
-					more: commitCount > limit,
-				},
+				ids: ids,
 				rows: rows,
-				sha: sha ?? head,
+				sha: sha,
 
+				paging: {
+					limit: limit === 0 ? count : limit,
+					startingCursor: startingCursor,
+					more: count > limit,
+				},
 				more: async (limit: number): Promise<GitGraph | undefined> =>
 					getCommitsForGraphCore.call(this, limit, cursor),
 			};
@@ -2411,7 +2416,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`-n${limit + 1}`);
 			}
 
-			const data = await this.git.log2(repoPath, options?.ref, options?.stdin, ...args);
+			const data = await this.git.log2(
+				repoPath,
+				{ configs: gitLogDefaultConfigsWithFiles, ref: options?.ref, stdin: options?.stdin },
+				...args,
+			);
 
 			// const parser = GitLogParser.defaultParser;
 

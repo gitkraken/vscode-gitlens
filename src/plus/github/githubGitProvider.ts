@@ -1075,6 +1075,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this.getTags(repoPath),
 		]);
 
+		const ids = new Set<string>();
+
 		return this.getCommitsForGraphCore(
 			repoPath,
 			asWebviewUri,
@@ -1082,6 +1084,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(branchResult),
 			getSettledValue(remotesResult)?.[0],
 			getSettledValue(tagsResult)?.values,
+			ids,
 			options,
 		);
 	}
@@ -1093,6 +1096,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		branch: GitBranch | undefined,
 		remote: GitRemote | undefined,
 		tags: GitTag[] | undefined,
+		ids: Set<string>,
 		options?: {
 			branch?: string;
 			limit?: number;
@@ -1103,6 +1107,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (log == null) {
 			return {
 				repoPath: repoPath,
+				ids: ids,
 				rows: [],
 			};
 		}
@@ -1111,6 +1116,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (commits == null) {
 			return {
 				repoPath: repoPath,
+				ids: ids,
 				rows: [],
 			};
 		}
@@ -1124,6 +1130,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const hasHeadShaAndRemote = branch?.sha != null && remote != null;
 
 		for (const commit of commits) {
+			ids.add(commit.sha);
+
 			if (hasHeadShaAndRemote && commit.sha === branch.sha) {
 				refHeads = [
 					{
@@ -1185,18 +1193,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		return {
 			repoPath: repoPath,
-			paging: {
-				limit: log.limit,
-				endingCursor: log.endingCursor,
-				startingCursor: log.startingCursor,
-				more: log.hasMore,
-			},
+			ids: ids,
 			rows: rows,
 			sha: options?.ref,
 
+			paging: {
+				limit: log.limit,
+				// endingCursor: log.endingCursor,
+				startingCursor: log.startingCursor,
+				more: log.hasMore,
+			},
 			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
-				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, branch, remote, tags, options);
+				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, branch, remote, tags, ids, options);
 			},
 		};
 	}
