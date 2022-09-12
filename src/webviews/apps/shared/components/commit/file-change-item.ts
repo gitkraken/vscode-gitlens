@@ -162,6 +162,9 @@ export class FileChangeItem extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	uncommitted = false;
 
+	@property({ type: Boolean, reflect: true })
+	tree = false;
+
 	private renderIcon() {
 		if (this.icon !== '') {
 			return html`<img class="change-list__status-icon" src="${this.icon}" />`;
@@ -183,14 +186,14 @@ export class FileChangeItem extends LitElement {
 		const statusName = this.status !== '' ? statusTextMap[this.status] : '';
 		const pathIndex = this.path.lastIndexOf('/');
 		const fileName = pathIndex > -1 ? this.path.substring(pathIndex + 1) : this.path;
-		const filePath = pathIndex > -1 ? this.path.substring(0, pathIndex) : '';
+		const filePath = !this.tree && pathIndex > -1 ? this.path.substring(0, pathIndex) : '';
 
 		return html`
 			<a id="item" class="change-list__link" @click=${this.onComparePrevious} href="#">
 				<span class="change-list__status" title="${statusName}" aria-label="${statusName}"
 					>${this.renderIcon()}</span
 				><span class="change-list__filename">${fileName}</span>
-				<small class="change-list__path">${filePath}</small>
+				${!this.tree ? html`<small class="change-list__path">${filePath}</small>` : nothing}
 			</a>
 			<nav class="change-list__actions">
 				<a
@@ -200,14 +203,16 @@ export class FileChangeItem extends LitElement {
 					title="Open file"
 					aria-label="Open file"
 					><code-icon icon="go-to-file"></code-icon></a
-				>${!this.uncommitted ? html`<a
-					class="change-list__action"
-					@click=${this.onCompareWorking}
-					href="#"
-					title="Open Changes with Working File"
-					aria-label="Open Changes with Working File"
-					><code-icon icon="git-compare"></code-icon></a
-				>` : nothing}${!this.stash && !this.uncommitted
+				>${!this.uncommitted
+					? html`<a
+							class="change-list__action"
+							@click=${this.onCompareWorking}
+							href="#"
+							title="Open Changes with Working File"
+							aria-label="Open Changes with Working File"
+							><code-icon icon="git-compare"></code-icon
+					  ></a>`
+					: nothing}${!this.stash && !this.uncommitted
 					? html`<a
 								class="change-list__action"
 								@click=${this.onOpenFileOnRemote}

@@ -25,6 +25,7 @@ export type CommitDetails = CommitSummary & {
 
 export type SavedPreferences = {
 	autolinksExpanded?: boolean;
+	filesAsTree?: boolean;
 };
 
 export type State = {
@@ -72,7 +73,8 @@ export interface PinParams {
 export const PinCommitCommandType = new IpcCommandType<PinParams>('commit/pin');
 
 export interface PreferenceParams {
-	autolinksExpanded: boolean;
+	autolinksExpanded?: boolean;
+	filesAsTree?: boolean;
 }
 export const PreferencesCommandType = new IpcCommandType<PreferenceParams>('commit/preferences');
 

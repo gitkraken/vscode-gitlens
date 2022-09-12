@@ -6,16 +6,14 @@
 // generic resets
 html {
 	font-size: 62.5%;
-	box-sizing: border-box;
+	// box-sizing: border-box;
 	font-family: var(--font-family);
 }
 
-* {
-	&,
-	&::before,
-	&::after {
-		box-sizing: inherit;
-	}
+*,
+*:before,
+*:after {
+	box-sizing: border-box;
 }
 
 body {
@@ -98,6 +96,64 @@ ul {
 	gap: 0.1rem;
 	width: 100%;
 	max-width: 30rem;
+}
+
+.switch {
+	margin-left: auto;
+	display: inline-flex;
+	flex-direction: row;
+	border-radius: 0.25em;
+	gap: 0.1rem;
+
+	.vscode-dark & {
+		background-color: var(--color-background--lighten-075);
+	}
+	.vscode-light & {
+		background-color: var(--color-background--darken-075);
+	}
+
+	&__option {
+		display: inline-flex;
+		justify-content: center;
+		align-items: flex-end;
+		border-radius: 0.25em;
+		color: inherit;
+		padding: 0.2rem 0.8rem;
+		text-decoration: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+
+		> * {
+			pointer-events: none;
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&:hover {
+			color: var(--vscode-foreground);
+			text-decoration: none;
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-10);
+			}
+			.vscode-light & {
+				background-color: var(--color-background--darken-10);
+			}
+		}
+
+		&.is-selected {
+			color: var(--vscode-foreground);
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-15);
+			}
+			.vscode-light & {
+				background-color: var(--color-background--darken-15);
+			}
+		}
+	}
 }
 
 @media (min-width: 640px) {
@@ -279,12 +335,15 @@ ul {
 	}
 
 	&__file {
+		--tree-level: 1;
 		padding: {
-			left: var(--gitlens-gutter-width);
+			left: calc(var(--gitlens-gutter-width) * var(--tree-level));
 			right: var(--gitlens-scrollbar-gutter-width);
 			top: 1px;
 			bottom: 1px;
 		}
+		line-height: 22px;
+		height: 22px;
 	}
 	&__item-skeleton {
 		padding: {
@@ -323,3 +382,5 @@ ul {
 
 @import '../shared/codicons';
 @import '../shared/glicons';
+
+
