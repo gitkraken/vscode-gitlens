@@ -93,13 +93,13 @@ export class HomeApp extends App<State> {
 					DOM.insertTemplate('state:free', this.$slots[index++]);
 
 					break;
-				case SubscriptionState.FreeInPreview: {
+				case SubscriptionState.FreeInPreviewTrial: {
 					if (viewsVisible) {
 						DOM.insertTemplate('views', this.$slots[index++]);
 					}
 
 					const remaining = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-					DOM.insertTemplate('state:free-preview', this.$slots[index++], {
+					DOM.insertTemplate('state:free-preview-trial', this.$slots[index++], {
 						bindings: {
 							previewDays: `${
 								remaining < 1
@@ -113,12 +113,12 @@ export class HomeApp extends App<State> {
 
 					break;
 				}
-				case SubscriptionState.FreePreviewExpired:
+				case SubscriptionState.FreePreviewTrialExpired:
 					if (viewsVisible) {
 						DOM.insertTemplate('views', this.$slots[index++]);
 					}
 
-					DOM.insertTemplate('state:free-preview-expired', this.$slots[index++]);
+					DOM.insertTemplate('state:free-preview-trial-expired', this.$slots[index++]);
 
 					break;
 				case SubscriptionState.FreePlusInTrial: {

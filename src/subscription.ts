@@ -49,9 +49,9 @@ export const enum SubscriptionState {
 	/** Indicates a Free user who hasn't yet started the preview trial */
 	Free = 0,
 	/** Indicates a Free user who is in preview trial */
-	FreeInPreview,
+	FreeInPreviewTrial,
 	/** Indicates a Free user who's preview has expired trial */
-	FreePreviewExpired,
+	FreePreviewTrialExpired,
 	/** Indicates a Free+ user with a completed trial */
 	FreePlusInTrial,
 	/** Indicates a Free+ user who's trial has expired */
@@ -72,7 +72,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	if (actual.id === effective.id) {
 		switch (effective.id) {
 			case SubscriptionPlanId.Free:
-				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewExpired;
+				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewTrialExpired;
 
 			case SubscriptionPlanId.FreePlus:
 				return SubscriptionState.FreePlusTrialExpired;
@@ -86,14 +86,14 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 	switch (effective.id) {
 		case SubscriptionPlanId.Free:
-			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreview;
+			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreviewTrial;
 
 		case SubscriptionPlanId.FreePlus:
 			return SubscriptionState.FreePlusTrialExpired;
 
 		case SubscriptionPlanId.Pro:
 			return actual.id === SubscriptionPlanId.Free
-				? SubscriptionState.FreeInPreview
+				? SubscriptionState.FreeInPreviewTrial
 				: SubscriptionState.FreePlusInTrial;
 
 		case SubscriptionPlanId.Teams:

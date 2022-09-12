@@ -259,7 +259,9 @@ export function GraphWrapper({
 	const renderTrialDays = () => {
 		if (
 			!subscriptionSnapshot ||
-			![SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)
+			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
+				subscriptionSnapshot.state,
+			)
 		) {
 			return;
 		}
@@ -280,7 +282,11 @@ export function GraphWrapper({
 		let content;
 		let actions;
 		let days = 0;
-		if ([SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)) {
+		if (
+			[SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
+				subscriptionSnapshot.state,
+			)
+		) {
 			days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
 		}
 
@@ -288,7 +294,7 @@ export function GraphWrapper({
 			case SubscriptionState.Free:
 			case SubscriptionState.Paid:
 				return;
-			case SubscriptionState.FreeInPreview:
+			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
 				icon = 'calendar';
 				modifier = 'neutral';
@@ -306,7 +312,7 @@ export function GraphWrapper({
 					</>
 				);
 				break;
-			case SubscriptionState.FreePreviewExpired:
+			case SubscriptionState.FreePreviewTrialExpired:
 				icon = 'warning';
 				modifier = 'warning';
 				content = (

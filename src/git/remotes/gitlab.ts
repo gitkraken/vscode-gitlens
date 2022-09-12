@@ -177,7 +177,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					const startTrial = { title: 'Try GitLens+' };
 					const cancel = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showWarningMessage(
-						`${title}\n\nDo you want to try GitLens+ free for 3 days?`,
+						`${title}\n\nDo you want to try GitLens+ for free for 3 days?`,
 						{ modal: true },
 						startTrial,
 						cancel,

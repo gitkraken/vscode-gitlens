@@ -108,8 +108,8 @@ export class TimelineApp extends App<State> {
 				case SubscriptionState.Free:
 					DOM.insertTemplate('state:free', $slot, options);
 					break;
-				case SubscriptionState.FreePreviewExpired:
-					DOM.insertTemplate('state:free-preview-expired', $slot, options);
+				case SubscriptionState.FreePreviewTrialExpired:
+					DOM.insertTemplate('state:free-preview-trial-expired', $slot, options);
 					break;
 				case SubscriptionState.FreePlusTrialExpired:
 					DOM.insertTemplate('state:plus-trial-expired', $slot, options);
