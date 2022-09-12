@@ -608,7 +608,7 @@ export class GitHubApi implements Disposable {
 				prs.sort(
 					(a, b) =>
 						(a.repository.owner.login === owner ? -1 : 1) - (b.repository.owner.login === owner ? -1 : 1) ||
-						(a.state === 'OPEN' ? -1 : 1) - (b.state === 'OPEN' ? -1 : 1) ||
+						(a.state === 'MERGED' ? -1 : 1) - (b.state === 'MERGED' ? -1 : 1) ||
 						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
 				);
 			}

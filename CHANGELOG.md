@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes Commit Details showing incorrect actions for uncommitted changes
+- Fixes prioritization of multiple PRs associated with the same commit to choose a merged PR over others
 
 ## [12.2.2] - 2022-09-06
 
