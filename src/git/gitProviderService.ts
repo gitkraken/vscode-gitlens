@@ -201,6 +201,10 @@ export class GitProviderService implements Disposable {
 		if (configuration.changed(e, 'views.contributors.showAllBranches')) {
 			this.resetCaches('contributors');
 		}
+
+		if (e != null && configuration.changed(e, 'integrations.enabled')) {
+			this.updateContext();
+		}
 	}
 
 	@debug()
@@ -739,7 +743,7 @@ export class GitProviderService implements Disposable {
 			let hasRemotes = false;
 			let hasRichRemotes = false;
 			let hasConnectedRemotes = false;
-			if (hasRepositories) {
+			if (hasRepositories && configuration.get('integrations.enabled')) {
 				for (const repo of this._repositories.values()) {
 					if (!hasConnectedRemotes) {
 						hasConnectedRemotes = await repo.hasRichRemote(true);

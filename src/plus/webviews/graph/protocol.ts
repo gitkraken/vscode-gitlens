@@ -12,6 +12,7 @@ export interface State {
 	selectedRows?: { [id: string]: true };
 	subscription?: Subscription;
 	allowed?: boolean;
+	avatars?: { [email: string]: string };
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	config?: GraphCompositeConfig;
@@ -68,10 +69,12 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
-export interface GetMoreCommitsParams {
-	limit?: number;
+export interface GetMissingAvatarsParams {
+	emails: { [email: string]: string };
 }
-export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
+export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/getMissingAvatars');
+
+export const GetMoreCommitsCommandType = new IpcCommandType<undefined>('graph/getMoreCommits');
 
 export interface UpdateColumnParams {
 	name: string;
@@ -112,8 +115,16 @@ export const DidChangeSubscriptionNotificationType = new IpcNotificationType<Did
 	'graph/subscription/didChange',
 );
 
+export interface DidChangeAvatarsParams {
+	avatars: { [email: string]: string };
+}
+export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
+	'graph/avatars/didChange',
+);
+
 export interface DidChangeCommitsParams {
 	rows: GraphRow[];
+	avatars: { [email: string]: string };
 	paging?: GraphPaging;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(

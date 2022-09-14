@@ -1,5 +1,6 @@
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { EventEmitter, MarkdownString, ProgressLocation, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import type { GraphColumnConfig } from '../../../configuration';
@@ -28,12 +29,14 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { DismissBannerParams, GraphCompositeConfig, GraphRepository, State } from './protocol';
 import {
+	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
+	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -181,8 +184,11 @@ export class GraphWebview extends WebviewBase<State> {
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params.key));
 				break;
+			case GetMissingAvatarsCommandType.method:
+				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
+				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.limit));
+				onIpc(GetMoreCommitsCommandType, e, () => this.onGetMoreCommits());
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
@@ -308,8 +314,32 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeGraphConfiguration();
 	}
 
+	private async onGetMissingAvatars(emails: { [email: string]: string }) {
+		if (this._graph == null) return;
+
+		const repoPath = this._graph.repoPath;
+
+		async function getAvatar(this: GraphWebview, email: string, sha: string) {
+			const uri = await getAvatarUri(email, { ref: sha, repoPath: repoPath });
+			this._graph!.avatars.set(email, uri.toString(true));
+		}
+
+		const promises: Promise<void>[] = [];
+
+		for (const [email, sha] of Object.entries(emails)) {
+			if (this._graph.avatars.has(email)) continue;
+
+			promises.push(getAvatar.call(this, email, sha));
+		}
+
+		if (promises.length) {
+			await Promise.allSettled(promises);
+			this.updateAvatars();
+		}
+	}
+
 	@gate()
-	private async onGetMoreCommits(limit?: number) {
+	private async onGetMoreCommits() {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
@@ -317,7 +347,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const { defaultItemLimit, pageItemLimit } = this.getConfig();
-		const newGraph = await this._graph.more(limit ?? pageItemLimit ?? defaultItemLimit);
+		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
 			this.setGraph(newGraph);
 		} else {
@@ -375,6 +405,24 @@ export class GraphWebview extends WebviewBase<State> {
 		this._notifyDidChangeStateDebounced();
 	}
 
+	private _notifyDidChangeAvatarsDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateAvatars(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		if (immediate) {
+			void this.notifyDidChangeAvatars();
+			return;
+		}
+
+		if (this._notifyDidChangeAvatarsDebounced == null) {
+			this._notifyDidChangeAvatarsDebounced = debounce(this.notifyDidChangeAvatars.bind(this), 100);
+		}
+
+		this._notifyDidChangeAvatarsDebounced();
+	}
+
 	@debug()
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
@@ -416,12 +464,23 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async notifyDidChangeAvatars() {
+		if (!this.isReady || !this.visible) return false;
+
+		const data = this._graph!;
+		return this.notify(DidChangeAvatarsNotificationType, {
+			avatars: Object.fromEntries(data.avatars),
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeCommits() {
 		if (!this.isReady || !this.visible) return false;
 
 		const data = this._graph!;
 		return this.notify(DidChangeCommitsNotificationType, {
 			rows: data.rows,
+			avatars: Object.fromEntries(data.avatars),
 			paging: {
 				startingCursor: data.paging?.startingCursor,
 				more: data.paging?.more ?? false,
@@ -486,6 +545,7 @@ export class GraphWebview extends WebviewBase<State> {
 			selectedVisibility: visibility,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
+			avatars: Object.fromEntries(data.avatars),
 			rows: data.rows,
 			paging: {
 				startingCursor: data.paging?.startingCursor,

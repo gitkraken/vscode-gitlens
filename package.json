@@ -11680,7 +11680,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "1.0.0-rc.13",
+		"@gitkraken/gitkraken-components": "1.0.0-rc.14",
 		"@microsoft/fast-element": "^1.10.5",
 		"@octokit/core": "4.0.5",
 		"@vscode/codicons": "0.0.32",

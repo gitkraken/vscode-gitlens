@@ -28,7 +28,8 @@ export interface GraphWrapperProps extends State {
 	subscriber: (callback: CommitListCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
-	onMoreCommits?: (limit?: number) => void;
+	onMissingAvatars?: (emails: { [email: string]: string }) => void;
+	onMoreCommits?: () => void;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 }
@@ -140,10 +141,12 @@ export function GraphWrapper({
 	subscription,
 	selectedVisibility,
 	allowed,
+	avatars,
 	config,
 	paging,
 	onSelectRepository,
 	onColumnChange,
+	onMissingAvatars,
 	onMoreCommits,
 	onSelectionChange,
 	nonce,
@@ -153,6 +156,7 @@ export function GraphWrapper({
 	onDismissBanner,
 }: GraphWrapperProps) {
 	const [graphList, setGraphList] = useState(rows);
+	const [graphAvatars, setAvatars] = useState(avatars);
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
 		reposList.find(item => item.path === selectedRepository),
@@ -201,6 +205,7 @@ export function GraphWrapper({
 
 	function transformData(state: State) {
 		setGraphList(state.rows ?? []);
+		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setSelectedRows(state.selectedRows);
@@ -231,6 +236,10 @@ export function GraphWrapper({
 	const handleToggleRepos = () => {
 		if (currentRepository != null && reposList.length <= 1) return;
 		setRepoExpanded(!repoExpanded);
+	};
+
+	const handleMissingAvatars = (emails: { [email: string]: string }) => {
+		onMissingAvatars?.(emails);
 	};
 
 	const handleMoreCommits = () => {
@@ -432,6 +441,7 @@ export function GraphWrapper({
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
 								getExternalIcon={getIconElementLibrary}
+								avatarUrlByEmail={graphAvatars}
 								graphRows={graphList}
 								height={mainHeight}
 								isSelectedBySha={graphSelectedRows}
@@ -440,6 +450,7 @@ export function GraphWrapper({
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
+								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onShowMoreCommits={handleMoreCommits}
 								platform={clientPlatform}
 								width={mainWidth}

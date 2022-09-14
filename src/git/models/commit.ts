@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import { getAvatarUri } from '../../avatars';
+import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../configuration';
 import { DateSource, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
@@ -437,6 +437,10 @@ export class GitCommit implements GitRevisionReference {
 		return this.author.getAvatarUri(this, options);
 	}
 
+	getCachedAvatarUri(options?: { size?: number }): Uri | undefined {
+		return this.author.getCachedAvatarUri(options);
+	}
+
 	async getCommitForFile(file: string | GitFile): Promise<GitCommit | undefined> {
 		const path = typeof file === 'string' ? this.container.git.getRelativePath(file, this.repoPath) : file.path;
 		const foundFile = await this.findFile(path);
@@ -616,9 +620,11 @@ export class GitCommitIdentity implements GitCommitIdentityShape {
 		commit: GitCommit,
 		options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
 	): Uri | Promise<Uri> {
-		if (this.avatarUrl != null) return Uri.parse(this.avatarUrl);
+		return this.avatarUrl != null ? Uri.parse(this.avatarUrl) : getAvatarUri(this.email, commit, options);
+	}
 
-		return getAvatarUri(this.email, commit, options);
+	getCachedAvatarUri(options?: { size?: number }): Uri | undefined {
+		return this.avatarUrl != null ? Uri.parse(this.avatarUrl) : getCachedAvatarUri(this.email, options);
 	}
 }
 
