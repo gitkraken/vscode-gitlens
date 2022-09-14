@@ -18,6 +18,8 @@ const template = html<FileChangeListItem>`
 		tree="${x => x.tree}"
 		level="${x => x.level}"
 		active="${x => x.active}"
+		expanded="${x => x.expanded}"
+		parentexpanded="${x => x.parentexpanded}"
 		@selected="${(x, c) => x.onComparePrevious(c.event)}"
 	>
 		<img slot="icon" src="${x => x.icon}" title="${x => x.statusName}" alt="${x => x.statusName}" />
@@ -121,6 +123,12 @@ export class FileChangeListItem extends FASTElement {
 	@attr({ mode: 'boolean' })
 	tree = false;
 
+	@attr({ mode: 'boolean' })
+	expanded = true;
+
+	@attr({ mode: 'boolean' })
+	parentexpanded = true;
+
 	@attr({ converter: numberConverter })
 	level = 1;
 
@@ -151,6 +159,10 @@ export class FileChangeListItem extends FASTElement {
 
 	override focus(options?: FocusOptions | undefined): void {
 		this.base?.focus(options);
+	}
+
+	get isHidden() {
+		return this.base?.isHidden ?? 'false';
 	}
 
 	get pathIndex() {
