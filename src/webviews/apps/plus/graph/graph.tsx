@@ -11,12 +11,14 @@ import type {
 	State,
 } from '../../../../plus/webviews/graph/protocol';
 import {
+	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
+	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
@@ -68,6 +70,7 @@ export class GraphApp extends App<State> {
 						(path: GraphRepository) => this.onRepositorySelectionChanged(path),
 						250,
 					)}
+					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
 					onSelectionChange={debounce(
 						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
@@ -94,6 +97,13 @@ export class GraphApp extends App<State> {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.setState({ ...this.state, ...params.state });
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeAvatarsNotificationType.method:
+				onIpc(DidChangeAvatarsNotificationType, msg, params => {
+					this.setState({ ...this.state, avatars: params.avatars });
 					this.refresh(this.state);
 				});
 				break;
@@ -164,6 +174,7 @@ export class GraphApp extends App<State> {
 
 					this.setState({
 						...this.state,
+						avatars: params.avatars,
 						rows: rows,
 						paging: params.paging,
 					});
@@ -180,10 +191,7 @@ export class GraphApp extends App<State> {
 
 			case DidChangeGraphConfigurationNotificationType.method:
 				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
-					this.setState({
-						...this.state,
-						config: params.config,
-					});
+					this.setState({ ...this.state, config: params.config });
 					this.refresh(this.state);
 				});
 				break;
@@ -261,10 +269,12 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onGetMoreCommits(limit?: number) {
-		this.sendCommand(GetMoreCommitsCommandType, {
-			limit: limit,
-		});
+	private onGetMissingAvatars(emails: { [email: string]: string }) {
+		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
+	}
+
+	private onGetMoreCommits() {
+		this.sendCommand(GetMoreCommitsCommandType, undefined);
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {

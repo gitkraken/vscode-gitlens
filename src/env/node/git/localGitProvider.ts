@@ -12,7 +12,7 @@ import type {
 	Repository as BuiltInGitRepository,
 	GitExtension,
 } from '../../../@types/vscode.git';
-import { getAvatarUri } from '../../../avatars';
+import { getCachedAvatarUri } from '../../../avatars';
 import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
@@ -1635,7 +1635,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
 		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
-		const skipStashParents = new Set();
 
 		let stdin: string | undefined;
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
@@ -1647,7 +1646,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
+		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
+		const skipStashParents = new Set();
 		let total = 0;
 		let iterations = 0;
 
@@ -1698,7 +1699,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							: data.indexOf(`\x00\x00${cursor.sha}\x00`);
 						if (cursorIndex === -1) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
-							if (size === data.length) return { repoPath: repoPath, ids: ids, rows: [] };
+							if (size === data.length) {
+								return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
+							}
 
 							size = data.length;
 							nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
@@ -1723,7 +1726,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				if (!data) return { repoPath: repoPath, ids: ids, rows: [] };
+				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
 
 				log = data;
 				if (limit !== 0) {
@@ -1818,11 +1821,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					parents.splice(1, 2);
 				}
 
+				if (!isStashCommit && !avatars.has(commit.authorEmail)) {
+					const uri = getCachedAvatarUri(commit.authorEmail);
+					if (uri != null) {
+						avatars.set(commit.authorEmail, uri.toString(true));
+					}
+				}
+
 				rows.push({
 					sha: commit.sha,
 					parents: parents,
 					author: commit.author,
-					avatarUrl: !isStashCommit ? getAvatarUri(commit.authorEmail, undefined).toString(true) : undefined,
 					email: commit.authorEmail ?? '',
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					message: emojify(commit.message),
@@ -1850,6 +1859,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return {
 				repoPath: repoPath,
+				avatars: avatars,
 				ids: ids,
 				rows: rows,
 				sha: sha,
