@@ -17,7 +17,11 @@ export interface ListItemSelectedDetail {
 }
 
 const template = html<ListItem>`
-	<template role="treeitem" aria-expanded="${x => (x.branch && x.expanded === false ? 'false' : 'true')}">
+	<template
+		role="treeitem"
+		aria-expanded="${x => (x.expanded === true ? 'true' : 'false')}"
+		aria-hidden="${x => x.isHidden}"
+	>
 		<button id="item" class="item" type="button" @click="${(x, c) => x.onItemClick(c.event)}">
 			${repeat(
 				x => x.treeLeaves,
@@ -70,6 +74,10 @@ const styles = css`
 		outline-offset: -0.1rem;
 		color: var(--vscode-list-activeSelectionForeground);
 		background-color: var(--vscode-list-activeSelectionBackground);
+	}
+
+	:host([aria-hidden='true']) {
+		display: none;
 	}
 
 	* {
@@ -168,6 +176,9 @@ export class ListItem extends FASTElement {
 	@attr({ mode: 'boolean' })
 	expanded = true;
 
+	@attr({ mode: 'boolean' })
+	parentexpanded = true;
+
 	@attr({ converter: numberConverter })
 	level = 1;
 
@@ -182,20 +193,31 @@ export class ListItem extends FASTElement {
 		return Array.from({ length: length }, (_, i) => i + 1);
 	}
 
+	@volatile
+	get isHidden(): 'true' | 'false' {
+		if (this.parentexpanded === false || (!this.branch && !this.expanded)) {
+			return 'true';
+		}
+
+		return 'false';
+	}
+
 	onItemClick(_e: Event) {
 		this.select();
 	}
 
 	select(_showOptions?: TextDocumentShowOptions, quiet = false) {
 		// TODO: this needs to be implemented
-		// this.expanded = !this.expanded;
+		this.expanded = !this.expanded;
 		this.active = true;
 		if (!quiet) {
-			this.$emit('selected', {
-				tree: this.tree,
-				branch: this.branch,
-				expanded: this.expanded,
-				level: this.level,
+			window.requestAnimationFrame(() => {
+				this.$emit('selected', {
+					tree: this.tree,
+					branch: this.branch,
+					expanded: this.expanded,
+					level: this.level,
+				});
 			});
 		}
 	}

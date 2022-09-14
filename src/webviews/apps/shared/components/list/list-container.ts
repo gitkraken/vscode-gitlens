@@ -51,7 +51,34 @@ export class ListContainer extends FASTElement {
 	}
 
 	handleSelected(e: CustomEvent<ListItemSelectedDetail>) {
-		this.$emit('selected', e.detail);
+		if (!e.target || !e.detail.branch) return;
+		const target = e.target as ListItem;
+		const level = target.getAttribute('level');
+
+		const getLevel = (el: ListItem) => parseInt(el.getAttribute('level') ?? '0', 10);
+		const getParent = (el: ListItem) => {
+			const level = getLevel(el);
+			let prev = el.previousElementSibling;
+			while (prev) {
+				const prevLevel = getLevel(prev as ListItem);
+				if (prevLevel < level) {
+					return prev as ListItem;
+				}
+				prev = prev.previousElementSibling;
+			}
+
+			return undefined;
+		};
+		let nextElement = target.nextElementSibling as ListItem;
+		while (nextElement) {
+			if (nextElement.getAttribute('level') === level) {
+				break;
+			}
+			const parentElement = getParent(nextElement);
+			nextElement.setAttribute('parentexpanded', parentElement?.expanded === false ? 'false' : 'true');
+			nextElement.setAttribute('expanded', e.detail.expanded ? 'true' : 'false');
+			nextElement = nextElement.nextElementSibling as ListItem;
+		}
 	}
 
 	handleKeydown(e: KeyboardEvent) {
