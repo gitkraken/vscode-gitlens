@@ -5,10 +5,10 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
 import type {
-	CommitListCallback,
 	DismissBannerParams,
 	GraphRepository,
 	State,
+	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -46,7 +46,7 @@ const graphLaneThemeColors = new Map([
 ]);
 
 export class GraphApp extends App<State> {
-	private callback?: CommitListCallback;
+	private callback?: UpdateStateCallback;
 
 	constructor() {
 		super('GraphApp');
@@ -61,7 +61,7 @@ export class GraphApp extends App<State> {
 		if ($root != null) {
 			render(
 				<GraphWrapper
-					subscriber={(callback: CommitListCallback) => this.registerEvents(callback)}
+					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
 					onColumnChange={debounce(
 						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
@@ -96,15 +96,17 @@ export class GraphApp extends App<State> {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
+					const old = this.state;
 					this.setState({ ...this.state, ...params.state });
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
 			case DidChangeAvatarsNotificationType.method:
 				onIpc(DidChangeAvatarsNotificationType, msg, params => {
+					const old = this.state;
 					this.setState({ ...this.state, avatars: params.avatars });
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
@@ -172,38 +174,42 @@ export class GraphApp extends App<State> {
 						}
 					}
 
+					const old = this.state;
 					this.setState({
 						...this.state,
 						avatars: params.avatars,
 						rows: rows,
 						paging: params.paging,
 					});
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
 			case DidChangeSelectionNotificationType.method:
 				onIpc(DidChangeSelectionNotificationType, msg, params => {
+					const old = this.state;
 					this.setState({ ...this.state, selectedRows: params.selection });
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
 			case DidChangeGraphConfigurationNotificationType.method:
 				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
+					const old = this.state;
 					this.setState({ ...this.state, config: params.config });
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
 			case DidChangeSubscriptionNotificationType.method:
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
+					const old = this.state;
 					this.setState({
 						...this.state,
 						subscription: params.subscription,
 						allowed: params.allowed,
 					});
-					this.refresh(this.state);
+					this.refresh(this.state, old);
 				});
 				break;
 
@@ -213,8 +219,9 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated() {
+		const old = this.state;
 		this.setState({ ...this.state, mixedColumnColors: undefined });
-		this.refresh(this.state);
+		this.refresh(this.state, old);
 	}
 
 	protected override setState(state: State) {
@@ -283,7 +290,7 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private registerEvents(callback: CommitListCallback): () => void {
+	private registerEvents(callback: UpdateStateCallback): () => void {
 		this.callback = callback;
 
 		return () => {
@@ -291,8 +298,8 @@ export class GraphApp extends App<State> {
 		};
 	}
 
-	private refresh(state: State) {
-		this.callback?.(state);
+	private refresh(state: State, oldState: State) {
+		this.callback?.(state, oldState);
 	}
 }
 
