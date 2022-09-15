@@ -139,7 +139,7 @@ export function GraphWrapper({
 	selectedRepository,
 	selectedRows,
 	subscription,
-	selectedVisibility,
+	selectedRepositoryVisibility,
 	allowed,
 	avatars,
 	config,
@@ -164,7 +164,7 @@ export function GraphWrapper({
 	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
-	const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
 	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
@@ -176,7 +176,7 @@ export function GraphWrapper({
 	// account
 	const [showAccount, setShowAccount] = useState(trialBanner);
 	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
-	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedVisibility === RepositoryVisibility.Private);
+	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedRepositoryVisibility === RepositoryVisibility.Private);
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
@@ -211,11 +211,11 @@ export function GraphWrapper({
 		setSelectedRows(state.selectedRows);
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
-		setIsLoading(false);
+		setIsLoading(state.rows == null);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
 		setSubscriptionSnapshot(state.subscription);
-		setIsPrivateRepo(state.selectedVisibility === RepositoryVisibility.Private);
+		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 	}
 
 	useEffect(() => {

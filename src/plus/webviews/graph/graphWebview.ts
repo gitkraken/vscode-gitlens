@@ -165,9 +165,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
-		return window.withProgress({ location: ProgressLocation.Window, title: 'Loading Commit Graph...' }, async () =>
-			this.getState(),
-		);
+		return this.getState(true);
 	}
 
 	protected override registerCommands(): Disposable[] {
@@ -497,8 +495,8 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
-	private async getState(): Promise<State> {
-		if (this.container.git.repositoryCount === 0) return { repositories: [] };
+	private async getState(deferRows?: boolean): Promise<State> {
+		if (this.container.git.repositoryCount === 0) return { allowed: true, repositories: [] };
 
 		if (this.previewBanner == null || this.trialBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
@@ -512,7 +510,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return { repositories: [] };
+			if (this.repository == null) return { allowed: true, repositories: [] };
 		}
 
 		this._etagRepository = this.repository?.etag;
@@ -525,32 +523,48 @@ export class GraphWebview extends WebviewBase<State> {
 
 		// Check for GitLens+ access
 		const access = await this.getGraphAccess();
-
 		const visibility = access.visibility ?? (await this.container.git.visibility(this.repository.path));
 
-		const data = await this.container.git.getCommitsForGraph(
+		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
-		this.setGraph(data);
-		this.setSelectedRows(data.sha);
+
+		let data;
+
+		if (deferRows) {
+			queueMicrotask(async () => {
+				const data = await dataPromise;
+				this.setGraph(data);
+				this.setSelectedRows(data.sha);
+
+				void this.notifyDidChangeCommits();
+			});
+		} else {
+			data = await dataPromise;
+			this.setGraph(data);
+			this.setSelectedRows(data.sha);
+		}
 
 		return {
 			previewBanner: this.previewBanner,
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
+			selectedRepositoryVisibility: visibility,
 			selectedRows: this._selectedRows,
-			selectedVisibility: visibility,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
-			avatars: Object.fromEntries(data.avatars),
-			rows: data.rows,
-			paging: {
-				startingCursor: data.paging?.startingCursor,
-				more: data.paging?.more ?? false,
-			},
+			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
+			rows: data?.rows,
+			paging:
+				data != null
+					? {
+							startingCursor: data.paging?.startingCursor,
+							more: data.paging?.more ?? false,
+					  }
+					: undefined,
 			config: config,
 			nonce: this.cspNonce,
 		};
