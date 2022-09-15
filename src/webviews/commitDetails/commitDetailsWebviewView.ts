@@ -431,7 +431,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private updatePreferences(preferences: SavedPreferences) {
-		if (this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded && this._context.preferences?.filesAsTree === preferences.filesAsTree) return;
+		if (
+			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
+			this._context.preferences?.filesAsTree === preferences.filesAsTree
+		) {
+			return;
+		}
 
 		const changes: SavedPreferences = {};
 		if (this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded) {
@@ -443,10 +448,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		}
 
 		if (this._context.preferences?.filesAsTree !== preferences.filesAsTree) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:filesAsTree',
-				preferences.filesAsTree,
-			);
+			void this.container.storage.storeWorkspace('views:commitDetails:filesAsTree', preferences.filesAsTree);
 			changes.filesAsTree = preferences.filesAsTree;
 		}
 

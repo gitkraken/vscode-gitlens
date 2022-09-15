@@ -7,14 +7,17 @@
 	<body class="preload">
 		<div class="commit-detail-panel">
 			<div class="commit-detail-panel__none" id="empty" aria-hidden="true">
-				<p>
-					Rich details for commits and stashes are shown as you navigate:
-					<ul class="bulleted">
-						<li>lines in the text editor</li>
-						<li>commits in the <a href="command:gitlens.showGraphPage">Commit Graph</a>, <a href="command:gitlens.showTimelineView">Visual File History</a>, or <a href="command:gitlens.showCommitsView">Commits view</a></li>
-						<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
-					</ul>
-				</p>
+				<p>Rich details for commits and stashes are shown as you navigate:</p>
+
+				<ul class="bulleted">
+					<li>lines in the text editor</li>
+					<li>
+						commits in the <a href="command:gitlens.showGraphPage">Commit Graph</a>,
+						<a href="command:gitlens.showTimelineView">Visual File History</a>, or
+						<a href="command:gitlens.showCommitsView">Commits view</a>
+					</li>
+					<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
+				</ul>
 
 				<p>Alternatively, search for or choose a commit</p>
 
@@ -23,7 +26,13 @@
 						<button class="button button--full" type="button" data-action="pick-commit">
 							Choose Commit...
 						</button>
-						<button class="button" type="button" data-action="search-commit" aria-label="Search for Commit" title="Search for Commit">
+						<button
+							class="button"
+							type="button"
+							data-action="search-commit"
+							aria-label="Search for Commit"
+							title="Search for Commit"
+						>
 							<code-icon icon="search"></code-icon>
 						</button>
 					</span>
@@ -116,10 +125,14 @@
 					<span slot="title">Files changed </span>
 					<span slot="subtitle" data-region="stats"></span>
 
-					<div style="text-align: center;">
+					<div style="text-align: center">
 						<div class="switch">
-							<button type="button" class="switch__option" data-switch-value="list"><code-icon icon="list-flat"></code-icon> Path</button>
-							<button type="button" class="switch__option" data-switch-value="list-tree"><code-icon icon="list-tree"></code-icon> Tree</button>
+							<button type="button" class="switch__option" data-switch-value="list">
+								<code-icon icon="list-flat"></code-icon> Path
+							</button>
+							<button type="button" class="switch__option" data-switch-value="list-tree">
+								<code-icon icon="list-tree"></code-icon> Tree
+							</button>
 						</div>
 					</div>
 					<ul class="change-list" data-region="files">
@@ -148,7 +161,7 @@
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url("#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1") format("woff2");
+				src: url('#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1') format('woff2');
 			}
 		</style>
 	</body>
