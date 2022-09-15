@@ -173,7 +173,7 @@ export class GraphApp extends App<State> {
 
 			case DidChangeSelectionNotificationType.method:
 				onIpc(DidChangeSelectionNotificationType, msg, params => {
-					this.setState({ ...this.state, selectedSha: params.selection[0] });
+					this.setState({ ...this.state, selectedRows: params.selection });
 					this.refresh(this.state);
 				});
 				break;
