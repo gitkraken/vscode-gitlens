@@ -8,10 +8,10 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
-	selectedVisibility?: RepositoryVisibility;
+	selectedRepositoryVisibility?: RepositoryVisibility;
 	selectedRows?: { [id: string]: true };
 	subscription?: Subscription;
-	allowed?: boolean;
+	allowed: boolean;
 	avatars?: { [email: string]: string };
 	rows?: GraphRow[];
 	paging?: GraphPaging;
