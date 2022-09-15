@@ -86,6 +86,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
+	private _pendingNotifyCommits: boolean = false;
 	private _selectedSha?: string;
 	private _selectedRows: { [sha: string]: true } = {};
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -175,6 +176,12 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override onInitializing(): Disposable[] | undefined {
 		this._theme = window.activeColorTheme;
 		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
+	}
+
+	protected override onReady(): void {
+		if (this._pendingNotifyCommits) {
+			void this.notifyDidChangeCommits();
+		}
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
@@ -473,17 +480,22 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeCommits() {
-		if (!this.isReady || !this.visible) return false;
+		let success = false;
 
-		const data = this._graph!;
-		return this.notify(DidChangeCommitsNotificationType, {
-			rows: data.rows,
-			avatars: Object.fromEntries(data.avatars),
-			paging: {
-				startingCursor: data.paging?.startingCursor,
-				more: data.paging?.more ?? false,
-			},
-		});
+		if (this.isReady && this.visible) {
+			const data = this._graph!;
+			success = await this.notify(DidChangeCommitsNotificationType, {
+				rows: data.rows,
+				avatars: Object.fromEntries(data.avatars),
+				paging: {
+					startingCursor: data.paging?.startingCursor,
+					more: data.paging?.more ?? false,
+				},
+			});
+		}
+
+		this._pendingNotifyCommits = !success;
+		return success;
 	}
 
 	private getConfig(): GraphCompositeConfig {
