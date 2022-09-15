@@ -59,8 +59,8 @@ export interface GraphCompositeConfig extends GraphConfig {
 	columns?: Record<string, GraphColumnConfig>;
 }
 
-export interface CommitListCallback {
-	(state: State): void;
+export interface UpdateStateCallback {
+	(state: State, oldState: State): void;
 }
 
 // Commands

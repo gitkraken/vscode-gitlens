@@ -13,11 +13,11 @@ import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
-	CommitListCallback,
 	DismissBannerParams,
 	GraphCompositeConfig,
 	GraphRepository,
 	State,
+	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -25,7 +25,7 @@ import { pluralize } from '../../../../system/string';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
-	subscriber: (callback: CommitListCallback) => () => void;
+	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
@@ -155,7 +155,7 @@ export function GraphWrapper({
 	trialBanner = true,
 	onDismissBanner,
 }: GraphWrapperProps) {
-	const [graphList, setGraphList] = useState(rows);
+	const [graphRows, setGraphRows] = useState(rows);
 	const [graphAvatars, setAvatars] = useState(avatars);
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
@@ -182,48 +182,40 @@ export function GraphWrapper({
 	const [repoExpanded, setRepoExpanded] = useState(false);
 
 	useEffect(() => {
-		if (mainRef.current === null) {
-			return;
-		}
+		if (mainRef.current === null) return;
 
 		const setDimensionsDebounced = debounceFrame((width, height) => {
 			setMainWidth(Math.floor(width));
 			setMainHeight(Math.floor(height) - graphHeaderOffset);
 		});
 
-		const resizeObserver = new ResizeObserver(entries => {
-			entries.forEach(entry => {
-				setDimensionsDebounced(entry.contentRect.width, entry.contentRect.height);
-			});
-		});
+		const resizeObserver = new ResizeObserver(entries =>
+			entries.forEach(e => setDimensionsDebounced(e.contentRect.width, e.contentRect.height)),
+		);
 		resizeObserver.observe(mainRef.current);
 
-		return () => {
-			resizeObserver.disconnect();
-		};
+		return () => resizeObserver.disconnect();
 	}, [mainRef]);
 
-	function transformData(state: State) {
-		setGraphList(state.rows ?? []);
+	function transformData(state: State, oldState: State) {
+		if (!isLoading || oldState.rows !== state.rows) {
+			setIsLoading(state.rows == null);
+		}
+
+		setGraphRows(state.rows ?? []);
 		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setSelectedRows(state.selectedRows);
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
-		setIsLoading(state.rows == null);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 	}
 
-	useEffect(() => {
-		if (subscriber === undefined) {
-			return;
-		}
-		return subscriber(transformData);
-	}, []);
+	useEffect(() => subscriber?.(transformData), []);
 
 	const handleSelectRepository = (item: GraphRepository) => {
 		if (item != null && item !== currentRepository) {
@@ -442,7 +434,7 @@ export function GraphWrapper({
 								cssVariables={styleProps.cssVariables}
 								getExternalIcon={getIconElementLibrary}
 								avatarUrlByEmail={graphAvatars}
-								graphRows={graphList}
+								graphRows={graphRows}
 								height={mainHeight}
 								isSelectedBySha={graphSelectedRows}
 								hasMoreCommits={pagingState?.more}
@@ -520,9 +512,9 @@ export function GraphWrapper({
 							)}
 						</div>
 					</div>
-					{isAllowed && graphList.length > 0 && (
+					{isAllowed && graphRows.length > 0 && (
 						<span className="actionbar__details">
-							showing {graphList.length} item{graphList.length ? 's' : ''}
+							showing {graphRows.length} item{graphRows.length ? 's' : ''}
 						</span>
 					)}
 					{isLoading && (
@@ -541,6 +533,9 @@ export function GraphWrapper({
 					>
 						<span className="codicon codicon-feedback"></span>
 					</a>
+				</div>
+				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
+					<div className="progress-bar"></div>
 				</div>
 			</footer>
 		</>
