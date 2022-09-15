@@ -87,6 +87,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
 	private _selectedSha?: string;
+	private _selectedRows: { [sha: string]: true } = {};
 	private _repositoryEventsDisposable: Disposable | undefined;
 
 	private _statusBarItem: StatusBarItem | undefined;
@@ -116,7 +117,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
 				this.repository = this.container.git.getRepository(args.repoPath);
-				this._selectedSha = args.sha;
+				this.setSelectedRows(args.sha);
 
 				if (this._panel == null) {
 					void this.show({ preserveFocus: args.preserveFocus });
@@ -447,7 +448,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (!this.isReady || !this.visible) return false;
 
 		return this.notify(DidChangeSelectionNotificationType, {
-			selection: this._selectedSha != null ? [this._selectedSha] : [],
+			selection: this._selectedRows,
 		});
 	}
 
@@ -533,14 +534,14 @@ export class GraphWebview extends WebviewBase<State> {
 			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
 		this.setGraph(data);
-		this._selectedSha = data.sha;
+		this.setSelectedRows(data.sha);
 
 		return {
 			previewBanner: this.previewBanner,
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
-			selectedSha: this._selectedSha,
+			selectedRows: this._selectedRows,
 			selectedVisibility: visibility,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
@@ -569,11 +570,18 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private resetRepositoryState() {
 		this.setGraph(undefined);
-		this._selectedSha = undefined;
+		this.setSelectedRows(undefined);
 	}
 
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
+	}
+
+	private setSelectedRows(sha: string | undefined) {
+		if (this._selectedSha === sha) return;
+
+		this._selectedSha = sha;
+		this._selectedRows = sha != null ? { [sha]: true } : {};
 	}
 }
 

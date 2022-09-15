@@ -8,8 +8,8 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
-	selectedSha?: string;
 	selectedVisibility?: RepositoryVisibility;
+	selectedRows?: { [id: string]: true };
 	subscription?: Subscription;
 	allowed?: boolean;
 	avatars?: { [email: string]: string };
@@ -132,7 +132,7 @@ export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChang
 );
 
 export interface DidChangeSelectionParams {
-	selection: string[];
+	selection: { [id: string]: true };
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',

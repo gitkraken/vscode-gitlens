@@ -137,7 +137,7 @@ export function GraphWrapper({
 	repositories = [],
 	rows = [],
 	selectedRepository,
-	selectedSha,
+	selectedRows,
 	subscription,
 	selectedVisibility,
 	allowed,
@@ -161,7 +161,7 @@ export function GraphWrapper({
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
 		reposList.find(item => item.path === selectedRepository),
 	);
-	const [currentSha, setSelectedSha] = useState(selectedSha);
+	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(false);
@@ -208,7 +208,7 @@ export function GraphWrapper({
 		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
-		setSelectedSha(state.selectedSha);
+		setSelectedRows(state.selectedRows);
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
 		setIsLoading(false);
@@ -440,13 +440,11 @@ export function GraphWrapper({
 							<GraphContainer
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
-								// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-								//@ts-ignore - remove once the Graph component is updated to use the new API
 								getExternalIcon={getIconElementLibrary}
 								avatarUrlByEmail={graphAvatars}
 								graphRows={graphList}
 								height={mainHeight}
-								isSelectedBySha={currentSha ? { [currentSha]: true } : undefined}
+								isSelectedBySha={graphSelectedRows}
 								hasMoreCommits={pagingState?.more}
 								isLoadingRows={isLoading}
 								nonce={nonce}
