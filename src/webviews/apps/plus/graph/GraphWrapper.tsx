@@ -211,6 +211,7 @@ export function GraphWrapper({
 		setPagingState(state.paging);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
+		setShowAccount(state.trialBanner ?? true);
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 	}
@@ -276,7 +277,7 @@ export function GraphWrapper({
 	};
 
 	const renderAlertContent = () => {
-		if (subscriptionSnapshot == null || !isPrivateRepo) return;
+		if (subscriptionSnapshot == null || !isPrivateRepo || (isAllowed && !showAccount)) return;
 
 		let icon = 'account';
 		let modifier = '';
@@ -417,7 +418,7 @@ export function GraphWrapper({
 						</button>
 					</div>
 				)}
-				{showAccount && renderAlertContent()}
+				{renderAlertContent()}
 			</section>
 			<main
 				ref={mainRef}
