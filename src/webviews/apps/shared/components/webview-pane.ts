@@ -25,6 +25,7 @@ export class WebviewPane extends LitElement {
 			background-color: var(--vscode-sideBarSectionHeader-background);
 			color: var(--vscode-sideBarSectionHeader-foreground);
 			border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+			position: relative;
 		}
 
 		.header:focus-within {
@@ -88,6 +89,9 @@ export class WebviewPane extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	expanded = false;
 
+	@property({ type: Boolean, reflect: true })
+	loading = false;
+
 	renderTitle() {
 		if (!this.collapsable) {
 			return html`<div class="label">
@@ -110,7 +114,10 @@ export class WebviewPane extends LitElement {
 
 	override render() {
 		return html`
-			<header class="header">${this.renderTitle()}</header>
+			<header class="header">
+				${this.renderTitle()}
+				<progress-indicator active="${this.loading}"></progress-indicator>
+			</header>
 			<div id="content" role="region" class="content">
 				<slot></slot>
 			</div>

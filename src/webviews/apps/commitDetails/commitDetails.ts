@@ -31,6 +31,7 @@ import '../shared/components/rich/issue-pull-request';
 import '../shared/components/skeleton-loader';
 import '../shared/components/commit/commit-stats';
 import '../shared/components/webview-pane';
+import '../shared/components/progress';
 import '../shared/components/list/list-container';
 import '../shared/components/list/list-item';
 import '../shared/components/list/file-change-list-item';
@@ -506,6 +507,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		$el.expanded = this.state.preferences?.autolinksExpanded ?? true;
+		$el.loading = !state.includeRichContent;
 
 		const $info = $el.querySelector('[data-region="rich-info"]');
 		const $autolinks = $el.querySelector('[data-region="autolinks"]');
