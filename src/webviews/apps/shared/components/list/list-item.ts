@@ -208,7 +208,9 @@ export class ListItem extends FASTElement {
 
 	select(_showOptions?: TextDocumentShowOptions, quiet = false) {
 		// TODO: this needs to be implemented
-		this.expanded = !this.expanded;
+		if (this.branch) {
+			this.expanded = !this.expanded;
+		}
 		this.active = true;
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
