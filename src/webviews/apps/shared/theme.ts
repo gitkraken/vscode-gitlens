@@ -2,7 +2,7 @@
 import { darken, lighten, opacity } from './colors';
 
 export function initializeAndWatchThemeColors(callback?: () => void) {
-	const onColorThemeChanged = () => {
+	const onColorThemeChanged = (mutations?: MutationRecord[]) => {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
 
@@ -133,13 +133,14 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		bodyStyle.setProperty('--color-alert-neutralBorder', 'var(--vscode-input-foreground)');
 		bodyStyle.setProperty('--color-alert-foreground', 'var(--vscode-input-foreground)');
 
-		callback?.();
+		if (mutations != null) {
+			callback?.();
+		}
 	};
 
-	const observer = new MutationObserver(onColorThemeChanged);
-
-	observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
 	onColorThemeChanged();
+
+	const observer = new MutationObserver(onColorThemeChanged);
+	observer.observe(document.body, { attributeFilter: ['class'] });
 	return observer;
 }
