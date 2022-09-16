@@ -197,9 +197,11 @@ export function GraphWrapper({
 		return () => resizeObserver.disconnect();
 	}, [mainRef]);
 
-	function transformData(state: State, oldState: State) {
-		if (!isLoading || oldState.rows !== state.rows) {
+	function transformData(state: State, previousRowCount: number | undefined) {
+		if (!isLoading || previousRowCount !== state.rows?.length) {
 			setIsLoading(state.rows == null);
+		} else {
+			setIsLoading(false);
 		}
 
 		setGraphRows(state.rows ?? []);

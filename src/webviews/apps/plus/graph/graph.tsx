@@ -96,17 +96,17 @@ export class GraphApp extends App<State> {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({ ...this.state, ...params.state });
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
 			case DidChangeAvatarsNotificationType.method:
 				onIpc(DidChangeAvatarsNotificationType, msg, params => {
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({ ...this.state, avatars: params.avatars });
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
@@ -169,47 +169,46 @@ export class GraphApp extends App<State> {
 						if (params.rows.length === 0) {
 							rows = this.state.rows;
 						} else {
-							// TODO@eamodio I'm not sure there is a case for this, but didn't wan't to remove it yet
 							rows = params.rows;
 						}
 					}
 
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({
 						...this.state,
 						avatars: params.avatars,
 						rows: rows,
 						paging: params.paging,
 					});
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
 			case DidChangeSelectionNotificationType.method:
 				onIpc(DidChangeSelectionNotificationType, msg, params => {
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({ ...this.state, selectedRows: params.selection });
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
 			case DidChangeGraphConfigurationNotificationType.method:
 				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({ ...this.state, config: params.config });
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
 			case DidChangeSubscriptionNotificationType.method:
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					const old = this.state;
+					const previousRowCount = this.state.rows?.length;
 					this.setState({
 						...this.state,
 						subscription: params.subscription,
 						allowed: params.allowed,
 					});
-					this.refresh(this.state, old);
+					this.refresh(this.state, previousRowCount);
 				});
 				break;
 
@@ -219,9 +218,9 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated() {
-		const old = this.state;
+		const previousRowCount = this.state.rows?.length;
 		this.setState({ ...this.state, mixedColumnColors: undefined });
-		this.refresh(this.state, old);
+		this.refresh(this.state, previousRowCount);
 	}
 
 	protected override setState(state: State) {
@@ -298,8 +297,8 @@ export class GraphApp extends App<State> {
 		};
 	}
 
-	private refresh(state: State, oldState: State) {
-		this.callback?.(state, oldState);
+	private refresh(state: State, previousRowCount: number | undefined) {
+		this.callback?.(state, previousRowCount);
 	}
 }
 

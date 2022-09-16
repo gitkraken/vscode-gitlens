@@ -60,7 +60,7 @@ export interface GraphCompositeConfig extends GraphConfig {
 }
 
 export interface UpdateStateCallback {
-	(state: State, oldState: State): void;
+	(state: State, previousRowCount: number | undefined): void;
 }
 
 // Commands
