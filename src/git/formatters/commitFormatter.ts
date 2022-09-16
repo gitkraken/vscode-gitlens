@@ -11,7 +11,7 @@ import {
 	DiffWithCommand,
 	OpenCommitOnRemoteCommand,
 	OpenFileAtRevisionCommand,
-	ShowQuickCommitCommand,
+	ShowCommitsInViewCommand,
 	ShowQuickCommitFileCommand,
 } from '../../commands';
 import { Command } from '../../commands/base';
@@ -19,6 +19,7 @@ import { configuration, DateStyle, FileAnnotationType } from '../../configuratio
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
+import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
@@ -283,14 +284,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (this._item.isUncommitted) {
 			const { previousLineComparisonUris: diffUris } = this._options;
 			if (diffUris?.previous != null) {
-				commands = `\`${this._padOrTruncate(
+				commands = `[\`${this._padOrTruncate(
 					GitRevision.shorten(
 						GitRevision.isUncommittedStaged(diffUris.current.sha)
 							? diffUris.current.sha
 							: GitRevision.uncommitted,
 					)!,
 					this._options.tokenOptions.commands,
-				)}\``;
+				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+					this._item.sha,
+					this._item.repoPath,
+				)} "Show Details")`;
 
 				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
@@ -311,12 +315,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					this._options.editor?.line,
 				)} "Open Blame Prior to this Change")`;
 			} else {
-				commands = `\`${this._padOrTruncate(
+				commands = `[\`${this._padOrTruncate(
 					GitRevision.shorten(
 						this._item.isUncommittedStaged ? GitRevision.uncommittedStaged : GitRevision.uncommitted,
 					)!,
 					this._options.tokenOptions.commands,
-				)}\``;
+				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+					this._item.sha,
+					this._item.repoPath,
+				)} "Show Details")`;
 			}
 
 			return commands;
@@ -324,9 +331,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
-		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 			this._item.sha,
-		)} "Show Commit")`;
+			this._item.repoPath,
+		)} "Show Details")`;
 
 		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
@@ -345,6 +353,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._options.editor?.line,
 			)} "Open Blame Prior to this Change")`;
 		}
+
+		commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowCommitInGraphCommandArgs>(
+			Commands.ShowCommitInGraph,
+			{ sha: this._item.sha, repoPath: this._item.repoPath },
+		)} "Show in Commit Graph")`;
 
 		if (this._options.remotes != null && this._options.remotes.length !== 0) {
 			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
@@ -478,9 +491,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (!this._options.markdown) return this.id;
 
 		const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
-		const link = `[\`$(git-commit) ${sha}\`](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+		const link = `[\`$(git-commit) ${sha}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 			this._item.sha,
-		)} "Show Commit")`;
+			this._item.repoPath,
+		)} "Show Details")`;
 
 		return this._padOrTruncate(link, this._options.tokenOptions.link);
 	}

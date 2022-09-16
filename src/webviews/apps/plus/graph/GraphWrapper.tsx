@@ -2,20 +2,22 @@ import GraphContainer, {
 	type CssVariables,
 	type GraphColumnSetting as GKGraphColumnSetting,
 	type GraphColumnsSettings as GKGraphColumnsSettings,
+	type GraphPlatform,
 	type GraphRow,
 	type GraphZoneType,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
+import { getPlatform } from '@env/platform';
 import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
-	CommitListCallback,
 	DismissBannerParams,
 	GraphCompositeConfig,
 	GraphRepository,
 	State,
+	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -23,10 +25,11 @@ import { pluralize } from '../../../../system/string';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
-	subscriber: (callback: CommitListCallback) => () => void;
+	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
-	onMoreCommits?: (limit?: number) => void;
+	onMissingAvatars?: (emails: { [email: string]: string }) => void;
+	onMoreCommits?: () => void;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 }
@@ -114,20 +117,37 @@ const getIconElementLibrary = (iconKey: string) => {
 	return iconElementLibrary[iconKey];
 };
 
+const getClientPlatform = (): GraphPlatform => {
+	switch (getPlatform()) {
+		case 'web-macOS':
+			return 'darwin';
+		case 'web-windows':
+			return 'win32';
+		case 'web-linux':
+		default:
+			return 'linux';
+	}
+};
+
+const clientPlatform = getClientPlatform();
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
 	repositories = [],
 	rows = [],
 	selectedRepository,
-	selectedSha,
+	selectedRows,
 	subscription,
-	selectedVisibility,
+	selectedRepositoryVisibility,
 	allowed,
+	avatars,
 	config,
+	loading,
 	paging,
 	onSelectRepository,
 	onColumnChange,
+	onMissingAvatars,
 	onMoreCommits,
 	onSelectionChange,
 	nonce,
@@ -136,15 +156,16 @@ export function GraphWrapper({
 	trialBanner = true,
 	onDismissBanner,
 }: GraphWrapperProps) {
-	const [graphList, setGraphList] = useState(rows);
+	const [graphRows, setGraphRows] = useState(rows);
+	const [graphAvatars, setAvatars] = useState(avatars);
 	const [reposList, setReposList] = useState(repositories);
 	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
 		reposList.find(item => item.path === selectedRepository),
 	);
-	const [currentSha, setSelectedSha] = useState(selectedSha);
+	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
-	const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(loading);
 	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
@@ -156,53 +177,44 @@ export function GraphWrapper({
 	// account
 	const [showAccount, setShowAccount] = useState(trialBanner);
 	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
-	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedVisibility === RepositoryVisibility.Private);
+	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedRepositoryVisibility === RepositoryVisibility.Private);
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
 
 	useEffect(() => {
-		if (mainRef.current === null) {
-			return;
-		}
+		if (mainRef.current === null) return;
 
 		const setDimensionsDebounced = debounceFrame((width, height) => {
 			setMainWidth(Math.floor(width));
 			setMainHeight(Math.floor(height) - graphHeaderOffset);
 		});
 
-		const resizeObserver = new ResizeObserver(entries => {
-			entries.forEach(entry => {
-				setDimensionsDebounced(entry.contentRect.width, entry.contentRect.height);
-			});
-		});
+		const resizeObserver = new ResizeObserver(entries =>
+			entries.forEach(e => setDimensionsDebounced(e.contentRect.width, e.contentRect.height)),
+		);
 		resizeObserver.observe(mainRef.current);
 
-		return () => {
-			resizeObserver.disconnect();
-		};
+		return () => resizeObserver.disconnect();
 	}, [mainRef]);
 
 	function transformData(state: State) {
-		setGraphList(state.rows ?? []);
+		setGraphRows(state.rows ?? []);
+		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
-		setSelectedSha(state.selectedSha);
+		setSelectedRows(state.selectedRows);
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
-		setIsLoading(false);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
+		setShowAccount(state.trialBanner ?? true);
 		setSubscriptionSnapshot(state.subscription);
-		setIsPrivateRepo(state.selectedVisibility === RepositoryVisibility.Private);
+		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
+		setIsLoading(state.loading);
 	}
 
-	useEffect(() => {
-		if (subscriber === undefined) {
-			return;
-		}
-		return subscriber(transformData);
-	}, []);
+	useEffect(() => subscriber?.(transformData), []);
 
 	const handleSelectRepository = (item: GraphRepository) => {
 		if (item != null && item !== currentRepository) {
@@ -215,6 +227,10 @@ export function GraphWrapper({
 	const handleToggleRepos = () => {
 		if (currentRepository != null && reposList.length <= 1) return;
 		setRepoExpanded(!repoExpanded);
+	};
+
+	const handleMissingAvatars = (emails: { [email: string]: string }) => {
+		onMissingAvatars?.(emails);
 	};
 
 	const handleMoreCommits = () => {
@@ -243,7 +259,9 @@ export function GraphWrapper({
 	const renderTrialDays = () => {
 		if (
 			!subscriptionSnapshot ||
-			![SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)
+			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
+				subscriptionSnapshot.state,
+			)
 		) {
 			return;
 		}
@@ -257,14 +275,18 @@ export function GraphWrapper({
 	};
 
 	const renderAlertContent = () => {
-		if (subscriptionSnapshot == null || !isPrivateRepo) return;
+		if (subscriptionSnapshot == null || !isPrivateRepo || (isAllowed && !showAccount)) return;
 
 		let icon = 'account';
 		let modifier = '';
 		let content;
 		let actions;
 		let days = 0;
-		if ([SubscriptionState.FreeInPreview, SubscriptionState.FreePlusInTrial].includes(subscriptionSnapshot.state)) {
+		if (
+			[SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
+				subscriptionSnapshot.state,
+			)
+		) {
 			days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
 		}
 
@@ -272,7 +294,7 @@ export function GraphWrapper({
 			case SubscriptionState.Free:
 			case SubscriptionState.Paid:
 				return;
-			case SubscriptionState.FreeInPreview:
+			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
 				icon = 'calendar';
 				modifier = 'neutral';
@@ -290,7 +312,7 @@ export function GraphWrapper({
 					</>
 				);
 				break;
-			case SubscriptionState.FreePreviewExpired:
+			case SubscriptionState.FreePreviewTrialExpired:
 				icon = 'warning';
 				modifier = 'warning';
 				content = (
@@ -394,7 +416,7 @@ export function GraphWrapper({
 						</button>
 					</div>
 				)}
-				{showAccount && renderAlertContent()}
+				{renderAlertContent()}
 			</section>
 			<main
 				ref={mainRef}
@@ -409,18 +431,19 @@ export function GraphWrapper({
 							<GraphContainer
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
-								// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-								//@ts-ignore - remove once the Graph component is updated to use the new API
 								getExternalIcon={getIconElementLibrary}
-								graphRows={graphList}
+								avatarUrlByEmail={graphAvatars}
+								graphRows={graphRows}
 								height={mainHeight}
-								isSelectedBySha={currentSha ? { [currentSha]: true } : undefined}
+								isSelectedBySha={graphSelectedRows}
 								hasMoreCommits={pagingState?.more}
 								isLoadingRows={isLoading}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
+								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onShowMoreCommits={handleMoreCommits}
+								platform={clientPlatform}
 								width={mainWidth}
 								themeOpacityFactor={styleProps.themeOpacityFactor}
 							/>
@@ -488,9 +511,9 @@ export function GraphWrapper({
 							)}
 						</div>
 					</div>
-					{isAllowed && graphList.length > 0 && (
+					{isAllowed && graphRows.length > 0 && (
 						<span className="actionbar__details">
-							showing {graphList.length} item{graphList.length ? 's' : ''}
+							showing {graphRows.length} item{graphRows.length ? 's' : ''}
 						</span>
 					)}
 					{isLoading && (
@@ -509,6 +532,9 @@ export function GraphWrapper({
 					>
 						<span className="codicon codicon-feedback"></span>
 					</a>
+				</div>
+				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
+					<div className="progress-bar"></div>
 				</div>
 			</footer>
 		</>

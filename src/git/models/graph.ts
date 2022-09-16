@@ -21,13 +21,18 @@ export interface GitGraphRow extends GraphRow {
 
 export interface GitGraph {
 	readonly repoPath: string;
+	/** A map of all avatar urls */
+	readonly avatars: Map<string, string>;
+	/** A set of all "seen" commit ids */
+	readonly ids: Set<string>;
+	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
 	readonly sha?: string;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
 		readonly startingCursor: string | undefined;
-		readonly endingCursor: string | undefined;
+		// readonly endingCursor: string | undefined;
 		readonly more: boolean;
 	};
 

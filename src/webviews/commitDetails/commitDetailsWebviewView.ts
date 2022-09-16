@@ -77,6 +77,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			commit: undefined,
 			preferences: {
 				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
+				filesAsTree: this.container.storage.getWorkspace('views:commitDetails:filesAsTree'),
 			},
 			richStateLoaded: false,
 			formattedMessage: undefined,
@@ -430,14 +431,28 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private updatePreferences(preferences: SavedPreferences) {
-		if (this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded) return;
+		if (
+			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
+			this._context.preferences?.filesAsTree === preferences.filesAsTree
+		) {
+			return;
+		}
 
-		void this.container.storage.storeWorkspace(
-			'views:commitDetails:autolinksExpanded',
-			preferences.autolinksExpanded,
-		);
+		const changes: SavedPreferences = {};
+		if (this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded) {
+			void this.container.storage.storeWorkspace(
+				'views:commitDetails:autolinksExpanded',
+				preferences.autolinksExpanded,
+			);
+			changes.autolinksExpanded = preferences.autolinksExpanded;
+		}
 
-		this.updatePendingContext({ preferences: { autolinksExpanded: preferences.autolinksExpanded } });
+		if (this._context.preferences?.filesAsTree !== preferences.filesAsTree) {
+			void this.container.storage.storeWorkspace('views:commitDetails:filesAsTree', preferences.filesAsTree);
+			changes.filesAsTree = preferences.filesAsTree;
+		}
+
+		this.updatePendingContext({ preferences: changes });
 	}
 
 	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {

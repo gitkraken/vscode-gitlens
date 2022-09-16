@@ -1,4 +1,6 @@
 /*global*/
+import type { HierarchicalItem } from '../../../system/array';
+import { makeHierarchical } from '../../../system/array';
 import type { Serialized } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -18,7 +20,7 @@ import {
 	SearchCommitCommandType,
 } from '../../commitDetails/protocol';
 import { App } from '../shared/appBase';
-import type { FileChangeItem, FileChangeItemEventDetail } from '../shared/components/commit/file-change-item';
+import type { FileChangeListItem, FileChangeListItemDetail } from '../shared/components/list/file-change-list-item';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
 import { DOM } from '../shared/dom';
 import './commitDetails.scss';
@@ -28,8 +30,11 @@ import '../shared/components/formatted-date';
 import '../shared/components/rich/issue-pull-request';
 import '../shared/components/skeleton-loader';
 import '../shared/components/commit/commit-stats';
-import '../shared/components/commit/file-change-item';
 import '../shared/components/webview-pane';
+import '../shared/components/progress';
+import '../shared/components/list/list-container';
+import '../shared/components/list/list-item';
+import '../shared/components/list/file-change-list-item';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -48,38 +53,26 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	override onBind() {
 		const disposables = [
-			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-open-on-remote', e =>
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open-on-remote', e =>
 				this.onOpenFileOnRemote(e.detail),
 			),
-			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-open', e =>
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open', e =>
 				this.onOpenFile(e.detail),
 			),
-			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-compare-working', e =>
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-working', e =>
 				this.onCompareFileWithWorking(e.detail),
 			),
-			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-compare-previous', e =>
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-previous', e =>
 				this.onCompareFileWithPrevious(e.detail),
 			),
-			DOM.on<FileChangeItem, FileChangeItemEventDetail>('file-change-item', 'file-more-actions', e =>
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
 			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
-			DOM.on('file-change-item', 'keydown', (e, target: HTMLElement) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					(target as FileChangeItem).open(e.key === 'Enter' ? { preserveFocus: false } : undefined);
-				} else if (e.key === 'ArrowUp') {
-					const $previous: HTMLElement | null = target.parentElement?.previousElementSibling
-						?.firstElementChild as HTMLElement;
-					$previous?.focus();
-				} else if (e.key === 'ArrowDown') {
-					const $next: HTMLElement | null = target.parentElement?.nextElementSibling
-						?.firstElementChild as HTMLElement;
-					$next?.focus();
-				}
-			}),
+			DOM.on('[data-switch-value]', 'click', e => this.onTreeSetting(e)),
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
@@ -127,6 +120,22 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
+	private onTreeSetting(e: MouseEvent) {
+		const isTree = (e.target as HTMLElement)?.getAttribute('data-switch-value') === 'list-tree';
+
+		if (isTree === this.state.preferences?.filesAsTree) {
+			return;
+		}
+
+		this.state.preferences = { ...this.state.preferences, filesAsTree: isTree };
+
+		this.renderFiles(this.state as CommitState);
+
+		this.sendCommand(PreferencesCommandType, {
+			filesAsTree: isTree,
+		});
+	}
+
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
 		this.sendCommand(PreferencesCommandType, {
 			autolinksExpanded: e.expanded,
@@ -151,23 +160,23 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(PickCommitCommandType, undefined);
 	}
 
-	private onOpenFileOnRemote(e: FileChangeItemEventDetail) {
+	private onOpenFileOnRemote(e: FileChangeListItemDetail) {
 		this.sendCommand(OpenFileOnRemoteCommandType, e);
 	}
 
-	private onOpenFile(e: FileChangeItemEventDetail) {
+	private onOpenFile(e: FileChangeListItemDetail) {
 		this.sendCommand(OpenFileCommandType, e);
 	}
 
-	private onCompareFileWithWorking(e: FileChangeItemEventDetail) {
+	private onCompareFileWithWorking(e: FileChangeListItemDetail) {
 		this.sendCommand(OpenFileCompareWorkingCommandType, e);
 	}
 
-	private onCompareFileWithPrevious(e: FileChangeItemEventDetail) {
+	private onCompareFileWithPrevious(e: FileChangeListItemDetail) {
 		this.sendCommand(OpenFileComparePreviousCommandType, e);
 	}
 
-	private onFileMoreActions(e: FileChangeItemEventDetail) {
+	private onFileMoreActions(e: FileChangeListItemDetail) {
 		this.sendCommand(FileActionsCommandType, e);
 	}
 
@@ -206,6 +215,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			return;
 		}
 
+		this.renderActions(this.state);
 		this.renderPin(this.state);
 		this.renderSha(this.state);
 		this.renderMessage(this.state);
@@ -216,6 +226,13 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// if (this.state.includeRichContent) {
 		this.renderPullRequestAndAutolinks(this.state);
 		// }
+	}
+
+	renderActions(state: CommitState) {
+		const isHidden = state.selected?.sha === uncommittedSha ? 'true' : 'false';
+		[...document.querySelectorAll('[data-action-type="graph"],[data-action-type="more"]')].forEach($el =>
+			$el.setAttribute('aria-hidden', isHidden),
+		);
 	}
 
 	renderPin(state: CommitState) {
@@ -322,16 +339,76 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		if (state.selected.files?.length) {
-			const stashAttr = state.selected.isStash ? 'stash ' : '';
-			$el.innerHTML = state.selected.files
-				.map(
-					(file: Record<string, any>) => `
-						<li class="change-list__item">
-							<file-change-item class="commit-details__file" ${stashAttr}status="${file.status}" path="${file.path}" repo-path="${file.repoPath}" icon="${file.icon.dark}"></file-change-item>
-						</li>
-					`,
-				)
-				.join('');
+			const isTree = state.preferences?.filesAsTree === true;
+			document.querySelector('[data-switch-value="list"]')?.classList.toggle('is-selected', !isTree);
+			document.querySelector('[data-switch-value="list-tree"]')?.classList.toggle('is-selected', isTree);
+
+			const stashAttr = state.selected.isStash
+				? 'stash '
+				: state.selected.sha === uncommittedSha
+				? 'uncommitted '
+				: '';
+
+			if (isTree) {
+				const tree = makeHierarchical(
+					state.selected.files,
+					n => n.path.split('/'),
+					(...parts: string[]) => parts.join('/'),
+					true,
+				);
+				const flatTree = flattenHeirarchy(tree);
+
+				$el.innerHTML = `
+					<li class="change-list__item">
+						<list-container>
+							${flatTree
+								.map(({ level, item }) => {
+									if (item.name === '') {
+										return '';
+									}
+
+									if (item.value == null) {
+										return `
+											<list-item level="${level}" tree branch>
+												<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
+												${item.name}
+											</list-item>
+										`;
+									}
+
+									return `
+										<file-change-list-item
+											tree
+											level="${level}"
+											${stashAttr}
+											path="${item.value.path}"
+											icon="${item.value.icon.dark}"
+											status="${item.value.status}"
+										></file-change-list-item>
+									`;
+								})
+								.join('')}
+						</list-container>
+					</li>`;
+			} else {
+				$el.innerHTML = `
+					<li class="change-list__item">
+						<list-container>
+							${state.selected.files
+								.map(
+									(file: Record<string, any>) => `
+											<file-change-list-item
+												${stashAttr}
+												path="${file.path}"
+												icon="${file.icon.dark}"
+												status="${file.status}"
+											></file-change-list-item>
+										`,
+								)
+								.join('')}
+						</list-container>
+					</li>`;
+			}
 			$el.setAttribute('aria-hidden', 'false');
 		} else {
 			$el.innerHTML = '';
@@ -430,6 +507,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		$el.expanded = this.state.preferences?.autolinksExpanded ?? true;
+		$el.loading = !state.includeRichContent;
 
 		const $info = $el.querySelector('[data-region="rich-info"]');
 		const $autolinks = $el.querySelector('[data-region="autolinks"]');
@@ -502,5 +580,40 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 }
 
 function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
+
+function flattenHeirarchy<T>(item: HierarchicalItem<T>, level = 0): { level: number; item: HierarchicalItem<T> }[] {
+	const flattened: { level: number; item: HierarchicalItem<T> }[] = [];
+
+	if (item == null) {
+		return flattened;
+	}
+
+	flattened.push({ level: level, item: item });
+
+	if (item.children != null) {
+		const children = Array.from(item.children.values());
+		children.sort((a, b) => {
+			if (!a.value || !b.value) {
+				return (a.value ? 1 : -1) - (b.value ? 1 : -1);
+			}
+
+			if (a.relativePath < b.relativePath) {
+				return -1;
+			}
+
+			if (a.relativePath > b.relativePath) {
+				return 1;
+			}
+
+			return 0;
+		});
+
+		children.forEach(child => {
+			flattened.push(...flattenHeirarchy(child, level + 1));
+		});
+	}
+
+	return flattened;
+}
 
 new CommitDetailsApp();

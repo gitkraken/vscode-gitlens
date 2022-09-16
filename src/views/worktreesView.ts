@@ -147,11 +147,11 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 		switch (subscription.state) {
 			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewExpired:
+			case SubscriptionState.FreePreviewTrialExpired:
 			case SubscriptionState.VerificationRequired:
 				this.description = '✨ GitLens+ feature';
 				break;
-			case SubscriptionState.FreeInPreview: {
+			case SubscriptionState.FreeInPreviewTrial: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
 				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on public and private repos`;
 				break;

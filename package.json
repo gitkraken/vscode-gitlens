@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "12.2.1",
+	"version": "12.2.2",
 	"engines": {
 		"vscode": "^1.69.0"
 	},
@@ -2092,10 +2092,20 @@
 				"title": "Commit Graph",
 				"order": 105,
 				"properties": {
-					"gitlens.graph.statusBar.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
+					"gitlens.graph.commitOrdering": {
+						"type": "string",
+						"default": "date",
+						"enum": [
+							"date",
+							"author-date",
+							"topo"
+						],
+						"enumDescriptions": [
+							"Shows commits in reverse chronological order of the commit timestamp",
+							"Shows commits in reverse chronological order of the author timestamp",
+							"Shows commits in reverse chronological order of the commit timestamp, but avoids intermixing multiple lines of history"
+						],
+						"markdownDescription": "Specifies the order by which commits will be shown on the _Commit Graph_",
 						"scope": "window",
 						"order": 10
 					},
@@ -2104,14 +2114,21 @@
 						"default": 500,
 						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 50
+						"order": 20
 					},
 					"gitlens.graph.pageItemLimit": {
 						"type": "number",
 						"default": 200,
 						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
 						"scope": "window",
-						"order": 60
+						"order": 21
+					},
+					"gitlens.graph.statusBar.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
+						"scope": "window",
+						"order": 100
 					}
 				}
 			},
@@ -11663,7 +11680,8 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "1.0.0-rc.13",
+		"@gitkraken/gitkraken-components": "1.0.0-rc.14",
+		"@microsoft/fast-element": "^1.10.5",
 		"@octokit/core": "4.0.5",
 		"@vscode/codicons": "0.0.32",
 		"@vscode/webview-ui-toolkit": "1.0.1",
@@ -11684,7 +11702,7 @@
 	"devDependencies": {
 		"@squoosh/lib": "0.4.0",
 		"@types/chroma-js": "2.1.4",
-		"@types/glob": "7.2.0",
+		"@types/glob": "8.0.0",
 		"@types/lodash-es": "4.17.6",
 		"@types/mocha": "9.1.1",
 		"@types/node": "16.11.47",
@@ -11693,24 +11711,24 @@
 		"@types/sortablejs": "1.13.0",
 		"@types/uuid": "8.3.4",
 		"@types/vscode": "1.69.0",
-		"@typescript-eslint/eslint-plugin": "5.36.1",
-		"@typescript-eslint/parser": "5.36.1",
+		"@typescript-eslint/eslint-plugin": "5.37.0",
+		"@typescript-eslint/parser": "5.37.0",
 		"@vscode/test-electron": "2.1.5",
-		"@vscode/test-web": "0.0.29",
+		"@vscode/test-web": "0.0.30",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
-		"concurrently": "7.3.0",
+		"concurrently": "7.4.0",
 		"copy-webpack-plugin": "11.0.0",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.7.1",
-		"css-minimizer-webpack-plugin": "^4.0.0",
-		"cssnano-preset-advanced": "^5.3.8",
-		"esbuild": "0.15.6",
-		"esbuild-loader": "2.19.0",
-		"eslint": "8.23.0",
+		"css-minimizer-webpack-plugin": "4.1.0",
+		"cssnano-preset-advanced": "5.3.8",
+		"esbuild": "0.15.7",
+		"esbuild-loader": "2.20.0",
+		"eslint": "8.23.1",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "8.5.0",
-		"eslint-import-resolver-typescript": "3.5.0",
+		"eslint-import-resolver-typescript": "3.5.1",
 		"eslint-plugin-anti-trojan-source": "1.1.0",
 		"eslint-plugin-import": "2.26.0",
 		"eslint-plugin-lit": "1.6.1",
@@ -11719,20 +11737,20 @@
 		"glob": "8.0.3",
 		"html-loader": "4.1.0",
 		"html-webpack-plugin": "5.5.0",
-		"image-minimizer-webpack-plugin": "3.3.0",
+		"image-minimizer-webpack-plugin": "3.4.0",
 		"json5": "2.2.1",
 		"license-checker-rseidelsohn": "3.1.0",
 		"mini-css-extract-plugin": "2.6.1",
 		"mocha": "10.0.0",
 		"prettier": "2.7.1",
-		"sass": "1.54.7",
+		"sass": "1.54.9",
 		"sass-loader": "13.0.2",
 		"schema-utils": "4.0.0",
 		"svgo": "2.8.0",
 		"terser-webpack-plugin": "5.3.6",
 		"ts-loader": "9.3.1",
 		"tsc-alias": "1.7.0",
-		"typescript": "4.8.2",
+		"typescript": "4.8.3",
 		"vsce": "2.11.0",
 		"webpack": "5.74.0",
 		"webpack-bundle-analyzer": "4.6.1",

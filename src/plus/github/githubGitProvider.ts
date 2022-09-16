@@ -1075,6 +1075,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this.getTags(repoPath),
 		]);
 
+		const avatars = new Map<string, string>();
+		const ids = new Set<string>();
+
 		return this.getCommitsForGraphCore(
 			repoPath,
 			asWebviewUri,
@@ -1082,6 +1085,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(branchResult),
 			getSettledValue(remotesResult)?.[0],
 			getSettledValue(tagsResult)?.values,
+			avatars,
+			ids,
 			options,
 		);
 	}
@@ -1093,6 +1098,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		branch: GitBranch | undefined,
 		remote: GitRemote | undefined,
 		tags: GitTag[] | undefined,
+		avatars: Map<string, string>,
+		ids: Set<string>,
 		options?: {
 			branch?: string;
 			limit?: number;
@@ -1103,6 +1110,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (log == null) {
 			return {
 				repoPath: repoPath,
+				avatars: avatars,
+				ids: ids,
 				rows: [],
 			};
 		}
@@ -1111,6 +1120,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (commits == null) {
 			return {
 				repoPath: repoPath,
+				avatars: avatars,
+				ids: ids,
 				rows: [],
 			};
 		}
@@ -1124,6 +1135,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const hasHeadShaAndRemote = branch?.sha != null && remote != null;
 
 		for (const commit of commits) {
+			ids.add(commit.sha);
+
 			if (hasHeadShaAndRemote && commit.sha === branch.sha) {
 				refHeads = [
 					{
@@ -1161,11 +1174,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				refTags = [];
 			}
 
+			if (commit.author.email && !avatars.has(commit.author.email)) {
+				const uri = commit.getCachedAvatarUri();
+				if (uri != null) {
+					avatars.set(commit.author.email, uri.toString(true));
+				}
+			}
+
 			rows.push({
 				sha: commit.sha,
 				parents: commit.parents,
 				author: commit.author.name,
-				avatarUrl: (await commit.getAvatarUri())?.toString(true),
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
 				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
@@ -1185,18 +1204,30 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		return {
 			repoPath: repoPath,
-			paging: {
-				limit: log.limit,
-				endingCursor: log.endingCursor,
-				startingCursor: log.startingCursor,
-				more: log.hasMore,
-			},
+			avatars: avatars,
+			ids: ids,
 			rows: rows,
 			sha: options?.ref,
 
+			paging: {
+				limit: log.limit,
+				// endingCursor: log.endingCursor,
+				startingCursor: log.startingCursor,
+				more: log.hasMore,
+			},
 			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
-				return this.getCommitsForGraphCore(repoPath, asWebviewUri, moreLog, branch, remote, tags, options);
+				return this.getCommitsForGraphCore(
+					repoPath,
+					asWebviewUri,
+					moreLog,
+					branch,
+					remote,
+					tags,
+					avatars,
+					ids,
+					options,
+				);
 			},
 		};
 	}

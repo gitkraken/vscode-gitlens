@@ -8,10 +8,12 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
-	selectedSha?: string;
-	selectedVisibility?: RepositoryVisibility;
+	selectedRepositoryVisibility?: RepositoryVisibility;
+	selectedRows?: { [id: string]: true };
 	subscription?: Subscription;
-	allowed?: boolean;
+	allowed: boolean;
+	avatars?: { [email: string]: string };
+	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	config?: GraphCompositeConfig;
@@ -25,7 +27,6 @@ export interface State {
 
 export interface GraphPaging {
 	startingCursor?: string;
-	endingCursor?: string;
 	more: boolean;
 }
 
@@ -59,7 +60,7 @@ export interface GraphCompositeConfig extends GraphConfig {
 	columns?: Record<string, GraphColumnConfig>;
 }
 
-export interface CommitListCallback {
+export interface UpdateStateCallback {
 	(state: State): void;
 }
 
@@ -69,10 +70,12 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
-export interface GetMoreCommitsParams {
-	limit?: number;
+export interface GetMissingAvatarsParams {
+	emails: { [email: string]: string };
 }
-export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
+export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/getMissingAvatars');
+
+export const GetMoreCommitsCommandType = new IpcCommandType<undefined>('graph/getMoreCommits');
 
 export interface UpdateColumnParams {
 	name: string;
@@ -113,8 +116,16 @@ export const DidChangeSubscriptionNotificationType = new IpcNotificationType<Did
 	'graph/subscription/didChange',
 );
 
+export interface DidChangeAvatarsParams {
+	avatars: { [email: string]: string };
+}
+export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
+	'graph/avatars/didChange',
+);
+
 export interface DidChangeCommitsParams {
 	rows: GraphRow[];
+	avatars: { [email: string]: string };
 	paging?: GraphPaging;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
@@ -122,7 +133,7 @@ export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChang
 );
 
 export interface DidChangeSelectionParams {
-	selection: string[];
+	selection: { [id: string]: true };
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',

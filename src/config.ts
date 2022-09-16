@@ -378,6 +378,7 @@ export interface GraphColumnConfig {
 }
 
 export interface GraphConfig {
+	commitOrdering: 'date' | 'author-date' | 'topo';
 	defaultItemLimit: number;
 	pageItemLimit: number;
 	statusBar: {

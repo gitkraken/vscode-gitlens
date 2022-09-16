@@ -121,16 +121,46 @@ export function getDurationMilliseconds(start: [number, number]) {
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function* getLines(s: string, char: string = '\n'): IterableIterator<string> {
-	let i = 0;
-	while (i < s.length) {
-		let j = s.indexOf(char, i);
-		if (j === -1) {
-			j = s.length;
+export function* getLines(data: string | string[], char: string = '\n'): IterableIterator<string> {
+	if (typeof data === 'string') {
+		let i = 0;
+		while (i < data.length) {
+			let j = data.indexOf(char, i);
+			if (j === -1) {
+				j = data.length;
+			}
+
+			yield data.substring(i, j);
+			i = j + 1;
 		}
 
-		yield s.substring(i, j);
-		i = j + 1;
+		return;
+	}
+
+	let count = 0;
+	let leftover: string | undefined;
+	for (let s of data) {
+		count++;
+		if (leftover) {
+			s = leftover + s;
+			leftover = undefined;
+		}
+
+		let i = 0;
+		while (i < s.length) {
+			let j = s.indexOf(char, i);
+			if (j === -1) {
+				if (count === data.length) {
+					j = s.length;
+				} else {
+					leftover = s.substring(i);
+					break;
+				}
+			}
+
+			yield s.substring(i, j);
+			i = j + 1;
+		}
 	}
 }
 

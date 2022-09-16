@@ -1,5 +1,6 @@
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { EventEmitter, MarkdownString, ProgressLocation, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import type { GraphColumnConfig } from '../../../configuration';
@@ -28,12 +29,14 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { DismissBannerParams, GraphCompositeConfig, GraphRepository, State } from './protocol';
 import {
+	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
+	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -43,6 +46,7 @@ import {
 export interface ShowCommitInGraphCommandArgs {
 	repoPath: string;
 	sha: string;
+	preserveFocus?: boolean;
 }
 
 export interface GraphSelectionChangeEvent {
@@ -82,8 +86,9 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
-	private _ids: Set<string> = new Set();
+	private _pendingNotifyCommits: boolean = false;
 	private _selectedSha?: string;
+	private _selectedRows: { [sha: string]: true } = {};
 	private _repositoryEventsDisposable: Disposable | undefined;
 
 	private _statusBarItem: StatusBarItem | undefined;
@@ -113,12 +118,12 @@ export class GraphWebview extends WebviewBase<State> {
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
 				this.repository = this.container.git.getRepository(args.repoPath);
-				this._selectedSha = args.sha;
+				this.setSelectedRows(args.sha);
 
 				if (this._panel == null) {
-					void this.show();
+					void this.show({ preserveFocus: args.preserveFocus });
 				} else {
-					if (this._ids.has(args.sha)) {
+					if (this._graph?.ids.has(args.sha)) {
 						void this.notifyDidChangeSelection();
 						return;
 					}
@@ -131,7 +136,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this.onConfigurationChanged();
 	}
 
-	override async show(column: ViewColumn = ViewColumn.Active, ...args: unknown[]): Promise<void> {
+	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.git.repositoryCount > 1) {
@@ -152,7 +157,7 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		}
 
-		return super.show(column, ...args);
+		return super.show({ column: ViewColumn.Active, ...options }, ...args);
 	}
 
 	protected override refresh(force?: boolean): Promise<void> {
@@ -161,9 +166,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
-		return window.withProgress({ location: ProgressLocation.Window, title: 'Loading Commit Graph...' }, async () =>
-			this.getState(),
-		);
+		return this.getState(true);
 	}
 
 	protected override registerCommands(): Disposable[] {
@@ -175,13 +178,22 @@ export class GraphWebview extends WebviewBase<State> {
 		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
 	}
 
+	protected override onReady(): void {
+		if (this._pendingNotifyCommits) {
+			void this.notifyDidChangeCommits();
+		}
+	}
+
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params.key));
 				break;
+			case GetMissingAvatarsCommandType.method:
+				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
+				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.limit));
+				onIpc(GetMoreCommitsCommandType, e, () => this.onGetMoreCommits());
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
@@ -307,8 +319,32 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeGraphConfiguration();
 	}
 
+	private async onGetMissingAvatars(emails: { [email: string]: string }) {
+		if (this._graph == null) return;
+
+		const repoPath = this._graph.repoPath;
+
+		async function getAvatar(this: GraphWebview, email: string, sha: string) {
+			const uri = await getAvatarUri(email, { ref: sha, repoPath: repoPath });
+			this._graph!.avatars.set(email, uri.toString(true));
+		}
+
+		const promises: Promise<void>[] = [];
+
+		for (const [email, sha] of Object.entries(emails)) {
+			if (this._graph.avatars.has(email)) continue;
+
+			promises.push(getAvatar.call(this, email, sha));
+		}
+
+		if (promises.length) {
+			await Promise.allSettled(promises);
+			this.updateAvatars();
+		}
+	}
+
 	@gate()
-	private async onGetMoreCommits(limit?: number) {
+	private async onGetMoreCommits() {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
@@ -316,7 +352,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const { defaultItemLimit, pageItemLimit } = this.getConfig();
-		const newGraph = await this._graph.more(limit ?? pageItemLimit ?? defaultItemLimit);
+		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
 			this.setGraph(newGraph);
 		} else {
@@ -374,6 +410,24 @@ export class GraphWebview extends WebviewBase<State> {
 		this._notifyDidChangeStateDebounced();
 	}
 
+	private _notifyDidChangeAvatarsDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateAvatars(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		if (immediate) {
+			void this.notifyDidChangeAvatars();
+			return;
+		}
+
+		if (this._notifyDidChangeAvatarsDebounced == null) {
+			this._notifyDidChangeAvatarsDebounced = debounce(this.notifyDidChangeAvatars.bind(this), 100);
+		}
+
+		this._notifyDidChangeAvatarsDebounced();
+	}
+
 	@debug()
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
@@ -399,7 +453,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (!this.isReady || !this.visible) return false;
 
 		return this.notify(DidChangeSelectionNotificationType, {
-			selection: this._selectedSha != null ? [this._selectedSha] : [],
+			selection: this._selectedRows,
 		});
 	}
 
@@ -415,18 +469,33 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeCommits() {
+	private async notifyDidChangeAvatars() {
 		if (!this.isReady || !this.visible) return false;
 
 		const data = this._graph!;
-		return this.notify(DidChangeCommitsNotificationType, {
-			rows: data.rows,
-			paging: {
-				startingCursor: data.paging?.startingCursor,
-				endingCursor: data.paging?.endingCursor,
-				more: data.paging?.more ?? false,
-			},
+		return this.notify(DidChangeAvatarsNotificationType, {
+			avatars: Object.fromEntries(data.avatars),
 		});
+	}
+
+	@debug()
+	private async notifyDidChangeCommits() {
+		let success = false;
+
+		if (this.isReady && this.visible) {
+			const data = this._graph!;
+			success = await this.notify(DidChangeCommitsNotificationType, {
+				rows: data.rows,
+				avatars: Object.fromEntries(data.avatars),
+				paging: {
+					startingCursor: data.paging?.startingCursor,
+					more: data.paging?.more ?? false,
+				},
+			});
+		}
+
+		this._pendingNotifyCommits = !success;
+		return success;
 	}
 
 	private getConfig(): GraphCompositeConfig {
@@ -438,8 +507,8 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
-	private async getState(): Promise<State> {
-		if (this.container.git.repositoryCount === 0) return { repositories: [] };
+	private async getState(deferRows?: boolean): Promise<State> {
+		if (this.container.git.repositoryCount === 0) return { allowed: true, repositories: [] };
 
 		if (this.previewBanner == null || this.trialBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
@@ -453,7 +522,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return { repositories: [] };
+			if (this.repository == null) return { allowed: true, repositories: [] };
 		}
 
 		this._etagRepository = this.repository?.etag;
@@ -462,36 +531,53 @@ export class GraphWebview extends WebviewBase<State> {
 		const config = this.getConfig();
 
 		// If we have a set of data refresh to the same set
-		const limit = this._graph?.paging?.limit ?? config.defaultItemLimit;
+		const limit = Math.max(config.defaultItemLimit, this._graph?.ids.size ?? config.defaultItemLimit);
 
 		// Check for GitLens+ access
 		const access = await this.getGraphAccess();
-
 		const visibility = access.visibility ?? (await this.container.git.visibility(this.repository.path));
 
-		const data = await this.container.git.getCommitsForGraph(
+		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
 		);
-		this.setGraph(data);
-		this._selectedSha = data.sha;
+
+		let data;
+
+		if (deferRows) {
+			queueMicrotask(async () => {
+				const data = await dataPromise;
+				this.setGraph(data);
+				this.setSelectedRows(data.sha);
+
+				void this.notifyDidChangeCommits();
+			});
+		} else {
+			data = await dataPromise;
+			this.setGraph(data);
+			this.setSelectedRows(data.sha);
+		}
 
 		return {
 			previewBanner: this.previewBanner,
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
-			selectedSha: this._selectedSha,
-			selectedVisibility: visibility,
+			selectedRepositoryVisibility: visibility,
+			selectedRows: this._selectedRows,
 			subscription: access.subscription.current,
 			allowed: access.allowed,
-			rows: data.rows,
-			paging: {
-				startingCursor: data.paging?.startingCursor,
-				endingCursor: data.paging?.endingCursor,
-				more: data.paging?.more ?? false,
-			},
+			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
+			loading: deferRows,
+			rows: data?.rows,
+			paging:
+				data != null
+					? {
+							startingCursor: data.paging?.startingCursor,
+							more: data.paging?.more ?? false,
+					  }
+					: undefined,
 			config: config,
 			nonce: this.cspNonce,
 		};
@@ -511,21 +597,18 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private resetRepositoryState() {
 		this.setGraph(undefined);
-		this._selectedSha = undefined;
+		this.setSelectedRows(undefined);
 	}
 
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
+	}
 
-		if (graph == null) {
-			this._ids.clear();
-			return;
-		}
+	private setSelectedRows(sha: string | undefined) {
+		if (this._selectedSha === sha) return;
 
-		// TODO@eamodio see if we can ask the graph if it can select the sha, so we don't have to maintain a set of ids
-		for (const row of graph.rows) {
-			this._ids.add(row.sha);
-		}
+		this._selectedSha = sha;
+		this._selectedRows = sha != null ? { [sha]: true } : {};
 	}
 }
 

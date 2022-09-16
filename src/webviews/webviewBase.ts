@@ -75,9 +75,10 @@ export abstract class WebviewBase<State> implements Disposable {
 	}
 
 	@log({ args: false })
-	async show(column: ViewColumn = ViewColumn.Beside, ..._args: unknown[]): Promise<void> {
+	async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ..._args: unknown[]): Promise<void> {
 		void this.container.usage.track(`${this.trackingFeature}:shown`);
 
+		let column = options?.column ?? ViewColumn.Beside;
 		// Only try to open beside if there is an active tab
 		if (column === ViewColumn.Beside && window.tabGroups.activeTabGroup.activeTab == null) {
 			column = ViewColumn.Active;
@@ -87,7 +88,7 @@ export abstract class WebviewBase<State> implements Disposable {
 			this._panel = window.createWebviewPanel(
 				this.id,
 				this._title,
-				{ viewColumn: column, preserveFocus: false },
+				{ viewColumn: column, preserveFocus: options?.preserveFocus ?? false },
 				{
 					retainContextWhenHidden: true,
 					enableFindWidget: true,
@@ -109,7 +110,7 @@ export abstract class WebviewBase<State> implements Disposable {
 			this._panel.webview.html = await this.getHtml(this._panel.webview);
 		} else {
 			await this.refresh(true);
-			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, false);
+			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, options?.preserveFocus ?? false);
 		}
 	}
 

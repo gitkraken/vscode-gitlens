@@ -5,18 +5,20 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
 import type {
-	CommitListCallback,
 	DismissBannerParams,
 	GraphRepository,
 	State,
+	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
+	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
+	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
@@ -44,7 +46,7 @@ const graphLaneThemeColors = new Map([
 ]);
 
 export class GraphApp extends App<State> {
-	private callback?: CommitListCallback;
+	private callback?: UpdateStateCallback;
 
 	constructor() {
 		super('GraphApp');
@@ -59,7 +61,7 @@ export class GraphApp extends App<State> {
 		if ($root != null) {
 			render(
 				<GraphWrapper
-					subscriber={(callback: CommitListCallback) => this.registerEvents(callback)}
+					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
 					onColumnChange={debounce(
 						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
@@ -68,6 +70,7 @@ export class GraphApp extends App<State> {
 						(path: GraphRepository) => this.onRepositorySelectionChanged(path),
 						250,
 					)}
+					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
 					onSelectionChange={debounce(
 						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
@@ -94,6 +97,13 @@ export class GraphApp extends App<State> {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.setState({ ...this.state, ...params.state });
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeAvatarsNotificationType.method:
+				onIpc(DidChangeAvatarsNotificationType, msg, params => {
+					this.setState({ ...this.state, avatars: params.avatars });
 					this.refresh(this.state);
 				});
 				break;
@@ -157,14 +167,15 @@ export class GraphApp extends App<State> {
 						if (params.rows.length === 0) {
 							rows = this.state.rows;
 						} else {
-							// TODO@eamodio I'm not sure there is a case for this, but didn't wan't to remove it yet
 							rows = params.rows;
 						}
 					}
 
 					this.setState({
 						...this.state,
+						avatars: params.avatars,
 						rows: rows,
+						loading: false,
 						paging: params.paging,
 					});
 					this.refresh(this.state);
@@ -173,17 +184,14 @@ export class GraphApp extends App<State> {
 
 			case DidChangeSelectionNotificationType.method:
 				onIpc(DidChangeSelectionNotificationType, msg, params => {
-					this.setState({ ...this.state, selectedSha: params.selection[0] });
+					this.setState({ ...this.state, selectedRows: params.selection });
 					this.refresh(this.state);
 				});
 				break;
 
 			case DidChangeGraphConfigurationNotificationType.method:
 				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
-					this.setState({
-						...this.state,
-						config: params.config,
-					});
+					this.setState({ ...this.state, config: params.config });
 					this.refresh(this.state);
 				});
 				break;
@@ -261,10 +269,12 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onGetMoreCommits(limit?: number) {
-		this.sendCommand(GetMoreCommitsCommandType, {
-			limit: limit,
-		});
+	private onGetMissingAvatars(emails: { [email: string]: string }) {
+		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
+	}
+
+	private onGetMoreCommits() {
+		this.sendCommand(GetMoreCommitsCommandType, undefined);
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
@@ -273,7 +283,7 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private registerEvents(callback: CommitListCallback): () => void {
+	private registerEvents(callback: UpdateStateCallback): () => void {
 		this.callback = callback;
 
 		return () => {

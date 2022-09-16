@@ -1,9 +1,11 @@
+import type { ChildProcess, SpawnOptions } from 'child_process';
+import { spawn } from 'child_process';
 import * as process from 'process';
 import type { CancellationToken } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
-import type { GitCommandOptions } from '../../../git/commandOptions';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { GitRevision } from '../../../git/models/reference';
@@ -22,6 +24,17 @@ import { fsExists, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
+
+const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
+const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
+const gitLogDefaultConfigs = Object.freeze(['-c', 'log.showSignature=false']);
+export const gitLogDefaultConfigsWithFiles = Object.freeze([
+	'-c',
+	'log.showSignature=false',
+	'-c',
+	'diff.renameLimit=0',
+]);
+const gitStatusDefaultConfigs = Object.freeze(['-c', 'color.status=false']);
 
 export const maxGitCliLength = 30000;
 
@@ -91,7 +104,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 
 export class Git {
-	// A map of running git commands -- avoids running duplicate overlaping commands
+	/** Map of running git commands -- avoids running duplicate overlaping commands */
 	private readonly pendingCommands = new Map<string, Promise<string | Buffer>>();
 
 	async git(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
@@ -197,6 +210,84 @@ export class Git {
 				exception,
 			);
 		}
+	}
+
+	async gitSpawn(options: GitSpawnOptions, ...args: any[]): Promise<ChildProcess> {
+		const start = hrtime();
+
+		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
+
+		const spawnOpts: SpawnOptions = {
+			// Unless provided, ignore stdin and leave default streams for stdout and stderr
+			stdio: [stdin ? 'pipe' : 'ignore', null, null],
+			...opts,
+			// Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
+			// Shouldn't *really* be needed but better safe than sorry
+			env: {
+				...process.env,
+				...(options.env ?? emptyObj),
+				GCM_INTERACTIVE: 'NEVER',
+				GCM_PRESERVE_CREDS: 'TRUE',
+				LC_ALL: 'C',
+			},
+		};
+
+		const gitCommand = `[${spawnOpts.cwd as string}] git ${args.join(' ')}`;
+
+		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
+		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
+		args.splice(
+			0,
+			0,
+			'-c',
+			'core.quotepath=false',
+			'-c',
+			'color.ui=false',
+			...(configs !== undefined ? configs : emptyArray),
+		);
+
+		if (process.platform === 'win32') {
+			args.splice(0, 0, '-c', 'core.longpaths=true');
+		}
+
+		if (cancellation) {
+			const controller = new AbortController();
+			spawnOpts.signal = controller.signal;
+			cancellation.onCancellationRequested(() => controller.abort());
+		}
+
+		const proc = spawn(await this.path(), args, spawnOpts);
+		if (stdin) {
+			proc.stdin?.end(stdin, (stdinEncoding ?? 'utf8') as BufferEncoding);
+		}
+
+		let exception: Error | undefined;
+		proc.once('error', e => (exception = e));
+		proc.once('exit', () => {
+			const duration = getDurationMilliseconds(start);
+			const slow = duration > Logger.slowCallWarningThreshold;
+			const status = slow ? ' (slow)' : '';
+
+			if (exception != null) {
+				Logger.error(
+					'',
+					`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
+						.trim()
+						.replace(/fatal: /g, '')
+						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
+				);
+			} else if (slow) {
+				Logger.warn(`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+			} else {
+				Logger.log(`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+			}
+			Logger.logGitCommand(
+				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}`,
+				duration,
+				exception,
+			);
+		});
+		return proc;
 	}
 
 	private gitLocator!: () => Promise<GitLocation>;
@@ -355,7 +446,7 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'color.branch=false'], errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, configs: gitBranchDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 		);
 	}
@@ -472,7 +563,7 @@ export class Git {
 			return await this.git<string>(
 				{
 					cwd: repoPath,
-					configs: ['-c', 'color.diff=false'],
+					configs: gitDiffDefaultConfigs,
 					encoding: options.encoding,
 				},
 				...params,
@@ -525,7 +616,7 @@ export class Git {
 			return await this.git<string>(
 				{
 					cwd: repoPath,
-					configs: ['-c', 'color.diff=false'],
+					configs: gitDiffDefaultConfigs,
 					encoding: options.encoding,
 					stdin: contents,
 				},
@@ -577,7 +668,7 @@ export class Git {
 			params.push(ref2);
 		}
 
-		return this.git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+		return this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
 	}
 
 	async diff__shortstat(repoPath: string, ref?: string) {
@@ -587,7 +678,7 @@ export class Git {
 		}
 
 		try {
-			return await this.git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+			return await this.git<string>({ cwd: repoPath, configs: gitDiffDefaultConfigs }, ...params, '--');
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.noMergeBase.test(msg)) {
@@ -762,29 +853,103 @@ export class Git {
 			params.push(ref);
 		}
 
+		return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigsWithFiles }, ...params, '--');
+	}
+
+	log2(repoPath: string, options?: { configs?: readonly string[]; ref?: string; stdin?: string }, ...args: string[]) {
+		const params = ['log'];
+		if (options?.stdin) {
+			params.push('--stdin');
+		}
+		params.push(...args);
+
+		if (options?.ref && !GitRevision.isUncommittedStaged(options.ref)) {
+			params.push(options?.ref);
+		}
+
 		return this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'] },
+			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
 			...params,
 			'--',
 		);
 	}
 
-	log2(repoPath: string, ref: string | undefined, stdin: string | undefined, ...args: unknown[]) {
+	async logStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
 		const params = ['log', ...args];
-
-		if (ref && !GitRevision.isUncommittedStaged(ref)) {
-			params.push(ref);
-		}
-
-		if (stdin) {
+		if (options?.stdin) {
 			params.push('--stdin');
 		}
 
-		return this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'], stdin: stdin },
+		const proc = await this.gitSpawn(
+			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
 			...params,
 			'--',
 		);
+
+		const shaRegex = new RegExp(`(?:^|\x00\x00)${sha}\x00`);
+
+		let found = false;
+		let count = 0;
+
+		return new Promise<[data: string[], count: number]>((resolve, reject) => {
+			const errData: string[] = [];
+			const data: string[] = [];
+
+			function onErrData(s: string) {
+				errData.push(s);
+			}
+
+			function onError(e: Error) {
+				reject(e);
+			}
+
+			function onExit(exitCode: number) {
+				if (exitCode !== 0) {
+					reject(new Error(errData.join('')));
+				}
+
+				resolve([data, count]);
+			}
+
+			function onData(s: string) {
+				data.push(s);
+				// eslint-disable-next-line no-control-regex
+				count += s.match(/(?:^|\x00\x00)[0-9a-f]{40}\x00/g)?.length ?? 0;
+
+				if (!found && shaRegex.test(s)) {
+					found = true;
+					// Buffer a bit past the sha we are looking for
+					if (count > limit) {
+						limit = count + 50;
+					}
+				}
+
+				if (!found || count <= limit) return;
+
+				proc.removeListener('exit', onExit);
+				proc.removeListener('error', onError);
+				proc.stdout!.removeListener('data', onData);
+				proc.stderr!.removeListener('data', onErrData);
+				proc.kill();
+
+				resolve([data, count]);
+			}
+
+			proc.on('error', onError);
+			proc.on('exit', onExit);
+
+			proc.stdout!.setEncoding('utf8');
+			proc.stdout!.on('data', onData);
+
+			proc.stderr!.setEncoding('utf8');
+			proc.stderr!.on('data', onErrData);
+		});
 	}
 
 	log__file(
@@ -901,7 +1066,7 @@ export class Git {
 			params.push('--', file);
 		}
 
-		return this.git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params);
+		return this.git<string>({ cwd: root, configs: gitLogDefaultConfigs }, ...params);
 	}
 
 	async log__file_recent(
@@ -933,7 +1098,7 @@ export class Git {
 			{
 				cancellation: options?.cancellation,
 				cwd: repoPath,
-				configs: ['-c', 'log.showSignature=false'],
+				configs: gitLogDefaultConfigs,
 				errors: GitErrorHandling.Ignore,
 			},
 			...params,
@@ -965,7 +1130,7 @@ export class Git {
 			{
 				cancellation: cancellation,
 				cwd: repoPath,
-				configs: ['-c', 'log.showSignature=false'],
+				configs: gitLogDefaultConfigs,
 				errors: GitErrorHandling.Ignore,
 			},
 			...params,
@@ -981,7 +1146,7 @@ export class Git {
 		}
 
 		const data = await this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
 		);
@@ -997,7 +1162,7 @@ export class Git {
 		}
 
 		const data = await this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, configs: gitLogDefaultConfigs, errors: GitErrorHandling.Ignore },
 			...params,
 			'--',
 		);
@@ -1035,7 +1200,7 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: useShow ? undefined : ['-c', 'log.showSignature=false'] },
+			{ cwd: repoPath, configs: useShow ? undefined : gitLogDefaultConfigs },
 			...params,
 			...search,
 		);
@@ -1046,7 +1211,7 @@ export class Git {
 	//     if (options.ref && !GitRevision.isUncommittedStaged(options.ref)) {
 	//         params.push(options.ref);
 	//     }
-	//     return this.git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
+	//     return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...params, '--');
 	// }
 
 	async ls_files(
@@ -1144,7 +1309,7 @@ export class Git {
 			params.push(branch);
 		}
 
-		return this.git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
+		return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...params, '--');
 	}
 
 	remote(repoPath: string): Promise<string> {
@@ -1167,14 +1332,13 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
 	}
 
-	async rev_list__count(repoPath: string, ref: string): Promise<number | undefined> {
-		let data = await this.git<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-list',
-			'--count',
-			ref,
-			'--',
-		);
+	async rev_list__count(repoPath: string, ref: string, all?: boolean): Promise<number | undefined> {
+		const params = ['rev-list', '--count'];
+		if (all) {
+			params.push('--all');
+		}
+
+		let data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
 		data = data.trim();
 		if (data.length === 0) return undefined;
 
@@ -1363,7 +1527,7 @@ export class Git {
 		if (GitRevision.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
 		const opts: GitCommandOptions = {
-			configs: ['-c', 'log.showSignature=false'],
+			configs: gitLogDefaultConfigs,
 			cwd: root,
 			encoding: options.encoding ?? 'utf8',
 			errors: GitErrorHandling.Throw,
@@ -1523,7 +1687,7 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
+			{ cwd: repoPath, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
 		);
@@ -1543,7 +1707,7 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: root, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
+			{ cwd: root, configs: gitStatusDefaultConfigs, env: { GIT_OPTIONAL_LOCKS: '0' } },
 			...params,
 			'--',
 			file,

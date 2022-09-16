@@ -16,20 +16,14 @@ import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../const
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
-import type { FeatureAccess, Features } from '../features';
-import { PlusFeatures } from '../features';
+import type { FeatureAccess, Features, PlusFeatures } from '../features';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
-import type { FreeSubscriptionPlans, RequiredSubscriptionPlans, Subscription } from '../subscription';
-import {
-	getSubscriptionPlan,
-	getSubscriptionPlanPriority,
-	isSubscriptionPaidPlan,
-	SubscriptionPlanId,
-} from '../subscription';
+import type { RequiredSubscriptionPlans, Subscription } from '../subscription';
+import { getSubscriptionPlanPriority, isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
@@ -51,7 +45,7 @@ import { RepositoryVisibility } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
-import type { GitCommit } from './models/commit';
+import { GitCommit, GitCommitIdentity } from './models/commit';
 import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
@@ -111,8 +105,6 @@ export const enum RepositoriesVisibility {
 }
 
 export class GitProviderService implements Disposable {
-	static readonly previewFeatures: Map<PlusFeatures | undefined, boolean> | undefined; // = new Map();
-
 	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
 		return this._onDidChangeProviders.event;
@@ -208,6 +200,10 @@ export class GitProviderService implements Disposable {
 
 		if (configuration.changed(e, 'views.contributors.showAllBranches')) {
 			this.resetCaches('contributors');
+		}
+
+		if (e != null && configuration.changed(e, 'integrations.enabled')) {
+			this.updateContext();
 		}
 	}
 
@@ -526,40 +522,10 @@ export class GitProviderService implements Disposable {
 			cacheKey = path;
 		}
 
-		let accessPromise = this._accessCache.get(cacheKey);
-		if (accessPromise == null) {
-			accessPromise = this.accessCore(feature, repoPath);
-			this._accessCache.set(cacheKey, accessPromise);
-		}
-
-		const access = await accessPromise;
-		if (feature === PlusFeatures.Graph) {
-			if (access.visibility == null && repoPath != null) {
-				access.visibility = await this.visibility(repoPath);
-			}
-
-			if (
-				(access.visibility !== RepositoryVisibility.Private &&
-					access.subscription.current.plan.effective.id === SubscriptionPlanId.Free) ||
-				(access.visibility === RepositoryVisibility.Private && access.subscription.current.previewTrial == null)
-			) {
-				return {
-					allowed: !(
-						access.visibility === RepositoryVisibility.Private &&
-						access.subscription.current.previewTrial == null
-					),
-					subscription: {
-						current: {
-							...access.subscription.current,
-							plan: {
-								...access.subscription.current.plan,
-								effective: getSubscriptionPlan(SubscriptionPlanId.Pro, undefined),
-							},
-						},
-					},
-					visibility: access.visibility,
-				};
-			}
+		let access = this._accessCache.get(cacheKey);
+		if (access == null) {
+			access = this.accessCore(feature, repoPath);
+			this._accessCache.set(cacheKey, access);
 		}
 
 		return access;
@@ -573,14 +539,13 @@ export class GitProviderService implements Disposable {
 		}
 
 		const plan = subscription.plan.effective.id;
-		if (isSubscriptionPaidPlan(plan) || GitProviderService.previewFeatures?.get(feature)) {
+		if (isSubscriptionPaidPlan(plan)) {
 			return { allowed: true, subscription: { current: subscription } };
 		}
 
 		function getRepoAccess(
 			this: GitProviderService,
 			repoPath: string | Uri,
-			plan: FreeSubscriptionPlans,
 			force: boolean = false,
 		): Promise<FeatureAccess> {
 			const { path: cacheKey } = this.getProvider(repoPath);
@@ -588,26 +553,17 @@ export class GitProviderService implements Disposable {
 			let access = force ? undefined : this._accessCache.get(cacheKey);
 			if (access == null) {
 				access = this.visibility(repoPath).then(visibility => {
-					if (visibility !== RepositoryVisibility.Private) {
-						switch (plan) {
-							case SubscriptionPlanId.Free:
-								return {
-									allowed: false,
-									subscription: { current: subscription, required: SubscriptionPlanId.FreePlus },
-									visibility: visibility,
-								};
-							case SubscriptionPlanId.FreePlus:
-								return {
-									allowed: true,
-									subscription: { current: subscription },
-									visibility: visibility,
-								};
-						}
+					if (visibility === RepositoryVisibility.Private) {
+						return {
+							allowed: false,
+							subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+							visibility: visibility,
+						};
 					}
 
 					return {
-						allowed: false,
-						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+						allowed: true,
+						subscription: { current: subscription },
 						visibility: visibility,
 					};
 				});
@@ -625,7 +581,7 @@ export class GitProviderService implements Disposable {
 			}
 
 			if (repositories.length === 1) {
-				return getRepoAccess.call(this, repositories[0].path, plan);
+				return getRepoAccess.call(this, repositories[0].path);
 			}
 
 			let allowed = true;
@@ -634,7 +590,7 @@ export class GitProviderService implements Disposable {
 
 			const maxPriority = getSubscriptionPlanPriority(SubscriptionPlanId.Pro);
 
-			for await (const result of fastestSettled(repositories.map(r => getRepoAccess.call(this, r.path, plan)))) {
+			for await (const result of fastestSettled(repositories.map(r => getRepoAccess.call(this, r.path)))) {
 				if (result.status !== 'fulfilled' || result.value.allowed) continue;
 
 				allowed = false;
@@ -653,7 +609,7 @@ export class GitProviderService implements Disposable {
 		}
 
 		// Pass force = true to bypass the cache and avoid a promise loop (where we used the cached promise we just created to try to resolve itself 🤦)
-		return getRepoAccess.call(this, repoPath, plan, true);
+		return getRepoAccess.call(this, repoPath, true);
 	}
 
 	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
@@ -787,7 +743,7 @@ export class GitProviderService implements Disposable {
 			let hasRemotes = false;
 			let hasRichRemotes = false;
 			let hasConnectedRemotes = false;
-			if (hasRepositories) {
+			if (hasRepositories && configuration.get('integrations.enabled')) {
 				for (const repo of this._repositories.values()) {
 					if (!hasConnectedRemotes) {
 						hasConnectedRemotes = await repo.hasRichRemote(true);
@@ -1309,8 +1265,27 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
+	async getCommit(repoPath: string | Uri, ref: string): Promise<GitCommit | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
+
+		if (ref === GitRevision.uncommitted || ref === GitRevision.uncommittedStaged) {
+			const now = new Date();
+			const user = await this.getCurrentUser(repoPath);
+			return new GitCommit(
+				this.container,
+				path,
+				ref,
+				new GitCommitIdentity('You', user?.email ?? undefined, now),
+				new GitCommitIdentity('You', user?.email ?? undefined, now),
+				'Uncommitted changes',
+				[],
+				'Uncommitted changes',
+				undefined,
+				undefined,
+				[],
+			);
+		}
+
 		return provider.getCommit(path, ref);
 	}
 

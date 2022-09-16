@@ -29,6 +29,7 @@ import { GitRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
+import type { ShowCommitInGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
@@ -762,6 +763,17 @@ export namespace GitActions {
 			options?: { pin?: boolean; preserveFocus?: boolean },
 		): Promise<void> {
 			return Container.instance.commitDetailsView.show({ ...options, commit: commit });
+		}
+
+		export async function showInCommitGraph(
+			commit: GitRevisionReference | GitCommit,
+			options?: { preserveFocus?: boolean },
+		): Promise<void> {
+			void (await executeCommand<ShowCommitInGraphCommandArgs>(Commands.ShowCommitInGraph, {
+				sha: commit.ref,
+				repoPath: commit.repoPath,
+				preserveFocus: options?.preserveFocus,
+			}));
 		}
 	}
 
