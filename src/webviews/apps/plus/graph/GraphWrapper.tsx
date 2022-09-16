@@ -143,6 +143,7 @@ export function GraphWrapper({
 	allowed,
 	avatars,
 	config,
+	loading,
 	paging,
 	onSelectRepository,
 	onColumnChange,
@@ -164,7 +165,7 @@ export function GraphWrapper({
 	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
-	const [isLoading, setIsLoading] = useState(true);
+	const [isLoading, setIsLoading] = useState(loading);
 	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
@@ -197,7 +198,7 @@ export function GraphWrapper({
 		return () => resizeObserver.disconnect();
 	}, [mainRef]);
 
-	function transformData(state: State, previousRowCount: number | undefined) {
+	function transformData(state: State) {
 		setGraphRows(state.rows ?? []);
 		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
@@ -210,10 +211,7 @@ export function GraphWrapper({
 		setShowAccount(state.trialBanner ?? true);
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
-
-		if (!isLoading || previousRowCount !== state.rows?.length || previousRowCount == null) {
-			setIsLoading(state.rows == null);
-		}
+		setIsLoading(state.loading);
 	}
 
 	useEffect(() => subscriber?.(transformData), []);

@@ -569,6 +569,7 @@ export class GraphWebview extends WebviewBase<State> {
 			subscription: access.subscription.current,
 			allowed: access.allowed,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
+			loading: deferRows,
 			rows: data?.rows,
 			paging:
 				data != null
