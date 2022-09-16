@@ -13,6 +13,7 @@ export interface State {
 	subscription?: Subscription;
 	allowed: boolean;
 	avatars?: { [email: string]: string };
+	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	config?: GraphCompositeConfig;
@@ -60,7 +61,7 @@ export interface GraphCompositeConfig extends GraphConfig {
 }
 
 export interface UpdateStateCallback {
-	(state: State, previousRowCount: number | undefined): void;
+	(state: State): void;
 }
 
 // Commands
