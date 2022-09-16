@@ -382,6 +382,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 											level="${level}"
 											${stashAttr}
 											path="${item.value.path}"
+											repo="${item.value.repoPath}"
 											icon="${item.value.icon.dark}"
 											status="${item.value.status}"
 										></file-change-list-item>
@@ -400,6 +401,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 											<file-change-list-item
 												${stashAttr}
 												path="${file.path}"
+												repo="${file.repoPath}"
 												icon="${file.icon.dark}"
 												status="${file.status}"
 											></file-change-list-item>
