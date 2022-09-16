@@ -198,12 +198,6 @@ export function GraphWrapper({
 	}, [mainRef]);
 
 	function transformData(state: State, previousRowCount: number | undefined) {
-		if (!isLoading || previousRowCount !== state.rows?.length) {
-			setIsLoading(state.rows == null);
-		} else {
-			setIsLoading(false);
-		}
-
 		setGraphRows(state.rows ?? []);
 		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
@@ -216,6 +210,10 @@ export function GraphWrapper({
 		setShowAccount(state.trialBanner ?? true);
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
+
+		if (!isLoading || previousRowCount !== state.rows?.length || previousRowCount == null) {
+			setIsLoading(state.rows == null);
+		}
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
