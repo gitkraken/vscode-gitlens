@@ -3,6 +3,7 @@ import { env, Range, Uri, window } from 'vscode';
 import type {
 	BrowseRepoAtRevisionCommandArgs,
 	DiffWithCommandArgs,
+	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	GitCommandsCommandArgs,
 	OpenFileOnRemoteCommandArgs,
@@ -371,7 +372,15 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (file.status === 'A') return;
+			if (file.status === 'A') {
+				if (!isCommit(commitOrRefs)) return;
+
+				const commit = await commitOrRefs.getCommitForFile(file);
+				void executeCommand<DiffWithPreviousCommandArgs>(Commands.DiffWithPrevious, {
+					commit: commit,
+					showOptions: options,
+				});
+			}
 
 			const refs = isCommit(commitOrRefs)
 				? {
