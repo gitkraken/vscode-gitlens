@@ -372,6 +372,8 @@ export namespace GitActions {
 				file = f;
 			}
 
+			options = { preserveFocus: true, preview: false, ...options };
+
 			if (file.status === 'A') {
 				if (!isCommit(commitOrRefs)) return;
 
@@ -390,8 +392,6 @@ export namespace GitActions {
 						ref2: commitOrRefs.sha,
 				  }
 				: commitOrRefs;
-
-			options = { preserveFocus: true, preview: false, ...options };
 
 			const uri1 = GitUri.fromFile(file, refs.repoPath);
 			const uri2 =
