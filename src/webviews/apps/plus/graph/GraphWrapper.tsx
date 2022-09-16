@@ -71,13 +71,6 @@ const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
 	refZone: { width: 150, isHidden: false },
 };
 
-const getGraphColConfigModel = (columnSettings: GKGraphColumnSetting): GraphColumnConfig => {
-	return {
-		width: columnSettings.width,
-		isHidden: columnSettings.isHidden,
-	};
-};
-
 const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumnsSettings => {
 	const columnsSettings: GKGraphColumnsSettings = { ...defaultGraphColumnsSettings };
 	if (config?.columns !== undefined) {
@@ -302,7 +295,10 @@ export function GraphWrapper({
 
 	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
 		if (columnSettings.width) {
-			onColumnChange?.(graphZoneType, getGraphColConfigModel(columnSettings));
+			onColumnChange?.(graphZoneType, {
+				width: columnSettings.width,
+				isHidden: columnSettings.isHidden,
+			});
 		}
 	};
 
