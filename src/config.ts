@@ -374,8 +374,8 @@ export interface AdvancedConfig {
 }
 
 export interface GraphColumnConfig {
-	width?: number;
-	isHidden?: boolean;
+	width: number;
+	isHidden: boolean;
 }
 
 export interface GraphConfig {

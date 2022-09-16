@@ -64,11 +64,18 @@ const getStyleProps = (
 };
 
 const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
-	commitAuthorZone: { width: 110 },
-	commitDateTimeZone: { width: 130 },
-	commitMessageZone: { width: 130 },
-	commitZone: { width: 170 },
-	refZone: { width: 150 },
+	commitAuthorZone: { width: 110, isHidden: false },
+	commitDateTimeZone: { width: 130, isHidden: false },
+	commitMessageZone: { width: 130, isHidden: false },
+	commitZone: { width: 170, isHidden: false },
+	refZone: { width: 150, isHidden: false },
+};
+
+const getGraphColConfigModel = (columnSettings: GKGraphColumnSetting): GraphColumnConfig => {
+	return {
+		width: columnSettings.width,
+		isHidden: columnSettings.isHidden,
+	};
 };
 
 const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumnsSettings => {
@@ -295,7 +302,7 @@ export function GraphWrapper({
 
 	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
 		if (columnSettings.width) {
-			onColumnChange?.(graphZoneType, { width: columnSettings.width });
+			onColumnChange?.(graphZoneType, getGraphColConfigModel(columnSettings));
 		}
 	};
 
@@ -608,7 +615,6 @@ export function GraphWrapper({
 							{
 								Object.entries(graphColumns).map(([index, item]) => (
 									<span
-										// type="button"
 										className="actioncombo__item"
 										role="option"
 										data-value={index}
