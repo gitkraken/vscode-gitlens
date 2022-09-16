@@ -587,26 +587,19 @@ export function GraphWrapper({
 							aria-controls="repo-columnsettings-list"
 							aria-expanded={columnSettingsExpanded}
 							aria-haspopup="listbox"
-							id="repo-actioncombo-label"
+							id="columns-actioncombo-label"
 							className="actioncombo__label"
 							role="combobox"
-							aria-activedescendant={
-								columnSettingsExpanded
-									? `repo-actioncombo-item-${reposList.findIndex(
-											item => item.path === currentRepository?.path,
-									  )}`
-									: undefined
-							}
 							onClick={() => handleToggleColumnSettings()}
 						>
 							<span className="codicon codicon-settings-gear columnsettings__icon" aria-label="Column Settings"></span>
 						</button>
 						<div
 							className="actioncombo__list"
-							id="repo-actioncombo-list"
+							id="columns-actioncombo-list"
 							role="listbox"
 							tabIndex={-1}
-							aria-labelledby="repo-actioncombo-label"
+							aria-labelledby="columns-actioncombo-label"
 						>
 							{
 								Object.entries(graphColumns).map(([graphZoneType, column]) => column.hideable && (
@@ -614,8 +607,8 @@ export function GraphWrapper({
 										className="actioncombo__item"
 										role="option"
 										data-value={graphZoneType}
-										id={`repo-actioncombo-item-${graphZoneType}`}
-										key={`repo-actioncombo-item-${graphZoneType}`}
+										id={`column-actioncombo-item-${graphZoneType}`}
+										key={`column-actioncombo-item-${graphZoneType}`}
 										aria-checked={false}
 										onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
 									>
