@@ -164,15 +164,15 @@ const graphColumns: {[Key in GraphZoneType]: {name: string; hideable: boolean}} 
 	},
 	commitAuthorZone: {
 		name: 'Author',
-		hideable: false,
+		hideable: true,
 	},
 	commitDateTimeZone: {
 		name: 'Commit Date / Time',
-		hideable: false,
+		hideable: true,
 	},
 	commitShaZone: {
 		name: 'Sha',
-		hideable: false,
+		hideable: true,
 	},
 };
 
@@ -613,17 +613,17 @@ export function GraphWrapper({
 							aria-labelledby="repo-actioncombo-label"
 						>
 							{
-								Object.entries(graphColumns).map(([index, item]) => (
+								Object.entries(graphColumns).map(([graphZoneType, column]) => column.hideable && (
 									<span
 										className="actioncombo__item"
 										role="option"
-										data-value={index}
-										id={`repo-actioncombo-item-${index}`}
-										key={`repo-actioncombo-item-${index}`}
+										data-value={graphZoneType}
+										id={`repo-actioncombo-item-${graphZoneType}`}
+										key={`repo-actioncombo-item-${graphZoneType}`}
 										aria-checked={false}
-										onClick={() => handleSelectColumn(index as GraphZoneType)}
+										onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
 									>
-										{item.name} {!graphColSettings[index]?.isHidden && <span className='icon--check' />}
+										{column.name} {!graphColSettings[graphZoneType]?.isHidden && <span className='icon--check' />}
 									</span>
 								))
 							}
