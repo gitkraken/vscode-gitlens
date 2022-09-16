@@ -621,8 +621,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		};
 	}
 
-	private async getFileFromParams(params: FileActionParams): Promise<GitFileChange | undefined> {
-		return this._context.commit?.findFile(params.path);
+	private async getFileCommitFromParams(
+		params: FileActionParams,
+	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
+		const commit = await this._context.commit?.getCommitForFile(params.path);
+		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
 	private showAutolinkSettings() {
@@ -651,23 +654,23 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async showFileActions(params: FileActionParams) {
-		if (this._context.commit == null) return;
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
 
-		const file = await this.getFileFromParams(params);
-		if (file == null) return;
+		const [commit, file] = result;
 
 		this.updatePinned(true, true);
-		void GitActions.Commit.showDetailsQuickPick(this._context.commit, file);
+		void GitActions.Commit.showDetailsQuickPick(commit, file);
 	}
 
 	private async openFileComparisonWithWorking(params: FileActionParams) {
-		if (this._context.commit == null) return;
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
 
-		const file = await this.getFileFromParams(params);
-		if (file == null) return;
+		const [commit, file] = result;
 
 		this.updatePinned(true, true);
-		void GitActions.Commit.openChangesWithWorking(file.path, this._context.commit, {
+		void GitActions.Commit.openChangesWithWorking(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
@@ -675,13 +678,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async openFileComparisonWithPrevious(params: FileActionParams) {
-		if (this._context.commit == null) return;
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
 
-		const file = await this.getFileFromParams(params);
-		if (file == null) return;
+		const [commit, file] = result;
 
 		this.updatePinned(true, true);
-		void GitActions.Commit.openChanges(file.path, this._context.commit, {
+		void GitActions.Commit.openChanges(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
@@ -689,13 +692,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async openFile(params: FileActionParams) {
-		if (this._context.commit == null) return;
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
 
-		const file = await this.getFileFromParams(params);
-		if (file == null) return;
+		const [commit, file] = result;
 
 		this.updatePinned(true, true);
-		void GitActions.Commit.openFile(file.path, this._context.commit, {
+		void GitActions.Commit.openFile(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
 			...params.showOptions,
@@ -703,12 +706,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async openFileOnRemote(params: FileActionParams) {
-		if (this._context.commit == null) return;
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
 
-		const file = await this.getFileFromParams(params);
-		if (file == null) return;
+		const [commit, file] = result;
 
-		void GitActions.Commit.openFileOnRemote(file.path, this._context.commit);
+		void GitActions.Commit.openFileOnRemote(file.path, commit);
 	}
 }
 
