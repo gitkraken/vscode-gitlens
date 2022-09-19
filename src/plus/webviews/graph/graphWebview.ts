@@ -27,7 +27,7 @@ import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { DismissBannerParams, GraphCompositeConfig, GraphRepository, State } from './protocol';
+import type { DismissBannerParams, GraphComponentConfig, GraphRepository, State } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
@@ -254,6 +254,24 @@ export class GraphWebview extends WebviewBase<State> {
 				this._statusBarItem = undefined;
 			}
 		}
+
+		if (configuration.changed(e, 'graph.commitOrdering')) {
+			this.updateState();
+
+			return;
+		}
+
+		if (
+			configuration.changed(e, 'defaultDateFormat') ||
+			configuration.changed(e, 'defaultDateStyle') ||
+			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
+			configuration.changed(e, 'graph.avatars') ||
+			configuration.changed(e, 'graph.dateFormat') ||
+			configuration.changed(e, 'graph.dateStyle') ||
+			configuration.changed(e, 'graph.highlightRowsOnRefHover')
+		) {
+			void this.notifyDidChangeGraphConfiguration();
+		}
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
@@ -351,7 +369,7 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		const { defaultItemLimit, pageItemLimit } = this.getConfig();
+		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
 		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit);
 		if (newGraph != null) {
 			this.setGraph(newGraph);
@@ -444,7 +462,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (!this.isReady || !this.visible) return false;
 
 		return this.notify(DidChangeGraphConfigurationNotificationType, {
-			config: this.getConfig(),
+			config: this.getComponentConfig(),
 		});
 	}
 
@@ -498,11 +516,16 @@ export class GraphWebview extends WebviewBase<State> {
 		return success;
 	}
 
-	private getConfig(): GraphCompositeConfig {
-		const settings = configuration.get('graph');
-		const config: GraphCompositeConfig = {
-			...settings,
+	private getComponentConfig(): GraphComponentConfig {
+		const config: GraphComponentConfig = {
+			avatars: configuration.get('graph.avatars'),
 			columns: this.container.storage.getWorkspace('graph:columns'),
+			dateFormat:
+				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
+			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
+			enableMultiSelection: false,
+			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
+			shaLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
 	}
@@ -528,10 +551,10 @@ export class GraphWebview extends WebviewBase<State> {
 		this._etagRepository = this.repository?.etag;
 		this.title = `${this.originalTitle}: ${this.repository.formattedName}`;
 
-		const config = this.getConfig();
+		const { defaultItemLimit } = configuration.get('graph');
 
 		// If we have a set of data refresh to the same set
-		const limit = Math.max(config.defaultItemLimit, this._graph?.ids.size ?? config.defaultItemLimit);
+		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
 		// Check for GitLens+ access
 		const access = await this.getGraphAccess();
@@ -578,7 +601,7 @@ export class GraphWebview extends WebviewBase<State> {
 							more: data.paging?.more ?? false,
 					  }
 					: undefined,
-			config: config,
+			config: this.getComponentConfig(),
 			nonce: this.cspNonce,
 		};
 	}

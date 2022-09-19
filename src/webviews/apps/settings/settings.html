@@ -81,6 +81,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
@@ -268,6 +269,15 @@
 						</li>
 
 						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-graph"
+								title="Jump to Commit Graph settings"
+								>Commit Graph</a
+							>
+						</li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
