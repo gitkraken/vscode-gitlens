@@ -1,3 +1,4 @@
+import type { OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
 import GraphContainer, {
 	type CssVariables,
 	type GraphColumnSetting as GKGraphColumnSetting,
@@ -9,12 +10,13 @@ import GraphContainer, {
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
+import { DateStyle } from '../../../../config';
 import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
 	DismissBannerParams,
-	GraphCompositeConfig,
+	GraphComponentConfig,
 	GraphRepository,
 	State,
 	UpdateStateCallback,
@@ -22,6 +24,8 @@ import type {
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
+import type { DateTimeFormat } from '../../shared/date';
+import { formatDate, fromNow } from '../../shared/date';
 
 export interface GraphWrapperProps extends State {
 	nonce?: string;
@@ -65,7 +69,7 @@ const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
 	refZone: { width: 150 },
 };
 
-const getGraphColSettingsModel = (config?: GraphCompositeConfig): GKGraphColumnsSettings => {
+const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumnsSettings => {
 	const columnsSettings: GKGraphColumnsSettings = { ...defaultGraphColumnsSettings };
 	if (config?.columns !== undefined) {
 		for (const column of Object.keys(config.columns)) {
@@ -75,6 +79,10 @@ const getGraphColSettingsModel = (config?: GraphCompositeConfig): GKGraphColumns
 		}
 	}
 	return columnsSettings;
+};
+
+const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
+	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
 };
 
 type DebouncableFn = (...args: any) => void;
@@ -163,6 +171,8 @@ export function GraphWrapper({
 		reposList.find(item => item.path === selectedRepository),
 	);
 	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
+	const [graphConfig, setGraphConfig] = useState(config);
+	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
 	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(loading);
@@ -204,6 +214,8 @@ export function GraphWrapper({
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
 		setSelectedRows(state.selectedRows);
+		setGraphConfig(state.config);
+		// setGraphDateFormatter(getGraphDateFormatter(config));
 		setGraphColSettings(getGraphColSettingsModel(state.config));
 		setPagingState(state.paging);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
@@ -429,23 +441,28 @@ export function GraphWrapper({
 					<>
 						{mainWidth !== undefined && mainHeight !== undefined && (
 							<GraphContainer
+								avatarUrlByEmail={graphAvatars}
 								columnsSettings={graphColSettings}
 								cssVariables={styleProps.cssVariables}
+								enableMultiSelection={graphConfig?.enableMultiSelection}
+								formatCommitDateTime={getGraphDateFormatter(graphConfig)}
 								getExternalIcon={getIconElementLibrary}
-								avatarUrlByEmail={graphAvatars}
 								graphRows={graphRows}
-								height={mainHeight}
-								isSelectedBySha={graphSelectedRows}
 								hasMoreCommits={pagingState?.more}
+								height={mainHeight}
+								// highlightRowssOnRefHover={graphConfig?.highlightRowsOnRefHover}
 								isLoadingRows={isLoading}
+								isSelectedBySha={graphSelectedRows}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onShowMoreCommits={handleMoreCommits}
 								platform={clientPlatform}
-								width={mainWidth}
+								shaLength={graphConfig?.shaLength}
 								themeOpacityFactor={styleProps.themeOpacityFactor}
+								useAuthorInitialsForAvatars={!graphConfig?.avatars}
+								width={mainWidth}
 							/>
 						)}
 					</>
@@ -539,4 +556,12 @@ export function GraphWrapper({
 			</footer>
 		</>
 	);
+}
+
+function formatCommitDateTime(
+	commitDateTime: number,
+	style: DateStyle = DateStyle.Absolute,
+	format: DateTimeFormat | string = 'short+short',
+): string {
+	return style === DateStyle.Relative ? fromNow(commitDateTime) : formatDate(commitDateTime, format);
 }

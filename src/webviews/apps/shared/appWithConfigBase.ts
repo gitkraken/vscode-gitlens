@@ -520,6 +520,12 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 				if (!value) {
 					value = el.dataset.settingPreviewDefault;
+					if (value == null) {
+						const lookup = el.dataset.settingPreviewDefaultLookup;
+						if (lookup != null) {
+							value = this.getSettingValue<string>(lookup);
+						}
+					}
 				}
 
 				el.innerText = value == null ? '' : formatDate(date, value, undefined, false);

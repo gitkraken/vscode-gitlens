@@ -1,8 +1,9 @@
 import type { GraphRow, Remote } from '@gitkraken/gitkraken-components';
-import type { GraphColumnConfig, GraphConfig } from '../../../config';
+import type { DateStyle, GraphColumnConfig } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
 import type { Subscription } from '../../../subscription';
+import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
@@ -16,7 +17,7 @@ export interface State {
 	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
-	config?: GraphCompositeConfig;
+	config?: GraphComponentConfig;
 	nonce?: string;
 	previewBanner?: boolean;
 	trialBanner?: boolean;
@@ -56,8 +57,14 @@ export type GraphRemote = Remote;
 export type GraphTag = Record<string, any>;
 export type GraphBranch = Record<string, any>;
 
-export interface GraphCompositeConfig extends GraphConfig {
+export interface GraphComponentConfig {
+	avatars?: boolean;
 	columns?: Record<string, GraphColumnConfig>;
+	dateFormat: DateTimeFormat | string;
+	dateStyle: DateStyle;
+	enableMultiSelection?: boolean;
+	highlightRowsOnRefHover?: boolean;
+	shaLength?: number;
 }
 
 export interface UpdateStateCallback {
@@ -102,7 +109,7 @@ export interface DidChangeParams {
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange');
 
 export interface DidChangeGraphConfigurationParams {
-	config: GraphCompositeConfig;
+	config: GraphComponentConfig;
 }
 export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
 	'graph/configuration/didChange',

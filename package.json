@@ -2092,6 +2092,34 @@
 				"title": "Commit Graph",
 				"order": 105,
 				"properties": {
+					"gitlens.graph.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of author initials in the _Commit Graph_",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.graph.highlightRowsOnRefHover": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to highlight rows associated with the ref when hovering over it in the _Commit Graph_",
+						"scope": "window",
+						"order": 11
+					},
+					"gitlens.graph.defaultItemLimit": {
+						"type": "number",
+						"default": 500,
+						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.graph.pageItemLimit": {
+						"type": "number",
+						"default": 200,
+						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 21
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",
@@ -2107,21 +2135,35 @@
 						],
 						"markdownDescription": "Specifies the order by which commits will be shown on the _Commit Graph_",
 						"scope": "window",
-						"order": 10
+						"order": 30
 					},
-					"gitlens.graph.defaultItemLimit": {
-						"type": "number",
-						"default": 500,
-						"markdownDescription": "Specifies the default number of items to show in the _Commit Graph_. Use 0 to specify no limit",
+					"gitlens.graph.dateStyle": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": "relative",
+						"enum": [
+							"relative",
+							"absolute"
+						],
+						"enumDescriptions": [
+							"e.g. 1 day ago",
+							"e.g. July 25th, 2018 7:18pm"
+						],
+						"markdownDescription": "Specifies how dates will be displayed in the _Commit Graph_",
 						"scope": "window",
-						"order": 20
+						"order": 40
 					},
-					"gitlens.graph.pageItemLimit": {
-						"type": "number",
-						"default": 200,
-						"markdownDescription": "Specifies the number of additional items to fetch when paginating in the _Commit Graph_. Use 0 to specify no limit",
+					"gitlens.graph.dateFormat": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies how absolute dates will be formatted in the _Commit Graph_. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
-						"order": 21
+						"order": 41
 					},
 					"gitlens.graph.statusBar.enabled": {
 						"type": "boolean",

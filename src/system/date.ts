@@ -72,8 +72,8 @@ export function createFromDateDelta(
 	return d;
 }
 
-export function fromNow(date: Date, short?: boolean): string {
-	const elapsed = date.getTime() - new Date().getTime();
+export function fromNow(date: Date | number, short?: boolean): string {
+	const elapsed = (typeof date === 'number' ? date : date.getTime()) - new Date().getTime();
 
 	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);

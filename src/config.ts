@@ -378,8 +378,12 @@ export interface GraphColumnConfig {
 }
 
 export interface GraphConfig {
+	avatars: boolean;
 	commitOrdering: 'date' | 'author-date' | 'topo';
+	dateFormat: DateTimeFormat | string | null;
+	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
+	highlightRowsOnRefHover: boolean;
 	pageItemLimit: number;
 	statusBar: {
 		enabled: boolean;
