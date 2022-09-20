@@ -103,6 +103,10 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 			'--graph-panel-bg',
 			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
 		);
+		bodyStyle.setProperty(
+			'--graph-panel-bg2',
+			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
+		);
 		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
 
 		// alert colors
