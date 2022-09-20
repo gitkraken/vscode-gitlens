@@ -514,6 +514,64 @@ a {
 	}
 }
 
+.search-input {
+	display: inline-flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0.8rem;
+
+	label {
+		color: var(--vscode-input-foreground);
+	}
+	input {
+		width: 30rem;
+		height: 2.4rem;
+		background-color: var(--vscode-input-background);
+		color: var(--vscode-input-foreground);
+		border: 1px solid var(--vscode-input-background); // var(--vscode-input-foreground);
+		border-radius: 0.25rem;
+		padding: {
+			left: 0.4rem;
+			right: 0.4rem;
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&::placeholder {
+			color: var(--vscode-input-placeholderForeground);
+		}
+		&:focus {
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+}
+
+.titlebar {
+	background: var(--vscode-titleBar-inactiveBackground);
+	color: var(--vscode-titleBar-inactiveForeground);
+	height: 3.6rem;
+	padding: {
+		left: 0.8rem;
+		right: 0.8rem;
+	}
+
+	&,
+	&__group {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.5rem;
+
+		> * {
+			margin: 0;
+		}
+	}
+}
+
 .graph-app {
 	--fs-1: 1.1rem;
 	--fs-2: 1.3rem;
@@ -546,6 +604,10 @@ a {
 		height: 100%;
 		z-index: 1999;
 		backdrop-filter: blur(4px) saturate(0.8);
+	}
+
+	&__header {
+		flex: none;
 	}
 
 	&__footer {
@@ -707,4 +769,14 @@ a {
 	to {
 		transform: translateX(4900%) scaleX(1);
 	}
+}
+
+.sr-only {
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+	width: 1px;
 }

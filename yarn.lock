@@ -188,12 +188,12 @@
   resolved "https://registry.yarnpkg.com/@lit/reactive-element/-/reactive-element-1.4.1.tgz#3f587eec5708692135bc9e94cf396130604979f3"
   integrity sha512-qDv4851VFSaBWzpS02cXHclo40jsbAjRXnebNXpm0uVg32kCneZPo9RYVQtrTNICtZ+1wAYHu1ZtxWSWMbKrBw==
 
-"@microsoft/fast-element@^1.10.5", "@microsoft/fast-element@^1.6.2", "@microsoft/fast-element@^1.9.0":
+"@microsoft/fast-element@1.10.5", "@microsoft/fast-element@^1.10.5", "@microsoft/fast-element@^1.6.2", "@microsoft/fast-element@^1.9.0":
   version "1.10.5"
   resolved "https://registry.yarnpkg.com/@microsoft/fast-element/-/fast-element-1.10.5.tgz#0ccedb56bd1fa9d981acb33665d074abb3bf76f5"
   integrity sha512-7aqo60dh+ip+NyReRPRiR8ndb4ZX7An3ms6TNhnrdLUtCon4kOv0GVxJdlVjqsSvrk9nOMN58A6Sg6ertt8hXQ==
 
-"@microsoft/fast-foundation@^2.38.0", "@microsoft/fast-foundation@^2.41.1":
+"@microsoft/fast-foundation@^2.38.0", "@microsoft/fast-foundation@^2.41.1", "@microsoft/fast-foundation@^2.46.14":
   version "2.46.14"
   resolved "https://registry.yarnpkg.com/@microsoft/fast-foundation/-/fast-foundation-2.46.14.tgz#75e9b31ba0781f5f437710f1135fa903076d9fb3"
   integrity sha512-r97fidZZ7uMjqg/HPYEY7EofZaPS8mCnQWWuvG9oS0JuE1XeLeYD3eMo/mG1Xn68IZc9kztyzA2sGUrm4piq/Q==
@@ -202,6 +202,14 @@
     "@microsoft/fast-web-utilities" "^5.4.1"
     tabbable "^5.2.0"
     tslib "^1.13.0"
+
+"@microsoft/fast-react-wrapper@0.3.14":
+  version "0.3.14"
+  resolved "https://registry.yarnpkg.com/@microsoft/fast-react-wrapper/-/fast-react-wrapper-0.3.14.tgz#2288e7fa805e91759cd4e7004eb1044fddcc6563"
+  integrity sha512-X6B+b8SD7vkdhS3/cnEn2ES17G46MH4LwVK298wfLlOsPnI9VzrlUQXbumFk8aNotQWU5sJDZ85Zgf/+Rzlcdg==
+  dependencies:
+    "@microsoft/fast-element" "^1.10.5"
+    "@microsoft/fast-foundation" "^2.46.14"
 
 "@microsoft/fast-react-wrapper@^0.1.18":
   version "0.1.48"
@@ -2319,9 +2327,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.4.251:
-  version "1.4.256"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.256.tgz#c735032f412505e8e0482f147a8ff10cfca45bf4"
-  integrity sha512-x+JnqyluoJv8I0U9gVe+Sk2st8vF0CzMt78SXxuoWCooLLY2k5VerIBdpvG7ql6GKI4dzNnPjmqgDJ76EdaAKw==
+  version "1.4.257"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.257.tgz#895dc73c6bb58d1235dc80879ecbca0bcba96e2c"
+  integrity sha512-C65sIwHqNnPC2ADMfse/jWTtmhZMII+x6ADI9gENzrOiI7BpxmfKFE84WkIEl5wEg+7+SfIkwChDlsd1Erju2A==
 
 emoji-regex@^8.0.0:
   version "8.0.0"
