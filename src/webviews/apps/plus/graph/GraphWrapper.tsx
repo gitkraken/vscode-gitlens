@@ -7,8 +7,8 @@ import GraphContainer, {
 	type GraphRow,
 	type GraphZoneType,
 } from '@gitkraken/gitkraken-components';
-import type { ReactElement } from 'react';
-import React, { createElement, useEffect, useRef, useState } from 'react';
+import type { FormEvent, ReactElement } from 'react';
+import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
 import type { GraphColumnConfig } from '../../../../config';
@@ -24,6 +24,7 @@ import type {
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
+import { SearchNav } from '../../shared/components/search/search-nav-react';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 
@@ -223,8 +224,61 @@ export function GraphWrapper({
 	const [repoExpanded, setRepoExpanded] = useState(false);
 	// column setting UI
 	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
+	// search state
+	const [searchValue, setSearchValue] = useState('');
+	const [searchResults, setSearchResults] = useState<GraphRow[]>([]);
+	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
+		if (searchValue === '' || searchValue.length < 3 || graphRows.length < 1) {
+			setSearchResults([]);
+			setSearchResultKey(undefined);
+			return;
+		}
+
+		const results = graphRows.filter(row => row.message.toLowerCase().indexOf(searchValue.toLowerCase()) > 0);
+		setSearchResults(results);
+
+		if (
+			searchResultKey == null ||
+			(searchResultKey != null && results.findIndex(row => row.sha === searchResultKey) === -1)
+		) {
+			setSearchResultKey(results[0]?.sha);
+		}
+	}, [searchValue, graphRows]);
+
+	const searchPosition: number = useMemo(() => {
+		if (searchResultKey == null) {
+			return 1;
+		}
+
+		const idx = searchResults.findIndex(row => row.sha === searchResultKey);
+		if (idx < 1) {
+			return 1;
+		}
+
+		return idx + 1;
+	}, [searchResultKey, searchResults]);
+
+	const handleSearchNavigation = (next = true) => {
+		const rowIndex = searchResultKey != null && searchResults.findIndex(row => row.sha === searchResultKey);
+		if (rowIndex === false) {
+			return;
+		}
+		if (next && rowIndex < searchResults.length - 1) {
+			setSearchResultKey(searchResults[rowIndex + 1].sha);
+		} else if (!next && rowIndex > 0) {
+			setSearchResultKey(searchResults[rowIndex - 1].sha);
+		}
+	};
+
+	const handleSearchInput = (e: FormEvent<HTMLInputElement>) => {
+		const currentValue = e.currentTarget.value;
+
+		setSearchValue(currentValue);
+	};
+
+	useLayoutEffect(() => {
 		if (mainRef.current === null) return;
 
 		const setDimensionsDebounced = debounceFrame((width, height) => {
@@ -478,6 +532,30 @@ export function GraphWrapper({
 				)}
 				{renderAlertContent()}
 			</section>
+			<header className="titlebar graph-app__header">
+				<div className="titlebar__group">
+					<div role="search" className="search-input">
+						<label htmlFor="titlebar-search">
+							<span className="codicon codicon-search" aria-label="Search" title="Search"></span>
+						</label>
+						<input
+							id="titlebar-search"
+							type="search"
+							spellCheck="false"
+							placeholder="Search..."
+							value={searchValue}
+							onChange={e => handleSearchInput(e)}
+						/>
+					</div>
+					<SearchNav
+						aria-label="Graph search navigation"
+						step={searchPosition}
+						total={searchResults.length}
+						onPrevious={() => handleSearchNavigation(false)}
+						onNext={() => handleSearchNavigation(true)}
+					/>
+				</div>
+			</header>
 			<main
 				ref={mainRef}
 				id="main"
