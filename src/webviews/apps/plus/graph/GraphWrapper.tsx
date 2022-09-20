@@ -64,11 +64,11 @@ const getStyleProps = (
 };
 
 const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
-	commitAuthorZone: { width: 110 },
-	commitDateTimeZone: { width: 130 },
-	commitMessageZone: { width: 130 },
-	commitZone: { width: 170 },
-	refZone: { width: 150 },
+	commitAuthorZone: { width: 110, isHidden: false },
+	commitDateTimeZone: { width: 130, isHidden: false },
+	commitMessageZone: { width: 130, isHidden: false },
+	commitZone: { width: 170, isHidden: false },
+	refZone: { width: 150, isHidden: false },
 };
 
 const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumnsSettings => {
@@ -77,6 +77,7 @@ const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumns
 		for (const column of Object.keys(config.columns)) {
 			columnsSettings[column] = {
 				width: config.columns[column].width,
+				isHidden: config.columns[column].isHidden,
 			};
 		}
 	}
@@ -141,6 +142,33 @@ const getClientPlatform = (): GraphPlatform => {
 
 const clientPlatform = getClientPlatform();
 
+const graphColumns: {[Key in GraphZoneType]: {name: string; hideable: boolean}} = {
+	refZone: {
+		name: 'Branch / Tag',
+		hideable: false,
+	},
+	commitZone: {
+		name: 'Graph',
+		hideable: false,
+	},
+	commitMessageZone: {
+		name: 'Commit Message',
+		hideable: false,
+	},
+	commitAuthorZone: {
+		name: 'Author',
+		hideable: true,
+	},
+	commitDateTimeZone: {
+		name: 'Commit Date / Time',
+		hideable: true,
+	},
+	commitShaZone: {
+		name: 'Sha',
+		hideable: true,
+	},
+};
+
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -193,6 +221,8 @@ export function GraphWrapper({
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
+	// column setting UI
+	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 
 	useEffect(() => {
 		if (mainRef.current === null) return;
@@ -247,13 +277,29 @@ export function GraphWrapper({
 		onMissingAvatars?.(emails);
 	};
 
+	const handleSelectColumn = (graphZoneType: GraphZoneType) => {
+		onColumnChange?.(graphZoneType, {
+			...graphColSettings[graphZoneType],
+			isHidden: !graphColSettings[graphZoneType]?.isHidden,
+		});
+	};
+
+	const handleToggleColumnSettings = () => {
+		setColumnSettingsExpanded(!columnSettingsExpanded);
+	};
+
 	const handleMoreCommits = () => {
 		setIsLoading(true);
 		onMoreCommits?.();
 	};
 
 	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
-		onColumnChange?.(graphZoneType, { width: columnSettings.width });
+		if (columnSettings.width) {
+			onColumnChange?.(graphZoneType, {
+				width: columnSettings.width,
+				isHidden: columnSettings.isHidden,
+			});
+		}
 	};
 
 	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
@@ -535,6 +581,43 @@ export function GraphWrapper({
 							showing {graphRows.length} item{graphRows.length ? 's' : ''}
 						</span>
 					)}
+					<div className="actioncombo">
+						<button
+							type="button"
+							aria-controls="repo-columnsettings-list"
+							aria-expanded={columnSettingsExpanded}
+							aria-haspopup="listbox"
+							id="columns-actioncombo-label"
+							className="actioncombo__label"
+							role="combobox"
+							onClick={() => handleToggleColumnSettings()}
+						>
+							<span className="codicon codicon-settings-gear columnsettings__icon" aria-label="Column Settings"></span>
+						</button>
+						<div
+							className="actioncombo__list"
+							id="columns-actioncombo-list"
+							role="listbox"
+							tabIndex={-1}
+							aria-labelledby="columns-actioncombo-label"
+						>
+							{
+								Object.entries(graphColumns).map(([graphZoneType, column]) => column.hideable && (
+									<span
+										className="actioncombo__item"
+										role="option"
+										data-value={graphZoneType}
+										id={`column-actioncombo-item-${graphZoneType}`}
+										key={`column-actioncombo-item-${graphZoneType}`}
+										aria-checked={false}
+										onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
+									>
+										{column.name} {!graphColSettings[graphZoneType]?.isHidden && <span className='icon--check' />}
+									</span>
+								))
+							}
+						</div>
+					</div>
 					{isLoading && (
 						<span className="actionbar__loading">
 							<span className="icon--loading icon-modifier--spin" />
