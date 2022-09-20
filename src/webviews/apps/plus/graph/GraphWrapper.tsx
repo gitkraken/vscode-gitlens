@@ -48,6 +48,8 @@ const getStyleProps = (
 		cssVariables: {
 			'--app__bg0': computedStyle.getPropertyValue('--color-background'),
 			'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
+			'--panel__bg1': computedStyle.getPropertyValue('--graph-panel-bg2'),
+			'--section-border': computedStyle.getPropertyValue('--graph-panel-bg2'),
 			'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
 			'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
 			'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
