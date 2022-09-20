@@ -312,6 +312,10 @@ export class GitHubRemote extends RichRemoteProvider {
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 
+	protected override getUrlForRepository(): string {
+		return this.baseUrl.replace(/.wiki$/, '/wiki');
+	}
+
 	protected async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
