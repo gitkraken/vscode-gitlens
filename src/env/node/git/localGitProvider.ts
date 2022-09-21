@@ -1656,19 +1656,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		async function getCommitsForGraphCore(
 			this: LocalGitProvider,
 			limit: number,
-			shaOrCursor?: string | { sha: string; skip: number },
+			sha?: string,
+			cursor?: { sha: string; skip: number },
 		): Promise<GitGraph> {
 			iterations++;
-
-			let cursor: { sha: string; skip: number } | undefined;
-			let sha: string | undefined;
-			if (shaOrCursor != null) {
-				if (typeof shaOrCursor === 'string') {
-					sha = shaOrCursor;
-				} else {
-					cursor = shaOrCursor;
-				}
-			}
 
 			let log: string | string[] | undefined;
 			let nextPageLimit = limit;
@@ -1676,6 +1667,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			do {
 				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
+				if (cursor?.skip) {
+					args.push(`--skip=${cursor.skip}`);
+				}
 
 				let data;
 				if (sha) {
@@ -1688,9 +1682,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					);
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
-					if (cursor?.skip) {
-						args.push(`--skip=${cursor.skip}`);
-					}
 
 					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 
@@ -1870,8 +1861,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					startingCursor: startingCursor,
 					more: count > limit,
 				},
-				more: async (limit: number): Promise<GitGraph | undefined> =>
-					getCommitsForGraphCore.call(this, limit, cursor),
+				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
+					getCommitsForGraphCore.call(this, limit, sha, cursor),
 			};
 		}
 

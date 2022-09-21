@@ -82,7 +82,10 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/getMissingAvatars');
 
-export const GetMoreCommitsCommandType = new IpcCommandType<undefined>('graph/getMoreCommits');
+export interface GetMoreCommitsParams {
+	sha?: string;
+}
+export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
 
 export interface UpdateColumnParams {
 	name: string;
@@ -133,6 +136,7 @@ export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChang
 export interface DidChangeCommitsParams {
 	rows: GraphRow[];
 	avatars: { [email: string]: string };
+	selectedRows?: { [id: string]: true };
 	paging?: GraphPaging;
 }
 export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
