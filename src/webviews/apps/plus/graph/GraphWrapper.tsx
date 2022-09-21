@@ -142,7 +142,7 @@ const getClientPlatform = (): GraphPlatform => {
 
 const clientPlatform = getClientPlatform();
 
-const graphColumns: {[Key in GraphZoneType]: {name: string; hideable: boolean}} = {
+const graphColumns: { [Key in GraphZoneType]: { name: string; hideable: boolean } } = {
 	refZone: {
 		name: 'Branch / Tag',
 		hideable: false,
@@ -517,6 +517,56 @@ export function GraphWrapper({
 				) : (
 					<p>No repository is selected</p>
 				)}
+				<div className="column-bar">
+					<div className="column-bar__group">
+						<div className="column-combo">
+							<button
+								type="button"
+								aria-controls="repo-columnsettings-list"
+								aria-expanded={columnSettingsExpanded}
+								aria-haspopup="listbox"
+								id="columns-column-combo-label"
+								className="column-combo__label"
+								role="combobox"
+								onClick={() => handleToggleColumnSettings()}
+							>
+								<span
+									className="codicon codicon-settings-gear columnsettings__icon"
+									aria-label="Column Settings"
+								></span>
+							</button>
+							<div
+								className="column-combo__list"
+								id="columns-column-combo-list"
+								role="listbox"
+								tabIndex={-1}
+								aria-labelledby="columns-column-combo-label"
+							>
+								{Object.entries(graphColumns).map(
+									([graphZoneType, column]) =>
+										column.hideable && (
+											<span
+												className="column-combo__item"
+												role="option"
+												data-value={graphZoneType}
+												id={`column-column-combo-item-${graphZoneType}`}
+												key={`column-column-combo-item-${graphZoneType}`}
+												aria-checked={false}
+												onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
+											>
+												<span
+													className={`column-combo__item-check${
+														!graphColSettings[graphZoneType]?.isHidden ? ' icon--check' : ''
+													}`}
+												/>
+												{column.name}{' '}
+											</span>
+										),
+								)}
+							</div>
+						</div>
+					</div>
+				</div>
 			</main>
 			<footer className={`actionbar graph-app__footer${!isAllowed ? ' is-gated' : ''}`} aria-hidden={!isAllowed}>
 				<div className="actionbar__group">
@@ -581,43 +631,6 @@ export function GraphWrapper({
 							showing {graphRows.length} item{graphRows.length ? 's' : ''}
 						</span>
 					)}
-					<div className="actioncombo">
-						<button
-							type="button"
-							aria-controls="repo-columnsettings-list"
-							aria-expanded={columnSettingsExpanded}
-							aria-haspopup="listbox"
-							id="columns-actioncombo-label"
-							className="actioncombo__label"
-							role="combobox"
-							onClick={() => handleToggleColumnSettings()}
-						>
-							<span className="codicon codicon-settings-gear columnsettings__icon" aria-label="Column Settings"></span>
-						</button>
-						<div
-							className="actioncombo__list"
-							id="columns-actioncombo-list"
-							role="listbox"
-							tabIndex={-1}
-							aria-labelledby="columns-actioncombo-label"
-						>
-							{
-								Object.entries(graphColumns).map(([graphZoneType, column]) => column.hideable && (
-									<span
-										className="actioncombo__item"
-										role="option"
-										data-value={graphZoneType}
-										id={`column-actioncombo-item-${graphZoneType}`}
-										key={`column-actioncombo-item-${graphZoneType}`}
-										aria-checked={false}
-										onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
-									>
-										{column.name} {!graphColSettings[graphZoneType]?.isHidden && <span className='icon--check' />}
-									</span>
-								))
-							}
-						</div>
-					</div>
 					{isLoading && (
 						<span className="actionbar__loading">
 							<span className="icon--loading icon-modifier--spin" />
