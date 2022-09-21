@@ -32,9 +32,8 @@ export interface GitGraph {
 	readonly paging?: {
 		readonly limit: number | undefined;
 		readonly startingCursor: string | undefined;
-		// readonly endingCursor: string | undefined;
 		readonly more: boolean;
 	};
 
-	more?(limit: number | { until?: string } | undefined): Promise<GitGraph | undefined>;
+	more?(limit: number, sha?: string): Promise<GitGraph | undefined>;
 }
