@@ -495,7 +495,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 
 		const [headline, ...lines] = state.selected.message.split('\n');
-		if (lines.length > 1) {
+		if (lines.length > 0) {
 			$el.innerHTML = `<strong>${headline}</strong><br>${lines.join('<br>')}`;
 		} else {
 			$el.innerHTML = `<strong>${headline}</strong>`;
