@@ -1835,7 +1835,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					author: commit.author,
 					email: commit.authorEmail ?? '',
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-					message: emojify(commit.message),
+					message: emojify(commit.message.trim()),
 					// TODO: review logic for stash, wip, etc
 					type: isStashCommit
 						? GitGraphRowType.Stash
