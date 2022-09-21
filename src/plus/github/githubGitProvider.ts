@@ -72,7 +72,8 @@ import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import { SearchPattern } from '../../git/search';
+import type { SearchPattern } from '../../git/search';
+import { parseSearchOperations } from '../../git/search';
 import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
@@ -1589,7 +1590,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		const operations = SearchPattern.parseSearchOperations(search.pattern);
+		const operations = parseSearchOperations(search.pattern);
 
 		let op;
 		let values = operations.get('commit:');

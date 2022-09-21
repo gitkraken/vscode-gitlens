@@ -3,7 +3,8 @@ import { ThemeIcon } from 'vscode';
 import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
-import { SearchPattern } from '../../git/search';
+import type { SearchPattern } from '../../git/search';
+import { getKeyForSearchPattern } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { md5, pluralize } from '../../system/string';
@@ -27,12 +28,12 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	static key = ':search-results';
 	static getId(repoPath: string, search: SearchPattern | undefined, instanceId: number): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${
-			search == null ? '?' : SearchPattern.toKey(search)
+			search == null ? '?' : getKeyForSearchPattern(search)
 		}):${instanceId}`;
 	}
 
 	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
+		return md5(`${repoPath}|${getKeyForSearchPattern(search)}`);
 	}
 
 	private _instanceId: number;
