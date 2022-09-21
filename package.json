@@ -2106,6 +2106,13 @@
 						"scope": "window",
 						"order": 11
 					},
+					"gitlens.graph.enableGhostRefs": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a ghost ref of the hovered/selected row in the _Commit Graph_",
+						"scope": "window",
+						"order": 12
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,
