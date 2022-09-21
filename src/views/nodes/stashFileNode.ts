@@ -1,5 +1,5 @@
-import type { GitStashCommit } from 'src/git/models/commit';
-import type { GitFile } from 'src/git/models/file';
+import type { GitStashCommit } from '../../git/models/commit';
+import type { GitFile } from '../../git/models/file';
 import type { RepositoriesView } from '../repositoriesView';
 import type { StashesView } from '../stashesView';
 import { CommitFileNode } from './commitFileNode';

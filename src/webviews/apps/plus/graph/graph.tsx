@@ -2,8 +2,8 @@
 import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import type { GitGraphRowType } from 'src/git/models/graph';
 import type { GraphColumnConfig } from '../../../../config';
+import type { GitGraphRowType } from '../../../../git/models/graph';
 import type {
 	DismissBannerParams,
 	GraphRepository,

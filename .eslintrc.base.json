@@ -98,6 +98,10 @@
 					{
 						"group": ["**/env/**/*"],
 						"message": "Use @env/ instead"
+					},
+					{
+						"group": ["src/**/*"],
+						"message": "Use relative paths instead"
 					}
 				]
 			}

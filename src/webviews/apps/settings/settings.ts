@@ -1,6 +1,6 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
-import type { AutolinkReference } from 'src/config';
+import type { AutolinkReference } from '../../../config';
 import type { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
