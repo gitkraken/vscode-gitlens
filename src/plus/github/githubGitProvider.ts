@@ -72,7 +72,7 @@ import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import type { SearchPattern } from '../../git/search';
+import type { GitSearch, SearchPattern } from '../../git/search';
 import { parseSearchOperations } from '../../git/search';
 import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
@@ -1578,6 +1578,104 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return mergedLog;
 		};
+	}
+
+	@log()
+	async searchForCommitsSimple(
+		repoPath: string,
+		search: SearchPattern,
+		_options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch> {
+		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+		return {
+			repoPath: repoPath,
+			pattern: search,
+			results: [],
+		};
+
+		// try {
+		// 	const { args: searchArgs, files, commits } = this.getArgsFromSearchPattern(search);
+		// 	if (commits?.length) {
+		// 		return {
+		// 			repoPath: repoPath,
+		// 			pattern: search,
+		// 			results: commits,
+		// 		};
+		// 	}
+
+		// 	const refParser = getGraphRefParser();
+		// 	const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+		// 	const similarityThreshold = configuration.get('advanced.similarityThreshold');
+
+		// 	const args = [
+		// 		'log',
+		// 		...refParser.arguments,
+		// 		`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+		// 		'--use-mailmap',
+		// 	];
+		// 	if (limit) {
+		// 		args.push(`-n${limit + 1}`);
+		// 	}
+		// 	if (options?.ordering) {
+		// 		args.push(`--${options.ordering}-order`);
+		// 	}
+
+		// 	searchArgs.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
+		// 	if (files.length !== 0) {
+		// 		searchArgs.push(...files);
+		// 	}
+
+		// 	async function searchForCommitsCore(
+		// 		this: LocalGitProvider,
+		// 		limit: number,
+		// 		cursor?: { sha: string; skip: number },
+		// 	): Promise<GitSearch> {
+		// 		const data = await this.git.log2(
+		// 			repoPath,
+		// 			undefined,
+		// 			...args,
+		// 			...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
+		// 			...searchArgs,
+		// 			'--',
+		// 			...files,
+		// 		);
+		// 		const results = [...refParser.parse(data)];
+
+		// 		const last = results[results.length - 1];
+		// 		cursor =
+		// 			last != null
+		// 				? {
+		// 						sha: last,
+		// 						skip: results.length,
+		// 				  }
+		// 				: undefined;
+
+		// 		return {
+		// 			repoPath: repoPath,
+		// 			pattern: search,
+		// 			results: results,
+		// 			paging:
+		// 				limit !== 0 && results.length > limit
+		// 					? {
+		// 							limit: limit,
+		// 							startingCursor: cursor?.sha,
+		// 							more: true,
+		// 					  }
+		// 					: undefined,
+		// 			more: async (limit: number): Promise<GitSearch | undefined> =>
+		// 				searchForCommitsCore.call(this, limit, cursor),
+		// 		};
+		// 	}
+
+		// 	return searchForCommitsCore.call(this, limit);
+		// } catch (ex) {
+		// 	// TODO@eamodio handle error reporting -- just invalid patterns? or more detailed?
+		// 	return {
+		// 		repoPath: repoPath,
+		// 		pattern: search,
+		// 		results: [],
+		// 	};
+		// }
 	}
 
 	@log()

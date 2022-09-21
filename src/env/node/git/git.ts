@@ -867,10 +867,13 @@ export class Git {
 			params.push(options?.ref);
 		}
 
+		if (!params.includes('--')) {
+			params.push('--');
+		}
+
 		return this.git<string>(
 			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
 			...params,
-			'--',
 		);
 	}
 

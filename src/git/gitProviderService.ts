@@ -69,7 +69,7 @@ import type { GitWorktree } from './models/worktree';
 import { RichRemoteProviders } from './remotes/remoteProviderConnections';
 import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
-import type { SearchPattern } from './search';
+import type { GitSearch, SearchPattern } from './search';
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
@@ -1462,6 +1462,16 @@ export class GitProviderService implements Disposable {
 	): Promise<Set<string> | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getLogRefsOnly(path, options);
+	}
+
+	@log()
+	searchForCommitsSimple(
+		repoPath: string | Uri,
+		search: SearchPattern,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.searchForCommitsSimple(path, search, options);
 	}
 
 	@log()

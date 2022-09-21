@@ -26,7 +26,7 @@ import type { GitWorktree } from './models/worktree';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
-import type { SearchPattern } from './search';
+import type { GitSearch, SearchPattern } from './search';
 
 export const enum GitProviderId {
 	Git = 'git',
@@ -296,6 +296,11 @@ export interface GitProvider extends Disposable {
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
+	searchForCommitsSimple(
+		repoPath: string | Uri,
+		search: SearchPattern,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch>;
 	getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
