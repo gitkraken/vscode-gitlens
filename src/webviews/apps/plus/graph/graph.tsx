@@ -174,9 +174,10 @@ export class GraphApp extends App<State> {
 					this.setState({
 						...this.state,
 						avatars: params.avatars,
+						paging: params.paging,
+						selectedRows: params.selectedRows,
 						rows: rows,
 						loading: false,
-						paging: params.paging,
 					});
 					this.refresh(this.state);
 				});
@@ -273,8 +274,8 @@ export class GraphApp extends App<State> {
 		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
 	}
 
-	private onGetMoreCommits() {
-		this.sendCommand(GetMoreCommitsCommandType, undefined);
+	private onGetMoreCommits(sha?: string) {
+		this.sendCommand(GetMoreCommitsCommandType, { sha: sha });
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {

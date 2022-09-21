@@ -128,7 +128,8 @@ export class GraphWebview extends WebviewBase<State> {
 						return;
 					}
 
-					this.updateState();
+					this.setSelectedRows(args.sha);
+					void this.onGetMoreCommits(args.sha);
 				}
 			}),
 		);
@@ -193,7 +194,7 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
 				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, () => this.onGetMoreCommits());
+				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.sha));
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
@@ -362,7 +363,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@gate()
-	private async onGetMoreCommits() {
+	private async onGetMoreCommits(sha?: string) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
@@ -370,7 +371,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit);
+		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, sha);
 		if (newGraph != null) {
 			this.setGraph(newGraph);
 		} else {
@@ -505,6 +506,7 @@ export class GraphWebview extends WebviewBase<State> {
 			success = await this.notify(DidChangeCommitsNotificationType, {
 				rows: data.rows,
 				avatars: Object.fromEntries(data.avatars),
+				selectedRows: this._selectedRows,
 				paging: {
 					startingCursor: data.paging?.startingCursor,
 					more: data.paging?.more ?? false,
