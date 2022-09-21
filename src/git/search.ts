@@ -35,6 +35,20 @@ export interface SearchPattern {
 	matchRegex?: boolean;
 }
 
+export interface GitSearch {
+	repoPath: string;
+	pattern: SearchPattern;
+	results: string[];
+
+	readonly paging?: {
+		readonly limit: number | undefined;
+		readonly startingCursor: string | undefined;
+		readonly more: boolean;
+	};
+
+	more?(limit: number): Promise<GitSearch | undefined>;
+}
+
 export function getKeyForSearchPattern(search: SearchPattern) {
 	return `${search.pattern}|${search.matchAll ? 'A' : ''}${search.matchCase ? 'C' : ''}${
 		search.matchRegex ? 'R' : ''

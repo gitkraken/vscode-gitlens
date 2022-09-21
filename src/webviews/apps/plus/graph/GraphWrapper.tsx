@@ -14,6 +14,7 @@ import { DateStyle } from '../../../../config';
 import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
+import type { SearchPattern } from '../../../../git/search';
 import type {
 	DismissBannerParams,
 	GraphComponentConfig,
@@ -34,7 +35,8 @@ export interface GraphWrapperProps extends State {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
-	onMoreCommits?: () => void;
+	onMoreCommits?: (id?: string) => void;
+	onSearchCommits?: (search: SearchPattern) => void; //Promise<DidSearchCommitsParams>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 }
@@ -87,6 +89,16 @@ const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumns
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
+};
+
+const getSearchHighlights = (searchResults: State['searchResults']): { [id: string]: boolean } | undefined => {
+	if (!searchResults?.ids?.length) return undefined;
+
+	const highlights: { [id: string]: boolean } = {};
+	for (const sha of searchResults.ids) {
+		highlights[sha] = true;
+	}
+	return highlights;
 };
 
 type DebouncableFn = (...args: any) => void;
@@ -188,10 +200,12 @@ export function GraphWrapper({
 	onColumnChange,
 	onMissingAvatars,
 	onMoreCommits,
+	onSearchCommits,
 	onSelectionChange,
 	nonce,
 	mixedColumnColors,
 	previewBanner = true,
+	searchResults: searchResults2,
 	trialBanner = true,
 	onDismissBanner,
 }: GraphWrapperProps) {
@@ -228,11 +242,13 @@ export function GraphWrapper({
 	const [searchValue, setSearchValue] = useState('');
 	const [searchResults, setSearchResults] = useState<GraphRow[]>([]);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
+	const [searchHighlights, setSearchHighlights] = useState(getSearchHighlights(searchResults2));
 
 	useEffect(() => {
 		if (searchValue === '' || searchValue.length < 3 || graphRows.length < 1) {
 			setSearchResults([]);
 			setSearchResultKey(undefined);
+			setSearchHighlights(undefined);
 			return;
 		}
 
@@ -276,6 +292,7 @@ export function GraphWrapper({
 		const currentValue = e.currentTarget.value;
 
 		setSearchValue(currentValue);
+		onSearchCommits?.({ pattern: currentValue });
 	};
 
 	useLayoutEffect(() => {
@@ -310,6 +327,7 @@ export function GraphWrapper({
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
+		setSearchHighlights(getSearchHighlights(state.searchResults));
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -576,6 +594,7 @@ export function GraphWrapper({
 								graphRows={graphRows}
 								hasMoreCommits={pagingState?.more}
 								height={mainHeight}
+								highlightedShas={searchHighlights}
 								// highlightRowssOnRefHover={graphConfig?.highlightRowsOnRefHover}
 								isLoadingRows={isLoading}
 								isSelectedBySha={graphSelectedRows}

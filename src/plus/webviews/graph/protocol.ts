@@ -2,6 +2,7 @@ import type { GraphRow, Remote } from '@gitkraken/gitkraken-components';
 import type { DateStyle, GraphColumnConfig } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
+import type { SearchPattern } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
@@ -24,6 +25,7 @@ export interface State {
 
 	// Props below are computed in the webview (not passed)
 	mixedColumnColors?: Record<string, string>;
+	searchResults?: DidSearchCommitsParams;
 }
 
 export interface GraphPaging {
@@ -87,6 +89,11 @@ export interface GetMoreCommitsParams {
 }
 export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
 
+export interface SearchCommitsParams {
+	search: SearchPattern;
+}
+export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/searchCommits');
+
 export interface UpdateColumnParams {
 	name: string;
 	config: GraphColumnConfig;
@@ -148,4 +155,12 @@ export interface DidChangeSelectionParams {
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',
+);
+
+export interface DidSearchCommitsParams {
+	ids: string[];
+	paging?: GraphPaging;
+}
+export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
+	'graph/commits/didSearch',
 );

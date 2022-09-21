@@ -14,6 +14,7 @@ import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { SearchPattern } from '../../../git/search';
 import { registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -35,9 +36,11 @@ import {
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
+	SearchCommitsCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -194,7 +197,10 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
 				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.sha));
+				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.sha, e.id));
+				break;
+			case SearchCommitsCommandType.method:
+				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params.search, e.id));
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
@@ -363,7 +369,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@gate()
-	private async onGetMoreCommits(sha?: string) {
+	private async onGetMoreCommits(sha?: string, completionId?: string) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
@@ -378,7 +384,35 @@ export class GraphWebview extends WebviewBase<State> {
 			debugger;
 		}
 
-		void this.notifyDidChangeCommits();
+		void this.notifyDidChangeCommits(completionId);
+	}
+
+	@gate()
+	private async onSearchCommits(searchPattern: SearchPattern, completionId?: string) {
+		// if (this._repository?.etag !== this._etagRepository) {
+		// 	this.updateState(true);
+
+		// 	return;
+		// }
+
+		if (this._repository == null) return;
+
+		const search = await this._repository.searchForCommitsSimple(searchPattern, {
+			limit: 100,
+			ordering: configuration.get('graph.commitOrdering'),
+		});
+
+		void this.notify(
+			DidSearchCommitsNotificationType,
+			{
+				ids: search.results,
+				paging: {
+					startingCursor: search.paging?.startingCursor,
+					more: search.paging?.more ?? false,
+				},
+			},
+			completionId,
+		);
 	}
 
 	private onRepositorySelectionChanged(path: string) {
@@ -498,20 +532,24 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeCommits() {
+	private async notifyDidChangeCommits(completionId?: string) {
 		let success = false;
 
 		if (this.isReady && this.visible) {
 			const data = this._graph!;
-			success = await this.notify(DidChangeCommitsNotificationType, {
-				rows: data.rows,
-				avatars: Object.fromEntries(data.avatars),
-				selectedRows: this._selectedRows,
-				paging: {
-					startingCursor: data.paging?.startingCursor,
-					more: data.paging?.more ?? false,
+			success = await this.notify(
+				DidChangeCommitsNotificationType,
+				{
+					rows: data.rows,
+					avatars: Object.fromEntries(data.avatars),
+					selectedRows: this._selectedRows,
+					paging: {
+						startingCursor: data.paging?.startingCursor,
+						more: data.paging?.more ?? false,
+					},
 				},
-			});
+				completionId,
+			);
 		}
 
 		this._pendingNotifyCommits = !success;

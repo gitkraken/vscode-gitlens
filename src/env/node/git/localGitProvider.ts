@@ -106,7 +106,7 @@ import type { RemoteProvider } from '../../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import type { SearchPattern } from '../../../git/search';
+import type { GitSearch, SearchPattern } from '../../../git/search';
 import { parseSearchOperations } from '../../../git/search';
 import { Logger } from '../../../logger';
 import type { LogScope } from '../../../logger';
@@ -2638,6 +2638,93 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async searchForCommitsSimple(
+		repoPath: string,
+		search: SearchPattern,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch> {
+		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+
+		try {
+			const { args: searchArgs, files, commits } = this.getArgsFromSearchPattern(search);
+			if (commits?.length) {
+				return {
+					repoPath: repoPath,
+					pattern: search,
+					results: commits,
+				};
+			}
+
+			const refParser = getGraphRefParser();
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+
+			const args = [
+				...refParser.arguments,
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--use-mailmap',
+			];
+			if (limit) {
+				args.push(`-n${limit + 1}`);
+			}
+			if (options?.ordering) {
+				args.push(`--${options.ordering}-order`);
+			}
+
+			async function searchForCommitsCore(
+				this: LocalGitProvider,
+				limit: number,
+				cursor?: { sha: string; skip: number },
+			): Promise<GitSearch> {
+				const data = await this.git.log2(
+					repoPath,
+					undefined,
+					...args,
+					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
+					...searchArgs,
+					'--',
+					...files,
+				);
+				const results = [...refParser.parse(data)];
+
+				const last = results[results.length - 1];
+				cursor =
+					last != null
+						? {
+								sha: last,
+								skip: results.length,
+						  }
+						: undefined;
+
+				return {
+					repoPath: repoPath,
+					pattern: search,
+					results: results,
+					paging:
+						limit !== 0 && results.length > limit
+							? {
+									limit: limit,
+									startingCursor: cursor?.sha,
+									more: true,
+							  }
+							: undefined,
+					more: async (limit: number): Promise<GitSearch | undefined> =>
+						searchForCommitsCore.call(this, limit, cursor),
+				};
+			}
+
+			return searchForCommitsCore.call(this, limit);
+		} catch (ex) {
+			// TODO@eamodio handle error reporting -- just invalid patterns? or more detailed?
+			return {
+				repoPath: repoPath,
+				pattern: search,
+				results: [],
+			};
+		}
+	}
+
+	@log()
 	async getLogForSearch(
 		repoPath: string,
 		search: SearchPattern,
@@ -2649,79 +2736,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
-			const operations = parseSearchOperations(search.pattern);
+			const { args, files, commits } = this.getArgsFromSearchPattern(search);
 
-			const searchArgs = new Set<string>();
-			const files: string[] = [];
-
-			let useShow = false;
-
-			let op;
-			let values = operations.get('commit:');
-			if (values != null) {
-				useShow = true;
-
-				searchArgs.add('-m');
-				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
-				for (const value of values) {
-					searchArgs.add(value.replace(doubleQuoteRegex, ''));
-				}
-			} else {
-				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
-				searchArgs.add('--all');
-				searchArgs.add('--full-history');
-				searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
-				if (search.matchRegex && !search.matchCase) {
-					searchArgs.add('--regexp-ignore-case');
-				}
-
-				for ([op, values] of operations.entries()) {
-					switch (op) {
-						case 'message:':
-							searchArgs.add('-m');
-							if (search.matchAll) {
-								searchArgs.add('--all-match');
-							}
-							for (const value of values) {
-								searchArgs.add(
-									`--grep=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
-								);
-							}
-
-							break;
-
-						case 'author:':
-							searchArgs.add('-m');
-							for (const value of values) {
-								searchArgs.add(
-									`--author=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
-								);
-							}
-
-							break;
-
-						case 'change:':
-							for (const value of values) {
-								searchArgs.add(
-									search.matchRegex
-										? `-G${value.replace(doubleQuoteRegex, '')}`
-										: `-S${value.replace(doubleQuoteRegex, '')}`,
-								);
-							}
-
-							break;
-
-						case 'file:':
-							for (const value of values) {
-								files.push(value.replace(doubleQuoteRegex, ''));
-							}
-
-							break;
-					}
-				}
-			}
-
-			const args = [...searchArgs.values(), '--'];
+			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
 			if (files.length !== 0) {
 				args.push(...files);
 			}
@@ -2730,7 +2747,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
-				useShow: useShow,
+				useShow: Boolean(commits?.length),
 			});
 			const log = GitLogParser.parse(
 				this.container,
@@ -2757,6 +2774,81 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			return undefined;
 		}
+	}
+
+	private getArgsFromSearchPattern(search: SearchPattern): {
+		args: string[];
+		files: string[];
+		commits?: string[] | undefined;
+	} {
+		const operations = parseSearchOperations(search.pattern);
+
+		const searchArgs = new Set<string>();
+		const files: string[] = [];
+
+		let commits;
+
+		let op;
+		let values = operations.get('commit:');
+		if (values != null) {
+			// searchArgs.add('-m');
+			for (const value of values) {
+				searchArgs.add(value.replace(doubleQuoteRegex, ''));
+			}
+			commits = [...searchArgs.values()];
+		} else {
+			searchArgs.add('--all');
+			searchArgs.add('--full-history');
+			searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
+			if (search.matchRegex && !search.matchCase) {
+				searchArgs.add('--regexp-ignore-case');
+			}
+
+			for ([op, values] of operations.entries()) {
+				switch (op) {
+					case 'message:':
+						searchArgs.add('-m');
+						if (search.matchAll) {
+							searchArgs.add('--all-match');
+						}
+						for (const value of values) {
+							searchArgs.add(`--grep=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`);
+						}
+
+						break;
+
+					case 'author:':
+						searchArgs.add('-m');
+						for (const value of values) {
+							searchArgs.add(
+								`--author=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
+							);
+						}
+
+						break;
+
+					case 'change:':
+						for (const value of values) {
+							searchArgs.add(
+								search.matchRegex
+									? `-G${value.replace(doubleQuoteRegex, '')}`
+									: `-S${value.replace(doubleQuoteRegex, '')}`,
+							);
+						}
+
+						break;
+
+					case 'file:':
+						for (const value of values) {
+							files.push(value.replace(doubleQuoteRegex, ''));
+						}
+
+						break;
+				}
+			}
+		}
+
+		return { args: [...searchArgs.values()], files: files, commits: commits };
 	}
 
 	private getLogForSearchMoreFn(
