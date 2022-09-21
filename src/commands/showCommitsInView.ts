@@ -3,7 +3,7 @@ import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { SearchPattern } from '../git/search';
+import { getSearchPatternFromCommits } from '../git/search';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
@@ -88,7 +88,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 			command: 'search',
 			state: {
 				repo: args?.repoPath,
-				pattern: SearchPattern.fromCommits(args.refs),
+				pattern: getSearchPatternFromCommits(args.refs),
 				showResultsInSideBar: true,
 			},
 		});
