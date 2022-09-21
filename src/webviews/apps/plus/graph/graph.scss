@@ -225,6 +225,8 @@ a {
 	}
 
 	&__item {
+		display: flex;
+		align-items: center;
 		appearance: none;
 		font-family: inherit;
 		background-color: transparent;
@@ -252,6 +254,7 @@ a {
 			width: 16px;
 			height: 16px;
 			margin-right: 0.25rem;
+			margin-bottom: 0.5rem;
 		}
 	}
 
