@@ -4,6 +4,7 @@ export interface IpcMessage {
 	id: string;
 	method: string;
 	params?: unknown;
+	completionId?: string;
 }
 
 abstract class IpcMessageType<Params = void> {
@@ -73,7 +74,6 @@ export const DidChangeConfigurationNotificationType = new IpcNotificationType<Di
 );
 
 export interface DidGenerateConfigurationPreviewParams {
-	completionId: string;
 	preview: string;
 }
 

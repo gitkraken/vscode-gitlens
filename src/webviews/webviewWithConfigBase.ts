@@ -172,10 +172,11 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 								preview = 'Invalid format';
 							}
 
-							await this.notify(DidGenerateConfigurationPreviewNotificationType, {
-								completionId: e.id,
-								preview: preview,
-							});
+							await this.notify(
+								DidGenerateConfigurationPreviewNotificationType,
+								{ preview: preview },
+								e.completionId,
+							);
 						}
 					}
 				});

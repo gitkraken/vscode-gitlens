@@ -17,7 +17,6 @@ import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
-import type { WebviewBase } from './webviewBase';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -243,12 +242,18 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		return html;
 	}
 
-	protected notify<T extends IpcNotificationType<any>>(type: T, params: IpcMessageParams<T>): Thenable<boolean> {
-		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
+	protected notify<T extends IpcNotificationType<any>>(
+		type: T,
+		params: IpcMessageParams<T>,
+		completionId?: string,
+	): Thenable<boolean> {
+		return this.postMessage({ id: nextIpcId(), method: type.method, params: params, completionId: completionId });
 	}
 
 	@serialize()
-	@debug<WebviewBase<State>['postMessage']>({ args: { 0: m => `(id=${m.id}, method=${m.method})` } })
+	@debug<WebviewViewBase<State>['postMessage']>({
+		args: { 0: m => `(id=${m.id}, method=${m.method}${m.completionId ? `, completionId=${m.completionId}` : ''})` },
+	})
 	protected postMessage(message: IpcMessage) {
 		if (this._view == null) return Promise.resolve(false);
 
