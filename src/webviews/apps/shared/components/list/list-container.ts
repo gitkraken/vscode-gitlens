@@ -17,6 +17,8 @@ const styles = css`
 type ListItemTypes = ListItem | FileChangeListItem;
 @customElement({ name: 'list-container', template: template, styles: styles })
 export class ListContainer extends FASTElement {
+	private _lastSelected: ListItem | undefined;
+
 	@observable
 	itemNodes?: ListItemTypes[];
 
@@ -33,14 +35,17 @@ export class ListContainer extends FASTElement {
 			?.filter(node => node.nodeType === 1)
 			.map(node => {
 				const keyHandler = this.handleKeydown.bind(this);
+				const beforeSelectHandler = this.handleBeforeSelected.bind(this);
 				const selectHandler = this.handleSelected.bind(this);
 				node.addEventListener('keydown', keyHandler, false);
+				node.addEventListener('select', beforeSelectHandler, false);
 				node.addEventListener('selected', selectHandler, false);
 
 				return {
 					dispose: function () {
 						node?.removeEventListener('keydown', keyHandler, false);
-						node?.addEventListener('selected', selectHandler, false);
+						node?.removeEventListener('select', beforeSelectHandler, false);
+						node?.removeEventListener('selected', selectHandler, false);
 					},
 				};
 			});
@@ -50,8 +55,19 @@ export class ListContainer extends FASTElement {
 		};
 	}
 
+	handleBeforeSelected(e: Event) {
+		if (!e.target) return;
+
+		const target = e.target as ListItem;
+		if (this._lastSelected != null && this._lastSelected !== target) {
+			this._lastSelected.deselect();
+		}
+		this._lastSelected = target;
+	}
+
 	handleSelected(e: CustomEvent<ListItemSelectedDetail>) {
 		if (!e.target || !e.detail.branch) return;
+
 		const target = e.target as ListItem;
 		const level = target.getAttribute('level');
 

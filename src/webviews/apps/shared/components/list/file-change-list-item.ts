@@ -157,6 +157,10 @@ export class FileChangeListItem extends FASTElement {
 		this.base?.select(showOptions);
 	}
 
+	deselect() {
+		this.base?.deselect();
+	}
+
 	override focus(options?: FocusOptions | undefined): void {
 		this.base?.focus(options);
 	}
