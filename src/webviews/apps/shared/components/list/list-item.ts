@@ -125,12 +125,18 @@ const styles = css`
 		content: '';
 		position: absolute;
 		height: 2.2rem;
-		border-left: 1px solid var(--vscode-list-deemphasizedForeground);
+		border-left: 1px solid transparent;
 		top: 50%;
 		transform: translate(-50%, -50%);
 		left: 0.8rem;
 		width: 0.1rem;
-		opacity: 0.5;
+		transition: border-color 0.1s linear;
+	}
+
+	:host-context(.indentGuides-always) .node--connector::before,
+	:host-context(.indentGuides-onHover:focus-within) .node--connector::before,
+	:host-context(.indentGuides-onHover:hover) .node--connector::before {
+		border-color: var(--vscode-tree-indentGuidesStroke);
 	}
 
 	.text {
