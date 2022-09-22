@@ -245,6 +245,7 @@ export function GraphWrapper({
 	const [searchValue, setSearchValue] = useState('');
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
 	const [searchIds, setSearchIds] = useState(searchResults?.ids);
+	const [hasMoreSearchIds, setHasMoreSearchIds] = useState(searchResults?.paging?.more ?? false);
 
 	useEffect(() => {
 		if (graphRows.length === 0) {
@@ -358,6 +359,7 @@ export function GraphWrapper({
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
 		setSearchIds(state.searchResults?.ids);
+		setHasMoreSearchIds(state.searchResults?.paging?.more ?? false);
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -599,6 +601,7 @@ export function GraphWrapper({
 						aria-label="Graph search navigation"
 						step={searchPosition}
 						total={searchIds?.length ?? 0}
+						more={hasMoreSearchIds}
 						onPrevious={() => handleSearchNavigation(false)}
 						onNext={() => handleSearchNavigation(true)}
 					/>
