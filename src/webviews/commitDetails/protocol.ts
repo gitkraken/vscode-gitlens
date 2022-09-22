@@ -39,6 +39,8 @@ export type State = {
 	pullRequest?: PullRequestShape;
 
 	dateFormat: string;
+	// indent: number;
+	indentGuides: 'none' | 'onHover' | 'always';
 };
 
 export type ShowCommitDetailsViewCommandArgs = string[];

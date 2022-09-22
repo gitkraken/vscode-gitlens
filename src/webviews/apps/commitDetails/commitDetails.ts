@@ -360,7 +360,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 				$el.innerHTML = `
 					<li class="change-list__item">
-						<list-container>
+						<list-container class="indentGuides-${state.indentGuides}">
 							${flatTree
 								.map(({ level, item }) => {
 									if (item.name === '') {

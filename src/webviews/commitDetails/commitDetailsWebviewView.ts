@@ -1,4 +1,9 @@
-import type { CancellationToken, TreeViewSelectionChangeEvent, TreeViewVisibilityChangeEvent } from 'vscode';
+import type {
+	CancellationToken,
+	ConfigurationChangeEvent,
+	TreeViewSelectionChangeEvent,
+	TreeViewVisibilityChangeEvent,
+} from 'vscode';
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
@@ -16,6 +21,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
+import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -58,6 +64,9 @@ interface Context {
 	pullRequest: PullRequest | undefined;
 
 	// commits: GitCommit[] | undefined;
+	dateFormat: DateTimeFormat | string;
+	// indent: number;
+	indentGuides: 'none' | 'onHover' | 'always';
 }
 
 export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<State>> {
@@ -83,7 +92,15 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
 			pullRequest: undefined,
+			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+			// indent: configuration.getAny('workbench.tree.indent') ?? 8,
+			indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
 		};
+
+		this.disposables.push(
+			configuration.onDidChange(this.onConfigurationChanged, this),
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+		);
 	}
 
 	override async show(options?: {
@@ -147,6 +164,27 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		}
 
 		this.updateState(true);
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		// if (e.affectsConfiguration('workbench.tree.indent')) {
+		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
+		// 	this.updateState();
+		// }
+
+		if (e.affectsConfiguration('workbench.tree.renderIndentGuides')) {
+			this.updatePendingContext({
+				indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
+			});
+			this.updateState();
+		}
+	}
+
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'defaultDateFormat')) {
+			this.updatePendingContext({ dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma' });
+			this.updateState();
+		}
 	}
 
 	private ensureTrackers(): void {
@@ -291,8 +329,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			this._cancellationTokenSource = undefined;
 		}
 
-		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
-
 		let details;
 		if (current.commit != null) {
 			if (!current.commit.hasFullDetails()) {
@@ -323,7 +359,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			selected: details,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
-			dateFormat: dateFormat,
+			dateFormat: current.dateFormat,
+			// indent: current.indent,
+			indentGuides: current.indentGuides,
 		});
 		return state;
 	}
