@@ -147,7 +147,7 @@ export class SearchField extends FASTElement {
 	case = false;
 
 	@attr({ mode: 'boolean' })
-	regex = false;
+	regex = true;
 
 	handleInput(e: Event) {
 		const value = (e.target as HTMLInputElement)?.value;
