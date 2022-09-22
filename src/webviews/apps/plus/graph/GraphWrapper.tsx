@@ -26,7 +26,7 @@ import type {
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
-import { SearchNav } from '../../shared/components/search/search-nav-react';
+import { SearchField, SearchNav } from '../../shared/components/search/react';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 
@@ -314,16 +314,16 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleSearchInput = (e: FormEvent<HTMLInputElement>) => {
-		const currentValue = e.currentTarget.value;
-		setSearchValue(currentValue);
+	const handleSearchInput = (e: CustomEvent<SearchPattern>) => {
+		const detail = e.detail;
+		setSearchValue(detail.pattern);
 
-		if (currentValue.length < 3) {
+		if (detail.pattern.length < 3) {
 			setSearchResultKey(undefined);
 			setSearchIds(undefined);
 			return;
 		}
-		onSearchCommits?.({ pattern: currentValue });
+		onSearchCommits?.(detail);
 	};
 
 	useLayoutEffect(() => {
@@ -584,19 +584,10 @@ export function GraphWrapper({
 			</section>
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__group">
-					<div role="search" className="search-input">
-						<label htmlFor="titlebar-search">
-							<span className="codicon codicon-search" aria-label="Search" title="Search"></span>
-						</label>
-						<input
-							id="titlebar-search"
-							type="search"
-							spellCheck="false"
-							placeholder="Search..."
-							value={searchValue}
-							onChange={e => handleSearchInput(e)}
-						/>
-					</div>
+					<SearchField
+						value={searchValue}
+						onChange={e => handleSearchInput(e as CustomEvent<SearchPattern>)}
+					/>
 					<SearchNav
 						aria-label="Graph search navigation"
 						step={searchPosition}

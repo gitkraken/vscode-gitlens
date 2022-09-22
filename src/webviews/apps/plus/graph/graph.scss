@@ -514,41 +514,6 @@ a {
 	}
 }
 
-.search-input {
-	display: inline-flex;
-	flex-direction: row;
-	align-items: center;
-	gap: 0.8rem;
-
-	label {
-		color: var(--vscode-input-foreground);
-	}
-	input {
-		width: 30rem;
-		height: 2.4rem;
-		background-color: var(--vscode-input-background);
-		color: var(--vscode-input-foreground);
-		border: 1px solid var(--vscode-input-background); // var(--vscode-input-foreground);
-		border-radius: 0.25rem;
-		padding: {
-			left: 0.4rem;
-			right: 0.4rem;
-		}
-
-		&:focus {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
-
-		&::placeholder {
-			color: var(--vscode-input-placeholderForeground);
-		}
-		&:focus {
-			border-color: var(--vscode-focusBorder);
-		}
-	}
-}
-
 .titlebar {
 	background: var(--vscode-titleBar-inactiveBackground);
 	color: var(--vscode-titleBar-inactiveForeground);
