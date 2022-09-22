@@ -294,13 +294,22 @@ export function GraphWrapper({
 		if (nextSha == null) return;
 
 		if (onEnsureCommit != null) {
-			setIsLoading(true);
+			let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+				timeout = undefined;
+				setIsLoading(true);
+			}, 250);
 			onEnsureCommit(nextSha).finally(() => {
-				setIsLoading(false);
+				if (timeout == null) {
+					setIsLoading(false);
+				} else {
+					clearTimeout(timeout);
+				}
 				setSearchResultKey(nextSha);
+				setSelectedRows({ [nextSha!]: true });
 			});
 		} else {
 			setSearchResultKey(nextSha);
+			setSelectedRows({ [nextSha]: true });
 		}
 	};
 

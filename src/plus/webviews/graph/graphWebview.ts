@@ -39,7 +39,7 @@ import {
 	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
-	EnsureHasCommitCommandType,
+	EnsureCommitCommandType,
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
@@ -213,8 +213,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
 				break;
-			case EnsureHasCommitCommandType.method:
-				onIpc(EnsureHasCommitCommandType, e, params => this.onEnsureCommit(params.id, e.id));
+			case EnsureCommitCommandType.method:
+				onIpc(EnsureCommitCommandType, e, params => this.onEnsureCommit(params.id, e.completionId));
 				break;
 		}
 	}
@@ -349,6 +349,24 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeGraphConfiguration();
 	}
 
+	private async onEnsureCommit(id: string, completionId?: string) {
+		if (this._graph?.more == null) return;
+
+		if (!this._graph.ids.has(id)) {
+			const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
+			const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, id);
+			if (newGraph != null) {
+				this.setGraph(newGraph);
+			} else {
+				debugger;
+			}
+
+			void this.notifyDidChangeCommits();
+		}
+
+		void this.notify(DidEnsureCommitNotificationType, { id: id }, completionId);
+	}
+
 	private async onGetMissingAvatars(emails: { [email: string]: string }) {
 		if (this._graph == null) return;
 
@@ -407,14 +425,21 @@ export class GraphWebview extends WebviewBase<State> {
 			ordering: configuration.get('graph.commitOrdering'),
 		});
 
+		if (search.results.length > 0) {
+			this.setSelectedRows(search.results[0]);
+		}
+
 		void this.notify(
 			DidSearchCommitsNotificationType,
 			{
-				ids: search.results,
-				paging: {
-					startingCursor: search.paging?.startingCursor,
-					more: search.paging?.more ?? false,
+				searchResults: {
+					ids: search.results,
+					paging: {
+						startingCursor: search.paging?.startingCursor,
+						more: search.paging?.more ?? false,
+					},
 				},
+				selectedRows: this._selectedRows,
 			},
 			completionId,
 		);
@@ -677,24 +702,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 		this._selectedSha = sha;
 		this._selectedRows = sha != null ? { [sha]: true } : {};
-	}
-
-	private async onEnsureCommit(id: string, completionId: string) {
-		if (this._graph == null) return;
-
-		if (!this._graph.ids.has(id)) {
-			const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-			const newGraph = await this._graph.more!(pageItemLimit ?? defaultItemLimit, id);
-			if (newGraph != null) {
-				this.setGraph(newGraph);
-			} else {
-				debugger;
-			}
-
-			void this.notifyDidChangeCommits();
-		}
-
-		void this.notify(DidEnsureCommitNotificationType, { id: id }, completionId);
 	}
 }
 

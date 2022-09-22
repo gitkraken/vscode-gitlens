@@ -21,7 +21,7 @@ import {
 	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
-	EnsureHasCommitCommandType,
+	EnsureCommitCommandType,
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
@@ -192,7 +192,11 @@ export class GraphApp extends App<State> {
 
 			case DidSearchCommitsNotificationType.method:
 				onIpc(DidSearchCommitsNotificationType, msg, params => {
-					this.setState({ ...this.state, searchResults: params });
+					this.setState({
+						...this.state,
+						searchResults: params.searchResults,
+						selectedRows: params.selectedRows,
+					});
 					this.refresh(this.state);
 				});
 				break;
@@ -313,7 +317,7 @@ export class GraphApp extends App<State> {
 	}
 
 	private onEnsureCommit(id: string) {
-		return this.sendCommandWithCompletion(EnsureHasCommitCommandType, { id: id }, DidEnsureCommitNotificationType);
+		return this.sendCommandWithCompletion(EnsureCommitCommandType, { id: id }, DidEnsureCommitNotificationType);
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
