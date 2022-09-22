@@ -69,6 +69,11 @@ const styles = css`
 		background-color: var(--vscode-list-hoverBackground);
 	}
 
+	:host([active]) {
+		color: var(--vscode-list-inactiveSelectionForeground);
+		background-color: var(--vscode-list-inactiveSelectionBackground);
+	}
+
 	:host(:focus-within) {
 		outline: 1px solid var(--vscode-list-focusOutline);
 		outline-offset: -0.1rem;
@@ -132,6 +137,7 @@ const styles = css`
 		left: 0.8rem;
 		width: 0.1rem;
 		transition: border-color 0.1s linear;
+		opacity: 0.4;
 	}
 
 	:host-context(.indentGuides-always) .node--connector::before,
@@ -215,10 +221,13 @@ export class ListItem extends FASTElement {
 	}
 
 	select(_showOptions?: TextDocumentShowOptions, quiet = false) {
+		this.$emit('select');
+
 		// TODO: this needs to be implemented
 		if (this.branch) {
 			this.expanded = !this.expanded;
 		}
+
 		this.active = true;
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
@@ -230,6 +239,10 @@ export class ListItem extends FASTElement {
 				});
 			});
 		}
+	}
+
+	deselect() {
+		this.active = false;
 	}
 
 	override focus(options?: FocusOptions | undefined): void {
