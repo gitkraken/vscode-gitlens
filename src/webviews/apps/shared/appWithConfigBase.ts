@@ -570,7 +570,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					return;
 				}
 
-				this.sendCommandWithCompletion(
+				void this.sendCommandWithCompletion(
 					GenerateConfigurationPreviewCommandType,
 					{
 						key: el.dataset.settingPreview!,
@@ -578,10 +578,9 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 						format: value,
 					},
 					DidGenerateConfigurationPreviewNotificationType,
-					params => {
-						el.innerText = params.preview ?? '';
-					},
-				);
+				).then(params => {
+					el.innerText = params.preview ?? '';
+				});
 
 				break;
 			}
