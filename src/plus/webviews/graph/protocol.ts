@@ -112,6 +112,11 @@ export interface UpdateSelectionParams {
 }
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
 
+export interface EnsureHasCommitParams {
+	id: string;
+}
+export const EnsureHasCommitCommandType = new IpcCommandType<EnsureHasCommitParams>('graph/update/ensureHasCommit');
+
 // Notifications
 export interface DidChangeParams {
 	state: State;
@@ -163,4 +168,11 @@ export interface DidSearchCommitsParams {
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
 	'graph/commits/didSearch',
+);
+
+export interface DidEnsureCommitParams {
+	id?: string;
+}
+export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsureCommitParams>(
+	'graph/commits/didEnsureCommit',
 );
