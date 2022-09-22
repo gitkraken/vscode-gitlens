@@ -7,9 +7,8 @@ const template = html<SearchNav>`<template>
 		${when(x => x.total < 1, html<SearchNav>`No ${x => x.formattedLabel}`)}
 		${when(
 			x => x.total > 0,
-			html<SearchNav>`<span aria-current="step">${x => x.step}</span> of ${x => x.total}<span class="sr-only">
-					${x => x.formattedLabel}</span
-				>`,
+			html<SearchNav>`<span aria-current="step">${x => x.step}</span> of
+				${x => x.total}${x => (x.more ? '+' : '')}<span class="sr-only"> ${x => x.formattedLabel}</span>`,
 		)}
 	</span>
 	<button
@@ -92,6 +91,9 @@ export class SearchNav extends FASTElement {
 
 	@attr({ converter: numberConverter })
 	step = 0;
+
+	@attr({ mode: 'boolean' })
+	more = false;
 
 	@attr
 	label = 'result';
