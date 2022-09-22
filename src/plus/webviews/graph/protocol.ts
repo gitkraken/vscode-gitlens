@@ -25,7 +25,7 @@ export interface State {
 
 	// Props below are computed in the webview (not passed)
 	mixedColumnColors?: Record<string, string>;
-	searchResults?: DidSearchCommitsParams;
+	searchResults?: DidSearchCommitsParams['searchResults'];
 }
 
 export interface GraphPaging {
@@ -112,10 +112,10 @@ export interface UpdateSelectionParams {
 }
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
 
-export interface EnsureHasCommitParams {
+export interface EnsureCommitParams {
 	id: string;
 }
-export const EnsureHasCommitCommandType = new IpcCommandType<EnsureHasCommitParams>('graph/update/ensureHasCommit');
+export const EnsureCommitCommandType = new IpcCommandType<EnsureCommitParams>('graph/ensureCommit');
 
 // Notifications
 export interface DidChangeParams {
@@ -163,8 +163,11 @@ export const DidChangeSelectionNotificationType = new IpcNotificationType<DidCha
 );
 
 export interface DidSearchCommitsParams {
-	ids: string[];
-	paging?: GraphPaging;
+	searchResults: {
+		ids: string[];
+		paging?: GraphPaging;
+	};
+	selectedRows?: { [id: string]: true };
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
 	'graph/commits/didSearch',
