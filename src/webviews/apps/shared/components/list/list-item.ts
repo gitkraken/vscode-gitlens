@@ -98,6 +98,7 @@ const styles = css`
 		border: none;
 		outline: none;
 		cursor: pointer;
+		min-width: 0;
 	}
 
 	.icon {
@@ -144,6 +145,7 @@ const styles = css`
 		white-space: nowrap;
 		text-align: left;
 		text-overflow: ellipsis;
+		flex: 1;
 	}
 
 	.description {
