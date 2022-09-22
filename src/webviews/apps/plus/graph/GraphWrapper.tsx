@@ -16,6 +16,7 @@ import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchPattern } from '../../../../git/search';
 import type {
+	DidEnsureCommitParams,
 	DismissBannerParams,
 	GraphComponentConfig,
 	GraphRepository,
@@ -39,6 +40,7 @@ export interface GraphWrapperProps extends State {
 	onSearchCommits?: (search: SearchPattern) => void; //Promise<DidSearchCommitsParams>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
+	onEnsureCommit?: (id: string) => Promise<DidEnsureCommitParams>;
 }
 
 const getStyleProps = (
@@ -91,11 +93,11 @@ const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDat
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
 };
 
-const getSearchHighlights = (searchResults: State['searchResults']): { [id: string]: boolean } | undefined => {
-	if (!searchResults?.ids?.length) return undefined;
+const getSearchHighlights = (searchIds?: string[]): { [id: string]: boolean } | undefined => {
+	if (!searchIds?.length) return undefined;
 
 	const highlights: { [id: string]: boolean } = {};
-	for (const sha of searchResults.ids) {
+	for (const sha of searchIds) {
 		highlights[sha] = true;
 	}
 	return highlights;
@@ -205,9 +207,10 @@ export function GraphWrapper({
 	nonce,
 	mixedColumnColors,
 	previewBanner = true,
-	searchResults: searchResults2,
+	searchResults,
 	trialBanner = true,
 	onDismissBanner,
+	onEnsureCommit,
 }: GraphWrapperProps) {
 	const [graphRows, setGraphRows] = useState(rows);
 	const [graphAvatars, setAvatars] = useState(avatars);
@@ -240,58 +243,76 @@ export function GraphWrapper({
 	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 	// search state
 	const [searchValue, setSearchValue] = useState('');
-	const [searchResults, setSearchResults] = useState<GraphRow[]>([]);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
-	const [searchHighlights, setSearchHighlights] = useState(getSearchHighlights(searchResults2));
+	const [searchIds, setSearchIds] = useState(searchResults?.ids);
 
 	useEffect(() => {
-		if (searchValue === '' || searchValue.length < 3 || graphRows.length < 1) {
-			setSearchResults([]);
+		if (graphRows.length === 0) {
+			setSearchIds(undefined);
+		}
+	}, [graphRows]);
+
+	useEffect(() => {
+		if (searchIds == null) {
 			setSearchResultKey(undefined);
-			setSearchHighlights(undefined);
 			return;
 		}
 
-		const results = graphRows.filter(row => row.message.toLowerCase().indexOf(searchValue.toLowerCase()) > 0);
-		setSearchResults(results);
-
-		if (
-			searchResultKey == null ||
-			(searchResultKey != null && results.findIndex(row => row.sha === searchResultKey) === -1)
-		) {
-			setSearchResultKey(results[0]?.sha);
+		if (searchResultKey == null || (searchResultKey != null && searchIds.includes(searchResultKey))) {
+			setSearchResultKey(searchIds[0]);
 		}
-	}, [searchValue, graphRows]);
+	}, [searchIds]);
+
+	const searchHighlights = useMemo(() => getSearchHighlights(searchIds), [searchIds]);
 
 	const searchPosition: number = useMemo(() => {
-		if (searchResultKey == null) {
-			return 1;
+		if (searchResultKey == null || searchIds == null) {
+			return 0;
 		}
 
-		const idx = searchResults.findIndex(row => row.sha === searchResultKey);
+		const idx = searchIds.indexOf(searchResultKey);
 		if (idx < 1) {
 			return 1;
 		}
 
 		return idx + 1;
-	}, [searchResultKey, searchResults]);
+	}, [searchResultKey, searchIds]);
 
 	const handleSearchNavigation = (next = true) => {
-		const rowIndex = searchResultKey != null && searchResults.findIndex(row => row.sha === searchResultKey);
-		if (rowIndex === false) {
-			return;
-		}
-		if (next && rowIndex < searchResults.length - 1) {
-			setSearchResultKey(searchResults[rowIndex + 1].sha);
+		if (searchResultKey == null || searchIds == null) return;
+
+		const rowIndex = searchIds.indexOf(searchResultKey);
+		if (rowIndex === -1) return;
+
+		let nextSha: string | undefined;
+		if (next && rowIndex < searchIds.length - 1) {
+			nextSha = searchIds[rowIndex + 1];
 		} else if (!next && rowIndex > 0) {
-			setSearchResultKey(searchResults[rowIndex - 1].sha);
+			nextSha = searchIds[rowIndex - 1];
+		}
+
+		if (nextSha == null) return;
+
+		if (onEnsureCommit != null) {
+			setIsLoading(true);
+			onEnsureCommit(nextSha).finally(() => {
+				setIsLoading(false);
+				setSearchResultKey(nextSha);
+			});
+		} else {
+			setSearchResultKey(nextSha);
 		}
 	};
 
 	const handleSearchInput = (e: FormEvent<HTMLInputElement>) => {
 		const currentValue = e.currentTarget.value;
-
 		setSearchValue(currentValue);
+
+		if (currentValue.length < 3) {
+			setSearchResultKey(undefined);
+			setSearchIds(undefined);
+			return;
+		}
 		onSearchCommits?.({ pattern: currentValue });
 	};
 
@@ -327,7 +348,7 @@ export function GraphWrapper({
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
-		setSearchHighlights(getSearchHighlights(state.searchResults));
+		setSearchIds(state.searchResults?.ids);
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -568,7 +589,7 @@ export function GraphWrapper({
 					<SearchNav
 						aria-label="Graph search navigation"
 						step={searchPosition}
-						total={searchResults.length}
+						total={searchIds?.length ?? 0}
 						onPrevious={() => handleSearchNavigation(false)}
 						onNext={() => handleSearchNavigation(true)}
 					/>

@@ -36,8 +36,10 @@ import {
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
+	EnsureHasCommitCommandType,
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
@@ -210,6 +212,9 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
+				break;
+			case EnsureHasCommitCommandType.method:
+				onIpc(EnsureHasCommitCommandType, e, params => this.onEnsureCommit(params.id, e.id));
 				break;
 		}
 	}
@@ -672,6 +677,24 @@ export class GraphWebview extends WebviewBase<State> {
 
 		this._selectedSha = sha;
 		this._selectedRows = sha != null ? { [sha]: true } : {};
+	}
+
+	private async onEnsureCommit(id: string, completionId: string) {
+		if (this._graph == null) return;
+
+		if (!this._graph.ids.has(id)) {
+			const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
+			const newGraph = await this._graph.more!(pageItemLimit ?? defaultItemLimit, id);
+			if (newGraph != null) {
+				this.setGraph(newGraph);
+			} else {
+				debugger;
+			}
+
+			void this.notifyDidChangeCommits();
+		}
+
+		void this.notify(DidEnsureCommitNotificationType, { id: id }, completionId);
 	}
 }
 

@@ -18,8 +18,10 @@ import {
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
+	EnsureHasCommitCommandType,
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
@@ -81,6 +83,7 @@ export class GraphApp extends App<State> {
 						250,
 					)}
 					onDismissBanner={key => this.onDismissBanner(key)}
+					onEnsureCommit={this.onEnsureCommit.bind(this)}
 					{...this.state}
 				/>,
 				$root,
@@ -307,6 +310,10 @@ export class GraphApp extends App<State> {
 		}
 
 		return this.sendCommand(SearchCommitsCommandType, { search: search });
+	}
+
+	private onEnsureCommit(id: string) {
+		return this.sendCommandWithCompletion(EnsureHasCommitCommandType, { id: id }, DidEnsureCommitNotificationType);
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
