@@ -8360,7 +8360,7 @@
 			"scm/sourceControl": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && scmProvider == git",
+					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
 					"group": "6_gitlens@1"
 				}
 			],
@@ -8377,7 +8377,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && scmProvider == git",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
 					"group": "2_z_gitlens@2"
 				}
 			],
@@ -8623,7 +8623,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "view =~ /^gitlens\\.views\\.commits/",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.plusFeatures.enabled",
 					"group": "8_gitlens_toggles@0"
 				},
 				{
@@ -10019,7 +10019,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "viewItem =~ /gitlens:repo-folder\\b/",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/ && config.gitlens.plusFeatures.enabled",
 					"group": "3_gitlens_explore@1"
 				},
 				{
