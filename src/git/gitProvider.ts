@@ -296,7 +296,7 @@ export interface GitProvider extends Disposable {
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
-	searchForCommitsSimple(
+	searchForCommitShas(
 		repoPath: string | Uri,
 		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },

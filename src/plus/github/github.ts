@@ -1900,6 +1900,74 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
+	@debug<GitHubApi['searchCommitShas']>({ args: { 0: '<token>' } })
+	async searchCommitShas(
+		token: string,
+		query: string,
+		options?: {
+			cursor?: string;
+			limit?: number;
+			order?: 'asc' | 'desc' | undefined;
+			sort?: 'author-date' | 'committer-date' | undefined;
+		},
+	): Promise<GitHubPagedResult<string> | undefined> {
+		const scope = getLogScope();
+
+		const limit = Math.min(100, options?.limit ?? 100);
+
+		let page;
+		let pageSize;
+		let previousCount;
+		if (options?.cursor != null) {
+			[page, pageSize, previousCount] = options.cursor.split(' ', 3);
+			page = parseInt(page, 10);
+			// TODO@eamodio need to figure out how allow different page sizes if the limit changes
+			pageSize = parseInt(pageSize, 10);
+			previousCount = parseInt(previousCount, 10);
+		} else {
+			page = 1;
+			pageSize = limit;
+			previousCount = 0;
+		}
+
+		try {
+			const rsp = await this.request(
+				undefined,
+				token,
+				'GET /search/commits',
+				{
+					q: query,
+					sort: options?.sort,
+					order: options?.order,
+					per_page: pageSize,
+					page: page,
+				},
+				scope,
+			);
+
+			const data = rsp?.data;
+			if (data == null || data.items.length === 0) return undefined;
+
+			const count = previousCount + data.items.length;
+			const hasMore = data.incomplete_results || data.total_count > count;
+
+			return {
+				pageInfo: {
+					startCursor: `${page} ${pageSize} ${previousCount}`,
+					endCursor: hasMore ? `${page + 1} ${pageSize} ${count}` : undefined,
+					hasPreviousPage: data.total_count > 0 && page > 1,
+					hasNextPage: hasMore,
+				},
+				totalCount: data.total_count,
+				values: data.items.map(r => r.sha),
+			};
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
 	private _enterpriseVersions = new Map<string, Version | null>();
 
 	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: '<token>' } })

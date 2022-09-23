@@ -859,11 +859,11 @@ export class Repository implements Disposable {
 		return this.container.git.getLogForSearch(this.path, search, options);
 	}
 
-	searchForCommitsSimple(
+	searchForCommitShas(
 		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
-		return this.container.git.searchForCommitsSimple(this.path, search, options);
+		return this.container.git.searchForCommitShas(this.path, search, options);
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {

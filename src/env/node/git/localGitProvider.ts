@@ -2637,7 +2637,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async searchForCommitsSimple(
+	async searchForCommitShas(
 		repoPath: string,
 		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
