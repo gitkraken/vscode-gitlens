@@ -90,6 +90,7 @@ import { getRemoteHubApi } from '../remotehub';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
+const doubleQuoteRegex = /"/g;
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
@@ -1070,8 +1071,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph> {
+		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
+		// const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
+		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
+
 		const [logResult, branchResult, remotesResult, tagsResult] = await Promise.allSettled([
-			this.getLog(repoPath, { all: true, ordering: 'date', limit: options?.limit }),
+			this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
 			this.getBranch(repoPath),
 			this.getRemotes(repoPath),
 			this.getTags(repoPath),
@@ -1213,7 +1218,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			paging: {
 				limit: log.limit,
-				// endingCursor: log.endingCursor,
 				startingCursor: log.startingCursor,
 				hasMore: log.hasMore,
 			},
@@ -1582,104 +1586,133 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async searchForCommitsSimple(
+	async searchForCommitShas(
 		repoPath: string,
 		search: SearchQuery,
-		_options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
+		// const scope = getLogScope();
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
-		return {
-			repoPath: repoPath,
-			query: search,
-			comparisonKey: comparisonKey,
-			results: new Set<string>(),
-		};
 
-		// try {
-		// 	const { args: searchArgs, files, commits } = this.getArgsFromSearchPattern(search);
-		// 	if (commits?.length) {
-		// 		return {
-		// 			repoPath: repoPath,
-		// 			pattern: search,
-		// 			results: commits,
-		// 		};
-		// 	}
+		try {
+			const results = new Set<string>();
+			const operations = parseSearchQuery(search.query);
 
-		// 	const refParser = getGraphRefParser();
-		// 	const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-		// 	const similarityThreshold = configuration.get('advanced.similarityThreshold');
+			let op;
+			let values = operations.get('commit:');
+			if (values != null) {
+				for (const value of values) {
+					results.add(value.replace(doubleQuoteRegex, ''));
+				}
 
-		// 	const args = [
-		// 		'log',
-		// 		...refParser.arguments,
-		// 		`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-		// 		'--use-mailmap',
-		// 	];
-		// 	if (limit) {
-		// 		args.push(`-n${limit + 1}`);
-		// 	}
-		// 	if (options?.ordering) {
-		// 		args.push(`--${options.ordering}-order`);
-		// 	}
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+				};
+			}
 
-		// 	searchArgs.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
-		// 	if (files.length !== 0) {
-		// 		searchArgs.push(...files);
-		// 	}
+			const queryValues: string[] = [];
 
-		// 	async function searchForCommitsCore(
-		// 		this: LocalGitProvider,
-		// 		limit: number,
-		// 		cursor?: { sha: string; skip: number },
-		// 	): Promise<GitSearch> {
-		// 		const data = await this.git.log2(
-		// 			repoPath,
-		// 			undefined,
-		// 			...args,
-		// 			...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
-		// 			...searchArgs,
-		// 			'--',
-		// 			...files,
-		// 		);
-		// 		const results = [...refParser.parse(data)];
+			for ([op, values] of operations.entries()) {
+				switch (op) {
+					case 'message:':
+						queryValues.push(...values.map(m => m.replace(/ /g, '+')));
+						break;
 
-		// 		const last = results[results.length - 1];
-		// 		cursor =
-		// 			last != null
-		// 				? {
-		// 						sha: last,
-		// 						skip: results.length,
-		// 				  }
-		// 				: undefined;
+					case 'author:':
+						queryValues.push(
+							...values.map(a => {
+								a = a.replace(/ /g, '+');
+								if (a.startsWith('@')) return `author:${a.slice(1)}`;
+								if (a.startsWith('"@')) return `author:"${a.slice(2)}`;
+								if (a.includes('@')) return `author-email:${a}`;
+								return `author-name:${a}`;
+							}),
+						);
+						break;
 
-		// 		return {
-		// 			repoPath: repoPath,
-		// 			pattern: search,
-		// 			results: results,
-		// 			paging:
-		// 				limit !== 0 && results.length > limit
-		// 					? {
-		// 							limit: limit,
-		// 							startingCursor: cursor?.sha,
-		// 							more: true,
-		// 					  }
-		// 					: undefined,
-		// 			more: async (limit: number): Promise<GitSearch | undefined> =>
-		// 				searchForCommitsCore.call(this, limit, cursor),
-		// 		};
-		// 	}
+					// case 'change:':
+					// case 'file:':
+					// 	break;
+				}
+			}
 
-		// 	return searchForCommitsCore.call(this, limit);
-		// } catch (ex) {
-		// 	// TODO@eamodio handle error reporting -- just invalid patterns? or more detailed?
-		// 	return {
-		// 		repoPath: repoPath,
-		// 		pattern: search,
-		// 		results: [],
-		// 	};
-		// }
+			if (queryValues.length === 0) {
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+				};
+			}
+
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryValues.join('+').trim()}`;
+
+			async function searchForCommitsCore(
+				this: GitHubGitProvider,
+				limit: number | undefined,
+				cursor?: string,
+			): Promise<GitSearch> {
+				if (options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error here?
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				limit = this.getPagingLimit(limit ?? configuration.get('advanced.maxSearchItems'));
+				const result = await github.searchCommitShas(session.accessToken, query, {
+					cursor: cursor,
+					limit: limit,
+					sort:
+						options?.ordering === 'date'
+							? 'committer-date'
+							: options?.ordering === 'author-date'
+							? 'author-date'
+							: undefined,
+				});
+
+				if (result == null || options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error if cancelled?
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				for (const sha of result.values) {
+					results.add(sha);
+				}
+
+				cursor = result.pageInfo?.endCursor ?? undefined;
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+					paging: result.pageInfo?.hasNextPage
+						? {
+								limit: limit,
+								hasMore: true,
+						  }
+						: undefined,
+					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
+				};
+			}
+
+			return searchForCommitsCore.call(this, options?.limit);
+		} catch (ex) {
+			// TODO@eamodio: Should we throw an error here?
+			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
+			return {
+				repoPath: repoPath,
+				query: search,
+				comparisonKey: comparisonKey,
+				results: new Set<string>(),
+			};
+		}
 	}
 
 	@log()
