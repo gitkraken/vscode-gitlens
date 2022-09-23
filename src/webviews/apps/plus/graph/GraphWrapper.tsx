@@ -14,7 +14,7 @@ import { DateStyle } from '../../../../config';
 import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
-import type { SearchPattern } from '../../../../git/search';
+import type { SearchQuery } from '../../../../git/search';
 import type {
 	DidEnsureCommitParams,
 	DidSearchCommitsParams,
@@ -38,10 +38,10 @@ export interface GraphWrapperProps extends State {
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMoreCommits?: (id?: string) => void;
-	onSearchCommits?: (search: SearchPattern | undefined) => void;
+	onSearchCommits?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchCommitsPromise?: (
-		search: SearchPattern,
-		options?: { more?: boolean | { limit?: number } },
+		search: SearchQuery,
+		options?: { limit?: number; more?: boolean },
 	) => Promise<DidSearchCommitsParams>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
@@ -248,10 +248,10 @@ export function GraphWrapper({
 	// column setting UI
 	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 	// search state
-	const [search, setSearch] = useState<SearchPattern | undefined>(undefined);
+	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
 	const [searchResultIds, setSearchResultIds] = useState(searchResults?.ids);
-	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.more ?? false);
+	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.hasMore ?? false);
 
 	useEffect(() => {
 		if (graphRows.length === 0) {
@@ -289,8 +289,8 @@ export function GraphWrapper({
 		if (next) {
 			if (rowIndex < resultIds.length - 1) {
 				rowIndex++;
-			} else if (search != null && hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(search, { more: true });
+			} else if (searchQuery != null && hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(searchQuery, { more: true });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
 						resultIds = results.results.ids;
@@ -307,8 +307,8 @@ export function GraphWrapper({
 		} else if (rowIndex > 0) {
 			rowIndex--;
 		} else {
-			if (search != null && hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(search, { more: { limit: 0 } });
+			if (searchQuery != null && hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(searchQuery, { limit: 0, more: true });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
 						resultIds = results.results.ids;
@@ -347,11 +347,11 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleSearchInput = (e: CustomEvent<SearchPattern>) => {
+	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
-		setSearch(detail);
+		setSearchQuery(detail);
 
-		const isValid = detail.pattern.length >= 3;
+		const isValid = detail.query.length >= 3;
 		if (!isValid) {
 			setSearchResultKey(undefined);
 			setSearchResultIds(undefined);
@@ -394,7 +394,7 @@ export function GraphWrapper({
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
 		setSearchResultIds(state.searchResults?.ids);
-		setHasMoreSearchResults(state.searchResults?.paging?.more ?? false);
+		setHasMoreSearchResults(state.searchResults?.paging?.hasMore ?? false);
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -621,8 +621,8 @@ export function GraphWrapper({
 				<header className="titlebar graph-app__header">
 					<div className="titlebar__group">
 						<SearchField
-							value={search?.pattern}
-							onChange={e => handleSearchInput(e as CustomEvent<SearchPattern>)}
+							value={searchQuery?.query}
+							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
 							onPrevious={() => handleSearchNavigation(false)}
 							onNext={() => handleSearchNavigation(true)}
 						/>
@@ -630,7 +630,7 @@ export function GraphWrapper({
 							aria-label="Graph search navigation"
 							step={searchPosition}
 							total={searchResultIds?.length ?? 0}
-							valid={Boolean(search?.pattern && search.pattern.length > 2)}
+							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
 							more={hasMoreSearchResults}
 							onPrevious={() => handleSearchNavigation(false)}
 							onNext={() => handleSearchNavigation(true)}
@@ -656,7 +656,7 @@ export function GraphWrapper({
 								formatCommitDateTime={getGraphDateFormatter(graphConfig)}
 								getExternalIcon={getIconElementLibrary}
 								graphRows={graphRows}
-								hasMoreCommits={pagingState?.more}
+								hasMoreCommits={pagingState?.hasMore}
 								height={mainHeight}
 								highlightedShas={searchHighlights}
 								// highlightRowssOnRefHover={graphConfig?.highlightRowsOnRefHover}

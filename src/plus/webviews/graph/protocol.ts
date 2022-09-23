@@ -2,7 +2,7 @@ import type { GraphRow, Remote } from '@gitkraken/gitkraken-components';
 import type { DateStyle, GraphColumnConfig } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
-import type { SearchPattern } from '../../../git/search';
+import type { SearchQuery } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
@@ -30,7 +30,7 @@ export interface State {
 
 export interface GraphPaging {
 	startingCursor?: string;
-	more: boolean;
+	hasMore: boolean;
 }
 
 export interface GraphRepository {
@@ -96,9 +96,9 @@ export interface GetMoreCommitsParams {
 export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
 
 export interface SearchCommitsParams {
-	search: SearchPattern;
-
-	more?: boolean | { limit?: number };
+	search: SearchQuery;
+	limit?: number;
+	more?: boolean;
 }
 export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/searchCommits');
 
@@ -174,12 +174,7 @@ export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsure
 );
 
 export interface DidSearchCommitsParams {
-	results:
-		| {
-				ids: string[];
-				paging?: GraphPaging;
-		  }
-		| undefined;
+	results: { ids: string[]; paging?: { hasMore: boolean } } | undefined;
 	selectedRows?: { [id: string]: true };
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(

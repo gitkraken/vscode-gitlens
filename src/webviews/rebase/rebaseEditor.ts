@@ -495,7 +495,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const html = content.replace(
 			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
-			(_substring, token) => {
+			(_substring: string, token: string) => {
 				switch (token) {
 					case 'endOfBody':
 						return `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
@@ -541,7 +541,7 @@ async function parseRebaseTodo(
 	const commits: Commit[] = [];
 
 	const log = await container.git.getLogForSearch(repoPath, {
-		pattern: `${onto ? `#:${onto} ` : ''}${join(
+		query: `${onto ? `#:${onto} ` : ''}${join(
 			map(entries, e => `#:${e.ref}`),
 			' ',
 		)}`,

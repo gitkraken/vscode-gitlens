@@ -70,7 +70,7 @@ import type { GitWorktree } from './models/worktree';
 import { RichRemoteProviders } from './remotes/remoteProviderConnections';
 import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
-import type { GitSearch, SearchPattern } from './search';
+import type { GitSearch, SearchQuery } from './search';
 
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
@@ -1468,7 +1468,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	searchForCommitsSimple(
 		repoPath: string | Uri,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		const { provider, path } = this.getProvider(repoPath);
@@ -1478,7 +1478,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getLogForSearch(
 		repoPath: string | Uri,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		const { provider, path } = this.getProvider(repoPath);

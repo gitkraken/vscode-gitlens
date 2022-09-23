@@ -73,8 +73,8 @@ import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import type { GitSearch, SearchPattern } from '../../git/search';
-import { getSearchPatternComparisonKey, parseSearchOperations } from '../../git/search';
+import type { GitSearch, SearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
@@ -1215,7 +1215,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				limit: log.limit,
 				// endingCursor: log.endingCursor,
 				startingCursor: log.startingCursor,
-				more: log.hasMore,
+				hasMore: log.hasMore,
 			},
 			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
 				const moreLog = await log.more?.(limit);
@@ -1584,15 +1584,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async searchForCommitsSimple(
 		repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		_options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
-		const comparisonKey = getSearchPatternComparisonKey(search);
+		const comparisonKey = getSearchQueryComparisonKey(search);
 		return {
 			repoPath: repoPath,
-			pattern: search,
+			query: search,
 			comparisonKey: comparisonKey,
 			results: new Set<string>(),
 		};
@@ -1685,14 +1685,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogForSearch(
 		repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { cursor?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
 		const scope = getLogScope();
 
-		const operations = parseSearchOperations(search.pattern);
+		const operations = parseSearchQuery(search.query);
 
 		let op;
 		let values = operations.get('commit:');
@@ -1838,7 +1838,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private getLogForSearchMoreFn(
 		log: GitLog,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {

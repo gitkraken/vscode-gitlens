@@ -4,7 +4,7 @@ import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GraphColumnConfig } from '../../../../config';
 import type { GitGraphRowType } from '../../../../git/models/graph';
-import type { SearchPattern } from '../../../../git/search';
+import type { SearchQuery } from '../../../../git/search';
 import type {
 	DismissBannerParams,
 	GraphRepository,
@@ -299,18 +299,18 @@ export class GraphApp extends App<State> {
 		return this.sendCommand(GetMoreCommitsCommandType, { sha: sha });
 	}
 
-	private onSearchCommits(search: SearchPattern | undefined) {
+	private onSearchCommits(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
 			return;
 		}
-		return this.sendCommand(SearchCommitsCommandType, { search: search });
+		return this.sendCommand(SearchCommitsCommandType, { search: search, limit: options?.limit });
 	}
 
-	private onSearchCommitsPromise(search: SearchPattern, options?: { more?: boolean | { limit?: number } }) {
+	private onSearchCommitsPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		return this.sendCommandWithCompletion(
 			SearchCommitsCommandType,
-			{ search: search, more: options?.more },
+			{ search: search, limit: options?.limit, more: options?.more },
 			DidSearchCommitsNotificationType,
 		);
 	}

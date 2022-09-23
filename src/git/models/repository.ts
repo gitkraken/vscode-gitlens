@@ -23,7 +23,7 @@ import type { GitProviderDescriptor } from '../gitProvider';
 import { loadRemoteProviders } from '../remotes/remoteProviders';
 import type { RemoteProviders } from '../remotes/remoteProviders';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
-import type { GitSearch, SearchPattern } from '../search';
+import type { GitSearch, SearchQuery } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from './branch';
 import type { GitCommit } from './commit';
@@ -853,14 +853,14 @@ export class Repository implements Disposable {
 	}
 
 	searchForCommits(
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo'; skip?: number },
 	): Promise<GitLog | undefined> {
 		return this.container.git.getLogForSearch(this.path, search, options);
 	}
 
 	searchForCommitsSimple(
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		return this.container.git.searchForCommitsSimple(this.path, search, options);

@@ -1,7 +1,7 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { GraphColumnConfig, ViewShowBranchComparison } from './config';
-import type { SearchPattern } from './git/search';
+import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
 import type { CompletedActions } from './webviews/home/protocol';
@@ -239,7 +239,7 @@ export interface StoredPinnedSearch {
 					resultsType?: { singular: string; plural: string };
 			  };
 	};
-	search: SearchPattern;
+	search: StoredSearchQuery;
 }
 
 export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;

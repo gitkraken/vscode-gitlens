@@ -2,14 +2,14 @@ import { executeGitCommand } from '../commands/gitCommands.actions';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import type { SearchPattern } from '../git/search';
+import type { SearchQuery } from '../git/search';
 import { command } from '../system/command';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasRepository } from './base';
 
 export interface SearchCommitsCommandArgs {
-	search?: Partial<SearchPattern>;
+	search?: Partial<SearchQuery>;
 	repoPath?: string;
 
 	prefillOnly?: boolean;

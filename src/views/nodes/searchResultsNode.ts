@@ -3,8 +3,8 @@ import { ThemeIcon } from 'vscode';
 import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
-import type { SearchPattern } from '../../git/search';
-import { getSearchPatternComparisonKey } from '../../git/search';
+import type { SearchQuery, StoredSearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { md5, pluralize } from '../../system/string';
@@ -26,14 +26,14 @@ interface SearchQueryResults {
 
 export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements PageableViewNode {
 	static key = ':search-results';
-	static getId(repoPath: string, search: SearchPattern | undefined, instanceId: number): string {
+	static getId(repoPath: string, search: SearchQuery | undefined, instanceId: number): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${
-			search == null ? '?' : getSearchPatternComparisonKey(search)
+			search == null ? '?' : getSearchQueryComparisonKey(search)
 		}):${instanceId}`;
 	}
 
-	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return md5(`${repoPath}|${getSearchPatternComparisonKey(search)}`);
+	static getPinnableId(repoPath: string, search: SearchQuery | StoredSearchQuery) {
+		return md5(`${repoPath}|${getSearchQueryComparisonKey(search)}`);
 	}
 
 	private _instanceId: number;
@@ -41,7 +41,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		view: SearchAndCompareView,
 		parent: ViewNode,
 		public readonly repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		private _labels: {
 			label: string;
 			queryLabel:
@@ -83,8 +83,8 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		return this._pinned !== 0;
 	}
 
-	private _search: SearchPattern;
-	get search(): SearchPattern {
+	private _search: SearchQuery;
+	get search(): SearchQuery {
 		return this._search;
 	}
 
@@ -153,7 +153,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	async edit(search?: {
-		pattern: SearchPattern;
+		pattern: SearchQuery;
 		labels: {
 			label: string;
 			queryLabel:
@@ -296,7 +296,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			timestamp: this._pinned,
 			path: this.repoPath,
 			labels: this._labels,
-			search: this.search,
+			search: getStoredSearchQuery(this.search),
 		});
 	}
 }

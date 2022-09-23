@@ -14,7 +14,7 @@ import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
-import { getSearchPatternComparisonKey } from '../../../git/search';
+import { getSearchQueryComparisonKey } from '../../../git/search';
 import { registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -432,9 +432,8 @@ export class GraphWebview extends WebviewBase<State> {
 	private async onSearchCommits(e: SearchCommitsParams, completionId?: string) {
 		let search: GitSearch | undefined = this._search;
 
-		if (search?.more != null && e.more && search.comparisonKey === getSearchPatternComparisonKey(e.search)) {
-			const limit = typeof e.more !== 'boolean' ? e.more.limit : undefined;
-			search = await search.more(limit ?? configuration.get('graph.searchItemLimit') ?? 100);
+		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
+			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
 			if (search != null) {
 				this._search = search;
 
@@ -443,10 +442,7 @@ export class GraphWebview extends WebviewBase<State> {
 					{
 						results: {
 							ids: [...search.results.values()],
-							paging: {
-								startingCursor: search.paging?.startingCursor,
-								more: search.paging?.more ?? false,
-							},
+							paging: { hasMore: search.paging?.hasMore ?? false },
 						},
 						selectedRows: this._selectedRows,
 					},
@@ -457,7 +453,7 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		if (search == null || search.comparisonKey !== getSearchPatternComparisonKey(e.search)) {
+		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
 			if (this._repository == null) return;
 
 			if (this._repository.etag !== this._etagRepository) {
@@ -499,10 +495,7 @@ export class GraphWebview extends WebviewBase<State> {
 			{
 				results: {
 					ids: [...search.results.values()],
-					paging: {
-						startingCursor: search.paging?.startingCursor,
-						more: search.paging?.more ?? false,
-					},
+					paging: { hasMore: search.paging?.hasMore ?? false },
 				},
 				selectedRows: this._selectedRows,
 			},
@@ -636,7 +629,7 @@ export class GraphWebview extends WebviewBase<State> {
 					selectedRows: this._selectedRows,
 					paging: {
 						startingCursor: data.paging?.startingCursor,
-						more: data.paging?.more ?? false,
+						hasMore: data.paging?.hasMore ?? false,
 					},
 				},
 				completionId,
@@ -729,7 +722,7 @@ export class GraphWebview extends WebviewBase<State> {
 				data != null
 					? {
 							startingCursor: data.paging?.startingCursor,
-							more: data.paging?.more ?? false,
+							hasMore: data.paging?.hasMore ?? false,
 					  }
 					: undefined,
 			config: this.getComponentConfig(),
