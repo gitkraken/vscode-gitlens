@@ -302,7 +302,6 @@ export class GraphApp extends App<State> {
 	private onSearchCommits(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
-			return;
 		}
 		return this.sendCommand(SearchCommitsCommandType, { search: search, limit: options?.limit });
 	}

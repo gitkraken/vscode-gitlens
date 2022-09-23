@@ -96,7 +96,7 @@ export interface GetMoreCommitsParams {
 export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
 
 export interface SearchCommitsParams {
-	search: SearchQuery;
+	search?: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }

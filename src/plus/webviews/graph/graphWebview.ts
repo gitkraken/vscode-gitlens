@@ -20,7 +20,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
-import { first } from '../../../system/iterable';
+import { first, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
@@ -430,6 +430,16 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async onSearchCommits(e: SearchCommitsParams, completionId?: string) {
+		if (e.search == null) {
+			this.resetSearchState();
+
+			// This shouldn't happen, but just in case
+			if (completionId != null) {
+				debugger;
+			}
+			return;
+		}
+
 		let search: GitSearch | undefined = this._search;
 
 		if (e.more && search?.more != null && search.comparisonKey === getSearchQueryComparisonKey(e.search)) {
@@ -747,12 +757,16 @@ export class GraphWebview extends WebviewBase<State> {
 		this.setSelectedRows(undefined);
 	}
 
+	private resetSearchState() {
+		this._search = undefined;
+		this._searchCancellation?.dispose();
+		this._searchCancellation = undefined;
+	}
+
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
-			this._search = undefined;
-			this._searchCancellation?.dispose();
-			this._searchCancellation = undefined;
+			this.resetSearchState();
 		}
 	}
 
@@ -761,6 +775,14 @@ export class GraphWebview extends WebviewBase<State> {
 		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, sha);
 		if (updatedGraph != null) {
 			this.setGraph(updatedGraph);
+
+			if (this._search != null) {
+				const search = this._search;
+				const lastResult = last(search.results);
+				if (lastResult != null && updatedGraph.ids.has(lastResult)) {
+					queueMicrotask(() => void this.onSearchCommits({ search: search.query, more: true }));
+				}
+			}
 		} else {
 			debugger;
 		}
