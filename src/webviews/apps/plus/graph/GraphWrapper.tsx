@@ -289,8 +289,8 @@ export function GraphWrapper({
 		if (next) {
 			if (rowIndex < resultIds.length - 1) {
 				rowIndex++;
-			} else if (hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(search!, { more: true });
+			} else if (search != null && hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(search, { more: true });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
 						resultIds = results.results.ids;
@@ -307,8 +307,8 @@ export function GraphWrapper({
 		} else if (rowIndex > 0) {
 			rowIndex--;
 		} else {
-			if (hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(search!, { more: { limit: 0 } });
+			if (search != null && hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(search, { more: { limit: 0 } });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
 						resultIds = results.results.ids;
@@ -351,12 +351,12 @@ export function GraphWrapper({
 		const detail = e.detail;
 		setSearch(detail);
 
-		const inValid = detail.pattern.length < 3;
-		if (inValid) {
+		const isValid = detail.pattern.length >= 3;
+		if (!isValid) {
 			setSearchResultKey(undefined);
 			setSearchResultIds(undefined);
 		}
-		onSearchCommits?.(inValid ? undefined : detail);
+		onSearchCommits?.(isValid ? detail : undefined);
 	};
 
 	useLayoutEffect(() => {
