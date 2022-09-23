@@ -26,6 +26,7 @@ import type {
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
+import { debounce } from '../../../../system/function';
 import { pluralize } from '../../../../system/string';
 import { SearchField, SearchNav } from '../../shared/components/search/react';
 import type { DateTimeFormat } from '../../shared/date';
@@ -347,7 +348,7 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
+	const handleSearchInput = debounce((e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
 		setSearchQuery(detail);
 
@@ -357,7 +358,7 @@ export function GraphWrapper({
 			setSearchResultIds(undefined);
 		}
 		onSearchCommits?.(isValid ? detail : undefined);
-	};
+	}, 250);
 
 	useLayoutEffect(() => {
 		if (mainRef.current === null) return;
