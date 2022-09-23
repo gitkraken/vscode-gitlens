@@ -106,8 +106,8 @@ import type { RemoteProvider } from '../../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import type { GitSearch, SearchPattern } from '../../../git/search';
-import { getSearchPatternComparisonKey, parseSearchOperations } from '../../../git/search';
+import type { GitSearch, SearchQuery } from '../../../git/search';
+import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import { Logger } from '../../../logger';
 import type { LogScope } from '../../../logger';
 import {
@@ -155,7 +155,6 @@ const RepoSearchWarnings = {
 	doesNotExist: /no such file or directory/i,
 };
 
-const doubleQuoteRegex = /"/g;
 const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
@@ -1859,7 +1858,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				paging: {
 					limit: limit === 0 ? count : limit,
 					startingCursor: startingCursor,
-					more: count > limit,
+					hasMore: count > limit,
 				},
 				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
 					getCommitsForGraphCore.call(this, limit, sha, cursor),
@@ -2640,20 +2639,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async searchForCommitsSimple(
 		repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
-		const comparisonKey = getSearchPatternComparisonKey(search);
+		const comparisonKey = getSearchQueryComparisonKey(search);
 		try {
-			const { args: searchArgs, files, commits } = this.getArgsFromSearchPattern(search);
-			if (commits?.size) {
+			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search);
+			if (shas?.size) {
 				return {
 					repoPath: repoPath,
-					pattern: search,
+					query: search,
 					comparisonKey: comparisonKey,
-					results: commits,
+					results: shas,
 				};
 			}
 
@@ -2683,7 +2682,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (options?.cancellation?.isCancellationRequested) {
 					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, pattern: search, comparisonKey: comparisonKey, results: results };
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
 				const data = await this.git.log2(
@@ -2699,7 +2698,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (options?.cancellation?.isCancellationRequested) {
 					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, pattern: search, comparisonKey: comparisonKey, results: results };
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
 				let count = 0;
@@ -2722,15 +2721,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				return {
 					repoPath: repoPath,
-					pattern: search,
+					query: search,
 					comparisonKey: comparisonKey,
 					results: results,
 					paging:
 						limit !== 0 && count > limit
 							? {
 									limit: limit,
-									startingCursor: cursor?.sha,
-									more: true,
+									hasMore: true,
 							  }
 							: undefined,
 					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
@@ -2740,10 +2738,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return searchForCommitsCore.call(this, limit);
 		} catch (ex) {
 			// TODO@eamodio: Should we throw an error here?
-			// TODO@eamodio handle error reporting -- just invalid patterns? or more detailed?
+			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
 			return {
 				repoPath: repoPath,
-				pattern: search,
+				query: search,
 				comparisonKey: comparisonKey,
 				results: new Set<string>(),
 			};
@@ -2753,7 +2751,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async getLogForSearch(
 		repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
 	): Promise<GitLog | undefined> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
@@ -2762,7 +2760,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
-			const { args, files, commits } = this.getArgsFromSearchPattern(search);
+			const { args, files, shas } = getGitArgsFromSearchQuery(search);
 
 			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
 			if (files.length !== 0) {
@@ -2773,7 +2771,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
-				useShow: Boolean(commits?.size),
+				useShow: Boolean(shas?.size),
 			});
 			const log = GitLogParser.parse(
 				this.container,
@@ -2802,84 +2800,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private getArgsFromSearchPattern(search: SearchPattern): {
-		args: string[];
-		files: string[];
-		commits?: Set<string> | undefined;
-	} {
-		const operations = parseSearchOperations(search.pattern);
-
-		const searchArgs = new Set<string>();
-		const files: string[] = [];
-
-		let commits;
-
-		let op;
-		let values = operations.get('commit:');
-		if (values != null) {
-			// searchArgs.add('-m');
-			for (const value of values) {
-				searchArgs.add(value.replace(doubleQuoteRegex, ''));
-			}
-			commits = searchArgs;
-		} else {
-			searchArgs.add('--all');
-			searchArgs.add('--full-history');
-			searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
-			if (search.matchRegex && !search.matchCase) {
-				searchArgs.add('--regexp-ignore-case');
-			}
-
-			for ([op, values] of operations.entries()) {
-				switch (op) {
-					case 'message:':
-						searchArgs.add('-m');
-						if (search.matchAll) {
-							searchArgs.add('--all-match');
-						}
-						for (const value of values) {
-							searchArgs.add(`--grep=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`);
-						}
-
-						break;
-
-					case 'author:':
-						searchArgs.add('-m');
-						for (const value of values) {
-							searchArgs.add(
-								`--author=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`,
-							);
-						}
-
-						break;
-
-					case 'change:':
-						for (const value of values) {
-							searchArgs.add(
-								search.matchRegex
-									? `-G${value.replace(doubleQuoteRegex, '')}`
-									: `-S${value.replace(doubleQuoteRegex, '')}`,
-							);
-						}
-
-						break;
-
-					case 'file:':
-						for (const value of values) {
-							files.push(value.replace(doubleQuoteRegex, ''));
-						}
-
-						break;
-				}
-			}
-		}
-
-		return { args: [...searchArgs.values()], files: files, commits: commits };
-	}
-
 	private getLogForSearchMoreFn(
 		log: GitLog,
-		search: SearchPattern,
+		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null },
 	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {

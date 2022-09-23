@@ -8,7 +8,8 @@ import { setContext } from '../context';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
 import { GitRevision } from '../git/models/reference';
-import type { SearchPattern } from '../git/search';
+import type { SearchQuery } from '../git/search';
+import { getSearchQuery } from '../git/search';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import type { StoredNamedRef, StoredPinnedItem, StoredPinnedItems } from '../storage';
@@ -377,7 +378,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 	async search(
 		repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		{
 			label,
 			reveal,
@@ -469,7 +470,15 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 					migratedPins[k] = p;
 				}
 
-				return new SearchResultsNode(this, root, p.path, p.search, p.labels, undefined, p.timestamp);
+				return new SearchResultsNode(
+					this,
+					root,
+					p.path,
+					getSearchQuery(p.search),
+					p.labels,
+					undefined,
+					p.timestamp,
+				);
 			});
 
 		if (migrated) {

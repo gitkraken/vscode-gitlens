@@ -5,8 +5,8 @@ import { getContext } from '../../context';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
-import type { SearchOperators, SearchPattern } from '../../git/search';
-import { getSearchPatternComparisonKey, parseSearchOperations, searchOperators } from '../../git/search';
+import type { SearchOperators, SearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
@@ -34,7 +34,7 @@ interface Context {
 	title: string;
 }
 
-interface State extends Required<SearchPattern> {
+interface State extends Required<SearchQuery> {
 	repo: string | Repository;
 	openPickInView?: boolean;
 	showResultsInSideBar: boolean | SearchResultsNode;
@@ -73,7 +73,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			counter++;
 		}
 
-		if (args?.state?.pattern != null && !args.prefillOnly) {
+		if (args?.state?.query != null && !args.prefillOnly) {
 			counter++;
 		}
 
@@ -144,7 +144,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (state.counter < 2 || state.pattern == null) {
+			if (state.counter < 2 || state.query == null) {
 				const result = yield* this.pickSearchOperatorStep(state as SearchStepState, context);
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it
@@ -152,21 +152,21 @@ export class SearchGitCommand extends QuickCommand<State> {
 						state.counter--;
 					}
 
-					state.pattern = undefined;
+					state.query = undefined;
 
 					continue;
 				}
 
-				state.pattern = result;
+				state.query = result;
 			}
 
-			const search: SearchPattern = {
-				pattern: state.pattern,
+			const search: SearchQuery = {
+				query: state.query,
 				matchAll: state.matchAll,
 				matchCase: state.matchCase,
 				matchRegex: state.matchRegex,
 			};
-			const searchKey = getSearchPatternComparisonKey(search);
+			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
 				context.resultsPromise = state.repo.searchForCommits(search);
@@ -178,7 +178,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					state.repo.path,
 					search,
 					{
-						label: { label: `for ${state.pattern}` },
+						label: { label: `for ${state.query}` },
 					},
 					context.resultsPromise,
 					state.showResultsInSideBar instanceof SearchResultsNode ? state.showResultsInSideBar : undefined,
@@ -195,10 +195,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No results for ${state.pattern}`
+							? `No results for ${state.query}`
 							: `${pluralize('result', log.count, {
 									format: c => (log.hasMore ? `${c}+` : undefined),
-							  })} for ${state.pattern}`,
+							  })} for ${state.query}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
@@ -207,7 +207,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.pattern}` },
+									label: { label: `for ${state.query}` },
 									reveal: {
 										select: true,
 										focus: false,
@@ -224,7 +224,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.pattern}` },
+									label: { label: `for ${state.query}` },
 									reveal: {
 										select: true,
 										focus: false,
@@ -317,7 +317,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			matchOnDetail: true,
 			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
 			items: items,
-			value: state.pattern,
+			value: state.query,
 			selectValueWhenShown: false,
 			onDidAccept: (quickpick): boolean => {
 				const pick = quickpick.selectedItems[0];
@@ -351,7 +351,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				// Simulate an extra step if we have a value
 				state.counter = value ? 3 : 2;
 
-				const operations = parseSearchOperations(value);
+				const operations = parseSearchQuery(value);
 
 				quickpick.title = appendReposToTitle(
 					operations.size === 0 || operations.size > 1

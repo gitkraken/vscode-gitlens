@@ -1,4 +1,5 @@
 import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
+import type { SearchQuery } from '../../../../../git/search';
 import '../codicon';
 
 // match case is disabled unless regex is true
@@ -191,11 +192,12 @@ export class SearchField extends FASTElement {
 	}
 
 	emitSearch() {
-		this.$emit('change', {
-			pattern: this.value,
+		const search: SearchQuery = {
+			query: this.value,
 			matchAll: this.all,
 			matchCase: this.case,
 			matchRegex: this.regex,
-		});
+		};
+		this.$emit('change', search);
 	}
 }
