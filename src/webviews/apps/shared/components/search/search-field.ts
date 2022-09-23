@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
 import '../codicon';
 
@@ -8,15 +8,20 @@ const template = html<SearchField>`
 		<label htmlFor="search">
 			<code-icon icon="search" aria-label="${x => x.label}" title="${x => x.label}"></code-icon>
 		</label>
-		<input
-			id="search"
-			type="search"
-			spellcheck="false"
-			placeholder="${x => x.placeholder}"
-			value="${x => x.value}"
-			@input="${(x, c) => x.handleInput(c.event)}"
-			@keyup="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
-		/>
+		<div class="field">
+			<input
+				id="search"
+				type="search"
+				spellcheck="false"
+				placeholder="${x => x.placeholder}"
+				value="${x => x.value}"
+				aria-valid="${x => x.errorMessage === ''}"
+				aria-describedby="${x => (x.errorMessage === '' ? '' : 'error')}"
+				@input="${(x, c) => x.handleInput(c.event)}"
+				@keyup="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
+			/>
+			<div class="message" id="error" aria-live="polite">${x => x.errorMessage}</div>
+		</div>
 		<div class="controls">
 			<button
 				type="button"
@@ -54,6 +59,10 @@ const template = html<SearchField>`
 `;
 
 const styles = css`
+	* {
+		box-sizing: border-box;
+	}
+
 	:host {
 		display: inline-flex;
 		flex-direction: row;
@@ -66,8 +75,13 @@ const styles = css`
 		color: var(--vscode-input-foreground);
 	}
 
-	input {
+	.field {
+		position: relative;
 		width: 30rem;
+	}
+
+	input {
+		width: 100%;
 		height: 2.4rem;
 		background-color: var(--vscode-input-background);
 		color: var(--vscode-input-foreground);
@@ -86,6 +100,34 @@ const styles = css`
 	}
 
 	input::-webkit-search-cancel-button {
+		display: none;
+	}
+
+	input[aria-valid='false'] {
+		border-color: var(--vscode-inputValidation-errorBorder);
+	}
+	input[aria-valid='false']:focus {
+		outline-color: var(--vscode-inputValidation-errorBorder);
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.message {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		width: 100%;
+		padding: 0.4rem;
+		transform: translateY(-0.1rem);
+		z-index: 1000;
+		background-color: var(--vscode-inputValidation-errorBackground);
+		border: 1px solid var(--vscode-inputValidation-errorBorder);
+		color: var(--vscode-input-foreground);
+		font-size: 1.2rem;
+		line-height: 1.4;
+	}
+
+	input:not([aria-valid='false']:focus) + .message {
 		display: none;
 	}
 
@@ -137,6 +179,9 @@ const styles = css`
 	styles: styles,
 })
 export class SearchField extends FASTElement {
+	@observable
+	errorMessage = '';
+
 	@attr
 	label = 'Search';
 
@@ -199,5 +244,9 @@ export class SearchField extends FASTElement {
 			matchRegex: this.regex,
 		};
 		this.$emit('change', search);
+	}
+
+	setCustomValidity(errorMessage: string = '') {
+		this.errorMessage = errorMessage;
 	}
 }
