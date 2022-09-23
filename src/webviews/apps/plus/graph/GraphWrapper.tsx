@@ -17,6 +17,7 @@ import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchPattern } from '../../../../git/search';
 import type {
 	DidEnsureCommitParams,
+	DidSearchCommitsParams,
 	DismissBannerParams,
 	GraphComponentConfig,
 	GraphRepository,
@@ -37,10 +38,14 @@ export interface GraphWrapperProps extends State {
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMoreCommits?: (id?: string) => void;
-	onSearchCommits?: (search: SearchPattern) => void; //Promise<DidSearchCommitsParams>;
+	onSearchCommits?: (search: SearchPattern) => void;
+	onSearchCommitsPromise?: (
+		search: SearchPattern,
+		options?: { more?: boolean | { limit?: number } },
+	) => Promise<DidSearchCommitsParams>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
-	onEnsureCommit?: (id: string, select: boolean) => Promise<DidEnsureCommitParams>;
+	onEnsureCommitPromise?: (id: string, select: boolean) => Promise<DidEnsureCommitParams>;
 }
 
 const getStyleProps = (
@@ -200,9 +205,11 @@ export function GraphWrapper({
 	paging,
 	onSelectRepository,
 	onColumnChange,
+	onEnsureCommitPromise,
 	onMissingAvatars,
 	onMoreCommits,
 	onSearchCommits,
+	onSearchCommitsPromise,
 	onSelectionChange,
 	nonce,
 	mixedColumnColors,
@@ -210,7 +217,6 @@ export function GraphWrapper({
 	searchResults,
 	trialBanner = true,
 	onDismissBanner,
-	onEnsureCommit,
 }: GraphWrapperProps) {
 	const [graphRows, setGraphRows] = useState(rows);
 	const [graphAvatars, setAvatars] = useState(avatars);
@@ -242,72 +248,99 @@ export function GraphWrapper({
 	// column setting UI
 	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 	// search state
-	const [searchValue, setSearchValue] = useState('');
+	const [search, setSearch] = useState<SearchPattern | undefined>(undefined);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
-	const [searchIds, setSearchIds] = useState(searchResults?.ids);
-	const [hasMoreSearchIds, setHasMoreSearchIds] = useState(searchResults?.paging?.more ?? false);
+	const [searchResultIds, setSearchResultIds] = useState(searchResults?.ids);
+	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.more ?? false);
 
 	useEffect(() => {
 		if (graphRows.length === 0) {
-			setSearchIds(undefined);
+			setSearchResultIds(undefined);
 		}
 	}, [graphRows]);
 
 	useEffect(() => {
-		if (searchIds == null) {
+		if (searchResultIds == null) {
 			setSearchResultKey(undefined);
 			return;
 		}
 
-		if (searchResultKey == null || (searchResultKey != null && searchIds.includes(searchResultKey))) {
-			setSearchResultKey(searchIds[0]);
+		if (searchResultKey == null || (searchResultKey != null && !searchResultIds.includes(searchResultKey))) {
+			setSearchResultKey(searchResultIds[0]);
 		}
-	}, [searchIds]);
+	}, [searchResultIds]);
 
-	const searchHighlights = useMemo(() => getSearchHighlights(searchIds), [searchIds]);
+	const searchHighlights = useMemo(() => getSearchHighlights(searchResultIds), [searchResultIds]);
 
 	const searchPosition: number = useMemo(() => {
-		if (searchResultKey == null || searchIds == null) {
-			return 0;
-		}
+		if (searchResultKey == null || searchResultIds == null) return 0;
 
-		const idx = searchIds.indexOf(searchResultKey);
-		if (idx < 1) {
-			return 1;
-		}
+		const idx = searchResultIds.indexOf(searchResultKey);
+		return idx < 1 ? 1 : idx + 1;
+	}, [searchResultKey, searchResultIds]);
 
-		return idx + 1;
-	}, [searchResultKey, searchIds]);
+	const handleSearchNavigation = async (next = true) => {
+		if (searchResultKey == null || searchResultIds == null) return;
 
-	const handleSearchNavigation = (next = true) => {
-		if (searchResultKey == null || searchIds == null) return;
-
-		const rowIndex = searchIds.indexOf(searchResultKey);
+		let resultIds = searchResultIds;
+		let rowIndex = resultIds.indexOf(searchResultKey);
 		if (rowIndex === -1) return;
 
-		let nextSha: string | undefined;
-		if (next && rowIndex < searchIds.length - 1) {
-			nextSha = searchIds[rowIndex + 1];
-		} else if (!next && rowIndex > 0) {
-			nextSha = searchIds[rowIndex - 1];
+		if (next) {
+			if (rowIndex < resultIds.length - 1) {
+				rowIndex++;
+			} else if (hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(search!, { more: true });
+				if (results?.results != null) {
+					if (resultIds.length < results.results.ids.length) {
+						resultIds = results.results.ids;
+						rowIndex++;
+					} else {
+						rowIndex = 0;
+					}
+				} else {
+					rowIndex = 0;
+				}
+			} else {
+				rowIndex = 0;
+			}
+		} else if (rowIndex > 0) {
+			rowIndex--;
+		} else {
+			if (hasMoreSearchResults) {
+				const results = await onSearchCommitsPromise?.(search!, { more: { limit: 0 } });
+				if (results?.results != null) {
+					if (resultIds.length < results.results.ids.length) {
+						resultIds = results.results.ids;
+					}
+				}
+			}
+
+			rowIndex = resultIds.length - 1;
 		}
 
+		const nextSha = resultIds[rowIndex];
 		if (nextSha == null) return;
 
-		if (onEnsureCommit != null) {
+		if (onEnsureCommitPromise != null) {
 			let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
 				timeout = undefined;
 				setIsLoading(true);
 			}, 250);
-			onEnsureCommit(nextSha, true).finally(() => {
-				if (timeout == null) {
-					setIsLoading(false);
-				} else {
-					clearTimeout(timeout);
-				}
+
+			const e = await onEnsureCommitPromise(nextSha, true);
+			if (timeout == null) {
+				setIsLoading(false);
+			} else {
+				clearTimeout(timeout);
+			}
+
+			if (e?.id === nextSha) {
 				setSearchResultKey(nextSha);
-				setSelectedRows({ [nextSha!]: true });
-			});
+				setSelectedRows({ [nextSha]: true });
+			} else {
+				debugger;
+			}
 		} else {
 			setSearchResultKey(nextSha);
 			setSelectedRows({ [nextSha]: true });
@@ -316,11 +349,11 @@ export function GraphWrapper({
 
 	const handleSearchInput = (e: CustomEvent<SearchPattern>) => {
 		const detail = e.detail;
-		setSearchValue(detail.pattern);
+		setSearch(detail);
 
 		if (detail.pattern.length < 3) {
 			setSearchResultKey(undefined);
-			setSearchIds(undefined);
+			setSearchResultIds(undefined);
 			return;
 		}
 		onSearchCommits?.(detail);
@@ -360,8 +393,8 @@ export function GraphWrapper({
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
-		setSearchIds(state.searchResults?.ids);
-		setHasMoreSearchIds(state.searchResults?.paging?.more ?? false);
+		setSearchResultIds(state.searchResults?.ids);
+		setHasMoreSearchResults(state.searchResults?.paging?.more ?? false);
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -587,15 +620,17 @@ export function GraphWrapper({
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__group">
 					<SearchField
-						value={searchValue}
+						value={search?.pattern}
 						onChange={e => handleSearchInput(e as CustomEvent<SearchPattern>)}
+						onPrevious={() => handleSearchNavigation(false)}
+						onNext={() => handleSearchNavigation(true)}
 					/>
 					<SearchNav
 						aria-label="Graph search navigation"
 						step={searchPosition}
-						total={searchIds?.length ?? 0}
-						valid={Boolean(searchValue && searchValue.length > 2)}
-						more={hasMoreSearchIds}
+						total={searchResultIds?.length ?? 0}
+						valid={Boolean(search?.pattern && search.pattern.length > 2)}
+						more={hasMoreSearchResults}
 						onPrevious={() => handleSearchNavigation(false)}
 						onNext={() => handleSearchNavigation(true)}
 					/>

@@ -14,6 +14,7 @@ const template = html<SearchField>`
 			placeholder="${x => x.placeholder}"
 			value="${x => x.value}"
 			@input="${(x, c) => x.handleInput(c.event)}"
+			@keyup="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
 		/>
 		<div class="controls">
 			<button
@@ -158,14 +159,29 @@ export class SearchField extends FASTElement {
 		this.value = value;
 		this.emitSearch();
 	}
+
+	handleShortcutKeys(e: KeyboardEvent) {
+		if (e.key !== 'Enter' && e.key !== 'F3') return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+		e.preventDefault();
+		if (e.shiftKey) {
+			this.$emit('previous');
+		} else {
+			this.$emit('next');
+		}
+	}
+
 	handleAll(_e: Event) {
 		this.all = !this.all;
 		this.emitSearch();
 	}
+
 	handleCase(_e: Event) {
 		this.case = !this.case;
 		this.emitSearch();
 	}
+
 	handleRegex(_e: Event) {
 		this.regex = !this.regex;
 		if (!this.regex) {

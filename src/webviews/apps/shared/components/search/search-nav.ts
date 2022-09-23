@@ -20,16 +20,12 @@ const template = html<SearchNav>`<template>
 	>
 		<code-icon
 			icon="arrow-up"
-			aria-label="Go to previous ${x => x.label}"
-			title="Go to previous ${x => x.label}"
+			aria-label="Previous Match (Shift+Enter)"
+			title="Previous Match (Shift+Enter)"
 		></code-icon>
 	</button>
 	<button type="button" class="button" ?disabled="${x => !x.hasNext}" @click="${(x, c) => x.handleNext(c.event)}">
-		<code-icon
-			icon="arrow-down"
-			aria-label="Go to next ${x => x.label}"
-			title="Go to next ${x => x.label}"
-		></code-icon>
+		<code-icon icon="arrow-down" aria-label="Next Match (Enter)" title="Next Match (Enter)"></code-icon>
 	</button>
 </template>`;
 
@@ -49,6 +45,7 @@ const styles = css`
 		flex: none;
 		margin-right: 0.4rem;
 		font-size: 1.2rem;
+		min-width: 10ch;
 	}
 
 	.count.error {
@@ -114,20 +111,12 @@ export class SearchNav extends FASTElement {
 
 	@volatile
 	get hasPrevious() {
-		if (this.total === 0) {
-			return false;
-		}
-
-		return this.step > 1;
+		return this.total !== 0;
 	}
 
 	@volatile
 	get hasNext() {
-		if (this.total === 0) {
-			return false;
-		}
-
-		return this.step < this.total;
+		return this.total !== 0;
 	}
 
 	handlePrevious(_e: Event) {

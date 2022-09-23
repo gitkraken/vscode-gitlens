@@ -3,7 +3,6 @@ import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignme
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
-import type { GraphColumnConfig } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
@@ -14,11 +13,14 @@ import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitSearch } from '../../../git/search';
+import { getSearchPatternComparisonKey } from '../../../git/search';
 import { registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
+import { first } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
@@ -30,10 +32,15 @@ import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DismissBannerParams,
 	EnsureCommitParams,
+	GetMissingAvatarsParams,
+	GetMoreCommitsParams,
 	GraphComponentConfig,
 	GraphRepository,
 	SearchCommitsParams,
 	State,
+	UpdateColumnParams,
+	UpdateSelectedRepositoryParams,
+	UpdateSelectionParams,
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -98,6 +105,8 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
 	private _pendingNotifyCommits: boolean = false;
+	private _search: GitSearch | undefined;
+	private _searchCancellation: CancellationTokenSource | undefined;
 	private _selectedSha?: string;
 	private _selectedRows: { [sha: string]: true } = {};
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -140,7 +149,7 @@ export class GraphWebview extends WebviewBase<State> {
 					}
 
 					this.setSelectedRows(args.sha);
-					void this.onGetMoreCommits(args.sha);
+					void this.onGetMoreCommits({ sha: args.sha });
 				}
 			}),
 		);
@@ -199,28 +208,28 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case DismissBannerCommandType.method:
-				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params.key));
+				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
 				break;
 			case EnsureCommitCommandType.method:
 				onIpc(EnsureCommitCommandType, e, params => this.onEnsureCommit(params, e.completionId));
 				break;
 			case GetMissingAvatarsCommandType.method:
-				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
+				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params));
 				break;
 			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.sha, e.id));
+				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params));
 				break;
 			case SearchCommitsCommandType.method:
-				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params, e.id));
+				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params, e.completionId));
 				break;
 			case UpdateColumnCommandType.method:
-				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
+				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
-				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onRepositorySelectionChanged(params.path));
+				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onRepositorySelectionChanged(params));
 				break;
 			case UpdateSelectionCommandType.method:
-				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
+				onIpc(UpdateSelectionCommandType, e, debounce(this.onSelectionChanged.bind(this), 100));
 				break;
 		}
 	}
@@ -335,21 +344,21 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
-	private dismissBanner(key: DismissBannerParams['key']) {
-		if (key === 'preview') {
+	private dismissBanner(e: DismissBannerParams) {
+		if (e.key === 'preview') {
 			this.previewBanner = false;
-		} else if (key === 'trial') {
+		} else if (e.key === 'trial') {
 			this.trialBanner = false;
 		}
 
 		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-		banners = updateRecordValue(banners, key, true);
+		banners = updateRecordValue(banners, e.key, true);
 		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
-	private onColumnUpdated(name: string, config: GraphColumnConfig) {
+	private onColumnUpdated(e: UpdateColumnParams) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
-		columns = updateRecordValue(columns, name, config);
+		columns = updateRecordValue(columns, e.name, e.config);
 		void this.container.storage.storeWorkspace('graph:columns', columns);
 
 		void this.notifyDidChangeGraphConfiguration();
@@ -357,18 +366,18 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async onEnsureCommit(e: EnsureCommitParams, completionId?: string) {
-		if (this._graph?.more == null) return;
+		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
+			this.updateState(true);
+
+			if (completionId != null) {
+				void this.notify(DidEnsureCommitNotificationType, {}, completionId);
+			}
+			return;
+		}
 
 		let selected: boolean | undefined;
 		if (!this._graph.ids.has(e.id)) {
-			const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-			const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, e.id);
-			if (newGraph != null) {
-				this.setGraph(newGraph);
-			} else {
-				debugger;
-			}
-
+			await this.updateGraphWithMoreCommits(this._graph, e.id);
 			if (e.select && this._graph.ids.has(e.id)) {
 				selected = true;
 				this.setSelectedRows(e.id);
@@ -382,7 +391,7 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notify(DidEnsureCommitNotificationType, { id: e.id, selected: selected }, completionId);
 	}
 
-	private async onGetMissingAvatars(emails: { [email: string]: string }) {
+	private async onGetMissingAvatars(e: GetMissingAvatarsParams) {
 		if (this._graph == null) return;
 
 		const repoPath = this._graph.repoPath;
@@ -394,7 +403,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const promises: Promise<void>[] = [];
 
-		for (const [email, sha] of Object.entries(emails)) {
+		for (const [email, sha] of Object.entries(e.emails)) {
 			if (this._graph.avatars.has(email)) continue;
 
 			promises.push(getAvatar.call(this, email, sha));
@@ -408,64 +417,88 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@gate()
 	@debug()
-	private async onGetMoreCommits(sha?: string, completionId?: string) {
+	private async onGetMoreCommits(e: GetMoreCommitsParams) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
 			return;
 		}
 
-		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-		const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, sha);
-		if (newGraph != null) {
-			this.setGraph(newGraph);
-		} else {
-			debugger;
-		}
-
-		void this.notifyDidChangeCommits(completionId);
+		await this.updateGraphWithMoreCommits(this._graph, e.sha);
+		void this.notifyDidChangeCommits();
 	}
-
-	private _searchCancellation: CancellationTokenSource | undefined;
 
 	@debug()
 	private async onSearchCommits(e: SearchCommitsParams, completionId?: string) {
-		if (this._repository == null) return;
+		let search: GitSearch | undefined = this._search;
 
-		if (this._repository.etag !== this._etagRepository) {
-			this.updateState(true);
-		}
+		if (search?.more != null && e.more && search.comparisonKey === getSearchPatternComparisonKey(e.search)) {
+			const limit = typeof e.more !== 'boolean' ? e.more.limit : undefined;
+			search = await search.more(limit ?? configuration.get('graph.searchItemLimit') ?? 100);
+			if (search != null) {
+				this._search = search;
 
-		if (this._searchCancellation != null) {
-			this._searchCancellation.cancel();
-			this._searchCancellation.dispose();
-		}
-
-		const cancellation = new CancellationTokenSource();
-		this._searchCancellation = cancellation;
-
-		const search = await this._repository.searchForCommitsSimple(e.search, {
-			limit: configuration.get('graph.searchItemLimit') ?? 100,
-			ordering: configuration.get('graph.commitOrdering'),
-			cancellation: cancellation.token,
-		});
-
-		if (cancellation.token.isCancellationRequested) {
-			if (completionId != null) {
-				void this.notify(DidSearchCommitsNotificationType, { results: undefined }, completionId);
+				void this.notify(
+					DidSearchCommitsNotificationType,
+					{
+						results: {
+							ids: [...search.results.values()],
+							paging: {
+								startingCursor: search.paging?.startingCursor,
+								more: search.paging?.more ?? false,
+							},
+						},
+						selectedRows: this._selectedRows,
+					},
+					completionId,
+				);
 			}
+
 			return;
 		}
 
-		if (search.results.length > 0) {
-			this.setSelectedRows(search.results[0]);
+		if (search == null || search.comparisonKey !== getSearchPatternComparisonKey(e.search)) {
+			if (this._repository == null) return;
+
+			if (this._repository.etag !== this._etagRepository) {
+				this.updateState(true);
+			}
+
+			if (this._searchCancellation != null) {
+				this._searchCancellation.cancel();
+				this._searchCancellation.dispose();
+			}
+
+			const cancellation = new CancellationTokenSource();
+			this._searchCancellation = cancellation;
+
+			search = await this._repository.searchForCommitsSimple(e.search, {
+				limit: configuration.get('graph.searchItemLimit') ?? 100,
+				ordering: configuration.get('graph.commitOrdering'),
+				cancellation: cancellation.token,
+			});
+
+			if (cancellation.token.isCancellationRequested) {
+				if (completionId != null) {
+					void this.notify(DidSearchCommitsNotificationType, { results: undefined }, completionId);
+				}
+				return;
+			}
+
+			this._search = search;
+		} else {
+			search = this._search!;
+		}
+
+		if (search.results.size > 0) {
+			this.setSelectedRows(first(search.results));
 		}
 
 		void this.notify(
 			DidSearchCommitsNotificationType,
 			{
 				results: {
-					ids: search.results,
+					ids: [...search.results.values()],
 					paging: {
 						startingCursor: search.paging?.startingCursor,
 						more: search.paging?.more ?? false,
@@ -477,12 +510,12 @@ export class GraphWebview extends WebviewBase<State> {
 		);
 	}
 
-	private onRepositorySelectionChanged(path: string) {
-		this.repository = this.container.git.getRepository(path);
+	private onRepositorySelectionChanged(e: UpdateSelectedRepositoryParams) {
+		this.repository = this.container.git.getRepository(e.path);
 	}
 
-	private async onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
-		const item = selection[0];
+	private async onSelectionChanged(e: UpdateSelectionParams) {
+		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
 
 		let commits: GitCommit[] | undefined;
@@ -723,6 +756,21 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
+		if (graph == null) {
+			this._search = undefined;
+			this._searchCancellation?.dispose();
+			this._searchCancellation = undefined;
+		}
+	}
+
+	private async updateGraphWithMoreCommits(graph: GitGraph, sha?: string) {
+		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
+		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, sha);
+		if (updatedGraph != null) {
+			this.setGraph(updatedGraph);
+		} else {
+			debugger;
+		}
 	}
 
 	private setSelectedRows(sha: string | undefined) {
