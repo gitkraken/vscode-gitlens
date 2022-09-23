@@ -8,6 +8,8 @@ const { wrap } = provideReactWrapper(React);
 export const SearchField = wrap(fieldComponent, {
 	events: {
 		onChange: 'change',
+		onPrevious: 'previous',
+		onNext: 'next',
 	},
 });
 

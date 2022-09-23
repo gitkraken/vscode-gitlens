@@ -6,7 +6,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
 import type { SearchOperators, SearchPattern } from '../../git/search';
-import { getKeyForSearchPattern, parseSearchOperations, searchOperators } from '../../git/search';
+import { getSearchPatternComparisonKey, parseSearchOperations, searchOperators } from '../../git/search';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
@@ -166,7 +166,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				matchCase: state.matchCase,
 				matchRegex: state.matchRegex,
 			};
-			const searchKey = getKeyForSearchPattern(search);
+			const searchKey = getSearchPatternComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
 				context.resultsPromise = state.repo.searchForCommits(search);

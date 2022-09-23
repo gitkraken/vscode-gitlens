@@ -103,15 +103,34 @@ export abstract class App<State = undefined> {
 		const id = nextIpcId();
 		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
-		const promise = new Promise<IpcMessageParams<TCompletion>>(resolve => {
-			const disposable = DOM.on(window, 'message', (e: MessageEvent<IpcMessage>) => {
-				onIpc(completion, e.data, params => {
-					if (e.data.completionId === id) {
-						disposable.dispose();
-						resolve(params);
-					}
-				});
-			});
+		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+
+			const disposables = [
+				DOM.on(window, 'message', (e: MessageEvent<IpcMessage>) => {
+					onIpc(completion, e.data, params => {
+						if (e.data.completionId === id) {
+							disposables.forEach(d => d.dispose());
+							queueMicrotask(() => resolve(params));
+						}
+					});
+				}),
+				{
+					dispose: function () {
+						if (timeout != null) {
+							clearTimeout(timeout);
+							timeout = undefined;
+						}
+					},
+				},
+			];
+
+			timeout = setTimeout(() => {
+				timeout = undefined;
+				disposables.forEach(d => d.dispose());
+				debugger;
+				reject(new Error(`Timed out waiting for completion of ${completion.method}`));
+			}, 60000);
 		});
 
 		this.postMessage({ id: id, method: command.method, params: params, completionId: id });

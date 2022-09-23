@@ -78,12 +78,13 @@ export class GraphApp extends App<State> {
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
 					onSearchCommits={(...params) => this.onSearchCommits(...params)}
+					onSearchCommitsPromise={(...params) => this.onSearchCommitsPromise(...params)}
 					onSelectionChange={debounce(
 						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
 						250,
 					)}
 					onDismissBanner={key => this.onDismissBanner(key)}
-					onEnsureCommit={this.onEnsureCommit.bind(this)}
+					onEnsureCommitPromise={this.onEnsureCommitPromise.bind(this)}
 					{...this.state}
 				/>,
 				$root,
@@ -294,31 +295,23 @@ export class GraphApp extends App<State> {
 		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
 	}
 
-	private onGetMoreCommits(sha?: string, wait?: boolean) {
-		if (wait) {
-			return this.sendCommandWithCompletion(
-				GetMoreCommitsCommandType,
-				{ sha: sha },
-				DidChangeCommitsNotificationType,
-			);
-		}
-
+	private onGetMoreCommits(sha?: string) {
 		return this.sendCommand(GetMoreCommitsCommandType, { sha: sha });
 	}
 
-	private onSearchCommits(search: SearchPattern, wait?: boolean) {
-		if (wait) {
-			return this.sendCommandWithCompletion(
-				SearchCommitsCommandType,
-				{ search: search },
-				DidSearchCommitsNotificationType,
-			);
-		}
-
+	private onSearchCommits(search: SearchPattern) {
 		return this.sendCommand(SearchCommitsCommandType, { search: search });
 	}
 
-	private onEnsureCommit(id: string, select: boolean) {
+	private onSearchCommitsPromise(search: SearchPattern, options?: { more?: boolean | { limit?: number } }) {
+		return this.sendCommandWithCompletion(
+			SearchCommitsCommandType,
+			{ search: search, more: options?.more },
+			DidSearchCommitsNotificationType,
+		);
+	}
+
+	private onEnsureCommitPromise(id: string, select: boolean) {
 		return this.sendCommandWithCompletion(
 			EnsureCommitCommandType,
 			{ id: id, select: select },

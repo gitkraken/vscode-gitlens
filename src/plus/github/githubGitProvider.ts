@@ -74,7 +74,7 @@ import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { GitSearch, SearchPattern } from '../../git/search';
-import { parseSearchOperations } from '../../git/search';
+import { getSearchPatternComparisonKey, parseSearchOperations } from '../../git/search';
 import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
@@ -1588,10 +1588,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+
+		const comparisonKey = getSearchPatternComparisonKey(search);
 		return {
 			repoPath: repoPath,
 			pattern: search,
-			results: [],
+			comparisonKey: comparisonKey,
+			results: new Set<string>(),
 		};
 
 		// try {

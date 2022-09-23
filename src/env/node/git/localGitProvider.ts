@@ -107,7 +107,7 @@ import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { GitSearch, SearchPattern } from '../../../git/search';
-import { parseSearchOperations } from '../../../git/search';
+import { getSearchPatternComparisonKey, parseSearchOperations } from '../../../git/search';
 import { Logger } from '../../../logger';
 import type { LogScope } from '../../../logger';
 import {
@@ -2645,12 +2645,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
+		const comparisonKey = getSearchPatternComparisonKey(search);
 		try {
 			const { args: searchArgs, files, commits } = this.getArgsFromSearchPattern(search);
-			if (commits?.length) {
+			if (commits?.size) {
 				return {
 					repoPath: repoPath,
 					pattern: search,
+					comparisonKey: comparisonKey,
 					results: commits,
 				};
 			}
@@ -2664,21 +2666,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
-			if (limit) {
-				args.push(`-n${limit + 1}`);
-			}
 			if (options?.ordering) {
 				args.push(`--${options.ordering}-order`);
 			}
+
+			const results = new Set<string>();
+			let total = 0;
+			let iterations = 0;
 
 			async function searchForCommitsCore(
 				this: LocalGitProvider,
 				limit: number,
 				cursor?: { sha: string; skip: number },
 			): Promise<GitSearch> {
+				iterations++;
+
 				if (options?.cancellation?.isCancellationRequested) {
 					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, pattern: search, results: [] };
+					return { repoPath: repoPath, pattern: search, comparisonKey: comparisonKey, results: results };
 				}
 
 				const data = await this.git.log2(
@@ -2686,6 +2691,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					{ cancellation: options?.cancellation },
 					...args,
 					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
+					...(limit ? [`-n${limit + 1}`] : []),
 					...searchArgs,
 					'--',
 					...files,
@@ -2693,26 +2699,34 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (options?.cancellation?.isCancellationRequested) {
 					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, pattern: search, results: [] };
+					return { repoPath: repoPath, pattern: search, comparisonKey: comparisonKey, results: results };
 				}
 
-				const results = [...refParser.parse(data)];
+				let count = 0;
+				let last: string | undefined;
+				for (const r of refParser.parse(data)) {
+					results.add(r);
 
-				const last = results[results.length - 1];
+					count++;
+					last = r;
+				}
+
+				total += count;
 				cursor =
 					last != null
 						? {
 								sha: last,
-								skip: results.length,
+								skip: total - iterations,
 						  }
 						: undefined;
 
 				return {
 					repoPath: repoPath,
 					pattern: search,
+					comparisonKey: comparisonKey,
 					results: results,
 					paging:
-						limit !== 0 && results.length > limit
+						limit !== 0 && count > limit
 							? {
 									limit: limit,
 									startingCursor: cursor?.sha,
@@ -2730,7 +2744,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return {
 				repoPath: repoPath,
 				pattern: search,
-				results: [],
+				comparisonKey: comparisonKey,
+				results: new Set<string>(),
 			};
 		}
 	}
@@ -2758,7 +2773,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
-				useShow: Boolean(commits?.length),
+				useShow: Boolean(commits?.size),
 			});
 			const log = GitLogParser.parse(
 				this.container,
@@ -2790,7 +2805,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private getArgsFromSearchPattern(search: SearchPattern): {
 		args: string[];
 		files: string[];
-		commits?: string[] | undefined;
+		commits?: Set<string> | undefined;
 	} {
 		const operations = parseSearchOperations(search.pattern);
 
@@ -2806,7 +2821,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			for (const value of values) {
 				searchArgs.add(value.replace(doubleQuoteRegex, ''));
 			}
-			commits = [...searchArgs.values()];
+			commits = searchArgs;
 		} else {
 			searchArgs.add('--all');
 			searchArgs.add('--full-history');

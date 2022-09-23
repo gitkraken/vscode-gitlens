@@ -38,7 +38,8 @@ export interface SearchPattern {
 export interface GitSearch {
 	repoPath: string;
 	pattern: SearchPattern;
-	results: string[];
+	comparisonKey: string;
+	results: Set<string>;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
@@ -49,7 +50,7 @@ export interface GitSearch {
 	more?(limit: number): Promise<GitSearch>;
 }
 
-export function getKeyForSearchPattern(search: SearchPattern) {
+export function getSearchPatternComparisonKey(search: SearchPattern) {
 	return `${search.pattern}|${search.matchAll ? 'A' : ''}${search.matchCase ? 'C' : ''}${
 		search.matchRegex ? 'R' : ''
 	}`;
