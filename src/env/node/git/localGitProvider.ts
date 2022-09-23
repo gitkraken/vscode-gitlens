@@ -2,7 +2,7 @@ import { readdir, realpath } from 'fs';
 import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
-import type { Event, TextDocument, WorkspaceFolder } from 'vscode';
+import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
@@ -2641,7 +2641,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async searchForCommitsSimple(
 		repoPath: string,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -2676,15 +2676,26 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit: number,
 				cursor?: { sha: string; skip: number },
 			): Promise<GitSearch> {
+				if (options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error here?
+					return { repoPath: repoPath, pattern: search, results: [] };
+				}
+
 				const data = await this.git.log2(
 					repoPath,
-					undefined,
+					{ cancellation: options?.cancellation },
 					...args,
 					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
 					...searchArgs,
 					'--',
 					...files,
 				);
+
+				if (options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error here?
+					return { repoPath: repoPath, pattern: search, results: [] };
+				}
+
 				const results = [...refParser.parse(data)];
 
 				const last = results[results.length - 1];
@@ -2708,13 +2719,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									more: true,
 							  }
 							: undefined,
-					more: async (limit: number): Promise<GitSearch | undefined> =>
-						searchForCommitsCore.call(this, limit, cursor),
+					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
 				};
 			}
 
 			return searchForCommitsCore.call(this, limit);
 		} catch (ex) {
+			// TODO@eamodio: Should we throw an error here?
 			// TODO@eamodio handle error reporting -- just invalid patterns? or more detailed?
 			return {
 				repoPath: repoPath,

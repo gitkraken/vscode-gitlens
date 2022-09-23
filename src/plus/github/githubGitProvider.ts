@@ -2,6 +2,7 @@
 import type {
 	AuthenticationSession,
 	AuthenticationSessionsChangeEvent,
+	CancellationToken,
 	Disposable,
 	Event,
 	Range,
@@ -1584,7 +1585,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async searchForCommitsSimple(
 		repoPath: string,
 		search: SearchPattern,
-		_options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		_options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 		return {

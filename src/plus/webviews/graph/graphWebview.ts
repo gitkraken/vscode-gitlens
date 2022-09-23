@@ -1,5 +1,5 @@
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
-import { EventEmitter, MarkdownString, ProgressLocation, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
 import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
@@ -14,7 +14,6 @@ import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import type { SearchPattern } from '../../../git/search';
 import { registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -28,7 +27,14 @@ import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { DismissBannerParams, GraphComponentConfig, GraphRepository, State } from './protocol';
+import type {
+	DismissBannerParams,
+	EnsureCommitParams,
+	GraphComponentConfig,
+	GraphRepository,
+	SearchCommitsParams,
+	State,
+} from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeCommitsNotificationType,
@@ -195,6 +201,9 @@ export class GraphWebview extends WebviewBase<State> {
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params.key));
 				break;
+			case EnsureCommitCommandType.method:
+				onIpc(EnsureCommitCommandType, e, params => this.onEnsureCommit(params, e.completionId));
+				break;
 			case GetMissingAvatarsCommandType.method:
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params.emails));
 				break;
@@ -202,7 +211,7 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params.sha, e.id));
 				break;
 			case SearchCommitsCommandType.method:
-				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params.search, e.id));
+				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params, e.id));
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params.name, params.config));
@@ -212,9 +221,6 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(params.selection));
-				break;
-			case EnsureCommitCommandType.method:
-				onIpc(EnsureCommitCommandType, e, params => this.onEnsureCommit(params.id, e.completionId));
 				break;
 		}
 	}
@@ -349,22 +355,31 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeGraphConfiguration();
 	}
 
-	private async onEnsureCommit(id: string, completionId?: string) {
+	@debug()
+	private async onEnsureCommit(e: EnsureCommitParams, completionId?: string) {
 		if (this._graph?.more == null) return;
 
-		if (!this._graph.ids.has(id)) {
+		let selected: boolean | undefined;
+		if (!this._graph.ids.has(e.id)) {
 			const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-			const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, id);
+			const newGraph = await this._graph.more(pageItemLimit ?? defaultItemLimit, e.id);
 			if (newGraph != null) {
 				this.setGraph(newGraph);
 			} else {
 				debugger;
 			}
 
+			if (e.select && this._graph.ids.has(e.id)) {
+				selected = true;
+				this.setSelectedRows(e.id);
+			}
 			void this.notifyDidChangeCommits();
+		} else if (e.select) {
+			selected = true;
+			this.setSelectedRows(e.id);
 		}
 
-		void this.notify(DidEnsureCommitNotificationType, { id: id }, completionId);
+		void this.notify(DidEnsureCommitNotificationType, { id: e.id, selected: selected }, completionId);
 	}
 
 	private async onGetMissingAvatars(emails: { [email: string]: string }) {
@@ -392,6 +407,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@gate()
+	@debug()
 	private async onGetMoreCommits(sha?: string, completionId?: string) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
@@ -410,20 +426,36 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeCommits(completionId);
 	}
 
-	@gate()
-	private async onSearchCommits(searchPattern: SearchPattern, completionId?: string) {
-		// if (this._repository?.etag !== this._etagRepository) {
-		// 	this.updateState(true);
+	private _searchCancellation: CancellationTokenSource | undefined;
 
-		// 	return;
-		// }
-
+	@debug()
+	private async onSearchCommits(e: SearchCommitsParams, completionId?: string) {
 		if (this._repository == null) return;
 
-		const search = await this._repository.searchForCommitsSimple(searchPattern, {
-			limit: 100,
+		if (this._repository.etag !== this._etagRepository) {
+			this.updateState(true);
+		}
+
+		if (this._searchCancellation != null) {
+			this._searchCancellation.cancel();
+			this._searchCancellation.dispose();
+		}
+
+		const cancellation = new CancellationTokenSource();
+		this._searchCancellation = cancellation;
+
+		const search = await this._repository.searchForCommitsSimple(e.search, {
+			limit: configuration.get('graph.searchItemLimit') ?? 100,
 			ordering: configuration.get('graph.commitOrdering'),
+			cancellation: cancellation.token,
 		});
+
+		if (cancellation.token.isCancellationRequested) {
+			if (completionId != null) {
+				void this.notify(DidSearchCommitsNotificationType, { results: undefined }, completionId);
+			}
+			return;
+		}
 
 		if (search.results.length > 0) {
 			this.setSelectedRows(search.results[0]);
@@ -432,7 +464,7 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notify(
 			DidSearchCommitsNotificationType,
 			{
-				searchResults: {
+				results: {
 					ids: search.results,
 					paging: {
 						startingCursor: search.paging?.startingCursor,
@@ -451,7 +483,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private async onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
 		const item = selection[0];
-		this._selectedSha = item?.id;
+		this.setSelectedRows(item?.id);
 
 		let commits: GitCommit[] | undefined;
 		if (item?.id != null) {
@@ -515,11 +547,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private async notifyDidChangeState() {
 		if (!this.isReady || !this.visible) return false;
 
-		return window.withProgress({ location: ProgressLocation.Window, title: 'Loading Commit Graph...' }, async () =>
-			this.notify(DidChangeNotificationType, {
-				state: await this.getState(),
-			}),
-		);
+		return this.notify(DidChangeNotificationType, { state: await this.getState() });
 	}
 
 	@debug()

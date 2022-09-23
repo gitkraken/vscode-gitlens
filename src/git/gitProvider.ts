@@ -1,4 +1,4 @@
-import type { Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
+import type { CancellationToken, Disposable, Event, Range, TextDocument, Uri, WorkspaceFolder } from 'vscode';
 import type { Commit, InputBox } from '../@types/vscode.git';
 import type { ForcePushMode } from '../@types/vscode.git.enums';
 import type { Features } from '../features';
@@ -299,7 +299,7 @@ export interface GitProvider extends Disposable {
 	searchForCommitsSimple(
 		repoPath: string | Uri,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch>;
 	getLogForSearch(
 		repoPath: string,

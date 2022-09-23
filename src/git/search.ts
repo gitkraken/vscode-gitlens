@@ -46,7 +46,7 @@ export interface GitSearch {
 		readonly more: boolean;
 	};
 
-	more?(limit: number): Promise<GitSearch | undefined>;
+	more?(limit: number): Promise<GitSearch>;
 }
 
 export function getKeyForSearchPattern(search: SearchPattern) {

@@ -1,4 +1,4 @@
-import type { ConfigurationChangeEvent, Event, WorkspaceFolder } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Event, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, Uri, window, workspace } from 'vscode';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
@@ -861,7 +861,7 @@ export class Repository implements Disposable {
 
 	searchForCommitsSimple(
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		return this.container.git.searchForCommitsSimple(this.path, search, options);
 	}
