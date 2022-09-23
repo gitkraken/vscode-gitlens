@@ -351,12 +351,12 @@ export function GraphWrapper({
 		const detail = e.detail;
 		setSearch(detail);
 
-		const isValid = detail.pattern.length < 3;
-		if (isValid) {
+		const inValid = detail.pattern.length < 3;
+		if (inValid) {
 			setSearchResultKey(undefined);
 			setSearchResultIds(undefined);
 		}
-		onSearchCommits?.(isValid ? detail : undefined);
+		onSearchCommits?.(inValid ? undefined : detail);
 	};
 
 	useLayoutEffect(() => {
