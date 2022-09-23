@@ -1,10 +1,11 @@
-import { attr, css, customElement, FASTElement, html, ref, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { pluralize } from '../../../../../system/string';
 import { numberConverter } from '../converters/number-converter';
 import '../codicon';
 
 const template = html<SearchNav>`<template>
-	<span class="count">
-		${when(x => x.total < 1, html<SearchNav>`No ${x => x.formattedLabel}`)}
+	<span class="count${x => (x.total < 1 && x.valid ? ' error' : '')}">
+		${when(x => x.total < 1, html<SearchNav>`${x => x.formattedLabel}`)}
 		${when(
 			x => x.total > 0,
 			html<SearchNav>`<span aria-current="step">${x => x.step}</span> of
@@ -47,6 +48,11 @@ const styles = css`
 	.count {
 		flex: none;
 		margin-right: 0.4rem;
+		font-size: 1.2rem;
+	}
+
+	.count.error {
+		color: var(--vscode-errorForeground);
 	}
 
 	.button {
@@ -95,16 +101,15 @@ export class SearchNav extends FASTElement {
 	@attr({ mode: 'boolean' })
 	more = false;
 
+	@attr({ mode: 'boolean' })
+	valid = false;
+
 	@attr
 	label = 'result';
 
 	@volatile
 	get formattedLabel() {
-		if (this.total === 1) {
-			return this.label;
-		}
-
-		return `${this.label}s`;
+		return pluralize(this.label, this.total, { zero: 'No' });
 	}
 
 	@volatile
