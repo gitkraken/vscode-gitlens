@@ -299,7 +299,11 @@ export class GraphApp extends App<State> {
 		return this.sendCommand(GetMoreCommitsCommandType, { sha: sha });
 	}
 
-	private onSearchCommits(search: SearchPattern) {
+	private onSearchCommits(search: SearchPattern | undefined) {
+		if (search == null) {
+			this.state.searchResults = undefined;
+			return;
+		}
 		return this.sendCommand(SearchCommitsCommandType, { search: search });
 	}
 

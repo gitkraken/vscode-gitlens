@@ -38,7 +38,7 @@ export interface GraphWrapperProps extends State {
 	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMoreCommits?: (id?: string) => void;
-	onSearchCommits?: (search: SearchPattern) => void;
+	onSearchCommits?: (search: SearchPattern | undefined) => void;
 	onSearchCommitsPromise?: (
 		search: SearchPattern,
 		options?: { more?: boolean | { limit?: number } },
@@ -351,12 +351,12 @@ export function GraphWrapper({
 		const detail = e.detail;
 		setSearch(detail);
 
-		if (detail.pattern.length < 3) {
+		const isValid = detail.pattern.length < 3;
+		if (isValid) {
 			setSearchResultKey(undefined);
 			setSearchResultIds(undefined);
-			return;
 		}
-		onSearchCommits?.(detail);
+		onSearchCommits?.(isValid ? detail : undefined);
 	};
 
 	useLayoutEffect(() => {
@@ -617,25 +617,27 @@ export function GraphWrapper({
 				)}
 				{renderAlertContent()}
 			</section>
-			<header className="titlebar graph-app__header">
-				<div className="titlebar__group">
-					<SearchField
-						value={search?.pattern}
-						onChange={e => handleSearchInput(e as CustomEvent<SearchPattern>)}
-						onPrevious={() => handleSearchNavigation(false)}
-						onNext={() => handleSearchNavigation(true)}
-					/>
-					<SearchNav
-						aria-label="Graph search navigation"
-						step={searchPosition}
-						total={searchResultIds?.length ?? 0}
-						valid={Boolean(search?.pattern && search.pattern.length > 2)}
-						more={hasMoreSearchResults}
-						onPrevious={() => handleSearchNavigation(false)}
-						onNext={() => handleSearchNavigation(true)}
-					/>
-				</div>
-			</header>
+			{isAllowed && (
+				<header className="titlebar graph-app__header">
+					<div className="titlebar__group">
+						<SearchField
+							value={search?.pattern}
+							onChange={e => handleSearchInput(e as CustomEvent<SearchPattern>)}
+							onPrevious={() => handleSearchNavigation(false)}
+							onNext={() => handleSearchNavigation(true)}
+						/>
+						<SearchNav
+							aria-label="Graph search navigation"
+							step={searchPosition}
+							total={searchResultIds?.length ?? 0}
+							valid={Boolean(search?.pattern && search.pattern.length > 2)}
+							more={hasMoreSearchResults}
+							onPrevious={() => handleSearchNavigation(false)}
+							onNext={() => handleSearchNavigation(true)}
+						/>
+					</div>
+				</header>
+			)}
 			<main
 				ref={mainRef}
 				id="main"
