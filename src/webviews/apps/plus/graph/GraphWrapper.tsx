@@ -7,7 +7,7 @@ import GraphContainer, {
 	type GraphRow,
 	type GraphZoneType,
 } from '@gitkraken/gitkraken-components';
-import type { FormEvent, ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
@@ -592,6 +592,7 @@ export function GraphWrapper({
 						aria-label="Graph search navigation"
 						step={searchPosition}
 						total={searchIds?.length ?? 0}
+						valid={Boolean(searchValue && searchValue.length > 2)}
 						more={hasMoreSearchIds}
 						onPrevious={() => handleSearchNavigation(false)}
 						onNext={() => handleSearchNavigation(true)}

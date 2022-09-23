@@ -71,9 +71,9 @@ const styles = css`
 		color: var(--vscode-input-foreground);
 		border: 1px solid var(--vscode-input-background);
 		border-radius: 0.25rem;
-		padding: 0 6.6rem 0 0.4rem;
+		padding: 0 6.6rem 1px 0.4rem;
 		font-family: inherit;
-		font-size: 1rem;
+		font-size: inherit;
 	}
 	input:focus {
 		outline: 1px solid var(--vscode-focusBorder);
@@ -81,6 +81,10 @@ const styles = css`
 	}
 	input::placeholder {
 		color: var(--vscode-input-placeholderForeground);
+	}
+
+	input::-webkit-search-cancel-button {
+		display: none;
 	}
 
 	.controls {
