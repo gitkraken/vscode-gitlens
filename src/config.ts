@@ -386,6 +386,7 @@ export interface GraphConfig {
 	defaultItemLimit: number;
 	highlightRowsOnRefHover: boolean;
 	pageItemLimit: number;
+	searchItemLimit: number;
 	statusBar: {
 		enabled: boolean;
 	};

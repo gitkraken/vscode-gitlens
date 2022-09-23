@@ -25,7 +25,7 @@ export interface State {
 
 	// Props below are computed in the webview (not passed)
 	mixedColumnColors?: Record<string, string>;
-	searchResults?: DidSearchCommitsParams['searchResults'];
+	searchResults?: DidSearchCommitsParams['results'];
 }
 
 export interface GraphPaging {
@@ -79,6 +79,12 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
+export interface EnsureCommitParams {
+	id: string;
+	select?: boolean;
+}
+export const EnsureCommitCommandType = new IpcCommandType<EnsureCommitParams>('graph/ensureCommit');
+
 export interface GetMissingAvatarsParams {
 	emails: { [email: string]: string };
 }
@@ -111,11 +117,6 @@ export interface UpdateSelectionParams {
 	selection: { id: string; type: GitGraphRowType }[];
 }
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
-
-export interface EnsureCommitParams {
-	id: string;
-}
-export const EnsureCommitCommandType = new IpcCommandType<EnsureCommitParams>('graph/ensureCommit');
 
 // Notifications
 export interface DidChangeParams {
@@ -162,20 +163,23 @@ export const DidChangeSelectionNotificationType = new IpcNotificationType<DidCha
 	'graph/selection/didChange',
 );
 
+export interface DidEnsureCommitParams {
+	id?: string;
+	selected?: boolean;
+}
+export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsureCommitParams>(
+	'graph/commits/didEnsureCommit',
+);
+
 export interface DidSearchCommitsParams {
-	searchResults: {
-		ids: string[];
-		paging?: GraphPaging;
-	};
+	results:
+		| {
+				ids: string[];
+				paging?: GraphPaging;
+		  }
+		| undefined;
 	selectedRows?: { [id: string]: true };
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
 	'graph/commits/didSearch',
-);
-
-export interface DidEnsureCommitParams {
-	id?: string;
-}
-export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsureCommitParams>(
-	'graph/commits/didEnsureCommit',
 );

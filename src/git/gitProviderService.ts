@@ -1,5 +1,6 @@
 import { encodingExists } from 'iconv-lite';
 import type {
+	CancellationToken,
 	ConfigurationChangeEvent,
 	Event,
 	Range,
@@ -1468,7 +1469,7 @@ export class GitProviderService implements Disposable {
 	searchForCommitsSimple(
 		repoPath: string | Uri,
 		search: SearchPattern,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.searchForCommitsSimple(path, search, options);

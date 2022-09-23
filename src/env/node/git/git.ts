@@ -856,7 +856,11 @@ export class Git {
 		return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigsWithFiles }, ...params, '--');
 	}
 
-	log2(repoPath: string, options?: { configs?: readonly string[]; ref?: string; stdin?: string }, ...args: string[]) {
+	log2(
+		repoPath: string,
+		options?: { cancellation?: CancellationToken; configs?: readonly string[]; ref?: string; stdin?: string },
+		...args: string[]
+	) {
 		const params = ['log'];
 		if (options?.stdin) {
 			params.push('--stdin');
@@ -872,7 +876,12 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: options?.configs ?? gitLogDefaultConfigs, stdin: options?.stdin },
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				stdin: options?.stdin,
+			},
 			...params,
 		);
 	}

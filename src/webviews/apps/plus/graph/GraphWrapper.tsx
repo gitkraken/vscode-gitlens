@@ -40,7 +40,7 @@ export interface GraphWrapperProps extends State {
 	onSearchCommits?: (search: SearchPattern) => void; //Promise<DidSearchCommitsParams>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
-	onEnsureCommit?: (id: string) => Promise<DidEnsureCommitParams>;
+	onEnsureCommit?: (id: string, select: boolean) => Promise<DidEnsureCommitParams>;
 }
 
 const getStyleProps = (
@@ -299,7 +299,7 @@ export function GraphWrapper({
 				timeout = undefined;
 				setIsLoading(true);
 			}, 250);
-			onEnsureCommit(nextSha).finally(() => {
+			onEnsureCommit(nextSha, true).finally(() => {
 				if (timeout == null) {
 					setIsLoading(false);
 				} else {
@@ -347,7 +347,9 @@ export function GraphWrapper({
 		setAvatars(state.avatars ?? {});
 		setReposList(state.repositories ?? []);
 		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
-		setSelectedRows(state.selectedRows);
+		if (JSON.stringify(graphSelectedRows) !== JSON.stringify(state.selectedRows)) {
+			setSelectedRows(state.selectedRows);
+		}
 		setGraphConfig(state.config);
 		// setGraphDateFormatter(getGraphDateFormatter(config));
 		setGraphColSettings(getGraphColSettingsModel(state.config));

@@ -2120,6 +2120,13 @@
 						"scope": "window",
 						"order": 21
 					},
+					"gitlens.graph.searchItemLimit": {
+						"type": "number",
+						"default": 100,
+						"markdownDescription": "Specifies the number of results to gather when searching in the _Commit Graph_. Use 0 to specify no limit",
+						"scope": "window",
+						"order": 22
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",

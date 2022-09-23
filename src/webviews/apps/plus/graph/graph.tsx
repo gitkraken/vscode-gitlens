@@ -192,9 +192,11 @@ export class GraphApp extends App<State> {
 
 			case DidSearchCommitsNotificationType.method:
 				onIpc(DidSearchCommitsNotificationType, msg, params => {
+					if (params.results == null && params.selectedRows == null) return;
+
 					this.setState({
 						...this.state,
-						searchResults: params.searchResults,
+						searchResults: params.results,
 						selectedRows: params.selectedRows,
 					});
 					this.refresh(this.state);
@@ -316,8 +318,12 @@ export class GraphApp extends App<State> {
 		return this.sendCommand(SearchCommitsCommandType, { search: search });
 	}
 
-	private onEnsureCommit(id: string) {
-		return this.sendCommandWithCompletion(EnsureCommitCommandType, { id: id }, DidEnsureCommitNotificationType);
+	private onEnsureCommit(id: string, select: boolean) {
+		return this.sendCommandWithCompletion(
+			EnsureCommitCommandType,
+			{ id: id, select: select },
+			DidEnsureCommitNotificationType,
+		);
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
