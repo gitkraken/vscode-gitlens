@@ -1838,12 +1838,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				});
 			}
 
-			const last = rows[rows.length - 1];
 			const startingCursor = cursor?.sha;
+			const lastSha = last(ids);
 			cursor =
-				last != null
+				lastSha != null
 					? {
-							sha: last.sha,
+							sha: lastSha,
 							skip: total - iterations,
 					  }
 					: undefined;
@@ -1858,7 +1858,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				paging: {
 					limit: limit === 0 ? count : limit,
 					startingCursor: startingCursor,
-					hasMore: count > limit,
+					hasMore: limit !== 0 && count > limit,
 				},
 				more: async (limit: number, sha?: string): Promise<GitGraph | undefined> =>
 					getCommitsForGraphCore.call(this, limit, sha, cursor),

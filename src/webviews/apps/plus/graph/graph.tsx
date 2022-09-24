@@ -119,7 +119,7 @@ export class GraphApp extends App<State> {
 			case DidChangeCommitsNotificationType.method:
 				onIpc(DidChangeCommitsNotificationType, msg, params => {
 					let rows;
-					if (params?.paging?.startingCursor != null && this.state.rows != null) {
+					if (params.rows.length && params.paging?.startingCursor != null && this.state.rows != null) {
 						const previousRows = this.state.rows;
 						const lastSha = previousRows[previousRows.length - 1]?.sha;
 
@@ -306,20 +306,28 @@ export class GraphApp extends App<State> {
 		return this.sendCommand(SearchCommitsCommandType, { search: search, limit: options?.limit });
 	}
 
-	private onSearchCommitsPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
-		return this.sendCommandWithCompletion(
-			SearchCommitsCommandType,
-			{ search: search, limit: options?.limit, more: options?.more },
-			DidSearchCommitsNotificationType,
-		);
+	private async onSearchCommitsPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
+		try {
+			return await this.sendCommandWithCompletion(
+				SearchCommitsCommandType,
+				{ search: search, limit: options?.limit, more: options?.more },
+				DidSearchCommitsNotificationType,
+			);
+		} catch {
+			return undefined;
+		}
 	}
 
-	private onEnsureCommitPromise(id: string, select: boolean) {
-		return this.sendCommandWithCompletion(
-			EnsureCommitCommandType,
-			{ id: id, select: select },
-			DidEnsureCommitNotificationType,
-		);
+	private async onEnsureCommitPromise(id: string, select: boolean) {
+		try {
+			return await this.sendCommandWithCompletion(
+				EnsureCommitCommandType,
+				{ id: id, select: select },
+				DidEnsureCommitNotificationType,
+			);
+		} catch {
+			return undefined;
+		}
 	}
 
 	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
