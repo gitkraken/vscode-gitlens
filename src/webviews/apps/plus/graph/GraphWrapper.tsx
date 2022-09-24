@@ -43,10 +43,10 @@ export interface GraphWrapperProps extends State {
 	onSearchCommitsPromise?: (
 		search: SearchQuery,
 		options?: { limit?: number; more?: boolean },
-	) => Promise<DidSearchCommitsParams>;
+	) => Promise<DidSearchCommitsParams | undefined>;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
-	onEnsureCommitPromise?: (id: string, select: boolean) => Promise<DidEnsureCommitParams>;
+	onEnsureCommitPromise?: (id: string, select: boolean) => Promise<DidEnsureCommitParams | undefined>;
 }
 
 const getStyleProps = (
