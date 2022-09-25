@@ -146,7 +146,7 @@ export class Git {
 				'core.quotepath=false',
 				'-c',
 				'color.ui=false',
-				...(configs !== undefined ? configs : emptyArray),
+				...(configs != null ? configs : emptyArray),
 			);
 
 			if (process.platform === 'win32') {
@@ -861,20 +861,6 @@ export class Git {
 		options?: { cancellation?: CancellationToken; configs?: readonly string[]; ref?: string; stdin?: string },
 		...args: string[]
 	) {
-		const params = ['log'];
-		if (options?.stdin) {
-			params.push('--stdin');
-		}
-		params.push(...args);
-
-		if (options?.ref && !GitRevision.isUncommittedStaged(options.ref)) {
-			params.push(options?.ref);
-		}
-
-		if (!params.includes('--')) {
-			params.push('--');
-		}
-
 		return this.git<string>(
 			{
 				cwd: repoPath,
@@ -882,7 +868,11 @@ export class Git {
 				configs: options?.configs ?? gitLogDefaultConfigs,
 				stdin: options?.stdin,
 			},
-			...params,
+			'log',
+			...(options?.stdin ? ['--stdin'] : emptyArray),
+			...args,
+			...(options?.ref && !GitRevision.isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
+			...(!args.includes('--') ? ['--'] : emptyArray),
 		);
 	}
 
@@ -1185,35 +1175,34 @@ export class Git {
 	log__search(
 		repoPath: string,
 		search: string[] = emptyArray,
-		{
-			limit,
-			ordering,
-			skip,
-			useShow,
-		}: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number; useShow?: boolean } = {},
+		options?: {
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo' | null;
+			skip?: number;
+			useShow?: boolean;
+		},
 	) {
-		const params = [
-			useShow ? 'show' : 'log',
-			'--name-status',
-			`--format=${GitLogParser.defaultFormat}`,
-			'--use-mailmap',
-		];
-
-		if (limit && !useShow) {
-			params.push(`-n${limit + 1}`);
-		}
-
-		if (skip && !useShow) {
-			params.push(`--skip=${skip}`);
-		}
-
-		if (ordering && !useShow) {
-			params.push(`--${ordering}-order`);
+		if (options?.useShow) {
+			return this.git<string>(
+				{ cwd: repoPath },
+				'show',
+				'-s',
+				'--name-status',
+				`--format=${GitLogParser.defaultFormat}`,
+				'--use-mailmap',
+				...search,
+			);
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: useShow ? undefined : gitLogDefaultConfigs },
-			...params,
+			{ cwd: repoPath, configs: gitLogDefaultConfigs },
+			'log',
+			'--name-status',
+			`--format=${GitLogParser.defaultFormat}`,
+			'--use-mailmap',
+			...(options?.limit ? [`-n${options.limit + 1}`] : emptyArray),
+			...(options?.skip ? [`--skip=${options.skip}`] : emptyArray),
+			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
 			...search,
 		);
 	}
@@ -1565,6 +1554,23 @@ export class Git {
 
 			return defaultExceptionHandler(ex, opts.cwd) as TOut;
 		}
+	}
+
+	show2(
+		repoPath: string,
+		options?: { cancellation?: CancellationToken; configs?: readonly string[] },
+		...args: string[]
+	) {
+		return this.git<string>(
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+			},
+			'show',
+			...args,
+			...(!args.includes('--') ? ['--'] : emptyArray),
+		);
 	}
 
 	show__diff(

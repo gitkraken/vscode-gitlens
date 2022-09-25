@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
 import '../codicon';
 
@@ -207,8 +207,7 @@ export class SearchField extends FASTElement {
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
-		if (e.key !== 'Enter' && e.key !== 'F3') return;
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey) return;
 
 		e.preventDefault();
 		if (e.shiftKey) {

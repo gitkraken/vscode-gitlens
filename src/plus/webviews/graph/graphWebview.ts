@@ -451,7 +451,7 @@ export class GraphWebview extends WebviewBase<State> {
 					DidSearchCommitsNotificationType,
 					{
 						results: {
-							ids: [...search.results.values()],
+							ids: Object.fromEntries(search.results),
 							paging: { hasMore: search.paging?.hasMore ?? false },
 						},
 						selectedRows: this._selectedRows,
@@ -497,14 +497,14 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (search.results.size > 0) {
-			this.setSelectedRows(first(search.results));
+			this.setSelectedRows(first(search.results)![0]);
 		}
 
 		void this.notify(
 			DidSearchCommitsNotificationType,
 			{
 				results: {
-					ids: [...search.results.values()],
+					ids: Object.fromEntries(search.results),
 					paging: { hasMore: search.paging?.hasMore ?? false },
 				},
 				selectedRows: this._selectedRows,
@@ -778,8 +778,8 @@ export class GraphWebview extends WebviewBase<State> {
 
 			if (this._search != null) {
 				const search = this._search;
-				const lastResult = last(search.results);
-				if (lastResult != null && updatedGraph.ids.has(lastResult)) {
+				const lastId = last(search.results)?.[0];
+				if (lastId != null && updatedGraph.ids.has(lastId)) {
 					queueMicrotask(() => void this.onSearchCommits({ search: search.query, more: true }));
 				}
 			}

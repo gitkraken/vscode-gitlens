@@ -1,5 +1,8 @@
 import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { isMac } from '@env/platform';
 import { pluralize } from '../../../../../system/string';
+import type { Disposable } from '../../../shared/dom';
+import { DOM } from '../../../shared/dom';
 import { numberConverter } from '../converters/number-converter';
 import '../codicon';
 
@@ -119,11 +122,48 @@ export class SearchNav extends FASTElement {
 		return this.total !== 0;
 	}
 
-	handlePrevious(_e: Event) {
+	private _disposable: Disposable | undefined;
+	override connectedCallback(): void {
+		super.connectedCallback();
+
+		this._disposable = DOM.on(window, 'keyup', e => this.handleShortcutKeys(e));
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback();
+
+		this._disposable?.dispose();
+	}
+
+	next() {
+		this.$emit('next');
+	}
+
+	previous() {
 		this.$emit('previous');
 	}
 
+	handleShortcutKeys(e: KeyboardEvent) {
+		if (
+			(e.key !== 'F3' && e.key !== 'g') ||
+			(e.key !== 'g' && (e.ctrlKey || e.metaKey || e.altKey)) ||
+			(e.key === 'g' && (!e.metaKey || !isMac))
+		) {
+			return;
+		}
+
+		if (e.shiftKey) {
+			this.previous();
+		} else {
+			this.next();
+		}
+	}
+
+	handlePrevious(_e: Event) {
+		this.previous();
+	}
+
 	handleNext(_e: Event) {
-		this.$emit('next');
+		this.next();
 	}
 }

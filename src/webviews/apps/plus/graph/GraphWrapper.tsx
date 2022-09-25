@@ -99,11 +99,11 @@ const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDat
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
 };
 
-const getSearchHighlights = (searchIds?: string[]): { [id: string]: boolean } | undefined => {
+const getSearchHighlights = (searchIds?: [string, number][]): { [id: string]: boolean } | undefined => {
 	if (!searchIds?.length) return undefined;
 
 	const highlights: { [id: string]: boolean } = {};
-	for (const sha of searchIds) {
+	for (const [sha] of searchIds) {
 		highlights[sha] = true;
 	}
 	return highlights;
@@ -251,8 +251,11 @@ export function GraphWrapper({
 	// search state
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
-	const [searchResultIds, setSearchResultIds] = useState(searchResults?.ids);
+	const [searchResultIds, setSearchResultIds] = useState(
+		searchResults != null ? Object.entries(searchResults.ids) : undefined,
+	);
 	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.hasMore ?? false);
+	const [selectedRow, setSelectedRow] = useState<GraphRow | undefined>(undefined);
 
 	useEffect(() => {
 		if (graphRows.length === 0) {
@@ -266,8 +269,11 @@ export function GraphWrapper({
 			return;
 		}
 
-		if (searchResultKey == null || (searchResultKey != null && !searchResultIds.includes(searchResultKey))) {
-			setSearchResultKey(searchResultIds[0]);
+		if (
+			searchResultKey == null ||
+			(searchResultKey != null && !searchResultIds.some(id => id[0] === searchResultKey))
+		) {
+			setSearchResultKey(searchResultIds[0][0]);
 		}
 	}, [searchResultIds]);
 
@@ -276,16 +282,56 @@ export function GraphWrapper({
 	const searchPosition: number = useMemo(() => {
 		if (searchResultKey == null || searchResultIds == null) return 0;
 
-		const idx = searchResultIds.indexOf(searchResultKey);
+		const idx = searchResultIds.findIndex(id => id[0] === searchResultKey);
 		return idx < 1 ? 1 : idx + 1;
 	}, [searchResultKey, searchResultIds]);
 
 	const handleSearchNavigation = async (next = true) => {
 		if (searchResultKey == null || searchResultIds == null) return;
 
+		let selected = searchResultKey;
+		if (selectedRow != null && selectedRow.sha !== searchResultKey) {
+			selected = selectedRow.sha;
+		}
+
 		let resultIds = searchResultIds;
-		let rowIndex = resultIds.indexOf(searchResultKey);
-		if (rowIndex === -1) return;
+		const selectedDate = selectedRow != null ? selectedRow.date + (next ? 1 : -1) : undefined;
+
+		// Loop through the search results and:
+		//  try to find the selected sha
+		//  if next=true find the nearest date before the selected date
+		//  if next=false find the nearest date after the selected date
+		let rowIndex: number | undefined;
+		let nearestDate: number | undefined;
+		let nearestIndex: number | undefined;
+
+		let i = -1;
+		let date: number;
+		let sha: string;
+		for ([sha, date] of resultIds) {
+			i++;
+
+			if (sha === selected) {
+				rowIndex = i;
+				break;
+			}
+
+			if (selectedDate != null) {
+				if (next) {
+					if (date < selectedDate && (nearestDate == null || date > nearestDate)) {
+						nearestDate = date;
+						nearestIndex = i;
+					}
+				} else if (date > selectedDate && (nearestDate == null || date <= nearestDate)) {
+					nearestDate = date;
+					nearestIndex = i;
+				}
+			}
+		}
+
+		if (rowIndex == null) {
+			rowIndex = nearestIndex == null ? resultIds.length - 1 : nearestIndex + (next ? -1 : 1);
+		}
 
 		if (next) {
 			if (rowIndex < resultIds.length - 1) {
@@ -294,7 +340,7 @@ export function GraphWrapper({
 				const results = await onSearchCommitsPromise?.(searchQuery, { more: true });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
-						resultIds = results.results.ids;
+						resultIds = Object.entries(results.results.ids);
 						rowIndex++;
 					} else {
 						rowIndex = 0;
@@ -312,7 +358,7 @@ export function GraphWrapper({
 				const results = await onSearchCommitsPromise?.(searchQuery, { limit: 0, more: true });
 				if (results?.results != null) {
 					if (resultIds.length < results.results.ids.length) {
-						resultIds = results.results.ids;
+						resultIds = Object.entries(results.results.ids);
 					}
 				}
 			}
@@ -320,7 +366,7 @@ export function GraphWrapper({
 			rowIndex = resultIds.length - 1;
 		}
 
-		const nextSha = resultIds[rowIndex];
+		const nextSha = resultIds[rowIndex][0];
 		if (nextSha == null) return;
 
 		if (onEnsureCommitPromise != null) {
@@ -394,7 +440,7 @@ export function GraphWrapper({
 		setSubscriptionSnapshot(state.subscription);
 		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 		setIsLoading(state.loading);
-		setSearchResultIds(state.searchResults?.ids);
+		setSearchResultIds(state.searchResults != null ? Object.entries(state.searchResults.ids) : undefined);
 		setHasMoreSearchResults(state.searchResults?.paging?.hasMore ?? false);
 	}
 
@@ -443,6 +489,7 @@ export function GraphWrapper({
 	};
 
 	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
+		setSelectedRow(graphRows[0]);
 		onSelectionChange?.(graphRows.map(r => ({ id: r.sha, type: r.type as GitGraphRowType })));
 	};
 
