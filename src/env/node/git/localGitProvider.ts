@@ -92,7 +92,8 @@ import {
 	createLogParserSingle,
 	createLogParserWithFiles,
 	getGraphParser,
-	getGraphRefParser,
+	getRefAndDateParser,
+	getRefParser,
 	GitLogParser,
 	LogType,
 } from '../../../git/parsers/logParser';
@@ -1620,7 +1621,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		},
 	): Promise<GitGraph> {
 		const parser = getGraphParser();
-		const refParser = getGraphRefParser();
+		const refParser = getRefParser();
 
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
@@ -2646,22 +2647,40 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const comparisonKey = getSearchQueryComparisonKey(search);
 		try {
+			const refAndDateParser = getRefAndDateParser();
+
 			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search);
 			if (shas?.size) {
+				const data = await this.git.show2(
+					repoPath,
+					{ cancellation: options?.cancellation },
+					'-s',
+					...refAndDateParser.arguments,
+					...shas.values(),
+					...searchArgs,
+					'--',
+				);
+
+				const results = new Map<string, number>(
+					map(refAndDateParser.parse(data), c => [
+						c.sha,
+						Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
+					]),
+				);
+
 				return {
 					repoPath: repoPath,
 					query: search,
 					comparisonKey: comparisonKey,
-					results: shas,
+					results: results,
 				};
 			}
 
-			const refParser = getGraphRefParser();
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
 			const args = [
-				...refParser.arguments,
+				...refAndDateParser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
@@ -2669,7 +2688,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(`--${options.ordering}-order`);
 			}
 
-			const results = new Set<string>();
+			const results = new Map<string, number>();
 			let total = 0;
 			let iterations = 0;
 
@@ -2702,19 +2721,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				let count = 0;
-				let last: string | undefined;
-				for (const r of refParser.parse(data)) {
-					results.add(r);
+				for (const r of refAndDateParser.parse(data)) {
+					results.set(
+						r.sha,
+						Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+					);
 
 					count++;
-					last = r;
 				}
 
 				total += count;
+				const lastSha = last(results)?.[0];
 				cursor =
-					last != null
+					lastSha != null
 						? {
-								sha: last,
+								sha: lastSha,
 								skip: total - iterations,
 						  }
 						: undefined;
@@ -2743,7 +2764,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				repoPath: repoPath,
 				query: search,
 				comparisonKey: comparisonKey,
-				results: new Set<string>(),
+				results: new Map<string, number>(),
 			};
 		}
 	}

@@ -1597,14 +1597,23 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const comparisonKey = getSearchQueryComparisonKey(search);
 
 		try {
-			const results = new Set<string>();
+			const results = new Map<string, number>();
 			const operations = parseSearchQuery(search.query);
 
 			let op;
 			let values = operations.get('commit:');
 			if (values != null) {
-				for (const value of values) {
-					results.add(value.replace(doubleQuoteRegex, ''));
+				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
+					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+				);
+				for (const commitResult of commitsResults) {
+					const commit = getSettledValue(commitResult);
+					if (commit == null) continue;
+
+					results.set(
+						commit.sha,
+						Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
+					);
 				}
 
 				return {
@@ -1681,8 +1690,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
-				for (const sha of result.values) {
-					results.add(sha);
+				for (const commit of result.values) {
+					results.set(
+						commit.sha,
+						Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
+					);
 				}
 
 				cursor = result.pageInfo?.endCursor ?? undefined;
@@ -1710,7 +1722,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				repoPath: repoPath,
 				query: search,
 				comparisonKey: comparisonKey,
-				results: new Set<string>(),
+				results: new Map<string, number>(),
 			};
 		}
 	}

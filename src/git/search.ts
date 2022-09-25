@@ -47,7 +47,7 @@ export interface GitSearch {
 	repoPath: string;
 	query: SearchQuery;
 	comparisonKey: string;
-	results: Set<string>;
+	results: Map<string, number>;
 
 	readonly paging?: {
 		readonly limit: number | undefined;

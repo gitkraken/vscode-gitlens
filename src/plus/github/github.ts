@@ -1910,7 +1910,7 @@ export class GitHubApi implements Disposable {
 			order?: 'asc' | 'desc' | undefined;
 			sort?: 'author-date' | 'committer-date' | undefined;
 		},
-	): Promise<GitHubPagedResult<string> | undefined> {
+	): Promise<GitHubPagedResult<{ sha: string; authorDate: number; committerDate: number }> | undefined> {
 		const scope = getLogScope();
 
 		const limit = Math.min(100, options?.limit ?? 100);
@@ -1959,7 +1959,11 @@ export class GitHubApi implements Disposable {
 					hasNextPage: hasMore,
 				},
 				totalCount: data.total_count,
-				values: data.items.map(r => r.sha),
+				values: data.items.map(r => ({
+					sha: r.sha,
+					authorDate: new Date(r.commit.author.date).getTime(),
+					committerDate: new Date(r.commit.committer?.date ?? r.commit.author.date).getTime(),
+				})),
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

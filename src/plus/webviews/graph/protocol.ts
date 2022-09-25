@@ -174,7 +174,7 @@ export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsure
 );
 
 export interface DidSearchCommitsParams {
-	results: { ids: string[]; paging?: { hasMore: boolean } } | undefined;
+	results: { ids: { [sha: string]: number }; paging?: { hasMore: boolean } } | undefined;
 	selectedRows?: { [id: string]: true };
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
