@@ -1,6 +1,8 @@
 import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
+import type { OpenBranchOnRemoteCommandArgs } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
@@ -22,7 +24,7 @@ import type { Repository, RepositoryChangeEvent } from '../../../git/models/repo
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import { executeCoreGitCommand, registerCommand } from '../../../system/command';
+import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -202,15 +204,35 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override registerCommands(): Disposable[] {
 		return [
 			registerCommand(Commands.RefreshGraphPage, () => this.refresh(true)),
+			registerCommand('gitlens.graph.createBranch', this.createBranch, this),
+			registerCommand('gitlens.graph.deleteBranch', this.deleteBranch, this),
+			registerCommand('gitlens.graph.openBranchOnRemote', this.openBranchOnRemote, this),
+			registerCommand('gitlens.graph.mergeBranchInto', this.mergeBranchInto, this),
+			registerCommand('gitlens.graph.rebaseOntoBranch', this.rebase, this),
+			registerCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote, this),
+			registerCommand('gitlens.graph.renameBranch', this.renameBranch, this),
+
 			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
-			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
-			registerCommand('gitlens.graph.revert', this.revertCommit, this),
-			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
-			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
+
+			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
+			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
+			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
+			registerCommand('gitlens.graph.revert', this.revertCommit, this),
 			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
+			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
+
+			registerCommand('gitlens.graph.applyStash', this.applyStash, this),
+			registerCommand('gitlens.graph.deleteStash', this.deleteStash, this),
+
+			registerCommand('gitlens.graph.createTag', this.createTag, this),
+			registerCommand('gitlens.graph.deleteTag', this.deleteTag, this),
 			registerCommand('gitlens.graph.switchToTag', this.switchTo, this),
+
+			registerCommand('gitlens.graph.createWorktree', this.createWorktree, this),
+
+			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
 		];
 	}
 
@@ -816,6 +838,49 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private createBranch(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Branch.create(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private deleteBranch(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Branch.remove(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private mergeBranchInto(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.merge(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private openBranchOnRemote(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<OpenBranchOnRemoteCommandArgs>(Commands.OpenBranchOnRemote, {
+				branch: ref.name,
+				remote: ref.upstream?.name,
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
 	private rebase(item: GraphItemContext) {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
@@ -826,10 +891,49 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private resetCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+	private rebaseToRemote(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return GitActions.revert(
+			if (ref.upstream != null) {
+				return GitActions.rebase(
+					ref.repoPath,
+					GitReference.create(ref.upstream.name, ref.repoPath, {
+						refType: 'branch',
+						name: ref.upstream.name,
+						remote: true,
+					}),
+				);
+			}
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private renameBranch(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Branch.rename(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private cherryPick(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.cherryPick(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private resetCommit(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.reset(
 				ref.repoPath,
 				GitReference.create(`${ref.ref}^`, ref.repoPath, {
 					refType: 'revision',
@@ -844,7 +948,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private resetToCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.reset(ref.repoPath, ref);
 		}
@@ -854,7 +958,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private revertCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.revert(ref.repoPath, ref);
 		}
@@ -884,8 +988,8 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async undoCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
-			const ref = item.webviewItemValue.ref;
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
 			const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
 			const commit = await repo?.getCommit('HEAD');
 
@@ -905,6 +1009,93 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return Promise.resolve();
 	}
+
+	@debug()
+	private applyStash(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'stash')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Stash.apply(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private deleteStash(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'stash')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Stash.drop(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private async createTag(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Tag.create(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private deleteTag(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'tag')) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Tag.remove(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private async createWorktree(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.Worktree.create(ref.repoPath, undefined, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private async createPullRequest(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+
+			const repo = this.container.git.getRepository(ref.repoPath);
+			const branch = await repo?.getBranch(ref.name);
+			const remote = await branch?.getRemote();
+
+			return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
+				repoPath: ref.repoPath,
+				remote:
+					remote != null
+						? {
+								name: remote.name,
+								provider:
+									remote.provider != null
+										? {
+												id: remote.provider.id,
+												name: remote.provider.name,
+												domain: remote.provider.domain,
+										  }
+										: undefined,
+								url: remote.url,
+						  }
+						: undefined,
+				branch: {
+					name: ref.name,
+					upstream: ref.upstream?.name,
+					isRemote: ref.remote,
+				},
+			});
+		}
+
+		return Promise.resolve();
+	}
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
@@ -919,7 +1110,7 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 }
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
-export type GraphItemRefContext = WebviewItemContext<GraphItemRefContextValue>;
+export type GraphItemRefContext<T = GraphItemRefContextValue> = WebviewItemContext<T>;
 export type GraphItemRefContextValue =
 	| GraphBranchContextValue
 	| GraphCommitContextValue
@@ -962,8 +1153,20 @@ function isGraphItemContext(item: unknown): item is GraphItemContext {
 	return isWebviewItemContext(item) && item.webview === 'gitlens.graph';
 }
 
-function isGraphItemRefContext(item: unknown): item is GraphItemRefContext {
+function isGraphItemRefContext(item: unknown): item is GraphItemRefContext;
+function isGraphItemRefContext(item: unknown, refType: 'branch'): item is GraphItemRefContext<GraphBranchContextValue>;
+function isGraphItemRefContext(
+	item: unknown,
+	refType: 'revision',
+): item is GraphItemRefContext<GraphCommitContextValue>;
+function isGraphItemRefContext(item: unknown, refType: 'stash'): item is GraphItemRefContext<GraphStashContextValue>;
+function isGraphItemRefContext(item: unknown, refType: 'tag'): item is GraphItemRefContext<GraphTagContextValue>;
+function isGraphItemRefContext(item: unknown, refType?: GitReference['refType']): item is GraphItemRefContext {
 	if (item == null) return false;
 
-	return isGraphItemContext(item) && 'ref' in item.webviewItemValue;
+	return (
+		isGraphItemContext(item) &&
+		'ref' in item.webviewItemValue &&
+		(refType == null || item.webviewItemValue.ref.refType === refType)
+	);
 }
