@@ -852,18 +852,20 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('revert', ...args);
 	}
 
-	searchForCommits(
+	@debug()
+	richSearchCommits(
 		search: SearchQuery,
 		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo'; skip?: number },
 	): Promise<GitLog | undefined> {
-		return this.container.git.getLogForSearch(this.path, search, options);
+		return this.container.git.richSearchCommits(this.path, search, options);
 	}
 
-	searchForCommitShas(
+	@debug()
+	searchCommits(
 		search: SearchQuery,
 		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
 	): Promise<GitSearch> {
-		return this.container.git.searchForCommitShas(this.path, search, options);
+		return this.container.git.searchCommits(this.path, search, options);
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {

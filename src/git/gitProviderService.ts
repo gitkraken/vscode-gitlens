@@ -1466,26 +1466,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	searchForCommitShas(
-		repoPath: string | Uri,
-		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
-	): Promise<GitSearch> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.searchForCommitShas(path, search, options);
-	}
-
-	@log()
-	async getLogForSearch(
-		repoPath: string | Uri,
-		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
-	): Promise<GitLog | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getLogForSearch(path, search, options);
-	}
-
-	@log()
 	async getLogForFile(
 		repoPath: string | Uri | undefined,
 		pathOrUri: string | Uri,
@@ -2243,6 +2223,26 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.resolveReference(path, ref, pathOrUri, options);
+	}
+
+	@log()
+	async richSearchCommits(
+		repoPath: string | Uri,
+		search: SearchQuery,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+	): Promise<GitLog | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.richSearchCommits(path, search, options);
+	}
+
+	@log()
+	searchCommits(
+		repoPath: string | Uri,
+		search: SearchQuery,
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.searchCommits(path, search, options);
 	}
 
 	@log()

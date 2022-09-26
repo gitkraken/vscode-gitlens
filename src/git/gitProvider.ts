@@ -296,20 +296,6 @@ export interface GitProvider extends Disposable {
 			since?: string | undefined;
 		},
 	): Promise<Set<string> | undefined>;
-	searchForCommitShas(
-		repoPath: string | Uri,
-		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
-	): Promise<GitSearch>;
-	getLogForSearch(
-		repoPath: string,
-		search: SearchQuery,
-		options?: {
-			limit?: number | undefined;
-			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
-			skip?: number | undefined;
-		},
-	): Promise<GitLog | undefined>;
 	getLogForFile(
 		repoPath: string,
 		pathOrUri: string | Uri,
@@ -417,6 +403,20 @@ export interface GitProvider extends Disposable {
 		pathOrUri?: string | Uri,
 		options?: { timeout?: number | undefined },
 	): Promise<string>;
+	richSearchCommits(
+		repoPath: string,
+		search: SearchQuery,
+		options?: {
+			limit?: number | undefined;
+			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
+			skip?: number | undefined;
+		},
+	): Promise<GitLog | undefined>;
+	searchCommits(
+		repoPath: string | Uri,
+		search: SearchQuery,
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch>;
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 

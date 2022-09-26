@@ -2638,226 +2638,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async searchForCommitShas(
-		repoPath: string,
-		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
-	): Promise<GitSearch> {
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
-
-		const comparisonKey = getSearchQueryComparisonKey(search);
-		try {
-			const refAndDateParser = getRefAndDateParser();
-
-			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search);
-			if (shas?.size) {
-				const data = await this.git.show2(
-					repoPath,
-					{ cancellation: options?.cancellation },
-					'-s',
-					...refAndDateParser.arguments,
-					...shas.values(),
-					...searchArgs,
-					'--',
-				);
-
-				const results = new Map<string, number>(
-					map(refAndDateParser.parse(data), c => [
-						c.sha,
-						Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
-					]),
-				);
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-				};
-			}
-
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-
-			const args = [
-				...refAndDateParser.arguments,
-				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-				'--use-mailmap',
-			];
-			if (options?.ordering) {
-				args.push(`--${options.ordering}-order`);
-			}
-
-			const results = new Map<string, number>();
-			let total = 0;
-			let iterations = 0;
-
-			async function searchForCommitsCore(
-				this: LocalGitProvider,
-				limit: number,
-				cursor?: { sha: string; skip: number },
-			): Promise<GitSearch> {
-				iterations++;
-
-				if (options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				const data = await this.git.log2(
-					repoPath,
-					{ cancellation: options?.cancellation },
-					...args,
-					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
-					...(limit ? [`-n${limit + 1}`] : []),
-					...searchArgs,
-					'--',
-					...files,
-				);
-
-				if (options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				let count = 0;
-				for (const r of refAndDateParser.parse(data)) {
-					results.set(
-						r.sha,
-						Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
-					);
-
-					count++;
-				}
-
-				total += count;
-				const lastSha = last(results)?.[0];
-				cursor =
-					lastSha != null
-						? {
-								sha: lastSha,
-								skip: total - iterations,
-						  }
-						: undefined;
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-					paging:
-						limit !== 0 && count > limit
-							? {
-									limit: limit,
-									hasMore: true,
-							  }
-							: undefined,
-					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
-				};
-			}
-
-			return searchForCommitsCore.call(this, limit);
-		} catch (ex) {
-			// TODO@eamodio: Should we throw an error here?
-			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
-			return {
-				repoPath: repoPath,
-				query: search,
-				comparisonKey: comparisonKey,
-				results: new Map<string, number>(),
-			};
-		}
-	}
-
-	@log()
-	async getLogForSearch(
-		repoPath: string,
-		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
-	): Promise<GitLog | undefined> {
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
-
-		try {
-			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-			const similarityThreshold = configuration.get('advanced.similarityThreshold');
-
-			const { args, files, shas } = getGitArgsFromSearchQuery(search);
-
-			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
-			if (files.length !== 0) {
-				args.push(...files);
-			}
-
-			const data = await this.git.log__search(repoPath, args, {
-				ordering: configuration.get('advanced.commitOrdering'),
-				...options,
-				limit: limit,
-				useShow: Boolean(shas?.size),
-			});
-			const log = GitLogParser.parse(
-				this.container,
-				data,
-				LogType.Log,
-				repoPath,
-				undefined,
-				undefined,
-				await this.getCurrentUser(repoPath),
-				limit,
-				false,
-				undefined,
-			);
-
-			if (log != null) {
-				log.query = (limit: number | undefined) =>
-					this.getLogForSearch(repoPath, search, { ...options, limit: limit });
-				if (log.hasMore) {
-					log.more = this.getLogForSearchMoreFn(log, search, options);
-				}
-			}
-
-			return log;
-		} catch (ex) {
-			return undefined;
-		}
-	}
-
-	private getLogForSearchMoreFn(
-		log: GitLog,
-		search: SearchQuery,
-		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null },
-	): (limit: number | undefined) => Promise<GitLog> {
-		return async (limit: number | undefined) => {
-			limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
-
-			const moreLog = await this.getLogForSearch(log.repoPath, search, {
-				...options,
-				limit: limit,
-				skip: log.count,
-			});
-			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-			const commits = new Map([...log.commits, ...moreLog.commits]);
-
-			const mergedLog: GitLog = {
-				repoPath: log.repoPath,
-				commits: commits,
-				sha: log.sha,
-				range: log.range,
-				count: commits.size,
-				limit: (log.limit ?? 0) + limit,
-				hasMore: moreLog.hasMore,
-				query: (limit: number | undefined) =>
-					this.getLogForSearch(log.repoPath, search, { ...options, limit: limit }),
-			};
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
-			}
-
-			return mergedLog;
-		};
-	}
-	@log()
 	async getLogForFile(
 		repoPath: string | undefined,
 		pathOrUri: string | Uri,
@@ -4240,6 +4020,226 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		cancellation?.dispose();
 
 		return cancelled ? ref : resolved ?? ref;
+	}
+
+	@log()
+	async richSearchCommits(
+		repoPath: string,
+		search: SearchQuery,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+	): Promise<GitLog | undefined> {
+		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+
+		try {
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+
+			const { args, files, shas } = getGitArgsFromSearchQuery(search);
+
+			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
+			if (files.length !== 0) {
+				args.push(...files);
+			}
+
+			const data = await this.git.log__search(repoPath, args, {
+				ordering: configuration.get('advanced.commitOrdering'),
+				...options,
+				limit: limit,
+				useShow: Boolean(shas?.size),
+			});
+			const log = GitLogParser.parse(
+				this.container,
+				data,
+				LogType.Log,
+				repoPath,
+				undefined,
+				undefined,
+				await this.getCurrentUser(repoPath),
+				limit,
+				false,
+				undefined,
+			);
+
+			if (log != null) {
+				function richSearchCommitsCore(
+					this: LocalGitProvider,
+					log: GitLog,
+				): (limit: number | undefined) => Promise<GitLog> {
+					return async (limit: number | undefined) => {
+						limit = limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+
+						const moreLog = await this.richSearchCommits(log.repoPath, search, {
+							...options,
+							limit: limit,
+							skip: log.count,
+						});
+						// If we can't find any more, assume we have everything
+						if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+
+						const commits = new Map([...log.commits, ...moreLog.commits]);
+
+						const mergedLog: GitLog = {
+							repoPath: log.repoPath,
+							commits: commits,
+							sha: log.sha,
+							range: log.range,
+							count: commits.size,
+							limit: (log.limit ?? 0) + limit,
+							hasMore: moreLog.hasMore,
+							query: (limit: number | undefined) =>
+								this.richSearchCommits(log.repoPath, search, { ...options, limit: limit }),
+						};
+						if (mergedLog.hasMore) {
+							mergedLog.more = richSearchCommitsCore.call(this, mergedLog);
+						}
+
+						return mergedLog;
+					};
+				}
+
+				log.query = (limit: number | undefined) =>
+					this.richSearchCommits(repoPath, search, { ...options, limit: limit });
+				if (log.hasMore) {
+					log.more = richSearchCommitsCore.call(this, log);
+				}
+			}
+
+			return log;
+		} catch (ex) {
+			return undefined;
+		}
+	}
+
+	@log()
+	async searchCommits(
+		repoPath: string,
+		search: SearchQuery,
+		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+	): Promise<GitSearch> {
+		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
+
+		const comparisonKey = getSearchQueryComparisonKey(search);
+		try {
+			const refAndDateParser = getRefAndDateParser();
+
+			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search);
+			if (shas?.size) {
+				const data = await this.git.show2(
+					repoPath,
+					{ cancellation: options?.cancellation },
+					'-s',
+					...refAndDateParser.arguments,
+					...shas.values(),
+					...searchArgs,
+					'--',
+				);
+
+				const results = new Map<string, number>(
+					map(refAndDateParser.parse(data), c => [
+						c.sha,
+						Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
+					]),
+				);
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+				};
+			}
+
+			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
+			const similarityThreshold = configuration.get('advanced.similarityThreshold');
+
+			const args = [
+				...refAndDateParser.arguments,
+				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+				'--use-mailmap',
+			];
+			if (options?.ordering) {
+				args.push(`--${options.ordering}-order`);
+			}
+
+			const results = new Map<string, number>();
+			let total = 0;
+			let iterations = 0;
+
+			async function searchForCommitsCore(
+				this: LocalGitProvider,
+				limit: number,
+				cursor?: { sha: string; skip: number },
+			): Promise<GitSearch> {
+				iterations++;
+
+				if (options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error here?
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				const data = await this.git.log2(
+					repoPath,
+					{ cancellation: options?.cancellation },
+					...args,
+					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
+					...(limit ? [`-n${limit + 1}`] : []),
+					...searchArgs,
+					'--',
+					...files,
+				);
+
+				if (options?.cancellation?.isCancellationRequested) {
+					// TODO@eamodio: Should we throw an error here?
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				let count = 0;
+				for (const r of refAndDateParser.parse(data)) {
+					results.set(
+						r.sha,
+						Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+					);
+
+					count++;
+				}
+
+				total += count;
+				const lastSha = last(results)?.[0];
+				cursor =
+					lastSha != null
+						? {
+								sha: lastSha,
+								skip: total - iterations,
+						  }
+						: undefined;
+
+				return {
+					repoPath: repoPath,
+					query: search,
+					comparisonKey: comparisonKey,
+					results: results,
+					paging:
+						limit !== 0 && count > limit
+							? {
+									limit: limit,
+									hasMore: true,
+							  }
+							: undefined,
+					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
+				};
+			}
+
+			return searchForCommitsCore.call(this, limit);
+		} catch (ex) {
+			// TODO@eamodio: Should we throw an error here?
+			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
+			return {
+				repoPath: repoPath,
+				query: search,
+				comparisonKey: comparisonKey,
+				results: new Map<string, number>(),
+			};
+		}
 	}
 
 	@log()

@@ -478,7 +478,7 @@ export class GraphWebview extends WebviewBase<State> {
 			const cancellation = new CancellationTokenSource();
 			this._searchCancellation = cancellation;
 
-			search = await this._repository.searchForCommitShas(e.search, {
+			search = await this._repository.searchCommits(e.search, {
 				limit: configuration.get('graph.searchItemLimit') ?? 100,
 				ordering: configuration.get('graph.commitOrdering'),
 				cancellation: cancellation.token,
