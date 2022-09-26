@@ -264,7 +264,7 @@ export function GraphWrapper({
 	}, [graphRows]);
 
 	useEffect(() => {
-		if (searchResultIds == null) {
+		if (searchResultIds == null || searchResultIds?.length === 0) {
 			setSearchResultKey(undefined);
 			return;
 		}
