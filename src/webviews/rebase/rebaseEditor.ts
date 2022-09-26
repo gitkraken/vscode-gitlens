@@ -540,7 +540,7 @@ async function parseRebaseTodo(
 	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
 
-	const log = await container.git.getLogForSearch(repoPath, {
+	const log = await container.git.richSearchCommits(repoPath, {
 		query: `${onto ? `#:${onto} ` : ''}${join(
 			map(entries, e => `#:${e.ref}`),
 			' ',
