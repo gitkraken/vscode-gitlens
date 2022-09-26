@@ -687,7 +687,7 @@ export function GraphWrapper({
 								height={mainHeight}
 								highlightedShas={searchHighlights}
 								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
-								enableGhostRefs={graphConfig?.enableGhostRefs}
+								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 								isLoadingRows={isLoading}
 								isSelectedBySha={graphSelectedRows}
 								nonce={nonce}

@@ -2106,7 +2106,7 @@
 						"scope": "window",
 						"order": 11
 					},
-					"gitlens.graph.enableGhostRefs": {
+					"gitlens.graph.showGhostRefsOnRowHover": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show a ghost ref of the hovered/selected row in the _Commit Graph_",

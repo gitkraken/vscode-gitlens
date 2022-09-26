@@ -75,7 +75,7 @@ export interface GraphComponentConfig {
 	dateStyle: DateStyle;
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
-	enableGhostRefs?: boolean;
+	showGhostRefsOnRowHover?: boolean;
 	shaLength?: number;
 }
 
