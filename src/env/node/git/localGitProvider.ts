@@ -1640,7 +1640,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let stdin: string | undefined;
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const stash = getSettledValue(stashResult);
-		if (stash != null) {
+		if (stash != null && stash.commits.size !== 0) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -4152,6 +4152,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
+			const stash = await this.getStash(repoPath);
+			let stdin: string | undefined;
+			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+			if (stash != null && stash.commits.size !== 0) {
+				stdin = join(
+					map(stash.commits.values(), c => c.sha.substring(0, 9)),
+					'\n',
+				);
+			}
+
 			const args = [
 				...refAndDateParser.arguments,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
@@ -4179,7 +4189,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				const data = await this.git.log2(
 					repoPath,
-					{ cancellation: options?.cancellation },
+					{ cancellation: options?.cancellation, stdin: stdin },
 					...args,
 					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
 					...(limit ? [`-n${limit + 1}`] : []),
