@@ -19,7 +19,7 @@ body {
 .container {
 	display: grid;
 	font-size: 1.3em;
-	grid-template-rows: auto min-content;
+	grid-template-rows: min-content auto min-content;
 	min-height: 100%;
 }
 
