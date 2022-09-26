@@ -1,8 +1,9 @@
-import type { GraphRow, Head, Remote, Tag } from '@gitkraken/gitkraken-components';
+import type { GraphRow, Head, Remote, RowContexts, Tag } from '@gitkraken/gitkraken-components';
 
 export type GitGraphRowHead = Head;
 export type GitGraphRowRemoteHead = Remote;
 export type GitGraphRowTag = Tag;
+export type GitGraphRowContexts = RowContexts;
 export const enum GitGraphRowType {
 	Commit = 'commit-node',
 	MergeCommit = 'merge-node',
@@ -17,6 +18,7 @@ export interface GitGraphRow extends GraphRow {
 	heads?: GitGraphRowHead[];
 	remotes?: GitGraphRowRemoteHead[];
 	tags?: GitGraphRowTag[];
+	contexts?: GitGraphRowContexts;
 }
 
 export interface GitGraph {

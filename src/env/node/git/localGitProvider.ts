@@ -60,6 +60,7 @@ import { GitFileChange } from '../../../git/models/file';
 import type {
 	GitGraph,
 	GitGraphRow,
+	GitGraphRowContexts,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
 	GitGraphRowTag,
@@ -118,6 +119,7 @@ import {
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
+import type { GraphItemContext, GraphItemRefContext } from '../../../plus/webviews/graph/graphWebview';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
@@ -140,6 +142,7 @@ import { any, fastestSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
+import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { Git } from './git';
@@ -1731,12 +1734,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const rows: GitGraphRow[] = [];
 
 			let current = false;
+			let headCommit = false;
 			let refHeads: GitGraphRowHead[];
 			let refRemoteHeads: GitGraphRowRemoteHead[];
 			let refTags: GitGraphRowTag[];
 			let parents: string[];
 			let remoteName: string;
-			let isStashCommit: boolean;
+			let stashCommit: GitStashCommit | undefined;
+			let tag: GitGraphRowTag;
+			let contexts: GitGraphRowContexts | undefined;
 
 			let count = 0;
 
@@ -1753,24 +1759,40 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				refHeads = [];
 				refRemoteHeads = [];
 				refTags = [];
+				contexts = undefined;
+				headCommit = false;
 
 				if (commit.tips) {
 					for (let tip of commit.tips.split(', ')) {
 						if (tip === 'refs/stash') continue;
 
 						if (tip.startsWith('tag: ')) {
-							refTags.push({
+							tag = {
 								name: tip.substring(5),
 								// Not currently used, so don't bother looking it up
 								annotated: true,
+							};
+							tag.context = serializeWebviewItemContext<GraphItemRefContext>({
+								webviewItem: 'gitlens:tag',
+								webviewItemValue: {
+									type: 'tag',
+									ref: GitReference.create(tag.name, repoPath, {
+										refType: 'tag',
+										name: tag.name,
+									}),
+								},
 							});
+							refTags.push(tag);
 
 							continue;
 						}
 
 						current = tip.startsWith('HEAD');
-						if (current && tip !== 'HEAD') {
-							tip = tip.substring(8);
+						if (current) {
+							headCommit = true;
+							if (tip !== 'HEAD') {
+								tip = tip.substring(8);
+							}
 						}
 
 						remoteName = getRemoteNameFromBranchName(tip);
@@ -1788,6 +1810,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 										remote.provider?.avatarUri ??
 										getRemoteIconUri(this.container, remote, asWebviewUri)
 									)?.toString(true),
+									context: serializeWebviewItemContext<GraphItemRefContext>({
+										webviewItem: 'gitlens:branch+remote',
+										webviewItemValue: {
+											type: 'branch',
+											ref: GitReference.create(branchName, repoPath, {
+												refType: 'branch',
+												name: branchName,
+												remote: true,
+												upstream: remote.name,
+											}),
+										},
+									}),
 								});
 
 								continue;
@@ -1797,15 +1831,61 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						refHeads.push({
 							name: tip,
 							isCurrentHead: current,
+							// TODO@eamodio Add +tracking
+							context: serializeWebviewItemContext<GraphItemRefContext>({
+								webviewItem: `gitlens:branch${current ? '+current' : ''}`,
+								webviewItemValue: {
+									type: 'branch',
+									ref: GitReference.create(tip, repoPath, {
+										refType: 'branch',
+										name: tip,
+										remote: false,
+										// upstream: undefined,
+									}),
+								},
+							}),
 						});
 					}
 				}
 
-				isStashCommit = stash?.commits.has(commit.sha) ?? false;
+				stashCommit = stash?.commits.get(commit.sha);
+
+				contexts = {};
+				if (stashCommit != null) {
+					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
+						webviewItem: 'gitlens:stash',
+						webviewItemValue: {
+							type: 'stash',
+							ref: GitReference.create(commit.sha, repoPath, {
+								refType: 'stash',
+								name: stashCommit.name,
+								number: stashCommit.number,
+							}),
+						},
+					});
+				} else {
+					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
+						webviewItem: `gitlens:commit${headCommit ? '+HEAD' : ''}${true ? '+current' : ''}`,
+						webviewItemValue: {
+							type: 'commit',
+							ref: GitReference.create(commit.sha, repoPath, {
+								refType: 'revision',
+								message: commit.message,
+							}),
+						},
+					});
+					contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
+						webviewItem: 'gitlens:avatar',
+						webviewItemValue: {
+							type: 'avatar',
+							email: commit.authorEmail,
+						},
+					});
+				}
 
 				parents = commit.parents ? commit.parents.split(' ') : [];
 				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-				if (isStashCommit && parents.length > 1) {
+				if (stashCommit != null && parents.length > 1) {
 					// Skip the "index commit" (e.g. contains staged files) of the stash
 					skipStashParents.add(parents[1]);
 					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
@@ -1813,7 +1893,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					parents.splice(1, 2);
 				}
 
-				if (!isStashCommit && !avatars.has(commit.authorEmail)) {
+				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
 					const uri = getCachedAvatarUri(commit.authorEmail);
 					if (uri != null) {
 						avatars.set(commit.authorEmail, uri.toString(true));
@@ -1824,18 +1904,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					sha: commit.sha,
 					parents: parents,
 					author: commit.author,
-					email: commit.authorEmail ?? '',
+					email: commit.authorEmail,
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					message: emojify(commit.message.trim()),
 					// TODO: review logic for stash, wip, etc
-					type: isStashCommit
-						? GitGraphRowType.Stash
-						: parents.length > 1
-						? GitGraphRowType.MergeCommit
-						: GitGraphRowType.Commit,
+					type:
+						stashCommit != null
+							? GitGraphRowType.Stash
+							: parents.length > 1
+							? GitGraphRowType.MergeCommit
+							: GitGraphRowType.Commit,
 					heads: refHeads,
 					remotes: refRemoteHeads,
 					tags: refTags,
+					contexts: contexts,
 				});
 			}
 

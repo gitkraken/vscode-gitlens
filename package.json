@@ -6249,6 +6249,56 @@
 				"command": "gitlens.disableDebugLogging",
 				"title": "Disable Debug Logging",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.switchToAnotherBranch",
+				"title": "Switch to Another Branch...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.switchToBranch",
+				"title": "Switch to Branch...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.switchToCommit",
+				"title": "Switch to Commit...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.switchToTag",
+				"title": "Switch to Tag...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.rebaseOntoCommit",
+				"title": "Rebase Current Branch onto Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.resetCommit",
+				"title": "Reset Current Branch to Previous Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.resetToCommit",
+				"title": "Reset Current Branch to Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.revert",
+				"title": "Revert Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.undoCommit",
+				"title": "Undo Commit",
+				"category": "GitLens",
+				"icon": "$(discard)"
 			}
 		],
 		"icons": {
@@ -8034,6 +8084,42 @@
 				},
 				{
 					"command": "gitlens.views.worktrees.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToAnotherBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.revert",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.undoCommit",
 					"when": "false"
 				},
 				{
@@ -10465,6 +10551,53 @@
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "viewItem == gitlens:date-marker && config.gitlens.views.showRelativeDateMarkers",
 					"group": "1_gitlens@0"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "gitlens.graph.switchToAnotherBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.switchToBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.undoCommit",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.revert",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.resetToCommit",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.resetCommit",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoCommit",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.graph.switchToCommit",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.graph.switchToTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens_actions@1"
 				}
 			],
 			"gitlens/commit/browse": [

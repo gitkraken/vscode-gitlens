@@ -4,18 +4,25 @@ import { getAvatarUri } from '../../../avatars';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
-import { Commands, ContextKeys } from '../../../constants';
+import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
+import type {
+	GitBranchReference,
+	GitRevisionReference,
+	GitStashReference,
+	GitTagReference,
+} from '../../../git/models/reference';
+import { GitReference } from '../../../git/models/reference';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import { registerCommand } from '../../../system/command';
+import { executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -23,6 +30,8 @@ import { debounce } from '../../../system/function';
 import { first, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
+import type { WebviewItemContext } from '../../../system/webview';
+import { isWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -191,7 +200,18 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshGraphPage, () => this.refresh(true))];
+		return [
+			registerCommand(Commands.RefreshGraphPage, () => this.refresh(true)),
+			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
+			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
+			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
+			registerCommand('gitlens.graph.revert', this.revertCommit, this),
+			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
+			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
+			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
+			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
+			registerCommand('gitlens.graph.switchToTag', this.switchTo, this),
+		];
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {
@@ -794,6 +814,97 @@ export class GraphWebview extends WebviewBase<State> {
 		this._selectedSha = sha;
 		this._selectedRows = sha != null ? { [sha]: true } : {};
 	}
+
+	@debug()
+	private rebase(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.rebase(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private resetCommit(item: GraphItemContext) {
+		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+			const { ref } = item.webviewItemValue;
+			return GitActions.revert(
+				ref.repoPath,
+				GitReference.create(`${ref.ref}^`, ref.repoPath, {
+					refType: 'revision',
+					name: `${ref.name}^`,
+					message: ref.message,
+				}),
+			);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private resetToCommit(item: GraphItemContext) {
+		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+			const { ref } = item.webviewItemValue;
+			return GitActions.reset(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private revertCommit(item: GraphItemContext) {
+		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+			const { ref } = item.webviewItemValue;
+			return GitActions.revert(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private switchTo(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.switchTo(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private switchToAnother(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return GitActions.switchTo(ref.repoPath);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private async undoCommit(item: GraphItemContext) {
+		if (isGraphItemRefContext(item) && item.webviewItemValue.ref.refType === 'revision') {
+			const ref = item.webviewItemValue.ref;
+			const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
+			const commit = await repo?.getCommit('HEAD');
+
+			if (commit?.hash !== ref.ref) {
+				void window.showWarningMessage(
+					`Commit ${GitReference.toString(ref, {
+						capitalize: true,
+						icon: false,
+					})} cannot be undone, because it is no longer the most recent commit.`,
+				);
+
+				return;
+			}
+
+			return void executeCoreGitCommand(CoreGitCommands.UndoCommit, ref.repoPath);
+		}
+
+		return Promise.resolve();
+	}
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
@@ -805,4 +916,54 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 		name: r.name,
 		path: r.path,
 	}));
+}
+
+export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
+export type GraphItemRefContext = WebviewItemContext<GraphItemRefContextValue>;
+export type GraphItemRefContextValue =
+	| GraphBranchContextValue
+	| GraphCommitContextValue
+	| GraphStashContextValue
+	| GraphTagContextValue;
+export type GraphItemContextValue = GraphAvatarContextValue | GraphColumnsContextValue | GraphItemRefContextValue;
+
+export interface GraphAvatarContextValue {
+	type: 'avatar';
+	email: string;
+}
+
+export interface GraphColumnsContextValue {
+	type: 'columns';
+}
+
+export interface GraphBranchContextValue {
+	type: 'branch';
+	ref: GitBranchReference;
+}
+
+export interface GraphCommitContextValue {
+	type: 'commit';
+	ref: GitRevisionReference;
+}
+
+export interface GraphStashContextValue {
+	type: 'stash';
+	ref: GitStashReference;
+}
+
+export interface GraphTagContextValue {
+	type: 'tag';
+	ref: GitTagReference;
+}
+
+function isGraphItemContext(item: unknown): item is GraphItemContext {
+	if (item == null) return false;
+
+	return isWebviewItemContext(item) && item.webview === 'gitlens.graph';
+}
+
+function isGraphItemRefContext(item: unknown): item is GraphItemRefContext {
+	if (item == null) return false;
+
+	return isGraphItemContext(item) && 'ref' in item.webviewItemValue;
 }
