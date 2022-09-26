@@ -1652,6 +1652,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
+		const reachableFromHEAD = new Set<string>();
 		const skipStashParents = new Set();
 		let total = 0;
 		let iterations = 0;
@@ -1738,6 +1739,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let refHeads: GitGraphRowHead[];
 			let refRemoteHeads: GitGraphRowRemoteHead[];
 			let refTags: GitGraphRowTag[];
+			let parent: string;
 			let parents: string[];
 			let remoteName: string;
 			let stashCommit: GitStashCommit | undefined;
@@ -1790,6 +1792,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						current = tip.startsWith('HEAD');
 						if (current) {
 							headCommit = true;
+							reachableFromHEAD.add(commit.sha);
+
 							if (tip !== 'HEAD') {
 								tip = tip.substring(8);
 							}
@@ -1850,6 +1854,29 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				stashCommit = stash?.commits.get(commit.sha);
 
+				parents = commit.parents ? commit.parents.split(' ') : [];
+				if (reachableFromHEAD.has(commit.sha)) {
+					for (parent of parents) {
+						reachableFromHEAD.add(parent);
+					}
+				}
+
+				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
+				if (stashCommit != null && parents.length > 1) {
+					// Skip the "index commit" (e.g. contains staged files) of the stash
+					skipStashParents.add(parents[1]);
+					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
+					skipStashParents.add(parents[2]);
+					parents.splice(1, 2);
+				}
+
+				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
+					const uri = getCachedAvatarUri(commit.authorEmail);
+					if (uri != null) {
+						avatars.set(commit.authorEmail, uri.toString(true));
+					}
+				}
+
 				contexts = {};
 				if (stashCommit != null) {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
@@ -1865,7 +1892,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					});
 				} else {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-						webviewItem: `gitlens:commit${headCommit ? '+HEAD' : ''}${true ? '+current' : ''}`,
+						webviewItem: `gitlens:commit${headCommit ? '+HEAD' : ''}${
+							reachableFromHEAD.has(commit.sha) ? '+current' : ''
+						}`,
 						webviewItemValue: {
 							type: 'commit',
 							ref: GitReference.create(commit.sha, repoPath, {
@@ -1881,23 +1910,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							email: commit.authorEmail,
 						},
 					});
-				}
-
-				parents = commit.parents ? commit.parents.split(' ') : [];
-				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
-				if (stashCommit != null && parents.length > 1) {
-					// Skip the "index commit" (e.g. contains staged files) of the stash
-					skipStashParents.add(parents[1]);
-					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
-					skipStashParents.add(parents[2]);
-					parents.splice(1, 2);
-				}
-
-				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
-					const uri = getCachedAvatarUri(commit.authorEmail);
-					if (uri != null) {
-						avatars.set(commit.authorEmail, uri.toString(true));
-					}
 				}
 
 				rows.push({
