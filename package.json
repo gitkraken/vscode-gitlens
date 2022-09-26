@@ -6251,6 +6251,44 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.createBranch",
+				"title": "Create Branch...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.graph.deleteBranch",
+				"title": "Delete Branch...",
+				"category": "GitLens",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.graph.openBranchOnRemote",
+				"title": "Open Branch on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.graph.mergeBranchInto",
+				"title": "Merge Branch into Current Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.rebaseOntoBranch",
+				"title": "Rebase Current Branch onto Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.rebaseOntoUpstream",
+				"title": "Rebase Current Branch onto Upstream...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.renameBranch",
+				"title": "Rename Branch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.switchToAnotherBranch",
 				"title": "Switch to Another Branch...",
 				"category": "GitLens",
@@ -6263,16 +6301,9 @@
 				"icon": "$(gitlens-switch)"
 			},
 			{
-				"command": "gitlens.graph.switchToCommit",
-				"title": "Switch to Commit...",
-				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
-			},
-			{
-				"command": "gitlens.graph.switchToTag",
-				"title": "Switch to Tag...",
-				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"command": "gitlens.graph.cherryPick",
+				"title": "Cherry Pick Commit...",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.rebaseOntoCommit",
@@ -6295,10 +6326,58 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.switchToCommit",
+				"title": "Switch to Commit...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
 				"command": "gitlens.graph.undoCommit",
 				"title": "Undo Commit",
 				"category": "GitLens",
 				"icon": "$(discard)"
+			},
+			{
+				"command": "gitlens.graph.applyStash",
+				"title": "Apply Stash",
+				"category": "GitLens",
+				"icon": "$(gitlens-stash-pop)"
+			},
+			{
+				"command": "gitlens.graph.deleteStash",
+				"title": "Delete Stash...",
+				"category": "GitLens",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.graph.createTag",
+				"title": "Create Tag...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.graph.deleteTag",
+				"title": "Delete Tag...",
+				"category": "GitLens",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.graph.switchToTag",
+				"title": "Switch to Tag...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.createWorktree",
+				"title": "Create Worktree...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.graph.createPullRequest",
+				"title": "Create Pull Request...",
+				"category": "GitLens",
+				"icon": "$(git-pull-request-create)"
 			}
 		],
 		"icons": {
@@ -8087,6 +8166,34 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.createBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.deleteBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openBranchOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.mergeBranchInto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoUpstream",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.renameBranch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.switchToAnotherBranch",
 					"when": "false"
 				},
@@ -8095,11 +8202,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.switchToCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.switchToTag",
+					"command": "gitlens.graph.cherryPick",
 					"when": "false"
 				},
 				{
@@ -8119,7 +8222,39 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.switchToCommit",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.undoCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.applyStash",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.deleteStash",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.createTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.deleteTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.createWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.createPullRequest",
 					"when": "false"
 				},
 				{
@@ -10565,6 +10700,62 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.mergeBranchInto",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.rebaseOntoUpstream",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.renameBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.graph.deleteBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.graph.createBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions_@7"
+				},
+				{
+					"command": "gitlens.graph.createTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions_@8"
+				},
+				{
+					"command": "gitlens.graph.createWorktree",
+					"when": "!gitlens:readonly && webviewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions_@9"
+				},
+				{
+					"command": "gitlens.graph.createPullRequest",
+					"when": "gitlens:hasRemotes && gitlens:action:createPullRequest && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"group": "1_gitlens_actions_@10"
+				},
+				{
+					"command": "gitlens.graph.openBranchOnRemote",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"group": "2_gitlens_quickopen@1",
+					"alt": "gitlens.copyRemoteBranchUrl"
+				},
+				{
+					"command": "gitlens.graph.cherryPick",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.graph.undoCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
 					"group": "1_gitlens_actions@1"
@@ -10595,9 +10786,39 @@
 					"group": "1_gitlens_actions@7"
 				},
 				{
+					"command": "gitlens.graph.createBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions_1@1"
+				},
+				{
+					"command": "gitlens.graph.createTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions_1@2"
+				},
+				{
+					"command": "gitlens.graph.applyStash",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:stash",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.deleteStash",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:stash",
+					"group": "1_gitlens_actions@2"
+				},
+				{
 					"command": "gitlens.graph.switchToTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.deleteTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:tag",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.createBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens_actions@3"
 				}
 			],
 			"gitlens/commit/browse": [
