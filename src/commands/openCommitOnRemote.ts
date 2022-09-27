@@ -7,6 +7,7 @@ import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage } from '../messages';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import {
@@ -59,10 +60,21 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
 
-		const gitUri = await GitUri.fromUri(uri);
-		if (!gitUri.repoPath) return;
+		let gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+
+		const repoPath = (
+			await RepositoryPicker.getBestRepositoryOrShow(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Commit Url' : 'Open Commit On Remote',
+			)
+		)?.path;
+		if (!repoPath) return;
+
+		if (gitUri == null) {
+			gitUri = GitUri.fromRepoPath(repoPath);
+		}
 
 		args = { ...args };
 
@@ -89,7 +101,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,
 				},
-				repoPath: gitUri.repoPath,
+				repoPath: repoPath,
 				clipboard: args.clipboard,
 			}));
 		} catch (ex) {

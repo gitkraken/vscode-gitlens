@@ -20,6 +20,7 @@ import { GitActions } from './gitCommands.actions';
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
 	sha?: string;
+	repoPath?: string;
 }
 
 @command()
@@ -60,6 +61,11 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
 		try {
 			if (!args.message) {
+				if (args.repoPath != null && args.sha != null) {
+					await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: args.repoPath });
+					return;
+				}
+
 				let repoPath;
 
 				// If we don't have an editor then get the message of the last commit to the branch

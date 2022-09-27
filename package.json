@@ -6251,6 +6251,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.copyRemoteBranchUrl",
+				"title": "Copy Remote Branch Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.graph.createBranch",
 				"title": "Create Branch...",
 				"category": "GitLens",
@@ -6304,6 +6310,30 @@
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.copyMessage",
+				"title": "Copy Message",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copySha",
+				"title": "Copy SHA",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyRemoteCommitUrl",
+				"title": "Copy Remote Commit Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.openCommitOnRemote",
+				"title": "Open Commit on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.graph.rebaseOntoCommit",
@@ -8196,6 +8226,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.copyRemoteBranchUrl",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.createBranch",
 					"when": "false"
 				},
@@ -8233,6 +8267,22 @@
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyMessage",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copySha",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyRemoteCommitUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openCommitOnRemote",
 					"when": "false"
 				},
 				{
@@ -9815,7 +9865,7 @@
 				},
 				{
 					"command": "gitlens.openCommitOnRemote",
-					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:commit\\b/",
 					"group": "3_gitlens_explore@2",
 					"alt": "gitlens.copyRemoteCommitUrl"
 				},
@@ -10850,6 +10900,17 @@
 					"group": "1_gitlens_actions_1@2"
 				},
 				{
+					"command": "gitlens.graph.openCommitOnRemote",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:commit\\b/",
+					"group": "3_gitlens_explore@2",
+					"alt": "gitlens.copyRemoteCommitUrl"
+				},
+				{
+					"submenu": "gitlens/commit/copy",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
 					"command": "gitlens.graph.applyStash",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem == gitlens:stash",
 					"group": "1_gitlens_actions@1"
@@ -10931,17 +10992,43 @@
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
+					"when": "viewItem",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.copyRemoteCommitUrl",
-					"when": "viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))/ && gitlens:hasRemotes",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))/",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyRemoteBranchUrl",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch/",
 					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
-					"when": "viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.copySha",
+					"when": "webviewItem =~ /gitlens:(?!stash\\b)/",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyMessage",
+					"when": "webviewItem",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.copyRemoteCommitUrl",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:commit/",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyRemoteBranchUrl",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch/",
+					"group": "2_gitlens@1"
 				}
 			],
 			"gitlens/commit/changes": [

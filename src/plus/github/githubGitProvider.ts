@@ -2425,7 +2425,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async openDirectoryCompare(_repoPath: string, _ref1: string, _ref2?: string, _tool?: string): Promise<void> {}
 
 	@log()
-	async resolveReference(repoPath: string, ref: string, pathOrUri?: string | Uri, _options?: { timeout?: number }) {
+	async resolveReference(
+		repoPath: string,
+		ref: string,
+		pathOrUri?: string | Uri,
+		_options?: { force?: boolean; timeout?: number },
+	) {
 		if (
 			!ref ||
 			ref === GitRevision.deletedOrMissing ||
