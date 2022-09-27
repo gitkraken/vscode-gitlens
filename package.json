@@ -6378,6 +6378,36 @@
 				"title": "Create Pull Request...",
 				"category": "GitLens",
 				"icon": "$(git-pull-request-create)"
+			},
+			{
+				"command": "gitlens.graph.columnAuthorOn",
+				"title": "Show Author",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnAuthorOff",
+				"title": "Hide Author",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnDateTimeOn",
+				"title": "Show Date",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnDateTimeOff",
+				"title": "Hide Date",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnShaOn",
+				"title": "Show SHA",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnShaOff",
+				"title": "Hide SHA",
+				"category": "GitLens"
 			}
 		],
 		"icons": {
@@ -8255,6 +8285,30 @@
 				},
 				{
 					"command": "gitlens.graph.createPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnAuthorOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnAuthorOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnShaOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnShaOff",
 					"when": "false"
 				},
 				{
@@ -10819,6 +10873,36 @@
 					"command": "gitlens.graph.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.columnAuthorOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bauthor\\b/",
+					"group": "1_columns@1"
+				},
+				{
+					"command": "gitlens.graph.columnAuthorOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bauthor\\b).)*$/",
+					"group": "1_columns@1"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime\\b/",
+					"group": "1_columns@2"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bdatetime\\b).)*$/",
+					"group": "1_columns@2"
+				},
+				{
+					"command": "gitlens.graph.columnShaOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha\\b/",
+					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnShaOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bsha\\b).)*$/",
+					"group": "1_columns@3"
 				}
 			],
 			"gitlens/commit/browse": [
@@ -12083,7 +12167,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "1.0.0-rc.16",
+		"@gitkraken/gitkraken-components": "1.0.0-rc.17",
 		"@microsoft/fast-element": "1.10.5",
 		"@microsoft/fast-react-wrapper": "0.3.14",
 		"@octokit/core": "4.0.5",

@@ -1,11 +1,19 @@
-import type { GraphRow, Remote } from '@gitkraken/gitkraken-components';
-import type { DateStyle, GraphColumnConfig } from '../../../config';
+import type {
+	GraphColumnSetting,
+	GraphContexts,
+	GraphRow,
+	GraphZoneType,
+	Remote,
+} from '@gitkraken/gitkraken-components';
+import type { DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
 import type { SearchQuery } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+
+export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 
 export interface State {
 	repositories?: GraphRepository[];
@@ -18,7 +26,9 @@ export interface State {
 	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
+	columns?: Record<GraphColumnName, GraphColumnConfig>;
 	config?: GraphComponentConfig;
+	context?: GraphContexts;
 	nonce?: string;
 	previewBanner?: boolean;
 	trialBanner?: boolean;
@@ -61,13 +71,19 @@ export type GraphBranch = Record<string, any>;
 
 export interface GraphComponentConfig {
 	avatars?: boolean;
-	columns?: Record<string, GraphColumnConfig>;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	shaLength?: number;
 }
+
+export interface GraphColumnConfig {
+	isHidden?: boolean;
+	width?: number;
+}
+
+export type GraphColumnName = GraphZoneType;
 
 export interface UpdateStateCallback {
 	(state: State): void;
@@ -103,7 +119,7 @@ export interface SearchCommitsParams {
 export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/searchCommits');
 
 export interface UpdateColumnParams {
-	name: string;
+	name: GraphColumnName;
 	config: GraphColumnConfig;
 }
 export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/update/column');
@@ -146,6 +162,14 @@ export interface DidChangeAvatarsParams {
 }
 export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
 	'graph/avatars/didChange',
+);
+
+export interface DidChangeColumnsParams {
+	columns: Record<GraphColumnName, GraphColumnConfig> | undefined;
+	context?: string;
+}
+export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
+	'graph/columns/didChange',
 );
 
 export interface DidChangeCommitsParams {
