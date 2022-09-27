@@ -1,6 +1,6 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { GraphColumnConfig, ViewShowBranchComparison } from './config';
+import type { ViewShowBranchComparison } from './config';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
@@ -163,7 +163,7 @@ export interface WorkspaceStorage {
 		banners: {
 			dismissed?: Record<string, boolean>;
 		};
-		columns?: Record<string, GraphColumnConfig>;
+		columns?: Record<string, StoredGraphColumn>;
 	};
 	remote: {
 		default?: string;
@@ -210,6 +210,11 @@ export interface StoredBranchComparison {
 
 export interface StoredBranchComparisons {
 	[id: string]: string | StoredBranchComparison;
+}
+
+export interface StoredGraphColumn {
+	isHidden?: boolean;
+	width?: number;
 }
 
 export interface StoredNamedRef {

@@ -1,17 +1,14 @@
 import type { OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
 import GraphContainer, {
 	type CssVariables,
-	type GraphColumnSetting as GKGraphColumnSetting,
-	type GraphColumnsSettings as GKGraphColumnsSettings,
+	type GraphColumnSetting,
 	type GraphPlatform,
 	type GraphRow,
-	type GraphZoneType,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
-import type { GraphColumnConfig } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
@@ -19,6 +16,9 @@ import type {
 	DidEnsureCommitParams,
 	DidSearchCommitsParams,
 	DismissBannerParams,
+	GraphColumnConfig,
+	GraphColumnName,
+	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphRepository,
 	State,
@@ -36,7 +36,7 @@ export interface GraphWrapperProps extends State {
 	nonce?: string;
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
-	onColumnChange?: (name: string, settings: GraphColumnConfig) => void;
+	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMoreCommits?: (id?: string) => void;
 	onSearchCommits?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
@@ -74,21 +74,24 @@ const getStyleProps = (
 	};
 };
 
-const defaultGraphColumnsSettings: GKGraphColumnsSettings = {
-	commitAuthorZone: { width: 110, isHidden: false },
-	commitDateTimeZone: { width: 130, isHidden: false },
-	commitMessageZone: { width: 130, isHidden: false },
-	commitZone: { width: 170, isHidden: false },
-	refZone: { width: 150, isHidden: false },
+const defaultGraphColumnsSettings: GraphColumnsSettings = {
+	ref: { width: 150, isHidden: false },
+	graph: { width: 150, isHidden: false },
+	message: { width: 300, isHidden: false },
+	author: { width: 130, isHidden: false },
+	datetime: { width: 130, isHidden: false },
+	sha: { width: 130, isHidden: false },
 };
 
-const getGraphColSettingsModel = (config?: GraphComponentConfig): GKGraphColumnsSettings => {
-	const columnsSettings: GKGraphColumnsSettings = { ...defaultGraphColumnsSettings };
-	if (config?.columns !== undefined) {
-		for (const column of Object.keys(config.columns)) {
+const getGraphColumns = (columns?: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings => {
+	const columnsSettings: GraphColumnsSettings = {
+		...defaultGraphColumnsSettings,
+	};
+	if (columns != null) {
+		for (const [column, columnCfg] of Object.entries(columns) as [GraphColumnName, GraphColumnConfig][]) {
 			columnsSettings[column] = {
-				width: config.columns[column].width,
-				isHidden: config.columns[column].isHidden,
+				...defaultGraphColumnsSettings[column],
+				...columnCfg,
 			};
 		}
 	}
@@ -163,33 +166,6 @@ const getClientPlatform = (): GraphPlatform => {
 
 const clientPlatform = getClientPlatform();
 
-const graphColumns: { [Key in GraphZoneType]: { name: string; hideable: boolean } } = {
-	refZone: {
-		name: 'Branch / Tag',
-		hideable: false,
-	},
-	commitZone: {
-		name: 'Graph',
-		hideable: false,
-	},
-	commitMessageZone: {
-		name: 'Commit Message',
-		hideable: false,
-	},
-	commitAuthorZone: {
-		name: 'Author',
-		hideable: true,
-	},
-	commitDateTimeZone: {
-		name: 'Commit Date / Time',
-		hideable: true,
-	},
-	commitShaZone: {
-		name: 'Sha',
-		hideable: true,
-	},
-};
-
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
@@ -201,7 +177,9 @@ export function GraphWrapper({
 	selectedRepositoryVisibility,
 	allowed,
 	avatars,
+	columns,
 	config,
+	context,
 	loading,
 	paging,
 	onSelectRepository,
@@ -228,7 +206,8 @@ export function GraphWrapper({
 	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphConfig, setGraphConfig] = useState(config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
-	const [graphColSettings, setGraphColSettings] = useState(getGraphColSettingsModel(config));
+	const [graphColumns, setGraphColumns] = useState(getGraphColumns(columns));
+	const [graphContext, setGraphContext] = useState(context);
 	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(loading);
 	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
@@ -246,8 +225,6 @@ export function GraphWrapper({
 	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
-	// column setting UI
-	const [columnSettingsExpanded, setColumnSettingsExpanded] = useState(false);
 	// search state
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
@@ -432,7 +409,8 @@ export function GraphWrapper({
 		}
 		setGraphConfig(state.config);
 		// setGraphDateFormatter(getGraphDateFormatter(config));
-		setGraphColSettings(getGraphColSettingsModel(state.config));
+		setGraphColumns(getGraphColumns(state.columns));
+		setGraphContext(state.context);
 		setPagingState(state.paging);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
 		setIsAllowed(state.allowed ?? false);
@@ -463,15 +441,15 @@ export function GraphWrapper({
 		onMissingAvatars?.(emails);
 	};
 
-	const handleSelectColumn = (graphZoneType: GraphZoneType) => {
-		onColumnChange?.(graphZoneType, {
-			...graphColSettings[graphZoneType],
-			isHidden: !graphColSettings[graphZoneType]?.isHidden,
+	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
+		const e = event.nativeEvent;
+		const evt = new MouseEvent('contextmenu', {
+			bubbles: true,
+			clientX: e.clientX,
+			clientY: e.clientY,
 		});
-	};
-
-	const handleToggleColumnSettings = () => {
-		setColumnSettingsExpanded(!columnSettingsExpanded);
+		e.target?.dispatchEvent(evt);
+		e.stopImmediatePropagation();
 	};
 
 	const handleMoreCommits = () => {
@@ -479,9 +457,9 @@ export function GraphWrapper({
 		onMoreCommits?.();
 	};
 
-	const handleOnColumnResized = (graphZoneType: GraphZoneType, columnSettings: GKGraphColumnSetting) => {
+	const handleOnColumnResized = (columnName: GraphColumnName, columnSettings: GraphColumnSetting) => {
 		if (columnSettings.width) {
-			onColumnChange?.(graphZoneType, {
+			onColumnChange?.(columnName, {
 				width: columnSettings.width,
 				isHidden: columnSettings.isHidden,
 			});
@@ -698,7 +676,8 @@ export function GraphWrapper({
 						{mainWidth !== undefined && mainHeight !== undefined && (
 							<GraphContainer
 								avatarUrlByEmail={graphAvatars}
-								columnsSettings={graphColSettings}
+								columnsSettings={graphColumns}
+								contexts={graphContext}
 								cssVariables={styleProps.cssVariables}
 								enableMultiSelection={graphConfig?.enableMultiSelection}
 								formatCommitDateTime={getGraphDateFormatter(graphConfig)}
@@ -726,56 +705,18 @@ export function GraphWrapper({
 				) : (
 					<p>No repository is selected</p>
 				)}
-				<div className="column-bar">
-					<div className="column-bar__group">
-						<div className="column-combo">
-							<button
-								type="button"
-								aria-controls="repo-columnsettings-list"
-								aria-expanded={columnSettingsExpanded}
-								aria-haspopup="listbox"
-								id="columns-column-combo-label"
-								className="column-combo__label"
-								role="combobox"
-								onClick={() => handleToggleColumnSettings()}
-							>
-								<span
-									className="codicon codicon-settings-gear columnsettings__icon"
-									aria-label="Column Settings"
-								></span>
-							</button>
-							<div
-								className="column-combo__list"
-								id="columns-column-combo-list"
-								role="listbox"
-								tabIndex={-1}
-								aria-labelledby="columns-column-combo-label"
-							>
-								{Object.entries(graphColumns).map(
-									([graphZoneType, column]) =>
-										column.hideable && (
-											<span
-												className="column-combo__item"
-												role="option"
-												data-value={graphZoneType}
-												id={`column-column-combo-item-${graphZoneType}`}
-												key={`column-column-combo-item-${graphZoneType}`}
-												aria-checked={false}
-												onClick={() => handleSelectColumn(graphZoneType as GraphZoneType)}
-											>
-												<span
-													className={`column-combo__item-check${
-														!graphColSettings[graphZoneType]?.isHidden ? ' icon--check' : ''
-													}`}
-												/>
-												{column.name}{' '}
-											</span>
-										),
-								)}
-							</div>
-						</div>
-					</div>
-				</div>
+				<button
+					className="column-button"
+					type="button"
+					role="button"
+					data-vscode-context={JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
+					onClick={handleToggleColumnSettings}
+				>
+					<span
+						className="codicon codicon-settings-gear columnsettings__icon"
+						aria-label="Column Settings"
+					></span>
+				</button>
 			</main>
 			<footer className={`actionbar graph-app__footer${!isAllowed ? ' is-gated' : ''}`} aria-hidden={!isAllowed}>
 				<div className="actionbar__group">

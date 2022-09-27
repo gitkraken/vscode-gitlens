@@ -373,11 +373,6 @@ export interface AdvancedConfig {
 	similarityThreshold: number | null;
 }
 
-export interface GraphColumnConfig {
-	width: number;
-	isHidden: boolean;
-}
-
 export interface GraphConfig {
 	avatars: boolean;
 	commitOrdering: 'date' | 'author-date' | 'topo';

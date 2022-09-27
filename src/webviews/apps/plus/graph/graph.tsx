@@ -2,17 +2,19 @@
 import type { CssVariables } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
-import type { GraphColumnConfig } from '../../../../config';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
 	DismissBannerParams,
+	GraphColumnConfig,
+	GraphColumnName,
 	GraphRepository,
 	State,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
+	DidChangeColumnsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
@@ -68,7 +70,7 @@ export class GraphApp extends App<State> {
 				<GraphWrapper
 					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
 					onColumnChange={debounce(
-						(name: string, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
+						(name: GraphColumnName, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
 						250,
 					)}
 					onSelectRepository={debounce(
@@ -112,6 +114,19 @@ export class GraphApp extends App<State> {
 			case DidChangeAvatarsNotificationType.method:
 				onIpc(DidChangeAvatarsNotificationType, msg, params => {
 					this.setState({ ...this.state, avatars: params.avatars });
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeColumnsNotificationType.method:
+				onIpc(DidChangeColumnsNotificationType, msg, params => {
+					this.setState({
+						...this.state,
+						...(params.columns != null ? { columns: params.columns } : undefined),
+						...(params.context != null
+							? { context: { ...this.state.context, header: params.context } }
+							: undefined),
+					});
 					this.refresh(this.state);
 				});
 				break;
@@ -278,7 +293,7 @@ export class GraphApp extends App<State> {
 		this.sendCommand(DismissBannerCommandType, { key: key });
 	}
 
-	private onColumnChanged(name: string, settings: GraphColumnConfig) {
+	private onColumnChanged(name: GraphColumnName, settings: GraphColumnConfig) {
 		this.sendCommand(UpdateColumnCommandType, {
 			name: name,
 			config: settings,

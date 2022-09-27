@@ -33,7 +33,7 @@ import { first, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext } from '../../../system/webview';
-import { isWebviewItemContext } from '../../../system/webview';
+import { isWebviewItemContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -45,6 +45,8 @@ import type {
 	EnsureCommitParams,
 	GetMissingAvatarsParams,
 	GetMoreCommitsParams,
+	GraphColumnConfig,
+	GraphColumnName,
 	GraphComponentConfig,
 	GraphRepository,
 	SearchCommitsParams,
@@ -55,6 +57,7 @@ import type {
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
+	DidChangeColumnsNotificationType,
 	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
@@ -233,6 +236,13 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.createWorktree', this.createWorktree, this),
 
 			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
+
+			registerCommand('gitlens.graph.columnAuthorOn', () => this.toggleColumn('author', true)),
+			registerCommand('gitlens.graph.columnAuthorOff', () => this.toggleColumn('author', false)),
+			registerCommand('gitlens.graph.columnDateTimeOn', () => this.toggleColumn('datetime', true)),
+			registerCommand('gitlens.graph.columnDateTimeOff', () => this.toggleColumn('datetime', false)),
+			registerCommand('gitlens.graph.columnShaOn', () => this.toggleColumn('sha', true)),
+			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
 		];
 	}
 
@@ -339,7 +349,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.dateStyle') ||
 			configuration.changed(e, 'graph.highlightRowsOnRefHover')
 		) {
-			void this.notifyDidChangeGraphConfiguration();
+			void this.notifyDidChangeConfiguration();
 		}
 	}
 
@@ -399,11 +409,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onColumnUpdated(e: UpdateColumnParams) {
-		let columns = this.container.storage.getWorkspace('graph:columns');
-		columns = updateRecordValue(columns, e.name, e.config);
-		void this.container.storage.storeWorkspace('graph:columns', columns);
-
-		void this.notifyDidChangeGraphConfiguration();
+		this.updateColumn(e.name, e.config);
 	}
 
 	@debug()
@@ -622,48 +628,32 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeState() {
-		if (!this.isReady || !this.visible) return false;
-
-		return this.notify(DidChangeNotificationType, { state: await this.getState() });
-	}
-
-	@debug()
-	private async notifyDidChangeGraphConfiguration() {
-		if (!this.isReady || !this.visible) return false;
-
-		return this.notify(DidChangeGraphConfigurationNotificationType, {
-			config: this.getComponentConfig(),
-		});
-	}
-
-	@debug()
-	private async notifyDidChangeSelection() {
-		if (!this.isReady || !this.visible) return false;
-
-		return this.notify(DidChangeSelectionNotificationType, {
-			selection: this._selectedRows,
-		});
-	}
-
-	@debug()
-	private async notifyDidChangeSubscription() {
-		if (!this.isReady || !this.visible) return false;
-
-		const access = await this.getGraphAccess();
-		return this.notify(DidChangeSubscriptionNotificationType, {
-			subscription: access.subscription.current,
-			allowed: access.allowed,
-		});
-	}
-
-	@debug()
 	private async notifyDidChangeAvatars() {
 		if (!this.isReady || !this.visible) return false;
 
 		const data = this._graph!;
 		return this.notify(DidChangeAvatarsNotificationType, {
 			avatars: Object.fromEntries(data.avatars),
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeColumns() {
+		if (!this.isReady || !this.visible) return false;
+
+		const columns = this.getColumns();
+		return this.notify(DidChangeColumnsNotificationType, {
+			columns: columns,
+			context: this.getColumnHeaderContext(columns),
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeConfiguration() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeGraphConfigurationNotificationType, {
+			config: this.getComponentConfig(),
 		});
 	}
 
@@ -692,10 +682,55 @@ export class GraphWebview extends WebviewBase<State> {
 		return success;
 	}
 
+	@debug()
+	private async notifyDidChangeSelection() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeSelectionNotificationType, {
+			selection: this._selectedRows,
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeSubscription() {
+		if (!this.isReady || !this.visible) return false;
+
+		const access = await this.getGraphAccess();
+		return this.notify(DidChangeSubscriptionNotificationType, {
+			subscription: access.subscription.current,
+			allowed: access.allowed,
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeState() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeNotificationType, { state: await this.getState() });
+	}
+
+	private getColumns(): Record<GraphColumnName, GraphColumnConfig> | undefined {
+		return this.container.storage.getWorkspace('graph:columns');
+	}
+
+	private getColumnHeaderContext(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): string {
+		const hidden: string[] = [];
+		if (columns != null) {
+			for (const [name, cfg] of Object.entries(columns)) {
+				if (cfg.isHidden) {
+					hidden.push(name);
+				}
+			}
+		}
+		return serializeWebviewItemContext<GraphItemContext>({
+			webviewItem: 'gitlens:graph:columns',
+			webviewItemValue: hidden.join(','),
+		});
+	}
+
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
 			avatars: configuration.get('graph.avatars'),
-			columns: this.container.storage.getWorkspace('graph:columns'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
@@ -704,6 +739,18 @@ export class GraphWebview extends WebviewBase<State> {
 			shaLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
+	}
+
+	private async getGraphAccess() {
+		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		this._etagSubscription = this.container.subscription.etag;
+
+		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
+		if (!access.allowed && access.subscription.current.previewTrial == null) {
+			await this.container.subscription.startPreviewTrial(true);
+			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
+		}
+		return access;
 	}
 
 	private async getState(deferRows?: boolean): Promise<State> {
@@ -758,6 +805,8 @@ export class GraphWebview extends WebviewBase<State> {
 			this.setSelectedRows(data.sha);
 		}
 
+		const columns = this.getColumns();
+
 		return {
 			previewBanner: this.previewBanner,
 			trialBanner: this.trialBanner,
@@ -777,21 +826,19 @@ export class GraphWebview extends WebviewBase<State> {
 							hasMore: data.paging?.hasMore ?? false,
 					  }
 					: undefined,
+			columns: columns,
 			config: this.getComponentConfig(),
+			context: {
+				header: this.getColumnHeaderContext(columns),
+			},
 			nonce: this.cspNonce,
 		};
 	}
 
-	private async getGraphAccess() {
-		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
-		this._etagSubscription = this.container.subscription.etag;
-
-		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
-		if (!access.allowed && access.subscription.current.previewTrial == null) {
-			await this.container.subscription.startPreviewTrial(true);
-			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
-		}
-		return access;
+	private updateColumn(name: GraphColumnName, cfg: GraphColumnConfig) {
+		let columns = this.container.storage.getWorkspace('graph:columns');
+		columns = updateRecordValue(columns, name, cfg);
+		void this.container.storage.storeWorkspace('graph:columns', columns);
 	}
 
 	private resetRepositoryState() {
@@ -1096,6 +1143,22 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return Promise.resolve();
 	}
+
+	@debug()
+	private async toggleColumn(name: GraphColumnName, visible: boolean) {
+		let columns = this.container.storage.getWorkspace('graph:columns');
+		let column = columns?.[name];
+		if (column != null) {
+			column.isHidden = !visible;
+		} else {
+			column = { isHidden: !visible };
+		}
+
+		columns = updateRecordValue(columns, name, column);
+		await this.container.storage.storeWorkspace('graph:columns', columns);
+
+		void this.notifyDidChangeColumns();
+	}
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
@@ -1123,9 +1186,7 @@ export interface GraphAvatarContextValue {
 	email: string;
 }
 
-export interface GraphColumnsContextValue {
-	type: 'columns';
-}
+export type GraphColumnsContextValue = string;
 
 export interface GraphBranchContextValue {
 	type: 'branch';
@@ -1166,6 +1227,7 @@ function isGraphItemRefContext(item: unknown, refType?: GitReference['refType'])
 
 	return (
 		isGraphItemContext(item) &&
+		typeof item.webviewItemValue === 'object' &&
 		'ref' in item.webviewItemValue &&
 		(refType == null || item.webviewItemValue.ref.refType === refType)
 	);
