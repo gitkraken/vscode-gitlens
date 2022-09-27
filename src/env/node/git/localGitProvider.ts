@@ -1630,14 +1630,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 
-		const [refResult, stashResult, remotesResult] = await Promise.allSettled([
+		const [refResult, stashResult, branchesResult, remotesResult] = await Promise.allSettled([
 			this.git.log2(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 			this.getStash(repoPath),
+			this.getBranches(repoPath),
 			this.getRemotes(repoPath),
 		]);
 
+		const branches = getSettledValue(branchesResult)?.values;
+		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+
 		const remotes = getSettledValue(remotesResult);
-		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map();
+		const remoteMap =
+			remotes != null
+				? new Map(remotes.map(r => [r.name, r]))
+				: new Map<string, GitRemote<RemoteProvider | RichRemoteProvider | undefined>>();
 		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
 
 		let stdin: string | undefined;
@@ -1734,6 +1741,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const rows: GitGraphRow[] = [];
 
+			let branch: GitBranch | undefined;
+			let branchName: string;
 			let current = false;
 			let headCommit = false;
 			let refHeads: GitGraphRowHead[];
@@ -1741,6 +1750,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let refTags: GitGraphRowTag[];
 			let parent: string;
 			let parents: string[];
+			let remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined> | undefined;
 			let remoteName: string;
 			let stashCommit: GitStashCommit | undefined;
 			let tag: GitGraphRowTag;
@@ -1801,9 +1811,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 						remoteName = getRemoteNameFromBranchName(tip);
 						if (remoteName) {
-							const remote = remoteMap.get(remoteName);
+							remote = remoteMap.get(remoteName);
 							if (remote != null) {
-								const branchName = getBranchNameWithoutRemote(tip);
+								branchName = getBranchNameWithoutRemote(tip);
 								if (branchName === 'HEAD') continue;
 
 								refRemoteHeads.push({
@@ -1822,7 +1832,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 												refType: 'branch',
 												name: branchName,
 												remote: true,
-												upstream: remote.name,
+												upstream: { name: remote.name, missing: false },
 											}),
 										},
 									}),
@@ -1832,19 +1842,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							}
 						}
 
+						branch = branchMap.get(tip);
 						refHeads.push({
 							name: tip,
 							isCurrentHead: current,
-							// TODO@eamodio Add +tracking
 							context: serializeWebviewItemContext<GraphItemRefContext>({
-								webviewItem: `gitlens:branch${current ? '+current' : ''}`,
+								webviewItem: `gitlens:branch${current ? '+current' : ''}${
+									branch?.upstream != null ? '+tracking' : ''
+								}`,
 								webviewItemValue: {
 									type: 'branch',
 									ref: GitReference.create(tip, repoPath, {
 										refType: 'branch',
 										name: tip,
 										remote: false,
-										// upstream: undefined,
+										upstream: branch?.upstream,
 									}),
 								},
 							}),
