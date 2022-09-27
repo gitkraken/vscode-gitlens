@@ -380,6 +380,7 @@ export interface GraphConfig {
 	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
 	highlightRowsOnRefHover: boolean;
+	showGhostRefsOnRowHover: boolean;
 	pageItemLimit: number;
 	searchItemLimit: number;
 	statusBar: {
