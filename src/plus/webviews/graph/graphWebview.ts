@@ -2,7 +2,12 @@ import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBar
 import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
-import type { OpenBranchOnRemoteCommandArgs } from '../../../commands';
+import type {
+	CopyMessageToClipboardCommandArgs,
+	CopyShaToClipboardCommandArgs,
+	OpenBranchOnRemoteCommandArgs,
+	OpenCommitOnRemoteCommandArgs,
+} from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
@@ -19,7 +24,7 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import { GitReference } from '../../../git/models/reference';
+import { GitReference, GitRevision } from '../../../git/models/reference';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
@@ -209,6 +214,7 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand(Commands.RefreshGraphPage, () => this.refresh(true)),
 			registerCommand('gitlens.graph.createBranch', this.createBranch, this),
 			registerCommand('gitlens.graph.deleteBranch', this.deleteBranch, this),
+			registerCommand('gitlens.graph.copyRemoteBranchUrl', item => this.openBranchOnRemote(item, true), this),
 			registerCommand('gitlens.graph.openBranchOnRemote', this.openBranchOnRemote, this),
 			registerCommand('gitlens.graph.mergeBranchInto', this.mergeBranchInto, this),
 			registerCommand('gitlens.graph.rebaseOntoBranch', this.rebase, this),
@@ -219,6 +225,8 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
+			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
+			registerCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote, this),
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
 			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
 			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
@@ -236,6 +244,9 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.createWorktree', this.createWorktree, this),
 
 			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
+
+			registerCommand('gitlens.graph.copyMessage', this.copyMessage, this),
+			registerCommand('gitlens.graph.copySha', this.copySha, this),
 
 			registerCommand('gitlens.graph.columnAuthorOn', () => this.toggleColumn('author', true)),
 			registerCommand('gitlens.graph.columnAuthorOff', () => this.toggleColumn('author', false)),
@@ -915,12 +926,13 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private openBranchOnRemote(item: GraphItemContext) {
+	private openBranchOnRemote(item: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return executeCommand<OpenBranchOnRemoteCommandArgs>(Commands.OpenBranchOnRemote, {
 				branch: ref.name,
 				remote: ref.upstream?.name,
+				clipboard: clipboard,
 			});
 		}
 
@@ -971,6 +983,51 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item, 'revision')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.cherryPick(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private copyMessage(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<CopyMessageToClipboardCommandArgs>(Commands.CopyMessageToClipboard, {
+				repoPath: ref.repoPath,
+				sha: ref.ref,
+				message: 'message' in ref ? ref.message : undefined,
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private async copySha(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+
+			let sha = ref.ref;
+			if (!GitRevision.isSha(sha)) {
+				sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
+			}
+
+			return executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+				sha: sha,
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private openCommitOnRemote(item: GraphItemContext, clipboard?: boolean) {
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, {
+				sha: ref.ref,
+				clipboard: clipboard,
+			});
 		}
 
 		return Promise.resolve();

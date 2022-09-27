@@ -401,7 +401,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		ref: string,
 		pathOrUri?: string | Uri,
-		options?: { timeout?: number | undefined },
+		options?: { force?: boolean; timeout?: number | undefined },
 	): Promise<string>;
 	richSearchCommits(
 		repoPath: string,
