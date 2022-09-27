@@ -1828,9 +1828,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 										webviewItem: 'gitlens:branch+remote',
 										webviewItemValue: {
 											type: 'branch',
-											ref: GitReference.create(branchName, repoPath, {
+											ref: GitReference.create(tip, repoPath, {
 												refType: 'branch',
-												name: branchName,
+												name: tip,
 												remote: true,
 												upstream: { name: remote.name, missing: false },
 											}),
