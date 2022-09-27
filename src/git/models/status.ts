@@ -383,10 +383,11 @@ export class GitStatusFile implements GitFile {
 
 			switch (y) {
 				case 'A':
-					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
+				case '?':
+					this.workingTreeStatus = GitFileWorkingTreeStatus.Added;
 					break;
 				case 'D':
-					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
+					this.workingTreeStatus = GitFileWorkingTreeStatus.Deleted;
 					break;
 				case 'M':
 					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
