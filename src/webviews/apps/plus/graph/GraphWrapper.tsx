@@ -43,6 +43,7 @@ export interface GraphWrapperProps extends State {
 		search: SearchQuery,
 		options?: { limit?: number; more?: boolean },
 	) => Promise<DidSearchCommitsParams | undefined>;
+	onSearchOpenInView?: (search: SearchQuery) => void;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
 	onEnsureCommitPromise?: (id: string, select: boolean) => Promise<DidEnsureCommitParams | undefined>;
@@ -164,6 +165,7 @@ export function GraphWrapper({
 	onMoreCommits,
 	onSearchCommits,
 	onSearchCommitsPromise,
+	onSearchOpenInView,
 	onSelectionChange,
 	nonce,
 	mixedColumnColors,
@@ -357,6 +359,12 @@ export function GraphWrapper({
 		}
 		onSearchCommits?.(isValid ? detail : undefined);
 	}, 250);
+
+	const handleSearchOpenInView = () => {
+		if (searchQuery == null) return;
+
+		onSearchOpenInView?.(searchQuery);
+	};
 
 	useLayoutEffect(() => {
 		if (mainRef.current === null) return;
@@ -630,6 +638,7 @@ export function GraphWrapper({
 							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
 							onPrevious={() => handleSearchNavigation(false)}
 							onNext={() => handleSearchNavigation(true)}
+							onOpenInView={() => handleSearchOpenInView()}
 						/>
 					</div>
 				</header>

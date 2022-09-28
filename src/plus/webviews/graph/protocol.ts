@@ -117,7 +117,12 @@ export interface SearchCommitsParams {
 	limit?: number;
 	more?: boolean;
 }
-export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/searchCommits');
+export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/search');
+
+export interface SearchOpenInViewParams {
+	search: SearchQuery;
+}
+export const SearchOpenInViewCommandType = new IpcCommandType<SearchOpenInViewParams>('graph/search/openInView');
 
 export interface UpdateColumnParams {
 	name: GraphColumnName;
@@ -207,6 +212,6 @@ export interface DidSearchCommitsParams {
 	selectedRows?: { [id: string]: true };
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
-	'graph/commits/didSearch',
+	'graph/didSearch',
 	true,
 );
