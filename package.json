@@ -89,6 +89,7 @@
 		"onCommand:gitlens.showSettingsPage#stashes-view",
 		"onCommand:gitlens.showSettingsPage#tags-view",
 		"onCommand:gitlens.showSettingsPage#worktrees-view",
+		"onCommand:gitlens.showSettingsPage#commit-graph",
 		"onCommand:gitlens.showWelcomePage",
 		"onCommand:gitlens.showBranchesView",
 		"onCommand:gitlens.showCommitDetailsView",
@@ -4135,6 +4136,12 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage#commit-graph",
+				"title": "Open Commit Graph Settings",
+				"category": "GitLens+",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "gitlens.showTimelinePage",
 				"title": "Open Visual File History of Active File",
 				"category": "GitLens+",
@@ -6763,6 +6770,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.showSettingsPage#commit-graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showTimelinePage",
 					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
 				},
@@ -8590,6 +8601,11 @@
 					"command": "gitlens.refreshGraphPage",
 					"when": "gitlens:graphPage:focused",
 					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.showSettingsPage#commit-graph",
+					"when": "gitlens:graphPage:focused",
+					"group": "navigation@-98"
 				}
 			],
 			"editor/title/context": [
