@@ -9,6 +9,7 @@ import './search-input';
 
 const template = html<SearchBox>`<template>
 	<search-input
+		id="search-input"
 		errorMessage="${x => x.errorMessage}"
 		label="${x => x.label}"
 		placeholder="${x => x.placeholder}"
@@ -169,6 +170,7 @@ export class SearchBox extends FASTElement {
 	}
 
 	private _disposable: Disposable | undefined;
+
 	override connectedCallback(): void {
 		super.connectedCallback();
 
@@ -181,6 +183,10 @@ export class SearchBox extends FASTElement {
 		this._disposable?.dispose();
 	}
 
+	override focus(options?: FocusOptions): void {
+		this.shadowRoot?.getElementById('search-input')?.focus(options);
+	}
+
 	next() {
 		this.$emit('next');
 	}
@@ -190,18 +196,26 @@ export class SearchBox extends FASTElement {
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
-		if (
-			(e.key !== 'F3' && e.key !== 'g') ||
-			(e.key !== 'g' && (e.ctrlKey || e.metaKey || e.altKey)) ||
-			(e.key === 'g' && (!e.metaKey || !isMac))
-		) {
+		if (e.altKey) return;
+
+		if ((e.key === 'F3' && !e.ctrlKey && !e.metaKey) || (e.key === 'g' && e.metaKey && !e.ctrlKey && isMac)) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+
+			if (e.shiftKey) {
+				this.previous();
+			} else {
+				this.next();
+			}
+
 			return;
 		}
 
-		if (e.shiftKey) {
-			this.previous();
-		} else {
-			this.next();
+		if (e.key === 'f' && ((e.metaKey && !e.ctrlKey && isMac) || (e.ctrlKey && !isMac))) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+
+			this.focus();
 		}
 	}
 
