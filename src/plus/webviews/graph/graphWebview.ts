@@ -852,6 +852,7 @@ export class GraphWebview extends WebviewBase<State> {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		columns = updateRecordValue(columns, name, cfg);
 		void this.container.storage.storeWorkspace('graph:columns', columns);
+		void this.notifyDidChangeColumns();
 	}
 
 	private resetRepositoryState() {
