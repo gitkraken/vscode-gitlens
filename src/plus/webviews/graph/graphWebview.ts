@@ -1,4 +1,12 @@
-import type { ColorTheme, ConfigurationChangeEvent, Disposable, Event, StatusBarItem } from 'vscode';
+import type {
+	ColorTheme,
+	ConfigurationChangeEvent,
+	Disposable,
+	Event,
+	StatusBarItem,
+	WebviewOptions,
+	WebviewPanelOptions,
+} from 'vscode';
 import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
@@ -40,8 +48,8 @@ import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext } from '../../../system/webview';
 import { isWebviewItemContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
-import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
+import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
@@ -123,7 +131,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
-	private _pendingNotifyCommits: boolean = false;
+	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
 	private _search: GitSearch | undefined;
 	private _searchCancellation: CancellationTokenSource | undefined;
 	private _selectedSha?: string;
@@ -148,13 +156,7 @@ export class GraphWebview extends WebviewBase<State> {
 		);
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			{
-				dispose: () => {
-					this._statusBarItem?.dispose();
-					void this._repositoryEventsDisposable?.dispose();
-				},
-			},
-			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			{ dispose: () => this._statusBarItem?.dispose() },
 			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
 				this.repository = this.container.git.getRepository(args.repoPath);
 				this.setSelectedRows(args.sha);
@@ -174,6 +176,15 @@ export class GraphWebview extends WebviewBase<State> {
 		);
 
 		this.onConfigurationChanged();
+	}
+
+	protected override get options(): WebviewPanelOptions & WebviewOptions {
+		return {
+			retainContextWhenHidden: true,
+			enableFindWidget: false,
+			enableCommandUris: true,
+			enableScripts: true,
+		};
 	}
 
 	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
@@ -259,13 +270,15 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override onInitializing(): Disposable[] | undefined {
 		this._theme = window.activeColorTheme;
-		return [window.onDidChangeActiveColorTheme(this.onThemeChanged, this)];
+		return [
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
+			{ dispose: () => void this._repositoryEventsDisposable?.dispose() },
+		];
 	}
 
 	protected override onReady(): void {
-		if (this._pendingNotifyCommits) {
-			void this.notifyDidChangeCommits();
-		}
+		this.sendPendingIpcNotifications();
 	}
 
 	protected override onMessageReceived(e: IpcMessage) {
@@ -315,7 +328,10 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override onVisibilityChanged(visible: boolean): void {
 		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
 			this.updateState(true);
+			return;
 		}
+
+		this.sendPendingIpcNotifications();
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
@@ -345,14 +361,17 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		}
 
-		if (configuration.changed(e, 'graph.commitOrdering')) {
+		// If we don't have an open webview ignore the rest
+		if (this._panel == null) return;
+
+		if (e != null && configuration.changed(e, 'graph.commitOrdering')) {
 			this.updateState();
 
 			return;
 		}
 
 		if (
-			configuration.changed(e, 'defaultDateFormat') ||
+			(e != null && configuration.changed(e, 'defaultDateFormat')) ||
 			configuration.changed(e, 'defaultDateStyle') ||
 			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'graph.avatars') ||
@@ -607,7 +626,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private updateState(immediate: boolean = false) {
-		if (!this.isReady || !this.visible) return;
+		this._pendingIpcNotifications.clear();
 
 		if (immediate) {
 			void this.notifyDidChangeState();
@@ -625,8 +644,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private updateAvatars(immediate: boolean = false) {
-		if (!this.isReady || !this.visible) return;
-
 		if (immediate) {
 			void this.notifyDidChangeAvatars();
 			return;
@@ -641,9 +658,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeAvatars() {
-		if (!this.isReady || !this.visible) return false;
+		if (this._graph == null) return;
 
-		const data = this._graph!;
+		const data = this._graph;
 		return this.notify(DidChangeAvatarsNotificationType, {
 			avatars: Object.fromEntries(data.avatars),
 		});
@@ -651,7 +668,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeColumns() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeColumnsNotificationType);
+			return false;
+		}
 
 		const columns = this.getColumns();
 		return this.notify(DidChangeColumnsNotificationType, {
@@ -662,7 +682,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeConfiguration() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeGraphConfigurationNotificationType);
+			return false;
+		}
 
 		return this.notify(DidChangeGraphConfigurationNotificationType, {
 			config: this.getComponentConfig(),
@@ -671,32 +694,30 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeCommits(completionId?: string) {
-		let success = false;
+		if (this._graph == null) return;
 
-		if (this.isReady && this.visible) {
-			const data = this._graph!;
-			success = await this.notify(
-				DidChangeCommitsNotificationType,
-				{
-					rows: data.rows,
-					avatars: Object.fromEntries(data.avatars),
-					selectedRows: this._selectedRows,
-					paging: {
-						startingCursor: data.paging?.startingCursor,
-						hasMore: data.paging?.hasMore ?? false,
-					},
+		const data = this._graph;
+		return this.notify(
+			DidChangeCommitsNotificationType,
+			{
+				rows: data.rows,
+				avatars: Object.fromEntries(data.avatars),
+				selectedRows: this._selectedRows,
+				paging: {
+					startingCursor: data.paging?.startingCursor,
+					hasMore: data.paging?.hasMore ?? false,
 				},
-				completionId,
-			);
-		}
-
-		this._pendingNotifyCommits = !success;
-		return success;
+			},
+			completionId,
+		);
 	}
 
 	@debug()
 	private async notifyDidChangeSelection() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeSelectionNotificationType);
+			return false;
+		}
 
 		return this.notify(DidChangeSelectionNotificationType, {
 			selection: this._selectedRows,
@@ -705,7 +726,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeSubscription() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeSubscriptionNotificationType);
+			return false;
+		}
 
 		const access = await this.getGraphAccess();
 		return this.notify(DidChangeSubscriptionNotificationType, {
@@ -716,9 +740,74 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeNotificationType);
+			return false;
+		}
 
 		return this.notify(DidChangeNotificationType, { state: await this.getState() });
+	}
+
+	protected override async notify<T extends IpcNotificationType<any>>(
+		type: T,
+		params: IpcMessageParams<T>,
+		completionId?: string,
+	): Promise<boolean> {
+		const msg: IpcMessage = {
+			id: this.nextIpcId(),
+			method: type.method,
+			params: params,
+			completionId: completionId,
+		};
+		const success = await this.postMessage(msg);
+		if (success) {
+			this._pendingIpcNotifications.clear();
+		} else {
+			this.addPendingIpcNotification(type, msg);
+		}
+		return success;
+	}
+
+	private readonly _ipcNotificationMap = new Map<IpcNotificationType<any>, () => Promise<boolean>>([
+		[DidChangeColumnsNotificationType, this.notifyDidChangeColumns],
+		[DidChangeGraphConfigurationNotificationType, this.notifyDidChangeConfiguration],
+		[DidChangeNotificationType, this.notifyDidChangeState],
+		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
+		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
+	]);
+
+	private addPendingIpcNotification(type: IpcNotificationType<any>, msg?: IpcMessage) {
+		if (type === DidChangeNotificationType) {
+			this._pendingIpcNotifications.clear();
+		} else if (type.overwriteable) {
+			this._pendingIpcNotifications.delete(type);
+		}
+
+		let msgOrFn: IpcMessage | (() => Promise<boolean>) | undefined;
+		if (msg == null) {
+			msgOrFn = this._ipcNotificationMap.get(type)?.bind(this);
+			if (msgOrFn == null) {
+				debugger;
+				return;
+			}
+		} else {
+			msgOrFn = msg;
+		}
+		this._pendingIpcNotifications.set(type, msgOrFn);
+	}
+
+	private sendPendingIpcNotifications() {
+		if (this._pendingIpcNotifications.size === 0) return;
+
+		const ipcs = new Map(this._pendingIpcNotifications);
+		this._pendingIpcNotifications.clear();
+		for (const msgOrFn of ipcs.values()) {
+			if (typeof msgOrFn === 'function') {
+				void msgOrFn();
+			} else {
+				void this.postMessage(msgOrFn);
+			}
+		}
 	}
 
 	private getColumns(): Record<GraphColumnName, GraphColumnConfig> | undefined {

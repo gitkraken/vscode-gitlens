@@ -148,6 +148,7 @@ export interface DidChangeGraphConfigurationParams {
 }
 export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
 	'graph/configuration/didChange',
+	true,
 );
 
 export interface DidChangeSubscriptionParams {
@@ -156,6 +157,7 @@ export interface DidChangeSubscriptionParams {
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'graph/subscription/didChange',
+	true,
 );
 
 export interface DidChangeAvatarsParams {
@@ -171,6 +173,7 @@ export interface DidChangeColumnsParams {
 }
 export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
 	'graph/columns/didChange',
+	true,
 );
 
 export interface DidChangeCommitsParams {
@@ -188,6 +191,7 @@ export interface DidChangeSelectionParams {
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',
+	true,
 );
 
 export interface DidEnsureCommitParams {
@@ -204,4 +208,5 @@ export interface DidSearchCommitsParams {
 }
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
 	'graph/commits/didSearch',
+	true,
 );
