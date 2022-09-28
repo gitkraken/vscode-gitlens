@@ -21,16 +21,15 @@ import type { GitContributor } from '../git/models/contributor';
 import type { GitFile } from '../git/models/file';
 import type {
 	GitBranchReference,
-	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
-import { GitRevision } from '../git/models/reference';
+import { GitReference, GitRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import type { ShowCommitInGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
@@ -778,9 +777,8 @@ export namespace GitActions {
 			commit: GitRevisionReference | GitCommit,
 			options?: { preserveFocus?: boolean },
 		): Promise<void> {
-			void (await executeCommand<ShowCommitInGraphCommandArgs>(Commands.ShowCommitInGraph, {
-				sha: commit.ref,
-				repoPath: commit.repoPath,
+			void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+				ref: GitReference.fromRevision(commit),
 				preserveFocus: options?.preserveFocus,
 			}));
 		}

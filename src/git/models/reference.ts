@@ -209,6 +209,23 @@ export namespace GitReference {
 		});
 	}
 
+	export function fromRevision(revision: GitRevisionReference) {
+		if (revision.refType === 'stash') {
+			return create(revision.ref, revision.repoPath, {
+				refType: revision.refType,
+				name: revision.name,
+				number: revision.number,
+				message: revision.message,
+			});
+		}
+
+		return create(revision.ref, revision.repoPath, {
+			refType: revision.refType,
+			name: revision.name,
+			message: revision.message,
+		});
+	}
+
 	export function fromTag(tag: GitTagReference) {
 		return create(tag.ref, tag.repoPath, {
 			refType: tag.refType,

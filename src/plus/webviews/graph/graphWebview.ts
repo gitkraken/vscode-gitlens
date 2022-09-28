@@ -47,6 +47,11 @@ import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext } from '../../../system/webview';
 import { isWebviewItemContext, serializeWebviewItemContext } from '../../../system/webview';
+import type { BranchNode } from '../../../views/nodes/branchNode';
+import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
+import type { CommitNode } from '../../../views/nodes/commitNode';
+import type { StashNode } from '../../../views/nodes/stashNode';
+import type { TagNode } from '../../../views/nodes/tagNode';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import { onIpc } from '../../../webviews/protocol';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
@@ -88,9 +93,8 @@ import {
 	UpdateSelectionCommandType,
 } from './protocol';
 
-export interface ShowCommitInGraphCommandArgs {
-	repoPath: string;
-	sha: string;
+export interface ShowInCommitGraphCommandArgs {
+	ref: GitReference;
 	preserveFocus?: boolean;
 }
 
@@ -157,22 +161,35 @@ export class GraphWebview extends WebviewBase<State> {
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			{ dispose: () => this._statusBarItem?.dispose() },
-			registerCommand(Commands.ShowCommitInGraph, (args: ShowCommitInGraphCommandArgs) => {
-				this.repository = this.container.git.getRepository(args.repoPath);
-				this.setSelectedRows(args.sha);
-
-				if (this._panel == null) {
-					void this.show({ preserveFocus: args.preserveFocus });
-				} else {
-					if (this._graph?.ids.has(args.sha)) {
-						void this.notifyDidChangeSelection();
-						return;
+			registerCommand(
+				Commands.ShowInCommitGraph,
+				async (
+					args: ShowInCommitGraphCommandArgs | BranchNode | CommitNode | CommitFileNode | StashNode | TagNode,
+				) => {
+					this.repository = this.container.git.getRepository(args.ref.repoPath);
+					let sha = args.ref.ref;
+					if (!GitRevision.isSha(sha)) {
+						sha = await this.container.git.resolveReference(args.ref.repoPath, sha, undefined, {
+							force: true,
+						});
 					}
+					this.setSelectedRows(sha);
 
-					this.setSelectedRows(args.sha);
-					void this.onGetMoreCommits({ sha: args.sha });
-				}
-			}),
+					const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
+					if (this._panel == null) {
+						void this.show({ preserveFocus: preserveFocus });
+					} else {
+						this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, preserveFocus ?? false);
+						if (this._graph?.ids.has(sha)) {
+							void this.notifyDidChangeSelection();
+							return;
+						}
+
+						this.setSelectedRows(sha);
+						void this.onGetMoreCommits({ sha: sha });
+					}
+				},
+			),
 		);
 
 		this.onConfigurationChanged();

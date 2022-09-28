@@ -18,8 +18,9 @@ import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
 import { Logger } from '../../logger';
-import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
 import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
@@ -237,9 +238,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 						case 'graph':
 							if (this._context.commit == null) return;
 
-							void executeCommand<ShowCommitInGraphCommandArgs>(Commands.ShowCommitInGraph, {
-								repoPath: this._context.commit.repoPath,
-								sha: this._context.commit.sha,
+							void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+								ref: GitReference.fromRevision(this._context.commit),
 							});
 							break;
 						case 'more':

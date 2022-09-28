@@ -19,7 +19,7 @@ import { configuration, DateStyle, FileAnnotationType } from '../../configuratio
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import type { ShowCommitInGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
@@ -30,7 +30,7 @@ import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import type { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
-import { GitRevision } from '../models/reference';
+import { GitReference, GitRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { FormatOptions } from './formatter';
@@ -354,9 +354,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Blame Prior to this Change")`;
 		}
 
-		commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowCommitInGraphCommandArgs>(
-			Commands.ShowCommitInGraph,
-			{ sha: this._item.sha, repoPath: this._item.repoPath },
+		commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
+			Commands.ShowInCommitGraph,
+			{ ref: GitReference.fromRevision(this._item) },
 		)} "Show in Commit Graph")`;
 
 		if (this._options.remotes != null && this._options.remotes.length !== 0) {
