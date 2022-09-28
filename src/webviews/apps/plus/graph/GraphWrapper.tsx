@@ -741,6 +741,12 @@ export function GraphWrapper({
 										onClick={() => handleSelectRepository(item)}
 										disabled={item.path === currentRepository?.path}
 									>
+										<span
+											className={`${
+												item.path === currentRepository?.path ? 'codicon codicon-check ' : ''
+											}actioncombo__icon`}
+											aria-label="Checked"
+										></span>
 										{item.formattedName}
 									</button>
 								))

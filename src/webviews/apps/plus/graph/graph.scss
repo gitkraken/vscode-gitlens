@@ -81,6 +81,7 @@ a {
 
 	--actioncombo-height: 2.2rem;
 	--actioncombo-items: 1;
+	--actioncombo-items-height: 2.6rem;
 
 	position: relative;
 	display: inline-flex;
@@ -99,27 +100,47 @@ a {
 		border: none;
 		color: inherit;
 		padding: 0 0.75rem;
-		height: var(--actioncombo-height);
-		line-height: var(--actioncombo-height);
 		cursor: pointer;
 		background-color: var(--actionbar-background-color);
 		text-align: left;
 
 		&:hover {
-			background-color: var(--actionbar-hover-background-color);
+			color: var(--vscode-menu-selectionForeground);
+			background-color: var(--vscode-menu-selectionBackground);
 		}
 
 		&[disabled] {
 			pointer-events: none;
+			cursor: default;
 			opacity: 0.5;
+		}
+
+		&[aria-selected='true'] {
+			opacity: 1;
+			background-color: var(--actionbar-hover-background-color);
 		}
 	}
 
 	&__label {
+		height: var(--actioncombo-height);
+		line-height: var(--actioncombo-height);
+	}
+
+	&__item {
+		display: flex;
+		align-items: center;
+		height: var(--actioncombo-items-height);
+		line-height: var(--actioncombo-items-height);
 	}
 
 	&__icon.codicon[class*='codicon-'] {
-		margin-right: 0.25rem;
+		margin-right: 0.4rem;
+	}
+
+	&__icon:not(.codicon) {
+		display: inline-block;
+		margin-right: 0.4rem;
+		width: 16px;
 	}
 
 	&__list {
@@ -131,7 +152,7 @@ a {
 		justify-content: stretch;
 		min-width: 100%;
 		width: max-content;
-		z-index: 100;
+		z-index: 10000;
 		background-color: var(--actionbar-background-color);
 	}
 
