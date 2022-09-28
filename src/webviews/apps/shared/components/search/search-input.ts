@@ -1,9 +1,9 @@
-import { attr, css, customElement, FASTElement, html, observable } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, volatile } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
 import '../codicon';
 
 // match case is disabled unless regex is true
-const template = html<SearchField>`
+const template = html<SearchInput>`
 	<template role="search">
 		<label htmlFor="search">
 			<code-icon icon="search" aria-label="${x => x.label}" title="${x => x.label}"></code-icon>
@@ -11,10 +11,11 @@ const template = html<SearchField>`
 		<div class="field">
 			<input
 				id="search"
+				part="search"
 				type="search"
 				spellcheck="false"
 				placeholder="${x => x.placeholder}"
-				value="${x => x.value}"
+				:value="${x => x.value}"
 				aria-valid="${x => x.errorMessage === ''}"
 				aria-describedby="${x => (x.errorMessage === '' ? '' : 'error')}"
 				@input="${(x, c) => x.handleInput(c.event)}"
@@ -24,23 +25,35 @@ const template = html<SearchField>`
 		</div>
 		<div class="controls">
 			<button
+				class="clear-button${x => (x.value ? '' : ' clear-button__hidden')}"
+				type="button"
+				role="button"
+				aria-label="Clear"
+				title="Clear"
+				@click="${(x, c) => x.handleClear(c.event)}"
+			>
+				<code-icon icon="close"></code-icon>
+			</button>
+			<button
 				type="button"
 				role="checkbox"
 				aria-label="Match All"
 				title="Match All"
-				aria-checked="${x => x.all}"
-				@click="${(x, c) => x.handleAll(c.event)}"
+				aria-checked="${x => x.matchAll}"
+				@click="${(x, c) => x.handleMatchAll(c.event)}"
 			>
 				<code-icon icon="whole-word"></code-icon>
 			</button>
 			<button
 				type="button"
 				role="checkbox"
-				aria-label="Match Case in Regular Expression"
-				title="Match Case in Regular Expression"
-				?disabled="${x => !x.regex}"
-				aria-checked="${x => x.case}"
-				@click="${(x, c) => x.handleCase(c.event)}"
+				aria-label="Match Case${x =>
+					x.matchCaseOverride && !x.matchCase ? ' (always on without regular expressions)' : ''}"
+				title="Match Case${x =>
+					x.matchCaseOverride && !x.matchCase ? ' (always on without regular expressions)' : ''}"
+				?disabled="${x => !x.matchRegex}"
+				aria-checked="${x => x.matchCaseOverride}"
+				@click="${(x, c) => x.handleMatchCase(c.event)}"
 			>
 				<code-icon icon="case-sensitive"></code-icon>
 			</button>
@@ -49,8 +62,8 @@ const template = html<SearchField>`
 				role="checkbox"
 				aria-label="Use Regular Expression"
 				title="Use Regular Expression"
-				aria-checked="${x => x.regex}"
-				@click="${(x, c) => x.handleRegex(c.event)}"
+				aria-checked="${x => x.matchRegex}"
+				@click="${(x, c) => x.handleMatchRegex(c.event)}"
 			>
 				<code-icon icon="regex"></code-icon>
 			</button>
@@ -69,6 +82,8 @@ const styles = css`
 		align-items: center;
 		gap: 0.8rem;
 		position: relative;
+
+		flex: auto 1 1;
 	}
 
 	label {
@@ -77,7 +92,7 @@ const styles = css`
 
 	.field {
 		position: relative;
-		width: 30rem;
+		flex: auto 1 1;
 	}
 
 	input {
@@ -148,37 +163,44 @@ const styles = css`
 		width: 2rem;
 		height: 2rem;
 		padding: 0;
-		color: inherit;
+		color: var(--vscode-input-foreground);
 		border: none;
 		background: none;
 		text-align: center;
 		border-radius: 0.25rem;
 	}
-	button:focus:not([disabled]) {
+	button[role='checkbox']:focus:not([disabled]) {
 		outline: 1px solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 	button:not([disabled]) {
 		cursor: pointer;
 	}
-	button:hover:not([disabled]) {
+	button:hover:not([disabled]):not([aria-checked='true']) {
 		background-color: var(--vscode-inputOption-hoverBackground);
 	}
 	button[disabled] {
 		opacity: 0.5;
 	}
+	button[disabled][aria-checked='true'] {
+		opacity: 0.8;
+	}
 	button[aria-checked='true'] {
 		background-color: var(--vscode-inputOption-activeBackground);
 		color: var(--vscode-inputOption-activeForeground);
 	}
+
+	.clear-button__hidden {
+		display: none;
+	}
 `;
 
 @customElement({
-	name: 'search-field',
+	name: 'search-input',
 	template: template,
 	styles: styles,
 })
-export class SearchField extends FASTElement {
+export class SearchInput extends FASTElement {
 	@observable
 	errorMessage = '';
 
@@ -192,17 +214,42 @@ export class SearchField extends FASTElement {
 	value = '';
 
 	@attr({ mode: 'boolean' })
-	all = false;
+	matchAll = false;
 
 	@attr({ mode: 'boolean' })
-	case = false;
+	matchCase = false;
 
 	@attr({ mode: 'boolean' })
-	regex = true;
+	matchRegex = true;
+
+	@volatile
+	get matchCaseOverride() {
+		return this.matchRegex ? this.matchCase : true;
+	}
+
+	handleClear(_e: Event) {
+		this.value = '';
+		this.emitSearch();
+	}
 
 	handleInput(e: Event) {
 		const value = (e.target as HTMLInputElement)?.value;
 		this.value = value;
+		this.emitSearch();
+	}
+
+	handleMatchAll(_e: Event) {
+		this.matchAll = !this.matchAll;
+		this.emitSearch();
+	}
+
+	handleMatchCase(_e: Event) {
+		this.matchCase = !this.matchCase;
+		this.emitSearch();
+	}
+
+	handleMatchRegex(_e: Event) {
+		this.matchRegex = !this.matchRegex;
 		this.emitSearch();
 	}
 
@@ -217,30 +264,12 @@ export class SearchField extends FASTElement {
 		}
 	}
 
-	handleAll(_e: Event) {
-		this.all = !this.all;
-		this.emitSearch();
-	}
-
-	handleCase(_e: Event) {
-		this.case = !this.case;
-		this.emitSearch();
-	}
-
-	handleRegex(_e: Event) {
-		this.regex = !this.regex;
-		if (!this.regex) {
-			this.case = false;
-		}
-		this.emitSearch();
-	}
-
-	emitSearch() {
+	private emitSearch() {
 		const search: SearchQuery = {
 			query: this.value,
-			matchAll: this.all,
-			matchCase: this.case,
-			matchRegex: this.regex,
+			matchAll: this.matchAll,
+			matchCase: this.matchCase,
+			matchRegex: this.matchRegex,
 		};
 		this.$emit('change', search);
 	}
