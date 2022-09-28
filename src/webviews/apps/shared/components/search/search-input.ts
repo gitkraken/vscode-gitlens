@@ -227,6 +227,10 @@ export class SearchInput extends FASTElement {
 		return this.matchRegex ? this.matchCase : true;
 	}
 
+	override focus(options?: FocusOptions): void {
+		this.shadowRoot?.getElementById('search')?.focus(options);
+	}
+
 	handleClear(_e: Event) {
 		this.value = '';
 		this.emitSearch();
