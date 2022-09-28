@@ -198,6 +198,7 @@ export const enum Commands {
 	ShowSettingsPageAndJumpToTagsView = 'gitlens.showSettingsPage#tags-view',
 	ShowSettingsPageAndJumpToWorkTreesView = 'gitlens.showSettingsPage#worktrees-view',
 	ShowSettingsPageAndJumpToViews = 'gitlens.showSettingsPage#views',
+	ShowSettingsPageAndJumpToCommitGraph = 'gitlens.showSettingsPage#commit-graph',
 	ShowSettingsPageAndJumpToAutolinks = 'gitlens.showSettingsPage#autolinks',
 	ShowStashesView = 'gitlens.showStashesView',
 	ShowTagsView = 'gitlens.showTagsView',
