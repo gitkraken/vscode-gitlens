@@ -4039,6 +4039,12 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.showInCommitGraph",
+				"title": "Show in Commit Graph",
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
+			},
+			{
 				"command": "gitlens.refreshGraphPage",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -6699,6 +6705,10 @@
 				{
 					"command": "gitlens.showGraphPage",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showInCommitGraph",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.refreshGraphPage",
@@ -9866,9 +9876,14 @@
 					"group": "3_gitlens_explore@0"
 				},
 				{
+					"command": "gitlens.showInCommitGraph",
+					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"group": "3_gitlens_explore@1"
+				},
+				{
 					"command": "gitlens.revealCommitInView",
 					"when": "view =~ /gitlens\\.views\\.(?!commits|branches\\b)/ && viewItem =~ /gitlens:commit\\b/",
-					"group": "3_gitlens_explore@1"
+					"group": "3_gitlens_explore@2"
 				},
 				{
 					"command": "gitlens.openCommitOnRemote",
