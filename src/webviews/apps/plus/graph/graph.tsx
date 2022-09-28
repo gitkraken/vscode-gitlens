@@ -120,13 +120,18 @@ export class GraphApp extends App<State> {
 
 			case DidChangeColumnsNotificationType.method:
 				onIpc(DidChangeColumnsNotificationType, msg, params => {
-					this.setState({
-						...this.state,
-						...(params.columns != null ? { columns: params.columns } : undefined),
-						...(params.context != null
-							? { context: { ...this.state.context, header: params.context } }
-							: undefined),
-					});
+					const newState = { ...this.state, columns: params.columns };
+					if (params.context != null) {
+						if (newState.context == null) {
+							newState.context = { header: params.context };
+						} else {
+							newState.context.header = params.context;
+						}
+					} else if (newState.context?.header != null) {
+						newState.context.header = undefined;
+					}
+
+					this.setState(newState);
 					this.refresh(this.state);
 				});
 				break;

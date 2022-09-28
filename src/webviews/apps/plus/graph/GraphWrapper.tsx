@@ -18,7 +18,6 @@ import type {
 	DismissBannerParams,
 	GraphColumnConfig,
 	GraphColumnName,
-	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphRepository,
 	State,
@@ -72,30 +71,6 @@ const getStyleProps = (
 		},
 		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
 	};
-};
-
-const defaultGraphColumnsSettings: GraphColumnsSettings = {
-	ref: { width: 150, isHidden: false },
-	graph: { width: 150, isHidden: false },
-	message: { width: 300, isHidden: false },
-	author: { width: 130, isHidden: false },
-	datetime: { width: 130, isHidden: false },
-	sha: { width: 130, isHidden: false },
-};
-
-const getGraphColumns = (columns?: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings => {
-	const columnsSettings: GraphColumnsSettings = {
-		...defaultGraphColumnsSettings,
-	};
-	if (columns != null) {
-		for (const [column, columnCfg] of Object.entries(columns) as [GraphColumnName, GraphColumnConfig][]) {
-			columnsSettings[column] = {
-				...defaultGraphColumnsSettings[column],
-				...columnCfg,
-			};
-		}
-	}
-	return columnsSettings;
 };
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -206,7 +181,7 @@ export function GraphWrapper({
 	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
 	const [graphConfig, setGraphConfig] = useState(config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
-	const [graphColumns, setGraphColumns] = useState(getGraphColumns(columns));
+	const [graphColumns, setGraphColumns] = useState(columns);
 	const [graphContext, setGraphContext] = useState(context);
 	const [pagingState, setPagingState] = useState(paging);
 	const [isLoading, setIsLoading] = useState(loading);
@@ -409,7 +384,7 @@ export function GraphWrapper({
 		}
 		setGraphConfig(state.config);
 		// setGraphDateFormatter(getGraphDateFormatter(config));
-		setGraphColumns(getGraphColumns(state.columns));
+		setGraphColumns(state.columns);
 		setGraphContext(state.context);
 		setPagingState(state.paging);
 		setStyleProps(getStyleProps(state.mixedColumnColors));
