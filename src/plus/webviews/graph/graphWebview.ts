@@ -65,6 +65,7 @@ import type {
 	GetMoreCommitsParams,
 	GraphColumnConfig,
 	GraphColumnName,
+	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphRepository,
 	SearchCommitsParams,
@@ -101,6 +102,15 @@ export interface ShowInCommitGraphCommandArgs {
 export interface GraphSelectionChangeEvent {
 	readonly selection: GitCommit[];
 }
+
+const defaultGraphColumnsSettings: GraphColumnsSettings = {
+	ref: { width: 150, isHidden: false },
+	graph: { width: 150, isHidden: false },
+	message: { width: 300, isHidden: false },
+	author: { width: 130, isHidden: false },
+	datetime: { width: 130, isHidden: false },
+	sha: { width: 130, isHidden: false },
+};
 
 export class GraphWebview extends WebviewBase<State> {
 	private _onDidChangeSelection = new EventEmitter<GraphSelectionChangeEvent>();
@@ -692,7 +702,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const columns = this.getColumns();
 		return this.notify(DidChangeColumnsNotificationType, {
-			columns: columns,
+			columns: this.getColumnSettings(columns),
 			context: this.getColumnHeaderContext(columns),
 		});
 	}
@@ -831,6 +841,26 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
+	private getColumnSettings(
+		columns: Record<GraphColumnName, GraphColumnConfig> | undefined,
+	): GraphColumnsSettings | undefined {
+		if (columns == null) return undefined;
+
+		const columnsSettings: GraphColumnsSettings = {
+			...defaultGraphColumnsSettings,
+		};
+		if (columns != null) {
+			for (const [column, columnCfg] of Object.entries(columns) as [GraphColumnName, GraphColumnConfig][]) {
+				columnsSettings[column] = {
+					...defaultGraphColumnsSettings[column],
+					...columnCfg,
+				};
+			}
+		}
+
+		return columnsSettings;
+	}
+
 	private getColumnHeaderContext(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): string {
 		const hidden: string[] = [];
 		if (columns != null) {
@@ -945,7 +975,7 @@ export class GraphWebview extends WebviewBase<State> {
 							hasMore: data.paging?.hasMore ?? false,
 					  }
 					: undefined,
-			columns: columns,
+			columns: this.getColumnSettings(columns),
 			config: this.getComponentConfig(),
 			context: {
 				header: this.getColumnHeaderContext(columns),

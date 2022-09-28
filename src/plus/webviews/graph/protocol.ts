@@ -26,7 +26,7 @@ export interface State {
 	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
-	columns?: Record<GraphColumnName, GraphColumnConfig>;
+	columns?: GraphColumnsSettings;
 	config?: GraphComponentConfig;
 	context?: GraphContexts;
 	nonce?: string;
@@ -168,7 +168,7 @@ export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChang
 );
 
 export interface DidChangeColumnsParams {
-	columns: Record<GraphColumnName, GraphColumnConfig> | undefined;
+	columns: GraphColumnsSettings | undefined;
 	context?: string;
 }
 export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
