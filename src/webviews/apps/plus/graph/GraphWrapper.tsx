@@ -689,7 +689,7 @@ export function GraphWrapper({
 					className="column-button"
 					type="button"
 					role="button"
-					data-vscode-context={JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
+					data-vscode-context={graphContext?.header || JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
 					onClick={handleToggleColumnSettings}
 				>
 					<span
