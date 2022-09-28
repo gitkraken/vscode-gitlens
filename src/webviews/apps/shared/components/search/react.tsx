@@ -9,5 +9,6 @@ export const SearchBox = wrap(searchBoxComponent, {
 		onChange: 'change',
 		onPrevious: 'previous',
 		onNext: 'next',
+		onOpenInView: 'openinview',
 	},
 });

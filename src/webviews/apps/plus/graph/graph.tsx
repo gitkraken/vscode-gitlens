@@ -27,6 +27,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
+	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
@@ -81,6 +82,7 @@ export class GraphApp extends App<State> {
 					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
 					onSearchCommits={(...params) => this.onSearchCommits(...params)}
 					onSearchCommitsPromise={(...params) => this.onSearchCommitsPromise(...params)}
+					onSearchOpenInView={(...params) => this.onSearchOpenInView(...params)}
 					onSelectionChange={debounce(
 						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
 						250,
@@ -336,6 +338,10 @@ export class GraphApp extends App<State> {
 		} catch {
 			return undefined;
 		}
+	}
+
+	private onSearchOpenInView(search: SearchQuery) {
+		this.sendCommand(SearchOpenInViewCommandType, { search: search });
 	}
 
 	private async onEnsureCommitPromise(id: string, select: boolean) {

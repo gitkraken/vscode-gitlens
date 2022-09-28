@@ -44,6 +44,18 @@ const template = html<SearchBox>`<template>
 		<button type="button" class="button" ?disabled="${x => !x.hasNext}" @click="${(x, c) => x.handleNext(c.event)}">
 			<code-icon icon="arrow-down" aria-label="Next Match (Enter)" title="Next Match (Enter)"></code-icon>
 		</button>
+		<button
+			type="button"
+			class="button"
+			?disabled="${x => !x.value}"
+			@click="${(x, c) => x.handleOpenInView(c.event)}"
+		>
+			<code-icon
+				icon="link-external"
+				aria-label="Show Results in Side Bar"
+				title="Show Results in Side Bar"
+			></code-icon>
+		</button>
 	</div>
 </template>`;
 
@@ -227,5 +239,10 @@ export class SearchBox extends FASTElement {
 	handleNext(e: Event) {
 		e.stopImmediatePropagation();
 		this.next();
+	}
+
+	handleOpenInView(e: Event) {
+		e.stopImmediatePropagation();
+		this.$emit('openinview');
 	}
 }

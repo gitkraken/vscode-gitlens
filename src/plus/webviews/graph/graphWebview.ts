@@ -69,6 +69,7 @@ import type {
 	GraphComponentConfig,
 	GraphRepository,
 	SearchCommitsParams,
+	SearchOpenInViewParams,
 	State,
 	UpdateColumnParams,
 	UpdateSelectedRepositoryParams,
@@ -89,6 +90,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMoreCommitsCommandType,
 	SearchCommitsCommandType,
+	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -324,6 +326,9 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case SearchCommitsCommandType.method:
 				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params, e.completionId));
+				break;
+			case SearchOpenInViewCommandType.method:
+				onIpc(SearchOpenInViewCommandType, e, params => this.onSearchOpenInView(params));
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params));
@@ -617,6 +622,19 @@ export class GraphWebview extends WebviewBase<State> {
 			},
 			completionId,
 		);
+	}
+
+	private onSearchOpenInView(e: SearchOpenInViewParams) {
+		if (this.repository == null) return;
+
+		void this.container.searchAndCompareView.search(this.repository.path, e.search, {
+			label: { label: `for ${e.search.query}` },
+			reveal: {
+				select: true,
+				focus: false,
+				expand: true,
+			},
+		});
 	}
 
 	private onRepositorySelectionChanged(e: UpdateSelectedRepositoryParams) {
