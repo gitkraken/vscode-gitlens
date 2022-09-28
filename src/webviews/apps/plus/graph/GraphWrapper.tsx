@@ -28,7 +28,7 @@ import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { debounce } from '../../../../system/function';
 import { pluralize } from '../../../../system/string';
-import { SearchField, SearchNav } from '../../shared/components/search/react';
+import { SearchBox } from '../../shared/components/search/react';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 
@@ -646,18 +646,13 @@ export function GraphWrapper({
 			{isAllowed && (
 				<header className="titlebar graph-app__header">
 					<div className="titlebar__group">
-						<SearchField
-							value={searchQuery?.query}
-							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
-							onPrevious={() => handleSearchNavigation(false)}
-							onNext={() => handleSearchNavigation(true)}
-						/>
-						<SearchNav
-							aria-label="Graph search navigation"
+						<SearchBox
 							step={searchPosition}
 							total={searchResultIds?.length ?? 0}
 							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
 							more={hasMoreSearchResults}
+							value={searchQuery?.query ?? ''}
+							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
 							onPrevious={() => handleSearchNavigation(false)}
 							onNext={() => handleSearchNavigation(true)}
 						/>
