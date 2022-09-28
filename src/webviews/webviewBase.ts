@@ -1,4 +1,10 @@
-import type { Webview, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import type {
+	Webview,
+	WebviewOptions,
+	WebviewPanel,
+	WebviewPanelOnDidChangeViewStateEvent,
+	WebviewPanelOptions,
+} from 'vscode';
 import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands } from '../constants';
@@ -49,6 +55,14 @@ export abstract class WebviewBase<State> implements Disposable {
 		this._disposablePanel?.dispose();
 	}
 
+	protected get options(): WebviewPanelOptions & WebviewOptions {
+		return {
+			retainContextWhenHidden: true,
+			enableFindWidget: true,
+			enableCommandUris: true,
+			enableScripts: true,
+		};
+	}
 	private _originalTitle: string | undefined;
 	get originalTitle(): string | undefined {
 		return this._originalTitle;
@@ -89,12 +103,7 @@ export abstract class WebviewBase<State> implements Disposable {
 				this.id,
 				this._title,
 				{ viewColumn: column, preserveFocus: options?.preserveFocus ?? false },
-				{
-					retainContextWhenHidden: true,
-					enableFindWidget: true,
-					enableCommandUris: true,
-					enableScripts: true,
-				},
+				this.options,
 			);
 
 			this._panel.iconPath = Uri.file(this.container.context.asAbsolutePath(this.iconPath));
@@ -249,20 +258,29 @@ export abstract class WebviewBase<State> implements Disposable {
 		return html;
 	}
 
+	protected nextIpcId(): string {
+		return nextIpcId();
+	}
+
 	protected notify<T extends IpcNotificationType<any>>(
 		type: T,
 		params: IpcMessageParams<T>,
 		completionId?: string,
-	): Thenable<boolean> {
-		return this.postMessage({ id: nextIpcId(), method: type.method, params: params, completionId: completionId });
+	): Promise<boolean> {
+		return this.postMessage({
+			id: this.nextIpcId(),
+			method: type.method,
+			params: params,
+			completionId: completionId,
+		});
 	}
 
 	@serialize()
 	@debug<WebviewBase<State>['postMessage']>({
 		args: { 0: m => `(id=${m.id}, method=${m.method}${m.completionId ? `, completionId=${m.completionId}` : ''})` },
 	})
-	private postMessage(message: IpcMessage): Promise<boolean> {
-		if (this._panel == null) return Promise.resolve(false);
+	protected postMessage(message: IpcMessage): Promise<boolean> {
+		if (this._panel == null || !this.isReady || !this.visible) return Promise.resolve(false);
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
 		return Promise.race<boolean>([
