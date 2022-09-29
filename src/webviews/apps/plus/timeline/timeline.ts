@@ -89,11 +89,11 @@ export class TimelineApp extends App<State> {
 
 	private updateState(): void {
 		const $overlay = document.getElementById('overlay') as HTMLDivElement;
-		$overlay.classList.toggle('hidden', this.state.access.allowed);
+		$overlay.classList.toggle('hidden', this.state.access.allowed === true);
 
 		const $slot = document.getElementById('overlay-slot') as HTMLDivElement;
 
-		if (!this.state.access.allowed) {
+		if (this.state.access.allowed !== true) {
 			const { current: subscription, required } = this.state.access.subscription;
 
 			const requiresPublic = required === SubscriptionPlanId.FreePlus;

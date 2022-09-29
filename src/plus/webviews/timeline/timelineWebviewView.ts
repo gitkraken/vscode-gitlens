@@ -184,7 +184,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
-		if (!access.allowed) {
+		if (access.allowed === false) {
 			const dataset = generateRandomTimelineDataset();
 			return {
 				dataset: dataset.sort((a, b) => b.sort - a.sort),

@@ -8725,14 +8725,14 @@
 			"scm/sourceControl": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
+					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && gitlens:plus:enabled && scmProvider == git",
 					"group": "6_gitlens@1"
 				}
 			],
 			"scm/title": [
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && gitlens:plus:enabled && scmProvider == git",
 					"group": "navigation@-1000"
 				},
 				{
@@ -8742,7 +8742,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && config.gitlens.plusFeatures.enabled && scmProvider == git",
+					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProvider == git",
 					"group": "2_z_gitlens@2"
 				}
 			],
@@ -8918,7 +8918,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.plusFeatures.enabled",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:plus:enabled",
 					"group": "navigation@11"
 				},
 				{
@@ -8988,7 +8988,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.plusFeatures.enabled",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:plus:enabled",
 					"group": "8_gitlens_toggles@0"
 				},
 				{
@@ -10353,7 +10353,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "viewItem =~ /gitlens:repo-folder\\b/ && config.gitlens.plusFeatures.enabled",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:plus:enabled",
 					"group": "inline@100"
 				},
 				{
@@ -10389,7 +10389,7 @@
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "viewItem =~ /gitlens:repo-folder\\b/ && config.gitlens.plusFeatures.enabled",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:plus:enabled",
 					"group": "3_gitlens_explore@1"
 				},
 				{
@@ -11900,7 +11900,7 @@
 			{
 				"view": "gitlens.views.worktrees",
 				"contents": "[Create Worktree...](command:gitlens.views.createWorktree)",
-				"when": "gitlens:plus:allowed"
+				"when": "!gitlens:plus:required"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -11934,7 +11934,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
+					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"visibility": "visible"
@@ -11945,7 +11945,7 @@
 					"type": "webview",
 					"id": "gitlens.views.timeline",
 					"name": "Visual File History",
-					"when": "!gitlens:disabled && config.gitlens.plusFeatures.enabled",
+					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-history-view)",
 					"visibility": "visible"
@@ -12028,7 +12028,7 @@
 				{
 					"id": "gitlens.views.worktrees",
 					"name": "Worktrees",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && config.gitlens.plusFeatures.enabled",
+					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
