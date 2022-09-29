@@ -783,7 +783,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (!this.isReady || !this.visible) return false;
 
 		return this.notify(DidChangeWorkDirStatsNotificationType, {
-			workDirStats: await this.getWorkDirStats() || {added: 0, deleted: 0, modified: 0 },
+			workDirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
 		});
 	}
 
@@ -947,11 +947,11 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const status: GitStatus | undefined = await this.container.git.getStatusForRepo(this.repository.path);
-		const workingTreeStatus = status?.getDiffStatus() || undefined;
+		const workingTreeStatus = status?.getDiffStatus();
 		return {
-			added: workingTreeStatus?.added || 0,
-			deleted: workingTreeStatus?.deleted || 0,
-			modified: workingTreeStatus?.changed || 0,
+			added: workingTreeStatus?.added ?? 0,
+			deleted: workingTreeStatus?.deleted ?? 0,
+			modified: workingTreeStatus?.changed ?? 0,
 		};
 	}
 
@@ -1046,7 +1046,7 @@ export class GraphWebview extends WebviewBase<State> {
 				header: this.getColumnHeaderContext(columns),
 			},
 			nonce: this.cspNonce,
-			dirStats: await this.getWorkDirStats() || {added: 0, deleted: 0, modified: 0 },
+			dirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
 		};
 	}
 
