@@ -21,7 +21,7 @@ import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
-import { setContext } from '../../../context';
+import { onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -41,7 +41,7 @@ import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCo
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
-import { debounce } from '../../../system/function';
+import { debounce, once } from '../../../system/function';
 import { first, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
@@ -57,7 +57,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
+import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DismissBannerParams,
 	EnsureCommitParams,
@@ -172,6 +172,11 @@ export class GraphWebview extends WebviewBase<State> {
 		);
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
+			onDidChangeContext(key => {
+				if (key !== ContextKeys.PlusEnabled) return;
+				this.updateStatusBar();
+			}),
 			{ dispose: () => this._statusBarItem?.dispose() },
 			registerCommand(
 				Commands.ShowInCommitGraph,
@@ -203,8 +208,6 @@ export class GraphWebview extends WebviewBase<State> {
 				},
 			),
 		);
-
-		this.onConfigurationChanged();
 	}
 
 	protected override get options(): WebviewPanelOptions & WebviewOptions {
@@ -366,44 +369,22 @@ export class GraphWebview extends WebviewBase<State> {
 		this.sendPendingIpcNotifications();
 	}
 
-	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'graph.statusBar.enabled') || configuration.changed(e, 'plusFeatures.enabled')) {
-			const enabled = configuration.get('graph.statusBar.enabled') && configuration.get('plusFeatures.enabled');
-			if (enabled) {
-				if (this._statusBarItem == null) {
-					this._statusBarItem = window.createStatusBarItem(
-						'gitlens.graph',
-						StatusBarAlignment.Left,
-						10000 - 3,
-					);
-					this._statusBarItem.name = 'GitLens Commit Graph';
-					this._statusBarItem.command = Commands.ShowGraphPage;
-					this._statusBarItem.text = '$(gitlens-graph)';
-					this._statusBarItem.tooltip = new MarkdownString(
-						'Visualize commits on the all-new Commit Graph ✨',
-					);
-					this._statusBarItem.accessibilityInformation = {
-						label: `Show the GitLens Commit Graph`,
-					};
-				}
-				this._statusBarItem.show();
-			} else {
-				this._statusBarItem?.dispose();
-				this._statusBarItem = undefined;
-			}
+			this.updateStatusBar();
 		}
 
 		// If we don't have an open webview ignore the rest
 		if (this._panel == null) return;
 
-		if (e != null && configuration.changed(e, 'graph.commitOrdering')) {
+		if (configuration.changed(e, 'graph.commitOrdering')) {
 			this.updateState();
 
 			return;
 		}
 
 		if (
-			(e != null && configuration.changed(e, 'defaultDateFormat')) ||
+			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateStyle') ||
 			configuration.changed(e, 'advanced.abbreviatedShaLength') ||
 			configuration.changed(e, 'graph.avatars') ||
@@ -443,6 +424,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		this._etagSubscription = e.etag;
 		void this.notifyDidChangeSubscription();
+		this.updateStatusBar();
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -779,7 +761,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const access = await this.getGraphAccess();
 		return this.notify(DidChangeSubscriptionNotificationType, {
 			subscription: access.subscription.current,
-			allowed: access.allowed,
+			allowed: access.allowed !== false,
 		});
 	}
 
@@ -913,7 +895,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this._etagSubscription = this.container.subscription.etag;
 
 		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
-		if (!access.allowed && access.subscription.current.previewTrial == null) {
+		if (access.allowed === false && access.subscription.current.previewTrial == null) {
 			await this.container.subscription.startPreviewTrial(true);
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
@@ -982,7 +964,7 @@ export class GraphWebview extends WebviewBase<State> {
 			selectedRepositoryVisibility: visibility,
 			selectedRows: this._selectedRows,
 			subscription: access.subscription.current,
-			allowed: access.allowed,
+			allowed: access.allowed !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			loading: deferRows,
 			rows: data?.rows,
@@ -1020,6 +1002,13 @@ export class GraphWebview extends WebviewBase<State> {
 		this._searchCancellation = undefined;
 	}
 
+	private setSelectedRows(sha: string | undefined) {
+		if (this._selectedSha === sha) return;
+
+		this._selectedSha = sha;
+		this._selectedRows = sha != null ? { [sha]: true } : {};
+	}
+
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
@@ -1045,11 +1034,24 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	private setSelectedRows(sha: string | undefined) {
-		if (this._selectedSha === sha) return;
-
-		this._selectedSha = sha;
-		this._selectedRows = sha != null ? { [sha]: true } : {};
+	private updateStatusBar() {
+		const enabled = configuration.get('graph.statusBar.enabled') && arePlusFeaturesEnabled();
+		if (enabled) {
+			if (this._statusBarItem == null) {
+				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 3);
+				this._statusBarItem.name = 'GitLens Commit Graph';
+				this._statusBarItem.command = Commands.ShowGraphPage;
+				this._statusBarItem.text = '$(gitlens-graph)';
+				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the all-new Commit Graph ✨');
+				this._statusBarItem.accessibilityInformation = {
+					label: `Show the GitLens Commit Graph`,
+				};
+			}
+			this._statusBarItem.show();
+		} else {
+			this._statusBarItem?.dispose();
+			this._statusBarItem = undefined;
+		}
 	}
 
 	@debug()

@@ -44,7 +44,7 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		const access = await this.view.container.git.access(PlusFeatures.Worktrees);
-		if (!access.allowed) return [];
+		if (access.allowed === false) return [];
 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;

@@ -17,14 +17,14 @@ import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../const
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
-import type { FeatureAccess, Features, PlusFeatures } from '../features';
+import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { Logger } from '../logger';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
-import type { RequiredSubscriptionPlans, Subscription } from '../subscription';
-import { getSubscriptionPlanPriority, isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
+import type { Subscription } from '../subscription';
+import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
@@ -72,6 +72,7 @@ import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
 
+const emptyArray = Object.freeze([]) as unknown as any[];
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
 	['master', maxDefaultBranchWeight],
@@ -264,6 +265,8 @@ export class GitProviderService implements Disposable {
 	}
 
 	get openRepositories(): Repository[] {
+		if (this.repositoryCount === 0) return emptyArray as Repository[];
+
 		const repositories = [...filter(this.repositories, r => !r.closed)];
 		if (repositories.length === 0) return repositories;
 
@@ -271,7 +274,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	get openRepositoryCount(): number {
-		return count(this.repositories, r => !r.closed);
+		return this.repositoryCount === 0 ? 0 : count(this.repositories, r => !r.closed);
 	}
 
 	get repositories(): IterableIterator<Repository> {
@@ -515,13 +518,22 @@ export class GitProviderService implements Disposable {
 		return this._subscription ?? (this._subscription = await this.container.subscription.getSubscription());
 	}
 
-	private _accessCache = new Map<string | undefined, Promise<FeatureAccess>>();
-	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
-		let cacheKey;
-		if (repoPath != null) {
-			const { path } = this.getProvider(repoPath);
-			cacheKey = path;
+	private _accessCache: Map<string, Promise<RepoFeatureAccess>> &
+		Map<undefined, Promise<FeatureAccess | RepoFeatureAccess>> = new Map();
+	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
+	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
+	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
+		if (repoPath == null) {
+			let access = this._accessCache.get(undefined);
+			if (access == null) {
+				access = this.accessCore(feature, repoPath);
+				this._accessCache.set(undefined, access);
+			}
+			return access;
 		}
+
+		const { path } = this.getProvider(repoPath);
+		const cacheKey = path;
 
 		let access = this._accessCache.get(cacheKey);
 		if (access == null) {
@@ -532,42 +544,51 @@ export class GitProviderService implements Disposable {
 		return access;
 	}
 
+	private async accessCore(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
+	private async accessCore(
+		feature?: PlusFeatures,
+		repoPath?: string | Uri,
+	): Promise<FeatureAccess | RepoFeatureAccess>;
 	@debug()
-	private async accessCore(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess> {
+	private async accessCore(
+		_feature?: PlusFeatures,
+		repoPath?: string | Uri,
+	): Promise<FeatureAccess | RepoFeatureAccess> {
 		const subscription = await this.getSubscription();
-		if (subscription.account?.verified === false) {
-			return { allowed: false, subscription: { current: subscription } };
-		}
 
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) {
-			return { allowed: true, subscription: { current: subscription } };
+			return { allowed: subscription.account?.verified !== false, subscription: { current: subscription } };
 		}
 
 		function getRepoAccess(
 			this: GitProviderService,
 			repoPath: string | Uri,
 			force: boolean = false,
-		): Promise<FeatureAccess> {
+		): Promise<RepoFeatureAccess> {
 			const { path: cacheKey } = this.getProvider(repoPath);
 
 			let access = force ? undefined : this._accessCache.get(cacheKey);
 			if (access == null) {
-				access = this.visibility(repoPath).then(visibility => {
-					if (visibility === RepositoryVisibility.Private) {
+				access = this.visibility(repoPath).then(
+					visibility => {
+						if (visibility === RepositoryVisibility.Private) {
+							return {
+								allowed: false,
+								subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+								visibility: visibility,
+							};
+						}
+
 						return {
-							allowed: false,
-							subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+							allowed: true,
+							subscription: { current: subscription },
 							visibility: visibility,
 						};
-					}
-
-					return {
-						allowed: true,
-						subscription: { current: subscription },
-						visibility: visibility,
-					};
-				});
+					},
+					// If there is a failure assume access is allowed
+					() => ({ allowed: true, subscription: { current: subscription } }),
+				);
 
 				this._accessCache.set(cacheKey, access);
 			}
@@ -585,28 +606,26 @@ export class GitProviderService implements Disposable {
 				return getRepoAccess.call(this, repositories[0].path);
 			}
 
-			let allowed = true;
-			let requiredPlan: RequiredSubscriptionPlans | undefined;
-			let requiredPriority = -1;
-
-			const maxPriority = getSubscriptionPlanPriority(SubscriptionPlanId.Pro);
-
-			for await (const result of fastestSettled(repositories.map(r => getRepoAccess.call(this, r.path)))) {
-				if (result.status !== 'fulfilled' || result.value.allowed) continue;
-
-				allowed = false;
-				const priority = getSubscriptionPlanPriority(result.value.subscription.required);
-				if (requiredPriority < priority) {
-					requiredPriority = priority;
-					requiredPlan = result.value.subscription.required;
-				}
-
-				if (requiredPriority >= maxPriority) break;
+			const visibility = await this.visibility();
+			switch (visibility) {
+				case RepositoriesVisibility.Private:
+					return {
+						allowed: false,
+						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+						visibility: RepositoryVisibility.Private,
+					};
+				case RepositoriesVisibility.Mixed:
+					return {
+						allowed: 'mixed',
+						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
+					};
+				default:
+					return {
+						allowed: true,
+						subscription: { current: subscription },
+						visibility: RepositoryVisibility.Public,
+					};
 			}
-
-			return allowed
-				? { allowed: true, subscription: { current: subscription } }
-				: { allowed: false, subscription: { current: subscription, required: requiredPlan } };
 		}
 
 		// Pass force = true to bypass the cache and avoid a promise loop (where we used the cached promise we just created to try to resolve itself 🤦)
@@ -615,7 +634,7 @@ export class GitProviderService implements Disposable {
 
 	async ensureAccess(feature: PlusFeatures, repoPath?: string): Promise<void> {
 		const { allowed, subscription } = await this.access(feature, repoPath);
-		if (!allowed) throw new AccessDeniedError(subscription.current, subscription.required);
+		if (allowed === false) throw new AccessDeniedError(subscription.current, subscription.required);
 	}
 
 	supports(repoPath: string | Uri, feature: Features): Promise<boolean> {
@@ -2203,7 +2222,12 @@ export class GitProviderService implements Disposable {
 		path?: string,
 		options?: { force?: boolean; timeout?: number },
 	): Promise<string>;
-	async resolveReference(repoPath: string, ref: string, uri?: Uri, options?: { force?: boolean; timeout?: number }): Promise<string>;
+	async resolveReference(
+		repoPath: string,
+		ref: string,
+		uri?: Uri,
+		options?: { force?: boolean; timeout?: number },
+	): Promise<string>;
 	@gate()
 	@log()
 	async resolveReference(

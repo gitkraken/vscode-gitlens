@@ -14,6 +14,18 @@ export type FeatureAccess =
 			visibility?: RepositoryVisibility;
 	  }
 	| {
+			allowed: false | 'mixed';
+			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
+			visibility?: RepositoryVisibility;
+	  };
+
+export type RepoFeatureAccess =
+	| {
+			allowed: true;
+			subscription: { current: Subscription; required?: undefined };
+			visibility?: RepositoryVisibility;
+	  }
+	| {
 			allowed: false;
 			subscription: { current: Subscription; required?: RequiredSubscriptionPlans };
 			visibility?: RepositoryVisibility;

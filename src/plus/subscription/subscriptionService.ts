@@ -36,7 +36,6 @@ import {
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
 	isSubscriptionExpired,
-	isSubscriptionPaidPlan,
 	isSubscriptionTrial,
 	SubscriptionPlanId,
 	SubscriptionState,
@@ -82,6 +81,11 @@ export class SubscriptionService implements Disposable {
 				e => setTimeout(() => this.onAuthenticationChanged(e), 0),
 				this,
 			),
+			configuration.onDidChange(e => {
+				if (configuration.changed(e, 'plusFeatures')) {
+					this.updateContext();
+				}
+			}),
 		);
 
 		const subscription = this.getStoredSubscription();
@@ -274,6 +278,10 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	async logout(reset: boolean = false): Promise<void> {
+		return this.logoutCore(reset);
+	}
+
+	private async logoutCore(reset: boolean = false): Promise<void> {
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
 			this._validationTimer = undefined;
@@ -301,8 +309,18 @@ export class SubscriptionService implements Disposable {
 		this.changeSubscription({
 			...this._subscription,
 			plan: {
-				actual: getSubscriptionPlan(SubscriptionPlanId.Free),
-				effective: getSubscriptionPlan(SubscriptionPlanId.Free),
+				actual: getSubscriptionPlan(
+					SubscriptionPlanId.Free,
+					this._subscription.plan?.actual?.startedOn != null
+						? new Date(this._subscription.plan.actual.startedOn)
+						: undefined,
+				),
+				effective: getSubscriptionPlan(
+					SubscriptionPlanId.Free,
+					this._subscription.plan?.effective?.startedOn != null
+						? new Date(this._subscription.plan.actual.startedOn)
+						: undefined,
+				),
 			},
 			account: undefined,
 		});
@@ -686,8 +704,8 @@ export class SubscriptionService implements Disposable {
 			session = null;
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				Logger.debug(scope, 'User declined authentication; logging out...');
-				await this.logout();
+				Logger.debug(scope, 'User declined authentication');
+				await this.logoutCore();
 				return null;
 			}
 
@@ -700,8 +718,8 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (session == null) {
-			Logger.debug(scope, 'No valid session was found; logging out...');
-			await this.logout();
+			Logger.debug(scope, 'No valid session was found');
+			await this.logoutCore();
 			return session ?? null;
 		}
 
@@ -720,11 +738,8 @@ export class SubscriptionService implements Disposable {
 				) {
 					session = null;
 
-					Logger.debug(
-						scope,
-						`Account validation failed (${ex.statusCode ?? (ex.original as any)?.code}); logging out...`,
-					);
-					await this.logout();
+					Logger.debug(scope, `Account validation failed (${ex.statusCode ?? (ex.original as any)?.code})`);
+					await this.logoutCore();
 
 					if (createIfNeeded) {
 						const unauthorized = ex.statusCode === 401;
@@ -815,10 +830,12 @@ export class SubscriptionService implements Disposable {
 		this._subscription = subscription;
 		this._etag = Date.now();
 
-		this.updateContext();
+		if (!silent) {
+			this.updateContext();
 
-		if (!silent && previous != null) {
-			this._onDidChange.fire({ current: subscription, previous: previous, etag: this._etag });
+			if (previous != null) {
+				this._onDidChange.fire({ current: subscription, previous: previous, etag: this._etag });
+			}
 		}
 	}
 
@@ -850,14 +867,13 @@ export class SubscriptionService implements Disposable {
 		this.updateStatusBar();
 
 		queueMicrotask(async () => {
-			const { allowed, subscription } = await this.container.git.access();
-			const required = allowed
-				? false
-				: subscription.required != null && isSubscriptionPaidPlan(subscription.required)
-				? 'paid'
-				: 'free+';
-			void setContext(ContextKeys.PlusAllowed, allowed);
-			void setContext(ContextKeys.PlusRequired, required);
+			let allowed: boolean | 'mixed' = false;
+			// For performance reasons, only check if we have any repositories
+			if (this.container.git.repositoryCount !== 0) {
+				({ allowed } = await this.container.git.access());
+			}
+			void setContext(ContextKeys.PlusEnabled, Boolean(allowed) || configuration.get('plusFeatures.enabled'));
+			void setContext(ContextKeys.PlusRequired, allowed === false);
 		});
 
 		const {
