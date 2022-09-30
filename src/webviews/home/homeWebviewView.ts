@@ -1,14 +1,23 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import type { RepositoriesVisibility } from '../../git/gitProviderService';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand, registerCommand } from '../../system/command';
+import type { IpcMessage } from '../protocol';
+import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
-import type { State } from './protocol';
-import { CompletedActions, DidChangeSubscriptionNotificationType } from './protocol';
+import type { CompleteStepParams, DismissSectionParams, State } from './protocol';
+import {
+	CompletedActions,
+	CompleteStepCommandType,
+	DidChangeSubscriptionNotificationType,
+	DismissSectionCommandType,
+} from './protocol';
 
 export class HomeWebviewView extends WebviewViewBase<State> {
 	constructor(container: Container) {
@@ -46,9 +55,17 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 				await this.container.storage.store('views:welcome:visible', welcomeVisible);
 				if (welcomeVisible) {
 					await this.container.storage.store('home:actions:completed', []);
+					await this.container.storage.store('home:steps:completed', []);
+					await this.container.storage.store('home:sections:dismissed', []);
 				}
 
-				void this.notifyDidChangeData();
+				void this.refresh();
+			}),
+			registerCommand('gitlens.home.restoreWelcome', async () => {
+				await this.container.storage.store('home:steps:completed', []);
+				await this.container.storage.store('home:sections:dismissed', []);
+
+				void this.refresh();
 			}),
 
 			registerCommand('gitlens.home.showSCM', async () => {
@@ -65,6 +82,39 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		];
 	}
 
+	protected override onMessageReceived(e: IpcMessage) {
+		switch (e.method) {
+			case CompleteStepCommandType.method:
+				onIpc(CompleteStepCommandType, e, params => this.completeStep(params));
+				break;
+			case DismissSectionCommandType.method:
+				onIpc(DismissSectionCommandType, e, params => this.dismissSection(params));
+				break;
+		}
+	}
+
+	private completeStep({ id, completed = false }: CompleteStepParams) {
+		const steps = this.container.storage.get('home:steps:completed', []);
+
+		const hasStep = steps.includes(id);
+		if (!hasStep && completed) {
+			steps.push(id);
+		} else if (hasStep && !completed) {
+			steps.splice(steps.indexOf(id), 1);
+		}
+		void this.container.storage.store('home:steps:completed', steps);
+	}
+
+	private dismissSection(params: DismissSectionParams) {
+		const sections = this.container.storage.get('home:sections:dismissed', []);
+
+		if (!sections.includes(params.id)) {
+			sections.push(params.id);
+		}
+
+		void this.container.storage.store('home:sections:dismissed', sections);
+	}
+
 	protected override async includeBootstrap(): Promise<State> {
 		return this.getState();
 	}
@@ -73,7 +123,12 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		return this.container.storage.get('views:welcome:visible', true);
 	}
 
-	private async getState(subscription?: Subscription): Promise<State> {
+	private async getRepoVisibility(): Promise<RepositoriesVisibility> {
+		const visibility = await this.container.git.visibility();
+		return visibility;
+	}
+
+	private async getSubscription(subscription?: Subscription) {
 		// Make sure to make a copy of the array otherwise it will be live to the storage value
 		const completedActions = [...this.container.storage.get('home:actions:completed', [])];
 		if (!this.welcomeVisible) {
@@ -86,11 +141,26 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		};
 	}
 
+	private async getState(subscription?: Subscription): Promise<State> {
+		const subscriptionState = await this.getSubscription(subscription);
+		const steps = this.container.storage.get('home:steps:completed', []);
+		const sections = this.container.storage.get('home:sections:dismissed', []);
+
+		return {
+			subscription: subscriptionState.subscription,
+			completedActions: subscriptionState.completedActions,
+			plusEnabled: configuration.get('plusFeatures.enabled'),
+			visibility: await this.getRepoVisibility(),
+			completedSteps: steps,
+			dismissedSections: sections,
+		};
+	}
+
 	private notifyDidChangeData(subscription?: Subscription) {
 		if (!this.isReady) return false;
 
 		return window.withProgress({ location: { viewId: this.id } }, async () =>
-			this.notify(DidChangeSubscriptionNotificationType, await this.getState(subscription)),
+			this.notify(DidChangeSubscriptionNotificationType, await this.getSubscription(subscription)),
 		);
 	}
 

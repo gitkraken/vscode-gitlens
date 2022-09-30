@@ -123,6 +123,12 @@ export interface GlobalStorage {
 		actions: {
 			completed?: CompletedActions[];
 		};
+		steps: {
+			completed?: string[];
+		};
+		sections: {
+			dismissed?: string[];
+		};
 	};
 	pendingWelcomeOnFocus?: boolean;
 	pendingWhatsNewOnFocus?: boolean;

@@ -4,24 +4,312 @@
 		<meta charset="utf-8" />
 	</head>
 
-	<body class="preload">
-		<div id="container" class="container">
-			<div class="notice">
-				<span
-					><span class="glicon glicon-clock"></span> GitLens+
-					<a href="command:gitlens.plus.purchase">introductory pricing</a> will end with the next release
-					(late Sept, early Oct).
-				</span>
+	<body class="home preload">
+		<a href="#main" class="sr-skip sr-only-focusable">skip to content</a>
+		<a href="#footer" class="sr-skip sr-only-focusable">skip to footer links</a>
+		<header class="home__header">
+			<div class="header-card">
+				<div class="header-card__logo"><img src="#{webroot}/media/gitlens-logo.webp" alt="GitLens Logo" /></div>
+				<h1 class="header-card__title"><span class="foreground">Git</span>Lens 12 <em>Git supercharged</em></h1>
+				<p class="header-card__account">
+					<span id="header-content"></span>
+					<span id="header-actions"></span>
+				</p>
+				<div class="progress header-card__progress" role="progressbar">
+					<div class="progress__indicator"></div>
+				</div>
 			</div>
-			<div class="content">
-				<section id="slot1"></section>
-				<section id="slot2"></section>
-				<section id="slot3"></section>
+		</header>
+		<main class="home__main" id="main" tabindex="-1">
+			<style>
+				.video-banner {
+					--video-banner-bg: url(#{webroot}/media/getting-started.webp);
+				}
+				.vscode-dark .video-banner {
+					--video-banner-play: url(#{webroot}/media/play-button.webp);
+				}
+				.vscode-light .video-banner {
+					--video-banner-play: url(#{webroot}/media/play-button-dark.webp);
+				}
+			</style>
+			<div class="stepped-sections">
+				<stepped-section id="welcome">
+					<span slot="heading">Welcome to GitLens 12</span>
+					<p>
+						GitLens supercharges Git inside VS Code and unlocks the untapped knowledge within each
+						repository.
+					</p>
+					<p>
+						<a href="command:gitlens.showWelcomePage?%22quick-setup%22" class="button-link"
+							><code-icon icon="pass"></code-icon>Quick Setup</a
+						>
+					</p>
+				</stepped-section>
+				<stepped-section id="getting-started">
+					<span slot="heading">Getting Started</span>
+					<a class="video-banner" href="https://www.youtube.com/watch?v=UQPb73Zz9qk">
+						<span>Get Started</span> <small>Tutorial Video</small>
+					</a>
+					<ul>
+						<li>
+							The <a href="command:gitlens.showWelcomePage?%22quick-setup%22">Quick Setup</a> helps you
+							start personalizing GitLens to your needs.
+						</li>
+						<li>
+							The <a href="command:gitlens.getStarted">Feature Walkthrough</a> gets you familiarized with
+							the rich features GitLens provides.
+						</li>
+						<li>
+							The <a href="command:gitlens.showSettingsPage">Interactive settings editor</a> helps you
+							fine-tune your GitLens experience.
+						</li>
+					</ul>
+				</stepped-section>
+				<stepped-section id="features">
+					<span slot="heading">Features</span>
+					<span slot="description">*Always available to you at no cost</span>
+					<div class="activitybar-banner">
+						<ul>
+							<li>
+								Find GitLens features by opening the
+								<a href="command:workbench.view.scm">Source Control Side Bar</a>
+							</li>
+							<li>Keep an eye out for feature updates and new components here.</li>
+						</ul>
+						<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 83 76">
+							<rect x="42.5" y=".5" width="40" height="75" rx="16.5" stroke="url(#a)" />
+							<mask
+								id="b"
+								style="mask-type: alpha"
+								maskUnits="userSpaceOnUse"
+								x="45"
+								y="3"
+								width="35"
+								height="70"
+							>
+								<rect
+									x="45"
+									y="3"
+									width="35"
+									height="70"
+									rx="14"
+									fill="#333"
+									style="fill: var(--vscode-activityBar-background)"
+								/>
+							</mask>
+							<g mask="url(#b)">
+								<rect
+									x="45"
+									y="3"
+									width="35"
+									height="70"
+									rx="14"
+									fill="#333"
+									style="fill: var(--vscode-activityBar-background)"
+								/>
+								<path
+									fill="#fff"
+									d="M45 38h1v27h-1z"
+									style="fill: var(--vscode-activityBar-activeBorder)"
+								/>
+							</g>
+							<g clip-path="url(#c)" fill="#fff" style="fill: var(--vscode-activityBar-foreground)">
+								<path
+									d="m64.078 54.996-2.138-2.138.752-.751 2.137 2.138-.751.751ZM60.73 58.079V52.92h1.062v5.158h-1.063Z"
+								/>
+								<path
+									d="M61.26 61.167a1.594 1.594 0 1 0 0-3.188 1.594 1.594 0 0 0 0 3.188ZM65.51 57.27a1.594 1.594 0 1 0 0-3.187 1.594 1.594 0 0 0 0 3.188ZM61.26 53.02a1.594 1.594 0 1 0 0-3.187 1.594 1.594 0 0 0 0 3.188Z"
+								/>
+								<path
+									d="M62.5 47.885a7.615 7.615 0 1 0 0 15.23 7.615 7.615 0 0 0 0-15.23ZM54 55.5a8.5 8.5 0 1 1 17 0 8.5 8.5 0 0 1-17 0Z"
+								/>
+							</g>
+							<g clip-path="url(#d)">
+								<path
+									d="M68.755 17.166a2.804 2.804 0 0 0-5.406-1.053 2.803 2.803 0 0 0 1.802 3.724 2.241 2.241 0 0 1-2.001 1.253h-2.243a3.342 3.342 0 0 0-2.241.873V16.55a2.803 2.803 0 1 0-1.121 0v6.838a2.832 2.832 0 1 0 1.362.074 2.242 2.242 0 0 1 2.001-1.25h2.242a3.362 3.362 0 0 0 3.168-2.28 2.803 2.803 0 0 0 2.437-2.765Zm-12.331-3.363a1.682 1.682 0 1 1 3.363 0 1.682 1.682 0 0 1-3.363 0Zm3.363 12.331a1.682 1.682 0 1 1-3.364 0 1.682 1.682 0 0 1 3.364 0Zm6.166-7.286a1.682 1.682 0 1 1 0-3.364 1.682 1.682 0 0 1 0 3.364Z"
+									fill="#858585"
+									style="fill: var(--vscode-activityBar-inactiveForeground)"
+								/>
+							</g>
+							<path
+								d="M.333 54a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 54l-5 2.887v-5.774L34 54Zm-31-.5h26.5v1H3v-1Z"
+								fill="#fff"
+								style="fill: var(--vscode-foreground)"
+							/>
+							<path
+								d="M.333 22a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 22l-5 2.887v-5.774L34 22Zm-31-.5h26.5v1H3v-1Z"
+								fill="#007FD5"
+								style="fill: var(--vscode-textLink-foreground)"
+							/>
+							<defs>
+								<clipPath id="c">
+									<path
+										fill="#fff"
+										transform="translate(54 47)"
+										d="M0 0h17v17H0z"
+										style="fill: var(--vscode-textLink-foreground)"
+									/>
+								</clipPath>
+								<clipPath id="d">
+									<path
+										fill="#fff"
+										transform="translate(53 11)"
+										d="M0 0h18v18H0z"
+										style="fill: var(--vscode-textLink-foreground)"
+									/>
+								</clipPath>
+								<linearGradient
+									id="a"
+									x1="62.5"
+									y1="-19.365"
+									x2="62.5"
+									y2="76"
+									gradientUnits="userSpaceOnUse"
+								>
+									<stop stop-color="#333" style="stop-color: var(--vscode-activityBar-background)" />
+									<stop
+										offset="1"
+										stop-color="#333"
+										stop-opacity="0"
+										style="stop-color: var(--vscode-activityBar-background)"
+									/>
+									<stop
+										offset="1"
+										stop-color="#333"
+										stop-opacity="0"
+										style="stop-color: var(--vscode-activityBar-background)"
+									/>
+								</linearGradient>
+							</defs>
+						</svg>
+					</div>
+				</stepped-section>
+				<!-- check for gitlens+ -->
+				<stepped-section id="plus">
+					<span slot="heading">Want even more from GitLens?</span>
+					<card-section no-heading backdrop="#{webroot}/media/gitlens-backdrop.webp">
+						<div class="centered">
+							<p class="type-tight">
+								<span class="logo"><span class="foreground">Git</span>Lens+</span><br />
+								<em class="description">*optional</em>
+							</p>
+							<div id="plus-content">
+								<p>
+									GitLens+ adds all-new, completely optional, features that enhance your current
+									GitLens experience.
+								</p>
+								<p>These features are free for local and public repos with no account required.</p>
+								<!-- free -->
+								<p class="mb-1">
+									<vscode-button data-action="command:gitlens.plus.startPreviewTrial"
+										>Try GitLens+ with private repositories</vscode-button
+									>
+								</p>
+								<p class="mb-0">
+									<a href="command:gitlens.plus.hide">Hide GitLens+ features, cannot use them</a>
+								</p>
+							</div>
+						</div>
+					</card-section>
+				</stepped-section>
 			</div>
-			<div>
-				<section id="slot-footer"></section>
+			<!-- check for gitlens+ -->
+			<div id="plus-sections">
+				<card-section dismissable id="commit-graph">
+					<span slot="heading">Introducing the Commit Graph</span>
+					<p>
+						The
+						<a
+							title="Learn more about the Visual File History"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.commitGraph%22"
+							>Commit Graph</a
+						>
+						helps you to easily visualize branch structure and commit history. Not only does it help you
+						verify your changes, but also easily see changes made by others and when.
+					</p>
+					<img src="#{webroot}/media/plus-commit-graph-illustrated.webp" alt="Commit Graph illustration" />
+				</card-section>
+				<card-section dismissable id="visual-file-history">
+					<span slot="heading">Introducing Visual File History</span>
+					<p>
+						The
+						<a
+							title="Learn more about the Visual File History"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.visualFileHistory%22"
+							>Visual File History</a
+						>
+						allows you to quickly see the evolution of a file, including when changes were made, how large
+						they were, and who made them.
+					</p>
+					<img
+						src="#{webroot}/media/plus-visual-file-history-illustrated.webp"
+						alt="Visual File History illustration"
+					/>
+				</card-section>
+				<card-section dismissable id="worktrees">
+					<span slot="heading">Introducing Worktrees</span>
+					<p>
+						<a
+							title="Learn more about worktrees"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.worktrees%22"
+							>Worktrees</a
+						>
+						allow you to easily work on different branches of a repository simultaneously.
+					</p>
+					<img src="#{webroot}/media/plus-worktrees-illustrated.webp" alt="Worktrees illustration" />
+				</card-section>
 			</div>
-		</div>
+			<div class="button-container">
+				<vscode-button id="restore-plus" appearance="secondary" data-action="command:gitlens.plus.restore"
+					>Restore GitLens+ features</vscode-button
+				>
+				<vscode-button
+					id="restore-welcome"
+					appearance="secondary"
+					data-action="command:gitlens.home.restoreWelcome"
+					>Restore Welcome</vscode-button
+				>
+			</div>
+		</main>
+
+		<footer class="home__footer" id="footer" tabindex="-1">
+			<nav class="inline-nav" aria-label="Help and Resources">
+				<a href="https://gitlens.amod.io/#whats-new" aria-label="What's new" title="What's new"
+					><span class="codicon codicon-rocket"></span
+				></a>
+				<a
+					href="https://github.com/gitkraken/vscode-gitlens#readme"
+					aria-label="GitHub Readme"
+					title="GitHub Readme"
+					><span class="codicon codicon-book"></span
+				></a>
+				<a
+					href="https://github.com/gitkraken/vscode-gitlens/discussions"
+					aria-label="GitHub Discussions"
+					title="GitHub Discussions"
+					><span class="codicon codicon-comment-discussion"></span
+				></a>
+				<a
+					href="https://github.com/gitkraken/vscode-gitlens/issues"
+					aria-label="GitHub Issues"
+					title="GitHub Issues"
+					><span class="codicon codicon-issues"></span
+				></a>
+				<a href="https://gitkraken.com/gitlens-support" aria-label="GitLens Support" title="GitLens Support"
+					><span class="codicon codicon-account"></span
+				></a>
+				<a
+					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+					aria-label="GitLens Website"
+					title="GitLens Website"
+					><span class="codicon codicon-globe"></span
+				></a>
+				<a href="https://twitter.com/gitlens" aria-label="GitLens on Twitter" title="GitLens on Twitter"
+					><span class="codicon codicon-twitter"></span
+				></a>
+			</nav>
+		</footer>
+
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {
@@ -31,16 +319,4 @@
 			}
 		</style>
 	</body>
-
-	<!-- prettier-ignore -->
-	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-trial.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.paid.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
 </html>

@@ -1,19 +1,84 @@
+:root {
+	--gitlens-z-inline: 1000;
+	--gitlens-z-sticky: 1100;
+	--gitlens-z-popover: 1200;
+	--gitlens-z-cover: 1300;
+	--gitlens-z-dialog: 1400;
+	--gitlens-z-modal: 1500;
+	--gitlens-brand-color: #914db3;
+	--gitlens-brand-color-2: #a16dc4;
+}
+
 * {
 	box-sizing: border-box;
+}
+
+// avoids FOUC for elements not yet called with `define()`
+:not(:defined) {
+	visibility: hidden;
 }
 
 html {
 	height: 100%;
 	font-size: 62.5%;
+	text-size-adjust: 100%;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 body {
 	background-color: var(--color-view-background);
 	color: var(--color-view-foreground);
 	font-family: var(--font-family);
-	height: 100%;
+	min-height: 100%;
 	line-height: 1.4;
-	font-size: 100% !important;
+	font-size: var(--vscode-font-size);
+}
+
+:focus {
+	outline-color: var(--vscode-focusBorder);
+}
+
+.sr-skip {
+	position: fixed;
+	z-index: var(--gitlens-z-popover);
+	top: 0.2rem;
+	left: 0.2rem;
+	display: inline-block;
+	padding: 0.2rem 0.4rem;
+	background-color: var(--color-view-background);
+}
+.sr-only,
+.sr-only-focusable:not(:active):not(:focus) {
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	position: absolute;
+	white-space: nowrap;
+}
+
+.home {
+	padding: 0;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+
+	&__header {
+		flex: none;
+		padding: 0 2rem;
+	}
+	&__main {
+		flex: 1;
+		overflow: auto;
+		padding: 2rem 2rem 0.4rem;
+	}
+	&__footer {
+		flex: none;
+		padding: 0 2rem;
+	}
 }
 
 .container {
@@ -75,11 +140,170 @@ b {
 }
 
 p {
-	margin-bottom: 0;
+	margin-top: 0;
+}
+
+ul {
+	margin-top: 0;
+	padding-left: 1.2em;
 }
 
 .feature-desc {
 	margin-bottom: 1rem;
+}
+
+.button-container {
+	display: flex;
+	flex-direction: column;
+	margin-bottom: 1rem;
+}
+
+.button-link {
+	code-icon {
+		margin-right: 0.4rem;
+	}
+}
+
+.centered {
+	text-align: center;
+}
+
+.progress {
+	width: 100%;
+	.vscode-dark & {
+		background-color: var(--color-background--lighten-15);
+	}
+	.vscode-light & {
+		background-color: var(--color-background--darken-15);
+	}
+	&__indicator {
+		height: 4px;
+	}
+}
+
+.header-card {
+	position: relative;
+	display: grid;
+	padding: 1rem 1rem 1.2rem;
+	background-color: #aaaaaa10;
+	border-radius: 0.4rem;
+	gap: 0 0.8rem;
+	grid-template-columns: 3.4rem auto;
+	grid-auto-flow: column;
+
+	&__logo {
+		grid-column: 1;
+		grid-row: 1 / span 2;
+	}
+
+	&__title {
+		font-size: var(--vscode-font-size);
+		color: var(--gitlens-brand-color-2);
+		margin: 0;
+
+		em {
+			font-weight: normal;
+			color: var(--color-view-foreground);
+			opacity: 0.4;
+		}
+	}
+	&__account {
+		margin: 0;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+	}
+	&__progress {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		border-bottom-left-radius: 0.4rem;
+		border-bottom-right-radius: 0.4rem;
+	}
+}
+
+.foreground {
+	color: var(--color-view-foreground);
+}
+
+.inline-nav {
+	display: flex;
+	flex-direction: row;
+	gap: 0.4rem;
+
+	a {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 2.2rem;
+		height: 2.2rem;
+		// line-height: 2.2rem;
+
+		.codicon {
+			line-height: 1.6rem;
+		}
+
+		&:hover {
+			text-decoration: none;
+		}
+	}
+}
+
+.logo {
+	font-size: 1.8rem;
+	color: var(--gitlens-brand-color-2);
+}
+
+.description {
+	color: #b68cd8;
+	opacity: 0.6;
+}
+
+.activitybar-banner {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	gap: 1.6rem;
+	ul {
+		margin: {
+			top: 0.2rem;
+			bottom: 0;
+		}
+	}
+	svg {
+		flex: none;
+		max-width: 10rem;
+		height: auto;
+	}
+}
+
+.video-banner {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: flex-end;
+	margin-bottom: 0.8rem;
+	background: no-repeat var(--video-banner-play) center center, no-repeat var(--video-banner-bg) left center;
+	background-size: clamp(2.9rem, 8%, 6rem), cover;
+	aspect-ratio: var(--video-banner-ratio, 354 / 54);
+	padding: 0.4rem 1.2rem;
+	color: inherit;
+	line-height: 1.2;
+	font-size: clamp(var(--vscode-font-size), 4vw, 2.4rem);
+	transition: aspect-ratio linear 100ms;
+
+	@media (min-width: 564px) {
+		aspect-ratio: var(--video-banner-ratio, 354 / 40);
+	}
+
+	&:hover {
+		text-decoration: none;
+		color: inherit;
+	}
+
+	small {
+		color: #8d778d;
+	}
 }
 
 .image--preview {
@@ -128,9 +352,12 @@ p {
 
 vscode-button {
 	align-self: center;
-	margin-top: 1.5rem;
 	max-width: 300px;
 	width: 100%;
+
+	& + & {
+		margin-top: 1rem;
+	}
 }
 
 span.button-subaction {
@@ -153,7 +380,22 @@ vscode-divider {
 
 @import '../shared/codicons';
 
-.codicon {
-	position: relative;
-	top: -2px;
+// .codicon {
+// 	position: relative;
+// 	top: -2px;
+// }
+
+.type-tight {
+	line-height: 1.2;
+}
+
+.mb-1 {
+	margin-bottom: 0.4rem;
+}
+.mb-0 {
+	margin-bottom: 0;
+}
+
+.hide {
+	display: none;
 }
