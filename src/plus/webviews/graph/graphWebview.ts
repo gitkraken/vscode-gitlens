@@ -1,13 +1,20 @@
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
-	Disposable,
 	Event,
 	StatusBarItem,
 	WebviewOptions,
 	WebviewPanelOptions,
 } from 'vscode';
-import { CancellationTokenSource, EventEmitter, MarkdownString, StatusBarAlignment, ViewColumn, window } from 'vscode';
+import {
+	CancellationTokenSource,
+	Disposable,
+	EventEmitter,
+	MarkdownString,
+	StatusBarAlignment,
+	ViewColumn,
+	window,
+} from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import type {
@@ -33,8 +40,9 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
-import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitStatus } from '../../../git/models/status';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
@@ -68,6 +76,7 @@ import type {
 	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphRepository,
+	GraphWorkDirStats,
 	SearchCommitsParams,
 	SearchOpenInViewParams,
 	State,
@@ -83,6 +92,7 @@ import {
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidChangeWorkDirStatsNotificationType,
 	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
@@ -133,7 +143,11 @@ export class GraphWebview extends WebviewBase<State> {
 		this.resetRepositoryState();
 
 		if (value != null) {
-			this._repositoryEventsDisposable = value.onDidChange(this.onRepositoryChanged, this);
+			this._repositoryEventsDisposable = Disposable.from(
+				value.onDidChange(this.onRepositoryChanged, this),
+				value.startWatchingFileSystem(),
+				value.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
+			);
 		}
 
 		this.updateState();
@@ -619,6 +633,11 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
+	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+		if (!(e.repository?.path === this.repository?.path)) return;
+		this.updateWorkDirStats();
+	}
+
 	private onRepositorySelectionChanged(e: UpdateSelectedRepositoryParams) {
 		this.repository = this.container.git.getRepository(e.path);
 	}
@@ -633,6 +652,8 @@ export class GraphWebview extends WebviewBase<State> {
 			if (item.type === GitGraphRowType.Stash) {
 				const stash = await this.repository?.getStash();
 				commit = stash?.commits.get(item.id);
+			} else if (item.type === GitGraphRowType.Working) {
+				commit = await this.repository?.getCommit('0000000000000000000000000000000000000000');
 			} else {
 				commit = await this.repository?.getCommit(item?.id);
 			}
@@ -681,6 +702,24 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		this._notifyDidChangeAvatarsDebounced();
+	}
+
+	private _notifyDidChangeWorkDirStatsDebounced: Deferrable<() => void> | undefined = undefined;
+
+	@debug()
+	private updateWorkDirStats(immediate: boolean = false) {
+		if (!this.isReady || !this.visible) return;
+
+		if (immediate) {
+			void this.notifyDidChangeWorkDirStats();
+			return;
+		}
+
+		if (this._notifyDidChangeWorkDirStatsDebounced == null) {
+			this._notifyDidChangeWorkDirStatsDebounced = debounce(this.notifyDidChangeWorkDirStats.bind(this), 500);
+		}
+
+		this._notifyDidChangeWorkDirStatsDebounced();
 	}
 
 	@debug()
@@ -737,6 +776,15 @@ export class GraphWebview extends WebviewBase<State> {
 			},
 			completionId,
 		);
+	}
+
+	@debug()
+	private async notifyDidChangeWorkDirStats() {
+		if (!this.isReady || !this.visible) return false;
+
+		return this.notify(DidChangeWorkDirStatsNotificationType, {
+			workDirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
+		});
 	}
 
 	@debug()
@@ -890,6 +938,23 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
+	private async getWorkDirStats(): Promise<GraphWorkDirStats | undefined> {
+		if (this.container.git.repositoryCount === 0) return undefined;
+
+		if (this.repository == null) {
+			this.repository = this.container.git.getBestRepositoryOrFirst();
+			if (this.repository == null) return undefined;
+		}
+
+		const status: GitStatus | undefined = await this.container.git.getStatusForRepo(this.repository.path);
+		const workingTreeStatus = status?.getDiffStatus();
+		return {
+			added: workingTreeStatus?.added ?? 0,
+			deleted: workingTreeStatus?.deleted ?? 0,
+			modified: workingTreeStatus?.changed ?? 0,
+		};
+	}
+
 	private async getGraphAccess() {
 		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		this._etagSubscription = this.container.subscription.etag;
@@ -981,6 +1046,7 @@ export class GraphWebview extends WebviewBase<State> {
 				header: this.getColumnHeaderContext(columns),
 			},
 			nonce: this.cspNonce,
+			dirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
 		};
 	}
 
