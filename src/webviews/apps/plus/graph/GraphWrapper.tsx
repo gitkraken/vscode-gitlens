@@ -114,6 +114,7 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'deleted',
 		'renamed',
 		'resolved',
+		'pull-request',
 	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
