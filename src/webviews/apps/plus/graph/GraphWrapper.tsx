@@ -173,6 +173,7 @@ export function GraphWrapper({
 	searchResults,
 	trialBanner = true,
 	onDismissBanner,
+	dirStats = { added: 0, modified: 0, deleted: 0 },
 }: GraphWrapperProps) {
 	const [graphRows, setGraphRows] = useState(rows);
 	const [graphAvatars, setAvatars] = useState(avatars);
@@ -210,6 +211,8 @@ export function GraphWrapper({
 	);
 	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.hasMore ?? false);
 	const [selectedRow, setSelectedRow] = useState<GraphRow | undefined>(undefined);
+	// workdir state
+	const [workDirStats, setWorkDirStats] = useState(dirStats);
 
 	useEffect(() => {
 		if (graphRows.length === 0) {
@@ -403,6 +406,7 @@ export function GraphWrapper({
 		setIsLoading(state.loading);
 		setSearchResultIds(state.searchResults != null ? Object.entries(state.searchResults.ids) : undefined);
 		setHasMoreSearchResults(state.searchResults?.paging?.hasMore ?? false);
+		setWorkDirStats(state.dirStats ?? { added: 0, modified: 0, deleted: 0 });
 	}
 
 	useEffect(() => subscriber?.(transformData), []);
@@ -679,6 +683,7 @@ export function GraphWrapper({
 								themeOpacityFactor={styleProps.themeOpacityFactor}
 								useAuthorInitialsForAvatars={!graphConfig?.avatars}
 								width={mainWidth}
+								workDirStats={workDirStats}
 							/>
 						)}
 					</>

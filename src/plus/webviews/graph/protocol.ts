@@ -4,6 +4,7 @@ import type {
 	GraphRow,
 	GraphZoneType,
 	Remote,
+    WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
@@ -32,11 +33,14 @@ export interface State {
 	nonce?: string;
 	previewBanner?: boolean;
 	trialBanner?: boolean;
+	dirStats?: WorkDirStats;
 
 	// Props below are computed in the webview (not passed)
 	mixedColumnColors?: Record<string, string>;
 	searchResults?: DidSearchCommitsParams['results'];
 }
+
+export type GraphWorkDirStats = WorkDirStats;
 
 export interface GraphPaging {
 	startingCursor?: string;
@@ -214,4 +218,11 @@ export interface DidSearchCommitsParams {
 export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
 	'graph/didSearch',
 	true,
+);
+
+export interface DidChangeWorkDirStatsParams {
+	workDirStats: WorkDirStats;
+}
+export const DidChangeWorkDirStatsNotificationType = new IpcNotificationType<DidChangeWorkDirStatsParams>(
+	'graph/workDirStats/didChange',
 );

@@ -20,6 +20,7 @@ import {
 	DidChangeNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidChangeWorkDirStatsNotificationType,
 	DidEnsureCommitNotificationType,
 	DidSearchCommitsNotificationType,
 	DismissBannerCommandType,
@@ -247,6 +248,13 @@ export class GraphApp extends App<State> {
 						subscription: params.subscription,
 						allowed: params.allowed,
 					});
+					this.refresh(this.state);
+				});
+				break;
+
+			case DidChangeWorkDirStatsNotificationType.method:
+				onIpc(DidChangeWorkDirStatsNotificationType, msg, params => {
+					this.setState({ ...this.state, dirStats: params.workDirStats });
 					this.refresh(this.state);
 				});
 				break;
