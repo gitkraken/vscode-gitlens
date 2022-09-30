@@ -434,6 +434,15 @@ a {
 	}
 }
 
+.icon--pull-request {
+	&::before {
+		// codicon-git-pull-request
+		font-family: codicon;
+		content: '\ea64';
+	}
+}
+
+
 .titlebar {
 	background: var(--vscode-titleBar-inactiveBackground);
 	color: var(--vscode-titleBar-inactiveForeground);
