@@ -189,6 +189,15 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		}
 	}
 
+	protected getWebRoot() {
+		if (this._view == null) return;
+
+		const webRootUri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
+		const webRoot = this._view.webview.asWebviewUri(webRootUri).toString();
+
+		return webRoot;
+	}
+
 	private async getHtml(webview: Webview): Promise<string> {
 		const webRootUri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
 		const uri = Uri.joinPath(webRootUri, this.fileName);
