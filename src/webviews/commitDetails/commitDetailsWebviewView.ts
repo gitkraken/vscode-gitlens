@@ -7,7 +7,7 @@ import type {
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
-import { Commands } from '../../constants';
+import { Commands, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
@@ -21,7 +21,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
-import { executeCommand } from '../../system/command';
+import { executeCommand, executeCoreCommand } from '../../system/command';
 import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
@@ -244,6 +244,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 							break;
 						case 'more':
 							this.showCommitActions();
+							break;
+						case 'scm':
+							void executeCoreCommand(CoreCommands.ShowSCM);
 							break;
 						case 'sha':
 							if (params.alt) {
