@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes prioritization of multiple PRs associated with the same commit to choose a merged PR over others
 - Fixes Graph not showing account banners when access is not allowed and trial banners were previously dimissed
 - Fixes [#2195](https://github.com/gitkraken/vscode-gitlens/issues/2195) - cannot open new files from commit details
+- Fixes [#614](https://github.com/gitkraken/vscode-gitlens/issues/614) - remote URL not working for wiki links
 
 ## [12.2.2] - 2022-09-06
 
