@@ -4795,18 +4795,6 @@
 				"icon": "$(copy)"
 			},
 			{
-				"command": "gitlens.openAutolink",
-				"title": "Open Autolink Url",
-				"category": "GitLens",
-				"icon": "$(globe)"
-			},
-			{
-				"command": "gitlens.copyAutolinkUrl",
-				"title": "Copy Autolink Url",
-				"category": "GitLens",
-				"icon": "$(copy)"
-			},
-			{
 				"command": "gitlens.openPullRequestOnRemote",
 				"title": "Open Pull Request on Remote",
 				"category": "GitLens",
