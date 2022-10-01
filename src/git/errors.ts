@@ -1,3 +1,11 @@
+export class GitSearchError extends Error {
+	constructor(public readonly original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace?.(this, GitSearchError);
+	}
+}
+
 export const enum StashApplyErrorReason {
 	WorkingChanges = 1,
 }

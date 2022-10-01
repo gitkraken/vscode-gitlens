@@ -1,29 +1,32 @@
 import type {
+	CssVariables,
 	GraphColumnSetting,
 	GraphContexts,
 	GraphRow,
 	GraphZoneType,
 	Remote,
-    WorkDirStats,
+	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
-import type { SearchQuery } from '../../../git/search';
+import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
+export type GraphSelectedRows = Record</*id*/ string, true>;
+export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
 
 export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
-	selectedRows?: { [id: string]: true };
+	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
 	allowed: boolean;
-	avatars?: { [email: string]: string };
+	avatars?: GraphAvatars;
 	loading?: boolean;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
@@ -33,14 +36,15 @@ export interface State {
 	nonce?: string;
 	previewBanner?: boolean;
 	trialBanner?: boolean;
-	dirStats?: WorkDirStats;
+	workingTreeStats?: GraphWorkingTreeStats;
+	searchResults?: DidSearchParams['results'];
 
 	// Props below are computed in the webview (not passed)
-	mixedColumnColors?: Record<string, string>;
-	searchResults?: DidSearchCommitsParams['results'];
+	activeRow?: string;
+	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
 }
 
-export type GraphWorkDirStats = WorkDirStats;
+export type GraphWorkingTreeStats = WorkDirStats;
 
 export interface GraphPaging {
 	startingCursor?: string;
@@ -80,7 +84,7 @@ export interface GraphComponentConfig {
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	showGhostRefsOnRowHover?: boolean;
-	shaLength?: number;
+	idLength?: number;
 }
 
 export interface GraphColumnConfig {
@@ -91,7 +95,7 @@ export interface GraphColumnConfig {
 export type GraphColumnName = GraphZoneType;
 
 export interface UpdateStateCallback {
-	(state: State): void;
+	(state: State, type?: IpcNotificationType<any>): void;
 }
 
 // Commands
@@ -100,28 +104,28 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
-export interface EnsureCommitParams {
+export interface EnsureRowParams {
 	id: string;
 	select?: boolean;
 }
-export const EnsureCommitCommandType = new IpcCommandType<EnsureCommitParams>('graph/ensureCommit');
+export const EnsureRowCommandType = new IpcCommandType<EnsureRowParams>('graph/rows/ensure');
 
 export interface GetMissingAvatarsParams {
-	emails: { [email: string]: string };
+	emails: GraphAvatars;
 }
-export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/getMissingAvatars');
+export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/avatars/get');
 
-export interface GetMoreCommitsParams {
-	sha?: string;
+export interface GetMoreRowsParams {
+	id?: string;
 }
-export const GetMoreCommitsCommandType = new IpcCommandType<GetMoreCommitsParams>('graph/getMoreCommits');
+export const GetMoreRowsCommandType = new IpcCommandType<GetMoreRowsParams>('graph/rows/get');
 
-export interface SearchCommitsParams {
+export interface SearchParams {
 	search?: SearchQuery;
 	limit?: number;
 	more?: boolean;
 }
-export const SearchCommitsCommandType = new IpcCommandType<SearchCommitsParams>('graph/search');
+export const SearchCommandType = new IpcCommandType<SearchParams>('graph/search');
 
 export interface SearchOpenInViewParams {
 	search: SearchQuery;
@@ -185,44 +189,47 @@ export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChang
 	true,
 );
 
-export interface DidChangeCommitsParams {
+export interface DidChangeRowsParams {
 	rows: GraphRow[];
 	avatars: { [email: string]: string };
-	selectedRows?: { [id: string]: true };
 	paging?: GraphPaging;
+	selectedRows?: GraphSelectedRows;
 }
-export const DidChangeCommitsNotificationType = new IpcNotificationType<DidChangeCommitsParams>(
-	'graph/commits/didChange',
-);
+export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>('graph/rows/didChange');
 
 export interface DidChangeSelectionParams {
-	selection: { [id: string]: true };
+	selection: GraphSelectedRows;
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',
 	true,
 );
 
-export interface DidEnsureCommitParams {
-	id?: string;
-	selected?: boolean;
+export interface DidChangeWorkingTreeParams {
+	stats: WorkDirStats;
 }
-export const DidEnsureCommitNotificationType = new IpcNotificationType<DidEnsureCommitParams>(
-	'graph/commits/didEnsureCommit',
-);
-
-export interface DidSearchCommitsParams {
-	results: { ids: { [sha: string]: number }; paging?: { hasMore: boolean } } | undefined;
-	selectedRows?: { [id: string]: true };
-}
-export const DidSearchCommitsNotificationType = new IpcNotificationType<DidSearchCommitsParams>(
-	'graph/didSearch',
+export const DidChangeWorkingTreeNotificationType = new IpcNotificationType<DidChangeWorkingTreeParams>(
+	'graph/workingTree/didChange',
 	true,
 );
 
-export interface DidChangeWorkDirStatsParams {
-	workDirStats: WorkDirStats;
+export interface DidEnsureRowParams {
+	id?: string; // `undefined` if the row was not found
 }
-export const DidChangeWorkDirStatsNotificationType = new IpcNotificationType<DidChangeWorkDirStatsParams>(
-	'graph/workDirStats/didChange',
-);
+export const DidEnsureRowNotificationType = new IpcNotificationType<DidEnsureRowParams>('graph/rows/didEnsure');
+
+export interface GraphSearchResults {
+	ids?: { [id: string]: GitSearchResultData };
+	count: number;
+	paging?: { hasMore: boolean };
+}
+
+export interface GraphSearchResultsError {
+	error: string;
+}
+
+export interface DidSearchParams {
+	results: GraphSearchResults | GraphSearchResultsError | undefined;
+	selectedRows?: GraphSelectedRows;
+}
+export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams>('graph/didSearch', true);

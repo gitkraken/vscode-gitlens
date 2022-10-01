@@ -415,7 +415,11 @@ export interface GitProvider extends Disposable {
 	searchCommits(
 		repoPath: string | Uri,
 		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitSearch>;
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;

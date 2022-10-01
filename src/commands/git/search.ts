@@ -351,7 +351,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 				// Simulate an extra step if we have a value
 				state.counter = value ? 3 : 2;
 
-				const operations = parseSearchQuery(value);
+				const operations = parseSearchQuery({
+					query: value,
+					matchCase: state.matchCase,
+					matchAll: state.matchAll,
+					matchRegex: state.matchRegex,
+				});
 
 				quickpick.title = appendReposToTitle(
 					operations.size === 0 || operations.size > 1

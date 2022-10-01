@@ -55,9 +55,11 @@ export abstract class App<State = undefined> {
 
 				this.onInitialized?.();
 			} finally {
-				setTimeout(() => {
-					document.body.classList.remove('preload');
-				}, 500);
+				if (document.body.classList.contains('preload')) {
+					setTimeout(() => {
+						document.body.classList.remove('preload');
+					}, 500);
+				}
 			}
 		});
 	}

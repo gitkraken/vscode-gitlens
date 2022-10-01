@@ -24,6 +24,7 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
 import { Features } from '../../features';
+import { GitSearchError } from '../../git/errors';
 import type {
 	GitProvider,
 	NextComparisonUrisResult,
@@ -73,7 +74,7 @@ import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import type { GitSearch, SearchQuery } from '../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
@@ -1214,7 +1215,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			avatars: avatars,
 			ids: ids,
 			rows: rows,
-			sha: options?.ref,
+			id: options?.ref,
 
 			paging: {
 				limit: log.limit,
@@ -2476,7 +2477,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const scope = getLogScope();
 
-		const operations = parseSearchQuery(search.query);
+		const operations = parseSearchQuery(search);
 
 		let op;
 		let values = operations.get('commit:');
@@ -2660,7 +2661,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async searchCommits(
 		repoPath: string,
 		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitSearch> {
 		// const scope = getLogScope();
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
@@ -2668,8 +2673,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const comparisonKey = getSearchQueryComparisonKey(search);
 
 		try {
-			const results = new Map<string, number>();
-			const operations = parseSearchQuery(search.query);
+			const results: GitSearchResults = new Map<string, GitSearchResultData>();
+			const operations = parseSearchQuery(search);
 
 			let op;
 			let values = operations.get('commit:');
@@ -2677,14 +2682,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
 					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
 				);
+
+				let i = 0;
 				for (const commitResult of commitsResults) {
 					const commit = getSettledValue(commitResult);
 					if (commit == null) continue;
 
-					results.set(
-						commit.sha,
-						Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
-					);
+					results.set(commit.sha, {
+						i: i++,
+						date: Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
+					});
 				}
 
 				return {
@@ -2740,7 +2747,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				cursor?: string,
 			): Promise<GitSearch> {
 				if (options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error here?
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
@@ -2757,15 +2763,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				});
 
 				if (result == null || options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error if cancelled?
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
 				for (const commit of result.values) {
-					results.set(
-						commit.sha,
-						Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
-					);
+					results.set(commit.sha, {
+						i: results.size - 1,
+						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
+					});
 				}
 
 				cursor = result.pageInfo?.endCursor ?? undefined;
@@ -2787,14 +2792,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return searchForCommitsCore.call(this, options?.limit);
 		} catch (ex) {
-			// TODO@eamodio: Should we throw an error here?
-			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
-			return {
-				repoPath: repoPath,
-				query: search,
-				comparisonKey: comparisonKey,
-				results: new Map<string, number>(),
-			};
+			if (ex instanceof GitSearchError) {
+				throw ex;
+			}
+			throw new GitSearchError(ex);
 		}
 	}
 

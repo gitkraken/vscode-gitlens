@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, observable, volatile } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, ref, volatile } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
 import '../codicon';
 
@@ -10,16 +10,17 @@ const template = html<SearchInput>`
 		</label>
 		<div class="field">
 			<input
+				${ref('input')}
 				id="search"
 				part="search"
 				type="search"
 				spellcheck="false"
 				placeholder="${x => x.placeholder}"
 				:value="${x => x.value}"
-				aria-valid="${x => x.errorMessage === ''}"
-				aria-describedby="${x => (x.errorMessage === '' ? '' : 'error')}"
+				aria-valid="${x => !x.errorMessage}"
+				aria-describedby="${x => (!x.errorMessage ? '' : 'error')}"
 				@input="${(x, c) => x.handleInput(c.event)}"
-				@keyup="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
+				@keydown="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
 			/>
 			<div class="message" id="error" aria-live="polite">${x => x.errorMessage}</div>
 		</div>
@@ -227,8 +228,10 @@ export class SearchInput extends FASTElement {
 		return this.matchRegex ? this.matchCase : true;
 	}
 
+	input!: HTMLInputElement;
+
 	override focus(options?: FocusOptions): void {
-		this.shadowRoot?.getElementById('search')?.focus(options);
+		this.input.focus(options);
 	}
 
 	handleClear(_e: Event) {
@@ -258,7 +261,7 @@ export class SearchInput extends FASTElement {
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
-		if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey) return;
+		if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey) return true;
 
 		e.preventDefault();
 		if (e.shiftKey) {
@@ -266,6 +269,7 @@ export class SearchInput extends FASTElement {
 		} else {
 			this.$emit('next');
 		}
+		return false;
 	}
 
 	private emitSearch() {
