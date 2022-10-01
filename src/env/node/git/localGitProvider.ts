@@ -18,7 +18,9 @@ import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
+import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	GitSearchError,
 	StashApplyError,
 	StashApplyErrorReason,
 	WorktreeCreateError,
@@ -108,7 +110,7 @@ import type { RemoteProvider } from '../../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import type { GitSearch, SearchQuery } from '../../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import { Logger } from '../../../logger';
 import type { LogScope } from '../../../logger';
@@ -146,11 +148,12 @@ import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { Git } from './git';
-import { GitErrors, gitLogDefaultConfigsWithFiles, maxGitCliLength } from './git';
+import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles, maxGitCliLength } from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
-import { fsExists, RunError } from './shell';
+import { CancelledRunError, fsExists, RunError } from './shell';
 
+const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const slash = 47;
@@ -1660,7 +1663,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
-		const skipStashParents = new Set();
+		const skippedIds = new Set<string>();
 		let total = 0;
 		let iterations = 0;
 
@@ -1764,7 +1767,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (ids.has(commit.sha)) continue;
 
 				total++;
-				if (skipStashParents.has(commit.sha)) continue;
+				if (skippedIds.has(commit.sha)) continue;
 
 				ids.add(commit.sha);
 
@@ -1876,9 +1879,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
 				if (stashCommit != null && parents.length > 1) {
 					// Skip the "index commit" (e.g. contains staged files) of the stash
-					skipStashParents.add(parents[1]);
+					skippedIds.add(parents[1]);
 					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
-					skipStashParents.add(parents[2]);
+					skippedIds.add(parents[2]);
 					parents.splice(1, 2);
 				}
 
@@ -1959,8 +1962,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				repoPath: repoPath,
 				avatars: avatars,
 				ids: ids,
+				skippedIds: skippedIds,
 				rows: rows,
-				sha: sha,
+				id: sha,
 
 				paging: {
 					limit: limit === 0 ? count : limit,
@@ -4225,7 +4229,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async searchCommits(
 		repoPath: string,
 		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitSearch> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
@@ -4245,10 +4253,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					'--',
 				);
 
-				const results = new Map<string, number>(
+				let i = 0;
+				const results: GitSearchResults = new Map<string, GitSearchResultData>(
 					map(refAndDateParser.parse(data), c => [
 						c.sha,
-						Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
+						{
+							i: i++,
+							date: Number(options?.ordering === 'author-date' ? c.authorDate : c.committerDate) * 1000,
+						},
 					]),
 				);
 
@@ -4278,59 +4290,69 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'--use-mailmap',
 			];
-			if (options?.ordering) {
-				args.push(`--${options.ordering}-order`);
-			}
 
-			const results = new Map<string, number>();
+			const results: GitSearchResults = new Map<string, GitSearchResultData>();
 			let total = 0;
-			let iterations = 0;
 
 			async function searchForCommitsCore(
 				this: LocalGitProvider,
 				limit: number,
 				cursor?: { sha: string; skip: number },
 			): Promise<GitSearch> {
-				iterations++;
-
 				if (options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error here?
 					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
 				}
 
-				const data = await this.git.log2(
-					repoPath,
-					{ cancellation: options?.cancellation, stdin: stdin },
-					...args,
-					...(cursor?.skip ? [`--skip=${cursor.skip}`] : []),
-					...(limit ? [`-n${limit + 1}`] : []),
-					...searchArgs,
-					'--',
-					...files,
-				);
-
-				if (options?.cancellation?.isCancellationRequested) {
-					// TODO@eamodio: Should we throw an error here?
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				let count = 0;
-				for (const r of refAndDateParser.parse(data)) {
-					results.set(
-						r.sha,
-						Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+				let data;
+				try {
+					data = await this.git.log2(
+						repoPath,
+						{
+							cancellation: options?.cancellation,
+							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
+							errors: GitErrorHandling.Throw,
+							stdin: stdin,
+						},
+						...args,
+						...searchArgs,
+						...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
+						...(limit ? [`-n${limit + 1}`] : emptyArray),
+						...(cursor?.skip ? [`--skip=${cursor.skip}`] : emptyArray),
+						'--',
+						...files,
 					);
+				} catch (ex) {
+					if (ex instanceof CancelledRunError || options?.cancellation?.isCancellationRequested) {
+						return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+					}
 
-					count++;
+					throw new GitSearchError(ex);
 				}
 
-				total += count;
+				if (options?.cancellation?.isCancellationRequested) {
+					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
+				}
+
+				let count = total;
+
+				for (const r of refAndDateParser.parse(data)) {
+					if (results.has(r.sha)) {
+						limit--;
+						continue;
+					}
+					results.set(r.sha, {
+						i: total++,
+						date: Number(options?.ordering === 'author-date' ? r.authorDate : r.committerDate) * 1000,
+					});
+				}
+
+				count = total - count;
 				const lastSha = last(results)?.[0];
 				cursor =
 					lastSha != null
 						? {
 								sha: lastSha,
-								skip: total - iterations,
+								skip: total,
 						  }
 						: undefined;
 
@@ -4352,14 +4374,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			return searchForCommitsCore.call(this, limit);
 		} catch (ex) {
-			// TODO@eamodio: Should we throw an error here?
-			// TODO@eamodio handle error reporting -- just invalid queries? or more detailed?
-			return {
-				repoPath: repoPath,
-				query: search,
-				comparisonKey: comparisonKey,
-				results: new Map<string, number>(),
-			};
+			if (ex instanceof GitSearchError) {
+				throw ex;
+			}
+			throw new GitSearchError(ex);
 		}
 	}
 

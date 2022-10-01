@@ -145,11 +145,20 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected async refresh(force?: boolean): Promise<void> {
 		if (this._panel == null) return;
 
+		// Mark the webview as not ready, until we know if we are changing the html
+		this.isReady = false;
 		const html = await this.getHtml(this._panel.webview);
 		if (force) {
 			// Reset the html to get the webview to reload
 			this._panel.webview.html = '';
 		}
+
+		// If we aren't changing the html, mark the webview as ready again
+		if (this._panel.webview.html === html) {
+			this.isReady = true;
+			return;
+		}
+
 		this._panel.webview.html = html;
 	}
 
@@ -157,6 +166,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		this.onVisibilityChanged?.(false);
 		this.onFocusChanged?.(false);
 
+		this.isReady = false;
 		this._disposablePanel?.dispose();
 		this._disposablePanel = undefined;
 		this._panel = undefined;

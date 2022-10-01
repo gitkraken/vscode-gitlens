@@ -1,91 +1,70 @@
-import type { OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
-import GraphContainer, {
-	type CssVariables,
-	type GraphColumnSetting,
-	type GraphPlatform,
-	type GraphRow,
+import GraphContainer from '@gitkraken/gitkraken-components';
+import type {
+	GraphColumnSetting,
+	GraphContainerProps,
+	GraphPlatform,
+	GraphRow,
+	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
-import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
-	DidEnsureCommitParams,
-	DidSearchCommitsParams,
+	DidEnsureRowParams,
+	DidSearchParams,
 	DismissBannerParams,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphComponentConfig,
 	GraphRepository,
+	GraphSearchResults,
+	GraphSearchResultsError,
 	State,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
+import {
+	DidChangeAvatarsNotificationType,
+	DidChangeColumnsNotificationType,
+	DidChangeGraphConfigurationNotificationType,
+	DidChangeRowsNotificationType,
+	DidChangeSelectionNotificationType,
+	DidChangeSubscriptionNotificationType,
+	DidChangeWorkingTreeNotificationType,
+	DidSearchNotificationType,
+} from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
-import { debounce } from '../../../../system/function';
 import { pluralize } from '../../../../system/string';
+import type { IpcNotificationType } from '../../../../webviews/protocol';
 import { SearchBox } from '../../shared/components/search/react';
+import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 
-export interface GraphWrapperProps extends State {
+export interface GraphWrapperProps {
 	nonce?: string;
+	state: State;
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
-	onMoreCommits?: (id?: string) => void;
-	onSearchCommits?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
-	onSearchCommitsPromise?: (
+	onMoreRows?: (id?: string) => void;
+	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
+	onSearchPromise?: (
 		search: SearchQuery,
 		options?: { limit?: number; more?: boolean },
-	) => Promise<DidSearchCommitsParams | undefined>;
+	) => Promise<DidSearchParams | undefined>;
 	onSearchOpenInView?: (search: SearchQuery) => void;
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
-	onSelectionChange?: (selection: { id: string; type: GitGraphRowType }[]) => void;
-	onEnsureCommitPromise?: (id: string, select: boolean) => Promise<DidEnsureCommitParams | undefined>;
+	onSelectionChange?: (rows: GraphRow[]) => void;
+	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 }
-
-const getStyleProps = (
-	mixedColumnColors: CssVariables | undefined,
-): { cssVariables: CssVariables; themeOpacityFactor: number } => {
-	const body = document.body;
-	const computedStyle = window.getComputedStyle(body);
-
-	return {
-		cssVariables: {
-			'--app__bg0': computedStyle.getPropertyValue('--color-background'),
-			'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
-			'--panel__bg1': computedStyle.getPropertyValue('--graph-panel-bg2'),
-			'--section-border': computedStyle.getPropertyValue('--graph-panel-bg2'),
-			'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
-			'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
-			'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
-			'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
-			'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
-			'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
-			'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-			...mixedColumnColors,
-		},
-		themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
-	};
-};
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
-};
-
-const getSearchHighlights = (searchIds?: [string, number][]): { [id: string]: boolean } | undefined => {
-	if (!searchIds?.length) return undefined;
-
-	const highlights: { [id: string]: boolean } = {};
-	for (const [sha] of searchIds) {
-		highlights[sha] = true;
-	}
-	return highlights;
 };
 
 type DebouncableFn = (...args: any) => void;
@@ -146,229 +125,132 @@ const clientPlatform = getClientPlatform();
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export function GraphWrapper({
 	subscriber,
-	repositories = [],
-	rows = [],
-	selectedRepository,
-	selectedRows,
-	subscription,
-	selectedRepositoryVisibility,
-	allowed,
-	avatars,
-	columns,
-	config,
-	context,
-	loading,
-	paging,
+	nonce,
+	state,
 	onSelectRepository,
 	onColumnChange,
-	onEnsureCommitPromise,
+	onEnsureRowPromise,
 	onMissingAvatars,
-	onMoreCommits,
-	onSearchCommits,
-	onSearchCommitsPromise,
+	onMoreRows,
+	onSearch,
+	onSearchPromise,
 	onSearchOpenInView,
 	onSelectionChange,
-	nonce,
-	mixedColumnColors,
-	previewBanner = true,
-	searchResults,
-	trialBanner = true,
 	onDismissBanner,
-	dirStats = { added: 0, modified: 0, deleted: 0 },
 }: GraphWrapperProps) {
-	const [graphRows, setGraphRows] = useState(rows);
-	const [graphAvatars, setAvatars] = useState(avatars);
-	const [reposList, setReposList] = useState(repositories);
-	const [currentRepository, setCurrentRepository] = useState<GraphRepository | undefined>(
-		reposList.find(item => item.path === selectedRepository),
-	);
-	const [graphSelectedRows, setSelectedRows] = useState(selectedRows);
-	const [graphConfig, setGraphConfig] = useState(config);
-	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
-	const [graphColumns, setGraphColumns] = useState(columns);
-	const [graphContext, setGraphContext] = useState(context);
-	const [pagingState, setPagingState] = useState(paging);
-	const [isLoading, setIsLoading] = useState(loading);
-	const [styleProps, setStyleProps] = useState(getStyleProps(mixedColumnColors));
 	// TODO: application shouldn't know about the graph component's header
 	const graphHeaderOffset = 24;
 	const [mainWidth, setMainWidth] = useState<number>();
 	const [mainHeight, setMainHeight] = useState<number>();
 	const mainRef = useRef<HTMLElement>(null);
+	const graphRef = useRef<GraphContainer>(null);
+
+	const [rows, setRows] = useState(state.rows ?? []);
+	const [avatars, setAvatars] = useState(state.avatars);
+	const [repos, setRepos] = useState(state.repositories ?? []);
+	const [repo, setRepo] = useState<GraphRepository | undefined>(
+		repos.find(item => item.path === state.selectedRepository),
+	);
+	const [selectedRows, setSelectedRows] = useState(state.selectedRows);
+	const [activeRow, setActiveRow] = useState(state.activeRow);
+	const [graphConfig, setGraphConfig] = useState(state.config);
+	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
+	const [columns, setColumns] = useState(state.columns);
+	const [context, setContext] = useState(state.context);
+	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
+	const [isLoading, setIsLoading] = useState(state.loading);
+	const [styleProps, setStyleProps] = useState(state.theming);
 	// banner
-	const [showPreview, setShowPreview] = useState(previewBanner);
+	const [showPreview, setShowPreview] = useState(state.previewBanner);
 	// account
-	const [showAccount, setShowAccount] = useState(trialBanner);
-	const [isAllowed, setIsAllowed] = useState(allowed ?? false);
-	const [isPrivateRepo, setIsPrivateRepo] = useState(selectedRepositoryVisibility === RepositoryVisibility.Private);
-	const [subscriptionSnapshot, setSubscriptionSnapshot] = useState<Subscription | undefined>(subscription);
+	const [showAccount, setShowAccount] = useState(state.trialBanner);
+	const [isAccessAllowed, setIsAccessAllowed] = useState(state.allowed ?? false);
+	const [isRepoPrivate, setIsRepoPrivate] = useState(
+		state.selectedRepositoryVisibility === RepositoryVisibility.Private,
+	);
+	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
 	// search state
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
-	const [searchResultKey, setSearchResultKey] = useState<string | undefined>(undefined);
-	const [searchResultIds, setSearchResultIds] = useState(
-		searchResults != null ? Object.entries(searchResults.ids) : undefined,
+	const { results, resultsError } = getSearchResultModel(state);
+	const [searchResults, setSearchResults] = useState(results);
+	const [searchResultsError, setSearchResultsError] = useState(resultsError);
+	const [searchResultsHidden, setSearchResultsHidden] = useState(false);
+
+	// working tree state
+	const [workingTreeStats, setWorkingTreeStats] = useState(
+		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
-	const [hasMoreSearchResults, setHasMoreSearchResults] = useState(searchResults?.paging?.hasMore ?? false);
-	const [selectedRow, setSelectedRow] = useState<GraphRow | undefined>(undefined);
-	// workdir state
-	const [workDirStats, setWorkDirStats] = useState(dirStats);
 
-	useEffect(() => {
-		if (graphRows.length === 0) {
-			setSearchResultIds(undefined);
-		}
-	}, [graphRows]);
+	const ensuredIds = useRef<Set<string>>(new Set());
+	const ensuredSkippedIds = useRef<Set<string>>(new Set());
 
-	useEffect(() => {
-		if (searchResultIds == null || searchResultIds.length === 0) {
-			setSearchResultKey(undefined);
-			return;
-		}
-
-		if (
-			searchResultKey == null ||
-			(searchResultKey != null && !searchResultIds.some(id => id[0] === searchResultKey))
-		) {
-			setSearchResultKey(searchResultIds[0][0]);
-		}
-	}, [searchResultIds]);
-
-	const searchHighlights = useMemo(() => getSearchHighlights(searchResultIds), [searchResultIds]);
-
-	const searchPosition: number = useMemo(() => {
-		if (searchResultKey == null || searchResultIds == null) return 0;
-
-		const idx = searchResultIds.findIndex(id => id[0] === searchResultKey);
-		return idx < 1 ? 1 : idx + 1;
-	}, [searchResultKey, searchResultIds]);
-
-	const handleSearchNavigation = async (next = true) => {
-		if (searchResultKey == null || searchResultIds == null) return;
-
-		let selected = searchResultKey;
-		if (selectedRow != null && selectedRow.sha !== searchResultKey) {
-			selected = selectedRow.sha;
-		}
-
-		let resultIds = searchResultIds;
-		const selectedDate = selectedRow != null ? selectedRow.date + (next ? 1 : -1) : undefined;
-
-		// Loop through the search results and:
-		//  try to find the selected sha
-		//  if next=true find the nearest date before the selected date
-		//  if next=false find the nearest date after the selected date
-		let rowIndex: number | undefined;
-		let nearestDate: number | undefined;
-		let nearestIndex: number | undefined;
-
-		let i = -1;
-		let date: number;
-		let sha: string;
-		for ([sha, date] of resultIds) {
-			i++;
-
-			if (sha === selected) {
-				rowIndex = i;
+	function transformData(state: State, type?: IpcNotificationType<any>) {
+		switch (type) {
+			case DidChangeAvatarsNotificationType:
+				setAvatars(state.avatars);
+				break;
+			case DidChangeColumnsNotificationType:
+				setColumns(state.columns);
+				setContext(state.context);
+				break;
+			case DidChangeRowsNotificationType:
+				setRows(state.rows ?? []);
+				setSelectedRows(state.selectedRows);
+				setAvatars(state.avatars);
+				setPagingHasMore(state.paging?.hasMore ?? false);
+				setIsLoading(state.loading);
+				break;
+			case DidSearchNotificationType: {
+				const { results, resultsError } = getSearchResultModel(state);
+				setSearchResultsError(resultsError);
+				setSearchResults(results);
+				setSelectedRows(state.selectedRows);
 				break;
 			}
+			case DidChangeGraphConfigurationNotificationType:
+				setGraphConfig(state.config);
+				break;
+			case DidChangeSelectionNotificationType:
+				setSelectedRows(state.selectedRows);
+				break;
+			case DidChangeSubscriptionNotificationType:
+				setIsAccessAllowed(state.allowed ?? false);
+				setSubscription(state.subscription);
+				break;
+			case DidChangeWorkingTreeNotificationType:
+				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
+				break;
+			default: {
+				setIsAccessAllowed(state.allowed ?? false);
+				setStyleProps(state.theming);
+				setColumns(state.columns);
+				setRows(state.rows ?? []);
+				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
+				setGraphConfig(state.config);
+				setSelectedRows(state.selectedRows);
+				setContext(state.context);
+				setAvatars(state.avatars ?? {});
+				setPagingHasMore(state.paging?.hasMore ?? false);
+				setRepos(state.repositories ?? []);
+				setRepo(repos.find(item => item.path === state.selectedRepository));
+				setIsRepoPrivate(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
+				// setGraphDateFormatter(getGraphDateFormatter(config));
+				setSubscription(state.subscription);
+				setShowAccount(state.trialBanner ?? true);
 
-			if (selectedDate != null) {
-				if (next) {
-					if (date < selectedDate && (nearestDate == null || date > nearestDate)) {
-						nearestDate = date;
-						nearestIndex = i;
-					}
-				} else if (date > selectedDate && (nearestDate == null || date <= nearestDate)) {
-					nearestDate = date;
-					nearestIndex = i;
-				}
+				const { results, resultsError } = getSearchResultModel(state);
+				setSearchResultsError(resultsError);
+				setSearchResults(results);
+
+				setIsLoading(state.loading);
+				break;
 			}
 		}
+	}
 
-		if (rowIndex == null) {
-			rowIndex = nearestIndex == null ? resultIds.length - 1 : nearestIndex + (next ? -1 : 1);
-		}
-
-		if (next) {
-			if (rowIndex < resultIds.length - 1) {
-				rowIndex++;
-			} else if (searchQuery != null && hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(searchQuery, { more: true });
-				if (results?.results != null) {
-					if (resultIds.length < results.results.ids.length) {
-						resultIds = Object.entries(results.results.ids);
-						rowIndex++;
-					} else {
-						rowIndex = 0;
-					}
-				} else {
-					rowIndex = 0;
-				}
-			} else {
-				rowIndex = 0;
-			}
-		} else if (rowIndex > 0) {
-			rowIndex--;
-		} else {
-			if (searchQuery != null && hasMoreSearchResults) {
-				const results = await onSearchCommitsPromise?.(searchQuery, { limit: 0, more: true });
-				if (results?.results != null) {
-					if (resultIds.length < results.results.ids.length) {
-						resultIds = Object.entries(results.results.ids);
-					}
-				}
-			}
-
-			rowIndex = resultIds.length - 1;
-		}
-
-		const nextSha = resultIds[rowIndex][0];
-		if (nextSha == null) return;
-
-		if (onEnsureCommitPromise != null) {
-			let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-				timeout = undefined;
-				setIsLoading(true);
-			}, 250);
-
-			const e = await onEnsureCommitPromise(nextSha, true);
-			if (timeout == null) {
-				setIsLoading(false);
-			} else {
-				clearTimeout(timeout);
-			}
-
-			if (e?.id === nextSha) {
-				setSearchResultKey(nextSha);
-				setSelectedRows({ [nextSha]: true });
-			} else {
-				debugger;
-			}
-		} else {
-			setSearchResultKey(nextSha);
-			setSelectedRows({ [nextSha]: true });
-		}
-	};
-
-	const handleSearchInput = debounce((e: CustomEvent<SearchQuery>) => {
-		const detail = e.detail;
-		setSearchQuery(detail);
-
-		const isValid = detail.query.length >= 3;
-		if (!isValid) {
-			setSearchResultKey(undefined);
-			setSearchResultIds(undefined);
-		}
-		onSearchCommits?.(isValid ? detail : undefined);
-	}, 250);
-
-	const handleSearchOpenInView = () => {
-		if (searchQuery == null) return;
-
-		onSearchOpenInView?.(searchQuery);
-	};
+	useEffect(() => subscriber?.(transformData), []);
 
 	useLayoutEffect(() => {
 		if (mainRef.current === null) return;
@@ -386,34 +268,144 @@ export function GraphWrapper({
 		return () => resizeObserver.disconnect();
 	}, [mainRef]);
 
-	function transformData(state: State) {
-		setGraphRows(state.rows ?? []);
-		setAvatars(state.avatars ?? {});
-		setReposList(state.repositories ?? []);
-		setCurrentRepository(reposList.find(item => item.path === state.selectedRepository));
-		if (JSON.stringify(graphSelectedRows) !== JSON.stringify(state.selectedRows)) {
-			setSelectedRows(state.selectedRows);
-		}
-		setGraphConfig(state.config);
-		// setGraphDateFormatter(getGraphDateFormatter(config));
-		setGraphColumns(state.columns);
-		setGraphContext(state.context);
-		setPagingState(state.paging);
-		setStyleProps(getStyleProps(state.mixedColumnColors));
-		setIsAllowed(state.allowed ?? false);
-		setShowAccount(state.trialBanner ?? true);
-		setSubscriptionSnapshot(state.subscription);
-		setIsPrivateRepo(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
-		setIsLoading(state.loading);
-		setSearchResultIds(state.searchResults != null ? Object.entries(state.searchResults.ids) : undefined);
-		setHasMoreSearchResults(state.searchResults?.paging?.hasMore ?? false);
-		setWorkDirStats(state.dirStats ?? { added: 0, modified: 0, deleted: 0 });
-	}
+	const searchPosition: number = useMemo(() => {
+		if (searchResults?.ids == null || !searchQuery?.query) return 0;
 
-	useEffect(() => subscriber?.(transformData), []);
+		const id = getActiveRowInfo(activeRow)?.id;
+		let searchIndex = id ? searchResults.ids[id]?.i : undefined;
+		if (searchIndex == null) {
+			[searchIndex] = getClosestSearchResultIndex(searchResults, searchQuery, activeRow);
+		}
+		return searchIndex < 1 ? 1 : searchIndex + 1;
+	}, [activeRow, searchResults]);
+
+	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
+		const detail = e.detail;
+		setSearchQuery(detail);
+
+		const isValid = detail.query.length >= 3;
+		if (!isValid) {
+			setSearchResults(undefined);
+		}
+		setSearchResultsError(undefined);
+		setSearchResultsHidden(false);
+		onSearch?.(isValid ? detail : undefined);
+	};
+
+	const handleSearchOpenInView = () => {
+		if (searchQuery == null) return;
+
+		onSearchOpenInView?.(searchQuery);
+	};
+
+	const handleSearchNavigation = async (e: CustomEvent<SearchNavigationEventDetail>) => {
+		if (searchResults == null) return;
+
+		const direction = e.detail?.direction ?? 'next';
+
+		let results = searchResults;
+		let count = results.count;
+
+		let searchIndex;
+		let id: string | undefined;
+
+		let next;
+		if (direction === 'first') {
+			next = false;
+			searchIndex = 0;
+		} else if (direction === 'last') {
+			next = true;
+			searchIndex = count - 1;
+		} else {
+			next = direction === 'next';
+			[searchIndex, id] = getClosestSearchResultIndex(results, searchQuery, activeRow, next);
+		}
+
+		let iterations = 0;
+		// Avoid infinite loops
+		while (iterations < 1000) {
+			iterations++;
+
+			// Indicates a boundary and we need to load more results
+			if (searchIndex == -1) {
+				if (next) {
+					if (searchQuery != null && results?.paging?.hasMore) {
+						const moreResults = await onSearchPromise?.(searchQuery, { more: true });
+						if (moreResults?.results != null && !('error' in moreResults.results)) {
+							if (count < moreResults.results.count) {
+								results = moreResults.results;
+								searchIndex = count;
+								count = results.count;
+							} else {
+								searchIndex = 0;
+							}
+						} else {
+							searchIndex = 0;
+						}
+					} else {
+						searchIndex = 0;
+					}
+				} else {
+					// TODO@eamodio should we load all the results here? Or just go to the end of the loaded results?
+					// } else if (searchQuery != null && results?.paging?.hasMore) {
+					// 	const moreResults = await onSearchCommitsPromise?.(searchQuery, { limit: 0, more: true });
+					// 	if (moreResults?.results != null && !('error' in moreResults.results)) {
+					// 		if (count < moreResults.results.count) {
+					// 			results = moreResults.results;
+					// 			count = results.count;
+					// 		}
+					// 	}
+					searchIndex = count - 1;
+				}
+			}
+
+			id = id ?? getSearchResultIdByIndex(results, searchIndex);
+			if (id != null) {
+				id = await ensureSearchResultRow(id);
+				if (id != null) break;
+			}
+
+			setSearchResultsHidden(true);
+
+			searchIndex = getNextOrPreviousSearchResultIndex(searchIndex, next, results, searchQuery);
+		}
+
+		if (id != null) {
+			// TODO@eamodio Remove the any once we expose `selectCommits` on the graph component
+			queueMicrotask(() => void (graphRef.current as any)?.selectCommits([id], false));
+		}
+	};
+
+	const ensureSearchResultRow = async (id: string): Promise<string | undefined> => {
+		if (onEnsureRowPromise == null) return id;
+		if (ensuredIds.current.has(id)) return id;
+		if (ensuredSkippedIds.current.has(id)) return undefined;
+
+		let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+			timeout = undefined;
+			setIsLoading(true);
+		}, 500);
+
+		const e = await onEnsureRowPromise(id, false);
+		if (timeout == null) {
+			setIsLoading(false);
+		} else {
+			clearTimeout(timeout);
+		}
+
+		if (e?.id === id) {
+			ensuredIds.current.add(id);
+			return id;
+		}
+
+		if (e != null) {
+			ensuredSkippedIds.current.add(id);
+		}
+		return undefined;
+	};
 
 	const handleSelectRepository = (item: GraphRepository) => {
-		if (item != null && item !== currentRepository) {
+		if (item != null && item !== repo) {
 			setIsLoading(true);
 			onSelectRepository?.(item);
 		}
@@ -421,7 +413,7 @@ export function GraphWrapper({
 	};
 
 	const handleToggleRepos = () => {
-		if (currentRepository != null && reposList.length <= 1) return;
+		if (repo != null && repos.length <= 1) return;
 		setRepoExpanded(!repoExpanded);
 	};
 
@@ -442,7 +434,7 @@ export function GraphWrapper({
 
 	const handleMoreCommits = () => {
 		setIsLoading(true);
-		onMoreCommits?.();
+		onMoreRows?.();
 	};
 
 	const handleOnColumnResized = (columnName: GraphColumnName, columnSettings: GraphColumnSetting) => {
@@ -454,9 +446,13 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleSelectGraphRows = (graphRows: GraphRow[]) => {
-		setSelectedRow(graphRows[0]);
-		onSelectionChange?.(graphRows.map(r => ({ id: r.sha, type: r.type as GitGraphRowType })));
+	const handleSelectGraphRows = (rows: GraphRow[]) => {
+		const active = rows[0];
+		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
+		// HACK: Ensure the main state is updated since it doesn't come from the extension
+		state.activeRow = activeKey;
+		setActiveRow(activeKey);
+		onSelectionChange?.(rows);
 	};
 
 	const handleDismissPreview = () => {
@@ -471,15 +467,13 @@ export function GraphWrapper({
 
 	const renderTrialDays = () => {
 		if (
-			!subscriptionSnapshot ||
-			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
-				subscriptionSnapshot.state,
-			)
+			!subscription ||
+			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(subscription.state)
 		) {
 			return;
 		}
 
-		const days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
+		const days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 		return (
 			<span className="mr-loose">
 				<span className="badge">GitLens+ Trial</span> ({days < 1 ? '< 1 day' : pluralize('day', days)} left)
@@ -488,22 +482,18 @@ export function GraphWrapper({
 	};
 
 	const renderAlertContent = () => {
-		if (subscriptionSnapshot == null || !isPrivateRepo || (isAllowed && !showAccount)) return;
+		if (subscription == null || !isRepoPrivate || (isAccessAllowed && !showAccount)) return;
 
 		let icon = 'account';
 		let modifier = '';
 		let content;
 		let actions;
 		let days = 0;
-		if (
-			[SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
-				subscriptionSnapshot.state,
-			)
-		) {
-			days = getSubscriptionTimeRemaining(subscriptionSnapshot, 'days') ?? 0;
+		if ([SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(subscription.state)) {
+			days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 		}
 
-		switch (subscriptionSnapshot.state) {
+		switch (subscription.state) {
 			case SubscriptionState.Free:
 			case SubscriptionState.Paid:
 				return;
@@ -590,7 +580,7 @@ export function GraphWrapper({
 					{content}
 					{actions && <div className="alert__actions">{actions}</div>}
 				</div>
-				{isAllowed && (
+				{isAccessAllowed && (
 					<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
 						<span className="codicon codicon-chrome-close"></span>
 					</button>
@@ -631,18 +621,20 @@ export function GraphWrapper({
 				)}
 				{renderAlertContent()}
 			</section>
-			{isAllowed && (
+			{isAccessAllowed && (
 				<header className="titlebar graph-app__header">
 					<div className="titlebar__group">
 						<SearchBox
 							step={searchPosition}
-							total={searchResultIds?.length ?? 0}
+							total={searchResults?.count ?? 0}
 							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
-							more={hasMoreSearchResults}
+							more={searchResults?.paging?.hasMore ?? false}
 							value={searchQuery?.query ?? ''}
+							errorMessage={searchResultsError?.error ?? ''}
+							resultsHidden={searchResultsHidden}
+							resultsLoaded={searchResults != null}
 							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
-							onPrevious={() => handleSearchNavigation(false)}
-							onNext={() => handleSearchNavigation(true)}
+							onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
 							onOpenInView={() => handleSearchOpenInView()}
 						/>
 					</div>
@@ -651,40 +643,42 @@ export function GraphWrapper({
 			<main
 				ref={mainRef}
 				id="main"
-				className={`graph-app__main${!isAllowed ? ' is-gated' : ''}`}
-				aria-hidden={!isAllowed}
+				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
+				aria-hidden={!isAccessAllowed}
 			>
-				{!isAllowed && <div className="graph-app__cover"></div>}
-				{currentRepository !== undefined ? (
+				{!isAccessAllowed && <div className="graph-app__cover"></div>}
+				{repo !== undefined ? (
 					<>
 						{mainWidth !== undefined && mainHeight !== undefined && (
 							<GraphContainer
-								avatarUrlByEmail={graphAvatars}
-								columnsSettings={graphColumns}
-								contexts={graphContext}
-								cssVariables={styleProps.cssVariables}
+								ref={graphRef}
+								avatarUrlByEmail={avatars}
+								columnsSettings={columns}
+								contexts={context}
+								cssVariables={styleProps?.cssVariables}
 								enableMultiSelection={graphConfig?.enableMultiSelection}
 								formatCommitDateTime={getGraphDateFormatter(graphConfig)}
 								getExternalIcon={getIconElementLibrary}
-								graphRows={graphRows}
-								hasMoreCommits={pagingState?.hasMore}
+								graphRows={rows}
+								hasMoreCommits={pagingHasMore}
 								height={mainHeight}
-								highlightedShas={searchHighlights}
+								// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
+								highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
 								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 								isLoadingRows={isLoading}
-								isSelectedBySha={graphSelectedRows}
+								isSelectedBySha={selectedRows}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onShowMoreCommits={handleMoreCommits}
 								platform={clientPlatform}
-								shaLength={graphConfig?.shaLength}
-								themeOpacityFactor={styleProps.themeOpacityFactor}
+								shaLength={graphConfig?.idLength}
+								themeOpacityFactor={styleProps?.themeOpacityFactor}
 								useAuthorInitialsForAvatars={!graphConfig?.avatars}
 								width={mainWidth}
-								workDirStats={workDirStats}
+								workDirStats={workingTreeStats}
 							/>
 						)}
 					</>
@@ -695,7 +689,7 @@ export function GraphWrapper({
 					className="column-button"
 					type="button"
 					role="button"
-					data-vscode-context={graphContext?.header || JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
+					data-vscode-context={context?.header || JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
 					onClick={handleToggleColumnSettings}
 				>
 					<span
@@ -704,7 +698,10 @@ export function GraphWrapper({
 					></span>
 				</button>
 			</main>
-			<footer className={`actionbar graph-app__footer${!isAllowed ? ' is-gated' : ''}`} aria-hidden={!isAllowed}>
+			<footer
+				className={`actionbar graph-app__footer${!isAccessAllowed ? ' is-gated' : ''}`}
+				aria-hidden={!isAccessAllowed}
+			>
 				<div className="actionbar__group">
 					<div className="actioncombo">
 						<button
@@ -717,15 +714,13 @@ export function GraphWrapper({
 							role="combobox"
 							aria-activedescendant={
 								repoExpanded
-									? `repo-actioncombo-item-${reposList.findIndex(
-											item => item.path === currentRepository?.path,
-									  )}`
+									? `repo-actioncombo-item-${repos.findIndex(item => item.path === repo?.path)}`
 									: undefined
 							}
 							onClick={() => handleToggleRepos()}
 						>
 							<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
-							{currentRepository?.formattedName ?? 'none selected'}
+							{repo?.formattedName ?? 'none selected'}
 						</button>
 						<div
 							className="actioncombo__list"
@@ -734,8 +729,8 @@ export function GraphWrapper({
 							tabIndex={-1}
 							aria-labelledby="repo-actioncombo-label"
 						>
-							{reposList.length > 0 ? (
-								reposList.map((item, index) => (
+							{repos.length > 0 ? (
+								repos.map((item, index) => (
 									<button
 										type="button"
 										className="actioncombo__item"
@@ -743,13 +738,13 @@ export function GraphWrapper({
 										data-value={item.path}
 										id={`repo-actioncombo-item-${index}`}
 										key={`repo-actioncombo-item-${index}`}
-										aria-selected={item.path === currentRepository?.path}
+										aria-selected={item.path === repo?.path}
 										onClick={() => handleSelectRepository(item)}
-										disabled={item.path === currentRepository?.path}
+										disabled={item.path === repo?.path}
 									>
 										<span
 											className={`${
-												item.path === currentRepository?.path ? 'codicon codicon-check ' : ''
+												item.path === repo?.path ? 'codicon codicon-check ' : ''
 											}actioncombo__icon`}
 											aria-label="Checked"
 										></span>
@@ -768,9 +763,9 @@ export function GraphWrapper({
 							)}
 						</div>
 					</div>
-					{isAllowed && graphRows.length > 0 && (
+					{isAccessAllowed && rows.length > 0 && (
 						<span className="actionbar__details">
-							showing {graphRows.length} item{graphRows.length ? 's' : ''}
+							showing {rows.length} item{rows.length ? 's' : ''}
 						</span>
 					)}
 					{isLoading && (
@@ -804,4 +799,123 @@ function formatCommitDateTime(
 	format: DateTimeFormat | string = 'short+short',
 ): string {
 	return style === DateStyle.Relative ? fromNow(commitDateTime) : formatDate(commitDateTime, format);
+}
+
+function getClosestSearchResultIndex(
+	results: GraphSearchResults,
+	query: SearchQuery | undefined,
+	activeRow: string | undefined,
+	next: boolean = true,
+): [number, string | undefined] {
+	if (results.ids == null) return [0, undefined];
+
+	const activeInfo = getActiveRowInfo(activeRow);
+	const activeId = activeInfo?.id;
+	if (activeId == null) return [0, undefined];
+
+	let index: number | undefined;
+	let nearestId: string | undefined;
+	let nearestIndex: number | undefined;
+
+	const data = results.ids[activeId];
+	if (data != null) {
+		index = data.i;
+		nearestId = activeId;
+		nearestIndex = index;
+	}
+
+	if (index == null) {
+		const activeDate = activeInfo?.date != null ? activeInfo.date + (next ? 1 : -1) : undefined;
+		if (activeDate == null) return [0, undefined];
+
+		// Loop through the search results and:
+		//  try to find the active id
+		//  if next=true find the nearest date before the active date
+		//  if next=false find the nearest date after the active date
+
+		let i: number;
+		let id: string;
+		let date: number;
+		let nearestDate: number | undefined;
+		for ([id, { date, i }] of Object.entries(results.ids)) {
+			if (next) {
+				if (date < activeDate && (nearestDate == null || date > nearestDate)) {
+					nearestId = id;
+					nearestDate = date;
+					nearestIndex = i;
+				}
+			} else if (date > activeDate && (nearestDate == null || date <= nearestDate)) {
+				nearestId = id;
+				nearestDate = date;
+				nearestIndex = i;
+			}
+		}
+
+		index = nearestIndex == null ? results.count - 1 : nearestIndex + (next ? -1 : 1);
+	}
+
+	index = getNextOrPreviousSearchResultIndex(index, next, results, query);
+
+	return index === nearestIndex ? [index, nearestId] : [index, undefined];
+}
+
+function getNextOrPreviousSearchResultIndex(
+	index: number,
+	next: boolean,
+	results: GraphSearchResults,
+	query: SearchQuery | undefined,
+) {
+	if (next) {
+		if (index < results.count - 1) {
+			index++;
+		} else if (query != null && results?.paging?.hasMore) {
+			index = -1; // Indicates a boundary that we should load more results
+		} else {
+			index = 0;
+		}
+	} else if (index > 0) {
+		index--;
+	} else if (query != null && results?.paging?.hasMore) {
+		index = -1; // Indicates a boundary that we should load more results
+	} else {
+		index = results.count - 1;
+	}
+	return index;
+}
+
+function getSearchResultIdByIndex(results: GraphSearchResults, index: number): string | undefined {
+	// Loop through the search results without using Object.entries or Object.keys and return the id at the specified index
+	const { ids } = results;
+	for (const id in ids) {
+		if (ids[id].i === index) return id;
+	}
+	return undefined;
+
+	// return Object.entries(results.ids).find(([, { i }]) => i === index)?.[0];
+}
+
+function getActiveRowInfo(activeRow: string | undefined): { id: string; date: number } | undefined {
+	if (activeRow == null) return undefined;
+
+	const [id, date] = activeRow.split('|');
+	return {
+		id: id,
+		date: Number(date),
+	};
+}
+
+function getSearchResultModel(state: State): {
+	results: GraphSearchResults | undefined;
+	resultsError: GraphSearchResultsError | undefined;
+} {
+	let results: GraphSearchResults | undefined;
+	let resultsError: GraphSearchResultsError | undefined;
+	if (state.searchResults != null) {
+		if ('error' in state.searchResults) {
+			resultsError = state.searchResults;
+		} else {
+			results = state.searchResults;
+		}
+	}
+	return { results: results, resultsError: resultsError };
 }

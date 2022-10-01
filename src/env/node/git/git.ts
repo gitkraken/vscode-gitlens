@@ -27,7 +27,7 @@ const emptyObj = Object.freeze({});
 
 const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
 const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
-const gitLogDefaultConfigs = Object.freeze(['-c', 'log.showSignature=false']);
+export const gitLogDefaultConfigs = Object.freeze(['-c', 'log.showSignature=false']);
 export const gitLogDefaultConfigsWithFiles = Object.freeze([
 	'-c',
 	'log.showSignature=false',
@@ -858,7 +858,13 @@ export class Git {
 
 	log2(
 		repoPath: string,
-		options?: { cancellation?: CancellationToken; configs?: readonly string[]; ref?: string; stdin?: string },
+		options?: {
+			cancellation?: CancellationToken;
+			configs?: readonly string[];
+			ref?: string;
+			errors?: GitErrorHandling;
+			stdin?: string;
+		},
 		...args: string[]
 	) {
 		return this.git<string>(
@@ -866,6 +872,7 @@ export class Git {
 				cwd: repoPath,
 				cancellation: options?.cancellation,
 				configs: options?.configs ?? gitLogDefaultConfigs,
+				errors: options?.errors,
 				stdin: options?.stdin,
 			},
 			'log',
@@ -1195,11 +1202,13 @@ export class Git {
 		}
 
 		return this.git<string>(
-			{ cwd: repoPath, configs: gitLogDefaultConfigs },
+			{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs] },
 			'log',
 			'--name-status',
 			`--format=${GitLogParser.defaultFormat}`,
 			'--use-mailmap',
+			'--full-history',
+			'-m',
 			...(options?.limit ? [`-n${options.limit + 1}`] : emptyArray),
 			...(options?.skip ? [`--skip=${options.skip}`] : emptyArray),
 			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),

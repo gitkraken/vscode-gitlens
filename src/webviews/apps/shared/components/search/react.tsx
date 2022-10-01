@@ -7,8 +7,7 @@ const { wrap } = provideReactWrapper(React);
 export const SearchBox = wrap(searchBoxComponent, {
 	events: {
 		onChange: 'change',
-		onPrevious: 'previous',
-		onNext: 'next',
+		onNavigate: 'navigate',
 		onOpenInView: 'openinview',
 	},
 });

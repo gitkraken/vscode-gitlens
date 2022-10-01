@@ -43,11 +43,17 @@ export interface StoredSearchQuery {
 	matchRegex?: boolean;
 }
 
+export interface GitSearchResultData {
+	date: number;
+	i: number;
+}
+export type GitSearchResults = Map<string, GitSearchResultData>;
+
 export interface GitSearch {
 	repoPath: string;
 	query: SearchQuery;
 	comparisonKey: string;
-	results: Map<string, number>;
+	results: GitSearchResults;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
@@ -108,9 +114,9 @@ const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
 ]);
 
 const searchOperationRegex =
-	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+\b}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
+	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
 
-export function parseSearchQuery(query: string): Map<string, string[]> {
+export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
 	const operations = new Map<string, string[]>();
 
 	let op: SearchOperators | undefined;
@@ -119,7 +125,7 @@ export function parseSearchQuery(query: string): Map<string, string[]> {
 
 	let match;
 	do {
-		match = searchOperationRegex.exec(query);
+		match = searchOperationRegex.exec(search.query);
 		if (match?.groups == null) break;
 
 		op = normalizeSearchOperatorsMap.get(match.groups.op as SearchOperators);
@@ -150,7 +156,7 @@ export function getGitArgsFromSearchQuery(search: SearchQuery): {
 	files: string[];
 	shas?: Set<string> | undefined;
 } {
-	const operations = parseSearchQuery(search.query);
+	const operations = parseSearchQuery(search);
 
 	const searchArgs = new Set<string>();
 	const files: string[] = [];
@@ -160,14 +166,12 @@ export function getGitArgsFromSearchQuery(search: SearchQuery): {
 	let op;
 	let values = operations.get('commit:');
 	if (values != null) {
-		// searchArgs.add('-m');
 		for (const value of values) {
 			searchArgs.add(value.replace(doubleQuoteRegex, ''));
 		}
 		shas = searchArgs;
 	} else {
 		searchArgs.add('--all');
-		searchArgs.add('--full-history');
 		searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
 		if (search.matchRegex && !search.matchCase) {
 			searchArgs.add('--regexp-ignore-case');
@@ -176,38 +180,58 @@ export function getGitArgsFromSearchQuery(search: SearchQuery): {
 		for ([op, values] of operations.entries()) {
 			switch (op) {
 				case 'message:':
-					searchArgs.add('-m');
 					if (search.matchAll) {
 						searchArgs.add('--all-match');
 					}
-					for (const value of values) {
-						searchArgs.add(`--grep=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`);
+					for (let value of values) {
+						if (!value) continue;
+						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
+						if (!value) continue;
+
+						searchArgs.add(`--grep=${value}`);
 					}
 
 					break;
 
 				case 'author:':
-					searchArgs.add('-m');
-					for (const value of values) {
-						searchArgs.add(`--author=${value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '')}`);
+					for (let value of values) {
+						if (!value) continue;
+						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
+						if (!value) continue;
+
+						searchArgs.add(`--author=${value}`);
 					}
 
 					break;
 
 				case 'change:':
-					for (const value of values) {
-						searchArgs.add(
-							search.matchRegex
-								? `-G${value.replace(doubleQuoteRegex, '')}`
-								: `-S${value.replace(doubleQuoteRegex, '')}`,
-						);
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"')) {
+							value = value.replace(doubleQuoteRegex, '');
+							if (!value) continue;
+
+							searchArgs.add(search.matchRegex ? `-G${value}` : `-S${value}`);
+						} else {
+							searchArgs.add(search.matchRegex ? `-G"${value}"` : `-S"${value}"`);
+						}
 					}
 
 					break;
 
 				case 'file:':
-					for (const value of values) {
-						files.push(value.replace(doubleQuoteRegex, ''));
+					for (let value of values) {
+						if (!value) continue;
+
+						if (value.startsWith('"')) {
+							value = value.replace(doubleQuoteRegex, '');
+							if (!value) continue;
+
+							files.push(value);
+						} else {
+							files.push(`${search.matchCase ? '' : ':(icase)'}${value}`);
+						}
 					}
 
 					break;

@@ -30,6 +30,7 @@ import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
+import { GitSearchError } from '../../../git/errors';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
@@ -40,9 +41,12 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
-import type { Repository, RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
+import type {
+	Repository,
+	RepositoryChangeEvent,
+	RepositoryFileSystemChangeEvent,
+} from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import type { GitStatus } from '../../../git/models/status';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
@@ -50,8 +54,9 @@ import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
-import { first, last } from '../../../system/iterable';
+import { last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
+import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext } from '../../../system/webview';
 import { isWebviewItemContext, serializeWebviewItemContext } from '../../../system/webview';
@@ -68,17 +73,18 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DismissBannerParams,
-	EnsureCommitParams,
+	EnsureRowParams,
 	GetMissingAvatarsParams,
-	GetMoreCommitsParams,
+	GetMoreRowsParams,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphRepository,
-	GraphWorkDirStats,
-	SearchCommitsParams,
+	GraphSelectedRows,
+	GraphWorkingTreeStats,
 	SearchOpenInViewParams,
+	SearchParams,
 	State,
 	UpdateColumnParams,
 	UpdateSelectedRepositoryParams,
@@ -87,19 +93,19 @@ import type {
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
-	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
-	DidChangeWorkDirStatsNotificationType,
-	DidEnsureCommitNotificationType,
-	DidSearchCommitsNotificationType,
+	DidChangeWorkingTreeNotificationType,
+	DidEnsureRowNotificationType,
+	DidSearchNotificationType,
 	DismissBannerCommandType,
-	EnsureCommitCommandType,
+	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
-	GetMoreCommitsCommandType,
-	SearchCommitsCommandType,
+	GetMoreRowsCommandType,
+	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -150,7 +156,9 @@ export class GraphWebview extends WebviewBase<State> {
 			);
 		}
 
-		this.updateState();
+		if (this.isReady) {
+			this.updateState();
+		}
 	}
 
 	private _selection: readonly GitCommit[] | undefined;
@@ -164,8 +172,8 @@ export class GraphWebview extends WebviewBase<State> {
 	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
 	private _search: GitSearch | undefined;
 	private _searchCancellation: CancellationTokenSource | undefined;
-	private _selectedSha?: string;
-	private _selectedRows: { [sha: string]: true } = {};
+	private _selectedId?: string;
+	private _selectedRows: GraphSelectedRows | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 
 	private _statusBarItem: StatusBarItem | undefined;
@@ -198,26 +206,26 @@ export class GraphWebview extends WebviewBase<State> {
 					args: ShowInCommitGraphCommandArgs | BranchNode | CommitNode | CommitFileNode | StashNode | TagNode,
 				) => {
 					this.repository = this.container.git.getRepository(args.ref.repoPath);
-					let sha = args.ref.ref;
-					if (!GitRevision.isSha(sha)) {
-						sha = await this.container.git.resolveReference(args.ref.repoPath, sha, undefined, {
+					let id = args.ref.ref;
+					if (!GitRevision.isSha(id)) {
+						id = await this.container.git.resolveReference(args.ref.repoPath, id, undefined, {
 							force: true,
 						});
 					}
-					this.setSelectedRows(sha);
+					this.setSelectedRows(id);
 
 					const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 					if (this._panel == null) {
 						void this.show({ preserveFocus: preserveFocus });
 					} else {
 						this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, preserveFocus ?? false);
-						if (this._graph?.ids.has(sha)) {
+						if (this._graph?.ids.has(id)) {
 							void this.notifyDidChangeSelection();
 							return;
 						}
 
-						this.setSelectedRows(sha);
-						void this.onGetMoreCommits({ sha: sha });
+						this.setSelectedRows(id);
+						void this.onGetMoreRows({ id: id }, true);
 					}
 				},
 			),
@@ -259,6 +267,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override refresh(force?: boolean): Promise<void> {
 		this.resetRepositoryState();
+		if (force) {
+			this._pendingIpcNotifications.clear();
+		}
 		return super.refresh(force);
 	}
 
@@ -332,17 +343,17 @@ export class GraphWebview extends WebviewBase<State> {
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
 				break;
-			case EnsureCommitCommandType.method:
-				onIpc(EnsureCommitCommandType, e, params => this.onEnsureCommit(params, e.completionId));
+			case EnsureRowCommandType.method:
+				onIpc(EnsureRowCommandType, e, params => this.onEnsureRow(params, e.completionId));
 				break;
 			case GetMissingAvatarsCommandType.method:
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params));
 				break;
-			case GetMoreCommitsCommandType.method:
-				onIpc(GetMoreCommitsCommandType, e, params => this.onGetMoreCommits(params));
+			case GetMoreRowsCommandType.method:
+				onIpc(GetMoreRowsCommandType, e, params => this.onGetMoreRows(params));
 				break;
-			case SearchCommitsCommandType.method:
-				onIpc(SearchCommitsCommandType, e, params => this.onSearchCommits(params, e.completionId));
+			case SearchCommandType.method:
+				onIpc(SearchCommandType, e, params => this.onSearch(params, e.completionId));
 				break;
 			case SearchOpenInViewCommandType.method:
 				onIpc(SearchOpenInViewCommandType, e, params => this.onSearchOpenInView(params));
@@ -354,7 +365,7 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onRepositorySelectionChanged(params));
 				break;
 			case UpdateSelectionCommandType.method:
-				onIpc(UpdateSelectionCommandType, e, debounce(this.onSelectionChanged.bind(this), 100));
+				onIpc(UpdateSelectionCommandType, e, this.onSelectionChanged.bind(this));
 				break;
 		}
 	}
@@ -380,7 +391,9 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		this.sendPendingIpcNotifications();
+		if (this.isReady && visible) {
+			this.sendPendingIpcNotifications();
+		}
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -433,6 +446,11 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
+	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+		if (e.repository?.path !== this.repository?.path) return;
+		void this.notifyDidChangeWorkingTree();
+	}
+
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		if (e.etag === this._etagSubscription) return;
 
@@ -472,30 +490,30 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async onEnsureCommit(e: EnsureCommitParams, completionId?: string) {
+	private async onEnsureRow(e: EnsureRowParams, completionId?: string) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
 			if (completionId != null) {
-				void this.notify(DidEnsureCommitNotificationType, {}, completionId);
+				void this.notify(DidEnsureRowNotificationType, {}, completionId);
 			}
 			return;
 		}
 
-		let selected: boolean | undefined;
-		if (!this._graph.ids.has(e.id)) {
-			await this.updateGraphWithMoreCommits(this._graph, e.id);
-			if (e.select && this._graph.ids.has(e.id)) {
-				selected = true;
-				this.setSelectedRows(e.id);
+		let id: string | undefined;
+		if (!this._graph.skippedIds?.has(e.id)) {
+			if (this._graph.ids.has(e.id)) {
+				id = e.id;
+			} else {
+				await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
+				void this.notifyDidChangeRows();
+				if (this._graph.ids.has(e.id)) {
+					id = e.id;
+				}
 			}
-			void this.notifyDidChangeCommits();
-		} else if (e.select) {
-			selected = true;
-			this.setSelectedRows(e.id);
 		}
 
-		void this.notify(DidEnsureCommitNotificationType, { id: e.id, selected: selected }, completionId);
+		void this.notify(DidEnsureRowNotificationType, { id: id }, completionId);
 	}
 
 	private async onGetMissingAvatars(e: GetMissingAvatarsParams) {
@@ -503,17 +521,17 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const repoPath = this._graph.repoPath;
 
-		async function getAvatar(this: GraphWebview, email: string, sha: string) {
-			const uri = await getAvatarUri(email, { ref: sha, repoPath: repoPath });
+		async function getAvatar(this: GraphWebview, email: string, id: string) {
+			const uri = await getAvatarUri(email, { ref: id, repoPath: repoPath });
 			this._graph!.avatars.set(email, uri.toString(true));
 		}
 
 		const promises: Promise<void>[] = [];
 
-		for (const [email, sha] of Object.entries(e.emails)) {
+		for (const [email, id] of Object.entries(e.emails)) {
 			if (this._graph.avatars.has(email)) continue;
 
-			promises.push(getAvatar.call(this, email, sha));
+			promises.push(getAvatar.call(this, email, id));
 		}
 
 		if (promises.length) {
@@ -524,19 +542,19 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@gate()
 	@debug()
-	private async onGetMoreCommits(e: GetMoreCommitsParams) {
+	private async onGetMoreRows(e: GetMoreRowsParams, sendSelectedRows: boolean = false) {
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
 			return;
 		}
 
-		await this.updateGraphWithMoreCommits(this._graph, e.sha);
-		void this.notifyDidChangeCommits();
+		await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
+		void this.notifyDidChangeRows(sendSelectedRows);
 	}
 
 	@debug()
-	private async onSearchCommits(e: SearchCommitsParams, completionId?: string) {
+	private async onSearch(e: SearchParams, completionId?: string) {
 		if (e.search == null) {
 			this.resetSearchState();
 
@@ -553,15 +571,19 @@ export class GraphWebview extends WebviewBase<State> {
 			search = await search.more(e.limit ?? configuration.get('graph.searchItemLimit') ?? 100);
 			if (search != null) {
 				this._search = search;
+				void (await this.ensureSearchStartsInRange(this._graph!, search));
 
 				void this.notify(
-					DidSearchCommitsNotificationType,
+					DidSearchNotificationType,
 					{
-						results: {
-							ids: Object.fromEntries(search.results),
-							paging: { hasMore: search.paging?.hasMore ?? false },
-						},
-						selectedRows: this._selectedRows,
+						results:
+							search.results.size > 0
+								? {
+										ids: Object.fromEntries(search.results),
+										count: search.results.size,
+										paging: { hasMore: search.paging?.hasMore ?? false },
+								  }
+								: undefined,
 					},
 					completionId,
 				);
@@ -585,15 +607,30 @@ export class GraphWebview extends WebviewBase<State> {
 			const cancellation = new CancellationTokenSource();
 			this._searchCancellation = cancellation;
 
-			search = await this._repository.searchCommits(e.search, {
-				limit: configuration.get('graph.searchItemLimit') ?? 100,
-				ordering: configuration.get('graph.commitOrdering'),
-				cancellation: cancellation.token,
-			});
+			try {
+				search = await this._repository.searchCommits(e.search, {
+					limit: configuration.get('graph.searchItemLimit') ?? 100,
+					ordering: configuration.get('graph.commitOrdering'),
+					cancellation: cancellation.token,
+				});
+			} catch (ex) {
+				this._search = undefined;
+
+				void this.notify(
+					DidSearchNotificationType,
+					{
+						results: {
+							error: ex instanceof GitSearchError ? 'Invalid search pattern' : 'Unexpected error',
+						},
+					},
+					completionId,
+				);
+				return;
+			}
 
 			if (cancellation.token.isCancellationRequested) {
 				if (completionId != null) {
-					void this.notify(DidSearchCommitsNotificationType, { results: undefined }, completionId);
+					void this.notify(DidSearchNotificationType, { results: undefined }, completionId);
 				}
 				return;
 			}
@@ -603,18 +640,26 @@ export class GraphWebview extends WebviewBase<State> {
 			search = this._search!;
 		}
 
-		if (search.results.size > 0) {
-			this.setSelectedRows(first(search.results)![0]);
+		const firstResult = await this.ensureSearchStartsInRange(this._graph!, search);
+
+		let sendSelectedRows = false;
+		if (firstResult != null) {
+			sendSelectedRows = true;
+			this.setSelectedRows(firstResult);
 		}
 
 		void this.notify(
-			DidSearchCommitsNotificationType,
+			DidSearchNotificationType,
 			{
-				results: {
-					ids: Object.fromEntries(search.results),
-					paging: { hasMore: search.paging?.hasMore ?? false },
-				},
-				selectedRows: this._selectedRows,
+				results:
+					search.results.size === 0
+						? { count: 0 }
+						: {
+								ids: Object.fromEntries(search.results),
+								count: search.results.size,
+								paging: { hasMore: search.paging?.hasMore ?? false },
+						  },
+				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 			},
 			completionId,
 		);
@@ -633,29 +678,34 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!(e.repository?.path === this.repository?.path)) return;
-		this.updateWorkDirStats();
-	}
-
 	private onRepositorySelectionChanged(e: UpdateSelectedRepositoryParams) {
 		this.repository = this.container.git.getRepository(e.path);
 	}
 
-	private async onSelectionChanged(e: UpdateSelectionParams) {
+	private _fireSelectionChangedDebounced: Deferrable<GraphWebview['fireSelectionChanged']> | undefined = undefined;
+
+	private onSelectionChanged(e: UpdateSelectionParams) {
 		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
 
+		if (this._fireSelectionChangedDebounced == null) {
+			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
+		}
+
+		void this._fireSelectionChangedDebounced(item?.id, item?.type);
+	}
+
+	private async fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
 		let commits: GitCommit[] | undefined;
-		if (item?.id != null) {
+		if (id != null) {
 			let commit;
-			if (item.type === GitGraphRowType.Stash) {
+			if (type === GitGraphRowType.Stash) {
 				const stash = await this.repository?.getStash();
-				commit = stash?.commits.get(item.id);
-			} else if (item.type === GitGraphRowType.Working) {
-				commit = await this.repository?.getCommit('0000000000000000000000000000000000000000');
+				commit = stash?.commits.get(id);
+			} else if (type === GitGraphRowType.Working) {
+				commit = await this.repository?.getCommit(GitRevision.uncommitted);
 			} else {
-				commit = await this.repository?.getCommit(item?.id);
+				commit = await this.repository?.getCommit(id);
 			}
 			if (commit != null) {
 				commits = [commit];
@@ -670,7 +720,7 @@ export class GraphWebview extends WebviewBase<State> {
 		void GitActions.Commit.showDetailsView(commits[0], { pin: true, preserveFocus: true });
 	}
 
-	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
+	private _notifyDidChangeStateDebounced: Deferrable<GraphWebview['notifyDidChangeState']> | undefined = undefined;
 
 	@debug()
 	private updateState(immediate: boolean = false) {
@@ -685,10 +735,11 @@ export class GraphWebview extends WebviewBase<State> {
 			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
 		}
 
-		this._notifyDidChangeStateDebounced();
+		void this._notifyDidChangeStateDebounced();
 	}
 
-	private _notifyDidChangeAvatarsDebounced: Deferrable<() => void> | undefined = undefined;
+	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebview['notifyDidChangeAvatars']> | undefined =
+		undefined;
 
 	@debug()
 	private updateAvatars(immediate: boolean = false) {
@@ -701,25 +752,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this._notifyDidChangeAvatarsDebounced = debounce(this.notifyDidChangeAvatars.bind(this), 100);
 		}
 
-		this._notifyDidChangeAvatarsDebounced();
-	}
-
-	private _notifyDidChangeWorkDirStatsDebounced: Deferrable<() => void> | undefined = undefined;
-
-	@debug()
-	private updateWorkDirStats(immediate: boolean = false) {
-		if (!this.isReady || !this.visible) return;
-
-		if (immediate) {
-			void this.notifyDidChangeWorkDirStats();
-			return;
-		}
-
-		if (this._notifyDidChangeWorkDirStatsDebounced == null) {
-			this._notifyDidChangeWorkDirStatsDebounced = debounce(this.notifyDidChangeWorkDirStats.bind(this), 500);
-		}
-
-		this._notifyDidChangeWorkDirStatsDebounced();
+		void this._notifyDidChangeAvatarsDebounced();
 	}
 
 	@debug()
@@ -759,16 +792,16 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeCommits(completionId?: string) {
+	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
 
 		const data = this._graph;
 		return this.notify(
-			DidChangeCommitsNotificationType,
+			DidChangeRowsNotificationType,
 			{
 				rows: data.rows,
 				avatars: Object.fromEntries(data.avatars),
-				selectedRows: this._selectedRows,
+				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 				paging: {
 					startingCursor: data.paging?.startingCursor,
 					hasMore: data.paging?.hasMore ?? false,
@@ -779,11 +812,14 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeWorkDirStats() {
-		if (!this.isReady || !this.visible) return false;
+	private async notifyDidChangeWorkingTree() {
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeWorkingTreeNotificationType);
+			return false;
+		}
 
-		return this.notify(DidChangeWorkDirStatsNotificationType, {
-			workDirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
+		return this.notify(DidChangeWorkingTreeNotificationType, {
+			stats: (await this.getWorkingTreeStats()) ?? { added: 0, deleted: 0, modified: 0 },
 		});
 	}
 
@@ -795,7 +831,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		return this.notify(DidChangeSelectionNotificationType, {
-			selection: this._selectedRows,
+			selection: this._selectedRows ?? {},
 		});
 	}
 
@@ -806,7 +842,7 @@ export class GraphWebview extends WebviewBase<State> {
 			return false;
 		}
 
-		const access = await this.getGraphAccess();
+		const [access] = await this.getGraphAccess();
 		return this.notify(DidChangeSubscriptionNotificationType, {
 			subscription: access.subscription.current,
 			allowed: access.allowed !== false,
@@ -849,6 +885,7 @@ export class GraphWebview extends WebviewBase<State> {
 		[DidChangeNotificationType, this.notifyDidChangeState],
 		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
+		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
 	]);
 
 	private addPendingIpcNotification(type: IpcNotificationType<any>, msg?: IpcMessage) {
@@ -883,6 +920,26 @@ export class GraphWebview extends WebviewBase<State> {
 				void this.postMessage(msgOrFn);
 			}
 		}
+	}
+
+	private async ensureSearchStartsInRange(graph: GitGraph, search: GitSearch) {
+		if (search.results.size === 0) return undefined;
+
+		let firstResult: string | undefined;
+		for (const id of search.results.keys()) {
+			if (graph.ids.has(id)) return id;
+			if (graph.skippedIds?.has(id)) continue;
+
+			firstResult = id;
+			break;
+		}
+
+		if (firstResult == null) return undefined;
+
+		await this.updateGraphWithMoreRows(graph, firstResult);
+		void this.notifyDidChangeRows();
+
+		return graph.ids.has(firstResult) ? firstResult : undefined;
 	}
 
 	private getColumns(): Record<GraphColumnName, GraphColumnConfig> | undefined {
@@ -933,26 +990,9 @@ export class GraphWebview extends WebviewBase<State> {
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
-			shaLength: configuration.get('advanced.abbreviatedShaLength'),
+			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
-	}
-
-	private async getWorkDirStats(): Promise<GraphWorkDirStats | undefined> {
-		if (this.container.git.repositoryCount === 0) return undefined;
-
-		if (this.repository == null) {
-			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return undefined;
-		}
-
-		const status: GitStatus | undefined = await this.container.git.getStatusForRepo(this.repository.path);
-		const workingTreeStatus = status?.getDiffStatus();
-		return {
-			added: workingTreeStatus?.added ?? 0,
-			deleted: workingTreeStatus?.deleted ?? 0,
-			modified: workingTreeStatus?.changed ?? 0,
-		};
 	}
 
 	private async getGraphAccess() {
@@ -964,7 +1004,30 @@ export class GraphWebview extends WebviewBase<State> {
 			await this.container.subscription.startPreviewTrial(true);
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
-		return access;
+
+		let visibility = access?.visibility;
+		if (visibility == null && this.repository != null) {
+			visibility = await this.container.git.visibility(this.repository?.path);
+		}
+
+		return [access, visibility] as const;
+	}
+
+	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
+		if (this.container.git.repositoryCount === 0) return undefined;
+
+		if (this.repository == null) {
+			this.repository = this.container.git.getBestRepositoryOrFirst();
+			if (this.repository == null) return undefined;
+		}
+
+		const status = await this.container.git.getStatusForRepo(this.repository.path);
+		const workingTreeStatus = status?.getDiffStatus();
+		return {
+			added: workingTreeStatus?.added ?? 0,
+			deleted: workingTreeStatus?.deleted ?? 0,
+			modified: workingTreeStatus?.changed ?? 0,
+		};
 	}
 
 	private async getState(deferRows?: boolean): Promise<State> {
@@ -993,30 +1056,32 @@ export class GraphWebview extends WebviewBase<State> {
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		// Check for GitLens+ access
-		const access = await this.getGraphAccess();
-		const visibility = access.visibility ?? (await this.container.git.visibility(this.repository.path));
-
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ limit: limit, ref: this._selectedSha ?? 'HEAD' },
+			{ limit: limit, ref: this._selectedId ?? 'HEAD' },
 		);
 
-		let data;
+		// Check for GitLens+ access and working tree stats
+		const [accessResult, workingStatsResult] = await Promise.allSettled([
+			this.getGraphAccess(),
+			this.getWorkingTreeStats(),
+		]);
+		const [access, visibility] = getSettledValue(accessResult) ?? [];
 
+		let data;
 		if (deferRows) {
 			queueMicrotask(async () => {
 				const data = await dataPromise;
 				this.setGraph(data);
-				this.setSelectedRows(data.sha);
+				this.setSelectedRows(data.id);
 
-				void this.notifyDidChangeCommits();
+				void this.notifyDidChangeRows(true);
 			});
 		} else {
 			data = await dataPromise;
 			this.setGraph(data);
-			this.setSelectedRows(data.sha);
+			this.setSelectedRows(data.id);
 		}
 
 		const columns = this.getColumns();
@@ -1028,8 +1093,8 @@ export class GraphWebview extends WebviewBase<State> {
 			selectedRepository: this.repository.path,
 			selectedRepositoryVisibility: visibility,
 			selectedRows: this._selectedRows,
-			subscription: access.subscription.current,
-			allowed: access.allowed !== false,
+			subscription: access?.subscription.current,
+			allowed: (access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			loading: deferRows,
 			rows: data?.rows,
@@ -1046,7 +1111,7 @@ export class GraphWebview extends WebviewBase<State> {
 				header: this.getColumnHeaderContext(columns),
 			},
 			nonce: this.cspNonce,
-			dirStats: await this.getWorkDirStats() ?? {added: 0, deleted: 0, modified: 0 },
+			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
 	}
 
@@ -1068,11 +1133,11 @@ export class GraphWebview extends WebviewBase<State> {
 		this._searchCancellation = undefined;
 	}
 
-	private setSelectedRows(sha: string | undefined) {
-		if (this._selectedSha === sha) return;
+	private setSelectedRows(id: string | undefined) {
+		if (this._selectedId === id) return;
 
-		this._selectedSha = sha;
-		this._selectedRows = sha != null ? { [sha]: true } : {};
+		this._selectedId = id;
+		this._selectedRows = id != null ? { [id]: true } : undefined;
 	}
 
 	private setGraph(graph: GitGraph | undefined) {
@@ -1082,17 +1147,16 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	private async updateGraphWithMoreCommits(graph: GitGraph, sha?: string) {
+	private async updateGraphWithMoreRows(graph: GitGraph, id: string | undefined, search?: GitSearch) {
 		const { defaultItemLimit, pageItemLimit } = configuration.get('graph');
-		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, sha);
+		const updatedGraph = await graph.more?.(pageItemLimit ?? defaultItemLimit, id);
 		if (updatedGraph != null) {
 			this.setGraph(updatedGraph);
 
-			if (this._search != null) {
-				const search = this._search;
+			if (search?.paging?.hasMore) {
 				const lastId = last(search.results)?.[0];
-				if (lastId != null && updatedGraph.ids.has(lastId)) {
-					queueMicrotask(() => void this.onSearchCommits({ search: search.query, more: true }));
+				if (lastId != null && (updatedGraph.ids.has(lastId) || updatedGraph.skippedIds?.has(lastId))) {
+					queueMicrotask(() => void this.onSearch({ search: search.query, more: true }));
 				}
 			}
 		} else {

@@ -1,5 +1,5 @@
 /*global document window*/
-import type { CssVariables } from '@gitkraken/gitkraken-components';
+import type { CssVariables, GraphRow } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from '../../../../git/models/graph';
@@ -15,26 +15,26 @@ import type {
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
-	DidChangeCommitsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
-	DidChangeWorkDirStatsNotificationType,
-	DidEnsureCommitNotificationType,
-	DidSearchCommitsNotificationType,
+	DidChangeWorkingTreeNotificationType,
+	DidEnsureRowNotificationType,
+	DidSearchNotificationType,
 	DismissBannerCommandType,
-	EnsureCommitCommandType,
+	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
-	GetMoreCommitsCommandType,
-	SearchCommitsCommandType,
+	GetMoreRowsCommandType,
+	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
-import type { IpcMessage } from '../../../../webviews/protocol';
+import type { IpcMessage, IpcNotificationType } from '../../../../webviews/protocol';
 import { onIpc } from '../../../../webviews/protocol';
 import { App } from '../../shared/appBase';
 import { mix, opacity } from '../../shared/colors';
@@ -64,33 +64,34 @@ export class GraphApp extends App<State> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		this.log('GraphApp.onBind paging:', this.state.paging);
+		this.log(`${this.appName}.onBind`);
 
 		const $root = document.getElementById('root');
 		if ($root != null) {
 			render(
 				<GraphWrapper
+					nonce={this.state.nonce}
+					state={this.state}
 					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
-					onColumnChange={debounce(
-						(name: GraphColumnName, settings: GraphColumnConfig) => this.onColumnChanged(name, settings),
+					onColumnChange={debounce<GraphApp['onColumnChanged']>(
+						(name, settings) => this.onColumnChanged(name, settings),
 						250,
 					)}
-					onSelectRepository={debounce(
-						(path: GraphRepository) => this.onRepositorySelectionChanged(path),
+					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
+						path => this.onRepositorySelectionChanged(path),
 						250,
 					)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
-					onMoreCommits={(...params) => this.onGetMoreCommits(...params)}
-					onSearchCommits={(...params) => this.onSearchCommits(...params)}
-					onSearchCommitsPromise={(...params) => this.onSearchCommitsPromise(...params)}
+					onMoreRows={(...params) => this.onGetMoreRows(...params)}
+					onSearch={debounce<GraphApp['onSearch']>((search, options) => this.onSearch(search, options), 250)}
+					onSearchPromise={(...params) => this.onSearchPromise(...params)}
 					onSearchOpenInView={(...params) => this.onSearchOpenInView(...params)}
-					onSelectionChange={debounce(
-						(selection: { id: string; type: GitGraphRowType }[]) => this.onSelectionChanged(selection),
+					onSelectionChange={debounce<GraphApp['onSelectionChanged']>(
+						rows => this.onSelectionChanged(rows),
 						250,
 					)}
 					onDismissBanner={key => this.onDismissBanner(key)}
-					onEnsureCommitPromise={this.onEnsureCommitPromise.bind(this)}
-					{...this.state}
+					onEnsureRowPromise={this.onEnsureRowPromise.bind(this)}
 				/>,
 				$root,
 			);
@@ -108,56 +109,54 @@ export class GraphApp extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				onIpc(DidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state });
-					this.refresh(this.state);
+				onIpc(DidChangeNotificationType, msg, (params, type) => {
+					this.setState({ ...this.state, ...params.state }, type);
 				});
 				break;
 
 			case DidChangeAvatarsNotificationType.method:
-				onIpc(DidChangeAvatarsNotificationType, msg, params => {
-					this.setState({ ...this.state, avatars: params.avatars });
-					this.refresh(this.state);
+				onIpc(DidChangeAvatarsNotificationType, msg, (params, type) => {
+					this.state.avatars = params.avatars;
+					this.setState(this.state, type);
 				});
 				break;
 
 			case DidChangeColumnsNotificationType.method:
-				onIpc(DidChangeColumnsNotificationType, msg, params => {
-					const newState = { ...this.state, columns: params.columns };
+				onIpc(DidChangeColumnsNotificationType, msg, (params, type) => {
+					this.state.columns = params.columns;
 					if (params.context != null) {
-						if (newState.context == null) {
-							newState.context = { header: params.context };
+						if (this.state.context == null) {
+							this.state.context = { header: params.context };
 						} else {
-							newState.context.header = params.context;
+							this.state.context.header = params.context;
 						}
-					} else if (newState.context?.header != null) {
-						newState.context.header = undefined;
+					} else if (this.state.context?.header != null) {
+						this.state.context.header = undefined;
 					}
 
-					this.setState(newState);
-					this.refresh(this.state);
+					this.setState(this.state, type);
 				});
 				break;
 
-			case DidChangeCommitsNotificationType.method:
-				onIpc(DidChangeCommitsNotificationType, msg, params => {
+			case DidChangeRowsNotificationType.method:
+				onIpc(DidChangeRowsNotificationType, msg, (params, type) => {
 					let rows;
 					if (params.rows.length && params.paging?.startingCursor != null && this.state.rows != null) {
 						const previousRows = this.state.rows;
-						const lastSha = previousRows[previousRows.length - 1]?.sha;
+						const lastId = previousRows[previousRows.length - 1]?.sha;
 
 						let previousRowsLength = previousRows.length;
 						const newRowsLength = params.rows.length;
 
 						this.log(
-							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastSha})`,
+							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
 						);
 
 						rows = [];
 						// Preallocate the array to avoid reallocations
 						rows.length = previousRowsLength + newRowsLength;
 
-						if (params.paging.startingCursor !== lastSha) {
+						if (params.paging.startingCursor !== lastId) {
 							this.log(
 								`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): searching for ${params.paging.startingCursor} in existing rows`,
 							);
@@ -202,60 +201,53 @@ export class GraphApp extends App<State> {
 						}
 					}
 
-					this.setState({
-						...this.state,
-						avatars: params.avatars,
-						paging: params.paging,
-						selectedRows: params.selectedRows,
-						rows: rows,
-						loading: false,
-					});
-					this.refresh(this.state);
+					this.state.avatars = params.avatars;
+					this.state.rows = rows;
+					this.state.paging = params.paging;
+					if (params.selectedRows != null) {
+						this.state.selectedRows = params.selectedRows;
+					}
+					this.state.loading = false;
+					this.setState(this.state, type);
 				});
 				break;
 
-			case DidSearchCommitsNotificationType.method:
-				onIpc(DidSearchCommitsNotificationType, msg, params => {
-					if (params.results == null && params.selectedRows == null) return;
-
-					this.setState({
-						...this.state,
-						searchResults: params.results,
-						selectedRows: params.selectedRows,
-					});
-					this.refresh(this.state);
+			case DidSearchNotificationType.method:
+				onIpc(DidSearchNotificationType, msg, (params, type) => {
+					this.state.searchResults = params.results;
+					if (params.selectedRows != null) {
+						this.state.selectedRows = params.selectedRows;
+					}
+					this.setState(this.state, type);
 				});
 				break;
 
 			case DidChangeSelectionNotificationType.method:
-				onIpc(DidChangeSelectionNotificationType, msg, params => {
-					this.setState({ ...this.state, selectedRows: params.selection });
-					this.refresh(this.state);
+				onIpc(DidChangeSelectionNotificationType, msg, (params, type) => {
+					this.state.selectedRows = params.selection;
+					this.setState(this.state, type);
 				});
 				break;
 
 			case DidChangeGraphConfigurationNotificationType.method:
-				onIpc(DidChangeGraphConfigurationNotificationType, msg, params => {
-					this.setState({ ...this.state, config: params.config });
-					this.refresh(this.state);
+				onIpc(DidChangeGraphConfigurationNotificationType, msg, (params, type) => {
+					this.state.config = params.config;
+					this.setState(this.state, type);
 				});
 				break;
 
 			case DidChangeSubscriptionNotificationType.method:
-				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					this.setState({
-						...this.state,
-						subscription: params.subscription,
-						allowed: params.allowed,
-					});
-					this.refresh(this.state);
+				onIpc(DidChangeSubscriptionNotificationType, msg, (params, type) => {
+					this.state.subscription = params.subscription;
+					this.state.allowed = params.allowed;
+					this.setState(this.state, type);
 				});
 				break;
 
-			case DidChangeWorkDirStatsNotificationType.method:
-				onIpc(DidChangeWorkDirStatsNotificationType, msg, params => {
-					this.setState({ ...this.state, dirStats: params.workDirStats });
-					this.refresh(this.state);
+			case DidChangeWorkingTreeNotificationType.method:
+				onIpc(DidChangeWorkingTreeNotificationType, msg, (params, type) => {
+					this.state.workingTreeStats = params.stats;
+					this.setState(this.state, type);
 				});
 				break;
 
@@ -265,18 +257,24 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated() {
-		this.setState({ ...this.state, mixedColumnColors: undefined });
-		this.refresh(this.state);
+		this.state.theming = undefined;
+		this.setState(this.state);
 	}
 
-	protected override setState(state: State) {
-		if (state.mixedColumnColors == null) {
-			state.mixedColumnColors = this.getGraphColors();
+	protected override setState(state: State, type?: IpcNotificationType<any>) {
+		this.log(`${this.appName}.setState`);
+		if (state.theming == null) {
+			state.theming = this.getGraphTheming();
 		}
-		super.setState(state);
+
+		// Avoid calling the base for now, since we aren't using the vscode state
+		this.state = state;
+		// super.setState(state);
+
+		this.callback?.(this.state, type);
 	}
 
-	private getGraphColors(): CssVariables {
+	private getGraphTheming(): { cssVariables: CssVariables; themeOpacityFactor: number } {
 		// this will be called on theme updated as well as on config updated since it is dependent on the column colors from config changes and the background color from the theme
 		const computedStyle = window.getComputedStyle(document.body);
 		const bgColor = computedStyle.getPropertyValue('--color-background');
@@ -301,7 +299,23 @@ export class GraphApp extends App<State> {
 			i++;
 		}
 
-		return mixedGraphColors;
+		return {
+			cssVariables: {
+				'--app__bg0': bgColor,
+				'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
+				'--panel__bg1': computedStyle.getPropertyValue('--graph-panel-bg2'),
+				'--section-border': computedStyle.getPropertyValue('--graph-panel-bg2'),
+				'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
+				'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
+				'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
+				'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
+				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
+				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
+				'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+				...mixedGraphColors,
+			},
+			themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
+		};
 	}
 
 	private onDismissBanner(key: DismissBannerParams['key']) {
@@ -325,23 +339,23 @@ export class GraphApp extends App<State> {
 		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
 	}
 
-	private onGetMoreCommits(sha?: string) {
-		return this.sendCommand(GetMoreCommitsCommandType, { sha: sha });
+	private onGetMoreRows(sha?: string) {
+		return this.sendCommand(GetMoreRowsCommandType, { id: sha });
 	}
 
-	private onSearchCommits(search: SearchQuery | undefined, options?: { limit?: number }) {
+	private onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
 		}
-		return this.sendCommand(SearchCommitsCommandType, { search: search, limit: options?.limit });
+		return this.sendCommand(SearchCommandType, { search: search, limit: options?.limit });
 	}
 
-	private async onSearchCommitsPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
+	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {
 		try {
 			return await this.sendCommandWithCompletion(
-				SearchCommitsCommandType,
+				SearchCommandType,
 				{ search: search, limit: options?.limit, more: options?.more },
-				DidSearchCommitsNotificationType,
+				DidSearchNotificationType,
 			);
 		} catch {
 			return undefined;
@@ -352,19 +366,20 @@ export class GraphApp extends App<State> {
 		this.sendCommand(SearchOpenInViewCommandType, { search: search });
 	}
 
-	private async onEnsureCommitPromise(id: string, select: boolean) {
+	private async onEnsureRowPromise(id: string, select: boolean) {
 		try {
 			return await this.sendCommandWithCompletion(
-				EnsureCommitCommandType,
+				EnsureRowCommandType,
 				{ id: id, select: select },
-				DidEnsureCommitNotificationType,
+				DidEnsureRowNotificationType,
 			);
 		} catch {
 			return undefined;
 		}
 	}
 
-	private onSelectionChanged(selection: { id: string; type: GitGraphRowType }[]) {
+	private onSelectionChanged(rows: GraphRow[]) {
+		const selection = rows.map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
 		this.sendCommand(UpdateSelectionCommandType, {
 			selection: selection,
 		});
@@ -376,10 +391,6 @@ export class GraphApp extends App<State> {
 		return () => {
 			this.callback = undefined;
 		};
-	}
-
-	private refresh(state: State) {
-		this.callback?.(state);
 	}
 }
 

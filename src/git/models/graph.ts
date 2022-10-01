@@ -27,9 +27,11 @@ export interface GitGraph {
 	readonly avatars: Map<string, string>;
 	/** A set of all "seen" commit ids */
 	readonly ids: Set<string>;
+	/** A set of all skipped commit ids -- typically for stash index/untracked commits */
+	readonly skippedIds?: Set<string>;
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
-	readonly sha?: string;
+	readonly id?: string;
 
 	readonly paging?: {
 		readonly limit: number | undefined;
@@ -37,5 +39,5 @@ export interface GitGraph {
 		readonly hasMore: boolean;
 	};
 
-	more?(limit: number, sha?: string): Promise<GitGraph | undefined>;
+	more?(limit: number, id?: string): Promise<GitGraph | undefined>;
 }

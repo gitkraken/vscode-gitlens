@@ -25,11 +25,11 @@ export class IpcNotificationType<Params = void> extends IpcMessageType<Params> {
 export function onIpc<T extends IpcMessageType<any>>(
 	type: T,
 	msg: IpcMessage,
-	fn: (params: IpcMessageParams<T>) => unknown,
+	fn: (params: IpcMessageParams<T>, type: T) => unknown,
 ) {
 	if (type.method !== msg.method) return;
 
-	fn(msg.params as IpcMessageParams<T>);
+	fn(msg.params as IpcMessageParams<T>, type);
 }
 
 // COMMANDS

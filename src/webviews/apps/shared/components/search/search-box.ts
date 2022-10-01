@@ -1,39 +1,59 @@
-import { attr, css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
 import { isMac } from '@env/platform';
 import { pluralize } from '../../../../../system/string';
 import type { Disposable } from '../../dom';
 import { DOM } from '../../dom';
 import { numberConverter } from '../converters/number-converter';
 import '../codicon';
+import type { SearchInput } from './search-input';
 import './search-input';
+
+export type SearchNavigationDirection = 'first' | 'previous' | 'next' | 'last';
+export interface SearchNavigationEventDetail {
+	direction: SearchNavigationDirection;
+}
 
 const template = html<SearchBox>`<template>
 	<search-input
+		${ref('searchInput')}
 		id="search-input"
-		errorMessage="${x => x.errorMessage}"
+		:errorMessage="${x => x.errorMessage}"
 		label="${x => x.label}"
 		placeholder="${x => x.placeholder}"
 		matchAll="${x => x.matchAll}"
 		matchCase="${x => x.matchCase}"
 		matchRegex="${x => x.matchRegex}"
 		value="${x => x.value}"
-		@previous="${(x, c) => x.handlePrevious(c.event)}"
-		@next="${(x, c) => x.handleNext(c.event)}"
+		@previous="${(x, c) => {
+			c.event.stopImmediatePropagation();
+			x.navigate('previous');
+		}}"
+		@next="${(x, c) => {
+			c.event.stopImmediatePropagation();
+			x.navigate('next');
+		}}"
 	></search-input>
 	<div class="search-navigation" aria-label="Search navigation">
-		<span class="count${x => (x.total < 1 && x.valid ? ' error' : '')}">
+		<span class="count${x => (x.total < 1 && x.valid && x.resultsLoaded ? ' error' : '')}">
 			${when(x => x.total < 1, html<SearchBox>`${x => x.formattedLabel}`)}
 			${when(
 				x => x.total > 0,
 				html<SearchBox>`<span aria-current="step">${x => x.step}</span> of
-					${x => x.total}${x => (x.more ? '+' : '')}<span class="sr-only"> ${x => x.formattedLabel}</span>`,
+					<span
+						class="${x => (x.resultsHidden ? 'sr-hidden' : '')}"
+						title="${x =>
+							x.resultsHidden
+								? 'Some search results are hidden or unable to be shown on the Commit Graph'
+								: ''}"
+						>${x => x.total}${x => (x.more ? '+' : '')}</span
+					><span class="sr-only"> ${x => x.formattedLabel}</span>`,
 			)}
 		</span>
 		<button
 			type="button"
 			class="button"
 			?disabled="${x => !x.hasPrevious}"
-			@click="${(x, c) => x.handlePrevious(c.event)}"
+			@click="${(x, c) => x.handlePrevious(c.event as MouseEvent)}"
 		>
 			<code-icon
 				icon="arrow-up"
@@ -41,7 +61,12 @@ const template = html<SearchBox>`<template>
 				title="Previous Match (Shift+Enter)"
 			></code-icon>
 		</button>
-		<button type="button" class="button" ?disabled="${x => !x.hasNext}" @click="${(x, c) => x.handleNext(c.event)}">
+		<button
+			type="button"
+			class="button"
+			?disabled="${x => !x.hasNext}"
+			@click="${(x, c) => x.handleNext(c.event as MouseEvent)}"
+		>
 			<code-icon icon="arrow-down" aria-label="Next Match (Enter)" title="Next Match (Enter)"></code-icon>
 		</button>
 		<button
@@ -117,6 +142,10 @@ const styles = css`
 		transform: translateX(-0.1rem);
 	}
 
+	.sr-hidden {
+		color: var(--vscode-errorForeground);
+	}
+
 	.sr-only {
 		clip: rect(0 0 0 0);
 		clip-path: inset(50%);
@@ -163,8 +192,14 @@ export class SearchBox extends FASTElement {
 	@attr({ mode: 'boolean' })
 	valid = false;
 
+	@attr({ mode: 'boolean' })
+	resultsHidden = false;
+
 	@attr
 	resultsLabel = 'result';
+
+	@attr({ mode: 'boolean' })
+	resultsLoaded = false;
 
 	@volatile
 	get formattedLabel() {
@@ -173,20 +208,22 @@ export class SearchBox extends FASTElement {
 
 	@volatile
 	get hasPrevious() {
-		return this.total !== 0;
+		return this.total > 1;
 	}
 
 	@volatile
 	get hasNext() {
-		return this.total !== 0;
+		return this.total > 1;
 	}
+
+	searchInput!: SearchInput;
 
 	private _disposable: Disposable | undefined;
 
 	override connectedCallback(): void {
 		super.connectedCallback();
 
-		this._disposable = DOM.on(window, 'keyup', e => this.handleShortcutKeys(e));
+		this._disposable = DOM.on(window, 'keydown', e => this.handleShortcutKeys(e));
 	}
 
 	override disconnectedCallback(): void {
@@ -196,15 +233,12 @@ export class SearchBox extends FASTElement {
 	}
 
 	override focus(options?: FocusOptions): void {
-		this.shadowRoot?.getElementById('search-input')?.focus(options);
+		this.searchInput?.focus(options);
 	}
 
-	next() {
-		this.$emit('next');
-	}
-
-	previous() {
-		this.$emit('previous');
+	navigate(direction: SearchNavigationEventDetail['direction']) {
+		const details: SearchNavigationEventDetail = { direction: direction };
+		this.$emit('navigate', details);
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
@@ -214,11 +248,7 @@ export class SearchBox extends FASTElement {
 			e.preventDefault();
 			e.stopImmediatePropagation();
 
-			if (e.shiftKey) {
-				this.previous();
-			} else {
-				this.next();
-			}
+			this.navigate(e.shiftKey ? 'previous' : 'next');
 
 			return;
 		}
@@ -231,14 +261,14 @@ export class SearchBox extends FASTElement {
 		}
 	}
 
-	handlePrevious(e: Event) {
+	handlePrevious(e: MouseEvent) {
 		e.stopImmediatePropagation();
-		this.previous();
+		this.navigate(e.shiftKey ? 'first' : 'previous');
 	}
 
-	handleNext(e: Event) {
+	handleNext(e: MouseEvent) {
 		e.stopImmediatePropagation();
-		this.next();
+		this.navigate(e.shiftKey ? 'last' : 'next');
 	}
 
 	handleOpenInView(e: Event) {

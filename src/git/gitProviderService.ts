@@ -2263,7 +2263,11 @@ export class GitProviderService implements Disposable {
 	searchCommits(
 		repoPath: string | Uri,
 		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: {
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitSearch> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.searchCommits(path, search, options);
