@@ -28,7 +28,7 @@ import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
-import { onDidChangeContext, setContext } from '../../../context';
+import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -188,7 +188,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
 			onDidChangeContext(key => {
-				if (key !== ContextKeys.PlusEnabled) return;
+				if (key !== ContextKeys.Enabled && key !== ContextKeys.PlusEnabled) return;
 				this.updateStatusBar();
 			}),
 			{ dispose: () => this._statusBarItem?.dispose() },
@@ -1101,7 +1101,8 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private updateStatusBar() {
-		const enabled = configuration.get('graph.statusBar.enabled') && arePlusFeaturesEnabled();
+		const enabled =
+			configuration.get('graph.statusBar.enabled') && getContext(ContextKeys.Enabled) && arePlusFeaturesEnabled();
 		if (enabled) {
 			if (this._statusBarItem == null) {
 				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 3);
