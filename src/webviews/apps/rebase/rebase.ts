@@ -194,7 +194,8 @@ class RebaseEditor extends App<State> {
 
 						e.preventDefault();
 
-						let index = this.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
+						const shouldAdvance = this.state.ascending ? e.key === 'k' : e.key === 'j';
+						let index = this.getEntryIndex(ref) + (shouldAdvance ? 1 : -1);
 						if (index < 0) {
 							index = this.state.entries.length - 1;
 						} else if (index === this.state.entries.length) {
@@ -210,7 +211,8 @@ class RebaseEditor extends App<State> {
 						if (ref) {
 							e.stopPropagation();
 
-							this.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
+							const shouldAdvance = this.state.ascending ? e.key === 'K' : e.key === 'J';
+							this.moveEntry(ref, shouldAdvance ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
