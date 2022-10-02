@@ -1,7 +1,12 @@
 /*global window document MutationObserver*/
 import { darken, lighten, opacity } from './colors';
+import type { Event } from './events';
+import { Emitter } from './events';
 
-export function initializeAndWatchThemeColors(callback?: () => void) {
+const _onDidChangeTheme = new Emitter<void>();
+export const onDidChangeTheme: Event<void> = _onDidChangeTheme.event;
+
+export function initializeAndWatchThemeColors() {
 	const onColorThemeChanged = (mutations?: MutationRecord[]) => {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
@@ -138,7 +143,7 @@ export function initializeAndWatchThemeColors(callback?: () => void) {
 		bodyStyle.setProperty('--color-alert-foreground', 'var(--vscode-input-foreground)');
 
 		if (mutations != null) {
-			callback?.();
+			_onDidChangeTheme.fire();
 		}
 	};
 

@@ -3,7 +3,7 @@ import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType 
 import { onIpc, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
-import { initializeAndWatchThemeColors } from './theme';
+import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
 
 interface VsCodeApi {
 	postMessage(msg: unknown): void;
@@ -38,7 +38,11 @@ export abstract class App<State = undefined> {
 		// this.log(`${this.appName}(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
-		initializeAndWatchThemeColors(this.onThemeUpdated?.bind(this));
+
+		if (this.onThemeUpdated != null) {
+			onDidChangeTheme(this.onThemeUpdated, this);
+		}
+		initializeAndWatchThemeColors();
 
 		requestAnimationFrame(() => {
 			this.log(`${this.appName}.initializing`);

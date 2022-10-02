@@ -9,6 +9,7 @@ import type {
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphRepository,
+	InternalNotificationType,
 	State,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
@@ -65,6 +66,8 @@ export class GraphApp extends App<State> {
 		const disposables = super.onBind?.() ?? [];
 
 		this.log(`${this.appName}.onBind`);
+
+		this.ensureTheming(this.state);
 
 		const $root = document.getElementById('root');
 		if ($root != null) {
@@ -258,20 +261,26 @@ export class GraphApp extends App<State> {
 
 	protected override onThemeUpdated() {
 		this.state.theming = undefined;
-		this.setState(this.state);
+		this.setState(this.state, 'didChangeTheme');
 	}
 
-	protected override setState(state: State, type?: IpcNotificationType<any>) {
+	protected override setState(state: State, type?: IpcNotificationType<any> | InternalNotificationType) {
 		this.log(`${this.appName}.setState`);
-		if (state.theming == null) {
-			state.theming = this.getGraphTheming();
-		}
+		const themingChanged = this.ensureTheming(state);
 
 		// Avoid calling the base for now, since we aren't using the vscode state
 		this.state = state;
 		// super.setState(state);
 
-		this.callback?.(this.state, type);
+		this.callback?.(this.state, type, themingChanged);
+	}
+
+	private ensureTheming(state: State): boolean {
+		if (state.theming == null) {
+			state.theming = this.getGraphTheming();
+			return true;
+		}
+		return false;
 	}
 
 	private getGraphTheming(): { cssVariables: CssVariables; themeOpacityFactor: number } {
