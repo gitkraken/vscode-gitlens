@@ -22,6 +22,7 @@ import type {
 	GraphRepository,
 	GraphSearchResults,
 	GraphSearchResultsError,
+	InternalNotificationType,
 	State,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
@@ -186,8 +187,21 @@ export function GraphWrapper({
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
 
-	function transformData(state: State, type?: IpcNotificationType<any>) {
+	function updateState(
+		state: State,
+		type?: IpcNotificationType<any> | InternalNotificationType,
+		themingChanged?: boolean,
+	) {
+		if (themingChanged) {
+			setStyleProps(state.theming);
+		}
+
 		switch (type) {
+			case 'didChangeTheme':
+				if (!themingChanged) {
+					setStyleProps(state.theming);
+				}
+				break;
 			case DidChangeAvatarsNotificationType:
 				setAvatars(state.avatars);
 				break;
@@ -224,7 +238,9 @@ export function GraphWrapper({
 				break;
 			default: {
 				setIsAccessAllowed(state.allowed ?? false);
-				setStyleProps(state.theming);
+				if (!themingChanged) {
+					setStyleProps(state.theming);
+				}
 				setColumns(state.columns);
 				setRows(state.rows ?? []);
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
@@ -250,7 +266,7 @@ export function GraphWrapper({
 		}
 	}
 
-	useEffect(() => subscriber?.(transformData), []);
+	useEffect(() => subscriber?.(updateState), []);
 
 	useLayoutEffect(() => {
 		if (mainRef.current === null) return;

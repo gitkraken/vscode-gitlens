@@ -94,8 +94,10 @@ export interface GraphColumnConfig {
 
 export type GraphColumnName = GraphZoneType;
 
+export type InternalNotificationType = 'didChangeTheme';
+
 export interface UpdateStateCallback {
-	(state: State, type?: IpcNotificationType<any>): void;
+	(state: State, type?: IpcNotificationType<any> | InternalNotificationType, themingChanged?: boolean): void;
 }
 
 // Commands
