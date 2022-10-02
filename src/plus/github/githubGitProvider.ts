@@ -2768,7 +2768,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 				for (const commit of result.values) {
 					results.set(commit.sha, {
-						i: results.size - 1,
+						i: results.size,
 						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
 					});
 				}
