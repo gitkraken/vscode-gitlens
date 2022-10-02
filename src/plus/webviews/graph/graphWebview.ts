@@ -491,14 +491,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async onEnsureRow(e: EnsureRowParams, completionId?: string) {
-		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
-			this.updateState(true);
-
-			if (completionId != null) {
-				void this.notify(DidEnsureRowNotificationType, {}, completionId);
-			}
-			return;
-		}
+		if (this._graph == null) return;
 
 		let id: string | undefined;
 		if (!this._graph.skippedIds?.has(e.id)) {
@@ -543,6 +536,7 @@ export class GraphWebview extends WebviewBase<State> {
 	@gate()
 	@debug()
 	private async onGetMoreRows(e: GetMoreRowsParams, sendSelectedRows: boolean = false) {
+		if (this._graph?.paging == null) return;
 		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
