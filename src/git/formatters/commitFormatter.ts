@@ -19,6 +19,7 @@ import { configuration, DateStyle, FileAnnotationType } from '../../configuratio
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
+import { arePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
@@ -429,10 +430,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Blame Prior to this Change")`;
 		}
 
-		commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
-			Commands.ShowInCommitGraph,
-			{ ref: GitReference.fromRevision(this._item) },
-		)} "Show in Commit Graph")`;
+		if (arePlusFeaturesEnabled()) {
+			commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
+				Commands.ShowInCommitGraph,
+				{ ref: GitReference.fromRevision(this._item) },
+			)} "Open in Commit Graph")`;
+		}
 
 		if (this._options.remotes != null && this._options.remotes.length !== 0) {
 			const providers = GitRemote.getHighlanderProviders(this._options.remotes);

@@ -4041,7 +4041,7 @@
 			},
 			{
 				"command": "gitlens.showInCommitGraph",
-				"title": "Show in Commit Graph",
+				"title": "Open in Commit Graph",
 				"category": "GitLens+",
 				"icon": "$(gitlens-graph)"
 			},
