@@ -14,7 +14,7 @@ import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
-import { escapeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+import { encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
@@ -32,16 +32,31 @@ export interface Autolink {
 }
 
 export interface CacheableAutolinkReference extends AutolinkReference {
-	linkify?:
-		| ((text: string, outputFormat: 'html' | 'markdown' | 'plaintext', footnotes?: Map<number, string>) => string)
+	tokenize?:
+		| ((
+				text: string,
+				outputFormat: 'html' | 'markdown' | 'plaintext',
+				tokenMapping: Map<string, string>,
+				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+				footnotes?: Map<number, string>,
+		  ) => string)
 		| null;
+
 	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
-	linkify: (text: string, outputFormat: 'html' | 'markdown' | 'plaintext', footnotes?: Map<number, string>) => string;
+	tokenize?:
+		| ((
+				text: string,
+				outputFormat: 'html' | 'markdown' | 'plaintext',
+				tokenMapping: Map<string, string>,
+				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+				footnotes?: Map<number, string>,
+		  ) => string)
+		| null;
 	parse: (text: string, autolinks: Map<string, Autolink>) => void;
 }
 
@@ -204,11 +219,18 @@ export class Autolinks implements Disposable {
 		remotes?: GitRemote[],
 		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 		footnotes?: Map<number, string>,
-	) {
+	): string {
+		const includeFootnotesInText = outputFormat === 'plaintext' && footnotes == null;
+		if (includeFootnotesInText) {
+			footnotes = new Map<number, string>();
+		}
+
+		const tokenMapping = new Map<string, string>();
+
 		for (const ref of this._references) {
-			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
-				if (ref.linkify != null) {
-					text = ref.linkify(text, outputFormat, footnotes);
+			if (this.ensureAutolinkCached(ref)) {
+				if (ref.tokenize != null) {
+					text = ref.tokenize(text, outputFormat, tokenMapping, issuesOrPullRequests, footnotes);
 				}
 			}
 		}
@@ -218,13 +240,25 @@ export class Autolinks implements Disposable {
 				if (r.provider == null) continue;
 
 				for (const ref of r.provider.autolinks) {
-					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
-						if (ref.linkify != null) {
-							text = ref.linkify(text, outputFormat, footnotes);
+					if (this.ensureAutolinkCached(ref)) {
+						if (ref.tokenize != null) {
+							text = ref.tokenize(text, outputFormat, tokenMapping, issuesOrPullRequests, footnotes);
 						}
 					}
 				}
 			}
+		}
+
+		if (tokenMapping.size !== 0) {
+			// eslint-disable-next-line no-control-regex
+			text = text.replace(/(\x00\d+\x00)/g, (_, t: string) => tokenMapping.get(t) ?? t);
+		}
+
+		if (includeFootnotesInText && footnotes?.size) {
+			text += `\n${GlyphChars.Dash.repeat(2)}\n${join(
+				map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
+				'\n',
+			)}`;
 		}
 
 		return text;
@@ -232,73 +266,45 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 		if (!ref.prefix || !ref.url) return false;
+		if (ref.tokenize !== undefined || ref.tokenize === null) return true;
 
 		try {
-			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				ref.linkify = (text: string, outputFormat: 'html' | 'markdown' | 'plaintext') => {
-					switch (outputFormat) {
-						case 'html': {
-							ensureCachedRegex(ref, outputFormat);
-							return text.replace(
-								ref.messageHtmlRegex,
-								/*html*/ `<a ref="${encodeUrl(ref.url.replace(numRegex, '$2'))}"${
-									ref.title ? ` title="${ref.title.replace(numRegex, '$2')}"` : ''
-								}>$1</a>`,
-							);
-						}
-						case 'markdown': {
-							ensureCachedRegex(ref, outputFormat);
-							return text.replace(
-								ref.messageMarkdownRegex,
-								`[$1](${encodeUrl(ref.url.replace(numRegex, '$2'))}${
-									ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
-								})`,
-							);
-						}
-						default:
-							return text;
-					}
-				};
-
-				return true;
-			}
-
-			ref.linkify = (
+			ref.tokenize = (
 				text: string,
 				outputFormat: 'html' | 'markdown' | 'plaintext',
+				tokenMapping: Map<string, string>,
+				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 				footnotes?: Map<number, string>,
 			) => {
-				const includeFootnotes = footnotes == null;
-				let index;
+				let footnoteIndex: number;
 
 				switch (outputFormat) {
 					case 'markdown':
 						ensureCachedRegex(ref, outputFormat);
-						return text.replace(ref.messageMarkdownRegex, (_substring, linkText, num) => {
-							const issue = issuesOrPullRequests?.get(num);
-							const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
+						return text.replace(ref.messageMarkdownRegex, (_: string, linkText: string, num: string) => {
+							const url = encodeUrl(ref.url.replace(numRegex, num));
 
 							let title = '';
 							if (ref.title) {
 								title = ` "${ref.title.replace(numRegex, num)}`;
 
+								const issue = issuesOrPullRequests?.get(num);
 								if (issue != null) {
 									if (issue instanceof PromiseCancelledError) {
 										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 									} else {
-										const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
+										const issueTitle = escapeMarkdown(issue.title.trim());
 
 										if (footnotes != null) {
-											index = footnotes.size + 1;
+											footnoteIndex = footnotes.size + 1;
 											footnotes.set(
-												index,
+												footnoteIndex,
 												`[${IssueOrPullRequest.getMarkdownIcon(
 													issue,
-												)} **${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+												)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 													5,
 												)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
 													issue.closedDate ?? issue.date,
@@ -314,32 +320,32 @@ export class Autolinks implements Disposable {
 								title += '"';
 							}
 
-							return `[${linkText}](${issueUrl}${title})`;
+							const token = `\x00${tokenMapping.size}\x00`;
+							tokenMapping.set(token, `[${linkText}](${url}${title})`);
+							return token;
 						});
 
 					case 'html':
 						ensureCachedRegex(ref, outputFormat);
-						return text.replace(ref.messageHtmlRegex, (_substring, linkText, num) => {
-							const issue = issuesOrPullRequests?.get(num);
-							const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
+						return text.replace(ref.messageHtmlRegex, (_: string, linkText: string, num: string) => {
+							const url = encodeUrl(ref.url.replace(numRegex, num));
 
 							let title = '';
 							if (ref.title) {
-								title = `"${escapeHtmlWeak(ref.title.replace(numRegex, num))}`;
+								title = `"${encodeHtmlWeak(ref.title.replace(numRegex, num))}`;
 
+								const issue = issuesOrPullRequests?.get(num);
 								if (issue != null) {
 									if (issue instanceof PromiseCancelledError) {
 										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 									} else {
-										const issueTitle = escapeHtmlWeak(
-											issue.title.replace(/([")\\])/g, '\\$1').trim(),
-										);
+										const issueTitle = encodeHtmlWeak(issue.title.trim());
 
 										if (footnotes != null) {
-											index = footnotes.size + 1;
+											footnoteIndex = footnotes.size + 1;
 											footnotes.set(
-												index,
-												`<a href="${issueUrl}" title=${title}>${IssueOrPullRequest.getHtmlIcon(
+												footnoteIndex,
+												`<a href="${url}" title=${title}>${IssueOrPullRequest.getHtmlIcon(
 													issue,
 												)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 													5,
@@ -357,39 +363,35 @@ export class Autolinks implements Disposable {
 								title += '"';
 							}
 
-							return `<a href="${issueUrl}" title=${title}>${escapeHtmlWeak(linkText)}</a>`;
+							const token = `\x00${tokenMapping.size}\x00`;
+							tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+							return token;
 						});
 
 					default:
 						ensureCachedRegex(ref, outputFormat);
-						text = text.replace(ref.messageRegex, (_substring, linkText: string, num) => {
+						return text.replace(ref.messageRegex, (_: string, linkText: string, num: string) => {
 							const issue = issuesOrPullRequests?.get(num);
 							if (issue == null) return linkText;
 
-							if (footnotes === undefined) {
-								footnotes = new Map<number, string>();
+							if (footnotes != null) {
+								footnoteIndex = footnotes.size + 1;
+								footnotes.set(
+									footnoteIndex,
+									`${linkText}: ${
+										issue instanceof PromiseCancelledError
+											? 'Details timed out'
+											: `${issue.title}  ${GlyphChars.Dot}  ${
+													issue.closed ? 'Closed' : 'Opened'
+											  }, ${fromNow(issue.closedDate ?? issue.date)}`
+									}`,
+								);
 							}
 
-							index = footnotes.size + 1;
-							footnotes.set(
-								index,
-								`${linkText}: ${
-									issue instanceof PromiseCancelledError
-										? 'Details timed out'
-										: `${issue.title}  ${GlyphChars.Dot}  ${
-												issue.closed ? 'Closed' : 'Opened'
-										  }, ${fromNow(issue.closedDate ?? issue.date)}`
-								}`,
-							);
-							return `${linkText}${getSuperscript(index)}`;
+							const token = `\x00${tokenMapping.size}\x00`;
+							tokenMapping.set(token, `${linkText}${getSuperscript(footnoteIndex)}`);
+							return token;
 						});
-
-						return includeFootnotes && footnotes != null && footnotes.size !== 0
-							? `${text}\n${GlyphChars.Dash.repeat(2)}\n${join(
-									map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
-									'\n',
-							  )}`
-							: text;
 				}
 			};
 		} catch (ex) {
@@ -397,7 +399,7 @@ export class Autolinks implements Disposable {
 				ex,
 				`Failed to create autolink generator: prefix=${ref.prefix}, url=${ref.url}, title=${ref.title}`,
 			);
-			ref.linkify = null;
+			ref.tokenize = null;
 		}
 
 		return true;
@@ -417,25 +419,23 @@ function ensureCachedRegex(
 	outputFormat: 'plaintext',
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
 function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
-	// Regexes matches the ref prefix followed by a token and avoid re-matching previously matched tokens
+	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
+		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
-				ref.alphanumeric ? '\\w' : '0-9'
-			}]+))\\b`,
+			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
+				ref.alphanumeric ? '\\w' : '\\d'
+			}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
-		// TODO@eamodio add proper html escaping to avoid matching previous replaced matches
 		ref.messageHtmlRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeHtmlWeak(ref.prefix))}([${
-				ref.alphanumeric ? '\\w' : '0-9'
-			}]+))\\b`,
+			`(?<=^|\\s|\\(|\\[)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (ref.messageRegex == null) {
 		ref.messageRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
+			`(?<=^|\\s|\\(|\\[)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	}
