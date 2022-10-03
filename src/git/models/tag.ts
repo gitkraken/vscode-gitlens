@@ -11,7 +11,12 @@ export interface TagSortOptions {
 }
 
 export class GitTag implements GitTagReference {
+	static getId(repoPath: string, name: string): string {
+		return `${repoPath}/tag/${name}`;
+	}
+
 	readonly refType = 'tag';
+	readonly id: string;
 
 	constructor(
 		public readonly repoPath: string,
@@ -20,7 +25,9 @@ export class GitTag implements GitTagReference {
 		public readonly message: string,
 		public readonly date: Date | undefined,
 		public readonly commitDate: Date | undefined,
-	) {}
+	) {
+		this.id = GitTag.getId(repoPath, name);
+	}
 
 	get formattedDate(): string {
 		return Container.instance.TagDateFormatting.dateStyle === DateStyle.Absolute

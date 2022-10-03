@@ -6349,6 +6349,16 @@
 				"icon": "$(gitlens-switch)"
 			},
 			{
+				"command": "gitlens.graph.hideBranch",
+				"title": "Hide Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.hideTag",
+				"title": "Hide Tag...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -8369,6 +8379,14 @@
 				},
 				{
 					"command": "gitlens.graph.switchToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideTag",
 					"when": "false"
 				},
 				{
@@ -10999,6 +11017,16 @@
 					"command": "gitlens.graph.createPullRequest",
 					"when": "gitlens:hasRemotes && gitlens:action:createPullRequest && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "1_gitlens_actions_@10"
+				},
+				{
+					"command": "gitlens.graph.hideBranch",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@11"
+				},
+				{
+					"command": "gitlens.graph.hideTag",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens_actions@12"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",

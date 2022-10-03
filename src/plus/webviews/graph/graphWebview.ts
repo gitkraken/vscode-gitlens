@@ -36,6 +36,7 @@ import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
+import { getBranchNameWithoutRemote } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -319,6 +320,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
+
+			registerCommand('gitlens.graph.hideBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
@@ -1588,6 +1592,27 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.switchTo(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private hideRef(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			if (ref.id) {
+				const isRemoteBranch = ref.refType === 'branch' && ref.remote;
+				const graphHiddenRef: GraphHiddenRef = {
+					id: ref.id,
+					name: isRemoteBranch
+						? getBranchNameWithoutRemote(ref.name)
+						: ref.name,
+					type: isRemoteBranch ? 'remote' : ref.refType,
+					avatarUrl: (ref as any).avatarUrl
+				};
+				this.updateHiddenRef(graphHiddenRef, false);
+			}
 		}
 
 		return Promise.resolve();

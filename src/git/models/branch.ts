@@ -43,6 +43,10 @@ export function getBranchId(repoPath: string, remote: boolean, name: string): st
 }
 
 export class GitBranch implements GitBranchReference {
+	static getId(repoPath: string, remote: boolean, name: string): string {
+		return `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
+	}
+
 	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
