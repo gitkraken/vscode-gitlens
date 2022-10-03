@@ -6,6 +6,7 @@ import type {
 	OpenPullRequestActionContext,
 } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
+import type { ShowQuickCommitCommandArgs } from '../../commands';
 import {
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
@@ -429,6 +430,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._options.editor?.line,
 			)} "Open Blame Prior to this Change")`;
 		}
+
+		commands += ` &nbsp;[$(search)](${Command.getMarkdownCommandArgsCore<ShowQuickCommitCommandArgs>(
+			Commands.RevealCommitInView,
+			{
+				repoPath: this._item.repoPath,
+				sha: this._item.sha,
+				revealInView: true,
+			},
+		)} "Reveal in Side Bar")`;
 
 		if (arePlusFeaturesEnabled()) {
 			commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
