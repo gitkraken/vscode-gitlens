@@ -57,9 +57,9 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										{
 											avatarSize: 16,
 											dateFormat: configuration.get('defaultDateFormat'),
-											markdown: true,
 											// messageAutolinks: true,
 											messageIndent: 4,
+											outputFormat: 'markdown',
 										},
 								  )}`
 								: this.status.type === 'rebase'

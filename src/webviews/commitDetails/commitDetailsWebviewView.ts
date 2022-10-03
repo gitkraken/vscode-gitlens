@@ -7,8 +7,9 @@ import type {
 import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
-import { Commands, CoreCommands } from '../../constants';
+import { Commands, ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import { getContext } from '../../context';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
@@ -43,7 +44,7 @@ import type { CommitDetails, FileActionParams, SavedPreferences, State } from '.
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	DidChangeStateNotificationType,
+	DidChangeNotificationType,
 	FileActionsCommandType,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
@@ -334,11 +335,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		let details;
 		if (current.commit != null) {
-			if (!current.commit.hasFullDetails()) {
-				await current.commit.ensureFullDetails();
-				// current.commit.assertsFullDetails();
-			}
-
 			details = await this.getDetailsModel(current.commit, current.formattedMessage);
 
 			if (!current.richStateLoaded) {
@@ -370,20 +366,21 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async updateRichState(current: Context, cancellation: CancellationToken): Promise<void> {
-		const commit = current.commit;
+		const { commit } = current;
 		if (commit == null) return;
 
-		const remotes = await this.container.git.getRemotesWithProviders(commit.repoPath, { sort: true });
-		const remote = await this.container.git.getBestRemoteWithRichProvider(remotes);
+		const remote = await this.container.git.getBestRemoteWithRichProvider(commit.repoPath);
 
 		if (cancellation.isCancellationRequested) return;
 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
+		const message = commit.message ?? commit.summary;
+
 		if (remote?.provider != null) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote),
+				this.container.autolinks.getLinkedIssuesAndPullRequests(message, remote),
 				commit.getAssociatedPullRequest({ remote: remote }),
 			]);
 
@@ -393,10 +390,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			pr = getSettledValue(prResult);
 		}
 
-		// TODO: add HTML formatting option to linkify
 		const formattedMessage = this.container.autolinks.linkify(
-			encodeMarkup(commit.message!),
-			true,
+			message.replace(/\n/, '<br />'),
+			'html',
 			remote != null ? [remote] : undefined,
 			autolinkedIssuesOrPullRequests,
 		);
@@ -448,7 +444,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		this.updatePendingContext({
 			commit: commit,
-			richStateLoaded: Boolean(commit?.isUncommitted),
+			richStateLoaded: Boolean(commit?.isUncommitted) || !getContext(ContextKeys.HasConnectedRemotes),
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
 			pullRequest: undefined,
@@ -557,7 +553,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
 			try {
-				const success = await this.notify(DidChangeStateNotificationType, {
+				const success = await this.notify(DidChangeNotificationType, {
 					state: await this.getState(context),
 				});
 				if (success) {
@@ -616,30 +612,30 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
-		// if (commit == null) return undefined;
+		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
+			!commit.hasFullDetails ? commit.ensureFullDetails().then(() => commit) : commit,
+			commit.author.getAvatarUri(commit),
+			this.container.git.getBestRemoteWithRichProvider(commit.repoPath, { includeDisconnected: true }),
+		]);
 
-		// if (!commit.hasFullDetails()) {
-		// 	await commit.ensureFullDetails();
-		// 	commit.assertsFullDetails();
-		// }
+		commit = getSettledValue(commitResult, commit);
+		const avatarUri = getSettledValue(avatarUriResult);
+		const remote = getSettledValue(remoteResult);
 
-		const authorAvatar = await commit.author.getAvatarUri(commit);
-		// const committerAvatar = await commit.committer?.getAvatarUri(commit);
-
-		// const formattedMessage = this.container.autolinks.linkify(
-		// 	encodeMarkup(commit.message),
-		// 	true,
-		// 	remote != null ? [remote] : undefined,
-		// 	autolinkedIssuesOrPullRequests,
-		// );
+		if (formattedMessage == null) {
+			formattedMessage = this.container.autolinks.linkify(
+				(commit.message ?? commit.summary).replace(/\n/, '<br />'),
+				'html',
+				remote != null ? [remote] : undefined,
+			);
+		}
 
 		return {
 			sha: commit.sha,
 			shortSha: commit.shortSha,
 			isStash: commit.refType === 'stash',
-			// summary: commit.summary,
-			message: formattedMessage ?? encodeMarkup(commit.message ?? commit.summary),
-			author: { ...commit.author, avatar: authorAvatar.toString(true) },
+			message: formattedMessage,
+			author: { ...commit.author, avatar: avatarUri?.toString(true) },
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
 			files: commit.files?.map(({ status, repoPath, path, originalPath }) => {
 				const icon = GitFile.getStatusIcon(status);
@@ -766,7 +762,3 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 // 		avatar: (await commit.getAvatarUri())?.toString(true),
 // 	};
 // }
-
-function encodeMarkup(text: string): string {
-	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}

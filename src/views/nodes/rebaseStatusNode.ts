@@ -230,10 +230,10 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 				dateFormat: configuration.get('defaultDateFormat'),
-				markdown: true,
 				messageAutolinks: true,
 				messageIndent: 4,
 				pullRequestOrRemote: pr,
+				outputFormat: 'markdown',
 				remotes: remotes,
 			},
 		);

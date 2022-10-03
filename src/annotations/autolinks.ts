@@ -14,7 +14,7 @@ import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
-import { escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+import { escapeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
@@ -32,13 +32,16 @@ export interface Autolink {
 }
 
 export interface CacheableAutolinkReference extends AutolinkReference {
-	linkify?: ((text: string, markdown: boolean, footnotes?: Map<number, string>) => string) | null;
+	linkify?:
+		| ((text: string, outputFormat: 'html' | 'markdown' | 'plaintext', footnotes?: Map<number, string>) => string)
+		| null;
+	messageHtmlRegex?: RegExp;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
-	linkify: (text: string, markdown: boolean, footnotes?: Map<number, string>) => string;
+	linkify: (text: string, outputFormat: 'html' | 'markdown' | 'plaintext', footnotes?: Map<number, string>) => string;
 	parse: (text: string, autolinks: Map<string, Autolink>) => void;
 }
 
@@ -109,12 +112,7 @@ export class Autolinks implements Disposable {
 				continue;
 			}
 
-			if (ref.messageRegex == null) {
-				ref.messageRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
-					ref.ignoreCase ? 'gi' : 'g',
-				);
-			}
+			ensureCachedRegex(ref, 'plaintext');
 
 			do {
 				match = ref.messageRegex.exec(message);
@@ -202,7 +200,7 @@ export class Autolinks implements Disposable {
 	})
 	linkify(
 		text: string,
-		markdown: boolean,
+		outputFormat: 'html' | 'markdown' | 'plaintext',
 		remotes?: GitRemote[],
 		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
 		footnotes?: Map<number, string>,
@@ -210,7 +208,7 @@ export class Autolinks implements Disposable {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 				if (ref.linkify != null) {
-					text = ref.linkify(text, markdown, footnotes);
+					text = ref.linkify(text, outputFormat, footnotes);
 				}
 			}
 		}
@@ -222,7 +220,7 @@ export class Autolinks implements Disposable {
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 						if (ref.linkify != null) {
-							text = ref.linkify(text, markdown, footnotes);
+							text = ref.linkify(text, outputFormat, footnotes);
 						}
 					}
 				}
@@ -240,99 +238,159 @@ export class Autolinks implements Disposable {
 		if (!ref.prefix || !ref.url) return false;
 
 		try {
-			if (ref.messageMarkdownRegex == null) {
-				ref.messageMarkdownRegex = new RegExp(
-					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
-						ref.alphanumeric ? '\\w' : '0-9'
-					}]+))\\b`,
-					ref.ignoreCase ? 'gi' : 'g',
-				);
-			}
-
 			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
-				const replacement = `[$1](${encodeUrl(ref.url.replace(numRegex, '$2'))}${
-					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
-				})`;
-				ref.linkify = (text: string, markdown: boolean) =>
-					markdown ? text.replace(ref.messageMarkdownRegex!, replacement) : text;
+				ref.linkify = (text: string, outputFormat: 'html' | 'markdown' | 'plaintext') => {
+					switch (outputFormat) {
+						case 'html': {
+							ensureCachedRegex(ref, outputFormat);
+							return text.replace(
+								ref.messageHtmlRegex,
+								/*html*/ `<a ref="${encodeUrl(ref.url.replace(numRegex, '$2'))}"${
+									ref.title ? ` title="${ref.title.replace(numRegex, '$2')}"` : ''
+								}>$1</a>`,
+							);
+						}
+						case 'markdown': {
+							ensureCachedRegex(ref, outputFormat);
+							return text.replace(
+								ref.messageMarkdownRegex,
+								`[$1](${encodeUrl(ref.url.replace(numRegex, '$2'))}${
+									ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
+								})`,
+							);
+						}
+						default:
+							return text;
+					}
+				};
 
 				return true;
 			}
 
-			ref.linkify = (text: string, markdown: boolean, footnotes?: Map<number, string>) => {
+			ref.linkify = (
+				text: string,
+				outputFormat: 'html' | 'markdown' | 'plaintext',
+				footnotes?: Map<number, string>,
+			) => {
 				const includeFootnotes = footnotes == null;
 				let index;
 
-				if (markdown) {
-					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
-						const issue = issuesOrPullRequests?.get(num);
+				switch (outputFormat) {
+					case 'markdown':
+						ensureCachedRegex(ref, outputFormat);
+						return text.replace(ref.messageMarkdownRegex, (_substring, linkText, num) => {
+							const issue = issuesOrPullRequests?.get(num);
+							const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
 
-						const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
+							let title = '';
+							if (ref.title) {
+								title = ` "${ref.title.replace(numRegex, num)}`;
 
-						let title = '';
-						if (ref.title) {
-							title = ` "${ref.title.replace(numRegex, num)}`;
+								if (issue != null) {
+									if (issue instanceof PromiseCancelledError) {
+										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+									} else {
+										const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
 
-							if (issue != null) {
-								if (issue instanceof PromiseCancelledError) {
-									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
-								} else {
-									const issueTitle = issue.title.replace(/([")\\])/g, '\\$1').trim();
+										if (footnotes != null) {
+											index = footnotes.size + 1;
+											footnotes.set(
+												index,
+												`[${IssueOrPullRequest.getMarkdownIcon(
+													issue,
+												)} **${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
+													5,
+												)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													issue.closedDate ?? issue.date,
+												)}`,
+											);
+										}
 
-									if (footnotes != null) {
-										index = footnotes.size + 1;
-										footnotes.set(
-											index,
-											`${IssueOrPullRequest.getMarkdownIcon(
-												issue,
-											)} [**${issueTitle}**](${issueUrl}${title}")\\\n${GlyphChars.Space.repeat(
-												5,
-											)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
-												issue.closedDate ?? issue.date,
-											)}`,
-										);
+										title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+											issue.closed ? 'Closed' : 'Opened'
+										}, ${fromNow(issue.closedDate ?? issue.date)}`;
 									}
-
-									title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
-										issue.closed ? 'Closed' : 'Opened'
-									}, ${fromNow(issue.closedDate ?? issue.date)}`;
 								}
+								title += '"';
 							}
-							title += '"';
-						}
 
-						return `[${linkText}](${issueUrl}${title})`;
-					});
+							return `[${linkText}](${issueUrl}${title})`;
+						});
+
+					case 'html':
+						ensureCachedRegex(ref, outputFormat);
+						return text.replace(ref.messageHtmlRegex, (_substring, linkText, num) => {
+							const issue = issuesOrPullRequests?.get(num);
+							const issueUrl = encodeUrl(ref.url.replace(numRegex, num));
+
+							let title = '';
+							if (ref.title) {
+								title = `"${escapeHtmlWeak(ref.title.replace(numRegex, num))}`;
+
+								if (issue != null) {
+									if (issue instanceof PromiseCancelledError) {
+										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+									} else {
+										const issueTitle = escapeHtmlWeak(
+											issue.title.replace(/([")\\])/g, '\\$1').trim(),
+										);
+
+										if (footnotes != null) {
+											index = footnotes.size + 1;
+											footnotes.set(
+												index,
+												`<a href="${issueUrl}" title=${title}>${IssueOrPullRequest.getHtmlIcon(
+													issue,
+												)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
+													5,
+												)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													issue.closedDate ?? issue.date,
+												)}</span>`,
+											);
+										}
+
+										title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+											issue.closed ? 'Closed' : 'Opened'
+										}, ${fromNow(issue.closedDate ?? issue.date)}`;
+									}
+								}
+								title += '"';
+							}
+
+							return `<a href="${issueUrl}" title=${title}>${escapeHtmlWeak(linkText)}</a>`;
+						});
+
+					default:
+						ensureCachedRegex(ref, outputFormat);
+						text = text.replace(ref.messageRegex, (_substring, linkText: string, num) => {
+							const issue = issuesOrPullRequests?.get(num);
+							if (issue == null) return linkText;
+
+							if (footnotes === undefined) {
+								footnotes = new Map<number, string>();
+							}
+
+							index = footnotes.size + 1;
+							footnotes.set(
+								index,
+								`${linkText}: ${
+									issue instanceof PromiseCancelledError
+										? 'Details timed out'
+										: `${issue.title}  ${GlyphChars.Dot}  ${
+												issue.closed ? 'Closed' : 'Opened'
+										  }, ${fromNow(issue.closedDate ?? issue.date)}`
+								}`,
+							);
+							return `${linkText}${getSuperscript(index)}`;
+						});
+
+						return includeFootnotes && footnotes != null && footnotes.size !== 0
+							? `${text}\n${GlyphChars.Dash.repeat(2)}\n${join(
+									map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
+									'\n',
+							  )}`
+							: text;
 				}
-
-				text = text.replace(ref.messageRegex!, (_substring, linkText: string, num) => {
-					const issue = issuesOrPullRequests?.get(num);
-					if (issue == null) return linkText;
-
-					if (footnotes === undefined) {
-						footnotes = new Map<number, string>();
-					}
-
-					index = footnotes.size + 1;
-					footnotes.set(
-						index,
-						`${linkText}: ${
-							issue instanceof PromiseCancelledError
-								? 'Details timed out'
-								: `${issue.title}  ${GlyphChars.Dot}  ${issue.closed ? 'Closed' : 'Opened'}, ${fromNow(
-										issue.closedDate ?? issue.date,
-								  )}`
-						}`,
-					);
-					return `${linkText}${getSuperscript(index)}`;
-				});
-
-				return includeFootnotes && footnotes != null && footnotes.size !== 0
-					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${join(
-							map(footnotes, ([i, footnote]) => `${getSuperscript(i)} ${footnote}`),
-							'\n',
-					  )}`
-					: text;
 			};
 		} catch (ex) {
 			Logger.error(
@@ -344,4 +402,43 @@ export class Autolinks implements Disposable {
 
 		return true;
 	}
+}
+
+function ensureCachedRegex(
+	ref: CacheableAutolinkReference,
+	outputFormat: 'html',
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageHtmlRegex'>;
+function ensureCachedRegex(
+	ref: CacheableAutolinkReference,
+	outputFormat: 'markdown',
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageMarkdownRegex'>;
+function ensureCachedRegex(
+	ref: CacheableAutolinkReference,
+	outputFormat: 'plaintext',
+): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
+function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
+	// Regexes matches the ref prefix followed by a token and avoid re-matching previously matched tokens
+	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
+		ref.messageMarkdownRegex = new RegExp(
+			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeMarkdown(ref.prefix))}([${
+				ref.alphanumeric ? '\\w' : '0-9'
+			}]+))\\b`,
+			ref.ignoreCase ? 'gi' : 'g',
+		);
+	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
+		// TODO@eamodio add proper html escaping to avoid matching previous replaced matches
+		ref.messageHtmlRegex = new RegExp(
+			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(escapeHtmlWeak(ref.prefix))}([${
+				ref.alphanumeric ? '\\w' : '0-9'
+			}]+))\\b`,
+			ref.ignoreCase ? 'gi' : 'g',
+		);
+	} else if (ref.messageRegex == null) {
+		ref.messageRegex = new RegExp(
+			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(ref.prefix)}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
+			ref.ignoreCase ? 'gi' : 'g',
+		);
+	}
+
+	return true;
 }
