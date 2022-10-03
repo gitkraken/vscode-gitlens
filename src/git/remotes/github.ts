@@ -10,6 +10,7 @@ import type {
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
@@ -71,11 +72,27 @@ export class GitHubRemote extends RichRemoteProvider {
 					description: `Issue or Pull Request #<num> on ${this.name}`,
 				},
 				{
-					linkify: (text: string) =>
-						text.replace(
-							autolinkFullIssuesRegex,
-							`[$&](${this.protocol}://${this.domain}/$<repo>/issues/$<num> "Open Issue or Pull Request #$<num> from $<repo> on ${this.name}")`,
-						),
+					tokenize: (
+						text: string,
+						outputFormat: 'html' | 'markdown' | 'plaintext',
+						tokenMapping: Map<string, string>,
+					) => {
+						return outputFormat === 'plaintext'
+							? text
+							: text.replace(autolinkFullIssuesRegex, (linkText: string, repo: string, num: string) => {
+									const url = encodeUrl(`${this.protocol}://${this.domain}/${repo}/issues/${num}`);
+									const title = ` "Open Issue or Pull Request #${num} from ${repo} on ${this.name}"`;
+
+									const token = `\x00${tokenMapping.size}\x00`;
+									if (outputFormat === 'markdown') {
+										tokenMapping.set(token, `[${linkText}](${url}${title})`);
+									} else if (outputFormat === 'html') {
+										tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+									}
+
+									return token;
+							  });
+					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let repo: string;
 						let num: string;

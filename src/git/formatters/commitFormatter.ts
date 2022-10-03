@@ -23,7 +23,7 @@ import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/gra
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
-import { escapeHtmlWeak, escapeMarkdown, getSuperscript } from '../../system/string';
+import { encodeHtmlWeak, escapeMarkdown, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
@@ -201,8 +201,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			case 'markdown':
 				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
 			case 'html':
-				name = escapeHtmlWeak(name);
-				email = escapeHtmlWeak(email);
+				name = encodeHtmlWeak(name);
+				email = encodeHtmlWeak(email);
 				return /*html*/ `<a ${
 					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
 				})${
@@ -251,8 +251,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			case 'markdown':
 				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
 			case 'html':
-				name = escapeHtmlWeak(name);
-				email = escapeHtmlWeak(email);
+				name = encodeHtmlWeak(name);
+				email = encodeHtmlWeak(email);
 				return /*html*/ `<a ${
 					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
 				})${
@@ -280,7 +280,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}${presence.statusText.toLocaleLowerCase()}`;
 
 			if (outputFormat === 'html') {
-				title = escapeHtmlWeak(title);
+				title = encodeHtmlWeak(title);
 			}
 
 			const avatarPromise = this._getAvatar(outputFormat, title, this._options.avatarSize);
@@ -293,7 +293,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		if (outputFormat === 'html') {
-			name = escapeHtmlWeak(name);
+			name = encodeHtmlWeak(name);
 		}
 		return this._getAvatar(outputFormat, name, this._options.avatarSize);
 	}
@@ -545,20 +545,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			this._options.footnotes == null || this._options.footnotes.size === 0
 				? ''
 				: join(
-						map(this._options.footnotes, ([i, footnote]) => {
-							switch (outputFormat) {
-								case 'html':
-									return /*html*/ `<span${
-										this._options.htmlFormat?.classes?.footnote
-											? ` class="${this._options.htmlFormat.classes.footnote}"`
-											: ''
-									}><sup>${i}</sup> ${escapeHtmlWeak(footnote)}</span>`;
-								case 'markdown':
-									return `${getSuperscript(i)} ${footnote}`;
-								default:
-									return footnote;
-							}
-						}),
+						map(this._options.footnotes, ([i, footnote]) =>
+							outputFormat === 'plaintext' ? `${getSuperscript(i)} ${footnote}` : footnote,
+						),
 						outputFormat === 'html' ? /*html*/ `<br \\>` : outputFormat === 'markdown' ? '\\\n' : '\n',
 				  ),
 			this._options.tokenOptions.footnotes,
@@ -637,12 +626,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
 		if (outputFormat !== 'plaintext') {
-			message = escapeHtmlWeak(message);
+			message = encodeHtmlWeak(message);
+		}
+		if (outputFormat === 'markdown') {
+			message = escapeMarkdown(message, { quoted: true });
 		}
 
 		if (this._options.messageAutolinks) {
 			message = Container.instance.autolinks.linkify(
-				outputFormat === 'markdown' ? escapeMarkdown(message, { quoted: true }) : message,
+				message,
 				outputFormat,
 				this._options.remotes,
 				this._options.autolinkedIssuesOrPullRequests,

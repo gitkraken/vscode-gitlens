@@ -94,9 +94,9 @@ export function compareSubstringIgnoreCase(
 	return 0;
 }
 
-export function escapeHtmlWeak(s: string): string;
-export function escapeHtmlWeak(s: string | undefined): string | undefined;
-export function escapeHtmlWeak(s: string | undefined): string | undefined {
+export function encodeHtmlWeak(s: string): string;
+export function encodeHtmlWeak(s: string | undefined): string | undefined;
+export function encodeHtmlWeak(s: string | undefined): string | undefined {
 	return s?.replace(/[<>&"]/g, c => {
 		switch (c) {
 			case '<':

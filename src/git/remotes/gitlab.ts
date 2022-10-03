@@ -10,6 +10,7 @@ import type {
 } from '../../plus/integrationAuthentication';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { log } from '../../system/decorators/log';
+import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
@@ -67,11 +68,27 @@ export class GitLabRemote extends RichRemoteProvider {
 					description: `Merge Request !<num> on ${this.name}`,
 				},
 				{
-					linkify: (text: string) =>
-						text.replace(
-							autolinkFullIssuesRegex,
-							`[$&](${this.protocol}://${this.domain}/$<repo>/-/issues/$<num> "Open Issue #$<num> from $<repo> on ${this.name}")`,
-						),
+					tokenize: (
+						text: string,
+						outputFormat: 'html' | 'markdown' | 'plaintext',
+						tokenMapping: Map<string, string>,
+					) => {
+						return outputFormat === 'plaintext'
+							? text
+							: text.replace(autolinkFullIssuesRegex, (linkText: string, repo: string, num: string) => {
+									const url = encodeUrl(`${this.protocol}://${this.domain}/${repo}/-/issues/${num}`);
+									const title = ` "Open Issue #${num} from ${repo} on ${this.name}"`;
+
+									const token = `\x00${tokenMapping.size}\x00`;
+									if (outputFormat === 'markdown') {
+										tokenMapping.set(token, `[${linkText}](${url}${title})`);
+									} else if (outputFormat === 'html') {
+										tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+									}
+
+									return token;
+							  });
+					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let repo: string;
 						let num: string;
@@ -97,11 +114,32 @@ export class GitLabRemote extends RichRemoteProvider {
 					},
 				},
 				{
-					linkify: (text: string) =>
-						text.replace(
-							autolinkFullMergeRequestsRegex,
-							`[$&](${this.protocol}://${this.domain}/$<repo>/-/merge_requests/$<num> "Open Merge Request !$<num> from $<repo> on ${this.name}")`,
-						),
+					tokenize: (
+						text: string,
+						outputFormat: 'html' | 'markdown' | 'plaintext',
+						tokenMapping: Map<string, string>,
+					) => {
+						return outputFormat === 'plaintext'
+							? text
+							: text.replace(
+									autolinkFullMergeRequestsRegex,
+									(linkText: string, repo: string, num: string) => {
+										const url = encodeUrl(
+											`${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
+										);
+										const title = ` "Open Merge Request !${num} from ${repo} on ${this.name}"`;
+
+										const token = `\x00${tokenMapping.size}\x00`;
+										if (outputFormat === 'markdown') {
+											tokenMapping.set(token, `[${linkText}](${url}${title})`);
+										} else if (outputFormat === 'html') {
+											tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+										}
+
+										return token;
+									},
+							  );
+					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
 						let repo: string;
 						let num: string;
