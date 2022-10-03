@@ -52,9 +52,9 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 							{
 								avatarSize: 16,
 								dateFormat: configuration.get('defaultDateFormat'),
-								markdown: true,
 								// messageAutolinks: true,
 								messageIndent: 4,
+								outputFormat: 'markdown',
 							},
 					  )}`
 					: ''

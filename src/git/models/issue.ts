@@ -38,6 +38,28 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 }
 
 export namespace IssueOrPullRequest {
+	export function getHtmlIcon(issue: IssueOrPullRequest): string {
+		if (issue.type === IssueOrPullRequestType.PullRequest) {
+			if (issue.closed) {
+				return `<span class="codicon codicon-git-pull-request" style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+				};"></span>`;
+			}
+			return `<span class="codicon codicon-git-pull-request" style="color:${
+				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
+			};"></span>`;
+		}
+
+		if (issue.closed) {
+			return `<span class="codicon codicon-pass" style="color:${
+				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+			};"></span>`;
+		}
+		return `<span class="codicon codicon-issues" style="color:${
+			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
+		};"></span>`;
+	}
+
 	export function getMarkdownIcon(issue: IssueOrPullRequest): string {
 		if (issue.type === IssueOrPullRequestType.PullRequest) {
 			if (issue.closed) {

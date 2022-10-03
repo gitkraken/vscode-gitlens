@@ -19,7 +19,8 @@ type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 const hasTokenRegexMap = new Map<string, RegExp>();
 const spaceReplacementRegex = / /g;
 
-declare type RequiredTokenOptions<Options extends FormatOptions> = Options & Required<Pick<Options, 'tokenOptions'>>;
+export declare type RequiredTokenOptions<Options extends FormatOptions> = Options &
+	Required<Pick<Options, 'tokenOptions'>>;
 
 export abstract class Formatter<Item = any, Options extends FormatOptions = FormatOptions> {
 	protected _item!: Item;

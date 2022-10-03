@@ -94,6 +94,25 @@ export function compareSubstringIgnoreCase(
 	return 0;
 }
 
+export function escapeHtmlWeak(s: string): string;
+export function escapeHtmlWeak(s: string | undefined): string | undefined;
+export function escapeHtmlWeak(s: string | undefined): string | undefined {
+	return s?.replace(/[<>&"]/g, c => {
+		switch (c) {
+			case '<':
+				return '&lt;';
+			case '>':
+				return '&gt;';
+			case '&':
+				return '&amp;';
+			case '"':
+				return '&quot;';
+			default:
+				return c;
+		}
+	});
+}
+
 const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
 const escapeMarkdownHeaderRegex = /^===/gm;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';

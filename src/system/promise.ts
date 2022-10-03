@@ -140,6 +140,8 @@ export function defer<T>(): Deferred<T> {
 	return deferred;
 }
 
+export function getSettledValue<T>(promise: PromiseSettledResult<T>): T | undefined;
+export function getSettledValue<T>(promise: PromiseSettledResult<T>, defaultValue: NonNullable<T>): NonNullable<T>;
 export function getSettledValue<T>(
 	promise: PromiseSettledResult<T>,
 	defaultValue: T | undefined = undefined,

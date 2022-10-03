@@ -16,12 +16,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2203](https://github.com/gitkraken/vscode-gitlens/issues/2203) - Autolinks missing under commit details
+- Fixes [#2230](https://github.com/gitkraken/vscode-gitlens/issues/2230) - j and k are inverted in ascending rebase order
 - Fixes [#2195](https://github.com/gitkraken/vscode-gitlens/issues/2195) - Cannot open new files from commit details
 - Fixes Commit Details view showing incorrect diffs for certain commits
 - Fixes Commit Details view showing incorrect actions for uncommitted changes
 - Fixes prioritization of multiple PRs associated with the same commit to choose a merged PR over others
 - Fixes Graph not showing account banners when access is not allowed and trial banners were previously dismissed
-- Fixes [#2230](https://github.com/gitkraken/vscode-gitlens/issues/2230) - j and k are inverted in ascending rebase order
 
 ## [12.2.2] - 2022-09-06
 

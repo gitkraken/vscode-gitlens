@@ -8,7 +8,7 @@ import type { CommitActionsParams, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
-	DidChangeStateNotificationType,
+	DidChangeNotificationType,
 	FileActionsCommandType,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
@@ -43,11 +43,10 @@ type CommitState = SomeNonNullable<Serialized<State>, 'selected'>;
 export class CommitDetailsApp extends App<Serialized<State>> {
 	constructor() {
 		super('CommitDetailsApp');
-		this.log('CommitDetailsApp', this.state);
 	}
 
 	override onInitialize() {
-		this.log('CommitDetailsApp.onInitialize', this.state);
+		this.log(`${this.appName}.onInitialize`);
 		this.renderContent();
 	}
 
@@ -86,6 +85,8 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
+		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
 		switch (msg.method) {
 			// case DidChangeRichStateNotificationType.method:
 			// 	onIpc(DidChangeRichStateNotificationType, msg, params => {
@@ -108,38 +109,33 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			// 		this.renderRichContent();
 			// 	});
 			// 	break;
-			case DidChangeStateNotificationType.method:
-				onIpc(DidChangeStateNotificationType, msg, params => {
+			case DidChangeNotificationType.method:
+				onIpc(DidChangeNotificationType, msg, params => {
 					assertsSerialized<typeof params.state>(params.state);
 
-					// TODO: Undefined won't get serialized -- need to convert to null or something
-					this.state = params.state; //{ ...this.state, ...params.state };
+					this.state = params.state;
 					this.renderContent();
 				});
 				break;
+
+			default:
+				super.onMessageReceived?.(e);
 		}
 	}
 
 	private onTreeSetting(e: MouseEvent) {
 		const isTree = (e.target as HTMLElement)?.getAttribute('data-switch-value') === 'list-tree';
-
-		if (isTree === this.state.preferences?.filesAsTree) {
-			return;
-		}
+		if (isTree === this.state.preferences?.filesAsTree) return;
 
 		this.state.preferences = { ...this.state.preferences, filesAsTree: isTree };
 
 		this.renderFiles(this.state as CommitState);
 
-		this.sendCommand(PreferencesCommandType, {
-			filesAsTree: isTree,
-		});
+		this.sendCommand(PreferencesCommandType, { filesAsTree: isTree });
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
-		this.sendCommand(PreferencesCommandType, {
-			autolinksExpanded: e.expanded,
-		});
+		this.sendCommand(PreferencesCommandType, { autolinksExpanded: e.expanded });
 	}
 
 	private onTogglePin(e: MouseEvent) {
@@ -211,9 +207,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	renderContent() {
-		if (!this.renderCommit(this.state)) {
-			return;
-		}
+		if (!this.renderCommit(this.state)) return;
 
 		this.renderActions(this.state);
 		this.renderPin(this.state);
@@ -230,20 +224,19 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	renderActions(state: CommitState) {
 		const isHiddenForUncommitted = state.selected?.sha === uncommittedSha ? 'true' : 'false';
+		for (const $el of document.querySelectorAll('[data-action-type="graph"],[data-action-type="more"]')) {
+			$el.setAttribute('aria-hidden', isHiddenForUncommitted);
+		}
+
 		const isHiddenForCommitted = state.selected?.sha !== uncommittedSha ? 'true' : 'false';
-		[...document.querySelectorAll('[data-action-type="graph"],[data-action-type="more"]')].forEach($el =>
-			$el.setAttribute('aria-hidden', isHiddenForUncommitted),
-		);
-		[...document.querySelectorAll('[data-action-type="scm"]')].forEach($el =>
-			$el.setAttribute('aria-hidden', isHiddenForCommitted),
-		);
+		for (const $el of document.querySelectorAll('[data-action-type="scm"]')) {
+			$el.setAttribute('aria-hidden', isHiddenForCommitted);
+		}
 	}
 
 	renderPin(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-action="pin"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
 		const label = state.pinned ? 'Unpin this Commit' : 'Pin this Commit';
 		$el.setAttribute('aria-label', label);
@@ -256,13 +249,11 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	renderSha(state: CommitState) {
 		const $els = [...document.querySelectorAll<HTMLElement>('[data-region="shortsha"]')];
-		if ($els.length === 0) {
-			return;
-		}
+		if ($els.length === 0) return;
 
-		$els.forEach($el => {
+		for (const $el of $els) {
 			$el.textContent = state.selected.shortSha;
-		});
+		}
 	}
 
 	renderChoices() {
@@ -280,9 +271,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// 	</ul>
 		// </nav>
 		const $el = document.querySelector<HTMLElement>('[data-region="choices"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
 		// if (this.state.commits?.length) {
 		// 	const $count = $el.querySelector<HTMLElement>('[data-region="choices-count"]');
@@ -317,52 +306,54 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	renderStats(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="stats"]');
-		if ($el == null) {
+		if ($el == null) return;
+
+		if (state.selected.stats?.changedFiles == null) {
+			$el.innerHTML = '';
 			return;
 		}
-		if (state.selected.stats?.changedFiles !== undefined) {
-			if (typeof state.selected.stats.changedFiles === 'number') {
-				$el.innerHTML = `
-				<commit-stats added="?" modified="${state.selected.stats.changedFiles}" removed="?"></commit-stats>
-			`;
-			} else {
-				const { added, deleted, changed } = state.selected.stats.changedFiles;
-				$el.innerHTML = `
-				<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>
-			`;
-			}
+
+		if (typeof state.selected.stats.changedFiles === 'number') {
+			$el.innerHTML = /*html*/ `
+			<commit-stats added="?" modified="${state.selected.stats.changedFiles}" removed="?"></commit-stats>
+		`;
 		} else {
-			$el.innerHTML = '';
+			const { added, deleted, changed } = state.selected.stats.changedFiles;
+			$el.innerHTML = /*html*/ `
+			<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>
+		`;
 		}
 	}
 
 	renderFiles(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="files"]');
-		if ($el == null) {
+		if ($el == null) return;
+
+		if (!state.selected.files?.length) {
+			$el.innerHTML = '';
 			return;
 		}
 
-		if (state.selected.files?.length) {
-			const isTree = state.preferences?.filesAsTree === true;
-			document.querySelector('[data-switch-value="list"]')?.classList.toggle('is-selected', !isTree);
-			document.querySelector('[data-switch-value="list-tree"]')?.classList.toggle('is-selected', isTree);
+		const isTree = state.preferences?.filesAsTree === true;
+		document.querySelector('[data-switch-value="list"]')?.classList.toggle('is-selected', !isTree);
+		document.querySelector('[data-switch-value="list-tree"]')?.classList.toggle('is-selected', isTree);
 
-			const stashAttr = state.selected.isStash
-				? 'stash '
-				: state.selected.sha === uncommittedSha
-				? 'uncommitted '
-				: '';
+		const stashAttr = state.selected.isStash
+			? 'stash '
+			: state.selected.sha === uncommittedSha
+			? 'uncommitted '
+			: '';
 
-			if (isTree) {
-				const tree = makeHierarchical(
-					state.selected.files,
-					n => n.path.split('/'),
-					(...parts: string[]) => parts.join('/'),
-					true,
-				);
-				const flatTree = flattenHeirarchy(tree);
+		if (isTree) {
+			const tree = makeHierarchical(
+				state.selected.files,
+				n => n.path.split('/'),
+				(...parts: string[]) => parts.join('/'),
+				true,
+			);
+			const flatTree = flattenHeirarchy(tree);
 
-				$el.innerHTML = `
+			$el.innerHTML = `
 					<li class="change-list__item">
 						<list-container class="indentGuides-${state.indentGuides}">
 							${flatTree
@@ -372,7 +363,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 									}
 
 									if (item.value == null) {
-										return `
+										return /*html*/ `
 											<list-item level="${level}" tree branch>
 												<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
 												${item.name}
@@ -380,7 +371,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 										`;
 									}
 
-									return `
+									return /*html*/ `
 										<file-change-list-item
 											tree
 											level="${level}"
@@ -395,40 +386,35 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 								.join('')}
 						</list-container>
 					</li>`;
-			} else {
-				$el.innerHTML = `
-					<li class="change-list__item">
-						<list-container>
-							${state.selected.files
-								.map(
-									(file: Record<string, any>) => `
-											<file-change-list-item
-												${stashAttr}
-												path="${file.path}"
-												repo="${file.repoPath}"
-												icon="${file.icon.dark}"
-												status="${file.status}"
-											></file-change-list-item>
-										`,
-								)
-								.join('')}
-						</list-container>
-					</li>`;
-			}
-			$el.setAttribute('aria-hidden', 'false');
 		} else {
-			$el.innerHTML = '';
+			$el.innerHTML = /*html*/ `
+				<li class="change-list__item">
+					<list-container>
+						${state.selected.files
+							.map(
+								(file: Record<string, any>) => /*html*/ `
+										<file-change-list-item
+											${stashAttr}
+											path="${file.path}"
+											repo="${file.repoPath}"
+											icon="${file.icon.dark}"
+											status="${file.status}"
+										></file-change-list-item>
+									`,
+							)
+							.join('')}
+					</list-container>
+				</li>`;
 		}
+		$el.setAttribute('aria-hidden', 'false');
 	}
 
 	renderAuthor(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="author"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
 		if (state.selected?.isStash === true) {
-			$el.innerHTML = `
+			$el.innerHTML = /*html*/ `
 				<div class="commit-stashed">
 					<span class="commit-stashed__media"><code-icon class="commit-stashed__icon" icon="inbox"></code-icon></span>
 					<span class="commit-stashed__date">stashed <formatted-date date=${state.selected.author.date} dateFormat="${state.dateFormat}"></formatted-date></span>
@@ -436,7 +422,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			`;
 			$el.setAttribute('aria-hidden', 'false');
 		} else if (state.selected?.author != null) {
-			$el.innerHTML = `
+			$el.innerHTML = /*html*/ `
 				<commit-identity
 					name="${state.selected.author.name}"
 					email="${state.selected.author.email}"
@@ -487,30 +473,26 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// 	</h1>
 		// </header>
 		const $el = document.querySelector<HTMLElement>('[data-region="commit-title"]');
-		if ($el != null) {
-			$el.innerHTML = state.selected.shortSha;
-		}
+		if ($el == null) return;
+
+		$el.innerHTML = state.selected.shortSha;
 	}
 
 	renderMessage(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="message"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
-		const [headline, ...lines] = state.selected.message.split('\n');
+		const [headline, ...lines] = state.selected.message.split('<br />');
 		if (lines.length > 0) {
-			$el.innerHTML = `<strong>${headline}</strong><br>${lines.join('<br>')}`;
+			$el.innerHTML = /*html*/ `<strong>${headline}</strong><br />${lines.join('<br />')}`;
 		} else {
-			$el.innerHTML = `<strong>${headline}</strong>`;
+			$el.innerHTML = /*html*/ `<strong>${headline}</strong>`;
 		}
 	}
 
 	renderPullRequestAndAutolinks(state: CommitState) {
 		const $el = document.querySelector<WebviewPane>('[data-region="rich-pane"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
 		$el.expanded = this.state.preferences?.autolinksExpanded ?? true;
 		$el.loading = !state.includeRichContent;
@@ -536,16 +518,14 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	renderPullRequest(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="pull-request"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
 
 		if (state.pullRequest != null) {
-			$el.innerHTML = `
+			$el.innerHTML = /*html*/ `
 				<issue-pull-request
 					name="${state.pullRequest.title}"
 					url="${state.pullRequest.url}"
-					key="${state.pullRequest.id}"
+					key="#${state.pullRequest.id}"
 					status="${state.pullRequest.state}"
 					date=${state.pullRequest.date}
 					dateFormat="${state.dateFormat}"
@@ -560,19 +540,18 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	renderIssues(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-region="issue"]');
-		if ($el == null) {
-			return;
-		}
+		if ($el == null) return;
+
 		if (state.autolinkedIssues?.length) {
 			$el.innerHTML = state.autolinkedIssues
 				.map(
-					(issue: Record<string, any>) => `
+					issue => /*html*/ `
 						<issue-pull-request
 							name="${issue.title}"
 							url="${issue.url}"
 							key="${issue.id}"
-							status="${(issue.closed as boolean) ? 'closed' : 'opened'}"
-							date="${(issue.closed as boolean) ? issue.closedDate : issue.date}"
+							status="${issue.closed ? 'closed' : 'opened'}"
+							date="${issue.closed ? issue.closedDate : issue.date}"
 						></issue-pull-request>
 					`,
 				)
@@ -589,10 +568,7 @@ function assertsSerialized<T>(obj: unknown): asserts obj is Serialized<T> {}
 
 function flattenHeirarchy<T>(item: HierarchicalItem<T>, level = 0): { level: number; item: HierarchicalItem<T> }[] {
 	const flattened: { level: number; item: HierarchicalItem<T> }[] = [];
-
-	if (item == null) {
-		return flattened;
-	}
+	if (item == null) return flattened;
 
 	flattened.push({ level: level, item: item });
 

@@ -271,11 +271,11 @@ export namespace Hovers {
 				uri: uri,
 			},
 			getBranchAndTagTips: options?.getBranchAndTagTips,
-			markdown: true,
 			messageAutolinks: options?.autolinks,
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineComparisonUris: previousLineComparisonUris,
+			outputFormat: 'markdown',
 			remotes: remotes,
 		});
 

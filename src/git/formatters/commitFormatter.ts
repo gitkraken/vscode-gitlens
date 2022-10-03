@@ -23,7 +23,7 @@ import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/gra
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
-import { escapeMarkdown, getSuperscript } from '../../system/string';
+import { escapeHtmlWeak, escapeMarkdown, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
@@ -33,7 +33,7 @@ import { PullRequest } from '../models/pullRequest';
 import { GitReference, GitRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
-import type { FormatOptions } from './formatter';
+import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {
@@ -43,7 +43,18 @@ export interface CommitFormatOptions extends FormatOptions {
 	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
 	getBranchAndTagTips?: (sha: string, options?: { compact?: boolean; icons?: boolean }) => string | undefined;
-	markdown?: boolean;
+	htmlFormat?: {
+		classes?: {
+			author?: string;
+			avatar?: string;
+			avatarPresence?: string;
+			footnote?: string;
+			id?: string;
+			link?: string;
+			message?: string;
+			tips?: string;
+		};
+	};
 	messageAutolinks?: boolean;
 	messageIndent?: number;
 	messageTruncateAtNewLine?: boolean;
@@ -51,6 +62,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
 	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
+	outputFormat?: 'html' | 'markdown' | 'plaintext';
 	remotes?: GitRemote<RemoteProvider>[];
 	unpublished?: boolean;
 
@@ -93,6 +105,16 @@ export interface CommitFormatOptions extends FormatOptions {
 }
 
 export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
+	protected declare _options: RequiredTokenOptions<CommitFormatOptions> &
+		Required<Pick<CommitFormatOptions, 'outputFormat'>>;
+
+	override reset(item: GitCommit, options?: CommitFormatOptions) {
+		super.reset(item, options);
+		if (this._options.outputFormat == null) {
+			this._options.outputFormat = 'plaintext';
+		}
+	}
+
 	private get _authorDate() {
 		return this._item.author.formatDate(this._options.dateFormat);
 	}
@@ -172,11 +194,25 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get author(): string {
-		const { name, email } = this._item.author;
+		let { name, email } = this._item.author;
 		const author = this._padOrTruncate(name, this._options.tokenOptions.author);
-		if (!this._options.markdown) return author;
 
-		return `[${author}](mailto:${email} "Email ${name} (${email})")`;
+		switch (this._options.outputFormat) {
+			case 'markdown':
+				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
+			case 'html':
+				name = escapeHtmlWeak(name);
+				email = escapeHtmlWeak(email);
+				return /*html*/ `<a ${
+					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
+				})${
+					this._options.htmlFormat?.classes?.author
+						? ` class="${this._options.htmlFormat.classes.author}"`
+						: ''
+				}>${author}</a>`;
+			default:
+				return author;
+		}
 	}
 
 	get authorAgo(): string {
@@ -206,54 +242,90 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorNotYou(): string {
-		const { name, email } = this._item.author;
+		let { name, email } = this._item.author;
 		if (name === 'You') return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
 
 		const author = this._padOrTruncate(name, this._options.tokenOptions.authorNotYou);
-		if (!this._options.markdown) return author;
 
-		return `[${author}](mailto:${email} "Email ${name} (${email})")`;
+		switch (this._options.outputFormat) {
+			case 'markdown':
+				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
+			case 'html':
+				name = escapeHtmlWeak(name);
+				email = escapeHtmlWeak(email);
+				return /*html*/ `<a ${
+					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
+				})${
+					this._options.htmlFormat?.classes?.author
+						? ` class="${this._options.htmlFormat.classes.author}"`
+						: ''
+				}>${author}</a>`;
+			default:
+				return author;
+		}
 	}
 
 	get avatar(): string | Promise<string> {
-		if (!this._options.markdown || !configuration.get('hovers.avatars')) {
+		const { outputFormat } = this._options;
+		if (outputFormat === 'plaintext' || !configuration.get('hovers.avatars')) {
 			return this._padOrTruncate('', this._options.tokenOptions.avatar);
 		}
 
-		const { name } = this._item.author;
+		let { name } = this._item.author;
 
 		const presence = this._options.presence;
 		if (presence != null) {
-			const title = `${name} ${name === 'You' ? 'are' : 'is'} ${
+			let title = `${name} ${name === 'You' ? 'are' : 'is'} ${
 				presence.status === 'dnd' ? 'in ' : ''
 			}${presence.statusText.toLocaleLowerCase()}`;
 
-			const avatarMarkdownPromise = this._getAvatarMarkdown(title, this._options.avatarSize);
-			return avatarMarkdownPromise.then(md =>
+			if (outputFormat === 'html') {
+				title = escapeHtmlWeak(title);
+			}
+
+			const avatarPromise = this._getAvatar(outputFormat, title, this._options.avatarSize);
+			return avatarPromise.then(data =>
 				this._padOrTruncate(
-					`${md}${this._getPresenceMarkdown(presence, title)}`,
+					`${data}${this._getPresence(outputFormat, presence, title)}`,
 					this._options.tokenOptions.avatar,
 				),
 			);
 		}
 
-		return this._getAvatarMarkdown(name, this._options.avatarSize);
+		if (outputFormat === 'html') {
+			name = escapeHtmlWeak(name);
+		}
+		return this._getAvatar(outputFormat, name, this._options.avatarSize);
 	}
 
-	private async _getAvatarMarkdown(title: string, size?: number) {
+	private async _getAvatar(outputFormat: 'html' | 'markdown', title: string, size?: number) {
 		size = size ?? configuration.get('hovers.avatarSize');
 		const avatarPromise = this._item.getAvatarUri({
 			defaultStyle: configuration.get('defaultGravatarsStyle'),
 			size: size,
 		});
+
+		const src = (await avatarPromise).toString(true);
 		return this._padOrTruncate(
-			`![${title}](${(await avatarPromise).toString(true)}|width=${size},height=${size} "${title}")`,
+			outputFormat === 'html'
+				? /*html*/ `<img src="${src}" alt="title)" title="${title}" width="${size}" height="${size}"${
+						this._options.htmlFormat?.classes?.avatar
+							? ` class="${this._options.htmlFormat.classes.avatar}"`
+							: ''
+				  } />`
+				: `![${title}](${src}|width=${size},height=${size} "${title}")`,
 			this._options.tokenOptions.avatar,
 		);
 	}
 
-	private _getPresenceMarkdown(presence: ContactPresence, title: string) {
-		return `![${title}](${getPresenceDataUri(presence.status)} "${title}")`;
+	private _getPresence(outputFormat: 'html' | 'markdown', presence: ContactPresence, title: string) {
+		return outputFormat === 'html'
+			? /*html*/ `<img src="${getPresenceDataUri(presence.status)}" alt="${title}" title="${title}"${
+					this._options.htmlFormat?.classes?.avatarPresence
+						? ` class="${this._options.htmlFormat.classes.avatarPresence}"`
+						: ''
+			  }/>`
+			: `![${title}](${getPresenceDataUri(presence.status)} "${title}")`;
 	}
 
 	get changes(): string {
@@ -278,7 +350,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get commands(): string {
-		if (!this._options.markdown) return this._padOrTruncate('', this._options.tokenOptions.commands);
+		// TODO: Implement html rendering
+		if (this._options.outputFormat === 'plaintext' || this._options.outputFormat === 'html') {
+			return this._padOrTruncate('', this._options.tokenOptions.commands);
+		}
 
 		let commands;
 		if (this._item.isUncommitted) {
@@ -465,14 +540,26 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get footnotes(): string {
+		const { outputFormat } = this._options;
 		return this._padOrTruncate(
 			this._options.footnotes == null || this._options.footnotes.size === 0
 				? ''
 				: join(
-						map(this._options.footnotes, ([i, footnote]) =>
-							this._options.markdown ? footnote : `${getSuperscript(i)} ${footnote}`,
-						),
-						this._options.markdown ? '\\\n' : '\n',
+						map(this._options.footnotes, ([i, footnote]) => {
+							switch (outputFormat) {
+								case 'html':
+									return /*html*/ `<span${
+										this._options.htmlFormat?.classes?.footnote
+											? ` class="${this._options.htmlFormat.classes.footnote}"`
+											: ''
+									}><sup>${i}</sup> ${escapeHtmlWeak(footnote)}</span>`;
+								case 'markdown':
+									return `${getSuperscript(i)} ${footnote}`;
+								default:
+									return footnote;
+							}
+						}),
+						outputFormat === 'html' ? /*html*/ `<br \\>` : outputFormat === 'markdown' ? '\\\n' : '\n',
 				  ),
 			this._options.tokenOptions.footnotes,
 		);
@@ -480,38 +567,66 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get id(): string {
 		const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
-		if (this._options.markdown && this._options.unpublished) {
-			return `<span style="color:#35b15e;">${sha} (unpublished)</span>`;
+		if (this._options.outputFormat !== 'plaintext' && this._options.unpublished) {
+			return /*html*/ `<span style="color:#35b15e;"${
+				this._options.htmlFormat?.classes?.id ? ` class="${this._options.htmlFormat.classes.id}"` : ''
+			}>${sha} (unpublished)</span>`;
 		}
 
 		return sha;
 	}
 
 	get link(): string {
-		if (!this._options.markdown) return this.id;
-
-		const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
-		const link = `[\`$(git-commit) ${sha}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
-			this._item.sha,
-			this._item.repoPath,
-		)} "Show Details")`;
+		let link;
+		switch (this._options.outputFormat) {
+			case 'markdown': {
+				const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
+				link = `[\`$(git-commit) ${sha}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+					this._item.sha,
+					this._item.repoPath,
+				)} "Show Details")`;
+				break;
+			}
+			case 'html': {
+				const sha = this._padOrTruncate(this._item.shortSha ?? '', this._options.tokenOptions.id);
+				link = /*html*/ `<a href="${ShowCommitsInViewCommand.getMarkdownCommandArgs(
+					this._item.sha,
+					this._item.repoPath,
+				)}" title="Show Details"${
+					this._options.htmlFormat?.classes?.link ? ` class="${this._options.htmlFormat.classes.link}"` : ''
+				}><span class="codicon codicon-git-commit"></span>${sha}</a>`;
+				break;
+			}
+			default:
+				return this.id;
+		}
 
 		return this._padOrTruncate(link, this._options.tokenOptions.link);
 	}
 
 	get message(): string {
+		const { outputFormat } = this._options;
+
 		if (this._item.isUncommitted) {
-			const confliced = this._item.file?.hasConflicts ?? false;
+			const conflicted = this._item.file?.hasConflicts ?? false;
 			const staged =
 				this._item.isUncommittedStaged ||
 				(this._options.previousLineComparisonUris?.current?.isUncommittedStaged ?? false);
 
-			return this._padOrTruncate(
-				`${this._options.markdown ? '\n> ' : ''}${
-					confliced ? 'Merge' : staged ? 'Staged' : 'Uncommitted'
-				} changes`,
-				this._options.tokenOptions.message,
-			);
+			let message = `${conflicted ? 'Merge' : staged ? 'Staged' : 'Uncommitted'} changes`;
+			switch (outputFormat) {
+				case 'html':
+					message = /*html*/ `<span ${
+						this._options.htmlFormat?.classes?.message
+							? `class="${this._options.htmlFormat.classes.message}"`
+							: ''
+					}>${message}</span>`;
+					break;
+				case 'markdown':
+					message = `\n> ${message}`;
+					break;
+			}
+			return this._padOrTruncate(message, this._options.tokenOptions.message);
 		}
 
 		let message = this._options.messageTruncateAtNewLine
@@ -521,34 +636,46 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = emojify(message);
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
-		if (this._options.markdown) {
-			message = message.replace(/</, '&lt;').replace(/>/, '&gt;');
+		if (outputFormat !== 'plaintext') {
+			message = escapeHtmlWeak(message);
 		}
 
 		if (this._options.messageAutolinks) {
 			message = Container.instance.autolinks.linkify(
-				this._options.markdown ? escapeMarkdown(message, { quoted: true }) : message,
-				this._options.markdown ?? false,
+				outputFormat === 'markdown' ? escapeMarkdown(message, { quoted: true }) : message,
+				outputFormat,
 				this._options.remotes,
 				this._options.autolinkedIssuesOrPullRequests,
 				this._options.footnotes,
 			);
 		}
 
-		if (this._options.messageIndent != null && !this._options.markdown) {
+		if (this._options.messageIndent != null && outputFormat === 'plaintext') {
 			message = message.replace(/^/gm, GlyphChars.Space.repeat(this._options.messageIndent));
 		}
 
-		return this._options.markdown ? `\n> ${message}` : message;
+		switch (outputFormat) {
+			case 'html':
+				return /*html*/ `<span ${
+					this._options.htmlFormat?.classes?.id ? `class="${this._options.htmlFormat.classes.id}"` : ''
+				}>${message}</span>`;
+			case 'markdown':
+				return `\n> ${message}`;
+			default:
+				return message;
+		}
 	}
 
 	get pullRequest(): string {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null) return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
+		// TODO: Implement html rendering
+		if (pr == null || this._options.outputFormat === 'html') {
+			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
+		}
 
 		let text;
 		if (PullRequest.is(pr)) {
-			if (this._options.markdown) {
+			if (this._options.outputFormat === 'markdown') {
 				const prTitle = escapeMarkdown(pr.title).replace(/"/g, '\\"').trim();
 
 				text = `PR [**#${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
@@ -584,9 +711,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				text = `PR #${pr.id}`;
 			}
 		} else if (pr instanceof PromiseCancelledError) {
-			text = this._options.markdown
-				? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
-				: this._options?.pullRequestPendingMessage ?? '';
+			text =
+				this._options.outputFormat === 'markdown'
+					? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
+					: this._options?.pullRequestPendingMessage ?? '';
 		} else {
 			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
 		}
@@ -631,11 +759,20 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get tips(): string {
-		let branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha, { icons: this._options.markdown });
-		if (branchAndTagTips != null && this._options.markdown) {
+		let branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha, {
+			icons: this._options.outputFormat === 'markdown',
+		});
+		if (branchAndTagTips != null && this._options.outputFormat !== 'plaintext') {
 			const tips = branchAndTagTips.split(', ');
 			branchAndTagTips = tips
-				.map(t => `<span style="color:#ffffff;background-color:#1d76db;">&nbsp;&nbsp;${t}&nbsp;&nbsp;</span>`)
+				.map(
+					t =>
+						/*html*/ `<span style="color:#ffffff;background-color:#1d76db;"${
+							this._options.htmlFormat?.classes?.tips
+								? ` class="${this._options.htmlFormat.classes.tips}"`
+								: ''
+						}>&nbsp;&nbsp;${t}&nbsp;&nbsp;</span>`,
+				)
 				.join(GlyphChars.Space.repeat(3));
 		}
 		return this._padOrTruncate(branchAndTagTips ?? '', this._options.tokenOptions.tips);
@@ -665,7 +802,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		}
 
-		if (CommitFormatter.has(template, 'avatar') && dateFormatOrOptions?.markdown) {
+		if (CommitFormatter.has(template, 'avatar') && dateFormatOrOptions?.outputFormat) {
 			debugger;
 			throw new Error("Invalid template token 'avatar' used in non-async call");
 		}
