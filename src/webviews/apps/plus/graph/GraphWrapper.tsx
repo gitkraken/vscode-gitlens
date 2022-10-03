@@ -3,9 +3,10 @@ import type {
 	GraphColumnSetting,
 	GraphContainerProps,
 	GraphPlatform,
+    GraphRefOptData,
 	GraphRow,
-	OnFormatCommitDateTime,
-} from '@gitkraken/gitkraken-components';
+	HiddenRefsById,
+ OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -20,18 +21,19 @@ import type {
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphComponentConfig,
+	GraphHiddenRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback,
-} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
+	DidChangeHiddenRefsNotificationType,
 	DidChangeRefsMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
@@ -57,6 +59,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
+    onHiddenRefChange?: (ref: GraphHiddenRef, visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
@@ -67,6 +70,19 @@ export interface GraphWrapperProps {
 	onSelectionChange?: (rows: GraphRow[]) => void;
 	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 }
+
+const getHiddenRefsById = (
+	hiddenRefs?: Record<string, GraphHiddenRef>
+): HiddenRefsById | undefined => {
+	if (hiddenRefs == null) return undefined;
+
+	const hiddenRefsById: HiddenRefsById = {};
+	for (const [refId] of Object.entries(hiddenRefs)) {
+		hiddenRefsById[refId] = hiddenRefs[refId];
+	}
+
+	return hiddenRefsById;
+};
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
@@ -99,6 +115,8 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'renamed',
 		'resolved',
 		'pull-request',
+		'show',
+		'hide'
 	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
@@ -138,6 +156,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
+    onHiddenRefChange,
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
@@ -163,6 +182,7 @@ export function GraphWrapper({
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
+	const [hiddenRefsById, setHiddenRefsById] = useState(getHiddenRefsById(state.hiddenRefs));
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
@@ -241,6 +261,9 @@ export function GraphWrapper({
 			case DidChangeSelectionNotificationType:
 				setSelectedRows(state.selectedRows);
 				break;
+			case DidChangeHiddenRefsNotificationType:
+				setHiddenRefsById(getHiddenRefsById(state.hiddenRefs));
+				break;
 			case DidChangeSubscriptionNotificationType:
 				setIsAccessAllowed(state.allowed ?? false);
 				setSubscription(state.subscription);
@@ -258,6 +281,7 @@ export function GraphWrapper({
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
+				setHiddenRefsById(state.hiddenRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setRefsMetadata(state.refsMetadata);
@@ -490,6 +514,10 @@ export function GraphWrapper({
 		}
 	};
 
+	const handleOnToggleRefVisibilityClick = (event: any, ref: GraphRefOptData, refVisible: boolean) => {
+		onHiddenRefChange?.(ref, refVisible);
+	};
+
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
 		const active = rows[0];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
@@ -497,7 +525,7 @@ export function GraphWrapper({
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
 		onSelectionChange?.(rows);
-	};
+    };
 
 	const handleDismissPreview = () => {
 		setShowPreview(false);
@@ -710,6 +738,7 @@ export function GraphWrapper({
 								// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
 								highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
+								hiddenRefsById={hiddenRefsById}
 								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 								showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
 								isLoadingRows={isLoading}
@@ -717,6 +746,7 @@ export function GraphWrapper({
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
+								onToggleRefVisibilityClick={handleOnToggleRefVisibilityClick}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onRefsMissingMetadata={handleMissingRefsMetadata}
 								onShowMoreCommits={handleMoreCommits}

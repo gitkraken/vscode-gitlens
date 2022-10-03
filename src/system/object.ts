@@ -76,3 +76,14 @@ export function updateRecordValue<T>(
 	}
 	return obj;
 }
+
+export function deleteRecordValue<T>(
+	obj: Record<string, T> | undefined,
+	key: string
+): Record<string, T> | undefined {
+	if (obj == null) {
+		return obj;
+	}
+	delete obj[key];
+	return obj;
+}
