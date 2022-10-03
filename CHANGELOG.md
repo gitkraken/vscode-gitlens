@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds a `Show in Commit Graph` action to the hovers and commit quick pick menus
+- Adds an `Open in Commit Graph` action to the hovers and commit quick pick menus
 
 ### Changed
 
