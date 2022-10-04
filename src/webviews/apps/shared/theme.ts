@@ -121,6 +121,14 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--graph-hover-row', color);
 		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
 		bodyStyle.setProperty('--graph-text-selected-row', color);
+		bodyStyle.setProperty('--graph-text-dimmed-selected', opacity(color, 50));
+		bodyStyle.setProperty('--graph-text-dimmed', opacity(foregroundColor, 20));
+		color = computedStyle.getPropertyValue('--vscode-list-hoverForeground').trim();
+		bodyStyle.setProperty('--graph-text-hovered', color);
+		bodyStyle.setProperty('--graph-text-selected', foregroundColor);
+		bodyStyle.setProperty('--graph-text-normal', opacity(foregroundColor, 85));
+		bodyStyle.setProperty('--graph-text-secondary', opacity(foregroundColor, 65));
+		bodyStyle.setProperty('--graph-text-disabled', opacity(foregroundColor, 50));
 
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
