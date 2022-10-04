@@ -597,18 +597,6 @@ a {
 		align-items: center;
 		justify-content: center;
 	}
-
-	.graph-zone-column {
-		.graph-row {
-			transition: opacity 0.2s ease-in;
-
-			&.is-missing-hovered-ref-group {
-				opacity: 0.2;
-				transition: opacity 0.5s ease-out;
-				transition-delay: 0.5s;
-			}
-		}
-	}
 }
 
 .mr-loose {
