@@ -52,7 +52,7 @@ const template = html<SearchBox>`<template>
 		<button
 			type="button"
 			class="button"
-			?disabled="${x => !x.hasPrevious}"
+			?disabled="${x => !x.hasResults}"
 			@click="${(x, c) => x.handlePrevious(c.event as MouseEvent)}"
 		>
 			<code-icon
@@ -64,7 +64,7 @@ const template = html<SearchBox>`<template>
 		<button
 			type="button"
 			class="button"
-			?disabled="${x => !x.hasNext}"
+			?disabled="${x => !x.hasResults}"
 			@click="${(x, c) => x.handleNext(c.event as MouseEvent)}"
 		>
 			<code-icon icon="arrow-down" aria-label="Next Match (Enter)" title="Next Match (Enter)"></code-icon>
@@ -72,7 +72,7 @@ const template = html<SearchBox>`<template>
 		<button
 			type="button"
 			class="button"
-			?disabled="${x => !x.value}"
+			?disabled="${x => !x.hasResults}"
 			@click="${(x, c) => x.handleOpenInView(c.event)}"
 		>
 			<code-icon
@@ -90,7 +90,7 @@ const styles = css`
 		flex-direction: row;
 		align-items: center;
 		gap: 0.8rem;
-		color: var(--vscode-titleBar-inactiveForeground);
+		color: var(--color-foreground);
 		flex: auto 1 1;
 	}
 	:host(:focus) {
@@ -101,8 +101,8 @@ const styles = css`
 		display: inline-flex;
 		flex-direction: row;
 		align-items: center;
-		gap: 0.8rem;
-		color: var(--vscode-titleBar-inactiveForeground);
+		gap: 0.3rem;
+		color: var(--color-foreground);
 	}
 	.search-navigation:focus {
 		outline: 0;
@@ -128,7 +128,11 @@ const styles = css`
 		background: none;
 		text-align: center;
 	}
+	.button[disabled] {
+		color: var(--vscode-disabledForeground);
+	}
 	.button:focus {
+		background-color: var(--vscode-toolbar-activeBackground);
 		outline: 1px solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
@@ -136,7 +140,8 @@ const styles = css`
 		cursor: pointer;
 	}
 	.button:hover:not([disabled]) {
-		background-color: var(--vscode-titleBar-activeBackground);
+		color: var(--vscode-foreground);
+		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 	.button > code-icon[icon='arrow-up'] {
 		transform: translateX(-0.1rem);
@@ -207,12 +212,7 @@ export class SearchBox extends FASTElement {
 	}
 
 	@volatile
-	get hasPrevious() {
-		return this.total > 1;
-	}
-
-	@volatile
-	get hasNext() {
+	get hasResults() {
 		return this.total > 1;
 	}
 

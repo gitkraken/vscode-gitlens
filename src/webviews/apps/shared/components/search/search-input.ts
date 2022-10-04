@@ -101,7 +101,7 @@ const styles = css`
 		height: 2.4rem;
 		background-color: var(--vscode-input-background);
 		color: var(--vscode-input-foreground);
-		border: 1px solid var(--vscode-input-background);
+		border: 1px solid var(--vscode-input-border);
 		border-radius: 0.25rem;
 		padding: 0 6.6rem 1px 0.4rem;
 		font-family: inherit;
@@ -165,7 +165,7 @@ const styles = css`
 		height: 2rem;
 		padding: 0;
 		color: var(--vscode-input-foreground);
-		border: none;
+		border: 1px solid transparent;
 		background: none;
 		text-align: center;
 		border-radius: 0.25rem;
@@ -189,6 +189,7 @@ const styles = css`
 	button[aria-checked='true'] {
 		background-color: var(--vscode-inputOption-activeBackground);
 		color: var(--vscode-inputOption-activeForeground);
+		border-color: var(--vscode-inputOption-activeBorder);
 	}
 
 	.clear-button__hidden {
