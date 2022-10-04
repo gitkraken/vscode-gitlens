@@ -11021,12 +11021,12 @@
 				{
 					"command": "gitlens.graph.hideBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "1_gitlens_actions@11"
+					"group": "8_gitlens_actions@10"
 				},
 				{
 					"command": "gitlens.graph.hideTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:tag\\b/",
-					"group": "1_gitlens_actions@12"
+					"group": "8_gitlens_actions@11"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
