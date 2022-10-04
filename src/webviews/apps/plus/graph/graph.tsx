@@ -308,6 +308,8 @@ export class GraphApp extends App<State> {
 			i++;
 		}
 
+		const isHighContrastTheme = document.body.classList.contains('vscode-high-contrast');
+
 		return {
 			cssVariables: {
 				'--app__bg0': bgColor,
@@ -315,12 +317,17 @@ export class GraphApp extends App<State> {
 				'--panel__bg1': computedStyle.getPropertyValue('--graph-panel-bg2'),
 				'--section-border': computedStyle.getPropertyValue('--graph-panel-bg2'),
 				'--text-selected': computedStyle.getPropertyValue('--color-foreground'),
+				'--text-selected-row': computedStyle.getPropertyValue('--graph-text-selected-row'),
 				'--text-normal': computedStyle.getPropertyValue('--color-foreground--85'),
 				'--text-secondary': computedStyle.getPropertyValue('--color-foreground--65'),
 				'--text-disabled': computedStyle.getPropertyValue('--color-foreground--50'),
 				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 				'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+				'--hover-row': computedStyle.getPropertyValue('--graph-hover-row'),
+				'--hover-row-border': isHighContrastTheme ? `1px dashed ${computedStyle.getPropertyValue('--graph-contrast-border-color')}` : 'none',
+				'--selected-row': computedStyle.getPropertyValue('--graph-selected-row'),
+				'--selected-row-border': isHighContrastTheme ? `1px solid ${computedStyle.getPropertyValue('--graph-contrast-border-color')}` : 'none',
 				...mixedGraphColors,
 			},
 			themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
