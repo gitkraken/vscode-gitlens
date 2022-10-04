@@ -113,6 +113,14 @@ export function initializeAndWatchThemeColors() {
 			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
 		);
 		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
+		color = computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
+		bodyStyle.setProperty('--graph-contrast-border-color', color);
+		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
+		bodyStyle.setProperty('--graph-selected-row', color);
+		color = computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
+		bodyStyle.setProperty('--graph-hover-row', color);
+		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
+		bodyStyle.setProperty('--graph-text-selected-row', color);
 
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
