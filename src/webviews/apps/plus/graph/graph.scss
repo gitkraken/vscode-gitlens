@@ -3,18 +3,6 @@
 @import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
-body {
-	&.vscode-dark {
-		--actionbar-background-color: var(--color-background--lighten-05);
-		--actionbar-hover-background-color: var(--color-background--lighten-075);
-	}
-
-	&.vscode-light {
-		--actionbar-background-color: var(--color-background--darken-05);
-		--actionbar-hover-background-color: var(--color-background--darken-075);
-	}
-}
-
 a {
 	text-decoration: none;
 	&:hover {
@@ -30,7 +18,7 @@ a {
 .actionbar {
 	--actionbar-height: 22px;
 
-	background-color: var(--actionbar-background-color);
+	background-color: var(--color-graph-actionbar-background);
 	color: var(--color-foreground);
 	padding: 0 1rem;
 	height: var(--actionbar-height);
@@ -81,7 +69,7 @@ a {
 
 	--actioncombo-height: 2.2rem;
 	--actioncombo-items: 1;
-	--actioncombo-items-height: 2.6rem;
+	--actioncombo-items-height: 2.4rem;
 
 	position: relative;
 	display: inline-flex;
@@ -92,17 +80,60 @@ a {
 	height: var(--actioncombo-height);
 	line-height: var(--actioncombo-height);
 
-	&__label,
-	&__item {
+	&__label {
 		appearance: none;
 		font-family: inherit;
-		background-color: transparent;
+		background-color: var(--color-graph-actionbar-background);
 		border: none;
 		color: inherit;
 		padding: 0 0.75rem;
 		cursor: pointer;
-		background-color: var(--actionbar-background-color);
+		height: var(--actioncombo-height);
+		line-height: var(--actioncombo-height);
+		border-radius: 3px;
+
+		&[disabled] {
+			pointer-events: none;
+			cursor: default;
+			opacity: 1;
+		}
+
+		&:hover {
+			background-color: var(--color-graph-actionbar-selectedBackground);
+		}
+	}
+
+	&__list {
+		position: absolute;
+		left: 0;
+		bottom: 100%;
+		display: flex;
+		flex-direction: column;
+		justify-content: stretch;
+		min-width: 100%;
+		width: max-content;
+		z-index: 10000;
+		background-color: var(--vscode-menu-background);
+		border: 1px solid var(--vscode-menu-border);
+	}
+
+	&__label:not([aria-expanded='true']) + &__list {
+		display: none;
+	}
+
+	&__item {
+		appearance: none;
+		font-family: inherit;
+		border: none;
+		padding: 0 0.75rem;
+		cursor: pointer;
+		color: var(--vscode-menu-foreground);
+		background-color: var(--vscode-menu-background);
 		text-align: left;
+		display: flex;
+		align-items: center;
+		height: var(--actioncombo-items-height);
+		line-height: var(--actioncombo-items-height);
 
 		&:hover {
 			color: var(--vscode-menu-selectionForeground);
@@ -117,20 +148,9 @@ a {
 
 		&[aria-selected='true'] {
 			opacity: 1;
-			background-color: var(--actionbar-hover-background-color);
+			color: var(--vscode-menu-selectionForeground);
+			background-color: var(--vscode-menu-background);
 		}
-	}
-
-	&__label {
-		height: var(--actioncombo-height);
-		line-height: var(--actioncombo-height);
-	}
-
-	&__item {
-		display: flex;
-		align-items: center;
-		height: var(--actioncombo-items-height);
-		line-height: var(--actioncombo-items-height);
 	}
 
 	&__icon.codicon[class*='codicon-'] {
@@ -142,33 +162,13 @@ a {
 		margin-right: 0.4rem;
 		width: 16px;
 	}
-
-	&__list {
-		position: absolute;
-		left: 0;
-		bottom: 100%;
-		display: flex;
-		flex-direction: column;
-		justify-content: stretch;
-		min-width: 100%;
-		width: max-content;
-		z-index: 10000;
-		background-color: var(--actionbar-background-color);
-	}
-
-	&__label:not([aria-expanded='true']) + &__list {
-		display: none;
-	}
-
-	&__item {
-	}
 }
 
 .column-button {
-	--column-button-height: 22px;
+	--column-button-height: 20px;
 
 	position: absolute;
-	top: 0;
+	top: 1px;
 	right: 0;
 	z-index: 2;
 
@@ -178,14 +178,16 @@ a {
 	border: none;
 	color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
 	margin: 0;
-	padding: 0 2px;
+	padding: 0 4px;
 	height: var(--column-button-height);
 	cursor: pointer;
-	background-color: var(--actionbar-background-color);
+	background-color: var(--color-graph-actionbar-background);
 	text-align: left;
+	border-radius: 3px;
 
 	&:hover {
-		background-color: var(--actionbar-hover-background-color);
+		background-color: var(--vscode-toolbar-hoverBackground);
+		color: var(--color-foreground);
 	}
 
 	&:focus {
@@ -199,7 +201,7 @@ a {
 	}
 
 	.codicon[class*='codicon-'] {
-		font-size: inherit;
+		font-size: 1.1rem;
 	}
 }
 

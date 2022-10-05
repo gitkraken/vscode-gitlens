@@ -727,6 +727,7 @@ export function GraphWrapper({
 							aria-haspopup="listbox"
 							id="repo-actioncombo-label"
 							className="actioncombo__label"
+							disabled={repos.length < 2}
 							role="combobox"
 							aria-activedescendant={
 								repoExpanded
