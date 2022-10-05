@@ -170,9 +170,12 @@ ul {
 
 .progress {
 	width: 100%;
+	.vscode-high-contrast &,
 	.vscode-dark & {
 		background-color: var(--color-background--lighten-15);
 	}
+
+	.vscode-high-contrast-light &,
 	.vscode-light & {
 		background-color: var(--color-background--darken-15);
 	}
