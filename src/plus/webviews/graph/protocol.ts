@@ -138,19 +138,19 @@ export interface UpdateColumnParams {
 	name: GraphColumnName;
 	config: GraphColumnConfig;
 }
-export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/update/column');
+export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/column/update');
 
 export interface UpdateSelectedRepositoryParams {
 	path: string;
 }
 export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSelectedRepositoryParams>(
-	'graph/update/repositorySelection',
+	'graph/selectedRepository/update',
 );
 
 export interface UpdateSelectionParams {
 	selection: { id: string; type: GitGraphRowType }[];
 }
-export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/update/selection');
+export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/selection/update');
 
 // Notifications
 export interface DidChangeParams {
