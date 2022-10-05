@@ -6345,6 +6345,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.graph.showInDetailsView",
+				"title": "Open Details",
+				"category": "GitLens",
+				"icon": "$(eye)"
+			},
+			{
 				"command": "gitlens.graph.openCommitOnRemote",
 				"title": "Open Commit on Remote",
 				"category": "GitLens",
@@ -8306,6 +8312,10 @@
 				},
 				{
 					"command": "gitlens.graph.copyRemoteCommitUrl",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.showInDetailsView",
 					"when": "false"
 				},
 				{
@@ -10935,6 +10945,11 @@
 					"command": "gitlens.graph.createTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions_1@2"
+				},
+				{
+					"command": "gitlens.graph.showInDetailsView",
+					"when": "webviewItem =~ /gitlens:(commit|stash)\\b/",
+					"group": "3_gitlens_explore@0"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote",
