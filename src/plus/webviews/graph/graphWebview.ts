@@ -32,9 +32,10 @@ import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
+import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
-import type { GitGraph } from '../../../git/models/graph';
+import type { GitGraph, GitGraphHostingServiceType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
@@ -76,6 +77,7 @@ import type {
 	DismissBannerParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
+	GetMissingRefMetadataParams,
 	GetMoreRowsParams,
 	GraphColumnConfig,
 	GraphColumnName,
@@ -96,6 +98,7 @@ import {
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
+	DidChangeRefMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -105,6 +108,7 @@ import {
 	DismissBannerCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
+	GetMissingRefMetadataCommandType,
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
@@ -351,6 +355,9 @@ export class GraphWebview extends WebviewBase<State> {
 			case GetMissingAvatarsCommandType.method:
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params));
 				break;
+			case GetMissingRefMetadataCommandType.method:
+				onIpc(GetMissingRefMetadataCommandType, e, params => this.onGetMissingRefMetadata(params));
+				break;
 			case GetMoreRowsCommandType.method:
 				onIpc(GetMoreRowsCommandType, e, params => this.onGetMoreRows(params));
 				break;
@@ -532,6 +539,52 @@ export class GraphWebview extends WebviewBase<State> {
 		if (promises.length) {
 			await Promise.allSettled(promises);
 			this.updateAvatars();
+		}
+	}
+
+	private async onGetMissingRefMetadata(e: GetMissingRefMetadataParams) {
+		if (this._graph == null) return;
+		const repoPath = this._graph.repoPath;
+		const hasConnectedRemotes = getContext(ContextKeys.HasConnectedRemotes);
+		if (!hasConnectedRemotes) return;
+
+		async function getRefMetadata(this: GraphWebview, id: string, type: string) {
+			const newRefMetadata = { ...(this._graph!.refMetadata ? this._graph!.refMetadata.get(id) : undefined) };
+			const foundBranchesResult = await this.container.git.getBranches(repoPath, { filter: b => b.id === id });
+			const foundBranches = foundBranchesResult?.values;
+			const refBranch: GitBranch | undefined = foundBranches?.length ? foundBranches[0] : undefined;
+			switch (type) {
+				case 'pullRequests':
+					newRefMetadata.pullRequests = null;
+					if (refBranch != null) {
+						const pullRequest = await refBranch.getAssociatedPullRequest();
+						if (pullRequest != null) {
+							const pullRequestMetadata = {
+								hostingServiceType: pullRequest.provider.name as GitGraphHostingServiceType,
+								id: Number.parseInt(pullRequest.id) || 0,
+								title: pullRequest.title
+							};
+							newRefMetadata.pullRequests = [ pullRequestMetadata ];
+						}
+					}
+					break;
+				default:
+					break;
+			}
+			this._graph!.refMetadata?.set(id, newRefMetadata);
+		}
+
+		const promises: Promise<void>[] = [];
+
+		for (const [id, missingTypes] of Object.entries(e.missing)) {
+			for (const missingType of missingTypes) {
+				promises.push(getRefMetadata.call(this, id, missingType));
+			}
+		}
+
+		if (promises.length) {
+			await Promise.allSettled(promises);
+			this.updateRefMetadata();
 		}
 	}
 
@@ -761,6 +814,33 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
+	private _notifyDidChangeRefMetadataDebounced: Deferrable<GraphWebview['notifyDidChangeRefMetadata']> | undefined =
+	undefined;
+
+	@debug()
+	private updateRefMetadata(immediate: boolean = false) {
+		if (immediate) {
+			void this.notifyDidChangeRefMetadata();
+			return;
+		}
+
+		if (this._notifyDidChangeRefMetadataDebounced == null) {
+			this._notifyDidChangeRefMetadataDebounced = debounce(this.notifyDidChangeRefMetadata.bind(this), 100);
+		}
+
+		void this._notifyDidChangeRefMetadataDebounced();
+	}
+
+	@debug()
+	private async notifyDidChangeRefMetadata() {
+		if (this._graph == null) return;
+
+		const data = this._graph;
+		return this.notify(DidChangeRefMetadataNotificationType, {
+			refMetadata: data.refMetadata ? Object.fromEntries(data.refMetadata) : undefined,
+		});
+	}
+
 	@debug()
 	private async notifyDidChangeColumns() {
 		if (!this.isReady || !this.visible) {
@@ -797,6 +877,7 @@ export class GraphWebview extends WebviewBase<State> {
 			{
 				rows: data.rows,
 				avatars: Object.fromEntries(data.avatars),
+				refMetadata: data.refMetadata != undefined ? Object.fromEntries(data.refMetadata) : undefined,
 				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 				paging: {
 					startingCursor: data.paging?.startingCursor,
@@ -1088,6 +1169,7 @@ export class GraphWebview extends WebviewBase<State> {
 			subscription: access?.subscription.current,
 			allowed: (access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
+			refMetadata: data?.refMetadata != undefined ? Object.fromEntries(data.refMetadata) : undefined,
 			loading: deferRows,
 			rows: data?.rows,
 			paging:
