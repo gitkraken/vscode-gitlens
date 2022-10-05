@@ -6,6 +6,8 @@ import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { Serialized } from '../../system/serialize';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
+export const messageHeadlineSplitterToken = '\x00\n\x00';
+
 export type FileShowOptions = TextDocumentShowOptions;
 
 export type CommitSummary = {

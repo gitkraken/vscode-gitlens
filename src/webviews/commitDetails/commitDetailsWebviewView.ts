@@ -10,6 +10,7 @@ import { configuration } from '../../configuration';
 import { Commands, ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
@@ -20,6 +21,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
+import type { GitRemote } from '../../git/models/remote';
 import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand, executeCoreCommand } from '../../system/command';
@@ -27,6 +29,7 @@ import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
+import type { PromiseCancelledError } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
@@ -46,6 +49,7 @@ import {
 	CommitActionsCommandType,
 	DidChangeNotificationType,
 	FileActionsCommandType,
+	messageHeadlineSplitterToken,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
 	OpenFileCompareWorkingCommandType,
@@ -376,11 +380,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
-		const message = commit.message ?? commit.summary;
-
 		if (remote?.provider != null) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.container.autolinks.getLinkedIssuesAndPullRequests(message, remote),
+				this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote),
 				commit.getAssociatedPullRequest({ remote: remote }),
 			]);
 
@@ -390,12 +392,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			pr = getSettledValue(prResult);
 		}
 
-		const formattedMessage = this.container.autolinks.linkify(
-			message.replace(/\n/, '<br />'),
-			'html',
-			remote != null ? [remote] : undefined,
-			autolinkedIssuesOrPullRequests,
-		);
+		const formattedMessage = this.getFormattedMessage(commit, remote, autolinkedIssuesOrPullRequests);
 
 		// Remove possible duplicate pull request
 		if (pr != null) {
@@ -623,11 +620,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const remote = getSettledValue(remoteResult);
 
 		if (formattedMessage == null) {
-			formattedMessage = this.container.autolinks.linkify(
-				(commit.message ?? commit.summary).replace(/\n/, '<br />'),
-				'html',
-				remote != null ? [remote] : undefined,
-			);
+			formattedMessage = this.getFormattedMessage(commit, remote);
 		}
 
 		return {
@@ -656,6 +649,24 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			}),
 			stats: commit.stats,
 		};
+	}
+
+	private getFormattedMessage(
+		commit: GitCommit,
+		remote: GitRemote | undefined,
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+	) {
+		let message = CommitFormatter.fromTemplate(`\${message}`, commit);
+		const index = message.indexOf('\n');
+		if (index !== -1) {
+			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
+		}
+		return this.container.autolinks.linkify(
+			message,
+			'html',
+			remote != null ? [remote] : undefined,
+			issuesOrPullRequests,
+		);
 	}
 
 	private async getFileCommitFromParams(

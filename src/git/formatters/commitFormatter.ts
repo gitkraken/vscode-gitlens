@@ -631,9 +631,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return this._padOrTruncate(message, this._options.tokenOptions.message);
 		}
 
-		let message = this._options.messageTruncateAtNewLine
-			? this._item.summary
-			: this._item.message ?? this._item.summary;
+		let message = (
+			this._options.messageTruncateAtNewLine ? this._item.summary : this._item.message ?? this._item.summary
+		)
+			.trim()
+			.replace(/\r?\n/g, '\n');
 
 		message = emojify(message);
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);

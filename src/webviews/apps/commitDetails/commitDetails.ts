@@ -10,6 +10,7 @@ import {
 	CommitActionsCommandType,
 	DidChangeNotificationType,
 	FileActionsCommandType,
+	messageHeadlineSplitterToken,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
 	OpenFileCompareWorkingCommandType,
@@ -482,11 +483,14 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const $el = document.querySelector<HTMLElement>('[data-region="message"]');
 		if ($el == null) return;
 
-		const [headline, ...lines] = state.selected.message.split('<br />');
-		if (lines.length > 0) {
-			$el.innerHTML = /*html*/ `<strong>${headline}</strong><br />${lines.join('<br />')}`;
+		const index = state.selected.message.indexOf(messageHeadlineSplitterToken);
+		if (index === -1) {
+			$el.innerHTML = /*html*/ `<strong>${state.selected.message}</strong>`;
 		} else {
-			$el.innerHTML = /*html*/ `<strong>${headline}</strong>`;
+			$el.innerHTML = /*html*/ `<strong>${state.selected.message.substring(
+				0,
+				index,
+			)}</strong><br />${state.selected.message.substring(index + 3)}`;
 		}
 	}
 
