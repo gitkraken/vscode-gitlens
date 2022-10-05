@@ -945,7 +945,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const hiddenRefs = this.getHiddenRefs();
 		return this.notify(DidChangeRefsVisibilityNotificationType, {
-			hiddenRefs: this.getHiddenRefsById(hiddenRefs),
+			hiddenRefs: await this.getHiddenRefsById(hiddenRefs),
 		});
 	}
 
@@ -1122,17 +1122,36 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:hiddenRefs');
 	}
 
-	private getHiddenRefsById(hiddenRefs: Record<string, GraphHiddenRef> | undefined): GraphHiddenRefs | undefined {
+	private async getHiddenRefsById(
+		hiddenRefs: Record<string, GraphHiddenRef> | undefined
+	): Promise<GraphHiddenRefs | undefined> {
 		if (hiddenRefs == null) return undefined;
 
-		const hiddenRefsById: GraphHiddenRefs = {};
-		for (const [id, graphHiddenRef] of Object.entries(hiddenRefs)) {
-			hiddenRefsById[id] = {
-				...graphHiddenRef,
-			};
+		if (this.repository == null) {
+			this.repository = this.container.git.getBestRepositoryOrFirst();
+			if (this.repository == null) return undefined;
 		}
 
-		return hiddenRefsById;
+		const [hiddenBranches, hiddenTags] = await Promise.all([
+			this.repository.getBranches({
+				filter: b => !b.current && hiddenRefs[b.id] != undefined,
+			}),
+			this.repository.getTags({
+				filter: t => hiddenRefs[t.id] != undefined,
+			}),
+		]);
+
+		const filteredHiddenRefsById: GraphHiddenRefs = {};
+
+		for (const hiddenBranch of hiddenBranches.values) {
+			filteredHiddenRefsById[hiddenBranch.id] = hiddenRefs[hiddenBranch.id];
+		}
+
+		for (const hiddenTag of hiddenTags.values) {
+			filteredHiddenRefsById[hiddenTag.id] = hiddenRefs[hiddenTag.id];
+		}
+
+		return filteredHiddenRefsById;
 	}
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
@@ -1271,6 +1290,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const columns = this.getColumns();
 		const hiddenRefs = this.getHiddenRefs();
+		const hiddenRefsByIds = await this.getHiddenRefsById(hiddenRefs);
 
 		return {
 			previewBanner: this.previewBanner,
@@ -1297,7 +1317,7 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
-			hiddenRefs: this.getHiddenRefsById(hiddenRefs),
+			hiddenRefs: hiddenRefsByIds,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
