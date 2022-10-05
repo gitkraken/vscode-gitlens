@@ -30,6 +30,7 @@ import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
+	DidChangeRefMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -52,6 +53,7 @@ export interface GraphWrapperProps {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
+	onMissingRefMetadata?: (missing: { [id: string]: string[] }) => void;
 	onMoreRows?: (id?: string) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
@@ -132,6 +134,7 @@ export function GraphWrapper({
 	onColumnChange,
 	onEnsureRowPromise,
 	onMissingAvatars,
+	onMissingRefMetadata,
 	onMoreRows,
 	onSearch,
 	onSearchPromise,
@@ -148,6 +151,7 @@ export function GraphWrapper({
 
 	const [rows, setRows] = useState(state.rows ?? []);
 	const [avatars, setAvatars] = useState(state.avatars);
+	const [refMetadata, setRefMetadata] = useState(state.refMetadata);
 	const [repos, setRepos] = useState(state.repositories ?? []);
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
 		repos.find(item => item.path === state.selectedRepository),
@@ -205,6 +209,9 @@ export function GraphWrapper({
 			case DidChangeAvatarsNotificationType:
 				setAvatars(state.avatars);
 				break;
+			case DidChangeRefMetadataNotificationType:
+				setRefMetadata(state.refMetadata);
+				break;
 			case DidChangeColumnsNotificationType:
 				setColumns(state.columns);
 				setContext(state.context);
@@ -213,6 +220,7 @@ export function GraphWrapper({
 				setRows(state.rows ?? []);
 				setSelectedRows(state.selectedRows);
 				setAvatars(state.avatars);
+				setRefMetadata(state.refMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setIsLoading(state.loading);
 				break;
@@ -248,6 +256,7 @@ export function GraphWrapper({
 				setSelectedRows(state.selectedRows);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
+				setRefMetadata(state.refMetadata ?? {});
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
 				setRepo(repos.find(item => item.path === state.selectedRepository));
@@ -435,6 +444,10 @@ export function GraphWrapper({
 
 	const handleMissingAvatars = (emails: { [email: string]: string }) => {
 		onMissingAvatars?.(emails);
+	};
+
+	const handleMissingRefMetadata = (missing: { [id: string]: string[] }) => {
+		onMissingRefMetadata?.(missing);
 	};
 
 	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
@@ -688,8 +701,10 @@ export function GraphWrapper({
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
+								onRefsMissingMetadata={handleMissingRefMetadata}
 								onShowMoreCommits={handleMoreCommits}
 								platform={clientPlatform}
+								refMetadataById={refMetadata}
 								shaLength={graphConfig?.idLength}
 								themeOpacityFactor={styleProps?.themeOpacityFactor}
 								useAuthorInitialsForAvatars={!graphConfig?.avatars}
