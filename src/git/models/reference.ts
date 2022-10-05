@@ -112,7 +112,7 @@ export interface GitBranchReference {
 
 export interface GitRevisionReference {
 	readonly refType: 'revision' | 'stash';
-	id?: string;
+	id?: undefined;
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -123,7 +123,7 @@ export interface GitRevisionReference {
 
 export interface GitStashReference {
 	readonly refType: 'stash';
-	id?: string;
+	id?: undefined;
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -146,7 +146,14 @@ export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
-		options: { id?: string, refType: 'branch'; name: string; remote: boolean; upstream?: { name: string; missing: boolean }, avatarUrl?: string },
+		options: {
+			id?: string;
+			refType: 'branch';
+			name: string;
+			remote: boolean;
+			upstream?: { name: string; missing: boolean };
+			avatarUrl?: string;
+		},
 	): GitBranchReference;
 	export function create(
 		ref: string,
@@ -158,15 +165,19 @@ export namespace GitReference {
 		repoPath: string,
 		options: { refType: 'stash'; name: string; number: string | undefined; message?: string },
 	): GitStashReference;
-	export function create(ref: string, repoPath: string, options: { id?: string, refType: 'tag'; name: string }): GitTagReference;
+	export function create(
+		ref: string,
+		repoPath: string,
+		options: { id?: string; refType: 'tag'; name: string },
+	): GitTagReference;
 	export function create(
 		ref: string,
 		repoPath: string,
 		options:
-			| { id?: string, refType: 'branch'; name: string; remote: boolean, avatarUrl?: string }
+			| { id?: string; refType: 'branch'; name: string; remote: boolean; avatarUrl?: string }
 			| { refType?: 'revision'; name?: string; message?: string }
 			| { refType: 'stash'; name: string; number: string | undefined; message?: string }
-			| { id?: string, refType: 'tag'; name: string } = { refType: 'revision' },
+			| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
 	): GitReference {
 		switch (options.refType) {
 			case 'branch':
@@ -215,7 +226,7 @@ export namespace GitReference {
 			name: branch.name,
 			remote: branch.remote,
 			upstream: branch.upstream,
-			avatarUrl: branch.avatarUrl
+			avatarUrl: branch.avatarUrl,
 		});
 	}
 

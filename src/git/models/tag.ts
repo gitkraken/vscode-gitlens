@@ -10,11 +10,11 @@ export interface TagSortOptions {
 	orderBy?: TagSorting;
 }
 
-export class GitTag implements GitTagReference {
-	static getId(repoPath: string, name: string): string {
-		return `${repoPath}/tag/${name}`;
-	}
+export function getTagId(repoPath: string, name: string): string {
+	return `${repoPath}/tag/${name}`;
+}
 
+export class GitTag implements GitTagReference {
 	readonly refType = 'tag';
 	readonly id: string;
 
@@ -26,7 +26,7 @@ export class GitTag implements GitTagReference {
 		public readonly date: Date | undefined,
 		public readonly commitDate: Date | undefined,
 	) {
-		this.id = GitTag.getId(repoPath, name);
+		this.id = getTagId(repoPath, name);
 	}
 
 	get formattedDate(): string {

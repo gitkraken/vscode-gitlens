@@ -11020,13 +11020,8 @@
 				},
 				{
 					"command": "gitlens.graph.hideBranch",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@10"
-				},
-				{
-					"command": "gitlens.graph.hideTag",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:tag\\b/",
-					"group": "8_gitlens_actions@11"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
@@ -11119,6 +11114,11 @@
 					"command": "gitlens.graph.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.hideTag",
+					"when": "webviewItem =~ /gitlens:tag\\b/",
+					"group": "8_gitlens_actions@10"
 				},
 				{
 					"command": "gitlens.graph.openPullRequestOnRemote",

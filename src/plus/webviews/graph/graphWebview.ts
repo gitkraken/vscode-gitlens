@@ -1,4 +1,3 @@
-import type { HiddenRefsById } from '@gitkraken/gitkraken-components';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -62,7 +61,7 @@ import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, once } from '../../../system/function';
 import { last } from '../../../system/iterable';
-import { deleteRecordValue, updateRecordValue } from '../../../system/object';
+import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext } from '../../../system/webview';
@@ -89,6 +88,7 @@ import type {
 	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphHiddenRef,
+	GraphHiddenRefs,
 	GraphHostingServiceType,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
@@ -100,16 +100,17 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnParams,
-	UpdateHiddenRefParams,
+	UpdateRefVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams} from './protocol';
+	UpdateSelectionParams,
+} from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
-	DidChangeHiddenRefsNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -124,7 +125,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
-	UpdateHiddenRefCommandType,
+	UpdateRefVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
@@ -411,8 +412,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnChanged(params));
 				break;
-			case UpdateHiddenRefCommandType.method:
-				onIpc(UpdateHiddenRefCommandType, e, params => this.onHiddenRefUpdated(params));
+			case UpdateRefVisibilityCommandType.method:
+				onIpc(UpdateRefVisibilityCommandType, e, params => this.onRefVisibilityChanged(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
@@ -551,7 +552,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateColumn(e.name, e.config);
 	}
 
-	private onHiddenRefUpdated(e: UpdateHiddenRefParams) {
+	private onRefVisibilityChanged(e: UpdateRefVisibilityParams) {
 		this.updateHiddenRef(e.ref, e.visible);
 	}
 
@@ -936,14 +937,14 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeHiddenRefs() {
+	private async notifyDidChangeRefsVisibility() {
 		if (!this.isReady || !this.visible) {
-			this.addPendingIpcNotification(DidChangeHiddenRefsNotificationType);
+			this.addPendingIpcNotification(DidChangeRefsVisibilityNotificationType);
 			return false;
 		}
 
 		const hiddenRefs = this.getHiddenRefs();
-		return this.notify(DidChangeHiddenRefsNotificationType, {
+		return this.notify(DidChangeRefsVisibilityNotificationType, {
 			hiddenRefs: this.getHiddenRefsById(hiddenRefs),
 		});
 	}
@@ -1053,7 +1054,7 @@ export class GraphWebview extends WebviewBase<State> {
 		[DidChangeColumnsNotificationType, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotificationType, this.notifyDidChangeConfiguration],
 		[DidChangeNotificationType, this.notifyDidChangeState],
-		[DidChangeHiddenRefsNotificationType, this.notifyDidChangeHiddenRefs],
+		[DidChangeRefsVisibilityNotificationType, this.notifyDidChangeRefsVisibility],
 		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
@@ -1121,12 +1122,10 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:hiddenRefs');
 	}
 
-	private getHiddenRefsById(
-		hiddenRefs: Record<string, GraphHiddenRef> | undefined
-	): HiddenRefsById | undefined {
+	private getHiddenRefsById(hiddenRefs: Record<string, GraphHiddenRef> | undefined): GraphHiddenRefs | undefined {
 		if (hiddenRefs == null) return undefined;
 
-		const hiddenRefsById: HiddenRefsById = {};
+		const hiddenRefsById: GraphHiddenRefs = {};
 		for (const [id, graphHiddenRef] of Object.entries(hiddenRefs)) {
 			hiddenRefsById[id] = {
 				...graphHiddenRef,
@@ -1313,11 +1312,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private updateHiddenRef(ref: GraphHiddenRef, visible: boolean) {
 		let hiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
-		hiddenRefs = visible
-			? deleteRecordValue(hiddenRefs, ref.id)
-			: updateRecordValue(hiddenRefs, ref.id, ref);
+		hiddenRefs = updateRecordValue(hiddenRefs, ref.id, visible ? undefined : ref);
 		void this.container.storage.storeWorkspace('graph:hiddenRefs', hiddenRefs);
-		void this.notifyDidChangeHiddenRefs();
+		void this.notifyDidChangeRefsVisibility();
 	}
 
 	private resetRefsMetadata(): null | undefined {
@@ -1605,11 +1602,9 @@ export class GraphWebview extends WebviewBase<State> {
 				const isRemoteBranch = ref.refType === 'branch' && ref.remote;
 				const graphHiddenRef: GraphHiddenRef = {
 					id: ref.id,
-					name: isRemoteBranch
-						? getBranchNameWithoutRemote(ref.name)
-						: ref.name,
+					name: isRemoteBranch ? getBranchNameWithoutRemote(ref.name) : ref.name,
 					type: isRemoteBranch ? 'remote' : ref.refType,
-					avatarUrl: (ref as any).avatarUrl
+					avatarUrl: (ref as any).avatarUrl,
 				};
 				this.updateHiddenRef(graphHiddenRef, false);
 			}

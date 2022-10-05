@@ -14,14 +14,15 @@ import type {
 	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback,
+} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
-	DidChangeHiddenRefsNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -36,7 +37,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
-	UpdateHiddenRefCommandType,
+	UpdateRefVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
@@ -86,10 +87,7 @@ export class GraphApp extends App<State> {
 						(name, settings) => this.onColumnChanged(name, settings),
 						250,
 					)}
-                    onHiddenRefChange={debounce<GraphApp['onHiddenRefChanged']>(
-						(ref: GraphHiddenRef, visible: boolean) => this.onHiddenRefChanged(ref, visible),
-						250,
-					)}
+					onRefVisibilityChange={(ref: GraphHiddenRef, visible: boolean) => this.onRefVisibilityChanged(ref, visible)}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
 						path => this.onRepositorySelectionChanged(path),
 						250,
@@ -152,10 +150,10 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
-            case DidChangeHiddenRefsNotificationType.method:
-				onIpc(DidChangeHiddenRefsNotificationType, msg, (params, type) => {
-					const newState = { ...this.state, hiddenRefs: params.hiddenRefs };
-					this.setState(newState, type);
+			case DidChangeRefsVisibilityNotificationType.method:
+				onIpc(DidChangeRefsVisibilityNotificationType, msg, (params, type) => {
+					this.state.hiddenRefs = params.hiddenRefs;
+					this.setState(this.state, type);
 				});
 				break;
 
@@ -383,8 +381,8 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onHiddenRefChanged(ref: GraphHiddenRef, visible: boolean) {
-		this.sendCommand(UpdateHiddenRefCommandType, {
+	private onRefVisibilityChanged(ref: GraphHiddenRef, visible: boolean) {
+		this.sendCommand(UpdateRefVisibilityCommandType, {
 			ref: ref,
 			visible: visible,
 		});

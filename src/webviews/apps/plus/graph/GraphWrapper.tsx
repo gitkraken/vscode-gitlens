@@ -3,10 +3,10 @@ import type {
 	GraphColumnSetting,
 	GraphContainerProps,
 	GraphPlatform,
-    GraphRefOptData,
+	GraphRefOptData,
 	GraphRow,
-	HiddenRefsById,
- OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
+	OnFormatCommitDateTime,
+} from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -28,13 +28,14 @@ import type {
 	GraphSearchResultsError,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback,
+} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
-	DidChangeHiddenRefsNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -59,7 +60,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
-    onHiddenRefChange?: (ref: GraphHiddenRef, visible: boolean) => void;
+	onRefVisibilityChange?: (ref: GraphHiddenRef, visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
@@ -70,19 +71,6 @@ export interface GraphWrapperProps {
 	onSelectionChange?: (rows: GraphRow[]) => void;
 	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 }
-
-const getHiddenRefsById = (
-	hiddenRefs?: Record<string, GraphHiddenRef>
-): HiddenRefsById | undefined => {
-	if (hiddenRefs == null) return undefined;
-
-	const hiddenRefsById: HiddenRefsById = {};
-	for (const [refId] of Object.entries(hiddenRefs)) {
-		hiddenRefsById[refId] = hiddenRefs[refId];
-	}
-
-	return hiddenRefsById;
-};
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
@@ -116,7 +104,7 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'resolved',
 		'pull-request',
 		'show',
-		'hide'
+		'hide',
 	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
@@ -156,7 +144,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
-    onHiddenRefChange,
+	onRefVisibilityChange,
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
@@ -182,7 +170,7 @@ export function GraphWrapper({
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
-	const [hiddenRefsById, setHiddenRefsById] = useState(getHiddenRefsById(state.hiddenRefs));
+	const [hiddenRefsById, setHiddenRefsById] = useState(state.hiddenRefs);
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
@@ -261,8 +249,8 @@ export function GraphWrapper({
 			case DidChangeSelectionNotificationType:
 				setSelectedRows(state.selectedRows);
 				break;
-			case DidChangeHiddenRefsNotificationType:
-				setHiddenRefsById(getHiddenRefsById(state.hiddenRefs));
+			case DidChangeRefsVisibilityNotificationType:
+				setHiddenRefsById(state.hiddenRefs);
 				break;
 			case DidChangeSubscriptionNotificationType:
 				setIsAccessAllowed(state.allowed ?? false);
@@ -514,8 +502,8 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleOnToggleRefVisibilityClick = (event: any, ref: GraphRefOptData, refVisible: boolean) => {
-		onHiddenRefChange?.(ref, refVisible);
+	const handleOnToggleRefVisibilityClick = (_event: any, ref: GraphRefOptData, visible: boolean) => {
+		onRefVisibilityChange?.(ref, visible);
 	};
 
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
@@ -525,7 +513,7 @@ export function GraphWrapper({
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
 		onSelectionChange?.(rows);
-    };
+	};
 
 	const handleDismissPreview = () => {
 		setShowPreview(false);

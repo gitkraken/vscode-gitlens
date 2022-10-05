@@ -82,7 +82,8 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import type { GitStash } from '../../../git/models/stash';
 import type { GitStatusFile } from '../../../git/models/status';
 import { GitStatus } from '../../../git/models/status';
-import { GitTag, sortTags, type TagSortOptions } from '../../../git/models/tag';
+import type { GitTag } from '../../../git/models/tag';
+import { getTagId, sortTags, type TagSortOptions } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
@@ -1788,7 +1789,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 						if (tip.startsWith('tag: ')) {
 							const tagName = tip.substring(5);
-							const tagId = GitTag.getId(repoPath, tagName);
+							const tagId = getTagId(repoPath, tagName);
 							tag = {
 								id: tagId,
 								name: tagName,

@@ -52,7 +52,7 @@ export interface State {
 	trialBanner?: boolean;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
-	hiddenRefs?: HiddenRefsById;
+	hiddenRefs?: GraphHiddenRefs;
 
 	// Props below are computed in the webview (not passed)
 	activeRow?: string;
@@ -108,6 +108,7 @@ export interface GraphColumnConfig {
 	width?: number;
 }
 
+export type GraphHiddenRefs = HiddenRefsById;
 export type GraphHiddenRef = GraphRefOptData;
 
 export type GraphColumnName = GraphZoneType;
@@ -165,11 +166,13 @@ export interface UpdateColumnParams {
 }
 export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/column/update');
 
-export interface UpdateHiddenRefParams {
+export interface UpdateRefVisibilityParams {
 	ref: GraphHiddenRef;
 	visible: boolean;
 }
-export const UpdateHiddenRefCommandType = new IpcCommandType<UpdateHiddenRefParams>('graph/update/hiddenRef');
+export const UpdateRefVisibilityCommandType = new IpcCommandType<UpdateRefVisibilityParams>(
+	'graph/ref/update/visibility',
+);
 
 export interface UpdateSelectedRepositoryParams {
 	path: string;
@@ -231,11 +234,11 @@ export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChang
 	true,
 );
 
-export interface DidChangeHiddenRefsParams {
+export interface DidChangeRefsVisibilityParams {
 	hiddenRefs?: Record<string, GraphHiddenRef>;
 }
-export const DidChangeHiddenRefsNotificationType = new IpcNotificationType<DidChangeHiddenRefsParams>(
-	'graph/hiddenRefs/didChange',
+export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
+	'graph/refs/didChangeVisibility',
 	true,
 );
 
