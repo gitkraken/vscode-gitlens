@@ -313,27 +313,27 @@ export class GraphApp extends App<State> {
 		return {
 			cssVariables: {
 				'--app__bg0': bgColor,
-				'--panel__bg0': computedStyle.getPropertyValue('--graph-panel-bg'),
-				'--panel__bg1': computedStyle.getPropertyValue('--graph-panel-bg2'),
-				'--section-border': computedStyle.getPropertyValue('--graph-panel-bg2'),
+				'--panel__bg0': computedStyle.getPropertyValue('--color-graph-background'),
+				'--panel__bg1': computedStyle.getPropertyValue('--color-graph-background2'),
+				'--section-border': computedStyle.getPropertyValue('--color-graph-background2'),
 
-				'--selected-row': computedStyle.getPropertyValue('--graph-selected-row'),
+				'--selected-row': computedStyle.getPropertyValue('--color-graph-selected-row'),
 				'--selected-row-border': isHighContrastTheme
-					? `1px solid ${computedStyle.getPropertyValue('--graph-contrast-border-color')}`
+					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
 					: 'none',
-				'--hover-row': computedStyle.getPropertyValue('--graph-hover-row'),
+				'--hover-row': computedStyle.getPropertyValue('--color-graph-hover-row'),
 				'--hover-row-border': isHighContrastTheme
-					? `1px dashed ${computedStyle.getPropertyValue('--graph-contrast-border-color')}`
+					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
 					: 'none',
 
-				'--text-selected': computedStyle.getPropertyValue('--graph-text-selected'),
-				'--text-selected-row': computedStyle.getPropertyValue('--graph-text-selected-row'),
-				'--text-hovered': computedStyle.getPropertyValue('--graph-text-hovered'),
-				'--text-dimmed-selected': computedStyle.getPropertyValue('--graph-text-dimmed-selected'),
-				'--text-dimmed': computedStyle.getPropertyValue('--graph-text-dimmed'),
-				'--text-normal': computedStyle.getPropertyValue('--graph-text-normal'),
-				'--text-secondary': computedStyle.getPropertyValue('--graph-text-secondary'),
-				'--text-disabled': computedStyle.getPropertyValue('--graph-text-disabled'),
+				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
+				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
+				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),
+				'--text-dimmed-selected': computedStyle.getPropertyValue('--color-graph-text-dimmed-selected'),
+				'--text-dimmed': computedStyle.getPropertyValue('--color-graph-text-dimmed'),
+				'--text-normal': computedStyle.getPropertyValue('--color-graph-text-normal'),
+				'--text-secondary': computedStyle.getPropertyValue('--color-graph-text-secondary'),
+				'--text-disabled': computedStyle.getPropertyValue('--color-graph-text-disabled'),
 
 				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),

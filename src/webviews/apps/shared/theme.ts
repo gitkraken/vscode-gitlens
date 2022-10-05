@@ -104,31 +104,41 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
 
 		// graph-specific colors
+		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
+
 		bodyStyle.setProperty(
-			'--graph-panel-bg',
+			'--color-graph-actionbar-background',
 			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
 		);
 		bodyStyle.setProperty(
-			'--graph-panel-bg2',
+			'--color-graph-actionbar-selectedBackground',
 			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
 		);
-		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
+
+		bodyStyle.setProperty(
+			'--color-graph-background',
+			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-background2',
+			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
+		);
 		color = computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
-		bodyStyle.setProperty('--graph-contrast-border-color', color);
+		bodyStyle.setProperty('--color-graph-contrast-border-color', color);
 		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
-		bodyStyle.setProperty('--graph-selected-row', color);
+		bodyStyle.setProperty('--color-graph-selected-row', color);
 		color = computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
-		bodyStyle.setProperty('--graph-hover-row', color);
+		bodyStyle.setProperty('--color-graph-hover-row', color);
 		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
-		bodyStyle.setProperty('--graph-text-selected-row', color);
-		bodyStyle.setProperty('--graph-text-dimmed-selected', opacity(color, 50));
-		bodyStyle.setProperty('--graph-text-dimmed', opacity(foregroundColor, 20));
+		bodyStyle.setProperty('--color-graph-text-selected-row', color);
+		bodyStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
+		bodyStyle.setProperty('--color-graph-text-dimmed', opacity(foregroundColor, 20));
 		color = computedStyle.getPropertyValue('--vscode-list-hoverForeground').trim();
-		bodyStyle.setProperty('--graph-text-hovered', color);
-		bodyStyle.setProperty('--graph-text-selected', foregroundColor);
-		bodyStyle.setProperty('--graph-text-normal', opacity(foregroundColor, 85));
-		bodyStyle.setProperty('--graph-text-secondary', opacity(foregroundColor, 65));
-		bodyStyle.setProperty('--graph-text-disabled', opacity(foregroundColor, 50));
+		bodyStyle.setProperty('--color-graph-text-hovered', color);
+		bodyStyle.setProperty('--color-graph-text-selected', foregroundColor);
+		bodyStyle.setProperty('--color-graph-text-normal', opacity(foregroundColor, 85));
+		bodyStyle.setProperty('--color-graph-text-secondary', opacity(foregroundColor, 65));
+		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
 
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
