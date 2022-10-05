@@ -4,6 +4,7 @@ import type {
 	GraphContexts,
 	GraphRow,
 	GraphZoneType,
+	RefMetadata,
 	Remote,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
@@ -18,6 +19,8 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
+export type GraphRefMetadata = Record</* id */ string, RefMetadata>;
+export type GraphMissingRefMetadata = Record</*id*/ string, /*missingType*/ string[]>;
 
 export interface State {
 	repositories?: GraphRepository[];
@@ -28,6 +31,7 @@ export interface State {
 	allowed: boolean;
 	avatars?: GraphAvatars;
 	loading?: boolean;
+	refMetadata?: GraphRefMetadata;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -117,6 +121,11 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/avatars/get');
 
+export interface GetMissingRefMetadataParams {
+	missing: GraphMissingRefMetadata;
+}
+export const GetMissingRefMetadataCommandType = new IpcCommandType<GetMissingRefMetadataParams>('graph/refMetadata/get');
+
 export interface GetMoreRowsParams {
 	id?: string;
 }
@@ -182,6 +191,13 @@ export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChang
 	'graph/avatars/didChange',
 );
 
+export interface DidChangeRefMetadataParams {
+	refMetadata: GraphRefMetadata | undefined;
+}
+export const DidChangeRefMetadataNotificationType = new IpcNotificationType<DidChangeRefMetadataParams>(
+	'graph/refMetadata/didChange',
+);
+
 export interface DidChangeColumnsParams {
 	columns: GraphColumnsSettings | undefined;
 	context?: string;
@@ -195,6 +211,7 @@ export interface DidChangeRowsParams {
 	rows: GraphRow[];
 	avatars: { [email: string]: string };
 	paging?: GraphPaging;
+	refMetadata: GraphRefMetadata | undefined;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>('graph/rows/didChange');
