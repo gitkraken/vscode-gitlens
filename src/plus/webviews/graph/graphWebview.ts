@@ -361,10 +361,10 @@ export class GraphWebview extends WebviewBase<State> {
 				onIpc(SearchOpenInViewCommandType, e, params => this.onSearchOpenInView(params));
 				break;
 			case UpdateColumnCommandType.method:
-				onIpc(UpdateColumnCommandType, e, params => this.onColumnUpdated(params));
+				onIpc(UpdateColumnCommandType, e, params => this.onColumnChanged(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
-				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onRepositorySelectionChanged(params));
+				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, this.onSelectionChanged.bind(this));
@@ -487,7 +487,7 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
-	private onColumnUpdated(e: UpdateColumnParams) {
+	private onColumnChanged(e: UpdateColumnParams) {
 		this.updateColumn(e.name, e.config);
 	}
 
@@ -674,7 +674,7 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private onRepositorySelectionChanged(e: UpdateSelectedRepositoryParams) {
+	private onSelectedRepositoryChanged(e: UpdateSelectedRepositoryParams) {
 		this.repository = this.container.git.getRepository(e.path);
 	}
 
