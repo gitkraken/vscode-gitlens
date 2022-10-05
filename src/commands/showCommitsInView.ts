@@ -26,7 +26,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 	}
 
 	constructor(private readonly container: Container) {
-		super([Commands.ShowCommitInView, Commands.ShowCommitsInView]);
+		super([Commands.ShowCommitInView, Commands.ShowInDetailsView, Commands.ShowCommitsInView]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: ShowCommitsInViewCommandArgs) {

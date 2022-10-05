@@ -255,7 +255,7 @@ export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends C
 
 export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
-		super(item ?? '$(eye) Show Details');
+		super(item ?? '$(eye) Open Details');
 	}
 
 	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {

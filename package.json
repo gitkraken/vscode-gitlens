@@ -145,6 +145,7 @@
 		"onCommand:gitlens.showCommitSearch",
 		"onCommand:gitlens.revealCommitInView",
 		"onCommand:gitlens.showCommitInView",
+		"onCommand:gitlens:showInDetailsView",
 		"onCommand:gitlens.showCommitsInView",
 		"onCommand:gitlens.showFileHistoryInView",
 		"onCommand:gitlens.openFileHistory",
@@ -4532,7 +4533,13 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Show Commit Details",
+				"title": "Open Commit Details",
+				"category": "GitLens",
+				"icon": "$(eye)"
+			},
+			{
+				"command": "gitlens.showInDetailsView",
+				"title": "Open Details",
 				"category": "GitLens",
 				"icon": "$(eye)"
 			},
@@ -7028,6 +7035,10 @@
 				{
 					"command": "gitlens.showCommitInView",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
+				},
+				{
+					"command": "gitlens.showInDetailsView",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.showCommitsInView",
@@ -9875,8 +9886,8 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.showCommitInView",
-					"when": "viewItem =~ /gitlens:commit\\b/",
+					"command": "gitlens.showInDetailsView",
+					"when": "viewItem =~ /gitlens:(commit|stash)\\b/",
 					"group": "3_gitlens_explore@0"
 				},
 				{
@@ -11086,7 +11097,7 @@
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.showCommitInView",
+					"command": "gitlens.showInDetailsView",
 					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "navigation@2"
 				},
