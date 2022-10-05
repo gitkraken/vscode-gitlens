@@ -22,6 +22,7 @@ import type {
 	CopyShaToClipboardCommandArgs,
 	OpenBranchOnRemoteCommandArgs,
 	OpenCommitOnRemoteCommandArgs,
+	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
@@ -294,6 +295,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
+			registerCommand('gitlens.graph.showInDetailsView', this.openInDetailsView, this),
 			registerCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote, this),
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
 			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
@@ -940,9 +942,7 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
-	private getColumnSettings(
-		columns: Record<GraphColumnName, GraphColumnConfig> | undefined,
-	): GraphColumnsSettings {
+	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
 			...defaultGraphColumnsSettings,
 		};
@@ -1296,6 +1296,19 @@ export class GraphWebview extends WebviewBase<State> {
 
 			return executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
 				sha: sha,
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private openInDetailsView(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'revision')) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
+				repoPath: ref.repoPath,
+				refs: [ref.ref],
 			});
 		}
 
