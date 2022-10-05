@@ -942,9 +942,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getColumnSettings(
 		columns: Record<GraphColumnName, GraphColumnConfig> | undefined,
-	): GraphColumnsSettings | undefined {
-		if (columns == null) return undefined;
-
+	): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
 			...defaultGraphColumnsSettings,
 		};
