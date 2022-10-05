@@ -57,8 +57,10 @@ const template = html<SearchBox>`<template>
 		>
 			<code-icon
 				icon="arrow-up"
-				aria-label="Previous Match (Shift+Enter)"
-				title="Previous Match (Shift+Enter)"
+				aria-label="Previous Match (Shift+Enter)
+First Match (Shift+Click)"
+				title="Previous Match (Shift+Enter)
+First Match (Shift+Click)"
 			></code-icon>
 		</button>
 		<button
@@ -67,7 +69,13 @@ const template = html<SearchBox>`<template>
 			?disabled="${x => !x.hasResults}"
 			@click="${(x, c) => x.handleNext(c.event as MouseEvent)}"
 		>
-			<code-icon icon="arrow-down" aria-label="Next Match (Enter)" title="Next Match (Enter)"></code-icon>
+			<code-icon
+				icon="arrow-down"
+				aria-label="Next Match (Enter)
+Last Match (Shift+Click)"
+				title="Next Match (Enter)
+Last Match (Shift+Click)"
+			></code-icon>
 		</button>
 		<button
 			type="button"

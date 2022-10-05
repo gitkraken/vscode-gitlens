@@ -330,8 +330,8 @@ export function GraphWrapper({
 			next = false;
 			searchIndex = 0;
 		} else if (direction === 'last') {
-			next = true;
-			searchIndex = count - 1;
+			next = false;
+			searchIndex = -1;
 		} else {
 			next = direction === 'next';
 			[searchIndex, id] = getClosestSearchResultIndex(results, searchQuery, activeRow, next);
@@ -361,16 +361,16 @@ export function GraphWrapper({
 					} else {
 						searchIndex = 0;
 					}
+				} else if (direction === 'last' && searchQuery != null && results?.paging?.hasMore) {
+					const moreResults = await onSearchPromise?.(searchQuery, { limit: 0, more: true });
+					if (moreResults?.results != null && !('error' in moreResults.results)) {
+						if (count < moreResults.results.count) {
+							results = moreResults.results;
+							count = results.count;
+						}
+						searchIndex = count;
+					}
 				} else {
-					// TODO@eamodio should we load all the results here? Or just go to the end of the loaded results?
-					// } else if (searchQuery != null && results?.paging?.hasMore) {
-					// 	const moreResults = await onSearchCommitsPromise?.(searchQuery, { limit: 0, more: true });
-					// 	if (moreResults?.results != null && !('error' in moreResults.results)) {
-					// 		if (count < moreResults.results.count) {
-					// 			results = moreResults.results;
-					// 			count = results.count;
-					// 		}
-					// 	}
 					searchIndex = count - 1;
 				}
 			}
