@@ -386,7 +386,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					line: this._options.editor?.line,
 				})} "Open Changes with Previous Revision")`;
 
-				commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 					Container.instance.git.getRevisionUri(diffUris.previous),
 					FileAnnotationType.Blame,
 					this._options.editor?.line,
@@ -424,7 +424,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._item.file.originalPath ?? this._item.file?.path,
 				this._item.repoPath,
 			);
-			commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 				uri,
 				FileAnnotationType.Blame,
 				this._options.editor?.line,
@@ -450,7 +450,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (this._options.remotes != null && this._options.remotes.length !== 0) {
 			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
 
-			commands += ` &nbsp;&nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
+			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
 		}
