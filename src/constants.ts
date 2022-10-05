@@ -170,6 +170,7 @@ export const enum Commands {
 	ShowHomeView = 'gitlens.showHomeView',
 	ShowFileHistoryView = 'gitlens.showFileHistoryView',
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
+	ShowInDetailsView = 'gitlens.showInDetailsView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',

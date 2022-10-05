@@ -371,7 +371,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Show Details")`;
+				)} "Open Details")`;
 
 				commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
@@ -400,7 +400,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Show Details")`;
+				)} "Open Details")`;
 			}
 
 			return commands;
@@ -411,7 +411,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		commands = `---\n\n[\`$(git-commit) ${this.id}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 			this._item.sha,
 			this._item.repoPath,
-		)} "Show Details")`;
+		)} "Open Details")`;
 
 		commands += ` &nbsp;[$(chevron-left)$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
@@ -586,7 +586,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				link = `[\`$(git-commit) ${sha}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)} "Show Details")`;
+				)} "Open Details")`;
 				break;
 			}
 			case 'html': {
@@ -594,7 +594,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				link = /*html*/ `<a href="${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
 					this._item.repoPath,
-				)}" title="Show Details"${
+				)}" title="Open Details"${
 					this._options.htmlFormat?.classes?.link ? ` class="${this._options.htmlFormat.classes.link}"` : ''
 				}><span class="codicon codicon-git-commit"></span>${sha}</a>`;
 				break;

@@ -115,7 +115,7 @@ export namespace QuickCommandButtons {
 
 	export const ShowDetailsView: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
-		tooltip: 'Show Details',
+		tooltip: 'Open Details',
 	};
 
 	export const RevealInSideBar: QuickInputButton = {
