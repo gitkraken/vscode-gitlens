@@ -126,13 +126,26 @@ export class HomeApp extends App<State> {
 		return getSubscriptionTimeRemaining(this.state.subscription, 'days') ?? 0;
 	}
 
-	private updateHeader(days = this.getDaysRemaining()) {
+	private forceShowPlus() {
+		return [
+			SubscriptionState.FreePreviewTrialExpired,
+			SubscriptionState.FreePlusTrialExpired,
+			SubscriptionState.VerificationRequired,
+		].includes(this.state.subscription.state);
+	}
+
+	private updateHeader(days = this.getDaysRemaining(), forceShowPlus = this.forceShowPlus()) {
 		const { subscription, completedSteps } = this.state;
 
 		const $headerContent = document.getElementById('header-card');
 		if ($headerContent) {
-			$headerContent.setAttribute('steps', this.$steps?.length.toString() ?? '');
-			$headerContent.setAttribute('completed', completedSteps?.length.toString() ?? '');
+			const steps = this.$steps?.length;
+			let completed = completedSteps?.length;
+			if (forceShowPlus && completedSteps != null && this.$steps != null && steps === completed) {
+				completed -= 1;
+			}
+			$headerContent.setAttribute('steps', steps?.toString() ?? '');
+			$headerContent.setAttribute('completed', completed?.toString() ?? '');
 			$headerContent.setAttribute('state', subscription.state.toString());
 			$headerContent.setAttribute('plan', subscription.plan.effective.name);
 			$headerContent.setAttribute('days', days.toString());
@@ -150,7 +163,7 @@ export class HomeApp extends App<State> {
 		}
 	}
 
-	private updateSteps() {
+	private updateSteps(forceShowPlus = this.forceShowPlus()) {
 		if (
 			this.$steps == null ||
 			this.$steps.length === 0 ||
@@ -159,12 +172,6 @@ export class HomeApp extends App<State> {
 		) {
 			return;
 		}
-
-		const forceShowPlus = [
-			SubscriptionState.FreePreviewTrialExpired,
-			SubscriptionState.FreePlusTrialExpired,
-			SubscriptionState.VerificationRequired,
-		].includes(this.state.subscription.state);
 
 		this.$steps.forEach(el => {
 			el.setAttribute(
@@ -203,11 +210,12 @@ export class HomeApp extends App<State> {
 		const showRestoreWelcome = completedSteps?.length || dismissedSections?.length;
 		document.getElementById('restore-welcome')?.classList.toggle('hide', !showRestoreWelcome);
 
+		const forceShowPlus = this.forceShowPlus();
 		const days = this.getDaysRemaining();
-		this.updateHeader(days);
+		this.updateHeader(days, forceShowPlus);
 		this.updatePlusContent(days);
 
-		this.updateSteps();
+		this.updateSteps(forceShowPlus);
 
 		this.updateSections();
 	}
