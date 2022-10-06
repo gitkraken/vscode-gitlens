@@ -5,20 +5,67 @@
 	</head>
 
 	<body class="home preload">
-		<a href="#main" class="sr-skip sr-only-focusable">skip to content</a>
-		<a href="#footer" class="sr-skip sr-only-focusable">skip to footer links</a>
-		<header class="home__header">
-			<div class="header-card">
-				<div class="header-card__logo"><img src="#{webroot}/media/gitlens-logo.webp" alt="GitLens Logo" /></div>
-				<h1 class="header-card__title"><span class="foreground">Git</span>Lens 12 <em>Git supercharged</em></h1>
-				<p class="header-card__account">
-					<span id="header-content"></span>
-					<span id="header-actions"></span>
-				</p>
-				<div class="progress header-card__progress" role="progressbar">
-					<div class="progress__indicator"></div>
+		<a href="#links" class="sr-skip sr-only-focusable">skip to links</a>
+		<a href="#main" class="sr-skip sr-only-focusable">skip to main content</a>
+		<div class="home__nav">
+			<nav class="inline-nav" id="links" tabindex="-1" aria-label="Help and Resources">
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+						aria-label="What's New"
+						title="What's New"
+						><span class="codicon codicon-rocket"></span> What's New</a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-home/"
+						aria-label="Help Center"
+						title="Help Center"
+						><span class="codicon codicon-question"></span>Help</a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://github.com/gitkraken/vscode-gitlens/issues"
+						aria-label="Feedback"
+						title="Feedback"
+						><span class="codicon codicon-feedback"></span>Feedback</a
+					>
 				</div>
-			</div>
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens/discussions"
+						aria-label="GitHub Discussions"
+						title="GitHub Discussions"
+						><span class="codicon codicon-comment-discussion"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens"
+						aria-label="GitHub Repo"
+						title="GitHub Repo"
+						><span class="codicon codicon-github"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://twitter.com/gitlens"
+						aria-label="@gitlens on Twitter"
+						title="@gitlens on Twitter"
+						><span class="codicon codicon-twitter"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+						aria-label="GitLens Website"
+						title="GitLens Website"
+						><span class="codicon codicon-globe"></span
+					></a>
+				</div>
+			</nav>
+		</div>
+		<header class="home__header">
+			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
 		</header>
 		<main class="home__main" id="main" tabindex="-1">
 			<style>
@@ -192,25 +239,9 @@
 					<card-section no-heading backdrop="#{webroot}/media/gitlens-backdrop.webp">
 						<div class="centered">
 							<p class="type-tight">
-								<span class="logo"><span class="foreground">Git</span>Lens+</span><br />
-								<em class="description">*optional</em>
+								<span class="logo"><span class="foreground">Git</span>Lens+</span>
 							</p>
-							<div id="plus-content">
-								<p>
-									GitLens+ adds all-new, completely optional, features that enhance your current
-									GitLens experience.
-								</p>
-								<p>These features are free for local and public repos with no account required.</p>
-								<!-- free -->
-								<p class="mb-1">
-									<vscode-button data-action="command:gitlens.plus.startPreviewTrial"
-										>Try GitLens+ with private repositories</vscode-button
-									>
-								</p>
-								<p class="mb-0">
-									<a href="command:gitlens.plus.hide">Hide GitLens+ features, cannot use them</a>
-								</p>
-							</div>
+							<plus-content id="plus-content"></plus-content>
 						</div>
 					</card-section>
 				</stepped-section>
@@ -273,44 +304,6 @@
 				>
 			</div>
 		</main>
-
-		<footer class="home__footer" id="footer" tabindex="-1">
-			<nav class="inline-nav" aria-label="Help and Resources">
-				<a href="https://gitlens.amod.io/#whats-new" aria-label="What's new" title="What's new"
-					><span class="codicon codicon-rocket"></span
-				></a>
-				<a
-					href="https://github.com/gitkraken/vscode-gitlens#readme"
-					aria-label="GitHub Readme"
-					title="GitHub Readme"
-					><span class="codicon codicon-book"></span
-				></a>
-				<a
-					href="https://github.com/gitkraken/vscode-gitlens/discussions"
-					aria-label="GitHub Discussions"
-					title="GitHub Discussions"
-					><span class="codicon codicon-comment-discussion"></span
-				></a>
-				<a
-					href="https://github.com/gitkraken/vscode-gitlens/issues"
-					aria-label="GitHub Issues"
-					title="GitHub Issues"
-					><span class="codicon codicon-issues"></span
-				></a>
-				<a href="https://gitkraken.com/gitlens-support" aria-label="GitLens Support" title="GitLens Support"
-					><span class="codicon codicon-account"></span
-				></a>
-				<a
-					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
-					aria-label="GitLens Website"
-					title="GitLens Website"
-					><span class="codicon codicon-globe"></span
-				></a>
-				<a href="https://twitter.com/gitlens" aria-label="GitLens on Twitter" title="GitLens on Twitter"
-					><span class="codicon codicon-twitter"></span
-				></a>
-			</nav>
-		</footer>
 
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
