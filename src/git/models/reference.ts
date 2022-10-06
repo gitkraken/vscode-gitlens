@@ -107,6 +107,9 @@ export interface GitBranchReference {
 	readonly remote: boolean;
 	readonly upstream?: { name: string; missing: boolean };
 	repoPath: string;
+}
+
+export interface GraphGitBranchReference extends GitBranchReference {
 	avatarUrl?: string;
 }
 
@@ -140,7 +143,7 @@ export interface GitTagReference {
 	repoPath: string;
 }
 
-export type GitReference = GitBranchReference | GitRevisionReference | GitStashReference | GitTagReference;
+export type GitReference = GitBranchReference | GraphGitBranchReference | GitRevisionReference | GitStashReference | GitTagReference;
 
 export namespace GitReference {
 	export function create(
@@ -154,7 +157,7 @@ export namespace GitReference {
 			upstream?: { name: string; missing: boolean };
 			avatarUrl?: string;
 		},
-	): GitBranchReference;
+	): GraphGitBranchReference | GitBranchReference;
 	export function create(
 		ref: string,
 		repoPath: string,
@@ -219,7 +222,7 @@ export namespace GitReference {
 		}
 	}
 
-	export function fromBranch(branch: GitBranchReference) {
+	export function fromBranch(branch: GraphGitBranchReference) {
 		return create(branch.ref, branch.repoPath, {
 			id: branch.id,
 			refType: branch.refType,
