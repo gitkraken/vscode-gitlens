@@ -193,18 +193,24 @@ ul {
 		}
 
 		&--text {
-			flex: none;
-			padding: {
-				left: 0.4rem;
-				right: 0.4rem;
-			}
-			gap: 0.2rem;
-			min-width: 2.2rem;
-			width: fit-content;
-
-			@media (max-width: 368px) {
+			@media (max-width: 370px) {
 				> :last-child {
 					display: none;
+				}
+			}
+
+			@media (min-width: 371px) {
+				flex: none;
+				padding: {
+					left: 0.3rem;
+					right: 0.3rem;
+				}
+				gap: 0.2rem;
+				min-width: 2.2rem;
+				width: fit-content;
+
+				& + & {
+					margin-left: 0.2rem;
 				}
 			}
 		}
