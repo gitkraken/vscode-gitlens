@@ -14,9 +14,8 @@ import type {
 } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
 import { configuration } from '../../../configuration';
-import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
+import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { getContext } from '../../../context';
 import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
@@ -48,6 +47,7 @@ import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
 import {
+	getBranchId,
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 	GitBranch,
@@ -62,7 +62,6 @@ import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
 	GitGraph,
-	GitGraphRefMetadata,
 	GitGraphRow,
 	GitGraphRowContexts,
 	GitGraphRowHead,
@@ -1662,9 +1661,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
-		const hasConnectedRemotes = getContext(ContextKeys.HasConnectedRemotes);
 		const avatars = new Map<string, string>();
-		const refMetadata = hasConnectedRemotes ? new Map<string, GitGraphRefMetadata>() : undefined;
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
 		const skippedIds = new Set<string>();
@@ -1710,7 +1707,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (cursorIndex === -1) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
 							if (size === data.length) {
-								return { repoPath: repoPath, avatars: avatars, ids: ids, refMetadata: refMetadata, rows: [] };
+								return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
 							}
 
 							size = data.length;
@@ -1736,7 +1733,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, refMetadata: refMetadata, rows: [] };
+				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
 
 				log = data;
 				if (limit !== 0) {
@@ -1816,7 +1813,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							}
 						}
 
-						branch = branchMap.get(tip);
 						remoteName = getRemoteNameFromBranchName(tip);
 						if (remoteName) {
 							remote = remoteMap.get(remoteName);
@@ -1824,8 +1820,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								branchName = getBranchNameWithoutRemote(tip);
 								if (branchName === 'HEAD') continue;
 
+								const remoteBranchId = getBranchId(repoPath, true, tip);
 								refRemoteHeads.push({
-									id: branch?.id ?? remote.id,
+									id: remoteBranchId,
 									name: branchName,
 									owner: remote.name,
 									url: remote.url,
@@ -1851,7 +1848,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							}
 						}
 
+						branch = branchMap.get(tip);
+						const branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+
 						refHeads.push({
+							id: branchId,
 							name: tip,
 							isCurrentHead: current,
 							context: serializeWebviewItemContext<GraphItemRefContext>({
@@ -1968,7 +1969,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				avatars: avatars,
 				ids: ids,
 				skippedIds: skippedIds,
-				refMetadata: refMetadata,
 				rows: rows,
 				id: sha,
 

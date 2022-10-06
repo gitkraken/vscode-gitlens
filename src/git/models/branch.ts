@@ -38,6 +38,10 @@ export interface BranchSortOptions {
 	orderBy?: BranchSorting;
 }
 
+export function getBranchId(repoPath: string, remote: boolean, name: string): string {
+	return `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
+}
+
 export class GitBranch implements GitBranchReference {
 	readonly refType = 'branch';
 	readonly detached: boolean;
@@ -58,7 +62,7 @@ export class GitBranch implements GitBranchReference {
 		detached: boolean = false,
 		public readonly rebasing: boolean = false,
 	) {
-		this.id = `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
+		this.id = getBranchId(repoPath, remote, name);
 
 		this.detached = detached || (this.current ? isDetachedHead(name) : false);
 		if (this.detached) {

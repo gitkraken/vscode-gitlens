@@ -6,8 +6,10 @@ import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
 	DismissBannerParams,
+	GraphAvatars,
 	GraphColumnConfig,
 	GraphColumnName,
+	GraphMissingRefsMetadata,
 	GraphRepository,
 	InternalNotificationType,
 	State,
@@ -18,7 +20,7 @@ import {
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
-	DidChangeRefMetadataNotificationType,
+	DidChangeRefsMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -28,7 +30,7 @@ import {
 	DismissBannerCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
-	GetMissingRefMetadataCommandType,
+	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
@@ -87,7 +89,7 @@ export class GraphApp extends App<State> {
 						250,
 					)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
-					onMissingRefMetadata={(...params) => this.onGetMissingRefMetadata(...params)}
+					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
 					onSearch={debounce<GraphApp['onSearch']>((search, options) => this.onSearch(search, options), 250)}
 					onSearchPromise={(...params) => this.onSearchPromise(...params)}
@@ -144,9 +146,9 @@ export class GraphApp extends App<State> {
 				});
 				break;
 
-			case DidChangeRefMetadataNotificationType.method:
-				onIpc(DidChangeRefMetadataNotificationType, msg, (params, type) => {
-					this.state.refMetadata = params.refMetadata;
+			case DidChangeRefsMetadataNotificationType.method:
+				onIpc(DidChangeRefsMetadataNotificationType, msg, (params, type) => {
+					this.state.refsMetadata = params.metadata;
 					this.setState(this.state, type);
 				});
 				break;
@@ -215,7 +217,9 @@ export class GraphApp extends App<State> {
 					}
 
 					this.state.avatars = params.avatars;
-					this.state.refMetadata = params.refMetadata;
+					if (params.refsMetadata !== undefined) {
+						this.state.refsMetadata = params.refsMetadata;
+					}
 					this.state.rows = rows;
 					this.state.paging = params.paging;
 					if (params.selectedRows != null) {
@@ -372,12 +376,12 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onGetMissingAvatars(emails: { [email: string]: string }) {
+	private onGetMissingAvatars(emails: GraphAvatars) {
 		this.sendCommand(GetMissingAvatarsCommandType, { emails: emails });
 	}
 
-	private onGetMissingRefMetadata(missing: { [id: string]: string[] }) {
-		this.sendCommand(GetMissingRefMetadataCommandType, { missing: missing });
+	private onGetMissingRefsMetadata(metadata: GraphMissingRefsMetadata) {
+		this.sendCommand(GetMissingRefsMetadataCommandType, { metadata: metadata });
 	}
 
 	private onGetMoreRows(sha?: string) {
