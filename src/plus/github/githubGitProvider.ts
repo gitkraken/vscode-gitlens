@@ -49,6 +49,7 @@ import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
 	GitGraph,
 	GitGraphRow,
+	GitGraphRowContexts,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
 	GitGraphRowTag,
@@ -57,8 +58,8 @@ import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { GitRevision } from '../../git/models/reference';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference, GitRevision } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
 import { getRemoteIconUri, GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
@@ -83,11 +84,13 @@ import { debug, getLogScope, log } from '../../system/decorators/log';
 import { filterMap, first, last, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
+import { serializeWebviewItemContext } from '../../system/webview';
 import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../trackers/trackedDocument';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
 import { getRemoteHubApi } from '../remotehub';
+import type { GraphItemContext, GraphItemRefContext } from '../webviews/graph/graphWebview';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
@@ -1076,11 +1079,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 
-		const [logResult, branchResult, remotesResult, tagsResult] = await Promise.allSettled([
+		const [logResult, branchResult, remotesResult, tagsResult, currentUserResult] = await Promise.allSettled([
 			this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
 			this.getBranch(repoPath),
 			this.getRemotes(repoPath),
 			this.getTags(repoPath),
+			this.getCurrentUser(repoPath),
 		]);
 
 		const avatars = new Map<string, string>();
@@ -1093,6 +1097,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(branchResult),
 			getSettledValue(remotesResult)?.[0],
 			getSettledValue(tagsResult)?.values,
+			getSettledValue(currentUserResult),
 			avatars,
 			ids,
 			options,
@@ -1106,6 +1111,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		branch: GitBranch | undefined,
 		remote: GitRemote | undefined,
 		tags: GitTag[] | undefined,
+		currentUser: GitUser | undefined,
 		avatars: Map<string, string>,
 		ids: Set<string>,
 		options?: {
@@ -1136,21 +1142,39 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const rows: GitGraphRow[] = [];
 
+		let head = false;
+		let isCurrentUser = false;
 		let refHeads: GitGraphRowHead[];
 		let refRemoteHeads: GitGraphRowRemoteHead[];
 		let refTags: GitGraphRowTag[];
+		let contexts: GitGraphRowContexts | undefined;
 
 		const hasHeadShaAndRemote = branch?.sha != null && remote != null;
 
 		for (const commit of commits) {
 			ids.add(commit.sha);
 
-			if (hasHeadShaAndRemote && commit.sha === branch.sha) {
+			head = commit.sha === branch?.sha;
+			if (hasHeadShaAndRemote && head) {
 				refHeads = [
 					{
 						id: getBranchId(repoPath, false, branch.name),
 						name: branch.name,
 						isCurrentHead: true,
+						context: serializeWebviewItemContext<GraphItemRefContext>({
+							webviewItem: `gitlens:branch${head ? '+current' : ''}${
+								branch?.upstream != null ? '+tracking' : ''
+							}`,
+							webviewItemValue: {
+								type: 'branch',
+								ref: GitReference.create(branch.name, repoPath, {
+									refType: 'branch',
+									name: branch.name,
+									remote: false,
+									upstream: branch.upstream,
+								}),
+							},
+						}),
 					},
 				];
 				refRemoteHeads = [
@@ -1162,6 +1186,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						avatarUrl: (
 							remote.provider?.avatarUri ?? getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true),
+						context: serializeWebviewItemContext<GraphItemRefContext>({
+							webviewItem: 'gitlens:branch+remote',
+							webviewItemValue: {
+								type: 'branch',
+								ref: GitReference.create(branch.name, repoPath, {
+									refType: 'branch',
+									name: branch.name,
+									remote: true,
+									upstream: { name: remote.name, missing: false },
+								}),
+							},
+						}),
 					},
 				];
 			} else {
@@ -1177,6 +1213,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						return {
 							name: t.name,
 							annotated: Boolean(t.message),
+							context: serializeWebviewItemContext<GraphItemRefContext>({
+								webviewItem: 'gitlens:tag',
+								webviewItemValue: {
+									type: 'tag',
+									ref: GitReference.create(t.name, repoPath, {
+										refType: 'tag',
+										name: t.name,
+									}),
+								},
+							}),
 						};
 					}),
 				];
@@ -1191,6 +1237,32 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 			}
 
+			isCurrentUser = commit.author.name === 'You';
+			contexts = {
+				row: serializeWebviewItemContext<GraphItemRefContext>({
+					webviewItem: `gitlens:commit${
+						hasHeadShaAndRemote && commit.sha === branch.sha ? '+HEAD' : ''
+					}+current`,
+					webviewItemValue: {
+						type: 'commit',
+						ref: GitReference.create(commit.sha, repoPath, {
+							refType: 'revision',
+							message: commit.message,
+						}),
+					},
+				}),
+				avatar: serializeWebviewItemContext<GraphItemContext>({
+					webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
+					webviewItemValue: {
+						type: 'contributor',
+						repoPath: repoPath,
+						name: isCurrentUser && currentUser?.name != null ? currentUser.name : commit.author.name,
+						email: commit.author.email,
+						current: isCurrentUser,
+					},
+				}),
+			};
+
 			rows.push({
 				sha: commit.sha,
 				parents: commit.parents,
@@ -1203,6 +1275,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				heads: refHeads,
 				remotes: refRemoteHeads,
 				tags: refTags,
+				contexts: contexts,
 			});
 		}
 
@@ -1233,6 +1306,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					branch,
 					remote,
 					tags,
+					currentUser,
 					avatars,
 					ids,
 					options,

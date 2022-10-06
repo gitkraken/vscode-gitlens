@@ -9,6 +9,7 @@ import type {
 import {
 	CancellationTokenSource,
 	Disposable,
+	env,
 	EventEmitter,
 	MarkdownString,
 	StatusBarAlignment,
@@ -34,6 +35,7 @@ import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
 import type { GitCommit } from '../../../git/models/commit';
+import { GitContributor } from '../../../git/models/contributor';
 import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
 import type {
@@ -336,8 +338,16 @@ export class GraphWebview extends WebviewBase<State> {
 				this,
 			),
 
+			registerCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream, this),
+			registerCommand('gitlens.graph.compareWithHead', this.compareHeadWith, this),
+			registerCommand('gitlens.graph.compareWithWorking', this.compareWorkingWith, this),
+			registerCommand('gitlens.graph.compareAncestryWithWorking', this.compareAncestryWithWorking, this),
+
+			registerCommand('gitlens.graph.copy', this.copy, this),
 			registerCommand('gitlens.graph.copyMessage', this.copyMessage, this),
 			registerCommand('gitlens.graph.copySha', this.copySha, this),
+
+			registerCommand('gitlens.graph.addAuthor', this.addAuthor, this),
 
 			registerCommand('gitlens.graph.columnAuthorOn', () => this.toggleColumn('author', true)),
 			registerCommand('gitlens.graph.columnAuthorOff', () => this.toggleColumn('author', false)),
@@ -1392,6 +1402,16 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async copy(item: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'contributor')) {
+			const { name, email } = item.webviewItemValue;
+			await env.clipboard.writeText(`${name}${email ? ` <${email}>` : ''}`);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
 	private copyMessage(item: GraphItemContext) {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
@@ -1635,6 +1655,72 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async compareAncestryWithWorking(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+
+			const branch = await this.container.git.getBranch(ref.repoPath);
+			if (branch == null) return undefined;
+
+			const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+			if (commonAncestor == null) return undefined;
+
+			return this.container.searchAndCompareView.compare(
+				ref.repoPath,
+				{ ref: commonAncestor, label: `ancestry with ${ref.ref} (${GitRevision.shorten(commonAncestor)})` },
+				'',
+			);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private compareHeadWith(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return this.container.searchAndCompareView.compare(ref.repoPath, 'HEAD', ref.ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private compareWithUpstream(item: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			if (ref.upstream != null) {
+				return this.container.searchAndCompareView.compare(ref.repoPath, ref.ref, ref.upstream.name);
+			}
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private compareWorkingWith(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			return this.container.searchAndCompareView.compare(ref.repoPath, '', ref.ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private addAuthor(item: GraphItemContext) {
+		if (isGraphItemTypedContext(item, 'contributor')) {
+			const { repoPath, name, email, current } = item.webviewItemValue;
+			return GitActions.Contributor.addAuthors(
+				repoPath,
+				new GitContributor(repoPath, name, email, 0, undefined, current),
+			);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
 	private async toggleColumn(name: GraphColumnName, visible: boolean) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		let column = columns?.[name];
@@ -1669,18 +1755,21 @@ export type GraphItemRefContextValue =
 	| GraphCommitContextValue
 	| GraphStashContextValue
 	| GraphTagContextValue;
-export type GraphItemContextValue =
-	| GraphAvatarContextValue
-	| GraphColumnsContextValue
-	| GraphPullRequestContextValue
-	| GraphItemRefContextValue;
 
-export interface GraphAvatarContextValue {
-	type: 'avatar';
-	email: string;
-}
+export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemContext<T>;
+export type GraphItemTypedContextValue = GraphContributorContextValue | GraphPullRequestContextValue;
+
+export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
 
 export type GraphColumnsContextValue = string;
+
+export interface GraphContributorContextValue {
+	type: 'contributor';
+	repoPath: string;
+	name: string;
+	email: string | undefined;
+	current?: boolean;
+}
 
 export interface GraphPullRequestContextValue {
 	type: 'pullrequest';
@@ -1712,6 +1801,23 @@ function isGraphItemContext(item: unknown): item is GraphItemContext {
 	if (item == null) return false;
 
 	return isWebviewItemContext(item) && item.webview === 'gitlens.graph';
+}
+
+function isGraphItemTypedContext(
+	item: unknown,
+	type: 'contributor',
+): item is GraphItemTypedContext<GraphContributorContextValue>;
+function isGraphItemTypedContext(
+	item: unknown,
+	type: 'pullrequest',
+): item is GraphItemTypedContext<GraphPullRequestContextValue>;
+function isGraphItemTypedContext(
+	item: unknown,
+	type: GraphItemTypedContextValue['type'],
+): item is GraphItemTypedContext {
+	if (item == null) return false;
+
+	return isGraphItemContext(item) && typeof item.webviewItemValue === 'object' && item.webviewItemValue.type === type;
 }
 
 function isGraphItemRefContext(item: unknown): item is GraphItemRefContext;
