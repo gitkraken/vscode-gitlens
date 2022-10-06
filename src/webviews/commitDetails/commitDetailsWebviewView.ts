@@ -113,6 +113,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		commit?: GitRevisionReference | GitCommit;
 		pin?: boolean;
 		preserveFocus?: boolean | undefined;
+		preserveVisibility?: boolean | undefined;
 	}): Promise<void> {
 		if (options != null) {
 			let commit;
@@ -133,6 +134,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				this.updateCommit(commit, { pinned: pin ?? true });
 			}
 		}
+
+		if (options?.preserveVisibility) return;
 
 		return super.show(options);
 	}

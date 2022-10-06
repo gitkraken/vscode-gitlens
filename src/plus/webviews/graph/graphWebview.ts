@@ -28,6 +28,7 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
+import type { Config } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -185,6 +186,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
+	private _firstSelection = true;
 	private _graph?: GitGraph;
 	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
 	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
@@ -192,10 +194,10 @@ export class GraphWebview extends WebviewBase<State> {
 	private _searchCancellation: CancellationTokenSource | undefined;
 	private _selectedId?: string;
 	private _selectedRows: GraphSelectedRows | undefined;
-	private _repositoryEventsDisposable: Disposable | undefined;
-
+	private _showDetailsView: Config['graph']['showDetailsView'];
 	private _statusBarItem: StatusBarItem | undefined;
 	private _theme: ColorTheme | undefined;
+	private _repositoryEventsDisposable: Disposable | undefined;
 
 	private previewBanner?: boolean;
 	private trialBanner?: boolean;
@@ -210,6 +212,9 @@ export class GraphWebview extends WebviewBase<State> {
 			'graphWebview',
 			Commands.ShowGraphPage,
 		);
+
+		this._showDetailsView = configuration.get('graph.showDetailsView');
+
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
@@ -260,6 +265,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
+		this._firstSelection = true;
 		if (!(await ensurePlusFeaturesEnabled())) return;
 
 		if (this.container.git.repositoryCount > 1) {
@@ -412,7 +418,11 @@ export class GraphWebview extends WebviewBase<State> {
 			setTimeout(() => void setContext(ContextKeys.GraphPageFocused, focused), 0);
 
 			if (this.selection != null) {
-				void GitActions.Commit.showDetailsView(this.selection[0], { pin: true, preserveFocus: true });
+				void GitActions.Commit.showDetailsView(this.selection[0], {
+					pin: true,
+					preserveFocus: true,
+					preserveVisibility: this._showDetailsView === false,
+				});
 			}
 
 			return;
@@ -433,6 +443,10 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'graph.showDetailsView')) {
+			this._showDetailsView = configuration.get('graph.showDetailsView');
+		}
+
 		if (configuration.changed(e, 'graph.statusBar.enabled') || configuration.changed(e, 'plusFeatures.enabled')) {
 			this.updateStatusBar();
 		}
@@ -812,7 +826,14 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (commits == null) return;
 
-		void GitActions.Commit.showDetailsView(commits[0], { pin: true, preserveFocus: true });
+		void GitActions.Commit.showDetailsView(commits[0], {
+			pin: true,
+			preserveFocus: true,
+			preserveVisibility: this._firstSelection
+				? this._showDetailsView === false
+				: this._showDetailsView !== 'selection',
+		});
+		this._firstSelection = false;
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<GraphWebview['notifyDidChangeState']> | undefined = undefined;

@@ -1664,6 +1664,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
+		const useAvatars = configuration.get('graph.avatars', undefined, true);
+
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
@@ -1829,7 +1831,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									owner: remote.name,
 									url: remote.url,
 									avatarUrl: (
-										remote.provider?.avatarUri ??
+										(useAvatars ? remote.provider?.avatarUri : undefined) ??
 										getRemoteIconUri(this.container, remote, asWebviewUri)
 									)?.toString(true),
 									context: serializeWebviewItemContext<GraphItemRefContext>({

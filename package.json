@@ -2097,7 +2097,7 @@
 					"gitlens.graph.avatars": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show avatar images instead of author initials in the _Commit Graph_",
+						"markdownDescription": "Specifies whether to show avatar images instead of author initials and remote icons in the _Commit Graph_",
 						"scope": "window",
 						"order": 10
 					},
@@ -2108,12 +2108,32 @@
 						"scope": "window",
 						"order": 11
 					},
+					"gitlens.graph.showDetailsView": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"default": "selection",
+						"enum": [
+							false,
+							"open",
+							"selection"
+						],
+						"enumDescriptions": [
+							"Never shows the _Commit Details_ view automatically",
+							"Shows the _Commit Details_ view automatically when the _Commit Graph_ is first opened",
+							"Shows the _Commit Details_ view automatically when selection changes in the _Commit Graph_"
+						],
+						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Commit Graph_",
+						"scope": "window",
+						"order": 12
+					},
 					"gitlens.graph.showGhostRefsOnRowHover": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to show a ghost ref of the hovered/selected row in the _Commit Graph_",
+						"markdownDescription": "Specifies whether to show a ghost ref for the hovered/selected row in the _Commit Graph_",
 						"scope": "window",
-						"order": 12
+						"order": 13
 					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",

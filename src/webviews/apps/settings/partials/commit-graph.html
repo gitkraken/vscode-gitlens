@@ -76,6 +76,30 @@
 					</div>
 
 					<div class="setting">
+						<div class="setting__input setting__input--inner-select">
+							<input
+								id="graph.showDetailsView"
+								name="graph.showDetailsView"
+								type="checkbox"
+								value="selection"
+								data-setting
+							/>
+							<label for="graph.showDetailsView">Show the Commit Details view</label>
+							<div class="select-container">
+								<select
+									id="graph.showDetailsView"
+									name="graph.showDetailsView"
+									data-setting
+									data-enablement="graph.showDetailsView !false"
+								>
+									<option value="open">when first opened</option>
+									<option value="selection">when selection changes (default)</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="graph.showGhostRefsOnRowHover"
