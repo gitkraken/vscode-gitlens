@@ -16,9 +16,11 @@ import type {
 	DidEnsureRowParams,
 	DidSearchParams,
 	DismissBannerParams,
+	GraphAvatars,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphComponentConfig,
+	GraphMissingRefsMetadata,
 	GraphRepository,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -30,7 +32,7 @@ import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
-	DidChangeRefMetadataNotificationType,
+	DidChangeRefsMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -53,7 +55,7 @@ export interface GraphWrapperProps {
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
-	onMissingRefMetadata?: (missing: { [id: string]: string[] }) => void;
+	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
@@ -134,7 +136,7 @@ export function GraphWrapper({
 	onColumnChange,
 	onEnsureRowPromise,
 	onMissingAvatars,
-	onMissingRefMetadata,
+	onMissingRefsMetadata,
 	onMoreRows,
 	onSearch,
 	onSearchPromise,
@@ -151,7 +153,7 @@ export function GraphWrapper({
 
 	const [rows, setRows] = useState(state.rows ?? []);
 	const [avatars, setAvatars] = useState(state.avatars);
-	const [refMetadata, setRefMetadata] = useState(state.refMetadata);
+	const [refsMetadata, setRefsMetadata] = useState(state.refsMetadata);
 	const [repos, setRepos] = useState(state.repositories ?? []);
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
 		repos.find(item => item.path === state.selectedRepository),
@@ -209,8 +211,8 @@ export function GraphWrapper({
 			case DidChangeAvatarsNotificationType:
 				setAvatars(state.avatars);
 				break;
-			case DidChangeRefMetadataNotificationType:
-				setRefMetadata(state.refMetadata);
+			case DidChangeRefsMetadataNotificationType:
+				setRefsMetadata(state.refsMetadata);
 				break;
 			case DidChangeColumnsNotificationType:
 				setColumns(state.columns);
@@ -220,7 +222,7 @@ export function GraphWrapper({
 				setRows(state.rows ?? []);
 				setSelectedRows(state.selectedRows);
 				setAvatars(state.avatars);
-				setRefMetadata(state.refMetadata);
+				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setIsLoading(state.loading);
 				break;
@@ -256,7 +258,7 @@ export function GraphWrapper({
 				setSelectedRows(state.selectedRows);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
-				setRefMetadata(state.refMetadata ?? {});
+				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
 				setRepo(repos.find(item => item.path === state.selectedRepository));
@@ -442,12 +444,12 @@ export function GraphWrapper({
 		setRepoExpanded(!repoExpanded);
 	};
 
-	const handleMissingAvatars = (emails: { [email: string]: string }) => {
+	const handleMissingAvatars = (emails: GraphAvatars) => {
 		onMissingAvatars?.(emails);
 	};
 
-	const handleMissingRefMetadata = (missing: { [id: string]: string[] }) => {
-		onMissingRefMetadata?.(missing);
+	const handleMissingRefsMetadata = (metadata: GraphMissingRefsMetadata) => {
+		onMissingRefsMetadata?.(metadata);
 	};
 
 	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
@@ -701,10 +703,10 @@ export function GraphWrapper({
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
-								onRefsMissingMetadata={handleMissingRefMetadata}
+								onRefsMissingMetadata={handleMissingRefsMetadata}
 								onShowMoreCommits={handleMoreCommits}
 								platform={clientPlatform}
-								refMetadataById={refMetadata}
+								refMetadataById={refsMetadata}
 								shaLength={graphConfig?.idLength}
 								themeOpacityFactor={styleProps?.themeOpacityFactor}
 								useAuthorInitialsForAvatars={!graphConfig?.avatars}
