@@ -1,3 +1,4 @@
+import type { GraphRefType} from '@gitkraken/gitkraken-components';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -1619,11 +1620,18 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			if (ref.id) {
-				const isRemoteBranch = ref.refType === 'branch' && ref.remote;
+				let isRemoteBranch = false;
+				let graphRefType: GraphRefType = 'tag';
+
+				if (ref.refType === 'branch') {
+					isRemoteBranch = ref.remote;
+					graphRefType = isRemoteBranch ? 'remote' : 'head';
+				}
+
 				const graphHiddenRef: GraphHiddenRef = {
 					id: ref.id,
 					name: isRemoteBranch ? getBranchNameWithoutRemote(ref.name) : ref.name,
-					type: isRemoteBranch ? 'remote' : ref.refType,
+					type: graphRefType,
 					avatarUrl: (ref as any).avatarUrl,
 				};
 				this.updateHiddenRef(graphHiddenRef, false);
