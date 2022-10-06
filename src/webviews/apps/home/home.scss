@@ -201,6 +201,12 @@ ul {
 			gap: 0.2rem;
 			min-width: 2.2rem;
 			width: fit-content;
+
+			@media (max-width: 368px) {
+				> :last-child {
+					display: none;
+				}
+			}
 		}
 	}
 }
