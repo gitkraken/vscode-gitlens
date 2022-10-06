@@ -492,6 +492,10 @@ a {
 		padding: 0.5rem;
 		z-index: 2000;
 
+		&:empty {
+			display: none;
+		}
+
 		> *:not(:first-child) {
 			margin-top: 0.5rem;
 		}
