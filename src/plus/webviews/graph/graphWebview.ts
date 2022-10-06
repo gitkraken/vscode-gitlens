@@ -101,7 +101,7 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnParams,
-	UpdateRefVisibilityParams,
+	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams,
 } from './protocol';
@@ -126,7 +126,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
-	UpdateRefVisibilityCommandType,
+	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
@@ -413,8 +413,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnChanged(params));
 				break;
-			case UpdateRefVisibilityCommandType.method:
-				onIpc(UpdateRefVisibilityCommandType, e, params => this.onRefVisibilityChanged(params));
+			case UpdateRefsVisibilityCommandType.method:
+				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
@@ -553,8 +553,8 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateColumn(e.name, e.config);
 	}
 
-	private onRefVisibilityChanged(e: UpdateRefVisibilityParams) {
-		this.updateHiddenRef(e.ref, e.visible);
+	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
+		this.updateHiddenRefs(e.refs, e.visible);
 	}
 
 	@debug()
@@ -1331,9 +1331,11 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeColumns();
 	}
 
-	private updateHiddenRef(ref: GraphHiddenRef, visible: boolean) {
+	private updateHiddenRefs(refs: GraphHiddenRef[], visible: boolean) {
 		let hiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
-		hiddenRefs = updateRecordValue(hiddenRefs, ref.id, visible ? undefined : ref);
+		for (const ref of refs) {
+			hiddenRefs = updateRecordValue(hiddenRefs, ref.id, visible ? undefined : ref);
+		}
 		void this.container.storage.storeWorkspace('graph:hiddenRefs', hiddenRefs);
 		void this.notifyDidChangeRefsVisibility();
 	}
@@ -1634,7 +1636,7 @@ export class GraphWebview extends WebviewBase<State> {
 					type: graphRefType,
 					avatarUrl: (ref as any).avatarUrl,
 				};
-				this.updateHiddenRef(graphHiddenRef, false);
+				this.updateHiddenRefs([graphHiddenRef], false);
 			}
 		}
 

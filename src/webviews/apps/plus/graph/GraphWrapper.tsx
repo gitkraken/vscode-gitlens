@@ -60,7 +60,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
-	onRefVisibilityChange?: (ref: GraphHiddenRef, visible: boolean) => void;
+	onRefsVisibilityChange?: (refs: GraphHiddenRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
@@ -144,7 +144,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
-	onRefVisibilityChange,
+	onRefsVisibilityChange,
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
@@ -502,8 +502,8 @@ export function GraphWrapper({
 		}
 	};
 
-	const handleOnToggleRefVisibilityClick = (_event: any, ref: GraphRefOptData, visible: boolean) => {
-		onRefVisibilityChange?.(ref, visible);
+	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
+		onRefsVisibilityChange?.(refs, visible);
 	};
 
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
@@ -734,7 +734,7 @@ export function GraphWrapper({
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
-								onToggleRefVisibilityClick={handleOnToggleRefVisibilityClick}
+								onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onRefsMissingMetadata={handleMissingRefsMetadata}
 								onShowMoreCommits={handleMoreCommits}

@@ -166,12 +166,12 @@ export interface UpdateColumnParams {
 }
 export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/column/update');
 
-export interface UpdateRefVisibilityParams {
-	ref: GraphHiddenRef;
+export interface UpdateRefsVisibilityParams {
+	refs: GraphHiddenRef[];
 	visible: boolean;
 }
-export const UpdateRefVisibilityCommandType = new IpcCommandType<UpdateRefVisibilityParams>(
-	'graph/ref/update/visibility',
+export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisibilityParams>(
+	'graph/refs/update/visibility',
 );
 
 export interface UpdateSelectedRepositoryParams {

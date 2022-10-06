@@ -37,7 +37,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
-	UpdateRefVisibilityCommandType,
+	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
@@ -87,7 +87,7 @@ export class GraphApp extends App<State> {
 						(name, settings) => this.onColumnChanged(name, settings),
 						250,
 					)}
-					onRefVisibilityChange={(ref: GraphHiddenRef, visible: boolean) => this.onRefVisibilityChanged(ref, visible)}
+					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) => this.onRefsVisibilityChanged(refs, visible)}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
 						path => this.onRepositorySelectionChanged(path),
 						250,
@@ -381,9 +381,9 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onRefVisibilityChanged(ref: GraphHiddenRef, visible: boolean) {
-		this.sendCommand(UpdateRefVisibilityCommandType, {
-			ref: ref,
+	private onRefsVisibilityChanged(refs: GraphHiddenRef[], visible: boolean) {
+		this.sendCommand(UpdateRefsVisibilityCommandType, {
+			refs: refs,
 			visible: visible,
 		});
 	}
