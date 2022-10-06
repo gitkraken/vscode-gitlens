@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, when } from '@microsoft/fast-element';
 import { numberConverter } from '../../shared/components/converters/number-converter';
 import '../../shared/components/codicon';
 
@@ -38,11 +38,16 @@ const styles = css`
 	:host {
 		display: block;
 		padding: 1.2rem;
-		background-color: #aaaaaa10;
+		background-color: var(--card-background);
 		margin-bottom: 1rem;
 		border-radius: 0.4rem;
 		background-repeat: no-repeat;
 		background-size: cover;
+		transition: aspect-ratio linear 100ms, background-color linear 100ms;
+	}
+
+	:host(:hover) {
+		background-color: var(--card-hover-background);
 	}
 
 	header {
@@ -104,7 +109,7 @@ export class CardSection extends FASTElement {
 	@attr({ mode: 'boolean' })
 	expanded = true;
 
-	handleDismiss(e: Event) {
+	handleDismiss(_e: Event) {
 		this.$emit('dismiss');
 	}
 }

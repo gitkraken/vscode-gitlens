@@ -2,9 +2,7 @@
 import './home.scss';
 import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import type { Disposable } from 'vscode';
-// import { RepositoriesVisibility } from '../../../git/gitProviderService';
-import { getSubscriptionTimeRemaining, isSubscriptionTrial, SubscriptionState } from '../../../subscription';
-import { pluralize } from '../../../system/string';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscription';
 import type { State } from '../../home/protocol';
 import {
 	CompleteStepCommandType,
@@ -16,10 +14,13 @@ import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import type { CardSection } from './components/card-section';
+import type { PlusContent } from './components/plus-content';
 import type { SteppedSection } from './components/stepped-section';
 import '../shared/components/codicon';
 import './components/card-section';
 import './components/stepped-section';
+import './components/plus-content';
+import './components/header-card';
 
 export class HomeApp extends App<State> {
 	private $steps!: SteppedSection[];
@@ -41,7 +42,14 @@ export class HomeApp extends App<State> {
 	protected override onBind(): Disposable[] {
 		const disposables = super.onBind?.() ?? [];
 
-		disposables.push(DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onActionClicked(e, target)));
+		disposables.push(
+			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
+		);
+		disposables.push(
+			DOM.on<PlusContent, string>('plus-content', 'action', (e, target: HTMLElement) =>
+				this.onPlusActionClicked(e, target),
+			),
+		);
 		disposables.push(
 			DOM.on<SteppedSection, boolean>('stepped-section', 'complete', (e, target: HTMLElement) =>
 				this.onStepComplete(e, target),
@@ -78,172 +86,142 @@ export class HomeApp extends App<State> {
 
 	private onStepComplete(e: CustomEvent<boolean>, target: HTMLElement) {
 		const id = target.id;
-		console.log('onStepComplete', id, e.detail);
-		this.sendCommand(CompleteStepCommandType, { id: id, completed: e.detail ?? false });
+		const isComplete = e.detail ?? false;
+		this.state.completedSteps = toggleArrayItem(this.state.completedSteps, id, isComplete);
+		this.sendCommand(CompleteStepCommandType, { id: id, completed: isComplete });
+		this.updateState();
 	}
 
 	private onCardDismissed(e: CustomEvent<undefined>, target: HTMLElement) {
 		const id = target.id;
-		console.log('onCardDismissed', id);
+		this.state.dismissedSections = toggleArrayItem(this.state.dismissedSections, id);
 		this.sendCommand(DismissSectionCommandType, { id: id });
-		target.remove();
+		this.updateState();
 	}
 
-	private onActionClicked(e: MouseEvent, target: HTMLElement) {
+	private onDataActionClicked(e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
+		this.onActionClickedCore(action);
+	}
+
+	private onPlusActionClicked(e: CustomEvent<string>, _target: HTMLElement) {
+		this.onActionClickedCore(e.detail);
+	}
+
+	private onActionClickedCore(action?: string) {
 		if (action?.startsWith('command:')) {
 			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
 		}
 	}
 
-	private updateState() {
-		const { subscription, completedSteps, dismissedSections, plusEnabled, visibility } = this.state;
+	private getDaysRemaining() {
+		if (
+			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
+				this.state.subscription.state,
+			)
+		) {
+			return 0;
+		}
 
-		// banner
-		document.getElementById('plus')?.classList.toggle('hide', !plusEnabled);
+		return getSubscriptionTimeRemaining(this.state.subscription, 'days') ?? 0;
+	}
+
+	private updateHeader(days = this.getDaysRemaining()) {
+		const { subscription, completedSteps } = this.state;
+
+		const $headerContent = document.getElementById('header-card');
+		if ($headerContent) {
+			$headerContent.setAttribute('steps', this.$steps?.length.toString() ?? '');
+			$headerContent.setAttribute('completed', completedSteps?.length.toString() ?? '');
+			$headerContent.setAttribute('state', subscription.state.toString());
+			$headerContent.setAttribute('plan', subscription.plan.effective.name);
+			$headerContent.setAttribute('days', days.toString());
+		}
+	}
+
+	private updatePlusContent(days = this.getDaysRemaining()) {
+		const { subscription, visibility } = this.state;
+
+		const $plusContent = document.getElementById('plus-content');
+		if ($plusContent) {
+			$plusContent.setAttribute('days', days.toString());
+			$plusContent.setAttribute('state', subscription.state.toString());
+			$plusContent.setAttribute('visibility', visibility);
+		}
+	}
+
+	private updateSteps() {
+		if (
+			this.$steps == null ||
+			this.$steps.length === 0 ||
+			this.state.completedSteps == null ||
+			this.state.completedSteps.length === 0
+		) {
+			return;
+		}
+
+		const forceShowPlus = [
+			SubscriptionState.FreePreviewTrialExpired,
+			SubscriptionState.FreePlusTrialExpired,
+			SubscriptionState.VerificationRequired,
+		].includes(this.state.subscription.state);
+
+		this.$steps.forEach(el => {
+			el.setAttribute(
+				'completed',
+				(el.id === 'plus' && forceShowPlus) || this.state.completedSteps?.includes(el.id) !== true
+					? 'false'
+					: 'true',
+			);
+		});
+	}
+
+	private updateSections() {
+		if (
+			this.$cards == null ||
+			this.$cards.length === 0 ||
+			this.state.dismissedSections == null ||
+			this.state.dismissedSections.length === 0
+		) {
+			return;
+		}
+
+		this.state.dismissedSections.forEach(id => {
+			const found = this.$cards.findIndex(el => el.id === id);
+			if (found > -1) {
+				this.$cards[found].remove();
+				this.$cards.splice(found, 1);
+			}
+		});
+	}
+
+	private updateState() {
+		const { completedSteps, dismissedSections, plusEnabled } = this.state;
+
 		document.getElementById('restore-plus')?.classList.toggle('hide', plusEnabled);
-		document.getElementById('plus-sections')?.classList.toggle('hide', !plusEnabled);
 
 		const showRestoreWelcome = completedSteps?.length || dismissedSections?.length;
 		document.getElementById('restore-welcome')?.classList.toggle('hide', !showRestoreWelcome);
 
-		// TODO: RepositoriesVisibility causes errors during the build
-		// const alwaysFree = [RepositoriesVisibility.Local, RepositoriesVisibility.Public].includes(visibility);
-		const alwaysFree = ['local', 'public'].includes(visibility);
-		const needsAccount = ['mixed', 'private'].includes(visibility);
+		const days = this.getDaysRemaining();
+		this.updateHeader(days);
+		this.updatePlusContent(days);
 
-		console.log('updateState', alwaysFree, needsAccount, this.state);
+		this.updateSteps();
 
-		let days = 0;
-		if ([SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(subscription.state)) {
-			days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-		}
-
-		const timeRemaining = days < 1 ? 'less than one day' : pluralize('day', days);
-		const shortTimeRemaining = days < 1 ? '<1 day' : pluralize('day', days);
-
-		let plan = subscription.plan.effective.name;
-		let content;
-		let actions;
-		let forcePlus = false;
-		// switch (-1 as SubscriptionState) {
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-				plan = 'Free';
-				break;
-			case SubscriptionState.Paid:
-				break;
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial: {
-				plan = 'Trial';
-				content = `
-					<h3>GitLens+ Trial</h3>
-					<p class="mb-0">
-						You have ${timeRemaining} left in your&nbsp;
-						<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
-							GitLens+ trial </a
-						>. Once your trial ends, you'll need a paid plan to continue to use GitLens+ features on this
-						and other private repos.
-					</p>
-				`;
-				actions = shortTimeRemaining;
-				break;
-			}
-			case SubscriptionState.FreePreviewTrialExpired:
-				forcePlus = true;
-				plan = 'Free Trial (0 days)';
-				content = `
-					<h3>Extend Your GitLens+ Trial</h3>
-					<p>
-						Your free trial has ended, please sign in to extend your trial of GitLens+ features on private
-						repos by an additional 7-days.
-					</p>
-					<p class="mb-1">
-						<vscode-button data-action="command:gitlens.plus.loginOrSignUp">Extend Trial</vscode-button>
-					</p>
-				`;
-				actions = `
-					<a href="command:gitlens.plus.loginOrSignUp">
-						Extend Trial
-					</a>
-				`;
-				break;
-			case SubscriptionState.FreePlusTrialExpired:
-				forcePlus = true;
-				plan = 'GitLens+ Trial (0 days)';
-				content = `
-					<h3>GitLens+ Trial Expired</h3>
-					<p>
-						Your free trial has ended, please upgrade your account to continue to use GitLens+ features,
-						including the Commit Graph, on this and other private repos.
-					</p>
-					<p class="mb-1">
-						<vscode-button data-action="command:gitlens.plus.purchase">Upgrade Your Account</vscode-button>
-					</p>
-				`;
-				actions = `
-					<a href="command:gitlens.plus.purchase">
-						Upgrade Your Account
-					</a>
-				`;
-				break;
-			case SubscriptionState.VerificationRequired:
-				forcePlus = true;
-				plan = 'Unverified';
-				content = `
-					<h3>Please verify your email</h3>
-					<p class="alert__message">Please verify the email for the account you created.</p>
-					<p class="mb-1">
-						<vscode-button data-action="command:gitlens.plus.resendVerification"
-							>Resend Verification Email</vscode-button
-						>
-					</p>
-					<p class="mb-1">
-						<vscode-button data-action="command:gitlens.plus.validate"
-							>Refresh Verification Status</vscode-button
-						>
-					</p>
-				`;
-				actions = `
-					<a href="command:gitlens.plus.resendVerification" title="Resend Verification Email" aria-label="Resend Verification Email">Verify</a>&nbsp;<a
-						href="command:gitlens.plus.validate"
-						title="Refresh Verification Status"
-						aria-label="Refresh Verification Status"
-						><span class="codicon codicon-sync"></span
-					></a>
-				`;
-				break;
-		}
-
-		if (content) {
-			const $plusContent = document.getElementById('plus-content');
-			if ($plusContent) {
-				$plusContent.innerHTML = content;
-			}
-		}
-
-		const $headerContent = document.getElementById('header-content');
-		if ($headerContent) {
-			$headerContent.innerHTML = plan ?? '';
-		}
-		const $headerActions = document.getElementById('header-actions');
-		if ($headerActions) {
-			$headerActions.innerHTML = actions ?? '';
-		}
-
-		this.$steps?.forEach(el => {
-			el.setAttribute(
-				'completed',
-				(el.id === 'plus' && forcePlus) || completedSteps?.includes(el.id) !== true ? 'false' : 'true',
-			);
-		});
-
-		this.$cards?.forEach(el => {
-			if (dismissedSections?.includes(el.id)) {
-				el.remove();
-			}
-		});
+		this.updateSections();
 	}
+}
+
+function toggleArrayItem(list: string[] = [], item: string, add = true) {
+	const hasStep = list.includes(item);
+	if (!hasStep && add) {
+		list.push(item);
+	} else if (hasStep && !add) {
+		list.splice(list.indexOf(item), 1);
+	}
+
+	return list;
 }
 
 new HomeApp();

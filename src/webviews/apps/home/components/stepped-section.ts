@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
 import { numberConverter } from '../../shared/components/converters/number-converter';
 import '../../shared/components/codicon';
 
@@ -63,6 +63,15 @@ const styles = css`
 		color: var(--vscode-textLink-foreground);
 	}
 
+	/*
+	.checkbox code-icon {
+		border-radius: 50%;
+	}
+	.heading:hover ~ .checkbox code-icon {
+		background-color: var(--vscode-textLink-foreground);
+	}
+	*/
+
 	:host(:not(:last-of-type)) .checkbox:after {
 		content: '';
 		position: absolute;
@@ -86,8 +95,7 @@ const styles = css`
 	.description {
 		margin-left: 0.2rem;
 		text-transform: none;
-		/* color needs to come from some sort property */
-		color: #b68cd8;
+		color: var(--gitlens-brand-color-2);
 		opacity: 0.6;
 		font-style: italic;
 	}
@@ -101,7 +109,7 @@ export class SteppedSection extends FASTElement {
 	@attr({ mode: 'boolean' })
 	completed = false;
 
-	handleClick(e: Event) {
+	handleClick(_e: Event) {
 		this.completed = !this.completed;
 		this.$emit('complete', this.completed);
 	}
