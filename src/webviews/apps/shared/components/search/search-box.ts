@@ -7,6 +7,7 @@ import { numberConverter } from '../converters/number-converter';
 import '../codicon';
 import type { SearchInput } from './search-input';
 import './search-input';
+import './../progress';
 
 export type SearchNavigationDirection = 'first' | 'previous' | 'next' | 'last';
 export interface SearchNavigationEventDetail {
@@ -35,9 +36,10 @@ const template = html<SearchBox>`<template>
 	></search-input>
 	<div class="search-navigation" aria-label="Search navigation">
 		<span class="count${x => (x.total < 1 && x.valid && x.resultsLoaded ? ' error' : '')}">
-			${when(x => x.total < 1, html<SearchBox>`${x => x.formattedLabel}`)}
+			${when(x => x.searching, html<SearchBox>`Searching...`)}
+			${when(x => !x.searching && x.total < 1, html<SearchBox>`${x => x.formattedLabel}`)}
 			${when(
-				x => x.total > 0,
+				x => !x.searching && x.total > 0,
 				html<SearchBox>`<span aria-current="step">${x => x.step}</span> of
 					<span
 						class="${x => (x.resultsHidden ? 'sr-hidden' : '')}"
@@ -90,6 +92,7 @@ Last Match (Shift+Click)"
 			></code-icon>
 		</button>
 	</div>
+	<progress-indicator active="${x => x.searching}"></progress-indicator>
 </template>`;
 
 const styles = css`
@@ -100,9 +103,13 @@ const styles = css`
 		gap: 0.8rem;
 		color: var(--color-foreground);
 		flex: auto 1 1;
+		position: relative;
 	}
 	:host(:focus) {
 		outline: 0;
+	}
+	progress-indicator {
+		bottom: -4px;
 	}
 
 	.search-navigation {
@@ -201,6 +208,9 @@ export class SearchBox extends FASTElement {
 
 	@attr({ mode: 'boolean' })
 	more = false;
+
+	@attr({ mode: 'boolean' })
+	searching = false;
 
 	@attr({ mode: 'boolean' })
 	valid = false;

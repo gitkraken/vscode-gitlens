@@ -184,6 +184,7 @@ export function GraphWrapper({
 	const [searchResults, setSearchResults] = useState(results);
 	const [searchResultsError, setSearchResultsError] = useState(resultsError);
 	const [searchResultsHidden, setSearchResultsHidden] = useState(false);
+	const [searching, setSearching] = useState(false);
 
 	// working tree state
 	const [workingTreeStats, setWorkingTreeStats] = useState(
@@ -231,6 +232,7 @@ export function GraphWrapper({
 				setSearchResultsError(resultsError);
 				setSearchResults(results);
 				setSelectedRows(state.selectedRows);
+				setSearching(false);
 				break;
 			}
 			case DidChangeGraphConfigurationNotificationType:
@@ -311,11 +313,10 @@ export function GraphWrapper({
 		setSearchQuery(detail);
 
 		const isValid = detail.query.length >= 3;
-		if (!isValid) {
-			setSearchResults(undefined);
-		}
+		setSearchResults(undefined);
 		setSearchResultsError(undefined);
 		setSearchResultsHidden(false);
+		setSearching(isValid);
 		onSearch?.(isValid ? detail : undefined);
 	};
 
@@ -357,7 +358,13 @@ export function GraphWrapper({
 			if (searchIndex == -1) {
 				if (next) {
 					if (searchQuery != null && results?.paging?.hasMore) {
-						const moreResults = await onSearchPromise?.(searchQuery, { more: true });
+						setSearching(true);
+						let moreResults;
+						try {
+							moreResults = await onSearchPromise?.(searchQuery, { more: true });
+						} finally {
+							setSearching(false);
+						}
 						if (moreResults?.results != null && !('error' in moreResults.results)) {
 							if (count < moreResults.results.count) {
 								results = moreResults.results;
@@ -373,7 +380,13 @@ export function GraphWrapper({
 						searchIndex = 0;
 					}
 				} else if (direction === 'last' && searchQuery != null && results?.paging?.hasMore) {
-					const moreResults = await onSearchPromise?.(searchQuery, { limit: 0, more: true });
+					setSearching(true);
+					let moreResults;
+					try {
+						moreResults = await onSearchPromise?.(searchQuery, { limit: 0, more: true });
+					} finally {
+						setSearching(false);
+					}
 					if (moreResults?.results != null && !('error' in moreResults.results)) {
 						if (count < moreResults.results.count) {
 							results = moreResults.results;
@@ -660,6 +673,7 @@ export function GraphWrapper({
 							total={searchResults?.count ?? 0}
 							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
 							more={searchResults?.paging?.hasMore ?? false}
+							searching={searching}
 							value={searchQuery?.query ?? ''}
 							errorMessage={searchResultsError?.error ?? ''}
 							resultsHidden={searchResultsHidden}
