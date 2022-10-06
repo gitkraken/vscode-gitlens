@@ -1078,6 +1078,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		// const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
+		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
 		const [logResult, branchResult, remotesResult, tagsResult, currentUserResult] = await Promise.allSettled([
 			this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
@@ -1100,7 +1101,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(currentUserResult),
 			avatars,
 			ids,
-			options,
+			{ ...options, useAvatars: useAvatars },
 		);
 	}
 
@@ -1119,6 +1120,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
+			useAvatars?: boolean;
 		},
 	): Promise<GitGraph> {
 		if (log == null) {
@@ -1184,7 +1186,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						owner: remote.name,
 						url: remote.url,
 						avatarUrl: (
-							remote.provider?.avatarUri ?? getRemoteIconUri(this.container, remote, asWebviewUri)
+							(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
+							getRemoteIconUri(this.container, remote, asWebviewUri)
 						)?.toString(true),
 						context: serializeWebviewItemContext<GraphItemRefContext>({
 							webviewItem: 'gitlens:branch+remote',

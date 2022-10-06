@@ -768,7 +768,7 @@ export namespace GitActions {
 
 		export function showDetailsView(
 			commit: GitRevisionReference | GitCommit,
-			options?: { pin?: boolean; preserveFocus?: boolean },
+			options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 		): Promise<void> {
 			return Container.instance.commitDetailsView.show({ ...options, commit: commit });
 		}
