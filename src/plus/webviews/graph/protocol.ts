@@ -4,7 +4,10 @@ import type {
 	GraphContexts,
 	GraphRow,
 	GraphZoneType,
+	HostingServiceType,
+	PullRequestMetadata,
 	RefMetadata,
+	RefMetadataType,
 	Remote,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
@@ -19,8 +22,13 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
-export type GraphRefMetadata = Record</* id */ string, RefMetadata>;
-export type GraphMissingRefMetadata = Record</*id*/ string, /*missingType*/ string[]>;
+
+export type GraphRefMetadata = RefMetadata | null;
+export type GraphRefsMetadata = Record</* id */ string, GraphRefMetadata>;
+export type GraphHostingServiceType = HostingServiceType;
+export type GraphMissingRefsMetadataType = RefMetadataType;
+export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ GraphMissingRefsMetadataType[]>;
+export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export interface State {
 	repositories?: GraphRepository[];
@@ -31,7 +39,7 @@ export interface State {
 	allowed: boolean;
 	avatars?: GraphAvatars;
 	loading?: boolean;
-	refMetadata?: GraphRefMetadata;
+	refsMetadata?: GraphRefsMetadata | null;
 	rows?: GraphRow[];
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -121,10 +129,12 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommandType = new IpcCommandType<GetMissingAvatarsParams>('graph/avatars/get');
 
-export interface GetMissingRefMetadataParams {
-	missing: GraphMissingRefMetadata;
+export interface GetMissingRefsMetadataParams {
+	metadata: GraphMissingRefsMetadata;
 }
-export const GetMissingRefMetadataCommandType = new IpcCommandType<GetMissingRefMetadataParams>('graph/refMetadata/get');
+export const GetMissingRefsMetadataCommandType = new IpcCommandType<GetMissingRefsMetadataParams>(
+	'graph/refs/metadata/get',
+);
 
 export interface GetMoreRowsParams {
 	id?: string;
@@ -185,17 +195,19 @@ export const DidChangeSubscriptionNotificationType = new IpcNotificationType<Did
 );
 
 export interface DidChangeAvatarsParams {
-	avatars: { [email: string]: string };
+	avatars: GraphAvatars;
 }
 export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
 	'graph/avatars/didChange',
+	true,
 );
 
-export interface DidChangeRefMetadataParams {
-	refMetadata: GraphRefMetadata | undefined;
+export interface DidChangeRefsMetadataParams {
+	metadata: GraphRefsMetadata | null | undefined;
 }
-export const DidChangeRefMetadataNotificationType = new IpcNotificationType<DidChangeRefMetadataParams>(
-	'graph/refMetadata/didChange',
+export const DidChangeRefsMetadataNotificationType = new IpcNotificationType<DidChangeRefsMetadataParams>(
+	'graph/refs/didChangeMetadata',
+	true,
 );
 
 export interface DidChangeColumnsParams {
@@ -211,7 +223,7 @@ export interface DidChangeRowsParams {
 	rows: GraphRow[];
 	avatars: { [email: string]: string };
 	paging?: GraphPaging;
-	refMetadata: GraphRefMetadata | undefined;
+	refsMetadata?: GraphRefsMetadata | null;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>('graph/rows/didChange');

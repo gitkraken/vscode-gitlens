@@ -14,7 +14,7 @@ import { encodeUtf8Hex } from '@env/hex';
 import { configuration } from '../../configuration';
 import { CharCode, ContextKeys, Schemes } from '../../constants';
 import type { Container } from '../../container';
-import { getContext, setContext } from '../../context';
+import { setContext } from '../../context';
 import { emojify } from '../../emojis';
 import {
 	AuthenticationError,
@@ -39,7 +39,7 @@ import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
-import { GitBranch, sortBranches } from '../../git/models/branch';
+import { getBranchId, GitBranch, sortBranches } from '../../git/models/branch';
 import type { GitCommitLine } from '../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitContributor } from '../../git/models/contributor';
@@ -48,7 +48,6 @@ import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
 	GitGraph,
-	GitGraphRefMetadata,
 	GitGraphRow,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
@@ -57,7 +56,6 @@ import type {
 import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
-import type { PullRequest } from '../../git/models/pullRequest';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { GitRevision } from '../../git/models/reference';
@@ -1085,9 +1083,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this.getTags(repoPath),
 		]);
 
-		const hasConnectedRemotes = getContext(ContextKeys.HasConnectedRemotes);
 		const avatars = new Map<string, string>();
-		const refMetadata = hasConnectedRemotes ? new Map<string, GitGraphRefMetadata>() : undefined;
 		const ids = new Set<string>();
 
 		return this.getCommitsForGraphCore(
@@ -1098,7 +1094,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			getSettledValue(remotesResult)?.[0],
 			getSettledValue(tagsResult)?.values,
 			avatars,
-			refMetadata,
 			ids,
 			options,
 		);
@@ -1112,7 +1107,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		remote: GitRemote | undefined,
 		tags: GitTag[] | undefined,
 		avatars: Map<string, string>,
-		refMetadata: Map<string, GitGraphRefMetadata> | undefined,
 		ids: Set<string>,
 		options?: {
 			branch?: string;
@@ -1125,7 +1119,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return {
 				repoPath: repoPath,
 				avatars: avatars,
-				refMetadata: refMetadata,
 				ids: ids,
 				rows: [],
 			};
@@ -1136,7 +1129,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return {
 				repoPath: repoPath,
 				avatars: avatars,
-				refMetadata: refMetadata,
 				ids: ids,
 				rows: [],
 			};
@@ -1156,13 +1148,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (hasHeadShaAndRemote && commit.sha === branch.sha) {
 				refHeads = [
 					{
+						id: getBranchId(repoPath, false, branch.name),
 						name: branch.name,
 						isCurrentHead: true,
 					},
 				];
 				refRemoteHeads = [
 					{
-						id: remote.id,
+						id: getBranchId(repoPath, true, branch.name),
 						name: branch.name,
 						owner: remote.name,
 						url: remote.url,
@@ -1222,7 +1215,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return {
 			repoPath: repoPath,
 			avatars: avatars,
-			refMetadata: refMetadata,
 			ids: ids,
 			rows: rows,
 			id: options?.ref,
@@ -1242,7 +1234,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					remote,
 					tags,
 					avatars,
-					refMetadata,
 					ids,
 					options,
 				);

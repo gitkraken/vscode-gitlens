@@ -6431,6 +6431,18 @@
 				"icon": "$(git-pull-request-create)"
 			},
 			{
+				"command": "gitlens.graph.openPullRequestOnRemote",
+				"title": "Open Pull Request on Remote",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.graph.copyRemotePullRequestUrl",
+				"title": "Copy Pull Request Url",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.graph.columnAuthorOn",
 				"title": "Show Author",
 				"category": "GitLens"
@@ -8372,6 +8384,14 @@
 				},
 				{
 					"command": "gitlens.graph.createPullRequest",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openPullRequestOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyRemotePullRequestUrl",
 					"when": "false"
 				},
 				{
@@ -10986,6 +11006,16 @@
 					"command": "gitlens.graph.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.openPullRequestOnRemote",
+					"when": "webviewItem =~ /gitlens:graph:pullrequest\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.copyRemotePullRequestUrl",
+					"when": "webviewItem =~ /gitlens:graph:pullrequest\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.graph.columnAuthorOn",

@@ -22,6 +22,7 @@ import type {
 	CopyShaToClipboardCommandArgs,
 	OpenBranchOnRemoteCommandArgs,
 	OpenCommitOnRemoteCommandArgs,
+	OpenPullRequestOnRemoteCommandArgs,
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
@@ -32,10 +33,9 @@ import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
-import type { GitBranch } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitGraphRowType } from '../../../git/models/graph';
-import type { GitGraph, GitGraphHostingServiceType } from '../../../git/models/graph';
+import type { GitGraph } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
@@ -77,12 +77,16 @@ import type {
 	DismissBannerParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
-	GetMissingRefMetadataParams,
+	GetMissingRefsMetadataParams,
 	GetMoreRowsParams,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsSettings,
 	GraphComponentConfig,
+	GraphHostingServiceType,
+	GraphMissingRefsMetadataType,
+	GraphPullRequestMetadata,
+	GraphRefMetadata,
 	GraphRepository,
 	GraphSelectedRows,
 	GraphWorkingTreeStats,
@@ -98,7 +102,7 @@ import {
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
-	DidChangeRefMetadataNotificationType,
+	DidChangeRefsMetadataNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -108,7 +112,7 @@ import {
 	DismissBannerCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
-	GetMissingRefMetadataCommandType,
+	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
@@ -158,6 +162,12 @@ export class GraphWebview extends WebviewBase<State> {
 				value.onDidChange(this.onRepositoryChanged, this),
 				value.startWatchingFileSystem(),
 				value.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
+				onDidChangeContext(key => {
+					if (key !== ContextKeys.HasConnectedRemotes) return;
+
+					this.resetRefsMetadata();
+					this.updateRefsMetadata();
+				}),
 			);
 		}
 
@@ -175,6 +185,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _etagRepository?: number;
 	private _graph?: GitGraph;
 	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
+	private _refsMetadata: Map<string, GraphRefMetadata | null> | null | undefined;
 	private _search: GitSearch | undefined;
 	private _searchCancellation: CancellationTokenSource | undefined;
 	private _selectedId?: string;
@@ -262,7 +273,7 @@ export class GraphWebview extends WebviewBase<State> {
 				this.repository = context.node.repo;
 			}
 
-			if (this.repository != null) {
+			if (this.repository != null && this.isReady) {
 				this.updateState();
 			}
 		}
@@ -318,6 +329,12 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.createWorktree', this.createWorktree, this),
 
 			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
+			registerCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote, this),
+			registerCommand(
+				'gitlens.graph.copyRemotePullRequestUrl',
+				item => this.openPullRequestOnRemote(item, true),
+				this,
+			),
 
 			registerCommand('gitlens.graph.copyMessage', this.copyMessage, this),
 			registerCommand('gitlens.graph.copySha', this.copySha, this),
@@ -355,8 +372,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case GetMissingAvatarsCommandType.method:
 				onIpc(GetMissingAvatarsCommandType, e, params => this.onGetMissingAvatars(params));
 				break;
-			case GetMissingRefMetadataCommandType.method:
-				onIpc(GetMissingRefMetadataCommandType, e, params => this.onGetMissingRefMetadata(params));
+			case GetMissingRefsMetadataCommandType.method:
+				onIpc(GetMissingRefsMetadataCommandType, e, params => this.onGetMissingRefMetadata(params));
 				break;
 			case GetMoreRowsCommandType.method:
 				onIpc(GetMoreRowsCommandType, e, params => this.onGetMoreRows(params));
@@ -542,41 +559,60 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	private async onGetMissingRefMetadata(e: GetMissingRefMetadataParams) {
-		if (this._graph == null) return;
-		const repoPath = this._graph.repoPath;
-		const hasConnectedRemotes = getContext(ContextKeys.HasConnectedRemotes);
-		if (!hasConnectedRemotes) return;
+	private async onGetMissingRefMetadata(e: GetMissingRefsMetadataParams) {
+		if (this._graph == null || this._refsMetadata === null || !getContext(ContextKeys.HasConnectedRemotes)) return;
 
-		async function getRefMetadata(this: GraphWebview, id: string, type: string) {
-			const newRefMetadata = { ...(this._graph!.refMetadata ? this._graph!.refMetadata.get(id) : undefined) };
-			const foundBranchesResult = await this.container.git.getBranches(repoPath, { filter: b => b.id === id });
-			const foundBranches = foundBranchesResult?.values;
-			const refBranch: GitBranch | undefined = foundBranches?.length ? foundBranches[0] : undefined;
-			switch (type) {
-				case 'pullRequests':
-					newRefMetadata.pullRequests = null;
-					if (refBranch != null) {
-						const pullRequest = await refBranch.getAssociatedPullRequest();
-						if (pullRequest != null) {
-							const pullRequestMetadata = {
-								hostingServiceType: pullRequest.provider.name as GitGraphHostingServiceType,
-								id: Number.parseInt(pullRequest.id) || 0,
-								title: pullRequest.title
-							};
-							newRefMetadata.pullRequests = [ pullRequestMetadata ];
-						}
-					}
-					break;
-				default:
-					break;
+		const repoPath = this._graph.repoPath;
+
+		async function getRefMetadata(this: GraphWebview, id: string, type: GraphMissingRefsMetadataType) {
+			if (this._refsMetadata == null) {
+				this._refsMetadata = new Map();
 			}
-			this._graph!.refMetadata?.set(id, newRefMetadata);
+
+			const metadata = { ...this._refsMetadata.get(id) };
+			if (type !== 'pullRequests') {
+				(metadata as any)[type] = null;
+				this._refsMetadata.set(id, metadata);
+				return;
+			}
+
+			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id && b.remote }))
+				?.values?.[0];
+			const pr = await branch?.getAssociatedPullRequest();
+			if (pr == null) {
+				if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
+					metadata.pullRequests = null;
+				}
+				this._refsMetadata.set(id, metadata);
+				return;
+			}
+
+			const prMetadata: GraphPullRequestMetadata = {
+				// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
+				hostingServiceType: pr.provider.id as GraphHostingServiceType,
+				id: Number.parseInt(pr.id) || 0,
+				title: pr.title,
+				author: pr.author.name,
+				date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
+				state: pr.state,
+				url: pr.url,
+				context: serializeWebviewItemContext<GraphItemContext>({
+					webviewItem: 'gitlens:graph:pullrequest',
+					webviewItemValue: {
+						type: 'pullrequest',
+						id: pr.id,
+						url: pr.url,
+					},
+				}),
+			};
+
+			metadata.pullRequests = [prMetadata];
+			this._refsMetadata.set(id, metadata);
 		}
 
 		const promises: Promise<void>[] = [];
 
-		for (const [id, missingTypes] of Object.entries(e.missing)) {
+		for (const [id, missingTypes] of Object.entries(e.metadata)) {
 			for (const missingType of missingTypes) {
 				promises.push(getRefMetadata.call(this, id, missingType));
 			}
@@ -584,8 +620,8 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (promises.length) {
 			await Promise.allSettled(promises);
-			this.updateRefMetadata();
 		}
+		this.updateRefsMetadata();
 	}
 
 	@gate()
@@ -814,30 +850,27 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private _notifyDidChangeRefMetadataDebounced: Deferrable<GraphWebview['notifyDidChangeRefMetadata']> | undefined =
-	undefined;
+	private _notifyDidChangeRefsMetadataDebounced: Deferrable<GraphWebview['notifyDidChangeRefsMetadata']> | undefined =
+		undefined;
 
 	@debug()
-	private updateRefMetadata(immediate: boolean = false) {
+	private updateRefsMetadata(immediate: boolean = false) {
 		if (immediate) {
-			void this.notifyDidChangeRefMetadata();
+			void this.notifyDidChangeRefsMetadata();
 			return;
 		}
 
-		if (this._notifyDidChangeRefMetadataDebounced == null) {
-			this._notifyDidChangeRefMetadataDebounced = debounce(this.notifyDidChangeRefMetadata.bind(this), 100);
+		if (this._notifyDidChangeRefsMetadataDebounced == null) {
+			this._notifyDidChangeRefsMetadataDebounced = debounce(this.notifyDidChangeRefsMetadata.bind(this), 100);
 		}
 
-		void this._notifyDidChangeRefMetadataDebounced();
+		void this._notifyDidChangeRefsMetadataDebounced();
 	}
 
 	@debug()
-	private async notifyDidChangeRefMetadata() {
-		if (this._graph == null) return;
-
-		const data = this._graph;
-		return this.notify(DidChangeRefMetadataNotificationType, {
-			refMetadata: data.refMetadata ? Object.fromEntries(data.refMetadata) : undefined,
+	private async notifyDidChangeRefsMetadata() {
+		return this.notify(DidChangeRefsMetadataNotificationType, {
+			metadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
 		});
 	}
 
@@ -877,7 +910,7 @@ export class GraphWebview extends WebviewBase<State> {
 			{
 				rows: data.rows,
 				avatars: Object.fromEntries(data.avatars),
-				refMetadata: data.refMetadata != undefined ? Object.fromEntries(data.refMetadata) : undefined,
+				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
 				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 				paging: {
 					startingCursor: data.paging?.startingCursor,
@@ -1169,7 +1202,7 @@ export class GraphWebview extends WebviewBase<State> {
 			subscription: access?.subscription.current,
 			allowed: (access?.allowed ?? false) !== false,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
-			refMetadata: data?.refMetadata != undefined ? Object.fromEntries(data.refMetadata) : undefined,
+			refsMetadata: this.resetRefsMetadata(),
 			loading: deferRows,
 			rows: data?.rows,
 			paging:
@@ -1196,6 +1229,11 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeColumns();
 	}
 
+	private resetRefsMetadata(): null | undefined {
+		this._refsMetadata = getContext(ContextKeys.HasConnectedRemotes) ? undefined : null;
+		return this._refsMetadata;
+	}
+
 	private resetRepositoryState() {
 		this.setGraph(undefined);
 		this.setSelectedRows(undefined);
@@ -1217,6 +1255,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
+			this.resetRefsMetadata();
 			this.resetSearchState();
 		}
 	}
@@ -1579,6 +1618,23 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private openPullRequestOnRemote(item: GraphItemContext, clipboard?: boolean) {
+		if (
+			isGraphItemContext(item) &&
+			typeof item.webviewItemValue === 'object' &&
+			item.webviewItemValue.type === 'pullrequest'
+		) {
+			const { url } = item.webviewItemValue;
+			return executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+				pr: { url: url },
+				clipboard: clipboard,
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
 	private async toggleColumn(name: GraphColumnName, visible: boolean) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		let column = columns?.[name];
@@ -1613,7 +1669,11 @@ export type GraphItemRefContextValue =
 	| GraphCommitContextValue
 	| GraphStashContextValue
 	| GraphTagContextValue;
-export type GraphItemContextValue = GraphAvatarContextValue | GraphColumnsContextValue | GraphItemRefContextValue;
+export type GraphItemContextValue =
+	| GraphAvatarContextValue
+	| GraphColumnsContextValue
+	| GraphPullRequestContextValue
+	| GraphItemRefContextValue;
 
 export interface GraphAvatarContextValue {
 	type: 'avatar';
@@ -1621,6 +1681,12 @@ export interface GraphAvatarContextValue {
 }
 
 export type GraphColumnsContextValue = string;
+
+export interface GraphPullRequestContextValue {
+	type: 'pullrequest';
+	id: string;
+	url: string;
+}
 
 export interface GraphBranchContextValue {
 	type: 'branch';
