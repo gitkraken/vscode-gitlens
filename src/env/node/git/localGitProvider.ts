@@ -1634,15 +1634,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 
-		const [refResult, stashResult, branchesResult, remotesResult] = await Promise.allSettled([
+		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult] = await Promise.allSettled([
 			this.git.log2(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
 			this.getStash(repoPath),
 			this.getBranches(repoPath),
 			this.getRemotes(repoPath),
+			this.getCurrentUser(repoPath),
 		]);
 
 		const branches = getSettledValue(branchesResult)?.values;
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+
+		const currentUser = getSettledValue(currentUserResult);
 
 		const remotes = getSettledValue(remotesResult);
 		const remoteMap =
@@ -1747,8 +1750,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			let branch: GitBranch | undefined;
 			let branchName: string;
-			let current = false;
-			let headCommit = false;
+			let head = false;
+			let isCurrentUser = false;
 			let refHeads: GitGraphRowHead[];
 			let refRemoteHeads: GitGraphRowRemoteHead[];
 			let refTags: GitGraphRowTag[];
@@ -1776,7 +1779,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				refRemoteHeads = [];
 				refTags = [];
 				contexts = undefined;
-				headCommit = false;
+				head = false;
 
 				if (commit.tips) {
 					for (let tip of commit.tips.split(', ')) {
@@ -1803,9 +1806,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							continue;
 						}
 
-						current = tip.startsWith('HEAD');
-						if (current) {
-							headCommit = true;
+						head = tip.startsWith('HEAD');
+						if (head) {
 							reachableFromHEAD.add(commit.sha);
 
 							if (tip !== 'HEAD') {
@@ -1854,9 +1856,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						refHeads.push({
 							id: branchId,
 							name: tip,
-							isCurrentHead: current,
+							isCurrentHead: head,
 							context: serializeWebviewItemContext<GraphItemRefContext>({
-								webviewItem: `gitlens:branch${current ? '+current' : ''}${
+								webviewItem: `gitlens:branch${head ? '+current' : ''}${
 									branch?.upstream != null ? '+tracking' : ''
 								}`,
 								webviewItemValue: {
@@ -1898,6 +1900,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
+				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
+
 				contexts = {};
 				if (stashCommit != null) {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
@@ -1913,7 +1917,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					});
 				} else {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-						webviewItem: `gitlens:commit${headCommit ? '+HEAD' : ''}${
+						webviewItem: `gitlens:commit${head ? '+HEAD' : ''}${
 							reachableFromHEAD.has(commit.sha) ? '+current' : ''
 						}`,
 						webviewItemValue: {
@@ -1924,11 +1928,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							}),
 						},
 					});
+
 					contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
-						webviewItem: 'gitlens:avatar',
+						webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
 						webviewItemValue: {
-							type: 'avatar',
+							type: 'contributor',
+							repoPath: repoPath,
+							name: commit.author,
 							email: commit.authorEmail,
+							current: isCurrentUser,
 						},
 					});
 				}
@@ -1936,7 +1944,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				rows.push({
 					sha: commit.sha,
 					parents: parents,
-					author: commit.author,
+					author: isCurrentUser ? 'You' : commit.author,
 					email: commit.authorEmail,
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					message: emojify(commit.message.trim()),
