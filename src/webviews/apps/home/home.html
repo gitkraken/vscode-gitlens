@@ -68,7 +68,7 @@
 			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
 		</header>
 		<main class="home__main" id="main" tabindex="-1">
-			<style>
+			<style nonce="#{cspNonce}">
 				.video-banner {
 					--video-banner-bg: url(#{webroot}/media/getting-started.webp);
 				}
@@ -79,6 +79,9 @@
 				.vscode-high-contrast-light .video-banner,
 				.vscode-light .video-banner {
 					--video-banner-play: url(#{webroot}/media/play-button-dark.webp);
+				}
+				.gl-plus-banner {
+					background-image: url(#{webroot}/media/gitlens-backdrop.webp);
 				}
 			</style>
 			<div class="stepped-sections">
@@ -245,7 +248,7 @@
 				</stepped-section>
 				<stepped-section id="plus">
 					<span slot="heading">Want even more from GitLens?</span>
-					<card-section no-heading backdrop="#{webroot}/media/gitlens-backdrop.webp">
+					<card-section class="gl-plus-banner" no-heading>
 						<div class="centered">
 							<p class="type-tight">
 								<span class="logo"><span class="foreground">Git</span>Lens+</span>
