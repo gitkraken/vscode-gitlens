@@ -74,6 +74,7 @@ export class HomeApp extends App<State> {
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state.subscription = params.subscription;
 					this.state.completedActions = params.completedActions;
+					this.state.avatar = params.avatar;
 					this.updateState();
 				});
 				break;
@@ -135,10 +136,14 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateHeader(days = this.getDaysRemaining(), forceShowPlus = this.forceShowPlus()) {
-		const { subscription, completedSteps } = this.state;
+		const { subscription, completedSteps, avatar } = this.state;
 
 		const $headerContent = document.getElementById('header-card');
 		if ($headerContent) {
+			if (avatar) {
+				$headerContent.setAttribute('image', avatar);
+			}
+			$headerContent.setAttribute('name', subscription.account?.name ?? '');
 			const steps = this.$steps?.length;
 			let completed = completedSteps?.length;
 			if (forceShowPlus && completedSteps != null && this.$steps != null && steps === completed) {

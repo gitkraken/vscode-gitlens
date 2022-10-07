@@ -1,5 +1,6 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
@@ -135,9 +136,19 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			completedActions.push(CompletedActions.DismissedWelcome);
 		}
 
+		const subscriptionState = subscription ?? (await this.container.subscription.getSubscription());
+
+		let avatar;
+		if (subscriptionState.account?.email) {
+			avatar = getAvatarUriFromGravatarEmail(subscriptionState.account.email, 34).toString();
+		} else {
+			avatar = `${this.getWebRoot() ?? ''}/media/gitlens-logo.webp`;
+		}
+
 		return {
 			subscription: subscription ?? (await this.container.subscription.getSubscription()),
 			completedActions: completedActions,
+			avatar: avatar,
 		};
 	}
 
@@ -147,12 +158,14 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		const sections = this.container.storage.get('home:sections:dismissed', []);
 
 		return {
+			webroot: this.getWebRoot(),
 			subscription: subscriptionState.subscription,
 			completedActions: subscriptionState.completedActions,
 			plusEnabled: configuration.get('plusFeatures.enabled'),
 			visibility: await this.getRepoVisibility(),
 			completedSteps: steps,
 			dismissedSections: sections,
+			avatar: subscriptionState.avatar,
 		};
 	}
 
