@@ -1,13 +1,42 @@
-import { attr, css, customElement, FASTElement, html, observable, ref, volatile } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
+import { debounce } from '../../../../../system/function';
 import '../codicon';
+
+export type SearchOperators =
+	| '=:'
+	| 'message:'
+	| '@:'
+	| 'author:'
+	| '#:'
+	| 'commit:'
+	| '?:'
+	| 'file:'
+	| '~:'
+	| 'change:';
+
+export type HelpTypes = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
+
+const operatorsHelpMap = new Map<SearchOperators, HelpTypes>([
+	['=:', 'message:'],
+	['message:', 'message:'],
+	['@:', 'author:'],
+	['author:', 'author:'],
+	['#:', 'commit:'],
+	['commit:', 'commit:'],
+	['?:', 'file:'],
+	['file:', 'file:'],
+	['~:', 'change:'],
+	['change:', 'change:'],
+]);
 
 // match case is disabled unless regex is true
 const template = html<SearchInput>`
 	<template role="search">
 		<label
 			for="search"
-			class="${x => (x.showHelp ? 'has-helper' : '')}"
+			aria-controls="helper"
+			aria-expanded="${x => x.showHelp}"
 			@click="${(x, c) => x.handleShowHelper(c.event)}"
 		>
 			<code-icon icon="search" aria-label="${x => x.label}" title="${x => x.label}"></code-icon>
@@ -18,17 +47,49 @@ const template = html<SearchInput>`
 				${ref('input')}
 				id="search"
 				part="search"
+				class="${x => (x.showHelp ? 'has-helper' : '')}"
 				type="search"
 				spellcheck="false"
 				placeholder="${x => x.placeholder}"
 				:value="${x => x.value}"
 				aria-valid="${x => !x.errorMessage}"
-				aria-describedby="${x => (!x.errorMessage ? '' : 'error')}"
-				@input="${(x, c) => x.handleInput(c.event)}"
+				aria-describedby="${x => (x.errorMessage !== '' || x.helpType != null ? 'help-text' : '')}"
+				@input="${(x, c) => x.handleInput(c.event as InputEvent)}"
 				@keydown="${(x, c) => x.handleShortcutKeys(c.event as KeyboardEvent)}"
+				@keyup="${(x, c) => x.handleKeyup(c.event as KeyboardEvent)}"
+				@click="${(x, c) => x.handleInputClick(c.event as MouseEvent)}"
 				@focus="${(x, c) => x.handleFocus(c.event)}"
 			/>
-			<div class="message" id="error" aria-live="polite">${x => x.errorMessage}</div>
+			<div class="message" id="help-text" aria-live="polite">
+				${when(
+					x => x.errorMessage !== '',
+					html<SearchInput>`${x => x.errorMessage}${x => (x.helpType ? html`<br />` : '')}`,
+				)}
+				${when(
+					x => x.helpType === 'message:',
+					html<SearchInput>`<span
+						>Use quotes to search for phrases, e.g. message:"Updates dependencies"</span
+					>`,
+				)}
+				${when(
+					x => x.helpType === 'author:',
+					html<SearchInput>`<span>Use a user's account, e.g. author:eamodio</span>`,
+				)}
+				${when(
+					x => x.helpType === 'commit:',
+					html<SearchInput>`<span>Use a full or short Commit SHA, e.g. commit:4ce3a</span>`,
+				)}
+				${when(
+					x => x.helpType === 'file:',
+					html<SearchInput>`<span
+						>Use a filename with extension, e.g. file:package.json, or a glob pattern, e.g. file:*graph*
+					</span>`,
+				)}
+				${when(
+					x => x.helpType === 'change:',
+					html<SearchInput>`<span>Regex pattern, e.g. change:update&#92;(param</span>`,
+				)}
+			</div>
 		</div>
 		<div class="controls">
 			<button
@@ -82,20 +143,20 @@ const template = html<SearchInput>`
 				<code-icon icon="regex"></code-icon>
 			</button>
 		</div>
-		<div class="helper" tabindex="-1" ${ref('helper')}>
-			<button class="helper-button" type="button" @click="${(x, c) => x.handleInsertToken('message:')}">
+		<div class="helper" id="helper" tabindex="-1" ${ref('helper')}>
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('message:')}">
 				Search by Message <small>message: or =:</small>
 			</button>
-			<button class="helper-button" type="button" @click="${(x, c) => x.handleInsertToken('author:')}">
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('author:')}">
 				Search by Author <small>author: or @:</small>
 			</button>
-			<button class="helper-button" type="button" @click="${(x, c) => x.handleInsertToken('sha:')}">
-				Search by Commit SHA <small>sha: or #:</small>
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('commit:')}">
+				Search by Commit SHA <small>commit: or #:</small>
 			</button>
-			<button class="helper-button" type="button" @click="${(x, c) => x.handleInsertToken('file:')}">
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('file:')}">
 				Search by File <small>file: or ?:</small>
 			</button>
-			<button class="helper-button" type="button" @click="${(x, c) => x.handleInsertToken('change:')}">
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('change:')}">
 				Search by Changes <small>change: or ~:</small>
 			</button>
 		</div>
@@ -126,6 +187,10 @@ const styles = css`
 		height: 2.4rem;
 		color: var(--vscode-input-foreground);
 		cursor: pointer;
+	}
+	label[aria-expanded='true'] {
+		background-color: var(--vscode-input-background);
+		border-radius: 0.3rem 0.3rem 0 0;
 	}
 
 	.icon-small {
@@ -160,13 +225,20 @@ const styles = css`
 		display: none;
 	}
 
+	input[aria-describedby='help-text'] {
+		border-color: var(--vscode-inputValidation-infoBorder);
+	}
+	input[aria-describedby='help-text']:focus {
+		outline-color: var(--vscode-inputValidation-infoBorder);
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
 	input[aria-valid='false'] {
 		border-color: var(--vscode-inputValidation-errorBorder);
 	}
 	input[aria-valid='false']:focus {
 		outline-color: var(--vscode-inputValidation-errorBorder);
-		border-bottom-left-radius: 0;
-		border-bottom-right-radius: 0;
 	}
 
 	.message {
@@ -177,14 +249,19 @@ const styles = css`
 		padding: 0.4rem;
 		transform: translateY(-0.1rem);
 		z-index: 1000;
-		background-color: var(--vscode-inputValidation-errorBackground);
-		border: 1px solid var(--vscode-inputValidation-errorBorder);
+		background-color: var(--vscode-inputValidation-infoBackground);
+		border: 1px solid var(--vscode-inputValidation-infoBorder);
 		color: var(--vscode-input-foreground);
 		font-size: 1.2rem;
 		line-height: 1.4;
 	}
 
-	input:not([aria-valid='false']:focus) + .message {
+	input[aria-valid='false'] + .message {
+		background-color: var(--vscode-inputValidation-errorBackground);
+		border-color: var(--vscode-inputValidation-errorBorder);
+	}
+
+	input:not([aria-describedby='help-text']:focus) + .message {
 		display: none;
 	}
 
@@ -240,11 +317,6 @@ const styles = css`
 		display: none;
 	}
 
-	.has-helper {
-		background-color: var(--vscode-input-background);
-		border-radius: 0.3rem 0.3rem 0 0;
-	}
-
 	.helper {
 		display: none;
 		position: absolute;
@@ -256,7 +328,7 @@ const styles = css`
 		border-radius: 0 0.3rem 0.3rem 0.3rem;
 		outline: none;
 	}
-	.has-helper ~ .helper {
+	label[aria-expanded='true'] ~ .helper {
 		display: block;
 	}
 
@@ -292,6 +364,9 @@ export class SearchInput extends FASTElement {
 
 	@observable
 	errorMessage = '';
+
+	@observable
+	helpType?: HelpTypes;
 
 	@attr
 	label = 'Search';
@@ -351,9 +426,36 @@ export class SearchInput extends FASTElement {
 		this.emitSearch();
 	}
 
-	handleInput(e: Event) {
+	updateHelpText() {
+		if (this.input == null || this.value == '' || !this.value.includes(':')) {
+			this.helpType = undefined;
+			return;
+		}
+
+		const selectionStart = this.input.selectionStart;
+		const selectionEnd = this.input.selectionEnd;
+		if (selectionStart == null) {
+			this.helpType = undefined;
+			return;
+		}
+
+		const cursor = selectionEnd && selectionEnd > selectionStart ? selectionEnd : selectionStart;
+		const helpOperator = getHelpOperatorFromValue(this.value, cursor);
+
+		// console.log('updateHelpText operator', helpOperator, 'start', selectionStart, 'end', selectionEnd);
+		this.helpType = helpOperator;
+	}
+
+	debouncedUpdateHelpText = debounce(this.updateHelpText.bind(this), 200);
+
+	handleInputClick(e: MouseEvent) {
+		this.updateHelpText();
+	}
+
+	handleInput(e: InputEvent) {
 		const value = (e.target as HTMLInputElement)?.value;
 		this.value = value;
+		this.updateHelpText();
 		this.emitSearch();
 	}
 
@@ -370,6 +472,10 @@ export class SearchInput extends FASTElement {
 	handleMatchRegex(_e: Event) {
 		this.matchRegex = !this.matchRegex;
 		this.emitSearch();
+	}
+
+	handleKeyup(e: KeyboardEvent) {
+		this.updateHelpText();
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
@@ -395,7 +501,10 @@ export class SearchInput extends FASTElement {
 
 	handleInsertToken(token: string) {
 		this.value += `${this.value.length > 0 ? ' ' : ''}${token}`;
-		this.input.focus();
+		window.requestAnimationFrame(() => {
+			this.updateHelpText();
+			this.input.focus();
+		});
 	}
 
 	private emitSearch() {
@@ -411,4 +520,23 @@ export class SearchInput extends FASTElement {
 	setCustomValidity(errorMessage: string = '') {
 		this.errorMessage = errorMessage;
 	}
+}
+
+function getHelpOperatorFromValue(value: string, cursor: number = 0): HelpTypes | undefined {
+	if (cursor === 0) {
+		return;
+	}
+
+	let subValue = value.substring(0, cursor).trim();
+	let keyIndex = subValue.lastIndexOf(':');
+	if (keyIndex === -1) {
+		return;
+	}
+
+	subValue = subValue.substring(0, keyIndex + 1);
+	keyIndex = subValue.lastIndexOf(' ');
+	subValue = subValue.substring(keyIndex + 1);
+
+	const operator = operatorsHelpMap.get(subValue as SearchOperators);
+	return operator;
 }
