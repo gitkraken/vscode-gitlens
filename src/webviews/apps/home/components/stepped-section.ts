@@ -19,9 +19,18 @@ const template = html<SteppedSection>`<template role="region">
 	<div class="content${x => (x.completed ? ' is-hidden' : '')}" id="content" aria-labelledby="button">
 		<slot></slot>
 	</div>
-	<span class="checkbox"
-		><code-icon icon="${x => (x.completed ? 'pass-filled' : 'circle-large-outline')}"></code-icon
-	></span>
+	<span class="checkline">
+		<span
+			class="checkbox"
+			title="${x => (x.completed ? 'Uncheck step' : 'Check step')}"
+			@click="${(x, c) => x.handleClick(c.event)}"
+			><code-icon
+				class="check-icon"
+				icon="${x => (x.completed ? 'pass-filled' : 'circle-large-outline')}"
+			></code-icon
+			><code-icon class="check-hover-icon" icon="${x => (x.completed ? 'pass-filled' : 'pass')}"></code-icon
+		></span>
+	</span>
 </template>`;
 
 const styles = css`
@@ -56,23 +65,14 @@ const styles = css`
 		outline-offset: 0.2rem;
 	}
 
-	.checkbox {
+	.checkline {
 		position: relative;
 		grid-column: 1;
 		grid-row: 1 / span 2;
 		color: var(--vscode-textLink-foreground);
 	}
 
-	/*
-	.checkbox code-icon {
-		border-radius: 50%;
-	}
-	.heading:hover ~ .checkbox code-icon {
-		background-color: var(--vscode-textLink-foreground);
-	}
-	*/
-
-	:host(:not(:last-of-type)) .checkbox:after {
+	:host(:not(:last-of-type)) .checkline:after {
 		content: '';
 		position: absolute;
 		border-left: 0.1rem solid currentColor;
@@ -82,6 +82,26 @@ const styles = css`
 		left: 50%;
 		transform: translateX(-50%);
 		opacity: 0.3;
+	}
+
+	.checkbox {
+		cursor: pointer;
+	}
+	.checkbox code-icon {
+		pointer-events: none;
+	}
+
+	.heading:hover ~ .checkline .check-icon,
+	.checkbox:hover .check-icon {
+		display: none;
+	}
+
+	.check-hover-icon {
+		display: none;
+	}
+	.heading:hover ~ .checkline .check-hover-icon,
+	.checkbox:hover .check-hover-icon {
+		display: unset;
 	}
 
 	.content {
