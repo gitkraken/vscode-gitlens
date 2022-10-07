@@ -325,6 +325,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 			registerCommand('gitlens.graph.hideBranch', this.hideRef, this),
 			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
+			registerCommand('gitlens.graph.hideGroupedBranch', this.hideRef, this),
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
@@ -1621,22 +1622,34 @@ export class GraphWebview extends WebviewBase<State> {
 	private hideRef(item: GraphItemContext) {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
-			if (ref.id) {
-				let isRemoteBranch = false;
-				let graphRefType: GraphRefType = 'tag';
+			const groupedRefs: GitReference[] = (ref as any).groupedRefs ?? [];
+			const refsToHide: GitReference[] = [
+				...groupedRefs,
+				ref
+			];
+			const graphHiddenRefs: GraphHiddenRef[] = [];
 
-				if (ref.refType === 'branch') {
-					isRemoteBranch = ref.remote;
-					graphRefType = isRemoteBranch ? 'remote' : 'head';
+			for (const refToHide of refsToHide) {
+				if (refToHide?.id) {
+					let isRemoteBranch = false;
+					let graphRefType: GraphRefType = 'tag';
+
+					if (refToHide.refType === 'branch') {
+						isRemoteBranch = refToHide.remote;
+						graphRefType = isRemoteBranch ? 'remote' : 'head';
+					}
+
+					graphHiddenRefs.push({
+						id: refToHide.id,
+						name: isRemoteBranch ? getBranchNameWithoutRemote(refToHide.name) : refToHide.name,
+						type: graphRefType,
+						avatarUrl: (refToHide as any).avatarUrl,
+					});
 				}
+			}
 
-				const graphHiddenRef: GraphHiddenRef = {
-					id: ref.id,
-					name: isRemoteBranch ? getBranchNameWithoutRemote(ref.name) : ref.name,
-					type: graphRefType,
-					avatarUrl: (ref as any).avatarUrl,
-				};
-				this.updateHiddenRefs([graphHiddenRef], false);
+			if (graphHiddenRefs.length > 0) {
+				this.updateHiddenRefs(graphHiddenRefs, false);
 			}
 		}
 

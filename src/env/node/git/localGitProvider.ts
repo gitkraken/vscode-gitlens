@@ -1863,6 +1863,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						branch = branchMap.get(tip);
 						const branchId = branch?.id ?? getBranchId(repoPath, false, tip);
 
+						const groupedRefs: GitReference[] = [];
+						for (const refRemoteHead of refRemoteHeads) {
+							if (refRemoteHead.name == tip && refRemoteHead.context) {
+								const ref = JSON.parse(refRemoteHead.context)?.webviewItemValue?.ref;
+								if (ref) {
+									groupedRefs.push(ref);
+								}
+							}
+						}
+
 						refHeads.push({
 							id: branchId,
 							name: tip,
@@ -1879,9 +1889,27 @@ export class LocalGitProvider implements GitProvider, Disposable {
 										name: tip,
 										remote: false,
 										upstream: branch?.upstream,
+										groupedRefs: groupedRefs,
 									}),
 								},
 							}),
+							contextGroup: groupedRefs.length > 0
+								? serializeWebviewItemContext<GraphItemRefContext>({
+									webviewItem: `gitlens:branch+grouped${head ? '+current' : ''}${
+										branch?.upstream != null ? '+tracking' : ''
+									}`,
+									webviewItemValue: {
+										type: 'branch',
+										ref: GitReference.create(tip, repoPath, {
+											id: branchId,
+											refType: 'branch',
+											name: tip,
+											remote: false,
+											upstream: branch?.upstream,
+											groupedRefs: groupedRefs,
+										}),
+									},
+								}) : undefined,
 						});
 					}
 				}

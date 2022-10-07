@@ -111,6 +111,7 @@ export interface GitBranchReference {
 
 export interface GraphGitBranchReference extends GitBranchReference {
 	avatarUrl?: string;
+	groupedRefs?: GitReference[];
 }
 
 export interface GitRevisionReference {
@@ -156,6 +157,7 @@ export namespace GitReference {
 			remote: boolean;
 			upstream?: { name: string; missing: boolean };
 			avatarUrl?: string;
+			groupedRefs?: GitReference[];
 		},
 	): GraphGitBranchReference | GitBranchReference;
 	export function create(
@@ -177,7 +179,7 @@ export namespace GitReference {
 		ref: string,
 		repoPath: string,
 		options:
-			| { id?: string; refType: 'branch'; name: string; remote: boolean; avatarUrl?: string }
+			| { id?: string; refType: 'branch'; name: string; remote: boolean; avatarUrl?: string; groupedRefs?: GitReference[] }
 			| { refType?: 'revision'; name?: string; message?: string }
 			| { refType: 'stash'; name: string; number: string | undefined; message?: string }
 			| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
@@ -192,6 +194,7 @@ export namespace GitReference {
 					remote: options.remote,
 					repoPath: repoPath,
 					avatarUrl: options.avatarUrl,
+					groupedRefs: options.groupedRefs,
 				};
 			case 'stash':
 				return {
@@ -230,6 +233,7 @@ export namespace GitReference {
 			remote: branch.remote,
 			upstream: branch.upstream,
 			avatarUrl: branch.avatarUrl,
+			groupedRefs: branch.groupedRefs,
 		});
 	}
 

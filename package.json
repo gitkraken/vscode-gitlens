@@ -6359,6 +6359,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.hideGroupedBranch",
+				"title": "Hide from Graph...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -8387,6 +8392,10 @@
 				},
 				{
 					"command": "gitlens.graph.hideTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideGroupedBranch",
 					"when": "false"
 				},
 				{
@@ -11020,8 +11029,13 @@
 				},
 				{
 					"command": "gitlens.graph.hideBranch",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(grouped|current)\\b)/",
 					"group": "8_gitlens_actions@10"
+				},
+				{
+					"command": "gitlens.graph.hideGroupedBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && webviewItem =~ /gitlens:branch\\+grouped\\b/",
+					"group": "8_gitlens_actions@11"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
