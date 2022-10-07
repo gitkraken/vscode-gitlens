@@ -194,6 +194,14 @@ function getAvatarUriFromGravatar(
 	return Uri.parse(`https://www.gravatar.com/avatar/${hash}?s=${size}&d=${defaultStyle}`);
 }
 
+export function getAvatarUriFromGravatarEmail(
+	email: string,
+	size: number,
+	defaultStyle: GravatarDefaultStyle = GravatarDefaultStyle.Robot,
+): Uri {
+	return getAvatarUriFromGravatar(md5(email.trim().toLowerCase(), 'hex'), size, defaultStyle);
+}
+
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
 	const parts = getGitHubNoReplyAddressParts(email);
 	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;

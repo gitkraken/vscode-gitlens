@@ -25,9 +25,9 @@ const template = html<HeaderCard>`
 			${when(
 				x => x.state === SubscriptionState.Paid,
 				html<HeaderCard>`
-					<a href="command:" aria-label="Manage Account" title="Manage Account"
+					<a href="command:gitlens.plus.manage" aria-label="Manage Account" title="Manage Account"
 						><code-icon icon="account"></code-icon></a
-					>&nbsp;<a href="command:" aria-label="Sign Out" title="Sign Out"
+					>&nbsp;&nbsp;<a href="command:gitlens.plus.logout" aria-label="Sign Out" title="Sign Out"
 						><code-icon icon="sign-out"></code-icon
 					></a>
 				`,
@@ -43,8 +43,8 @@ const template = html<HeaderCard>`
 			${when(
 				x => x.state === SubscriptionState.FreePlusTrialExpired,
 				html<HeaderCard>`
-					<a href="command:gitlens.plus.purchase">Upgrade to Pro</a>&nbsp;<a
-						href="command:"
+					<a href="command:gitlens.plus.purchase">Upgrade to Pro</a>&nbsp;&nbsp;<a
+						href="command:gitlens.plus.logout"
 						aria-label="Sign Out"
 						title="Sign Out"
 						><code-icon icon="sign-out"></code-icon
@@ -113,6 +113,7 @@ const styles = css`
 	}
 
 	.header-card__image {
+		width: 100%;
 		aspect-ratio: 1 / 1;
 		border-radius: 50%;
 	}
@@ -134,6 +135,7 @@ const styles = css`
 		flex-direction: row;
 		justify-content: space-between;
 		flex-wrap: wrap;
+		gap: 0 0.4rem;
 	}
 
 	.progress {

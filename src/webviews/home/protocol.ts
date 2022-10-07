@@ -8,12 +8,14 @@ export const enum CompletedActions {
 }
 
 export interface State {
+	webroot?: string;
 	subscription: Subscription;
 	completedActions: CompletedActions[];
 	completedSteps?: string[];
 	dismissedSections?: string[];
 	plusEnabled: boolean;
 	visibility: RepositoriesVisibility;
+	avatar?: string;
 }
 
 export interface CompleteStepParams {
@@ -30,6 +32,7 @@ export const DismissSectionCommandType = new IpcCommandType<DismissSectionParams
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
 	completedActions: CompletedActions[];
+	avatar?: string;
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'subscription/didChange',
