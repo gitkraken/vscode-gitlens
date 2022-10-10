@@ -382,6 +382,7 @@ export interface GraphConfig {
 	highlightRowsOnRefHover: boolean;
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;
+	showRemoteNamesOnRefs: boolean;
 	pageItemLimit: number;
 	searchItemLimit: number;
 	statusBar: {

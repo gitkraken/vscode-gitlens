@@ -96,6 +96,7 @@ export interface GraphComponentConfig {
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	showGhostRefsOnRowHover?: boolean;
+	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;
 }
 
