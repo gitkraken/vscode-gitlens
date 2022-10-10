@@ -2135,6 +2135,13 @@
 						"scope": "window",
 						"order": 13
 					},
+					"gitlens.graph.showRemoteNamesOnRefs": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show remote names on remote branches in the _Commit Graph_",
+						"scope": "window",
+						"order": 14
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,

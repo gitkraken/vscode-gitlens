@@ -711,6 +711,7 @@ export function GraphWrapper({
 								highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
 								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
+								showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
 								isLoadingRows={isLoading}
 								isSelectedBySha={selectedRows}
 								nonce={nonce}
