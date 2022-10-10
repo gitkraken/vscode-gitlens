@@ -33,7 +33,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 		if (!isIssueOrPullRequest(this.item)) {
 			const { provider } = this.item;
 
-			const item = new TreeItem(`${this.item.prefix}${this.item.id}`, TreeItemCollapsibleState.None);
+			const item = new TreeItem(`${this.item.prefix ?? ''}${this.item.id}`, TreeItemCollapsibleState.None);
 			item.description = provider?.name ?? 'Custom';
 			item.iconPath = new ThemeIcon(
 				this.item.type == null
@@ -53,7 +53,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 									: this.item.type === AutolinkType.PullRequest
 									? 'Autolinked Pull Request'
 									: 'Autolinked Issue'
-						  } ${this.item.prefix}${this.item.id}`
+						  } ${this.item.prefix ?? ''}${this.item.id}`
 				} \\\n[${this.item.url}](${this.item.url}${this.item.title != null ? ` "${this.item.title}"` : ''})`,
 			);
 			return item;

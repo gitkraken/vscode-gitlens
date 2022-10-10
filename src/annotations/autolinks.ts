@@ -23,7 +23,7 @@ const numRegex = /<num>/g;
 export interface Autolink {
 	provider?: RemoteProviderReference;
 	id: string;
-	prefix: string;
+	prefix?: string;
 	title?: string;
 	url: string;
 
@@ -81,11 +81,15 @@ export interface DynamicAutolinkReference {
 }
 
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
-	return !('prefix' in ref) && !('url' in ref);
+	return (!('prefix' in ref) || !('regex' in ref)) && !('url' in ref);
 }
 
 function isCacheable(ref: AutolinkReference | DynamicAutolinkReference): ref is CacheableAutolinkReference {
-	return 'prefix' in ref && ref.prefix != null && 'url' in ref && ref.url != null;
+	return (
+		(('prefix' in ref && ref.prefix != null) || ('regex' in ref && ref.regex != null)) &&
+		'url' in ref &&
+		ref.url != null
+	);
 }
 
 export class Autolinks implements Disposable {
@@ -108,12 +112,13 @@ export class Autolinks implements Disposable {
 			// Since VS Code's configuration objects are live we need to copy them to avoid writing back to the configuration
 			this._references =
 				autolinks
-					?.filter(a => a.prefix && a.url)
+					?.filter(a => (a.prefix || a.regex) && a.url)
 					/**
 					 * Only allow properties defined by {@link AutolinkReference}
 					 */
 					?.map(a => ({
 						prefix: a.prefix,
+						regex: a.regex,
 						url: a.url,
 						title: a.title,
 						alphanumeric: a.alphanumeric,
@@ -288,7 +293,7 @@ export class Autolinks implements Disposable {
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
-		if (!ref.prefix || !ref.url) return false;
+		if ((!ref.prefix && !ref.regex) || !ref.url) return false;
 		if (ref.tokenize !== undefined || ref.tokenize === null) return true;
 
 		try {
@@ -442,22 +447,30 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
-		ref.messageMarkdownRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
+		ref.messageMarkdownRegex = ref.regex
+			? new RegExp(`((${ref.regex}))`, 'g')
+			: new RegExp(
+					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix!)))}(${
+						ref.alphanumeric ? '\\w' : '\\d'
+					}+))\\b`,
+					ref.ignoreCase ? 'gi' : 'g',
+			  );
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
-		ref.messageHtmlRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
+		ref.messageHtmlRegex = ref.regex
+			? new RegExp(`((${ref.regex}))`, 'g')
+			: new RegExp(
+					`(?<=^|\\s|\\(|\\[)(${escapeRegex(encodeHtmlWeak(ref.prefix!))}(${
+						ref.alphanumeric ? '\\w' : '\\d'
+					}+))\\b`,
+					ref.ignoreCase ? 'gi' : 'g',
+			  );
 	} else if (ref.messageRegex == null) {
-		ref.messageRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
-			ref.ignoreCase ? 'gi' : 'g',
-		);
+		ref.messageRegex = ref.regex
+			? new RegExp(`((${ref.regex}))`, 'g')
+			: new RegExp(
+					`(?<=^|\\s|\\(|\\[)(${escapeRegex(ref.prefix!)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+					ref.ignoreCase ? 'gi' : 'g',
+			  );
 	}
 
 	return true;
