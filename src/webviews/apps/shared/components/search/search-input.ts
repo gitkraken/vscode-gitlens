@@ -17,6 +17,7 @@ export type SearchOperators =
 
 export type HelpTypes = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
 
+const searchRegex = /(?:^|(?<= ))(message:|@:|author:|#:|commit:|\?:|file:|~:|change:)/gi;
 const operatorsHelpMap = new Map<SearchOperators, HelpTypes>([
 	['=:', 'message:'],
 	['message:', 'message:'],
@@ -68,26 +69,27 @@ const template = html<SearchInput>`
 				${when(
 					x => x.helpType === 'message:',
 					html<SearchInput>`<span
-						>Use quotes to search for phrases, e.g. message:"Updates dependencies"</span
+						>Message: use quotes to search for phrases, e.g. message:"Updates dependencies"</span
 					>`,
 				)}
 				${when(
 					x => x.helpType === 'author:',
-					html<SearchInput>`<span>Use a user's account, e.g. author:eamodio</span>`,
+					html<SearchInput>`<span>Author: use a user's account, e.g. author:eamodio</span>`,
 				)}
 				${when(
 					x => x.helpType === 'commit:',
-					html<SearchInput>`<span>Use a full or short Commit SHA, e.g. commit:4ce3a</span>`,
+					html<SearchInput>`<span>Commit: use a full or short Commit SHA, e.g. commit:4ce3a</span>`,
 				)}
 				${when(
 					x => x.helpType === 'file:',
 					html<SearchInput>`<span
-						>Use a filename with extension, e.g. file:package.json, or a glob pattern, e.g. file:*graph*
+						>File: use a filename with extension, e.g. file:package.json, or a glob pattern, e.g.
+						file:*graph*
 					</span>`,
 				)}
 				${when(
 					x => x.helpType === 'change:',
-					html<SearchInput>`<span>Regex pattern, e.g. change:update&#92;(param</span>`,
+					html<SearchInput>`<span>Changes: use a regex pattern, e.g. change:update&#92;(param</span>`,
 				)}
 			</div>
 		</div>
@@ -427,22 +429,15 @@ export class SearchInput extends FASTElement {
 	}
 
 	updateHelpText() {
-		if (this.input == null || this.value == '' || !this.value.includes(':')) {
+		if (this.input == null || this.value === '' || !this.value.includes(':') || this.input.selectionStart == null) {
 			this.helpType = undefined;
 			return;
 		}
 
-		const selectionStart = this.input.selectionStart;
-		const selectionEnd = this.input.selectionEnd;
-		if (selectionStart == null) {
-			this.helpType = undefined;
-			return;
-		}
+		const query = getSubstringFromCursor(this.value, this.input.selectionStart, this.input.selectionEnd);
+		const helpOperator = query ? getHelpOperatorsFromQuery(query) : undefined;
 
-		const cursor = selectionEnd && selectionEnd > selectionStart ? selectionEnd : selectionStart;
-		const helpOperator = getHelpOperatorFromValue(this.value, cursor);
-
-		// console.log('updateHelpText operator', helpOperator, 'start', selectionStart, 'end', selectionEnd);
+		// console.log('updateHelpText operator', helpOperator, 'start', this.input.selectionStart, 'end', this.input.selectionEnd);
 		this.helpType = helpOperator;
 	}
 
@@ -522,21 +517,38 @@ export class SearchInput extends FASTElement {
 	}
 }
 
-function getHelpOperatorFromValue(value: string, cursor: number = 0): HelpTypes | undefined {
-	if (cursor === 0) {
+function getSubstringFromCursor(value: string, start: number | null, end: number | null): string | undefined {
+	if (value === '' || !value.includes(':') || start === null) {
 		return;
 	}
 
-	let subValue = value.substring(0, cursor).trim();
-	let keyIndex = subValue.lastIndexOf(':');
-	if (keyIndex === -1) {
+	const len = value.length;
+	const cursor = end === null ? start : Math.max(start, end);
+	if (cursor === len) {
+		return value;
+	}
+
+	let query = cursor === 0 ? '' : value.substring(0, cursor);
+	if (cursor < len - 1) {
+		const next = value.charAt(cursor);
+		if (next !== ' ') {
+			// If the cursor is touching a word, include that word in the query
+			const match = /^[^\s]+/gi.exec(value.substring(cursor));
+			if (match !== null) {
+				query += match[0];
+			}
+		}
+	}
+
+	return query;
+}
+
+function getHelpOperatorsFromQuery(value: string): HelpTypes | undefined {
+	const matches = value.match(searchRegex);
+	if (matches === null) {
 		return;
 	}
 
-	subValue = subValue.substring(0, keyIndex + 1);
-	keyIndex = subValue.lastIndexOf(' ');
-	subValue = subValue.substring(keyIndex + 1);
-
-	const operator = operatorsHelpMap.get(subValue as SearchOperators);
+	const operator = operatorsHelpMap.get(matches.pop() as SearchOperators);
 	return operator;
 }
