@@ -1129,31 +1129,37 @@ export class GraphWebview extends WebviewBase<State> {
 	): Promise<GraphHiddenRefs | undefined> {
 		if (hiddenRefs == null) return undefined;
 
-		if (this.repository == null) {
-			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return undefined;
-		}
+		// This validation has too much performance impact. So we decided to comment those lines
+		// for v13 and have it as tech debt to solve after we launch.
+		// See: https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432
+		// if (this.repository == null) {
+		// 	this.repository = this.container.git.getBestRepositoryOrFirst();
+		// 	if (this.repository == null) return undefined;
+		// }
 
-		const [hiddenBranches, hiddenTags] = await Promise.all([
-			this.repository.getBranches({
-				filter: b => !b.current && hiddenRefs[b.id] != undefined,
-			}),
-			this.repository.getTags({
-				filter: t => hiddenRefs[t.id] != undefined,
-			}),
-		]);
+		// const [hiddenBranches, hiddenTags] = await Promise.all([
+		// 	this.repository.getBranches({
+		// 		filter: b => !b.current && hiddenRefs[b.id] != undefined,
+		// 	}),
+		// 	this.repository.getTags({
+		// 		filter: t => hiddenRefs[t.id] != undefined,
+		// 	}),
+		// ]);
 
-		const filteredHiddenRefsById: GraphHiddenRefs = {};
+		// const filteredHiddenRefsById: GraphHiddenRefs = {};
 
-		for (const hiddenBranch of hiddenBranches.values) {
-			filteredHiddenRefsById[hiddenBranch.id] = hiddenRefs[hiddenBranch.id];
-		}
+		// for (const hiddenBranch of hiddenBranches.values) {
+		// 	filteredHiddenRefsById[hiddenBranch.id] = hiddenRefs[hiddenBranch.id];
+		// }
 
-		for (const hiddenTag of hiddenTags.values) {
-			filteredHiddenRefsById[hiddenTag.id] = hiddenRefs[hiddenTag.id];
-		}
+		// for (const hiddenTag of hiddenTags.values) {
+		// 	filteredHiddenRefsById[hiddenTag.id] = hiddenRefs[hiddenTag.id];
+		// }
 
-		return filteredHiddenRefsById;
+		// return filteredHiddenRefsById;
+
+		// For v13, we return directly the hidden refs without validating them
+		return Promise.resolve(hiddenRefs);
 	}
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
