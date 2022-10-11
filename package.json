@@ -6349,6 +6349,21 @@
 				"icon": "$(gitlens-switch)"
 			},
 			{
+				"command": "gitlens.graph.hideBranch",
+				"title": "Hide Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.hideTag",
+				"title": "Hide Tag...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.hideGroupedBranch",
+				"title": "Hide from Graph...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -8369,6 +8384,18 @@
 				},
 				{
 					"command": "gitlens.graph.switchToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideGroupedBranch",
 					"when": "false"
 				},
 				{
@@ -11001,6 +11028,16 @@
 					"group": "1_gitlens_actions_@10"
 				},
 				{
+					"command": "gitlens.graph.hideBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(grouped|current)\\b)/",
+					"group": "8_gitlens_actions@10"
+				},
+				{
+					"command": "gitlens.graph.hideGroupedBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && webviewItem =~ /gitlens:branch\\+grouped\\b/",
+					"group": "8_gitlens_actions@11"
+				},
+				{
 					"command": "gitlens.graph.openBranchOnRemote",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "2_gitlens_quickopen@1",
@@ -11091,6 +11128,11 @@
 					"command": "gitlens.graph.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:tag\\b/",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.hideTag",
+					"when": "webviewItem =~ /gitlens:tag\\b/",
+					"group": "8_gitlens_actions@10"
 				},
 				{
 					"command": "gitlens.graph.openPullRequestOnRemote",

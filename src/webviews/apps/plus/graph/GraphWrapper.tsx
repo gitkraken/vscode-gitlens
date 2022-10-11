@@ -3,6 +3,7 @@ import type {
 	GraphColumnSetting,
 	GraphContainerProps,
 	GraphPlatform,
+	GraphRefOptData,
 	GraphRow,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
@@ -20,6 +21,7 @@ import type {
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphComponentConfig,
+	GraphHiddenRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	GraphSearchResults,
@@ -33,6 +35,7 @@ import {
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -57,6 +60,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
+	onRefsVisibilityChange?: (refs: GraphHiddenRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
@@ -99,6 +103,8 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'renamed',
 		'resolved',
 		'pull-request',
+		'show',
+		'hide',
 	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
@@ -138,6 +144,7 @@ export function GraphWrapper({
 	onMissingAvatars,
 	onMissingRefsMetadata,
 	onMoreRows,
+	onRefsVisibilityChange,
 	onSearch,
 	onSearchPromise,
 	onSearchOpenInView,
@@ -163,6 +170,7 @@ export function GraphWrapper({
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
+	const [hiddenRefsById, setHiddenRefsById] = useState(state.hiddenRefs);
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
@@ -241,6 +249,9 @@ export function GraphWrapper({
 			case DidChangeSelectionNotificationType:
 				setSelectedRows(state.selectedRows);
 				break;
+			case DidChangeRefsVisibilityNotificationType:
+				setHiddenRefsById(state.hiddenRefs);
+				break;
 			case DidChangeSubscriptionNotificationType:
 				setIsAccessAllowed(state.allowed ?? false);
 				setSubscription(state.subscription);
@@ -258,6 +269,7 @@ export function GraphWrapper({
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
+				setHiddenRefsById(state.hiddenRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setRefsMetadata(state.refsMetadata);
@@ -490,6 +502,10 @@ export function GraphWrapper({
 		}
 	};
 
+	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
+		onRefsVisibilityChange?.(refs, visible);
+	};
+
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
 		const active = rows[0];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
@@ -710,6 +726,7 @@ export function GraphWrapper({
 								// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
 								highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
+								hiddenRefsById={hiddenRefsById}
 								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 								showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
 								isLoadingRows={isLoading}
@@ -717,6 +734,7 @@ export function GraphWrapper({
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
 								onSelectGraphRows={handleSelectGraphRows}
+								onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}
 								onRefsMissingMetadata={handleMissingRefsMetadata}
 								onShowMoreCommits={handleMoreCommits}

@@ -1,3 +1,4 @@
+import type { GraphRefType } from '@gitkraken/gitkraken-components';
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
@@ -170,6 +171,7 @@ export interface WorkspaceStorage {
 			dismissed?: Record<string, boolean>;
 		};
 		columns?: Record<string, StoredGraphColumn>;
+		hiddenRefs?: Record<string, StoredGraphHiddenRef>;
 	};
 	remote: {
 		default?: string;
@@ -221,6 +223,13 @@ export interface StoredBranchComparisons {
 export interface StoredGraphColumn {
 	isHidden?: boolean;
 	width?: number;
+}
+
+export interface StoredGraphHiddenRef {
+	id: string;
+	name: string;
+	type: GraphRefType;
+	avatarUrl?: string;
 }
 
 export interface StoredNamedRef {

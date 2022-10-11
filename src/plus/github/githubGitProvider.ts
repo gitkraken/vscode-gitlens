@@ -1214,6 +1214,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						if (t.sha !== commit.sha) return undefined;
 
 						return {
+							id: t.id,
 							name: t.name,
 							annotated: Boolean(t.message),
 							context: serializeWebviewItemContext<GraphItemRefContext>({
