@@ -1893,23 +1893,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									}),
 								},
 							}),
-							contextGroup: groupedRefs.length > 0
-								? serializeWebviewItemContext<GraphItemRefContext>({
-									webviewItem: `gitlens:branch+grouped${head ? '+current' : ''}${
-										branch?.upstream != null ? '+tracking' : ''
-									}`,
-									webviewItemValue: {
-										type: 'branch',
-										ref: GitReference.create(tip, repoPath, {
-											id: branchId,
-											refType: 'branch',
-											name: tip,
-											remote: false,
-											upstream: branch?.upstream,
-											groupedRefs: groupedRefs,
-										}),
-									},
-								}) : undefined,
+							contextGroup:
+								groupedRefs.length > 0
+									? serializeWebviewItemContext<GraphItemRefContext>({
+											webviewItem: `gitlens:branch+grouped${head ? '+current' : ''}${
+												branch?.upstream != null ? '+tracking' : ''
+											}`,
+											webviewItemValue: {
+												type: 'branch',
+												ref: GitReference.create(tip, repoPath, {
+													id: branchId,
+													refType: 'branch',
+													name: tip,
+													remote: false,
+													upstream: branch?.upstream,
+													groupedRefs: groupedRefs,
+												}),
+											},
+									  })
+									: undefined,
 						});
 					}
 				}

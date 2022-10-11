@@ -87,7 +87,9 @@ export class GraphApp extends App<State> {
 						(name, settings) => this.onColumnChanged(name, settings),
 						250,
 					)}
-					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) => this.onRefsVisibilityChanged(refs, visible)}
+					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) =>
+						this.onRefsVisibilityChanged(refs, visible)
+					}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
 						path => this.onRepositorySelectionChanged(path),
 						250,

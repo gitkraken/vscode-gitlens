@@ -1,4 +1,4 @@
-import type { GraphRefType} from '@gitkraken/gitkraken-components';
+import type { GraphRefType } from '@gitkraken/gitkraken-components';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -1125,7 +1125,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async getHiddenRefsById(
-		hiddenRefs: Record<string, GraphHiddenRef> | undefined
+		hiddenRefs: Record<string, GraphHiddenRef> | undefined,
 	): Promise<GraphHiddenRefs | undefined> {
 		if (hiddenRefs == null) return undefined;
 
@@ -1629,10 +1629,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			const groupedRefs: GitReference[] = (ref as any).groupedRefs ?? [];
-			const refsToHide: GitReference[] = [
-				...groupedRefs,
-				ref
-			];
+			const refsToHide: GitReference[] = [...groupedRefs, ref];
 			const graphHiddenRefs: GraphHiddenRef[] = [];
 
 			for (const refToHide of refsToHide) {

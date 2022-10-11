@@ -144,7 +144,12 @@ export interface GitTagReference {
 	repoPath: string;
 }
 
-export type GitReference = GitBranchReference | GraphGitBranchReference | GitRevisionReference | GitStashReference | GitTagReference;
+export type GitReference =
+	| GitBranchReference
+	| GraphGitBranchReference
+	| GitRevisionReference
+	| GitStashReference
+	| GitTagReference;
 
 export namespace GitReference {
 	export function create(
@@ -179,7 +184,14 @@ export namespace GitReference {
 		ref: string,
 		repoPath: string,
 		options:
-			| { id?: string; refType: 'branch'; name: string; remote: boolean; avatarUrl?: string; groupedRefs?: GitReference[] }
+			| {
+					id?: string;
+					refType: 'branch';
+					name: string;
+					remote: boolean;
+					avatarUrl?: string;
+					groupedRefs?: GitReference[];
+			  }
 			| { refType?: 'revision'; name?: string; message?: string }
 			| { refType: 'stash'; name: string; number: string | undefined; message?: string }
 			| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
