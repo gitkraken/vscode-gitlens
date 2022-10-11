@@ -1,3 +1,4 @@
+import type { GraphRefType} from '@gitkraken/gitkraken-components';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -35,6 +36,7 @@ import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
+import { getBranchNameWithoutRemote } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -86,6 +88,8 @@ import type {
 	GraphColumnName,
 	GraphColumnsSettings,
 	GraphComponentConfig,
+	GraphHiddenRef,
+	GraphHiddenRefs,
 	GraphHostingServiceType,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
@@ -97,6 +101,7 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnParams,
+	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams,
 } from './protocol';
@@ -106,6 +111,7 @@ import {
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -120,6 +126,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
+	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
@@ -316,6 +323,10 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
 
+			registerCommand('gitlens.graph.hideBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
+			registerCommand('gitlens.graph.hideGroupedBranch', this.hideRef, this),
+
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
 			registerCommand('gitlens.graph.showInDetailsView', this.openInDetailsView, this),
@@ -402,6 +413,9 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case UpdateColumnCommandType.method:
 				onIpc(UpdateColumnCommandType, e, params => this.onColumnChanged(params));
+				break;
+			case UpdateRefsVisibilityCommandType.method:
+				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
@@ -538,6 +552,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onColumnChanged(e: UpdateColumnParams) {
 		this.updateColumn(e.name, e.config);
+	}
+
+	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
+		this.updateHiddenRefs(e.refs, e.visible);
 	}
 
 	@debug()
@@ -921,6 +939,19 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async notifyDidChangeRefsVisibility() {
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeRefsVisibilityNotificationType);
+			return false;
+		}
+
+		const hiddenRefs = this.getHiddenRefs();
+		return this.notify(DidChangeRefsVisibilityNotificationType, {
+			hiddenRefs: await this.getHiddenRefsById(hiddenRefs),
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeConfiguration() {
 		if (!this.isReady || !this.visible) {
 			this.addPendingIpcNotification(DidChangeGraphConfigurationNotificationType);
@@ -1025,6 +1056,7 @@ export class GraphWebview extends WebviewBase<State> {
 		[DidChangeColumnsNotificationType, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotificationType, this.notifyDidChangeConfiguration],
 		[DidChangeNotificationType, this.notifyDidChangeState],
+		[DidChangeRefsVisibilityNotificationType, this.notifyDidChangeRefsVisibility],
 		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
@@ -1088,6 +1120,47 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
+	private getHiddenRefs(): Record<string, GraphHiddenRef> | undefined {
+		return this.container.storage.getWorkspace('graph:hiddenRefs');
+	}
+
+	private async getHiddenRefsById(
+		hiddenRefs: Record<string, GraphHiddenRef> | undefined
+	): Promise<GraphHiddenRefs | undefined> {
+		if (hiddenRefs == null) return undefined;
+
+		// This validation has too much performance impact. So we decided to comment those lines
+		// for v13 and have it as tech debt to solve after we launch.
+		// See: https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432
+		// if (this.repository == null) {
+		// 	this.repository = this.container.git.getBestRepositoryOrFirst();
+		// 	if (this.repository == null) return undefined;
+		// }
+
+		// const [hiddenBranches, hiddenTags] = await Promise.all([
+		// 	this.repository.getBranches({
+		// 		filter: b => !b.current && hiddenRefs[b.id] != undefined,
+		// 	}),
+		// 	this.repository.getTags({
+		// 		filter: t => hiddenRefs[t.id] != undefined,
+		// 	}),
+		// ]);
+
+		// const filteredHiddenRefsById: GraphHiddenRefs = {};
+
+		// for (const hiddenBranch of hiddenBranches.values) {
+		// 	filteredHiddenRefsById[hiddenBranch.id] = hiddenRefs[hiddenBranch.id];
+		// }
+
+		// for (const hiddenTag of hiddenTags.values) {
+		// 	filteredHiddenRefsById[hiddenTag.id] = hiddenRefs[hiddenTag.id];
+		// }
+
+		// return filteredHiddenRefsById;
+
+		// For v13, we return directly the hidden refs without validating them
+		return Promise.resolve(hiddenRefs);
+	}
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
 			...defaultGraphColumnsSettings,
@@ -1224,6 +1297,8 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const columns = this.getColumns();
+		const hiddenRefs = this.getHiddenRefs();
+		const hiddenRefsByIds = await this.getHiddenRefsById(hiddenRefs);
 
 		return {
 			previewBanner: this.previewBanner,
@@ -1250,6 +1325,7 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
+			hiddenRefs: hiddenRefsByIds,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
@@ -1260,6 +1336,15 @@ export class GraphWebview extends WebviewBase<State> {
 		columns = updateRecordValue(columns, name, cfg);
 		void this.container.storage.storeWorkspace('graph:columns', columns);
 		void this.notifyDidChangeColumns();
+	}
+
+	private updateHiddenRefs(refs: GraphHiddenRef[], visible: boolean) {
+		let hiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
+		for (const ref of refs) {
+			hiddenRefs = updateRecordValue(hiddenRefs, ref.id, visible ? undefined : ref);
+		}
+		void this.container.storage.storeWorkspace('graph:hiddenRefs', hiddenRefs);
+		void this.notifyDidChangeRefsVisibility();
 	}
 
 	private resetRefsMetadata(): null | undefined {
@@ -1534,6 +1619,44 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.switchTo(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private hideRef(item: GraphItemContext) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			const groupedRefs: GitReference[] = (ref as any).groupedRefs ?? [];
+			const refsToHide: GitReference[] = [
+				...groupedRefs,
+				ref
+			];
+			const graphHiddenRefs: GraphHiddenRef[] = [];
+
+			for (const refToHide of refsToHide) {
+				if (refToHide?.id) {
+					let isRemoteBranch = false;
+					let graphRefType: GraphRefType = 'tag';
+
+					if (refToHide.refType === 'branch') {
+						isRemoteBranch = refToHide.remote;
+						graphRefType = isRemoteBranch ? 'remote' : 'head';
+					}
+
+					graphHiddenRefs.push({
+						id: refToHide.id,
+						name: isRemoteBranch ? getBranchNameWithoutRemote(refToHide.name) : refToHide.name,
+						type: graphRefType,
+						avatarUrl: (refToHide as any).avatarUrl,
+					});
+				}
+			}
+
+			if (graphHiddenRefs.length > 0) {
+				this.updateHiddenRefs(graphHiddenRefs, false);
+			}
 		}
 
 		return Promise.resolve();

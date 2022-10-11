@@ -9,6 +9,7 @@ import type {
 	GraphAvatars,
 	GraphColumnConfig,
 	GraphColumnName,
+	GraphHiddenRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	InternalNotificationType,
@@ -21,6 +22,7 @@ import {
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
+	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
@@ -35,6 +37,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnCommandType,
+	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
@@ -84,6 +87,7 @@ export class GraphApp extends App<State> {
 						(name, settings) => this.onColumnChanged(name, settings),
 						250,
 					)}
+					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) => this.onRefsVisibilityChanged(refs, visible)}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
 						path => this.onRepositorySelectionChanged(path),
 						250,
@@ -142,6 +146,13 @@ export class GraphApp extends App<State> {
 						this.state.context.header = undefined;
 					}
 
+					this.setState(this.state, type);
+				});
+				break;
+
+			case DidChangeRefsVisibilityNotificationType.method:
+				onIpc(DidChangeRefsVisibilityNotificationType, msg, (params, type) => {
+					this.state.hiddenRefs = params.hiddenRefs;
 					this.setState(this.state, type);
 				});
 				break;
@@ -367,6 +378,13 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateColumnCommandType, {
 			name: name,
 			config: settings,
+		});
+	}
+
+	private onRefsVisibilityChanged(refs: GraphHiddenRef[], visible: boolean) {
+		this.sendCommand(UpdateRefsVisibilityCommandType, {
+			refs: refs,
+			visible: visible,
 		});
 	}
 
