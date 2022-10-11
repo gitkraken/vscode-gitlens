@@ -101,10 +101,11 @@ import type {
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
+	SwitchToRefParams,
 	UpdateColumnParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams,
+	UpdateSelectionParams
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -126,6 +127,7 @@ import {
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
+	SwitchToRefCommandType,
 	UpdateColumnCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -420,6 +422,9 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
+			case SwitchToRefCommandType.method:
+				onIpc(SwitchToRefCommandType, e, params => this.onSwitchToRef(params));
+				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
 				break;
@@ -559,6 +564,22 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
 		this.updateHiddenRefs(e.refs, e.visible);
+	}
+
+	private onSwitchToRef(e: SwitchToRefParams) {
+		const refContext: string | undefined = (e.ref as any).context;
+
+		if (refContext) {
+			const item: GraphItemContext = JSON.parse(refContext);
+			const { ref } = (item.webviewItemValue as any);
+
+			if ((e.ref as any).isCurrentHead) {
+				return GitActions.switchTo(ref.repoPath);
+			}
+			return GitActions.switchTo(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
 	}
 
 	@debug()

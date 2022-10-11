@@ -3,7 +3,9 @@ import type {
 	GraphColumnSetting,
 	GraphContainerProps,
 	GraphPlatform,
-	GraphRefOptData,
+	GraphRef,
+	GraphRefGroup,
+    GraphRefOptData,
 	GraphRow,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
@@ -57,6 +59,7 @@ export interface GraphWrapperProps {
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
+	onSwitchToRef?: (ref: GraphRef) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
@@ -140,6 +143,7 @@ export function GraphWrapper({
 	state,
 	onSelectRepository,
 	onColumnChange,
+	onSwitchToRef,
 	onEnsureRowPromise,
 	onMissingAvatars,
 	onMissingRefsMetadata,
@@ -506,6 +510,12 @@ export function GraphWrapper({
 		onRefsVisibilityChange?.(refs, visible);
 	};
 
+	const handleOnDoubleClickRef = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, refGroup: GraphRefGroup) => {
+		if (refGroup.length > 0) {
+			onSwitchToRef?.(refGroup[0]);
+		}
+	};
+
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
 		const active = rows[0];
 		const activeKey = active != null ? `${active.sha}|${active.date}` : undefined;
@@ -733,6 +743,7 @@ export function GraphWrapper({
 								isSelectedBySha={selectedRows}
 								nonce={nonce}
 								onColumnResized={handleOnColumnResized}
+								onDoubleClickGraphRef={handleOnDoubleClickRef}
 								onSelectGraphRows={handleSelectGraphRows}
 								onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 								onEmailsMissingAvatarUrls={handleMissingAvatars}

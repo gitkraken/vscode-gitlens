@@ -1,5 +1,5 @@
 /*global document window*/
-import type { CssVariables, GraphRow } from '@gitkraken/gitkraken-components';
+import type { CssVariables, GraphRef, GraphRow } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from '../../../../git/models/graph';
@@ -14,7 +14,7 @@ import type {
 	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback,
+	UpdateStateCallback
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -36,6 +36,7 @@ import {
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
+	SwitchToRefCommandType,
 	UpdateColumnCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
@@ -94,6 +95,7 @@ export class GraphApp extends App<State> {
 						path => this.onRepositorySelectionChanged(path),
 						250,
 					)}
+					onSwitchToRef={(ref) => this.onSwitchToRef(ref)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
@@ -387,6 +389,12 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateRefsVisibilityCommandType, {
 			refs: refs,
 			visible: visible,
+		});
+	}
+
+	private onSwitchToRef(ref: GraphRef) {
+		this.sendCommand(SwitchToRefCommandType, {
+			ref: ref,
 		});
 	}
 
