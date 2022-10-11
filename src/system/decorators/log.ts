@@ -188,7 +188,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					logFn(`${prefix}${enter}`);
 				}
 			} else {
-				let loggableParams = '';
+				loggableParams = '';
 
 				let paramOverride;
 				let paramIndex = -1;
@@ -226,8 +226,11 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 				if (!singleLine) {
 					logFn(
-						`${prefix}${enter}`,
-						!debug && !Logger.enabled(LogLevel.Debug) && !Logger.isDebugging ? emptyStr : loggableParams,
+						`${prefix}${enter}${
+							loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+								? `(${loggableParams})`
+								: emptyStr
+						}`,
 					);
 				}
 			}
@@ -240,9 +243,8 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					if (singleLine) {
 						Logger.error(
 							ex,
-							`${prefix}${enter}`,
+							`${prefix}${enter}${loggableParams ? `(${loggableParams})` : emptyStr}`,
 							`failed${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
-							loggableParams,
 						);
 					} else {
 						Logger.error(ex, prefix, `failed${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`);
@@ -291,13 +293,20 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 					if (singleLine) {
 						exitLogFn(
-							`${prefix}${enter} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
-							!debug && !Logger.enabled(LogLevel.Debug) && !Logger.isDebugging
-								? emptyStr
-								: loggableParams,
+							`${prefix}${enter}${
+								loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+									? `(${loggableParams})`
+									: emptyStr
+							} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
 						);
 					} else {
-						exitLogFn(`${prefix} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`);
+						exitLogFn(
+							`${prefix}${
+								loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+									? `(${loggableParams})`
+									: emptyStr
+							} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
+						);
 					}
 
 					if (scoped) {
