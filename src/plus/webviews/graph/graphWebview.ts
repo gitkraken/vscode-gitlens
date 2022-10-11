@@ -483,7 +483,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.dateStyle') ||
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
-			configuration.changed(e, 'graph.showRemoteNamesOnRefs')
+			configuration.changed(e, 'graph.showRemoteNames')
 		) {
 			void this.notifyDidChangeConfiguration();
 		}
@@ -1201,7 +1201,7 @@ export class GraphWebview extends WebviewBase<State> {
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
-			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNamesOnRefs'),
+			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;

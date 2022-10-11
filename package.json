@@ -2135,7 +2135,7 @@
 						"scope": "window",
 						"order": 13
 					},
-					"gitlens.graph.showRemoteNamesOnRefs": {
+					"gitlens.graph.showRemoteNames": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to show remote names on remote branches in the _Commit Graph_",
