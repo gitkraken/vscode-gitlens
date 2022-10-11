@@ -36,6 +36,8 @@ import '../shared/components/progress';
 import '../shared/components/list/list-container';
 import '../shared/components/list/list-item';
 import '../shared/components/list/file-change-list-item';
+import '../shared/components/actions/action-item';
+import '../shared/components/actions/action-nav';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -126,13 +128,13 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	private onTreeSetting(e: MouseEvent) {
 		const isTree = (e.target as HTMLElement)?.getAttribute('data-switch-value') === 'list-tree';
-		if (isTree === this.state.preferences?.filesAsTree) return;
+		if (!isTree === this.state.preferences?.filesAsTree) return;
 
-		this.state.preferences = { ...this.state.preferences, filesAsTree: isTree };
+		this.state.preferences = { ...this.state.preferences, filesAsTree: !isTree };
 
 		this.renderFiles(this.state as CommitState);
 
-		this.sendCommand(PreferencesCommandType, { filesAsTree: isTree });
+		this.sendCommand(PreferencesCommandType, { filesAsTree: !isTree });
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
@@ -330,14 +332,17 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const $el = document.querySelector<HTMLElement>('[data-region="files"]');
 		if ($el == null) return;
 
+		const isTree = state.preferences?.filesAsTree === true;
+		const $toggle = document.querySelector('[data-switch-value]');
+		if ($toggle) {
+			$toggle.setAttribute('data-switch-value', isTree ? 'list-tree' : 'list');
+			$toggle.setAttribute('icon', isTree ? 'list-tree' : 'list-flat');
+		}
+
 		if (!state.selected.files?.length) {
 			$el.innerHTML = '';
 			return;
 		}
-
-		const isTree = state.preferences?.filesAsTree === true;
-		document.querySelector('[data-switch-value="list"]')?.classList.toggle('is-selected', !isTree);
-		document.querySelector('[data-switch-value="list-tree"]')?.classList.toggle('is-selected', isTree);
 
 		const stashAttr = state.selected.isStash
 			? 'stash '

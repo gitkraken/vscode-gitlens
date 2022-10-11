@@ -55,6 +55,10 @@ export class ListContainer extends FASTElement {
 		};
 	}
 
+	override disconnectedCallback() {
+		this.itemNodesDisposer?.();
+	}
+
 	handleBeforeSelected(e: Event) {
 		if (!e.target) return;
 
