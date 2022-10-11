@@ -443,7 +443,7 @@ export class SearchInput extends FASTElement {
 
 	debouncedUpdateHelpText = debounce(this.updateHelpText.bind(this), 200);
 
-	handleInputClick(e: MouseEvent) {
+	handleInputClick(_e: MouseEvent) {
 		this.updateHelpText();
 	}
 
@@ -469,7 +469,7 @@ export class SearchInput extends FASTElement {
 		this.emitSearch();
 	}
 
-	handleKeyup(e: KeyboardEvent) {
+	handleKeyup(_e: KeyboardEvent) {
 		this.updateHelpText();
 	}
 
