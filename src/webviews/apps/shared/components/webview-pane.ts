@@ -1,6 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import './codicon';
+import './actions/action-nav';
 
 export interface WebviewPaneExpandedChangeEventDetail {
 	expanded: boolean;
@@ -81,6 +82,11 @@ export class WebviewPane extends LitElement {
 		:host([collapsable][expanded='false']) .content {
 			display: none;
 		}
+
+		slot[name='actions']::slotted(*) {
+			flex: none;
+			margin-left: auto;
+		}
 	`;
 
 	@property({ type: Boolean, reflect: true })
@@ -116,6 +122,7 @@ export class WebviewPane extends LitElement {
 		return html`
 			<header class="header">
 				${this.renderTitle()}
+				<slot name="actions"></slot>
 				<progress-indicator active="${this.loading}"></progress-indicator>
 			</header>
 			<div id="content" role="region" class="content">

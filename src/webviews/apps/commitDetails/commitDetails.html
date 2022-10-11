@@ -133,17 +133,10 @@
 				<webview-pane class="commit-details__files" collapsable expanded>
 					<span slot="title">Files changed </span>
 					<span slot="subtitle" data-region="stats"></span>
+					<action-nav slot="actions">
+						<action-item data-switch-value="list-tree" label="Show tree" icon="list-tree"></action-item>
+					</action-nav>
 
-					<div style="text-align: center">
-						<div class="switch">
-							<button type="button" class="switch__option" data-switch-value="list">
-								<code-icon icon="list-flat"></code-icon> Path
-							</button>
-							<button type="button" class="switch__option" data-switch-value="list-tree">
-								<code-icon icon="list-tree"></code-icon> Tree
-							</button>
-						</div>
-					</div>
 					<ul class="change-list" data-region="files">
 						<li class="change-list__item commit-details__item-skeleton">
 							<skeleton-loader></skeleton-loader>
