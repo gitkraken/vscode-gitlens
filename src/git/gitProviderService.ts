@@ -960,7 +960,7 @@ export class GitProviderService implements Disposable {
 		return provider.checkout(path, ref, options);
 	}
 
-	@log()
+	@log({ singleLine: true })
 	resetCaches(
 		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void {

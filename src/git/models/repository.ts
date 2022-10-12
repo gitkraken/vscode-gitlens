@@ -819,6 +819,7 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('reset', ...args);
 	}
 
+	@log({ singleLine: true })
 	resetCaches(...affects: ('branches' | 'remotes')[]) {
 		if (affects.length === 0 || affects.includes('branches')) {
 			this._branch = undefined;

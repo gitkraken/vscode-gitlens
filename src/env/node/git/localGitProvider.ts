@@ -905,7 +905,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	@log()
+	@log({ singleLine: true })
 	resetCaches(...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]) {
 		if (affects.length === 0 || affects.includes('branches')) {
 			this._branchesCache.clear();
