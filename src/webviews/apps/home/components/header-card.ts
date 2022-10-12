@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, ref, volatile, when } from '@microsoft/fast-element';
 import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
@@ -76,7 +76,7 @@ const template = html<HeaderCard>`
 		aria-valuenow="${x => x.progressNow}"
 		aria-label="${x => x.progressNow} of ${x => x.progressMax} steps completed"
 	>
-		<div class="progress__indicator" style="width: ${x => x.progress};"></div>
+		<div ${ref('progressNode')} class="progress__indicator poo"></div>
 	</div>
 `;
 
@@ -197,6 +197,17 @@ export class HeaderCard extends FASTElement {
 	@attr
 	plan = '';
 
+	progressNode!: HTMLElement;
+
+	override attributeChangedCallback(name: string, oldValue: string, newValue: string): void {
+		super.attributeChangedCallback(name, oldValue, newValue);
+
+		if (oldValue === newValue || this.progressNode == null) {
+			return;
+		}
+		this.updateProgressWidth();
+	}
+
 	get daysRemaining() {
 		if (this.days < 1) {
 			return '<1 day';
@@ -234,5 +245,9 @@ export class HeaderCard extends FASTElement {
 			default:
 				return this.plan;
 		}
+	}
+
+	updateProgressWidth() {
+		this.progressNode.style.width = this.progress;
 	}
 }

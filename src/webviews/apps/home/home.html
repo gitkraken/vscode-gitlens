@@ -134,7 +134,7 @@
 							<rect x="42.5" y=".5" width="40" height="75" rx="16.5" stroke="url(#a)" />
 							<mask
 								id="b"
-								style="mask-type: alpha"
+								class="svg-mask-alpha"
 								maskUnits="userSpaceOnUse"
 								x="45"
 								y="3"
@@ -148,7 +148,7 @@
 									height="70"
 									rx="14"
 									fill="#333"
-									style="fill: var(--vscode-activityBar-background)"
+									class="svg-activity-bar-bg"
 								/>
 							</mask>
 							<g mask="url(#b)">
@@ -159,15 +159,11 @@
 									height="70"
 									rx="14"
 									fill="#333"
-									style="fill: var(--vscode-activityBar-background)"
+									class="svg-activity-bar-bg"
 								/>
-								<path
-									fill="#fff"
-									d="M45 38h1v27h-1z"
-									style="fill: var(--vscode-activityBar-activeBorder)"
-								/>
+								<path fill="#fff" d="M45 38h1v27h-1z" class="svg-activity-bar-active" />
 							</g>
-							<g clip-path="url(#c)" fill="#fff" style="fill: var(--vscode-activityBar-foreground)">
+							<g clip-path="url(#c)" fill="#fff" class="svg-activity-bar-fg">
 								<path
 									d="m64.078 54.996-2.138-2.138.752-.751 2.137 2.138-.751.751ZM60.73 58.079V52.92h1.062v5.158h-1.063Z"
 								/>
@@ -182,35 +178,25 @@
 								<path
 									d="M68.755 17.166a2.804 2.804 0 0 0-5.406-1.053 2.803 2.803 0 0 0 1.802 3.724 2.241 2.241 0 0 1-2.001 1.253h-2.243a3.342 3.342 0 0 0-2.241.873V16.55a2.803 2.803 0 1 0-1.121 0v6.838a2.832 2.832 0 1 0 1.362.074 2.242 2.242 0 0 1 2.001-1.25h2.242a3.362 3.362 0 0 0 3.168-2.28 2.803 2.803 0 0 0 2.437-2.765Zm-12.331-3.363a1.682 1.682 0 1 1 3.363 0 1.682 1.682 0 0 1-3.363 0Zm3.363 12.331a1.682 1.682 0 1 1-3.364 0 1.682 1.682 0 0 1 3.364 0Zm6.166-7.286a1.682 1.682 0 1 1 0-3.364 1.682 1.682 0 0 1 0 3.364Z"
 									fill="#858585"
-									style="fill: var(--vscode-activityBar-inactiveForeground)"
+									class="svg-activity-bar-inactive"
 								/>
 							</g>
 							<path
 								d="M.333 54a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 54l-5 2.887v-5.774L34 54Zm-31-.5h26.5v1H3v-1Z"
 								fill="#fff"
-								style="fill: var(--vscode-foreground)"
+								class="svg-fg"
 							/>
 							<path
 								d="M.333 22a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 22l-5 2.887v-5.774L34 22Zm-31-.5h26.5v1H3v-1Z"
 								fill="#007FD5"
-								style="fill: var(--vscode-textLink-foreground)"
+								class="svg-link"
 							/>
 							<defs>
 								<clipPath id="c">
-									<path
-										fill="#fff"
-										transform="translate(54 47)"
-										d="M0 0h17v17H0z"
-										style="fill: var(--vscode-textLink-foreground)"
-									/>
+									<path fill="#fff" transform="translate(54 47)" d="M0 0h17v17H0z" class="svg-link" />
 								</clipPath>
 								<clipPath id="d">
-									<path
-										fill="#fff"
-										transform="translate(53 11)"
-										d="M0 0h18v18H0z"
-										style="fill: var(--vscode-textLink-foreground)"
-									/>
+									<path fill="#fff" transform="translate(53 11)" d="M0 0h18v18H0z" class="svg-link" />
 								</clipPath>
 								<linearGradient
 									id="a"
@@ -220,19 +206,9 @@
 									y2="76"
 									gradientUnits="userSpaceOnUse"
 								>
-									<stop stop-color="#333" style="stop-color: var(--vscode-activityBar-background)" />
-									<stop
-										offset="1"
-										stop-color="#333"
-										stop-opacity="0"
-										style="stop-color: var(--vscode-activityBar-background)"
-									/>
-									<stop
-										offset="1"
-										stop-color="#333"
-										stop-opacity="0"
-										style="stop-color: var(--vscode-activityBar-background)"
-									/>
+									<stop stop-color="#333" class="svg-activity-bar-stop" />
+									<stop offset="1" stop-color="#333" stop-opacity="0" class="svg-activity-bar-stop" />
+									<stop offset="1" stop-color="#333" stop-opacity="0" class="svg-activity-bar-stop" />
 								</linearGradient>
 							</defs>
 						</svg>
@@ -330,7 +306,7 @@
 					id="restore-welcome"
 					appearance="secondary"
 					data-action="command:gitlens.home.restoreWelcome"
-					>Restore Welcome</vscode-button
+					>Restore</vscode-button
 				>
 			</div>
 		</main>
