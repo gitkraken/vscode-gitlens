@@ -4,6 +4,7 @@ import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
+import { debug } from './system/decorators/log';
 import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
 import type { CompletedActions } from './webviews/home/protocol';
 
@@ -48,6 +49,7 @@ export class Storage implements Disposable {
 		key: T,
 		defaultValue: NonNullable<GlobalStoragePathValue<T>>,
 	): NonNullable<GlobalStoragePathValue<T>>;
+	@debug({ logThreshold: 50 })
 	get<T extends GlobalStoragePath>(
 		key: T,
 		defaultValue?: GlobalStoragePathValue<T>,
@@ -55,24 +57,29 @@ export class Storage implements Disposable {
 		return this.context.globalState.get(`gitlens:${key}`, defaultValue);
 	}
 
+	@debug({ logThreshold: 250 })
 	async delete<T extends GlobalStoragePath>(key: T): Promise<void> {
 		await this.context.globalState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
+	@debug({ args: { 1: false }, logThreshold: 250 })
 	async store<T extends GlobalStoragePath>(key: T, value: GlobalStoragePathValue<T>): Promise<void> {
 		await this.context.globalState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async getSecret(key: SecretKeys): Promise<string | undefined> {
 		return this.context.secrets.get(key);
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async deleteSecret(key: SecretKeys): Promise<void> {
 		return this.context.secrets.delete(key);
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async storeSecret(key: SecretKeys, value: string): Promise<void> {
 		return this.context.secrets.store(key, value);
 	}
@@ -82,6 +89,7 @@ export class Storage implements Disposable {
 		key: T,
 		defaultValue: NonNullable<WorkspaceStoragePathValue<T>>,
 	): NonNullable<WorkspaceStoragePathValue<T>>;
+	@debug({ logThreshold: 25 })
 	getWorkspace<T extends WorkspaceStoragePath>(
 		key: T,
 		defaultValue?: WorkspaceStoragePathValue<T>,
@@ -89,11 +97,13 @@ export class Storage implements Disposable {
 		return this.context.workspaceState.get(`gitlens:${key}`, defaultValue);
 	}
 
+	@debug({ logThreshold: 250 })
 	async deleteWorkspace<T extends WorkspaceStoragePath>(key: T): Promise<void> {
 		await this.context.workspaceState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
+	@debug({ args: { 1: false }, logThreshold: 250 })
 	async storeWorkspace<T extends WorkspaceStoragePath>(key: T, value: WorkspaceStoragePathValue<T>): Promise<void> {
 		await this.context.workspaceState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: true });

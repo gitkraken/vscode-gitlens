@@ -67,6 +67,7 @@ interface LogOptions<T extends (...arg: any) => any> {
 	exit?(result: PromiseType<ReturnType<T>>): string;
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
 	sanitize?(key: string, value: any): any;
+	logThreshold?: number;
 	scoped?: boolean;
 	singleLine?: boolean;
 	timed?: boolean;
@@ -93,6 +94,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 	let exitFn: LogOptions<T>['exit'] | undefined;
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
 	let sanitizeFn: LogOptions<T>['sanitize'] | undefined;
+	let logThreshold = 0;
 	let scoped = false;
 	let singleLine = false;
 	let timed = true;
@@ -104,10 +106,16 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 			exit: exitFn,
 			prefix: prefixFn,
 			sanitize: sanitizeFn,
+			logThreshold = 0,
 			scoped = true,
 			singleLine = false,
 			timed = true,
 		} = options);
+	}
+
+	if (logThreshold > 0) {
+		singleLine = true;
+		timed = true;
 	}
 
 	if (timed) {
@@ -264,10 +272,11 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				}
 
 				const logResult = (r: any) => {
+					let duration: number | undefined;
 					let exitLogFn;
 					let timing;
 					if (start != null) {
-						const duration = getDurationMilliseconds(start);
+						duration = getDurationMilliseconds(start);
 						if (duration > Logger.slowCallWarningThreshold) {
 							exitLogFn = warnFn;
 							timing = ` \u2022 ${duration} ms (slow)`;
@@ -292,13 +301,15 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					}
 
 					if (singleLine) {
-						exitLogFn(
-							`${prefix}${enter}${
-								loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
-									? `(${loggableParams})`
-									: emptyStr
-							} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
-						);
+						if (logThreshold === 0 || duration! > logThreshold) {
+							exitLogFn(
+								`${prefix}${enter}${
+									loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+										? `(${loggableParams})`
+										: emptyStr
+								} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
+							);
+						}
 					} else {
 						exitLogFn(
 							`${prefix}${

@@ -365,7 +365,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {}
 
-	@log()
+	@log({ singleLine: true })
 	resetCaches(
 		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
 	): void {
