@@ -21,6 +21,8 @@ import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
+export type { GraphRefType } from '@gitkraken/gitkraken-components';
+
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
