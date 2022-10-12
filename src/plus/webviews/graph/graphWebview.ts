@@ -945,9 +945,8 @@ export class GraphWebview extends WebviewBase<State> {
 			return false;
 		}
 
-		const hiddenRefs = this.getHiddenRefs();
 		return this.notify(DidChangeRefsVisibilityNotificationType, {
-			hiddenRefs: await this.getHiddenRefsById(hiddenRefs),
+			hiddenRefs: this.getHiddenRefs(),
 		});
 	}
 
@@ -1121,13 +1120,21 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private getHiddenRefs(): Record<string, GraphHiddenRef> | undefined {
-		return this.container.storage.getWorkspace('graph:hiddenRefs');
+		return this.filterHiddenRefs(this.container.storage.getWorkspace('graph:hiddenRefs'));
 	}
 
-	private async getHiddenRefsById(
-		hiddenRefs: Record<string, GraphHiddenRef> | undefined,
-	): Promise<GraphHiddenRefs | undefined> {
-		if (hiddenRefs == null) return undefined;
+	private filterHiddenRefs(hiddenRefs: Record<string, GraphHiddenRef> | undefined): GraphHiddenRefs | undefined {
+		if (hiddenRefs == null || this.repository == null) return undefined;
+
+		const filteredRefs: GraphHiddenRefs = {};
+
+		for (const id in hiddenRefs) {
+			if (getRepoPathFromBranchOrTagId(id) === this.repository.path) {
+				filteredRefs[id] = hiddenRefs[id];
+			}
+		}
+
+		return filteredRefs;
 
 		// This validation has too much performance impact. So we decided to comment those lines
 		// for v13 and have it as tech debt to solve after we launch.
@@ -1159,8 +1166,9 @@ export class GraphWebview extends WebviewBase<State> {
 		// return filteredHiddenRefsById;
 
 		// For v13, we return directly the hidden refs without validating them
-		return Promise.resolve(hiddenRefs);
+		return hiddenRefs;
 	}
+
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
 		const columnsSettings: GraphColumnsSettings = {
 			...defaultGraphColumnsSettings,
@@ -1297,8 +1305,6 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const columns = this.getColumns();
-		const hiddenRefs = this.getHiddenRefs();
-		const hiddenRefsByIds = await this.getHiddenRefsById(hiddenRefs);
 
 		return {
 			previewBanner: this.previewBanner,
@@ -1325,7 +1331,7 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
-			hiddenRefs: hiddenRefsByIds,
+			hiddenRefs: this.getHiddenRefs(),
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
@@ -1980,4 +1986,8 @@ function isGraphItemRefContext(item: unknown, refType?: GitReference['refType'])
 		'ref' in item.webviewItemValue &&
 		(refType == null || item.webviewItemValue.ref.refType === refType)
 	);
+}
+
+function getRepoPathFromBranchOrTagId(id: string): string {
+	return id.split('|', 1)[0];
 }
