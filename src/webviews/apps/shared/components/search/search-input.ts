@@ -431,7 +431,7 @@ export class SearchInput extends FASTElement {
 
 	handleClear(_e: Event) {
 		this.value = '';
-		this.emitSearch();
+		this.debouncedEmitSearch();
 	}
 
 	updateHelpText() {
@@ -450,33 +450,33 @@ export class SearchInput extends FASTElement {
 	debouncedUpdateHelpText = debounce(this.updateHelpText.bind(this), 200);
 
 	handleInputClick(_e: MouseEvent) {
-		this.updateHelpText();
+		this.debouncedUpdateHelpText();
 	}
 
 	handleInput(e: InputEvent) {
 		const value = (e.target as HTMLInputElement)?.value;
 		this.value = value;
-		this.updateHelpText();
-		this.emitSearch();
+		this.debouncedUpdateHelpText();
+		this.debouncedEmitSearch();
 	}
 
 	handleMatchAll(_e: Event) {
 		this.matchAll = !this.matchAll;
-		this.emitSearch();
+		this.debouncedEmitSearch();
 	}
 
 	handleMatchCase(_e: Event) {
 		this.matchCase = !this.matchCase;
-		this.emitSearch();
+		this.debouncedEmitSearch();
 	}
 
 	handleMatchRegex(_e: Event) {
 		this.matchRegex = !this.matchRegex;
-		this.emitSearch();
+		this.debouncedEmitSearch();
 	}
 
 	handleKeyup(_e: KeyboardEvent) {
-		this.updateHelpText();
+		this.debouncedUpdateHelpText();
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
@@ -503,7 +503,7 @@ export class SearchInput extends FASTElement {
 	handleInsertToken(token: string) {
 		this.value += `${this.value.length > 0 ? ' ' : ''}${token}`;
 		window.requestAnimationFrame(() => {
-			this.updateHelpText();
+			this.debouncedUpdateHelpText();
 			this.input.focus();
 		});
 	}
@@ -517,6 +517,7 @@ export class SearchInput extends FASTElement {
 		};
 		this.$emit('change', search);
 	}
+	private debouncedEmitSearch = debounce(this.emitSearch.bind(this), 250);
 
 	setCustomValidity(errorMessage: string = '') {
 		this.errorMessage = errorMessage;
