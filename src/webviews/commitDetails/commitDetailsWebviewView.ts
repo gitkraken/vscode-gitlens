@@ -90,10 +90,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._context = {
 			pinned: false,
 			commit: undefined,
-			preferences: {
-				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
-				filesAsTree: this.container.storage.getWorkspace('views:commitDetails:filesAsTree'),
-			},
+			preferences: undefined,
 			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
@@ -150,6 +147,15 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	protected override onInitializing(): Disposable[] | undefined {
+		if (this._context.preferences == null) {
+			this.updatePendingContext({
+				preferences: {
+					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
+					filesAsTree: this.container.storage.getWorkspace('views:commitDetails:filesAsTree'),
+				},
+			});
+		}
+
 		if (this._context.commit == null) {
 			const commit = this.getBestCommitOrStash();
 			if (commit != null) {
