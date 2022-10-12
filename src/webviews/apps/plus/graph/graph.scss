@@ -498,7 +498,7 @@ a {
 		flex-direction: column;
 		height: calc(100vh - 2px); // shoot me -- the 2px is to stop the vertical scrollbar from showing up
 		gap: 0;
-		padding: 0 2px;
+		padding: 0.2rem 0.2rem 0;
 	}
 
 	&__banners {
@@ -600,6 +600,28 @@ a {
 			z-index: 1000;
 		}
 	}
+
+	.button {
+		background-color: var(--color-graph-actionbar-background);
+		color: var(--text-disabled, hsla(0deg, 0%, 100%, 0.4));
+		border-radius: 3px;
+
+		&:hover {
+			background-color: var(--vscode-toolbar-hoverBackground);
+			color: var(--color-foreground);
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&.active,
+		&.active:hover {
+			background-color: var(--vscode-toolbar-activeBackground);
+			color: var(--color-foreground);
+		}
+	}
 }
 
 .graph-container {
@@ -685,4 +707,60 @@ a {
 	position: absolute;
 	white-space: nowrap;
 	width: 1px;
+}
+
+#opts-popover {
+	font-size: var(--editor-font-size);
+	background-color: var(--vscode-menu-background);
+	border: 1px solid var(--vscode-menu-border);
+	padding: 0;
+
+	ul > li {
+		padding: 0 0.6rem;
+		height: 2.2rem;
+		line-height: 2.2rem;
+		color: var(--vscode-menu-foreground);
+		background-color: var(--vscode-menu-background);
+
+		&:hover {
+			color: var(--vscode-menu-selectionForeground);
+			background-color: var(--vscode-menu-selectionBackground);
+		}
+	}
+}
+
+.tooltip.in {
+	opacity: 1;
+}
+.tooltip.top .tooltip-arrow {
+	border-top-color: var(--color-hover-border);
+}
+.tooltip.top-left .tooltip-arrow {
+	border-top-color: var(--color-hover-border);
+}
+.tooltip.top-right .tooltip-arrow {
+	border-top-color: var(--color-hover-border);
+}
+.tooltip.right .tooltip-arrow {
+	border-right-color: var(--color-hover-border);
+}
+.tooltip.left .tooltip-arrow {
+	border-left-color: var(--color-hover-border);
+}
+.tooltip.bottom .tooltip-arrow {
+	border-bottom-color: var(--color-hover-border);
+}
+.tooltip.bottom-left .tooltip-arrow {
+	border-bottom-color: var(--color-hover-border);
+}
+.tooltip.bottom-right .tooltip-arrow {
+	border-bottom-color: var(--color-hover-border);
+}
+.tooltip-inner {
+	font-size: var(--editor-font-size);
+	padding: 0.3rem 0.6rem;
+	color: var(--color-hover-foreground);
+	background-color: var(--color-hover-background);
+	border: 0.1rem solid var(--color-hover-border);
+	border-radius: 0;
 }
