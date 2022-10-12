@@ -36,7 +36,7 @@ const template = html<SearchBox>`<template>
 	></search-input>
 	<div class="search-navigation" aria-label="Search navigation">
 		<span class="count${x => (x.total < 1 && x.valid && x.resultsLoaded ? ' error' : '')}">
-			${when(x => x.searching, html<SearchBox>`Searching...`)}
+			${when(x => x.searching, html<SearchBox>`<code-icon icon="loading" modifier="spin"></code-icon>`)}
 			${when(x => !x.searching && x.total < 1, html<SearchBox>`${x => x.formattedLabel}`)}
 			${when(
 				x => !x.searching && x.total > 0,
@@ -109,7 +109,7 @@ const styles = css`
 		outline: 0;
 	}
 	progress-indicator {
-		bottom: -4px;
+		top: -4px;
 	}
 
 	.search-navigation {

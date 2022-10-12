@@ -1504,10 +1504,32 @@ export class CodeIcon extends LitElement {
 			font-family: 'glicons';
 			content: '\\f102';
 		}
+
+		@keyframes codicon-spin {
+			100% {
+				transform: rotate(360deg);
+			}
+		}
+
+		:host([modifier='spin']) {
+			/* Use steps to throttle FPS to reduce CPU usage */
+			animation: codicon-spin 1.5s steps(30) infinite;
+		}
+		:host([icon='loading'][modifier='spin']) {
+			/* Use steps to throttle FPS to reduce CPU usage */
+			animation: codicon-spin 1.5s steps(30) infinite;
+
+			/* custom speed & easing for loading icon */
+			animation-duration: 1s !important;
+			animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+		}
 	`;
 
 	@property()
 	icon = '';
+
+	@property()
+	modifier = '';
 
 	override render() {
 		return html``;
