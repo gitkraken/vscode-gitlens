@@ -2,10 +2,7 @@ import { attr, css, customElement, FASTElement, html, when } from '@microsoft/fa
 import { numberConverter } from '../../shared/components/converters/number-converter';
 import '../../shared/components/codicon';
 
-const template = html<CardSection>`<template
-	role="region"
-	style="${x => (x.backdrop !== '' ? `background-image: url(${x.backdrop})` : '')}"
->
+const template = html<CardSection>`<template role="region">
 	${when(
 		x => x.noHeading === false,
 		html<CardSection>`<header>
@@ -94,9 +91,6 @@ const styles = css`
 
 @customElement({ name: 'card-section', template: template, styles: styles })
 export class CardSection extends FASTElement {
-	@attr
-	backdrop = '';
-
 	@attr({ attribute: 'no-heading', mode: 'boolean' })
 	noHeading = false;
 

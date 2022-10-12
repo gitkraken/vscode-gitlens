@@ -314,3 +314,30 @@ vscode-button {
 .hide {
 	display: none;
 }
+
+.svg {
+	&-activity-bar-bg {
+		fill: var(--vscode-activityBar-background);
+	}
+	&-activity-bar-stop {
+		stop-color: var(--vscode-activityBar-background);
+	}
+	&-activity-bar-fg {
+		fill: var(--vscode-activityBar-foreground);
+	}
+	&-fg {
+		fill: var(--vscode-foreground);
+	}
+	&-activity-bar-inactive {
+		fill: var(--vscode-activityBar-inactiveForeground);
+	}
+	&-activity-bar-active {
+		fill: var(--vscode-activityBar-activeBorder);
+	}
+	&-link {
+		fill: var(--vscode-textLink-foreground);
+	}
+	&-mask-alpha {
+		mask-type: alpha;
+	}
+}
