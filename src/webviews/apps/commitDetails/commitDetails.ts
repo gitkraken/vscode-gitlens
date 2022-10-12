@@ -337,6 +337,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		if ($toggle) {
 			$toggle.setAttribute('data-switch-value', isTree ? 'list-tree' : 'list');
 			$toggle.setAttribute('icon', isTree ? 'list-tree' : 'list-flat');
+			$toggle.setAttribute('label', isTree ? 'View as Tree' : 'View as List');
 		}
 
 		if (!state.selected.files?.length) {
