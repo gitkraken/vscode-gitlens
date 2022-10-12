@@ -17,7 +17,7 @@ export type SearchOperators =
 
 export type HelpTypes = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
 
-const searchRegex = /(?:^|(?<= ))(message:|@:|author:|#:|commit:|\?:|file:|~:|change:)/gi;
+const searchRegex = /(?:^|(?<= ))(=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)/gi;
 const operatorsHelpMap = new Map<SearchOperators, HelpTypes>([
 	['=:', 'message:'],
 	['message:', 'message:'],
@@ -49,7 +49,7 @@ const template = html<SearchInput>`
 				id="search"
 				part="search"
 				class="${x => (x.showHelp ? 'has-helper' : '')}"
-				type="search"
+				type="text"
 				spellcheck="false"
 				placeholder="${x => x.placeholder}"
 				:value="${x => x.value}"
@@ -146,20 +146,21 @@ const template = html<SearchInput>`
 			</button>
 		</div>
 		<div class="helper" id="helper" tabindex="-1" ${ref('helper')}>
+			<p class="helper-label">Search by</p>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('message:')}">
-				Search by Message <small>message: or =:</small>
+				Message <small>message: or =:</small>
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('author:')}">
-				Search by Author <small>author: or @:</small>
+				Author <small>author: or @:</small>
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('commit:')}">
-				Search by Commit SHA <small>commit: or #:</small>
+				Commit SHA <small>commit: or #:</small>
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('file:')}">
-				Search by File <small>file: or ?:</small>
+				File <small>file: or ?:</small>
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('change:')}">
-				Search by Changes <small>change: or ~:</small>
+				Changes <small>change: or ~:</small>
 			</button>
 		</div>
 	</template>
@@ -190,9 +191,8 @@ const styles = css`
 		color: var(--vscode-input-foreground);
 		cursor: pointer;
 	}
-	label[aria-expanded='true'] {
+	label:hover {
 		background-color: var(--vscode-input-background);
-		border-radius: 0.3rem 0.3rem 0 0;
 	}
 
 	.icon-small {
@@ -326,29 +326,35 @@ const styles = css`
 		left: 0;
 		z-index: 5000;
 		width: fit-content;
-		background-color: var(--vscode-input-background);
-		border-radius: 0 0.3rem 0.3rem 0.3rem;
+		background-color: var(--vscode-menu-background);
+		border: 1px solid var(--vscode-menu-border);
 		outline: none;
 	}
 	label[aria-expanded='true'] ~ .helper {
 		display: block;
 	}
 
+	.helper-label {
+		text-transform: uppercase;
+		font-size: 0.84em;
+		line-height: 2.2rem;
+		padding-left: 0.6rem;
+		padding-right: 0.6rem;
+		margin: 0;
+	}
+
 	.helper-button {
 		display: block;
 		width: 100%;
-		padding: 0.3rem 0.6rem;
+		padding-left: 0.6rem;
+		padding-right: 0.6rem;
+		line-height: 2.2rem;
 		text-align: left;
+		color: var(--vscode-menu-foreground);
 	}
 	.helper-button:hover {
-		background-color: var(--vscode-inputOption-hoverBackground);
-	}
-	.helper-button:first-child {
-		border-top-right-radius: 0.3rem;
-	}
-	.helper-button:last-child {
-		border-bottom-left-radius: 0.3rem;
-		border-bottom-right-radius: 0.3rem;
+		color: var(--vscode-menu-selectionForeground);
+		background-color: var(--vscode-menu-selectionBackground);
 	}
 	.helper-button small {
 		opacity: 0.5;
