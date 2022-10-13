@@ -1,5 +1,5 @@
 /*global document window*/
-import type { CssVariables, GraphRow } from '@gitkraken/gitkraken-components';
+import type { CssVariables, GraphRef, GraphRow } from '@gitkraken/gitkraken-components';
 import React from 'react';
 import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from '../../../../git/models/graph';
@@ -14,7 +14,7 @@ import type {
 	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback,
+	UpdateStateCallback
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -30,6 +30,7 @@ import {
 	DidEnsureRowNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
+	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
@@ -94,6 +95,7 @@ export class GraphApp extends App<State> {
 						path => this.onRepositorySelectionChanged(path),
 						250,
 					)}
+					onDoubleClickRef={(ref) => this.onDoubleClickRef(ref)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
@@ -387,6 +389,12 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateRefsVisibilityCommandType, {
 			refs: refs,
 			visible: visible,
+		});
+	}
+
+	private onDoubleClickRef(ref: GraphRef) {
+		this.sendCommand(DoubleClickedRefCommandType, {
+			ref: ref,
 		});
 	}
 
