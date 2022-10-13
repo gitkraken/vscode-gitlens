@@ -1866,7 +1866,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						const groupedRefs: GitReference[] = [];
 						for (const refRemoteHead of refRemoteHeads) {
 							if (refRemoteHead.name == tip && refRemoteHead.context) {
-								const ref = JSON.parse(refRemoteHead.context)?.webviewItemValue?.ref;
+								const refContext = typeof refRemoteHead.context === 'string'
+									? JSON.parse(refRemoteHead.context)
+									: refRemoteHead.context;
+								const ref = refContext?.webviewItemValue?.ref;
 								if (ref) {
 									groupedRefs.push(ref);
 								}
