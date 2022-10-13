@@ -1,5 +1,3 @@
-import type { Head } from '@gitkraken/gitkraken-components';
-import { stringify } from 'json5';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -107,7 +105,7 @@ import type {
 	UpdateColumnParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams
+	UpdateSelectionParams,
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -570,15 +568,23 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onDoubleClickRef(e: DoubleClickedRefParams) {
 		if (e.ref.context) {
-			const item: GraphItemContext = typeof e.ref.context === 'string'
-				? JSON.parse(e.ref.context)
-				: e.ref.context as GraphItemContext;
-
-			const { ref } = item.webviewItemValue as GraphItemRefContextValue;
-			if (e.ref.refType === 'head' && (e.ref as Head).isCurrentHead) {
-				return GitActions.switchTo(ref.repoPath);
+			const item = typeof e.ref.context === 'string' ? JSON.parse(e.ref.context) : e.ref.context;
+			if (!('webview' in item)) {
+				item.webview = this.id;
 			}
-			return GitActions.switchTo(ref.repoPath, ref);
+			if (isGraphItemRefContext(item)) {
+				const { ref } = item.webviewItemValue;
+				if (e.ref.refType === 'head' && e.ref.isCurrentHead) {
+					return GitActions.switchTo(ref.repoPath);
+				}
+
+				// Override the default confirmation if the setting is unset
+				return GitActions.switchTo(
+					ref.repoPath,
+					ref,
+					configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
+				);
+			}
 		}
 
 		return Promise.resolve();
