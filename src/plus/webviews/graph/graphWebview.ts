@@ -1,3 +1,5 @@
+import type { Head } from '@gitkraken/gitkraken-components';
+import { stringify } from 'json5';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -81,6 +83,7 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DismissBannerParams,
+	DoubleClickedRefParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
@@ -104,7 +107,7 @@ import type {
 	UpdateColumnParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams,
+	UpdateSelectionParams
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -120,6 +123,7 @@ import {
 	DidEnsureRowNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
+	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
@@ -420,6 +424,9 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
+			case DoubleClickedRefCommandType.method:
+				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
+				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
 				break;
@@ -559,6 +566,22 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
 		this.updateHiddenRefs(e.refs, e.visible);
+	}
+
+	private onDoubleClickRef(e: DoubleClickedRefParams) {
+		if (e.ref.context) {
+			const item: GraphItemContext = typeof e.ref.context === 'string'
+				? JSON.parse(e.ref.context)
+				: e.ref.context as GraphItemContext;
+
+			const { ref } = item.webviewItemValue as GraphItemRefContextValue;
+			if (e.ref.refType === 'head' && (e.ref as Head).isCurrentHead) {
+				return GitActions.switchTo(ref.repoPath);
+			}
+			return GitActions.switchTo(ref.repoPath, ref);
+		}
+
+		return Promise.resolve();
 	}
 
 	@debug()

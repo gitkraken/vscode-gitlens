@@ -2,6 +2,7 @@ import type {
 	CssVariables,
 	GraphColumnSetting,
 	GraphContexts,
+	GraphRef,
 	GraphRefOptData,
 	GraphRow,
 	GraphZoneType,
@@ -177,6 +178,11 @@ export interface UpdateRefsVisibilityParams {
 export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisibilityParams>(
 	'graph/refs/update/visibility',
 );
+
+export interface DoubleClickedRefParams {
+	ref: GraphRef
+}
+export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
 
 export interface UpdateSelectedRepositoryParams {
 	path: string;
