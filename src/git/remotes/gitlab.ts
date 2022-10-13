@@ -8,7 +8,6 @@ import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../plus/integrationAuthentication';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
@@ -18,7 +17,7 @@ import type { IssueOrPullRequest } from '../models/issue';
 import type { PullRequest, PullRequestState } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
-import { RichRemoteProvider } from './richRemoteProvider';
+import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const autolinkFullMergeRequestsRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)!(?<num>[0-9]+)\b(?!]\()/g;
@@ -184,77 +183,7 @@ export class GitLabRemote extends RichRemoteProvider {
 	@log()
 	override async connect(): Promise<boolean> {
 		if (!equalsIgnoreCase(this.domain, 'gitlab.com')) {
-			const title =
-				'Connecting to a GitLab self-managed instance for rich integration features requires a paid GitLens+ account.';
-
-			while (true) {
-				const subscription = await this.container.subscription.getSubscription();
-				if (subscription.account?.verified === false) {
-					const resend = { title: 'Resend Verification' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						`${title}\n\nYou must verify your GitLens+ account email address before you can continue.`,
-						{ modal: true },
-						resend,
-						cancel,
-					);
-
-					if (result === resend) {
-						if (await this.container.subscription.resendVerification()) {
-							continue;
-						}
-					}
-
-					return false;
-				}
-
-				const plan = subscription.plan.effective.id;
-				if (isSubscriptionPaidPlan(plan)) break;
-
-				if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
-					const startTrial = { title: 'Try GitLens+' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						`${title}\n\nDo you want to try GitLens+ for free for 3 days?`,
-						{ modal: true },
-						startTrial,
-						cancel,
-					);
-
-					if (result !== startTrial) return false;
-
-					void this.container.subscription.startPreviewTrial();
-					break;
-				} else if (subscription.account == null) {
-					const signIn = { title: 'Sign In to GitLens+' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						`${title}\n\nDo you want to sign in to GitLens+?`,
-						{ modal: true },
-						signIn,
-						cancel,
-					);
-
-					if (result === signIn) {
-						if (await this.container.subscription.loginOrSignUp()) {
-							continue;
-						}
-					}
-				} else {
-					const upgrade = { title: 'Upgrade Account' };
-					const cancel = { title: 'Cancel', isCloseAffordance: true };
-					const result = await window.showWarningMessage(
-						`${title}\n\nDo you want to upgrade your account?`,
-						{ modal: true },
-						upgrade,
-						cancel,
-					);
-
-					if (result === upgrade) {
-						void this.container.subscription.purchase();
-					}
-				}
-
+			if (!(await ensurePaidPlan('GitLab self-managed instance', this.container))) {
 				return false;
 			}
 		}

@@ -8,6 +8,7 @@ import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { Logger } from '../../logger';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { isPromise } from '../../system/promise';
@@ -465,4 +466,81 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 		return session ?? undefined;
 	}
+}
+
+export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
+	const title = `Connecting to a ${providerName} instance for rich integration features requires GitLens Pro.`;
+
+	while (true) {
+		const subscription = await container.subscription.getSubscription();
+		if (subscription.account?.verified === false) {
+			const resend = { title: 'Resend Verification' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nYou must verify your email address before you can continue.`,
+				{ modal: true },
+				resend,
+				cancel,
+			);
+
+			if (result === resend) {
+				if (await container.subscription.resendVerification()) {
+					continue;
+				}
+			}
+
+			return false;
+		}
+
+		const plan = subscription.plan.effective.id;
+		if (isSubscriptionPaidPlan(plan)) break;
+
+		if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
+			const startTrial = { title: 'Start a GitLens Pro Trial' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nDo you want to also try GitLens+ features on private repos, free for 3 days?`,
+				{ modal: true },
+				startTrial,
+				cancel,
+			);
+
+			if (result !== startTrial) return false;
+
+			void container.subscription.startPreviewTrial();
+			break;
+		} else if (subscription.account == null) {
+			const signIn = { title: 'Extend Your GitLens Pro Trial' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nDo you want to continue to use GitLens+ features on private repos, free for an additional 7-days?`,
+				{ modal: true },
+				signIn,
+				cancel,
+			);
+
+			if (result === signIn) {
+				if (await container.subscription.loginOrSignUp()) {
+					continue;
+				}
+			}
+		} else {
+			const upgrade = { title: 'Upgrade to Pro' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
+			const result = await window.showWarningMessage(
+				`${title}\n\nDo you want to continue to use GitLens+ features on private repos?`,
+				{ modal: true },
+				upgrade,
+				cancel,
+			);
+
+			if (result === upgrade) {
+				void container.subscription.purchase();
+			}
+		}
+
+		return false;
+	}
+
+	return true;
 }

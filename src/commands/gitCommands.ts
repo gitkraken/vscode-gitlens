@@ -712,7 +712,7 @@ export class GitCommandsCommand extends Command {
 										resolve(undefined);
 										return;
 
-									case Directive.RequiresFreeSubscription:
+									case Directive.ExtendTrial:
 										void Container.instance.subscription.loginOrSignUp();
 										resolve(undefined);
 										return;

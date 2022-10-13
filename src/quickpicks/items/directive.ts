@@ -8,7 +8,7 @@ export enum Directive {
 	Noop,
 	RequiresVerification,
 
-	RequiresFreeSubscription,
+	ExtendTrial,
 	RequiresPaidSubscription,
 	StartPreviewTrial,
 }
@@ -46,21 +46,20 @@ export namespace DirectiveQuickPickItem {
 					label = 'Try again';
 					break;
 				case Directive.StartPreviewTrial:
-					label = 'Try GitLens+ Features Now';
-					detail = 'Try GitLens+ features now, without an account, for 3 days';
+					label = 'Start a GitLens Pro Trial';
+					detail = 'Try GitLens+ features on private repos, free for 3 days, without an account';
+					break;
+				case Directive.ExtendTrial:
+					label = 'Extend Your GitLens Pro Trial';
+					detail = 'To continue to use GitLens+ features on private repos, free for an additional 7-days';
 					break;
 				case Directive.RequiresVerification:
 					label = 'Resend Verification Email';
-					detail = 'You must verify your GitLens+ account email address before you can continue';
-					break;
-				case Directive.RequiresFreeSubscription:
-					label = 'Sign in to GitLens+';
-					detail =
-						'To use GitLens+ features on public repos and get a free 7-day trial for both public and private repos';
+					detail = 'You must verify your email address before you can continue';
 					break;
 				case Directive.RequiresPaidSubscription:
-					label = 'Upgrade your account';
-					detail = 'To use GitLens+ features on both public and private repos';
+					label = 'Upgrade to Pro';
+					detail = 'To use GitLens+ features on private repos';
 					break;
 			}
 		}
