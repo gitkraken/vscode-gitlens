@@ -120,6 +120,15 @@ export class Configuration {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
 	}
 
+	isUnset<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): boolean {
+		const inspect = configuration.inspect(section, scope)!;
+		if (inspect.workspaceFolderValue !== undefined) return false;
+		if (inspect.workspaceValue !== undefined) return false;
+		if (inspect.globalValue !== undefined) return false;
+
+		return true;
+	}
+
 	async migrate<T extends ConfigPath>(
 		from: string,
 		to: T,
