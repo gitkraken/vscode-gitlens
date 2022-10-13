@@ -89,7 +89,7 @@ const template = html<SearchInput>`
 				)}
 				${when(
 					x => x.helpType === 'change:',
-					html<SearchInput>`<span>Changes: use a regex pattern, e.g. change:update&#92;(param</span>`,
+					html<SearchInput>`<span>Change: use a regex pattern, e.g. change:update&#92;(param</span>`,
 				)}
 			</div>
 		</div>
@@ -160,7 +160,7 @@ const template = html<SearchInput>`
 				File <small>file: or ?:</small>
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('change:')}">
-				Changes <small>change: or ~:</small>
+				Change <small>change: or ~:</small>
 			</button>
 		</div>
 	</template>
