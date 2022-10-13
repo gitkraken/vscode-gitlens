@@ -2167,26 +2167,20 @@ export async function* ensureAccessStep<
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
 		directives.push(DirectiveQuickPickItem.create(Directive.RequiresVerification, true));
-		placeholder = 'You must verify your GitLens+ account email address before you can continue';
+		placeholder = 'You must verify your email address before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 
+		placeholder = 'You need GitLens Pro to access GitLens+ features on this repo';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
 			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
-			placeholder = 'GitLens+ features require an upgraded account';
+		} else if (
+			access.subscription.current.account == null &&
+			!isSubscriptionPreviewTrialExpired(access.subscription.current)
+		) {
+			directives.push(DirectiveQuickPickItem.create(Directive.StartPreviewTrial, true));
 		} else {
-			if (
-				access.subscription.current.account == null &&
-				!isSubscriptionPreviewTrialExpired(access.subscription.current)
-			) {
-				directives.push(
-					DirectiveQuickPickItem.create(Directive.StartPreviewTrial, true),
-					DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription),
-				);
-			} else {
-				directives.push(DirectiveQuickPickItem.create(Directive.RequiresFreeSubscription));
-			}
-			placeholder = 'GitLens+ features require a free account';
+			directives.push(DirectiveQuickPickItem.create(Directive.ExtendTrial));
 		}
 	}
 
