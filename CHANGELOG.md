@@ -8,10 +8,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- ✨ All GitLens+ features on public and local repos are now available to everyone -- no account required!
+  - We want to bring the power of GitLens+ features to more people without any gates.
+- ✨ Commit Graph is out of preview!
+  - Rich search features to find exactly what you're looking for:
+    - Powerful filters to search by commit, message, author, a changed file or files, or even a specific code change
+    - Searches look at ALL commits in a respository, not just what's shown in the graph
+  - Contextual right-click menus with popular actions for commits, branches, tags, and authors
+  - Personalization of your graph experience
+    - Show and hide branches and columns
+    - Settings UI for easy fine-grain control over advanced settings
+- Adds `View as Tree` option for changed files in the _Commit Details_ view
 - Adds an `Open in Commit Graph` action to the hovers and commit quick pick menus
 
 ### Changed
 
+- Updates the `Home View` with all new design and content
 - Changes the `Show Commit` action in the hovers to `Show Details` and opens the _Commit Details_ view
 
 ### Fixed
