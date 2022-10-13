@@ -11063,7 +11063,7 @@
 				{
 					"command": "gitlens.graph.hideRefGroup",
 					"when": "webviewItemGroup =~ /gitlens:refGroup\\b(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens_actions@11"
+					"group": "8_gitlens_actions@12"
 				},
 				{
 					"command": "gitlens.graph.openBranchOnRemote",
