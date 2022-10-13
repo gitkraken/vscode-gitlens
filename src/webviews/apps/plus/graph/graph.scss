@@ -710,7 +710,8 @@ a {
 }
 
 #opts-popover {
-	font-size: var(--editor-font-size);
+	font-size: var(--vscode-font-size);
+	font-family: var(--vscode-font-family);
 	background-color: var(--vscode-menu-background);
 	border: 1px solid var(--vscode-menu-border);
 	padding: 0;
