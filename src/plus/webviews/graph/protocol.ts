@@ -5,12 +5,14 @@ import type {
 	GraphRefOptData,
 	GraphRow,
 	GraphZoneType,
+	Head,
 	HiddenRefsById,
 	HostingServiceType,
 	PullRequestMetadata,
 	RefMetadata,
 	RefMetadataType,
 	Remote,
+	Tag,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { DateStyle } from '../../../config';
@@ -91,8 +93,8 @@ export interface GraphCommit {
 	avatarUrl: string | undefined;
 }
 export type GraphRemote = Remote;
-export type GraphTag = Record<string, any>;
-export type GraphBranch = Record<string, any>;
+export type GraphTag = Tag;
+export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
 	avatars?: boolean;
@@ -237,7 +239,7 @@ export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChang
 );
 
 export interface DidChangeRefsVisibilityParams {
-	hiddenRefs?: Record<string, GraphHiddenRef>;
+	hiddenRefs?: GraphHiddenRefs;
 }
 export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
 	'graph/refs/didChangeVisibility',
