@@ -326,8 +326,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 			registerCommand('gitlens.graph.hideLocalBranch', this.hideRef, this),
 			registerCommand('gitlens.graph.hideRemoteBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideRemote', item => this.hideRef(item, { remote: true }), this),
+			registerCommand('gitlens.graph.hideRefGroup', item => this.hideRef(item, { group: true }), this),
 			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
-			registerCommand('gitlens.graph.hideRefGroup', item => this.hideRef(item, true), this),
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
@@ -1654,11 +1655,11 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private hideRef(item: GraphItemContext, group?: boolean) {
+	private hideRef(item: GraphItemContext, options?: { group?: boolean; remote?: boolean }) {
 		let refs;
-		if (group && isGraphItemRefGroupContext(item)) {
+		if (options?.group && isGraphItemRefGroupContext(item)) {
 			({ refs } = item.webviewItemGroupValue);
-		} else if (!group && isGraphItemRefContext(item)) {
+		} else if (!options?.group && isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			if (ref.id != null) {
 				refs = [ref];
@@ -1671,7 +1672,7 @@ export class GraphWebview extends WebviewBase<State> {
 					const remoteBranch = r.refType === 'branch' && r.remote;
 					return {
 						id: r.id!,
-						name: remoteBranch ? getBranchNameWithoutRemote(r.name) : r.name,
+						name: remoteBranch ? (options?.remote ? '*' : getBranchNameWithoutRemote(r.name)) : r.name,
 						owner: remoteBranch ? getRemoteNameFromBranchName(r.name) : undefined,
 						type: r.refType === 'branch' ? (r.remote ? 'remote' : 'head') : 'tag',
 					};

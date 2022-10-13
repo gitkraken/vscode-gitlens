@@ -6359,6 +6359,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.hideRemote",
+				"title": "Hide Remote",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.hideTag",
 				"title": "Hide Tag",
 				"category": "GitLens"
@@ -8397,6 +8402,10 @@
 				},
 				{
 					"command": "gitlens.graph.hideRemoteBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideRemote",
 					"when": "false"
 				},
 				{
@@ -11039,12 +11048,17 @@
 				{
 					"command": "gitlens.graph.hideLocalBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|remote)\\b)/",
+					"group": "8_gitlens_actions@11"
+				},
+				{
+					"command": "gitlens.graph.hideRemote",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@10"
 				},
 				{
 					"command": "gitlens.graph.hideRemoteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens_actions@10"
+					"group": "8_gitlens_actions@11"
 				},
 				{
 					"command": "gitlens.graph.hideRefGroup",
