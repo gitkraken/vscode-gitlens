@@ -231,12 +231,15 @@ ul {
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
+	align-items: stretch;
 	gap: 1.6rem;
+
 	ul {
-		margin: {
-			top: 0.2rem;
-			bottom: 0;
-		}
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: clamp(0.1rem, 2vw, 1.2rem);
+		margin-bottom: 0;
 	}
 	svg {
 		flex: none;
