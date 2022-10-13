@@ -30,13 +30,13 @@ import {
 	DidEnsureRowNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
+	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
-	SwitchToRefCommandType,
 	UpdateColumnCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
@@ -95,7 +95,7 @@ export class GraphApp extends App<State> {
 						path => this.onRepositorySelectionChanged(path),
 						250,
 					)}
-					onSwitchToRef={(ref) => this.onSwitchToRef(ref)}
+					onDoubleClickRef={(ref) => this.onDoubleClickRef(ref)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
@@ -392,8 +392,8 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onSwitchToRef(ref: GraphRef) {
-		this.sendCommand(SwitchToRefCommandType, {
+	private onDoubleClickRef(ref: GraphRef) {
+		this.sendCommand(DoubleClickedRefCommandType, {
 			ref: ref,
 		});
 	}

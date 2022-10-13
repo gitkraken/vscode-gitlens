@@ -179,10 +179,10 @@ export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisi
 	'graph/refs/update/visibility',
 );
 
-export interface SwitchToRefParams {
+export interface DoubleClickedRefParams {
 	ref: GraphRef
 }
-export const SwitchToRefCommandType = new IpcCommandType<SwitchToRefParams>('graph/ref/checkout');
+export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
 
 export interface UpdateSelectedRepositoryParams {
 	path: string;

@@ -81,6 +81,7 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DismissBannerParams,
+	DoubleClickedRefParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
@@ -101,7 +102,6 @@ import type {
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
-	SwitchToRefParams,
 	UpdateColumnParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
@@ -121,13 +121,13 @@ import {
 	DidEnsureRowNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
+	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
-	SwitchToRefCommandType,
 	UpdateColumnCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
@@ -422,8 +422,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
-			case SwitchToRefCommandType.method:
-				onIpc(SwitchToRefCommandType, e, params => this.onSwitchToRef(params));
+			case DoubleClickedRefCommandType.method:
+				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
@@ -566,7 +566,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateHiddenRefs(e.refs, e.visible);
 	}
 
-	private onSwitchToRef(e: SwitchToRefParams) {
+	private onDoubleClickRef(e: DoubleClickedRefParams) {
 		const refContext: string | undefined = (e.ref as any).context;
 
 		if (refContext) {

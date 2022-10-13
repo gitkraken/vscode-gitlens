@@ -59,7 +59,7 @@ export interface GraphWrapperProps {
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
-	onSwitchToRef?: (ref: GraphRef) => void;
+	onDoubleClickRef?: (ref: GraphRef) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
@@ -143,7 +143,7 @@ export function GraphWrapper({
 	state,
 	onSelectRepository,
 	onColumnChange,
-	onSwitchToRef,
+	onDoubleClickRef,
 	onEnsureRowPromise,
 	onMissingAvatars,
 	onMissingRefsMetadata,
@@ -512,7 +512,7 @@ export function GraphWrapper({
 
 	const handleOnDoubleClickRef = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, refGroup: GraphRefGroup) => {
 		if (refGroup.length > 0) {
-			onSwitchToRef?.(refGroup[0]);
+			onDoubleClickRef?.(refGroup[0]);
 		}
 	};
 
