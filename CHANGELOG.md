@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Rich search features to find exactly what you're looking for:
     - Powerful filters to search by commit, message, author, a changed file or files, or even a specific code change
     - Searches look at ALL commits in a respository, not just what's shown in the graph
+  - PR support for connected rich integrations (GitHub/GitLab)
   - Contextual right-click menus with popular actions for commits, branches, tags, and authors
   - Personalization of your graph experience
     - Show and hide branches and columns
