@@ -756,8 +756,12 @@ a {
 .tooltip.bottom-right .tooltip-arrow {
 	border-bottom-color: var(--color-hover-border);
 }
+.tooltip {
+	font-size: var(--vscode-font-size);
+	font-family: var(--vscode-font-family);
+}
 .tooltip-inner {
-	font-size: var(--editor-font-size);
+	font-size: 1.2rem;
 	padding: 0.3rem 0.6rem;
 	color: var(--color-hover-foreground);
 	background-color: var(--color-hover-background);
