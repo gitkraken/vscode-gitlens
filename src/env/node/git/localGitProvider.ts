@@ -148,14 +148,7 @@ import {
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, fastestSettled, getSettledValue } from '../../../system/promise';
-import {
-	equalsIgnoreCase,
-	getDurationMilliseconds,
-	interpolate,
-	md5,
-	sortCompare,
-	splitSingle,
-} from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
@@ -1771,6 +1764,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				| undefined;
 			let contexts: GitGraphRowContexts | undefined;
 			let group;
+			let groupName;
 			const groupedRefs = new Map<
 				string,
 				{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
@@ -1941,33 +1935,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						group.local = context.webviewItemValue.ref;
 					}
 
-					for (group of groupedRefs.values()) {
+					for ([groupName, group] of groupedRefs) {
 						if (
 							group.remotes != null &&
 							((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
 						) {
-							if (group.remotes != null && group.remotes.length > 1) {
-								group.remotes.sort(
-									(a, b) =>
-										(a.upstream!.name === 'origin' ? -1 : 1) -
-											(b.upstream!.name === 'origin' ? -1 : 1) ||
-										(a.upstream!.name === 'upstream' ? -1 : 1) -
-											(b.upstream!.name === 'upstream' ? -1 : 1) ||
-										sortCompare(a.upstream!.name, b.upstream!.name),
-								);
-							}
-
 							if (contexts.refGroups == null) {
 								contexts.refGroups = {};
 							}
-							contexts.refGroups[group.local?.name ?? group.remotes[0].name] =
-								serializeWebviewItemContext<GraphItemRefGroupContext>({
-									webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
-									webviewItemGroupValue: {
-										type: 'refGroup',
-										refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
-									},
-								});
+							contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
+								webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
+								webviewItemGroupValue: {
+									type: 'refGroup',
+									refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
+								},
+							});
 						}
 					}
 				}
