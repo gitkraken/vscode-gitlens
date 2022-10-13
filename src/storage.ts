@@ -238,9 +238,9 @@ export type StoredGraphRefType = 'head' | 'remote' | 'tag';
 
 export interface StoredGraphHiddenRef {
 	id: string;
-	name: string;
 	type: StoredGraphRefType;
-	avatarUrl?: string;
+	name: string;
+	owner?: string;
 }
 
 export interface StoredNamedRef {

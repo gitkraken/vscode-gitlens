@@ -109,11 +109,6 @@ export interface GitBranchReference {
 	repoPath: string;
 }
 
-export interface GraphGitBranchReference extends GitBranchReference {
-	avatarUrl?: string;
-	groupedRefs?: GitReference[];
-}
-
 export interface GitRevisionReference {
 	readonly refType: 'revision' | 'stash';
 	id?: undefined;
@@ -144,27 +139,20 @@ export interface GitTagReference {
 	repoPath: string;
 }
 
-export type GitReference =
-	| GitBranchReference
-	| GraphGitBranchReference
-	| GitRevisionReference
-	| GitStashReference
-	| GitTagReference;
+export type GitReference = GitBranchReference | GitRevisionReference | GitStashReference | GitTagReference;
 
 export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
 		options: {
-			id?: string;
 			refType: 'branch';
 			name: string;
+			id?: string;
 			remote: boolean;
 			upstream?: { name: string; missing: boolean };
-			avatarUrl?: string;
-			groupedRefs?: GitReference[];
 		},
-	): GraphGitBranchReference | GitBranchReference;
+	): GitBranchReference;
 	export function create(
 		ref: string,
 		repoPath: string,
@@ -178,7 +166,7 @@ export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
-		options: { id?: string; refType: 'tag'; name: string },
+		options: { refType: 'tag'; name: string; id?: string },
 	): GitTagReference;
 	export function create(
 		ref: string,
@@ -189,8 +177,7 @@ export namespace GitReference {
 					refType: 'branch';
 					name: string;
 					remote: boolean;
-					avatarUrl?: string;
-					groupedRefs?: GitReference[];
+					upstream?: { name: string; missing: boolean };
 			  }
 			| { refType?: 'revision'; name?: string; message?: string }
 			| { refType: 'stash'; name: string; number: string | undefined; message?: string }
@@ -199,53 +186,50 @@ export namespace GitReference {
 		switch (options.refType) {
 			case 'branch':
 				return {
-					id: options.id,
-					name: options.name,
-					ref: ref,
 					refType: 'branch',
-					remote: options.remote,
 					repoPath: repoPath,
-					avatarUrl: options.avatarUrl,
-					groupedRefs: options.groupedRefs,
+					ref: ref,
+					name: options.name,
+					id: options.id,
+					remote: options.remote,
+					upstream: options.upstream,
 				};
 			case 'stash':
 				return {
-					name: options.name,
-					ref: ref,
 					refType: 'stash',
 					repoPath: repoPath,
+					ref: ref,
+					name: options.name,
 					number: options.number,
 					message: options.message,
 				};
 			case 'tag':
 				return {
-					id: options.id,
-					name: options.name,
-					ref: ref,
 					refType: 'tag',
 					repoPath: repoPath,
+					ref: ref,
+					name: options.name,
+					id: options.id,
 				};
 			default:
 				return {
-					name:
-						options.name ?? GitRevision.shorten(ref, { force: true, strings: { working: 'Working Tree' } }),
-					ref: ref,
 					refType: 'revision',
 					repoPath: repoPath,
+					ref: ref,
+					name:
+						options.name ?? GitRevision.shorten(ref, { force: true, strings: { working: 'Working Tree' } }),
 					message: options.message,
 				};
 		}
 	}
 
-	export function fromBranch(branch: GraphGitBranchReference) {
+	export function fromBranch(branch: GitBranchReference) {
 		return create(branch.ref, branch.repoPath, {
 			id: branch.id,
 			refType: branch.refType,
 			name: branch.name,
 			remote: branch.remote,
 			upstream: branch.upstream,
-			avatarUrl: branch.avatarUrl,
-			groupedRefs: branch.groupedRefs,
 		});
 	}
 

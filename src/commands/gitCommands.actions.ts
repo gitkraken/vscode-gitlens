@@ -109,10 +109,15 @@ export namespace GitActions {
 		});
 	}
 
-	export function switchTo(repos?: string | string[] | Repository | Repository[], ref?: GitReference) {
+	export function switchTo(
+		repos?: string | string[] | Repository | Repository[],
+		ref?: GitReference,
+		confirm?: boolean,
+	) {
 		return executeGitCommand({
 			command: 'switch',
 			state: { repos: repos, reference: ref },
+			confirm: confirm,
 		});
 	}
 

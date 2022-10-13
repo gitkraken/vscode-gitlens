@@ -11,7 +11,7 @@ export interface TagSortOptions {
 }
 
 export function getTagId(repoPath: string, name: string): string {
-	return `${repoPath}/tag/${name}`;
+	return `${repoPath}|tag/${name}`;
 }
 
 export class GitTag implements GitTagReference {

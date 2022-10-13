@@ -6349,18 +6349,23 @@
 				"icon": "$(gitlens-switch)"
 			},
 			{
-				"command": "gitlens.graph.hideBranch",
-				"title": "Hide Branch...",
+				"command": "gitlens.graph.hideLocalBranch",
+				"title": "Hide Local Branch",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.hideRemoteBranch",
+				"title": "Hide Remote Branch",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.hideTag",
-				"title": "Hide Tag...",
+				"title": "Hide Tag",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.graph.hideGroupedBranch",
-				"title": "Hide from Graph...",
+				"command": "gitlens.graph.hideRefGroup",
+				"title": "Hide",
 				"category": "GitLens"
 			},
 			{
@@ -8387,7 +8392,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.hideBranch",
+					"command": "gitlens.graph.hideLocalBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.hideRemoteBranch",
 					"when": "false"
 				},
 				{
@@ -8395,7 +8404,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.hideGroupedBranch",
+					"command": "gitlens.graph.hideRefGroup",
 					"when": "false"
 				},
 				{
@@ -11028,13 +11037,18 @@
 					"group": "1_gitlens_actions_@10"
 				},
 				{
-					"command": "gitlens.graph.hideBranch",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(grouped|current)\\b)/",
+					"command": "gitlens.graph.hideLocalBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+(current|remote)\\b)/",
 					"group": "8_gitlens_actions@10"
 				},
 				{
-					"command": "gitlens.graph.hideGroupedBranch",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && webviewItem =~ /gitlens:branch\\+grouped\\b/",
+					"command": "gitlens.graph.hideRemoteBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+					"group": "8_gitlens_actions@10"
+				},
+				{
+					"command": "gitlens.graph.hideRefGroup",
+					"when": "webviewItemGroup =~ /gitlens:refGroup\\b(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@11"
 				},
 				{

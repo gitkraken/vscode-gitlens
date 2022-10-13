@@ -1,4 +1,3 @@
-import type { GraphRefType } from '@gitkraken/gitkraken-components';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -36,7 +35,7 @@ import type { Container } from '../../../container';
 import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
-import { getBranchNameWithoutRemote } from '../../../git/models/branch';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
 import type { GitCommit } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -48,6 +47,7 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
+import { getRemoteIconUri } from '../../../git/models/remote';
 import type {
 	Repository,
 	RepositoryChangeEvent,
@@ -56,6 +56,7 @@ import type {
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
+import type { StoredGraphHiddenRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -65,8 +66,8 @@ import { last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
-import type { WebviewItemContext } from '../../../system/webview';
-import { isWebviewItemContext, serializeWebviewItemContext } from '../../../system/webview';
+import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
+import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
 import type { CommitNode } from '../../../views/nodes/commitNode';
@@ -323,9 +324,10 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
 
-			registerCommand('gitlens.graph.hideBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideLocalBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideRemoteBranch', this.hideRef, this),
 			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
-			registerCommand('gitlens.graph.hideGroupedBranch', this.hideRef, this),
+			registerCommand('gitlens.graph.hideRefGroup', item => this.hideRef(item, true), this),
 
 			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
@@ -946,7 +948,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		return this.notify(DidChangeRefsVisibilityNotificationType, {
-			hiddenRefs: this.getHiddenRefs(),
+			hiddenRefs: this.getHiddenRefs(this._graph),
 		});
 	}
 
@@ -1119,18 +1121,33 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
-	private getHiddenRefs(): Record<string, GraphHiddenRef> | undefined {
-		return this.filterHiddenRefs(this.container.storage.getWorkspace('graph:hiddenRefs'));
+	private getHiddenRefs(graph: GitGraph | undefined): Record<string, GraphHiddenRef> | undefined {
+		return this.filterHiddenRefs(this.container.storage.getWorkspace('graph:hiddenRefs'), graph);
 	}
 
-	private filterHiddenRefs(hiddenRefs: Record<string, GraphHiddenRef> | undefined): GraphHiddenRefs | undefined {
-		if (hiddenRefs == null || this.repository == null) return undefined;
+	private filterHiddenRefs(
+		hiddenRefs: Record<string, StoredGraphHiddenRef> | undefined,
+		graph: GitGraph | undefined,
+	): GraphHiddenRefs | undefined {
+		if (hiddenRefs == null || graph == null) return undefined;
+
+		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
 		const filteredRefs: GraphHiddenRefs = {};
 
 		for (const id in hiddenRefs) {
-			if (getRepoPathFromBranchOrTagId(id) === this.repository.path) {
-				filteredRefs[id] = hiddenRefs[id];
+			if (getRepoPathFromBranchOrTagId(id) === graph.repoPath) {
+				const ref: GraphHiddenRef = { ...hiddenRefs[id] };
+				if (ref.type === 'remote' && ref.owner) {
+					const remote = graph.remotes.get(ref.owner);
+					if (remote != null) {
+						ref.avatarUrl = (
+							(useAvatars ? remote.provider?.avatarUri : undefined) ??
+							getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
+						)?.toString(true);
+					}
+				}
+				filteredRefs[id] = ref;
 			}
 		}
 
@@ -1296,6 +1313,7 @@ export class GraphWebview extends WebviewBase<State> {
 				this.setGraph(data);
 				this.setSelectedRows(data.id);
 
+				void this.notifyDidChangeRefsVisibility();
 				void this.notifyDidChangeRows(true);
 			});
 		} else {
@@ -1331,7 +1349,7 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
-			hiddenRefs: this.getHiddenRefs(),
+			hiddenRefs: data != null ? this.getHiddenRefs(data) : undefined,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
@@ -1345,11 +1363,16 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private updateHiddenRefs(refs: GraphHiddenRef[], visible: boolean) {
-		let hiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
+		let storedHiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
 		for (const ref of refs) {
-			hiddenRefs = updateRecordValue(hiddenRefs, ref.id, visible ? undefined : ref);
+			storedHiddenRefs = updateRecordValue(
+				storedHiddenRefs,
+				ref.id,
+				visible ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
+			);
 		}
-		void this.container.storage.storeWorkspace('graph:hiddenRefs', hiddenRefs);
+
+		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedHiddenRefs);
 		void this.notifyDidChangeRefsVisibility();
 	}
 
@@ -1631,35 +1654,30 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private hideRef(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
+	private hideRef(item: GraphItemContext, group?: boolean) {
+		let refs;
+		if (group && isGraphItemRefGroupContext(item)) {
+			({ refs } = item.webviewItemGroupValue);
+		} else if (!group && isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
-			const groupedRefs: GitReference[] = (ref as any).groupedRefs ?? [];
-			const refsToHide: GitReference[] = [...groupedRefs, ref];
-			const graphHiddenRefs: GraphHiddenRef[] = [];
-
-			for (const refToHide of refsToHide) {
-				if (refToHide?.id) {
-					let isRemoteBranch = false;
-					let graphRefType: GraphRefType = 'tag';
-
-					if (refToHide.refType === 'branch') {
-						isRemoteBranch = refToHide.remote;
-						graphRefType = isRemoteBranch ? 'remote' : 'head';
-					}
-
-					graphHiddenRefs.push({
-						id: refToHide.id,
-						name: isRemoteBranch ? getBranchNameWithoutRemote(refToHide.name) : refToHide.name,
-						type: graphRefType,
-						avatarUrl: (refToHide as any).avatarUrl,
-					});
-				}
+			if (ref.id != null) {
+				refs = [ref];
 			}
+		}
 
-			if (graphHiddenRefs.length > 0) {
-				this.updateHiddenRefs(graphHiddenRefs, false);
-			}
+		if (refs != null) {
+			this.updateHiddenRefs(
+				refs.map(r => {
+					const remoteBranch = r.refType === 'branch' && r.remote;
+					return {
+						id: r.id!,
+						name: remoteBranch ? getBranchNameWithoutRemote(r.name) : r.name,
+						owner: remoteBranch ? getRemoteNameFromBranchName(r.name) : undefined,
+						type: r.refType === 'branch' ? (r.remote ? 'remote' : 'head') : 'tag',
+					};
+				}),
+				false,
+			);
 		}
 
 		return Promise.resolve();
@@ -1898,6 +1916,11 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 }
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
+export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
+
+export type GraphItemGroupContext = WebviewItemGroupContext<GraphItemGroupContextValue>;
+export type GraphItemGroupContextValue = GraphItemRefGroupContextValue;
+
 export type GraphItemRefContext<T = GraphItemRefContextValue> = WebviewItemContext<T>;
 export type GraphItemRefContextValue =
 	| GraphBranchContextValue
@@ -1905,10 +1928,14 @@ export type GraphItemRefContextValue =
 	| GraphStashContextValue
 	| GraphTagContextValue;
 
+export type GraphItemRefGroupContext<T = GraphItemRefGroupContextValue> = WebviewItemGroupContext<T>;
+export interface GraphItemRefGroupContextValue {
+	type: 'refGroup';
+	refs: (GitBranchReference | GitTagReference)[];
+}
+
 export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemContext<T>;
 export type GraphItemTypedContextValue = GraphContributorContextValue | GraphPullRequestContextValue;
-
-export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
 
 export type GraphColumnsContextValue = string;
 
@@ -1952,6 +1979,12 @@ function isGraphItemContext(item: unknown): item is GraphItemContext {
 	return isWebviewItemContext(item) && item.webview === 'gitlens.graph';
 }
 
+function isGraphItemGroupContext(item: unknown): item is GraphItemGroupContext {
+	if (item == null) return false;
+
+	return isWebviewItemGroupContext(item) && item.webview === 'gitlens.graph';
+}
+
 function isGraphItemTypedContext(
 	item: unknown,
 	type: 'contributor',
@@ -1967,6 +2000,16 @@ function isGraphItemTypedContext(
 	if (item == null) return false;
 
 	return isGraphItemContext(item) && typeof item.webviewItemValue === 'object' && item.webviewItemValue.type === type;
+}
+
+function isGraphItemRefGroupContext(item: unknown): item is GraphItemRefGroupContext {
+	if (item == null) return false;
+
+	return (
+		isGraphItemGroupContext(item) &&
+		typeof item.webviewItemGroupValue === 'object' &&
+		item.webviewItemGroupValue.type === 'refGroup'
+	);
 }
 
 function isGraphItemRefContext(item: unknown): item is GraphItemRefContext;

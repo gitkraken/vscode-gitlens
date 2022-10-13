@@ -122,7 +122,13 @@ import {
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
 } from '../../../messages';
-import type { GraphItemContext, GraphItemRefContext } from '../../../plus/webviews/graph/graphWebview';
+import type {
+	GraphBranchContextValue,
+	GraphItemContext,
+	GraphItemRefContext,
+	GraphItemRefGroupContext,
+	GraphTagContextValue,
+} from '../../../plus/webviews/graph/graphWebview';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
@@ -142,7 +148,14 @@ import {
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, fastestSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
+import {
+	equalsIgnoreCase,
+	getDurationMilliseconds,
+	interpolate,
+	md5,
+	sortCompare,
+	splitSingle,
+} from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
@@ -1648,10 +1661,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const currentUser = getSettledValue(currentUserResult);
 
 		const remotes = getSettledValue(remotesResult);
-		const remoteMap =
-			remotes != null
-				? new Map(remotes.map(r => [r.name, r]))
-				: new Map<string, GitRemote<RemoteProvider | RichRemoteProvider | undefined>>();
+		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
 		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
 
 		let stdin: string | undefined;
@@ -1712,7 +1722,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (cursorIndex === -1) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
 							if (size === data.length) {
-								return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
+								return { repoPath: repoPath, avatars: avatars, ids: ids, remotes: remoteMap, rows: [] };
 							}
 
 							size = data.length;
@@ -1738,7 +1748,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, rows: [] };
+				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, remotes: remoteMap, rows: [] };
 
 				log = data;
 				if (limit !== 0) {
@@ -1750,20 +1760,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const rows: GitGraphRow[] = [];
 
+			let avatarUri: Uri | undefined;
+			let avatarUrl: string | undefined;
 			let branch: GitBranch | undefined;
+			let branchId: string;
 			let branchName: string;
+			let context:
+				| GraphItemRefContext<GraphBranchContextValue>
+				| GraphItemRefContext<GraphTagContextValue>
+				| undefined;
+			let contexts: GitGraphRowContexts | undefined;
+			let group;
+			const groupedRefs = new Map<
+				string,
+				{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
+			>();
 			let head = false;
 			let isCurrentUser = false;
+			let refHead: GitGraphRowHead;
 			let refHeads: GitGraphRowHead[];
+			let refRemoteHead: GitGraphRowRemoteHead;
 			let refRemoteHeads: GitGraphRowRemoteHead[];
+			let refTag: GitGraphRowTag;
 			let refTags: GitGraphRowTag[];
 			let parent: string;
 			let parents: string[];
 			let remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined> | undefined;
+			let remoteBranchId: string;
 			let remoteName: string;
 			let stashCommit: GitStashCommit | undefined;
-			let tag: GitGraphRowTag;
-			let contexts: GitGraphRowContexts | undefined;
+			let tagId: string;
+			let tagName: string;
+			let tip: string;
 
 			let count = 0;
 
@@ -1780,34 +1808,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				refHeads = [];
 				refRemoteHeads = [];
 				refTags = [];
-				contexts = undefined;
+				contexts = {};
 				head = false;
 
 				if (commit.tips) {
-					for (let tip of commit.tips.split(', ')) {
+					groupedRefs.clear();
+
+					for (tip of commit.tips.split(', ')) {
 						if (tip === 'refs/stash') continue;
 
 						if (tip.startsWith('tag: ')) {
-							const tagName = tip.substring(5);
-							const tagId = getTagId(repoPath, tagName);
-							tag = {
+							tagName = tip.substring(5);
+							tagId = getTagId(repoPath, tagName);
+							context = {
+								webviewItem: 'gitlens:tag',
+								webviewItemValue: {
+									type: 'tag',
+									ref: GitReference.create(tagName, repoPath, {
+										id: tagId,
+										refType: 'tag',
+										name: tagName,
+									}),
+								},
+							};
+
+							refTag = {
 								id: tagId,
 								name: tagName,
 								// Not currently used, so don't bother looking it up
 								annotated: true,
+								context: serializeWebviewItemContext<GraphItemRefContext>(context),
 							};
-							tag.context = serializeWebviewItemContext<GraphItemRefContext>({
-								webviewItem: 'gitlens:tag',
-								webviewItemValue: {
-									type: 'tag',
-									ref: GitReference.create(tag.name, repoPath, {
-										id: tagId,
-										refType: 'tag',
-										name: tag.name,
-									}),
-								},
-							});
-							refTags.push(tag);
+							refTags.push(refTag);
 
 							continue;
 						}
@@ -1828,94 +1860,115 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								branchName = getBranchNameWithoutRemote(tip);
 								if (branchName === 'HEAD') continue;
 
-								const remoteBranchId = getBranchId(repoPath, true, tip);
-								const avatarUrl = (
+								remoteBranchId = getBranchId(repoPath, true, tip);
+								avatarUrl = (
 									(useAvatars ? remote.provider?.avatarUri : undefined) ??
 									getRemoteIconUri(this.container, remote, asWebviewUri)
 								)?.toString(true);
+								context = {
+									webviewItem: 'gitlens:branch+remote',
+									webviewItemValue: {
+										type: 'branch',
+										ref: GitReference.create(tip, repoPath, {
+											id: remoteBranchId,
+											refType: 'branch',
+											name: tip,
+											remote: true,
+											upstream: { name: remote.name, missing: false },
+										}),
+									},
+								};
 
-								refRemoteHeads.push({
+								refRemoteHead = {
 									id: remoteBranchId,
 									name: branchName,
 									owner: remote.name,
 									url: remote.url,
 									avatarUrl: avatarUrl,
-									context: serializeWebviewItemContext<GraphItemRefContext>({
-										webviewItem: 'gitlens:branch+remote',
-										webviewItemValue: {
-											type: 'branch',
-											ref: GitReference.create(tip, repoPath, {
-												id: remoteBranchId,
-												refType: 'branch',
-												name: tip,
-												remote: true,
-												upstream: { name: remote.name, missing: false },
-												avatarUrl: avatarUrl,
-											}),
-										},
-									}),
-								});
+									context: serializeWebviewItemContext<GraphItemRefContext>(context),
+								};
+								refRemoteHeads.push(refRemoteHead);
+
+								group = groupedRefs.get(branchName);
+								if (group == null) {
+									group = { remotes: [] };
+									groupedRefs.set(branchName, group);
+								}
+								if (group.remotes == null) {
+									group.remotes = [];
+								}
+								group.remotes.push(context.webviewItemValue.ref);
 
 								continue;
 							}
 						}
 
 						branch = branchMap.get(tip);
-						const branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+						branchId = branch?.id ?? getBranchId(repoPath, false, tip);
+						context = {
+							webviewItem: `gitlens:branch${head ? '+current' : ''}${
+								branch?.upstream != null ? '+tracking' : ''
+							}`,
+							webviewItemValue: {
+								type: 'branch',
+								ref: GitReference.create(tip, repoPath, {
+									id: branchId,
+									refType: 'branch',
+									name: tip,
+									remote: false,
+									upstream: branch?.upstream,
+								}),
+							},
+						};
 
-						const groupedRefs: GitReference[] = [];
-						for (const refRemoteHead of refRemoteHeads) {
-							if (refRemoteHead.name == tip && refRemoteHead.context) {
-								const refContext = typeof refRemoteHead.context === 'string'
-									? JSON.parse(refRemoteHead.context)
-									: refRemoteHead.context;
-								const ref = refContext?.webviewItemValue?.ref;
-								if (ref) {
-									groupedRefs.push(ref);
-								}
-							}
-						}
-
-						refHeads.push({
+						refHead = {
 							id: branchId,
 							name: tip,
 							isCurrentHead: head,
-							context: serializeWebviewItemContext<GraphItemRefContext>({
-								webviewItem: `gitlens:branch${head ? '+current' : ''}${
-									branch?.upstream != null ? '+tracking' : ''
-								}`,
-								webviewItemValue: {
-									type: 'branch',
-									ref: GitReference.create(tip, repoPath, {
-										id: branchId,
-										refType: 'branch',
-										name: tip,
-										remote: false,
-										upstream: branch?.upstream,
-										groupedRefs: groupedRefs,
-									}),
-								},
-							}),
-							contextGroup:
-								groupedRefs.length > 0
-									? serializeWebviewItemContext<GraphItemRefContext>({
-											webviewItem: `gitlens:branch+grouped${head ? '+current' : ''}${
-												branch?.upstream != null ? '+tracking' : ''
-											}`,
-											webviewItemValue: {
-												type: 'branch',
-												ref: GitReference.create(tip, repoPath, {
-													id: branchId,
-													refType: 'branch',
-													name: tip,
-													remote: false,
-													upstream: branch?.upstream,
-													groupedRefs: groupedRefs,
-												}),
-											},
-									  })
-									: undefined,
-						});
+							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+						};
+						refHeads.push(refHead);
+
+						group = groupedRefs.get(tip);
+						if (group == null) {
+							group = {};
+							groupedRefs.set(tip, group);
+						}
+
+						if (head) {
+							group.head = true;
+						}
+						group.local = context.webviewItemValue.ref;
+					}
+
+					for (group of groupedRefs.values()) {
+						if (
+							group.remotes != null &&
+							((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
+						) {
+							if (group.remotes != null && group.remotes.length > 1) {
+								group.remotes.sort(
+									(a, b) =>
+										(a.upstream!.name === 'origin' ? -1 : 1) -
+											(b.upstream!.name === 'origin' ? -1 : 1) ||
+										(a.upstream!.name === 'upstream' ? -1 : 1) -
+											(b.upstream!.name === 'upstream' ? -1 : 1) ||
+										sortCompare(a.upstream!.name, b.upstream!.name),
+								);
+							}
+
+							if (contexts.refGroups == null) {
+								contexts.refGroups = {};
+							}
+							contexts.refGroups[group.local?.name ?? group.remotes[0].name] =
+								serializeWebviewItemContext<GraphItemRefGroupContext>({
+									webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
+									webviewItemGroupValue: {
+										type: 'refGroup',
+										refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
+									},
+								});
+						}
 					}
 				}
 
@@ -1938,15 +1991,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 
 				if (stashCommit == null && !avatars.has(commit.authorEmail)) {
-					const uri = getCachedAvatarUri(commit.authorEmail);
-					if (uri != null) {
-						avatars.set(commit.authorEmail, uri.toString(true));
+					avatarUri = getCachedAvatarUri(commit.authorEmail);
+					if (avatarUri != null) {
+						avatars.set(commit.authorEmail, avatarUri.toString(true));
 					}
 				}
 
 				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
 
-				contexts = {};
 				if (stashCommit != null) {
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 						webviewItem: 'gitlens:stash',
@@ -2021,6 +2073,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				avatars: avatars,
 				ids: ids,
 				skippedIds: skippedIds,
+				remotes: remoteMap,
 				rows: rows,
 				id: sha,
 
