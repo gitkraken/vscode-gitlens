@@ -1,3 +1,5 @@
+import type { Head } from '@gitkraken/gitkraken-components';
+import { stringify } from 'json5';
 import type {
 	ColorTheme,
 	ConfigurationChangeEvent,
@@ -567,13 +569,13 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onDoubleClickRef(e: DoubleClickedRefParams) {
-		const refContext: string | undefined = (e.ref as any).context;
+		if (e.ref.context) {
+			const item: GraphItemContext = typeof e.ref.context === 'string'
+				? JSON.parse(e.ref.context)
+				: e.ref.context as GraphItemContext;
 
-		if (refContext) {
-			const item: GraphItemContext = JSON.parse(refContext);
-			const { ref } = (item.webviewItemValue as any);
-
-			if ((e.ref as any).isCurrentHead) {
+			const { ref } = item.webviewItemValue as GraphItemRefContextValue;
+			if (e.ref.refType === 'head' && (e.ref as Head).isCurrentHead) {
 				return GitActions.switchTo(ref.repoPath);
 			}
 			return GitActions.switchTo(ref.repoPath, ref);
