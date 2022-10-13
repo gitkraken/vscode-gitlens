@@ -714,6 +714,7 @@ a {
 	background-color: var(--vscode-menu-background);
 	border: 1px solid var(--vscode-menu-border);
 	padding: 0;
+	z-index: 1001;
 
 	ul > li {
 		padding: 0 0.6rem;
