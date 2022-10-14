@@ -12400,20 +12400,38 @@
 					{
 						"id": "gitlens.plus.intro.tryNow",
 						"title": "Introducing GitLens+",
-						"description": "Try GitLens+ features now, without an account, for 3 days.\n\n[Try GitLens+ features now](command:gitlens.plus.startPreviewTrial)",
+						"description": "Try GitLens+ features on private repos, free for 3 days, without an account.\n\n[Start a GitLens Pro Trial](command:gitlens.plus.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/plus/1-intro.md"
 						},
 						"when": "gitlens:plus:state == 0"
 					},
 					{
-						"id": "gitlens.plus.intro.signIn",
+						"id": "gitlens.plus.intro.trial",
 						"title": "Introducing GitLens+",
-						"description": "Sign in for use on public repos and get an additional 7 day trial for private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
+						"description": "During your GitLens Pro trial, you have additional access to GitLens+ features on private repos.",
 						"media": {
 							"markdown": "walkthroughs/plus/1-intro.md"
 						},
-						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 2"
+						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 3"
+					},
+					{
+						"id": "gitlens.plus.intro.extend",
+						"title": "Introducing GitLens+",
+						"description": "Do you want to continue to use GitLens+ features on private repos, free for an additional 7-days?\n\n[Extend Trial](command:gitlens.plus.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/plus/1-intro.md"
+						},
+						"when": "gitlens:plus:state == 2"
+					},
+					{
+						"id": "gitlens.plus.intro.signIn",
+						"title": "Introducing GitLens+",
+						"description": "Do you want to continue to use GitLens+ features on private repos?\n\n[Upgrade to Pro](command:gitlens.plus.command:gitlens.plus.purchase)",
+						"media": {
+							"markdown": "walkthroughs/plus/1-intro.md"
+						},
+						"when": "gitlens:plus:state == 4"
 					},
 					{
 						"id": "gitlens.plus.intro",
@@ -12421,7 +12439,7 @@
 						"media": {
 							"markdown": "walkthroughs/plus/1-intro.md"
 						},
-						"when": "gitlens:plus:state > 2"
+						"when": "gitlens:plus:state == 5"
 					},
 					{
 						"id": "gitlens.plus.commitGraph",
@@ -12456,21 +12474,30 @@
 					},
 					{
 						"id": "gitlens.plus.tryNow",
-						"title": "Try GitLens+ now",
-						"description": "Try GitLens+ features now, without an account, for 3 days.\n\n[Try GitLens+ features now](command:gitlens.plus.startPreviewTrial)",
+						"title": "Try GitLens Pro",
+						"description": "Try GitLens+ features on private repos, free for 3 days, without an account.\n\n[Start a GitLens Pro Trial](command:gitlens.plus.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/plus/5-try-now.md"
 						},
 						"when": "gitlens:plus:state == 0"
 					},
 					{
-						"id": "gitlens.plus.signIn",
-						"title": "Get access to GitLens+ features on public repos",
-						"description": "Sign in for use on public repos and get an additional 7 day trial for private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
+						"id": "gitlens.plus.extend",
+						"title": "Extend Your GitLens Pro Trial",
+						"description": "Sign in for use on public repos and get an additional 7 day trial for private repos.\n\n[Extend Trial](command:gitlens.plus.loginOrSignUp)",
 						"media": {
 							"markdown": "walkthroughs/plus/5-try-now.md"
 						},
-						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 2"
+						"when": "gitlens:plus:state == 2"
+					},
+					{
+						"id": "gitlens.plus.signIn",
+						"title": "Upgrade to GitLens Pro",
+						"description": "Do you want to continue to use GitLens+ features on private repos?\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"media": {
+							"markdown": "walkthroughs/plus/5-try-now.md"
+						},
+						"when": "gitlens:plus:state == 4"
 					}
 				]
 			}

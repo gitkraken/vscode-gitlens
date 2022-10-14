@@ -1,6 +1,6 @@
 ## Rich Self-Hosted Git Integrations
 
-GitLens+ users with a paid plan can access rich integrations for self-hosted providers.
+GitLens Pro users can access rich integrations for self-hosted providers.
 
 ### GitHub Enterprise
 
