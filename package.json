@@ -10092,7 +10092,7 @@
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
-					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "3_gitlens_explore@1"
 				},
 				{
@@ -10225,12 +10225,6 @@
 					"command": "gitlens.openFileHistory",
 					"when": "view != gitlens.views.fileHistory && viewItem =~ /gitlens:file\\b/",
 					"group": "2_gitlens_quickopen@6"
-				},
-				{
-					"command": "gitlens.openCommitOnRemote",
-					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
-					"group": "3_gitlens_explore@0",
-					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"submenu": "gitlens/commit/file/commit",
@@ -11357,14 +11351,25 @@
 			],
 			"gitlens/commit/file/commit": [
 				{
-					"command": "gitlens.revealCommitInView",
+					"command": "gitlens.showInDetailsView",
 					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.showInDetailsView",
-					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"command": "gitlens.showInCommitGraph",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)\\b/",
 					"group": "navigation@2"
+				},
+				{
+					"command": "gitlens.openCommitOnRemote",
+					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
+					"group": "navigation@3",
+					"alt": "gitlens.copyRemoteCommitUrl"
+				},
+				{
+					"command": "gitlens.revealCommitInView",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "navigation@4"
 				},
 				{
 					"command": "gitlens.views.push",
