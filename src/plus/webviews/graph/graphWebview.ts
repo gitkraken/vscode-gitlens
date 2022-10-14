@@ -312,7 +312,13 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.RefreshGraphPage, () => this.refresh(true)),
+			registerCommand(Commands.RefreshGraph, () => this.refresh(true)),
+
+			registerCommand('gitlens.graph.push', this.push, this),
+			registerCommand('gitlens.graph.pull', this.pull, this),
+			registerCommand('gitlens.graph.fetch', this.fetch, this),
+			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
+
 			registerCommand('gitlens.graph.createBranch', this.createBranch, this),
 			registerCommand('gitlens.graph.deleteBranch', this.deleteBranch, this),
 			registerCommand('gitlens.graph.copyRemoteBranchUrl', item => this.openBranchOnRemote(item, true), this),
@@ -322,7 +328,6 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote, this),
 			registerCommand('gitlens.graph.renameBranch', this.renameBranch, this),
 
-			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
 
 			registerCommand('gitlens.graph.hideLocalBranch', this.hideRef, this),
@@ -353,11 +358,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
 			registerCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote, this),
-			registerCommand(
-				'gitlens.graph.copyRemotePullRequestUrl',
-				item => this.openPullRequestOnRemote(item, true),
-				this,
-			),
 
 			registerCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream, this),
 			registerCommand('gitlens.graph.compareWithHead', this.compareHeadWith, this),
@@ -436,7 +436,7 @@ export class GraphWebview extends WebviewBase<State> {
 	protected override onFocusChanged(focused: boolean): void {
 		if (focused) {
 			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext(ContextKeys.GraphPageFocused, focused), 0);
+			setTimeout(() => void setContext(ContextKeys.GraphFocused, focused), 0);
 
 			if (this.selection != null) {
 				void GitActions.Commit.showDetailsView(this.selection[0], {
@@ -449,7 +449,7 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		void setContext(ContextKeys.GraphPageFocused, focused);
+		void setContext(ContextKeys.GraphFocused, focused);
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
@@ -669,7 +669,7 @@ export class GraphWebview extends WebviewBase<State> {
 				state: pr.state,
 				url: pr.url,
 				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:graph:pullrequest',
+					webviewItem: 'gitlens:pullrequest',
 					webviewItemValue: {
 						type: 'pullrequest',
 						id: pr.id,
@@ -1469,6 +1469,21 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private fetch() {
+		void GitActions.fetch(this.repository);
+	}
+
+	@debug()
+	private pull() {
+		void GitActions.pull(this.repository);
+	}
+
+	@debug()
+	private push() {
+		void GitActions.push(this.repository);
+	}
+
+	@debug()
 	private createBranch(item: GraphItemContext) {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
@@ -1563,9 +1578,17 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async copy(item: GraphItemContext) {
-		if (isGraphItemTypedContext(item, 'contributor')) {
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			await env.clipboard.writeText(
+				ref.refType === 'revision' && ref.message ? `${ref.name}: ${ref.message}` : ref.name,
+			);
+		} else if (isGraphItemTypedContext(item, 'contributor')) {
 			const { name, email } = item.webviewItemValue;
 			await env.clipboard.writeText(`${name}${email ? ` <${email}>` : ''}`);
+		} else if (isGraphItemTypedContext(item, 'pullrequest')) {
+			const { url } = item.webviewItemValue;
+			await env.clipboard.writeText(url);
 		}
 
 		return Promise.resolve();
@@ -1707,13 +1730,13 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private switchToAnother(item: GraphItemContext) {
+	private switchToAnother(item: GraphItemContext | unknown) {
 		if (isGraphItemRefContext(item)) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.switchTo(ref.repoPath);
 		}
 
-		return Promise.resolve();
+		return GitActions.switchTo(this._repository);
 	}
 
 	@debug()

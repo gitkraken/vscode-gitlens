@@ -4074,12 +4074,6 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
-				"command": "gitlens.refreshGraphPage",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -6293,6 +6287,36 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.push",
+				"title": "Push",
+				"category": "GitLens",
+				"icon": "$(arrow-up)"
+			},
+			{
+				"command": "gitlens.graph.pull",
+				"title": "Pull",
+				"category": "GitLens",
+				"icon": "$(arrow-down)"
+			},
+			{
+				"command": "gitlens.graph.fetch",
+				"title": "Fetch",
+				"category": "GitLens",
+				"icon": "$(sync)"
+			},
+			{
+				"command": "gitlens.graph.switchToAnotherBranch",
+				"title": "Switch to Another Branch...",
+				"category": "GitLens",
+				"icon": "$(gitlens-switch)"
+			},
+			{
+				"command": "gitlens.graph.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.graph.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch Url",
 				"category": "GitLens",
@@ -6335,12 +6359,6 @@
 				"command": "gitlens.graph.renameBranch",
 				"title": "Rename Branch...",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.graph.switchToAnotherBranch",
-				"title": "Switch to Another Branch...",
-				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
 			},
 			{
 				"command": "gitlens.graph.switchToBranch",
@@ -6487,12 +6505,6 @@
 				"title": "Open Pull Request on Remote",
 				"category": "GitLens",
 				"icon": "$(globe)"
-			},
-			{
-				"command": "gitlens.graph.copyRemotePullRequestUrl",
-				"title": "Copy Pull Request Url",
-				"category": "GitLens",
-				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.graph.compareAncestryWithWorking",
@@ -6814,10 +6826,6 @@
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.refreshGraphPage",
 					"when": "false"
 				},
 				{
@@ -8357,6 +8365,26 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.push",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.pull",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.fetch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.switchToAnotherBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.copyRemoteBranchUrl",
 					"when": "false"
 				},
@@ -8386,10 +8414,6 @@
 				},
 				{
 					"command": "gitlens.graph.renameBranch",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.switchToAnotherBranch",
 					"when": "false"
 				},
 				{
@@ -8494,10 +8518,6 @@
 				},
 				{
 					"command": "gitlens.graph.openPullRequestOnRemote",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.graph.copyRemotePullRequestUrl",
 					"when": "false"
 				},
 				{
@@ -8757,13 +8777,33 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.refreshGraphPage",
-					"when": "gitlens:graphPage:focused",
+					"command": "gitlens.graph.push",
+					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "navigation@-103"
+				},
+				{
+					"command": "gitlens.graph.pull",
+					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "navigation@-102"
+				},
+				{
+					"command": "gitlens.graph.fetch",
+					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "navigation@-101"
+				},
+				{
+					"command": "gitlens.graph.switchToAnotherBranch",
+					"when": "gitlens:graph:focused && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "navigation@-100"
+				},
+				{
+					"command": "gitlens.graph.refresh",
+					"when": "gitlens:graph:focused",
 					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.showSettingsPage#commit-graph",
-					"when": "gitlens:graphPage:focused",
+					"when": "gitlens:graph:focused",
 					"group": "navigation@-98"
 				}
 			],
@@ -11164,13 +11204,8 @@
 				},
 				{
 					"command": "gitlens.graph.openPullRequestOnRemote",
-					"when": "webviewItem =~ /gitlens:graph:pullrequest\\b/",
+					"when": "webviewItem =~ /gitlens:pullrequest\\b/",
 					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.graph.copyRemotePullRequestUrl",
-					"when": "webviewItem =~ /gitlens:graph:pullrequest\\b/",
-					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.graph.compareWithUpstream",
@@ -11199,7 +11234,7 @@
 				},
 				{
 					"command": "gitlens.graph.copy",
-					"when": "webviewItem =~ /gitlens:contributor\\b/",
+					"when": "webviewItem =~ /gitlens:(branch|commit|contributor|pullrequest|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
