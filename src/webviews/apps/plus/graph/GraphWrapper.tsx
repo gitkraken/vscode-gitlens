@@ -5,7 +5,7 @@ import type {
 	GraphPlatform,
 	GraphRef,
 	GraphRefGroup,
-    GraphRefOptData,
+	GraphRefOptData,
 	GraphRow,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
@@ -510,7 +510,10 @@ export function GraphWrapper({
 		onRefsVisibilityChange?.(refs, visible);
 	};
 
-	const handleOnDoubleClickRef = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, refGroup: GraphRefGroup) => {
+	const handleOnDoubleClickRef = (
+		event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
+		refGroup: GraphRefGroup,
+	) => {
 		if (refGroup.length > 0) {
 			onDoubleClickRef?.(refGroup[0]);
 		}
@@ -535,18 +538,46 @@ export function GraphWrapper({
 		onDismissBanner?.('trial');
 	};
 
-	const renderTrialDays = () => {
-		if (
-			!subscription ||
-			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(subscription.state)
-		) {
-			return;
+	const renderAccountState = () => {
+		if (!subscription) return;
+
+		let label = subscription.plan.effective.name;
+		let isPro = true;
+		let subText;
+		switch (subscription.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.FreePlusTrialExpired:
+				isPro = false;
+				label = 'GitLens Free';
+				break;
+			case SubscriptionState.FreeInPreviewTrial:
+			case SubscriptionState.FreePlusInTrial: {
+				const days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
+				label = 'GitLens Pro (Trial)';
+				subText = `${days < 1 ? '< 1 day' : pluralize('day', days)} left`;
+				break;
+			}
+			case SubscriptionState.VerificationRequired:
+				isPro = false;
+				label = `${label} (Unverified)`;
+				break;
 		}
 
-		const days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 		return (
 			<span className="mr-loose">
-				<span className="badge">GitLens+ Trial</span> ({days < 1 ? '< 1 day' : pluralize('day', days)} left)
+				<span
+					className="badge"
+					title={`You have access to GitLens+ features on ${isPro ? 'any repo' : 'local & public repos'}`}
+				>
+					<span className={`repo-access${isPro ? ' is-pro' : ''}`}>✨</span> {label}
+					{subText && (
+						<>
+							&nbsp;&nbsp;
+							<small>{subText}</small>
+						</>
+					)}
+				</span>
 			</span>
 		);
 	};
@@ -853,8 +884,7 @@ export function GraphWrapper({
 					)}
 				</div>
 				<div className="actionbar__group">
-					{renderTrialDays()}
-					<span className="badge">Preview</span>
+					{renderAccountState()}
 					<a
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
 						title="Commit Graph Feedback"
