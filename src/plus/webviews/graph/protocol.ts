@@ -53,7 +53,6 @@ export interface State {
 	config?: GraphComponentConfig;
 	context?: GraphContexts;
 	nonce?: string;
-	previewBanner?: boolean;
 	trialBanner?: boolean;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
@@ -180,7 +179,7 @@ export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisi
 );
 
 export interface DoubleClickedRefParams {
-	ref: GraphRef
+	ref: GraphRef;
 }
 export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
 
