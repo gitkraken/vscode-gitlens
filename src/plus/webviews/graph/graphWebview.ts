@@ -383,6 +383,7 @@ export class GraphWebview extends WebviewBase<State> {
 		this._theme = window.activeColorTheme;
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.git.onDidChangeRepositories(() => void this.refresh(true)),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
 			{ dispose: () => void this._repositoryEventsDisposable?.dispose() },
 		];
