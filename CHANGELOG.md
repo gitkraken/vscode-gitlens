@@ -8,24 +8,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- ✨ All GitLens+ features on public and local repos are now available to everyone -- no account required!
-  - We want to bring the power of GitLens+ features to more people without any gates.
+- ✨ All GitLens+ features on public and local repos are now available to everyone &mdash; no account required!
+  - We are excited to bring the power of GitLens+ features to more people without gates
 - ✨ Commit Graph is out of preview!
+  - Contextual right-click menus with popular actions for commits, branches, tags, and authors
+  - Double-click on a branch or tag to quickly switch your working tree to it
   - Rich search features to find exactly what you're looking for:
     - Powerful filters to search by commit, message, author, a changed file or files, or even a specific code change
     - Searches look at ALL commits in a respository, not just what's shown in the graph
   - PR support for connected rich integrations (GitHub/GitLab)
-  - Contextual right-click menus with popular actions for commits, branches, tags, and authors
   - Personalization of your graph experience
-    - Show and hide branches and columns
+    - Show and hide remotes, branches, tags, and columns
     - Settings UI for easy fine-grain control over advanced settings
-- Adds `View as Tree` option for changed files in the _Commit Details_ view
-- Adds an `Open in Commit Graph` action to the hovers and commit quick pick menus
+  - And so much more!
+- Adds an all-new GitLens _Home_ view to help you get started with GitLens and GitLens+ features
+- Adds autolinks and improves formatting of the commit message in the _Commit Details_ view
+- Adds `View as Tree` toggle option for changed files in the _Commit Details_ view
+- Adds an `Open in Commit Graph` action to branches, commits, stashes, and tags in GitLens views, hovers, and commit quick pick menus
+- Adds a `Reveal in Side Bar` action to hovers
 
 ### Changed
 
-- Updates the `Home View` with all new design and content
-- Changes the `Show Commit` action in the hovers to `Show Details` and opens the _Commit Details_ view
+- Changes the `Show Commit` action in the hovers to `Open Details` and opens the _Commit Details_ view
 
 ### Fixed
 
