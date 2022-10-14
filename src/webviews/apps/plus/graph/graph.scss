@@ -13,6 +13,11 @@ a {
 .badge {
 	font-weight: 700;
 	text-transform: uppercase;
+
+	small {
+		font-size: inherit;
+		opacity: 0.6;
+	}
 }
 
 .actionbar {
@@ -161,6 +166,16 @@ a {
 		display: inline-block;
 		margin-right: 0.4rem;
 		width: 16px;
+	}
+}
+
+.repo-access {
+	font-size: 1.1em;
+	margin-right: 0.2rem;
+	cursor: help;
+
+	&:not(.is-pro) {
+		filter: grayscale(1) brightness(0.7);
 	}
 }
 
