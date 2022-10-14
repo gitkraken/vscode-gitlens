@@ -36,6 +36,7 @@ import {
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
 	isSubscriptionExpired,
+	isSubscriptionPaid,
 	isSubscriptionTrial,
 	SubscriptionPlanId,
 	SubscriptionState,
@@ -270,9 +271,14 @@ export class SubscriptionService implements Disposable {
 				if (result === learn) {
 					this.learn();
 				}
-			} else {
+			} else if (isSubscriptionPaid(this._subscription)) {
 				void window.showInformationMessage(
 					`Welcome to ${actual.name}. You now have additional access to GitLens+ features on private repos.`,
+					'OK',
+				);
+			} else {
+				void window.showInformationMessage(
+					`Welcome to ${actual.name}. You have access to GitLens+ features on local & public repos.`,
 					'OK',
 				);
 			}
@@ -933,12 +939,9 @@ export class SubscriptionService implements Disposable {
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`You are currently trialing **${
+				`You have ${pluralize('day', remaining ?? 0)} left in your **${
 					effective.name
-				}**, which gives you access to GitLens+ features on both public and private repos. You have ${pluralize(
-					'day',
-					remaining ?? 0,
-				)} remaining in your trial.\n\nClick for details`,
+				}** trial, which gives you additional access to GitLens+ features on private repos.\n\nClick for details`,
 				true,
 			);
 		}
