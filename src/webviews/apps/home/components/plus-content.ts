@@ -36,7 +36,19 @@ const template = html<PlusContent>`
 		`,
 	)}
 	${when(
-		x => [SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(x.state),
+		x => x.state === SubscriptionState.FreeInPreviewTrial,
+		html<PlusContent>`
+			<h3>GitLens Pro Trial</h3>
+			<p>
+				You have ${x => x.daysRemaining} left in your 3-day
+				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens Pro trial</a>.
+				Don't worry, once your trial ends, you can extend it for an additional 7-days of GitLens+ features on
+				private repos for free.
+			</p>
+		`,
+	)}
+	${when(
+		x => x.state === SubscriptionState.FreePlusInTrial,
 		html<PlusContent>`
 			<h3>GitLens Pro Trial</h3>
 			<p>
@@ -53,7 +65,7 @@ const template = html<PlusContent>`
 			<h3>Extend Your GitLens Pro Trial</h3>
 			<p>
 				Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days of GitLens+
-				features on private repos.
+				features on private repos for free.
 			</p>
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"

@@ -41,13 +41,22 @@
 		<div id="overlay" class="hidden">
 			<div class="modal">
 				<p>
-					The Visual File History allows you to quickly see the evolution of a file, including when changes
-					were made, how large they were, and who made them.
+					The Visual File History, a
+					<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn"
+						>✨GitLens+ feature</a
+					>, allows you to quickly see the evolution of a file, including when changes were made, how large
+					they were, and who made them.
 				</p>
 				<div id="overlay-slot"></div>
 			</div>
 		</div>
 		#{endOfBody}
+
+		<style nonce="#{cspNonce}">
+			:root {
+				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop.webp);
+			}
+		</style>
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';

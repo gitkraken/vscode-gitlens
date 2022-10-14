@@ -592,19 +592,35 @@ export function GraphWrapper({
 			case SubscriptionState.Paid:
 				return;
 			case SubscriptionState.FreeInPreviewTrial:
+				icon = 'calendar';
+				modifier = 'neutral';
+				content = (
+					<>
+						<p className="alert__title">GitLens Pro Trial</p>
+						<p className="alert__message">
+							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your 3-day{' '}
+							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
+								GitLens Pro trial
+							</a>
+							. Don't worry, once your trial ends, you can extend it for an additional 7-days of GitLens+
+							features on private repos for free.
+						</p>
+					</>
+				);
+				break;
 			case SubscriptionState.FreePlusInTrial:
 				icon = 'calendar';
 				modifier = 'neutral';
 				content = (
 					<>
-						<p className="alert__title">GitLens+ Trial</p>
+						<p className="alert__title">GitLens Pro Trial</p>
 						<p className="alert__message">
 							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your{' '}
 							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
-								GitLens+ trial
+								GitLens Pro trial
 							</a>
-							. Once your trial ends, you'll need a paid plan to continue to use GitLens+ features,
-							including the Commit Graph, on this and other private repos.
+							. Once your trial ends, you'll continue to have access to GitLens+ features on local and
+							public repos, while private repos require GitLens Pro.
 						</p>
 					</>
 				);
@@ -614,16 +630,16 @@ export function GraphWrapper({
 				modifier = 'warning';
 				content = (
 					<>
-						<p className="alert__title">Extend Your GitLens+ Trial</p>
+						<p className="alert__title">Extend Your GitLens Pro Trial</p>
 						<p className="alert__message">
-							Your free trial has ended, please sign in to extend your trial of GitLens+ features on
-							private repos by an additional 7-days.
+							Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days
+							of GitLens+ features on private repos for free.
 						</p>
 					</>
 				);
 				actions = (
 					<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
-						Extend Trial
+						Extend Pro Trial
 					</a>
 				);
 				break;
@@ -632,16 +648,16 @@ export function GraphWrapper({
 				modifier = 'warning';
 				content = (
 					<>
-						<p className="alert__title">GitLens+ Trial Expired</p>
+						<p className="alert__title">GitLens Pro Trial Expired</p>
 						<p className="alert__message">
-							Your free trial has ended, please upgrade your account to continue to use GitLens+ features,
-							including the Commit Graph, on this and other private repos.
+							Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+
+							features on private repos.
 						</p>
 					</>
 				);
 				actions = (
 					<a className="alert-action" href="command:gitlens.plus.purchase">
-						Upgrade Your Account
+						Upgrade to Pro
 					</a>
 				);
 				break;
@@ -651,7 +667,10 @@ export function GraphWrapper({
 				content = (
 					<>
 						<p className="alert__title">Please verify your email</p>
-						<p className="alert__message">Please verify the email for the account you created.</p>
+						<p className="alert__message">
+							Before you can also use GitLens+ features on private repos, please verify your email
+							address.
+						</p>
 					</>
 				);
 				actions = (

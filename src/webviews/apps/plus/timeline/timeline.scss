@@ -200,10 +200,12 @@ span.button-subaction {
 
 .modal {
 	max-width: 600px;
-	background: var(--color-hover-background);
+	background: var(--color-hover-background) no-repeat left top;
+	background-image: var(--gl-plus-bg);
 	border: 1px solid var(--color-hover-border);
+	border-radius: 0.4rem;
 	margin: 1rem;
-	padding: 1rem;
+	padding: 1.2rem;
 
 	> p:first-child {
 		margin-top: 0;
