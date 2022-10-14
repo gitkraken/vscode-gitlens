@@ -1,6 +1,6 @@
 ## GitLens+ Features
 
-GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos.
+GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience. These features are free for local and public repos, no account required.
 
 GitLens+ features include the Commit Graph, Visual File History, Worktrees, and more.
 
