@@ -165,6 +165,7 @@ export class HomeApp extends App<State> {
 			$plusContent.setAttribute('days', days.toString());
 			$plusContent.setAttribute('state', subscription.state.toString());
 			$plusContent.setAttribute('visibility', visibility);
+			$plusContent.setAttribute('plan', subscription.plan.effective.name);
 		}
 	}
 

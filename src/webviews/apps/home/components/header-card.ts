@@ -14,56 +14,35 @@ const template = html<HeaderCard>`
 		${when(x => x.name !== '', html<HeaderCard>`<span class="foreground">${x => x.name}</span>`)}
 	</h1>
 	<p class="header-card__account">
-		<span class="status">${x => x.planName}</span>
+		<span class="status"
+			><span
+				class="repo-access${x => (x.isPro ? ' is-pro' : '')}"
+				title="You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}"
+				>✨</span
+			>${x => x.planName}</span
+		>
 		<span>
 			${when(
-				x => x.state === SubscriptionState.Free,
+				x => !x.hasAccount,
 				html<HeaderCard>`
-					<a title="Sign in to GitLens+" href="command:gitlens.plus.loginOrSignUp">Sign In</a>
+					<a class="action" title="Sign in to GitLens+" href="command:gitlens.plus.loginOrSignUp">Sign In</a>
 				`,
 			)}
 			${when(
-				x => x.state === SubscriptionState.Paid,
+				x => x.hasAccount,
 				html<HeaderCard>`
-					<a href="command:gitlens.plus.manage" aria-label="Manage Account" title="Manage Account"
+					<a
+						class="action is-icon"
+						href="command:gitlens.plus.manage"
+						aria-label="Manage Account"
+						title="Manage Account"
 						><code-icon icon="account"></code-icon></a
-					>&nbsp;&nbsp;<a href="command:gitlens.plus.logout" aria-label="Sign Out" title="Sign Out"
-						><code-icon icon="sign-out"></code-icon
-					></a>
-				`,
-			)}
-			${when(
-				x => [SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(x.state),
-				html<HeaderCard>`${x => x.daysRemaining}`,
-			)}
-			${when(
-				x => x.state === SubscriptionState.FreePreviewTrialExpired,
-				html<HeaderCard>`<a href="command:gitlens.plus.loginOrSignUp">Extend Trial</a>`,
-			)}
-			${when(
-				x => x.state === SubscriptionState.FreePlusTrialExpired,
-				html<HeaderCard>`
-					<a href="command:gitlens.plus.purchase">Upgrade to Pro</a>&nbsp;&nbsp;<a
+					>&nbsp;<a
+						class="action is-icon"
 						href="command:gitlens.plus.logout"
 						aria-label="Sign Out"
 						title="Sign Out"
 						><code-icon icon="sign-out"></code-icon
-					></a>
-				`,
-			)}
-			${when(
-				x => x.state === SubscriptionState.VerificationRequired,
-				html<HeaderCard>`
-					<a
-						href="command:gitlens.plus.resendVerification"
-						title="Resend Verification Email"
-						aria-label="Resend Verification Email"
-						>Verify</a
-					>&nbsp;<a
-						href="command:gitlens.plus.validate"
-						title="Refresh Verification Status"
-						aria-label="Refresh Verification Status"
-						><code-icon icon="sync"></code-icon
 					></a>
 				`,
 			)}
@@ -76,8 +55,36 @@ const template = html<HeaderCard>`
 		aria-valuenow="${x => x.progressNow}"
 		aria-label="${x => x.progressNow} of ${x => x.progressMax} steps completed"
 	>
-		<div ${ref('progressNode')} class="progress__indicator poo"></div>
+		<div ${ref('progressNode')} class="progress__indicator"></div>
 	</div>
+	<span class="actions">
+		${when(
+			x => x.state === SubscriptionState.FreePreviewTrialExpired,
+			html<HeaderCard>`<a class="action" href="command:gitlens.plus.loginOrSignUp">Extend Trial</a>`,
+		)}
+		${when(
+			x => x.state === SubscriptionState.FreePlusTrialExpired,
+			html<HeaderCard>`<a class="action" href="command:gitlens.plus.purchase">Upgrade to Pro</a>`,
+		)}
+		${when(
+			x => x.state === SubscriptionState.VerificationRequired,
+			html<HeaderCard>`
+				<a
+					class="action"
+					href="command:gitlens.plus.resendVerification"
+					title="Resend Verification Email"
+					aria-label="Resend Verification Email"
+					>Verify</a
+				>&nbsp;<a
+					class="action"
+					href="command:gitlens.plus.validate"
+					title="Refresh Verification Status"
+					aria-label="Refresh Verification Status"
+					>Refresh</a
+				>
+			`,
+		)}
+	</span>
 `;
 
 const styles = css`
@@ -134,6 +141,7 @@ const styles = css`
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;
+		align-items: center;
 		flex-wrap: wrap;
 		gap: 0 0.4rem;
 	}
@@ -171,6 +179,50 @@ const styles = css`
 	}
 	.status {
 		color: var(--color-foreground--75);
+	}
+
+	.repo-access {
+		font-size: 1.1em;
+		margin-right: 0.2rem;
+		cursor: help;
+	}
+	.repo-access:not(.is-pro) {
+		filter: grayscale(1) brightness(0.7);
+	}
+
+	.actions {
+		position: absolute;
+		right: 1rem;
+		top: 0.8rem;
+	}
+
+	.action {
+		display: inline-block;
+		padding: 0.2rem 0.6rem;
+		border-radius: 0.3rem;
+		color: var(--color-foreground--75);
+	}
+	.action.is-icon {
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		width: 2.2rem;
+		height: 2.2rem;
+		padding: 0;
+	}
+	.action:hover {
+		text-decoration: none;
+		color: var(--color-foreground);
+	}
+
+	:host-context(.vscode-high-contrast) .action:hover,
+	:host-context(.vscode-dark) .action:hover {
+		background-color: var(--color-background--lighten-10);
+	}
+
+	:host-context(.vscode-high-contrast-light) .action:hover,
+	:host-context(.vscode-light) .action:hover {
+		background-color: var(--color-background--darken-10);
 	}
 `;
 
@@ -232,19 +284,38 @@ export class HeaderCard extends FASTElement {
 	get planName() {
 		switch (this.state) {
 			case SubscriptionState.Free:
-				return 'GitLens+ (Local & Public Repos)';
+			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.FreePlusTrialExpired:
+				return 'GitLens Free';
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
-				return 'GitLens+ Pro Trial';
-			case SubscriptionState.FreePreviewTrialExpired:
-				return 'GitLens+ (Local & Public Repos)';
-			case SubscriptionState.FreePlusTrialExpired:
-				return 'GitLens+ (Local & Public Repos)';
+				return `GitLens Pro (Trial ${this.daysRemaining})`;
 			case SubscriptionState.VerificationRequired:
-				return 'GitLens+ (Unverified)';
+				return `${this.plan} (Unverified)`;
 			default:
 				return this.plan;
 		}
+	}
+
+	get hasAccount() {
+		switch (this.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.FreeInPreviewTrial:
+				return false;
+		}
+		return true;
+	}
+
+	get isPro() {
+		switch (this.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.FreePlusTrialExpired:
+			case SubscriptionState.VerificationRequired:
+				return false;
+		}
+		return true;
 	}
 
 	updateProgressWidth() {
