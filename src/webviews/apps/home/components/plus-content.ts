@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
 import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
@@ -9,11 +9,11 @@ const template = html<PlusContent>`
 		x => x.state === SubscriptionState.Free,
 		html<PlusContent>`
 			<p>Adds all-new, completely optional, features that enhance your GitLens experience.</p>
-			<p>These features are free for local and public repos with no account required.</p>
+			<p>These features are free for local and public repos, no account required.</p>
 
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.startPreviewTrial')}"
-					>Try GitLens+ for private repositories</vscode-button
+					>Try GitLens+ Pro for private repos</vscode-button
 				>
 			</p>
 			<p>
@@ -24,29 +24,33 @@ const template = html<PlusContent>`
 	${when(
 		x => x.state === SubscriptionState.Paid,
 		html<PlusContent>`
-			<p>GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience.</p>
-			<p>These features are free for local and public repos with no account required.</p>
+			<h3>Welcome to ${x => x.planName}!</h3>
+			<p>
+				You have access to
+				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens+ features</a>
+				on any repo.
+			</p>
 		`,
 	)}
 	${when(
 		x => [SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(x.state),
 		html<PlusContent>`
-			<h3>GitLens+ Trial</h3>
+			<h3>GitLens Pro Trial</h3>
 			<p>
 				You have ${x => x.daysRemaining} left in your
-				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens+ trial</a>. Once
-				your trial ends, you'll need a paid plan to continue to use GitLens+ features on this and other private
-				repos.
+				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens Pro trial</a>.
+				Once your trial ends, you'll continue to have access to GitLens+ features on local and public repos,
+				while private repo access will need GitLens Pro.
 			</p>
 		`,
 	)}
 	${when(
 		x => x.state === SubscriptionState.FreePreviewTrialExpired,
 		html<PlusContent>`
-			<h3>Extend Your GitLens+ Trial</h3>
+			<h3>Extend Your GitLens Pro Trial</h3>
 			<p>
-				Your free trial has ended, please sign in to extend your trial of GitLens+ features on private repos by
-				an additional 7-days.
+				Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days of GitLens+
+				features on private repos.
 			</p>
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
@@ -58,14 +62,14 @@ const template = html<PlusContent>`
 	${when(
 		x => x.state === SubscriptionState.FreePlusTrialExpired,
 		html<PlusContent>`
-			<h3>GitLens+ Trial Expired</h3>
+			<h3>GitLens Pro Trial Expired</h3>
 			<p>
-				Your free trial has ended, please upgrade your account to continue to use GitLens+ features, including
-				the Commit Graph, on this and other private repos.
+				Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+ features on
+				private repos.
 			</p>
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
-					>Upgrade Your Account</vscode-button
+					>Upgrade to Pro</vscode-button
 				>
 			</p>
 		`,
@@ -74,7 +78,9 @@ const template = html<PlusContent>`
 		x => x.state === SubscriptionState.VerificationRequired,
 		html<PlusContent>`
 			<h3>Please verify your email</h3>
-			<p class="alert__message">Please verify the email for the account you created.</p>
+			<p class="alert__message">
+				Before you can also use GitLens+ features on private repos, please verify your email address.
+			</p>
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.resendVerification')}"
 					>Resend Verification Email</vscode-button
@@ -137,6 +143,9 @@ export class PlusContent extends FASTElement {
 	state: SubscriptionState = SubscriptionState.Free;
 
 	@attr
+	plan = '';
+
+	@attr
 	visibility: 'local' | 'public' | 'mixed' | 'private' = 'public';
 
 	get daysRemaining() {
@@ -148,6 +157,23 @@ export class PlusContent extends FASTElement {
 
 	get isFree() {
 		return ['local', 'public'].includes(this.visibility);
+	}
+
+	@volatile
+	get planName() {
+		switch (this.state) {
+			case SubscriptionState.Free:
+			case SubscriptionState.FreePreviewTrialExpired:
+			case SubscriptionState.FreePlusTrialExpired:
+				return 'GitLens Free';
+			case SubscriptionState.FreeInPreviewTrial:
+			case SubscriptionState.FreePlusInTrial:
+				return 'GitLens Pro (Trial)';
+			case SubscriptionState.VerificationRequired:
+				return `${this.plan} (Unverified)`;
+			default:
+				return this.plan;
+		}
 	}
 
 	fireAction(command: string) {
