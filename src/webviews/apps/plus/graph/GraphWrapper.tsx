@@ -548,7 +548,7 @@ export function GraphWrapper({
 			case SubscriptionState.FreePlusInTrial: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
 				label = 'GitLens Pro (Trial)';
-				subText = `${days < 1 ? '< 1 day' : pluralize('day', days)} left`;
+				subText = `${days < 1 ? '<1 day' : pluralize('day', days)} left`;
 				break;
 			}
 			case SubscriptionState.VerificationRequired:
@@ -561,7 +561,7 @@ export function GraphWrapper({
 			<span className="mr-loose">
 				<span
 					className="badge"
-					title={`You have access to GitLens+ features on ${isPro ? 'any repo' : 'local & public repos'}`}
+					title={`Can access GitLens+ features on ${isPro ? 'any repo' : 'local & public repos'}`}
 				>
 					<span className={`repo-access${isPro ? ' is-pro' : ''}`}>✨</span> {label}
 					{subText && (
