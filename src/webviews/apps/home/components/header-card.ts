@@ -289,7 +289,7 @@ export class HeaderCard extends FASTElement {
 				return 'GitLens Free';
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
-				return `GitLens Pro (Trial ${this.daysRemaining})`;
+				return `GitLens Pro (Trial), ${this.daysRemaining} left`;
 			case SubscriptionState.VerificationRequired:
 				return `${this.plan} (Unverified)`;
 			default:
