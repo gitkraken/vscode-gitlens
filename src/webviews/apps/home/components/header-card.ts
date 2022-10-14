@@ -14,19 +14,15 @@ const template = html<HeaderCard>`
 		${when(x => x.name !== '', html<HeaderCard>`<span class="foreground">${x => x.name}</span>`)}
 	</h1>
 	<p class="header-card__account">
-		<span class="status"
-			><span
-				class="repo-access${x => (x.isPro ? ' is-pro' : '')}"
-				title="You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}"
-				>✨</span
-			>${x => x.planName}</span
+		<span
+			class="status"
+			title="Can access GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}"
+			><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}</span
 		>
-		<span>
+		<span class="account-actions">
 			${when(
 				x => !x.hasAccount,
-				html<HeaderCard>`
-					<a class="action" title="Sign in to GitLens+" href="command:gitlens.plus.loginOrSignUp">Sign In</a>
-				`,
+				html<HeaderCard>`<a class="action" href="command:gitlens.plus.loginOrSignUp">Sign In</a>`,
 			)}
 			${when(
 				x => x.hasAccount,
@@ -59,18 +55,29 @@ const template = html<HeaderCard>`
 	</div>
 	<span class="actions">
 		${when(
-			x => x.state === SubscriptionState.FreePreviewTrialExpired,
-			html<HeaderCard>`<a class="action" href="command:gitlens.plus.loginOrSignUp">Extend Trial</a>`,
+			x => x.state === SubscriptionState.Free,
+			html<HeaderCard>`<a class="action is-primary" href="command:gitlens.plus.startPreviewTrial"
+				>Start Pro Trial</a
+			>`,
 		)}
 		${when(
-			x => x.state === SubscriptionState.FreePlusTrialExpired,
-			html<HeaderCard>`<a class="action" href="command:gitlens.plus.purchase">Upgrade to Pro</a>`,
+			x => x.state === SubscriptionState.FreePreviewTrialExpired,
+			html<HeaderCard>`<a class="action is-primary" href="command:gitlens.plus.loginOrSignUp"
+				>Extend Pro Trial</a
+			>`,
+		)}
+		${when(
+			x =>
+				x.state === SubscriptionState.FreeInPreviewTrial ||
+				x.state === SubscriptionState.FreePlusInTrial ||
+				x.state === SubscriptionState.FreePlusTrialExpired,
+			html<HeaderCard>`<a class="action is-primary" href="command:gitlens.plus.purchase">Upgrade to Pro</a>`,
 		)}
 		${when(
 			x => x.state === SubscriptionState.VerificationRequired,
 			html<HeaderCard>`
 				<a
-					class="action"
+					class="action is-primary"
 					href="command:gitlens.plus.resendVerification"
 					title="Resend Verification Email"
 					aria-label="Resend Verification Email"
