@@ -114,7 +114,7 @@ export function getSubscriptionPlan(id: SubscriptionPlanId, startedOn?: Date, ex
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.FreePlus:
-			return 'GitLens';
+			return 'GitLens Free';
 		case SubscriptionPlanId.Pro:
 			return 'GitLens Pro';
 		case SubscriptionPlanId.Teams:
