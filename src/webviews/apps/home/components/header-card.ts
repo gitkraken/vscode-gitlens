@@ -9,7 +9,7 @@ const template = html<HeaderCard>`
 	<h1 class="header-card__title">
 		${when(
 			x => x.name === '',
-			html<HeaderCard>`<span class="foreground">Git</span>Lens 12 <em>Git supercharged</em>`,
+			html<HeaderCard>`<span class="foreground">Git</span>Lens 13 <em>Git supercharged</em>`,
 		)}
 		${when(x => x.name !== '', html<HeaderCard>`<span class="foreground">${x => x.name}</span>`)}
 	</h1>
