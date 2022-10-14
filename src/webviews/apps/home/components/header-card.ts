@@ -199,8 +199,8 @@ const styles = css`
 
 	.actions {
 		position: absolute;
-		right: 1rem;
-		top: 0.8rem;
+		right: 0.1rem;
+		top: 0.1rem;
 	}
 
 	.action {
@@ -209,6 +209,16 @@ const styles = css`
 		border-radius: 0.3rem;
 		color: var(--color-foreground--75);
 	}
+	:host-context(.vscode-high-contrast) .action.is-primary,
+	:host-context(.vscode-dark) .action.is-primary {
+		border: 1px solid var(--color-background--lighten-15);
+	}
+
+	:host-context(.vscode-high-contrast-light) .action.is-primary,
+	:host-context(.vscode-light) .action.is-primary {
+		border: 1px solid var(--color-background--darken-15);
+	}
+
 	.action.is-icon {
 		display: inline-flex;
 		justify-content: center;
