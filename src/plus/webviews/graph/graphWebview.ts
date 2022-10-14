@@ -209,7 +209,6 @@ export class GraphWebview extends WebviewBase<State> {
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 
-	private previewBanner?: boolean;
 	private trialBanner?: boolean;
 
 	constructor(container: Container) {
@@ -547,9 +546,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private dismissBanner(e: DismissBannerParams) {
-		if (e.key === 'preview') {
-			this.previewBanner = false;
-		} else if (e.key === 'trial') {
+		if (e.key === 'trial') {
 			this.trialBanner = false;
 		}
 
@@ -1300,11 +1297,8 @@ export class GraphWebview extends WebviewBase<State> {
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) return { allowed: true, repositories: [] };
 
-		if (this.previewBanner == null || this.trialBanner == null) {
+		if (this.trialBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-			if (this.previewBanner == null) {
-				this.previewBanner = !banners?.['preview'];
-			}
 			if (this.trialBanner == null) {
 				this.trialBanner = !banners?.['trial'];
 			}
@@ -1355,7 +1349,6 @@ export class GraphWebview extends WebviewBase<State> {
 		const columns = this.getColumns();
 
 		return {
-			previewBanner: this.previewBanner,
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,

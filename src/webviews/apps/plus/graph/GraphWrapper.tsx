@@ -179,8 +179,6 @@ export function GraphWrapper({
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
 	const [styleProps, setStyleProps] = useState(state.theming);
-	// banner
-	const [showPreview, setShowPreview] = useState(state.previewBanner);
 	// account
 	const [showAccount, setShowAccount] = useState(state.trialBanner);
 	const [isAccessAllowed, setIsAccessAllowed] = useState(state.allowed ?? false);
@@ -528,11 +526,6 @@ export function GraphWrapper({
 		onSelectionChange?.(rows);
 	};
 
-	const handleDismissPreview = () => {
-		setShowPreview(false);
-		onDismissBanner?.('preview');
-	};
-
 	const handleDismissAccount = () => {
 		setShowAccount(false);
 		onDismissBanner?.('trial');
@@ -675,53 +668,26 @@ export function GraphWrapper({
 		}
 
 		return (
-			<div className={`alert${modifier !== '' ? ` alert--${modifier}` : ''}`}>
-				<span className={`alert__icon codicon codicon-${icon}`}></span>
-				<div className="alert__content">
-					{content}
-					{actions && <div className="alert__actions">{actions}</div>}
+			<section className="graph-app__banners">
+				<div className={`alert${modifier !== '' ? ` alert--${modifier}` : ''}`}>
+					<span className={`alert__icon codicon codicon-${icon}`}></span>
+					<div className="alert__content">
+						{content}
+						{actions && <div className="alert__actions">{actions}</div>}
+					</div>
+					{isAccessAllowed && (
+						<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
+							<span className="codicon codicon-chrome-close"></span>
+						</button>
+					)}
 				</div>
-				{isAccessAllowed && (
-					<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
-						<span className="codicon codicon-chrome-close"></span>
-					</button>
-				)}
-			</div>
+			</section>
 		);
 	};
 
 	return (
 		<>
-			<section className="graph-app__banners">
-				{showPreview && (
-					<div className="alert">
-						<span className="alert__icon codicon codicon-eye"></span>
-						<div className="alert__content">
-							<p className="alert__title">GitLens+ Feature Preview</p>
-							<p className="alert__message">
-								The Commit Graph is currently in preview. It will always be freely available for local
-								and public repos, while private repos require a paid plan.
-							</p>
-							<p className="alert__accent">
-								<span className="codicon codicon-feedback alert__accent-icon" /> Join the{' '}
-								<a href="https://github.com/gitkraken/vscode-gitlens/discussions/2158">
-									discussion on GitHub
-								</a>
-								! We'd love to hear from you.
-							</p>
-							<p className="alert__accent">
-								<span className="glicon glicon-clock alert__accent-icon" /> GitLens+{' '}
-								<a href="command:gitlens.plus.purchase">introductory pricing</a> will end with the next
-								release (late Sept, early Oct).
-							</p>
-						</div>
-						<button className="alert__dismiss" type="button" onClick={() => handleDismissPreview()}>
-							<span className="codicon codicon-chrome-close"></span>
-						</button>
-					</div>
-				)}
-				{renderAlertContent()}
-			</section>
+			{renderAlertContent()}
 			{isAccessAllowed && (
 				<header className="titlebar graph-app__header">
 					<div className="titlebar__group">
