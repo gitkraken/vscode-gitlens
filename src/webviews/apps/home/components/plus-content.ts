@@ -8,15 +8,15 @@ const template = html<PlusContent>`
 	${when(
 		x => x.state === SubscriptionState.Free,
 		html<PlusContent>`
-			<p>All-new, completely optional, features that enhance your GitLens experience.</p>
+			<p>Powerful, all-new, and completely optional, features that enhance your GitLens experience.</p>
 			<p>
-				GitLens+ features are free for local and public repos, no account required, while private repos require
-				GitLens Pro.
+				GitLens+ features are free for local and public repos, no account required, while upgrading to GitLens
+				Pro gives you access on private repos.
 			</p>
 
 			<p class="mb-1">
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.startPreviewTrial')}"
-					>Try GitLens Pro for private repos</vscode-button
+					>Try GitLens+ features on private repos</vscode-button
 				>
 			</p>
 			<p class="mb-1">
@@ -55,7 +55,7 @@ const template = html<PlusContent>`
 				You have ${x => x.daysRemaining} left in your
 				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens Pro trial</a>.
 				Once your trial ends, you'll continue to have access to GitLens+ features on local and public repos,
-				while private repos require GitLens Pro.
+				while upgrading to GitLens Pro gives you access on private repos.
 			</p>
 		`,
 	)}

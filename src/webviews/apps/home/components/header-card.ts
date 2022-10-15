@@ -6,12 +6,9 @@ import '../../shared/components/codicon';
 
 const template = html<HeaderCard>`
 	<div class="header-card__media"><img class="header-card__image" src="${x => x.image}" alt="GitLens Logo" /></div>
-	<h1 class="header-card__title">
-		${when(
-			x => x.name === '',
-			html<HeaderCard>`<span class="foreground">Git</span>Lens 13 <em>Git supercharged</em>`,
-		)}
-		${when(x => x.name !== '', html<HeaderCard>`<span class="foreground">${x => x.name}</span>`)}
+	<h1 class="header-card__title${x => (x.name === '' ? ' logo' : '')}">
+		${when(x => x.name === '', html<HeaderCard>`Git<span class="brand">Lens</span> 13`)}
+		${when(x => x.name !== '', html<HeaderCard>`${x => x.name}`)}
 	</h1>
 	<p class="header-card__account">
 		<span
@@ -124,6 +121,8 @@ const styles = css`
 	.header-card__media {
 		grid-column: 1;
 		grid-row: 1 / span 2;
+		display: flex;
+		align-items: center;
 	}
 
 	.header-card__image {
@@ -134,15 +133,15 @@ const styles = css`
 
 	.header-card__title {
 		font-size: var(--vscode-font-size);
-		color: var(--gitlens-brand-color-2);
+		font-weight: 600;
 		margin: 0;
 	}
-	.header-card__title em {
-		font-weight: normal;
-		color: var(--color-view-foreground);
-		opacity: 0.4;
-		margin-left: 0.4rem;
+
+	.header-card__title.logo {
+		font-family: 'Segoe UI Semibold', var(--font-family);
+		font-size: 1.5rem;
 	}
+
 	.header-card__account {
 		margin: 0;
 		display: flex;
@@ -181,11 +180,11 @@ const styles = css`
 		border-bottom-right-radius: 0.4rem;
 	}
 
-	.foreground {
-		color: var(--color-foreground);
+	.brand {
+		color: var(--gitlens-brand-color-2);
 	}
 	.status {
-		color: var(--color-foreground--75);
+		color: var(--color-foreground--65);
 	}
 
 	.repo-access {

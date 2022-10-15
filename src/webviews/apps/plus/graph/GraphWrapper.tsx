@@ -620,7 +620,7 @@ export function GraphWrapper({
 								GitLens Pro trial
 							</a>
 							. Once your trial ends, you'll continue to have access to GitLens+ features on local and
-							public repos, while private repos require GitLens Pro.
+							public repos, while upgrading to GitLens Pro gives you access on private repos.
 						</p>
 					</>
 				);
