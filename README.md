@@ -71,13 +71,13 @@ Here are just some of the **features** that GitLens provides,
 
 # GitLens+ [#](#gitlens+- 'GitLens+')
 
-GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on public repos, while a paid account allows you to use them on private repos. Learn more about [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links).
+GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links) are free for local and public repos, no account required, while private repos require GitLens Pro.
 
-🛈 All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
+> All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
 
 ## Does this affect existing features?
 
-No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Creating an account simply gives you access to a subset of new features that will enable you to get even more out of Git in VS Code!
+No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Upgrading to GitLens Pro additionally gives you access to GitLens+ features on private repos.
 
 ## Commit Graph [#](#commit-graph- 'Commit Graph')
 
