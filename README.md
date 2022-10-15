@@ -69,15 +69,17 @@ Here are just some of the **features** that GitLens provides,
 - user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
-# GitLens+ [#](#gitlens+- 'GitLens+')
+# GitLens+ Features [#](#gitlens+-features- 'GitLens+ Features')
 
-GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links) are free for local and public repos, no account required, while private repos require GitLens Pro.
+Powerful, all-new, and completely optional, features that enhance your GitLens experience.
 
-> All other GitLens features are always accessible, without an account, and will continue to evolve and be invested in.
+[GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links) are free for local and public repos, no account required, while upgrading to GitLens Pro gives you access on private repos.
+
+> All other GitLens features are always accessible.
 
 ## Does this affect existing features?
 
-No, the introduction of GitLens+ has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Upgrading to GitLens Pro additionally gives you access to GitLens+ features on private repos.
+No, the introduction of GitLens+ features has no impact on existing GitLens features, so you won't lose access to any of the GitLens features you know and love. In fact, we are heavily investing in enhancing and expanding the GitLens feature set. Additionally, GitLens+ features are freely available to everyone for local and public repos, while upgrading to GitLens Pro gives you access on private repos.
 
 ## Commit Graph [#](#commit-graph- 'Commit Graph')
 
@@ -85,7 +87,9 @@ No, the introduction of GitLens+ has no impact on existing GitLens features, so 
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph" />
 </p>
 
-The _Commit Graph_ helps you to easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
+The _Commit Graph_ helps you easily visualize and keep track of all work in progress. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
+
+Use the rich commit search to find exactly what your looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
@@ -94,6 +98,8 @@ The _Commit Graph_ helps you to easily visualize branch structure and commit his
 </p>
 
 The _Visual File History_ view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
+
+Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes, and more.
 
 Authors who have contributed changes to the file are on the left y-axis to create a swim-lane of their commits over time (the x-axis). Commit are plotted as color-coded (per-author) bubbles, whose size represents the relative magnitude of the changes.
 
@@ -105,7 +111,11 @@ Additionally, each commit's additions and deletions are visualized as color-code
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-illustrated.png" alt="Worktrees view" />
 </p>
 
-Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.
+Worktrees help you multitask, by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.
+
+Avoid interrupting your work in progress when needing to review a pull request. Simply create a new worktree and open it in a new VS Code window, all without impacting your other work.
+
+You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.
 
 # Features
 
@@ -292,7 +302,7 @@ GitLens adds many side bar views to provide additional rich functionality. The d
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-details-view.png" alt="Commits Details view" />
 </p>
 
-The _Commit Details_ view provides rich details for commits and stashes: author, commit ID, links to Pull Requests and Issues, autolinks, changed files, and more.
+The _Commit Details_ view provides rich details for commits and stashes: author, commit ID, autolinks to pull requests and issues, changed files, and more.
 
 These will show contextually as you navigate:
 
